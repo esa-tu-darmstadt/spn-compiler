@@ -1,16 +1,23 @@
 package spn_compiler.frontend.parser
 
-final case class ParseTree(rootNode : ParseTreeNode, inputVariables : List[InputVariableParseTree])
+
+final case class ParseTree(rootNode : ParseTreeNode, inputVariables : List[InputVariableParseTree]) {
+  def validate() : Unit = rootNode.validate()
+}
 
 /**
   * Super class of all parse tree nodes.
   */
-sealed abstract class ParseTreeNode
+sealed abstract class ParseTreeNode {
+  def validate() : Unit
+}
 
 /**
   * Representation of a reference to some other [[ParseTreeNode]] not yet resolved.
   */
-case object UnresolvedReferenceParseTree extends ParseTreeNode
+case object UnresolvedReferenceParseTree extends ParseTreeNode {
+  override def validate(): Unit = throw new RuntimeException("Detected unresolved reference!")
+}
 
 /**
   * Reference to some other [[ParseTreeNode]].
@@ -18,6 +25,8 @@ case object UnresolvedReferenceParseTree extends ParseTreeNode
   */
 case class NodeReferenceParseTree(id : String) extends ParseTreeNode {
   var declaration : ParseTreeNode = UnresolvedReferenceParseTree
+
+  override def validate(): Unit = declaration.validate()
 }
 
 /**
@@ -25,7 +34,9 @@ case class NodeReferenceParseTree(id : String) extends ParseTreeNode {
   * @param name Uniquely identifying name of the variable.
   * @param index Index of the variable in the input vector.
   */
-case class InputVariableParseTree(name : String, index : Int) extends ParseTreeNode
+case class InputVariableParseTree(name : String, index : Int) extends ParseTreeNode {
+  override def validate(): Unit = {} // Nothing to validate here.
+}
 
 /**
   * Sum node.
@@ -35,7 +46,9 @@ case class InputVariableParseTree(name : String, index : Int) extends ParseTreeN
   * @param childNodes [[ParseTreeNode]]s defined in the body of this node.
   */
 case class SumNodeParseTree(id : String, addends : List[(Double, NodeReferenceParseTree)],
-                            childNodes : List[ParseTreeNode]) extends ParseTreeNode
+                            childNodes : List[ParseTreeNode]) extends ParseTreeNode {
+  override def validate(): Unit = addends.foreach(a => a._2.validate())
+}
 
 /**
   * Product node.
@@ -44,7 +57,9 @@ case class SumNodeParseTree(id : String, addends : List[(Double, NodeReferencePa
   * @param childNodes [[ParseTreeNode]]s defined in the body of this node.
   */
 case class ProductNodeParseTree(id : String, multiplicands : List[NodeReferenceParseTree],
-                                childNodes : List[ParseTreeNode]) extends ParseTreeNode
+                                childNodes : List[ParseTreeNode]) extends ParseTreeNode {
+  override def validate(): Unit = multiplicands.foreach(m => m.validate())
+}
 
 /**
   * Univariate Poisson distribution.
@@ -52,7 +67,9 @@ case class ProductNodeParseTree(id : String, multiplicands : List[NodeReferenceP
   * @param inputVar Reference to the input variable.
   * @param lambda Value of the lambda parameter of this Poisson distribution.
   */
-case class PoissonNodeParseTree(id : String, inputVar : NodeReferenceParseTree, lambda : Double) extends ParseTreeNode
+case class PoissonNodeParseTree(id : String, inputVar : NodeReferenceParseTree, lambda : Double) extends ParseTreeNode {
+  override def validate(): Unit = inputVar.validate()
+}
 
 /**
   * Univariate distribution represented by a histogram.
@@ -62,4 +79,6 @@ case class PoissonNodeParseTree(id : String, inputVar : NodeReferenceParseTree, 
   * @param values List of values associated with each bucket.
   */
 case class HistogramNodeParseTree(id : String, indexVar : NodeReferenceParseTree, breaks : List[Int],
-                                  values : List[Double]) extends ParseTreeNode
+                                  values : List[Double]) extends ParseTreeNode {
+  override def validate(): Unit = indexVar.validate()
+}

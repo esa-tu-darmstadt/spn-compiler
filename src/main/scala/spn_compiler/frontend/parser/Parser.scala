@@ -15,9 +15,15 @@ object Parser {
     * @param text Input string.
     * @return On success, returns a [[ParseTree]].
     */
-  def parseString(text : String) : ParseTree = parse(text, spn(_)) match {
-    case Parsed.Success(parseTree, _) => parseTree
-    case f : Parsed.Failure => throw new RuntimeException("Failed to parse SPN from input: \n"+f.trace().terminalsMsg)
+  def parseString(text : String) : Unit = {
+    // Parse input text.
+    val parseResult = parse(text.trim, spn(_)) match {
+      case Parsed.Success(parseTree, _) => parseTree
+      case f : Parsed.Failure => throw new RuntimeException("Failed to parse SPN from input: \n"+f.trace().terminalsMsg)
+    }
+    // Perform identification on resulting parse-tree if the parser was successful.
+    new Identification().performIdentification(parseResult)
+    parseResult.validate()
   }
 
   /**
@@ -25,11 +31,7 @@ object Parser {
     * @param fileName Input file name.
     * @return On success, returns a [[ParseTree]].
     */
-  def parseFile(fileName : String) : ParseTree = parse(Source.fromFile(fileName).mkString, spn(_)) match {
-    case Parsed.Success(parseTree, _) => parseTree
-    case f : Parsed.Failure =>
-      throw new RuntimeException("Failed to parse SPN from file %s: \n%s".format(fileName, f.trace().longAggregateMsg))
-  }
+  def parseFile(fileName : String) : Unit = parseString(Source.fromFile(fileName).mkString)
 
   /*
    * Terminals
