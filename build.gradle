@@ -27,4 +27,9 @@ dependencies {
 
     // Need scala-xml at test runtime
     testRuntimeOnly 'org.scala-lang.modules:scala-xml_2.12:1.1.1'
+
+    // FastParse Library for fast parsers
+    // https://mvnrepository.com/artifact/com.lihaoyi/fastparse
+    compile group: 'com.lihaoyi', name: 'fastparse_2.12', version: '2.1.0'
+
 }
