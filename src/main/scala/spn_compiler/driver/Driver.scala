@@ -14,5 +14,5 @@ object Driver extends App {
     throw new RuntimeException("Specified input file does not exist!")
   }
 
-  Parser.parseFile(args(0))
+  val spn = Parser.parseFile(args(0))
 }

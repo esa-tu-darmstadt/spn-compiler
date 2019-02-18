@@ -1,6 +1,13 @@
 package spn_compiler.graph_ir.nodes
 
 /**
+  * IR graph, comprising the actual SPN and, for convenience, a list of input variables.
+  * @param rootNode Root node of the SPN.
+  * @param inputVariables List of input variables.
+  */
+final case class IRGraph(rootNode : IRNode, inputVariables : List[InputVar])
+
+/**
   * Super-class of all nodes in the graph-representation of SPNs.
   * @param _identifier Unique string identifier of the node.
   */

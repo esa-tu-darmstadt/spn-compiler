@@ -2,6 +2,7 @@ package spn_compiler.frontend.parser
 
 import fastparse.MultiLineWhitespace._
 import fastparse._
+import spn_compiler.graph_ir.nodes.IRGraph
 
 import scala.io.Source
 
@@ -15,7 +16,7 @@ object Parser {
     * @param text Input string.
     * @return On success, returns a [[ParseTree]].
     */
-  def parseString(text : String) : Unit = {
+  def parseString(text : String) : IRGraph = {
     // Parse input text.
     val parseResult = parse(text.trim, spn(_)) match {
       case Parsed.Success(parseTree, _) => parseTree
@@ -24,6 +25,7 @@ object Parser {
     // Perform identification on resulting parse-tree if the parser was successful.
     new Identification().performIdentification(parseResult)
     parseResult.validate()
+    new IRConstruction(parseResult).constructIRGraph
   }
 
   /**
@@ -31,7 +33,7 @@ object Parser {
     * @param fileName Input file name.
     * @return On success, returns a [[ParseTree]].
     */
-  def parseFile(fileName : String) : Unit = parseString(Source.fromFile(fileName).mkString)
+  def parseFile(fileName : String) : IRGraph = parseString(Source.fromFile(fileName).mkString)
 
   /*
    * Terminals
