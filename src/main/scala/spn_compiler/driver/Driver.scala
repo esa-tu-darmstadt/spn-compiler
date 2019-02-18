@@ -3,6 +3,7 @@ package spn_compiler.driver
 import java.nio.file.{Files, Paths}
 
 import spn_compiler.frontend.parser.Parser
+import spn_compiler.util.statistics.GraphStatistics
 
 object Driver extends App {
 
@@ -15,4 +16,6 @@ object Driver extends App {
   }
 
   val spn = Parser.parseFile(args(0))
+
+  GraphStatistics.computeStatistics(spn)
 }
