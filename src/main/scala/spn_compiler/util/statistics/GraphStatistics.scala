@@ -1,8 +1,11 @@
 package spn_compiler.util.statistics
 
+import play.api.libs.functional.syntax._
+import play.api.libs.json._
 import spn_compiler.graph_ir.nodes._
 
 import scala.collection.mutable
+
 
 /**
   * Statistics tool to compute statistic numbers (e.g. number of sum-nodes) from an SPN.
@@ -16,6 +19,10 @@ object GraphStatistics {
   def computeStatistics(spn : IRGraph): Unit = {
     val gs : GraphStatistics = computeSubtree(spn.rootNode)
     println(gs)
+    val json = Json.toJson(gs)
+    println(Json.prettyPrint(json))
+    val gs2 = json.as[GraphStatistics]
+    println(gs2)
   }
 
   private val computedNodes : mutable.Set[IRNode] = mutable.Set()
@@ -39,7 +46,7 @@ object GraphStatistics {
     }
   }
 
-  private final case class GraphStatistics(numAdders : Int = 0, numMultipliers : Int = 0, numPoisson : Int = 0,
+  final case class GraphStatistics(numAdders : Int = 0, numMultipliers : Int = 0, numPoisson : Int = 0,
                                            numHistogram : Int = 0, numInputs : Int = 0,
                                            addOpStatistics : OperandStatistics = OperandStatistics(),
                                            mulOpStatistics : OperandStatistics = OperandStatistics()) {
@@ -83,7 +90,7 @@ object GraphStatistics {
     }
   }
 
-  private final case class OperandStatistics(private val histogram : Map[Int, Int] = Map()) {
+  final case class OperandStatistics(histogram : Map[Int, Int] = Map()) {
     def increment(numOperands : Int) : OperandStatistics = {
       OperandStatistics(histogram + (numOperands -> (histogram.getOrElse(numOperands, 0)+1)))
     }
@@ -97,5 +104,45 @@ object GraphStatistics {
       histogram.keySet.toList.sorted.map(k => "%d -> %d".format(k, histogram(k))).mkString("\n")
 
   }
+
+  implicit val operandStatisticsWrite : Writes[OperandStatistics] = new Writes[OperandStatistics] {
+    override def writes(o: OperandStatistics): JsValue = {
+      var arr = Json.arr()
+      for(k <- o.histogram.keySet){
+        arr = arr :+ Json.obj("num_inputs" -> k, "appearances" -> o.histogram(k))
+      }
+      arr
+    }
+  }
+
+  type OperandStatisticsEntry = (Int, Int)
+
+  implicit val operandStatisticsRead : Reads[OperandStatisticsEntry] =
+    ((JsPath \ "num_inputs").read[Int] and
+      (JsPath \ "appearances").read[Int])((k, v) => k -> v)
+
+
+  implicit val graphStatisticsWrite : Writes[GraphStatistics] = new Writes[GraphStatistics] {
+    override def writes(o: GraphStatistics): JsValue = Json.obj(
+      "numAdd" -> o.numAdders,
+      "numMul" -> o.numMultipliers,
+      "numPoisson" -> o.numPoisson,
+      "numHist" -> o.numHistogram,
+      "numInput" -> o.numInputs,
+      "addStat" -> o.addOpStatistics,
+      "mulStat" -> o.mulOpStatistics
+    )
+  }
+
+  implicit val graphStatisticsRead : Reads[GraphStatistics] =
+    ((JsPath \ "numAdd").read[Int] and
+      (JsPath \ "numMul").read[Int] and
+      (JsPath \ "numPoisson").read[Int] and
+      (JsPath \ "numHist").read[Int] and
+      (JsPath \ "numInput").read[Int] and
+      (JsPath \ "addStat").read[Seq[OperandStatisticsEntry]] and
+      (JsPath \ "mulStat").read[Seq[OperandStatisticsEntry]])((a, b, c, d, e, f, g) =>
+      GraphStatistics(a, b, c, d, e, OperandStatistics(f.toMap), OperandStatistics(g.toMap)))
+
 }
 

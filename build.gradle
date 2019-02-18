@@ -31,5 +31,10 @@ dependencies {
     // FastParse Library for fast parsers
     // https://mvnrepository.com/artifact/com.lihaoyi/fastparse
     compile group: 'com.lihaoyi', name: 'fastparse_2.12', version: '2.1.0'
+    
+    // Play ScalaJSON 
+    // https://www.playframework.com/documentation/2.6.x/ScalaJson
+    compile group: 'com.typesafe.play', name: 'play-json_2.12', version: '2.6.10'
+
 
 }
