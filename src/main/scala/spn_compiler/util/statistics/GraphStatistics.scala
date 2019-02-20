@@ -1,5 +1,7 @@
 package spn_compiler.util.statistics
 
+import java.io.{BufferedWriter, File, FileWriter}
+
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import spn_compiler.graph_ir.nodes._
@@ -16,13 +18,12 @@ object GraphStatistics {
     * Compute statistics for given SPN.
     * @param spn SPN, represented as [[IRGraph]].
     */
-  def computeStatistics(spn : IRGraph): Unit = {
+  def computeStatistics(spn : IRGraph, statsFile : File): Unit = {
     val gs : GraphStatistics = computeSubtree(spn.rootNode)
-    println(gs)
     val json = Json.toJson(gs)
-    println(Json.prettyPrint(json))
-    val gs2 = json.as[GraphStatistics]
-    println(gs2)
+    val bw = new BufferedWriter(new FileWriter(statsFile))
+    bw.write(Json.prettyPrint(json))
+    bw.close()
   }
 
   private val computedNodes : mutable.Set[IRNode] = mutable.Set()

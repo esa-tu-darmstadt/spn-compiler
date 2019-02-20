@@ -1,21 +1,37 @@
 package spn_compiler.driver
 
-import java.nio.file.{Files, Paths}
+import java.io.File
 
+import scopt._
 import spn_compiler.frontend.parser.Parser
 import spn_compiler.util.statistics.GraphStatistics
 
 object Driver extends App {
 
-  if(args.length != 1){
-    throw new RuntimeException("Expecting a single file as input!")
+  val builder = OParser.builder[CLIConfig]
+  val cliParser = {
+    import builder._
+    OParser.sequence(
+      programName("spnc"),
+      head("spnc", "0.0.1"),
+      opt[File]("stats-out")
+        .action((x, c) => c.copy(statsFile = x))
+        .text("Output file for statistics, default stats.spns"),
+      opt[Unit]('s', "stats")
+        .action((x, c) => c.copy(computeStats = true)),
+      arg[File]("<input-file>")
+        .action((f,c) => c.copy(in = f))
+    )
   }
 
-  if(!Files.exists(Paths.get(args(0)))){
-    throw new RuntimeException("Specified input file does not exist!")
+  val cliConfig : CLIConfig = OParser.parse(cliParser, args, CLIConfig()).get
+
+  val spn = Parser.parseFile(cliConfig.in)
+
+  if(cliConfig.computeStats){
+    GraphStatistics.computeStatistics(spn, cliConfig.statsFile)
   }
-
-  val spn = Parser.parseFile(args(0))
-
-  GraphStatistics.computeStatistics(spn)
 }
+
+case class CLIConfig(in : File = new File("structure.spn"), statsFile : File = new File("stats.spns"),
+                     computeStats : Boolean = false)

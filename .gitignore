@@ -1,3 +1,7 @@
+# SPN-specific stuff, output files produced by the compiler
+# Statistics files
+*.spns
+
 # Ignore Gradle project-specific cache directory
 .gradle
 

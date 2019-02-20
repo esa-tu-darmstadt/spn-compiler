@@ -1,5 +1,7 @@
 package spn_compiler.frontend.parser
 
+import java.io.File
+
 import fastparse.MultiLineWhitespace._
 import fastparse._
 import spn_compiler.graph_ir.nodes.IRGraph
@@ -30,10 +32,10 @@ object Parser {
 
   /**
     * Parse an SPN from textual representation in a file.
-    * @param fileName Input file name.
+    * @param file Input file name.
     * @return On success, returns a [[ParseTree]].
     */
-  def parseFile(fileName : String) : IRGraph = parseString(Source.fromFile(fileName).mkString)
+  def parseFile(file : File) : IRGraph = parseString(Source.fromFile(file).mkString)
 
   /*
    * Terminals

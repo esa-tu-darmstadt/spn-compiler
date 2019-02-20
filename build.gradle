@@ -36,5 +36,10 @@ dependencies {
     // https://www.playframework.com/documentation/2.6.x/ScalaJson
     compile group: 'com.typesafe.play', name: 'play-json_2.12', version: '2.6.10'
 
+    // scopt command line parsing
+    // https://github.com/scopt/scopt
+    compile group: 'com.github.scopt', name: 'scopt_2.12', version: '4.0.0-RC2'
+
+
 
 }
