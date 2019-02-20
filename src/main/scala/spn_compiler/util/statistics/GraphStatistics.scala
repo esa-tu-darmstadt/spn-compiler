@@ -146,7 +146,7 @@ object GraphStatistics {
   implicit val operandStatisticsWrite : Writes[OperandStatistics] = new Writes[OperandStatistics] {
     override def writes(o: OperandStatistics): JsValue = {
       var arr = Json.arr()
-      for(k <- o.histogram.keySet){
+      for(k <- o.histogram.keySet.toList.sorted){
         arr = arr :+ Json.obj("num_inputs" -> k, "appearances" -> o.histogram(k))
       }
       arr
