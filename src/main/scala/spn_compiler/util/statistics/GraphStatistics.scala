@@ -7,6 +7,7 @@ import play.api.libs.json._
 import spn_compiler.graph_ir.nodes._
 
 import scala.collection.mutable
+import scala.io.Source
 
 
 /**
@@ -22,6 +23,23 @@ object GraphStatistics {
     val gs : GraphStatistics = computeSubtree(spn.rootNode)
     val json = Json.toJson(gs)
     val bw = new BufferedWriter(new FileWriter(statsFile))
+    bw.write(Json.prettyPrint(json))
+    bw.close()
+  }
+
+  /**
+    * Read two graph statistics from JSON files, merge them and write back to a JSON file.
+    * @param statsFile1 First JSON input file.
+    * @param statsFile2 Second JSON input file.
+    * @param outFile Output JSON file.
+    */
+  def mergeStatistics(statsFile1 : File, statsFile2 : File, outFile : File): Unit ={
+    val json1 = Source.fromFile(statsFile1).mkString
+    val gs1 = Json.parse(json1).as[GraphStatistics]
+    val json2 = Source.fromFile(statsFile2).mkString
+    val gs2 = Json.parse(json2).as[GraphStatistics]
+    val json = Json.toJson(gs1 merge gs2)
+    val bw = new BufferedWriter(new FileWriter(outFile))
     bw.write(Json.prettyPrint(json))
     bw.close()
   }
@@ -47,6 +65,16 @@ object GraphStatistics {
     }
   }
 
+  /**
+    * Object representation for SPN graph statistics.
+    * @param numAdders Number of weighted sums in the SPN.
+    * @param numMultipliers Number of multiplications in the SPN.
+    * @param numPoisson Number of Poisson distributions used as leaf nodes of the SPN.
+    * @param numHistogram Number of histograms used as leaf nodes of the SPN.
+    * @param numInputs Number of input variables to the SPN.
+    * @param addOpStatistics [[OperandStatistics]] about the adders in the SPN.
+    * @param mulOpStatistics [[OperandStatistics]] about the multiplications in the SPN.
+    */
   final case class GraphStatistics(numAdders : Int = 0, numMultipliers : Int = 0, numPoisson : Int = 0,
                                            numHistogram : Int = 0, numInputs : Int = 0,
                                            addOpStatistics : OperandStatistics = OperandStatistics(),
@@ -91,6 +119,11 @@ object GraphStatistics {
     }
   }
 
+  /**
+    * Object representation of the operand statistics.
+    * @param histogram Histogram reflecting the number of operator instances per
+    *                  number of operands.
+    */
   final case class OperandStatistics(histogram : Map[Int, Int] = Map()) {
     def increment(numOperands : Int) : OperandStatistics = {
       OperandStatistics(histogram + (numOperands -> (histogram.getOrElse(numOperands, 0)+1)))
@@ -106,6 +139,10 @@ object GraphStatistics {
 
   }
 
+  //
+  // Interface to the Play Scala JSON library.
+  // Defines (de-)serialization of the graph- and operand statistics.
+  //
   implicit val operandStatisticsWrite : Writes[OperandStatistics] = new Writes[OperandStatistics] {
     override def writes(o: OperandStatistics): JsValue = {
       var arr = Json.arr()

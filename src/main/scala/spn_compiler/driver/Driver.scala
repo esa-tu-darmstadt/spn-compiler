@@ -24,7 +24,8 @@ object Driver extends App {
     )
   }
 
-  val cliConfig : CLIConfig = OParser.parse(cliParser, args, CLIConfig()).get
+  val cliConfig : CLIConfig = OParser.parse(cliParser, args, CLIConfig())
+    .getOrElse(throw new RuntimeException("CLI Error!"))
 
   val spn = Parser.parseFile(cliConfig.in)
 
