@@ -1,16 +1,28 @@
 package spn_compiler.backend.software.ast.nodes.types
 
-sealed abstract class ASTType[BaseType]
+sealed abstract class ASTType{
 
-sealed abstract class ScalarType[BaseType] extends ASTType[BaseType]
+  type BaseType
 
-sealed abstract class NumericType[BaseType] extends ScalarType[BaseType]
+  def compatible(ty : ASTType) : Boolean = this.equals(ty)
 
-case object IntegerType extends NumericType[Int]
+}
 
-case object RealType extends NumericType[Double]
+trait ScalarType extends ASTType
 
-case object BooleanType extends ScalarType[Boolean]
+trait NumericType extends ScalarType
 
-case class ArrayType[ElementType](elemType : ElementType) extends ASTType[ElementType]
+case object IntegerType extends NumericType {
+  override type BaseType = Int
+}
+
+case object RealType extends NumericType {
+  override type BaseType = Double
+}
+
+case object BooleanType extends ScalarType {
+  override type BaseType = Boolean
+}
+
+case class ArrayType(elemType : ASTType) extends ASTType
 

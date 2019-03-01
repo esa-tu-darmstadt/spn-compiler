@@ -1,9 +1,8 @@
 package spn_compiler.backend.software.ast.nodes.statement
 
-import spn_compiler.backend.software.ast.nodes.types.ASTType
 import spn_compiler.backend.software.ast.nodes.variable.ASTVariable
 
-class ASTVariableDeclaration[BaseType, VarType <: ASTType[BaseType]] private[ast](val variable : ASTVariable[BaseType, VarType])
+class ASTVariableDeclaration private[ast](val variable : ASTVariable)
   extends ASTStatement {
 
   variable.declaration = this
@@ -12,7 +11,7 @@ class ASTVariableDeclaration[BaseType, VarType <: ASTType[BaseType]] private[ast
 
 object ASTVariableDeclaration {
 
-  def unappyl[BaseType, VarType <: ASTType[BaseType]](arg : ASTVariableDeclaration[BaseType, VarType])
-    : Option[ASTVariable[BaseType, VarType]] = Some(arg.variable)
+  def unapply(arg : ASTVariableDeclaration)
+    : Option[ASTVariable] = Some(arg.variable)
 
 }

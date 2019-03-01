@@ -1,7 +1,7 @@
 package spn_compiler.backend.software.ast.construct
 
 import spn_compiler.backend.software.ast.nodes.statement.ASTVariableDeclaration
-import spn_compiler.backend.software.ast.nodes.types.{ASTType, NumericType, ScalarType}
+import spn_compiler.backend.software.ast.nodes.types.{ASTType, ScalarType}
 import spn_compiler.backend.software.ast.nodes.value.ASTValue
 import spn_compiler.backend.software.ast.nodes.value.constant.ASTConstant
 import spn_compiler.backend.software.ast.nodes.value.expression.ASTAddition
@@ -15,7 +15,7 @@ class ASTBuilder {
 
   private val variableNames : mutable.Map[String, Int] = mutable.Map[String, Int]()
 
-  private var variables : Set[ASTVariable[_, _]] = Set.empty
+  private var variables : Set[ASTVariable] = Set.empty
 
   private def makeUnique(varName : String) : String = {
     if(!variableNames.contains(varName)){
@@ -37,28 +37,24 @@ class ASTBuilder {
     }
   }
 
-  def createVariable[BaseType, VarType <: ASTType[BaseType]](ty : VarType, name : String)
-    : ASTVariable[BaseType, VarType] = {
-    val variable = new ASTVariable[BaseType, VarType](ty, makeUnique(name))
+  def createVariable[BaseType, VarType <: ASTType](ty : VarType, name : String) : ASTVariable = {
+    val variable = new ASTVariable(ty, makeUnique(name))
     variables = variables + variable
     variable
   }
 
-  def declareVariable[BaseType, VarType <: ASTType[BaseType]](variable : ASTVariable[BaseType, VarType]) :
-    ASTVariableDeclaration[BaseType, VarType] = {
+  def declareVariable[BaseType, VarType <: ASTType](variable : ASTVariable) : ASTVariableDeclaration = {
     if(!variables.contains(variable)){
       throw new ASTBuildingException("Can only declare variable created with this builder before!")
     }
-    new ASTVariableDeclaration[BaseType, VarType](variable)
+    new ASTVariableDeclaration(variable)
   }
 
-  def constantValue[BaseType, ConstantType <: ScalarType[BaseType]]
-    (ty : ConstantType, value : BaseType) : ASTConstant[BaseType, ConstantType] =
-      new ASTConstant[BaseType, ConstantType](ty, value)
+  def constantValue[ConstantType <: ScalarType, BaseType <: ConstantType#BaseType]
+    (ty : ConstantType, value : BaseType) : ASTConstant[ConstantType, BaseType] =
+      new ASTConstant[ConstantType, BaseType](ty, value)
 
-  def add[BaseType, ValueType <: NumericType[BaseType]]
-    (leftOp : ASTValue[BaseType, ValueType], rightOp : ASTValue[BaseType, ValueType])
-    : ASTAddition[BaseType, ValueType] = new ASTAddition[BaseType, ValueType](leftOp, rightOp)
+  def add(leftOp : ASTValue, rightOp : ASTValue): ASTAddition = new ASTAddition(leftOp, rightOp)
 
 
 }

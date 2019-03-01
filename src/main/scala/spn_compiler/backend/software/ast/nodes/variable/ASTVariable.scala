@@ -4,22 +4,22 @@ import spn_compiler.backend.software.ast.nodes.ASTNode
 import spn_compiler.backend.software.ast.nodes.statement.ASTVariableDeclaration
 import spn_compiler.backend.software.ast.nodes.types.ASTType
 
-class ASTVariable[BaseType, VarType <: ASTType[BaseType]] private[ast]
-  (val ty : VarType, val name : String) extends ASTNode {
+class ASTVariable private[ast]
+  (val ty : ASTType, val name : String) extends ASTNode {
 
-  private var _declaration : Option[ASTVariableDeclaration[BaseType, VarType]] = None
+  private var _declaration : Option[ASTVariableDeclaration] = None
 
   def isDeclared : Boolean = _declaration.isDefined
 
-  def declaration : ASTVariableDeclaration[BaseType, VarType] = _declaration.orNull
+  def declaration : ASTVariableDeclaration = _declaration.orNull
 
-  def declaration_=(declare : ASTVariableDeclaration[BaseType, VarType]) : Unit = _declaration = Some(declare)
+  def declaration_=(declare : ASTVariableDeclaration) : Unit = _declaration = Some(declare)
 
 }
 
 object ASTVariable {
 
-  def unapply[BaseType, VarType <: ASTType[BaseType]](arg : ASTVariable[BaseType, VarType])
-    : Option[(VarType, String)] = Some((arg.ty, arg.name))
+  def unapply(arg : ASTVariable)
+    : Option[(ASTType, String)] = Some((arg.ty, arg.name))
 
 }
