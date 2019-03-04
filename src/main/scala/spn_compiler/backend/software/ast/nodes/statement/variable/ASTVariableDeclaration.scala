@@ -1,5 +1,6 @@
-package spn_compiler.backend.software.ast.nodes.statement
+package spn_compiler.backend.software.ast.nodes.statement.variable
 
+import spn_compiler.backend.software.ast.nodes.statement.ASTStatement
 import spn_compiler.backend.software.ast.nodes.variable.ASTVariable
 
 class ASTVariableDeclaration private[ast](val variable : ASTVariable)

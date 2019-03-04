@@ -1,11 +1,10 @@
 package spn_compiler.backend.software.ast.nodes.variable
 
 import spn_compiler.backend.software.ast.nodes.ASTNode
-import spn_compiler.backend.software.ast.nodes.statement.ASTVariableDeclaration
+import spn_compiler.backend.software.ast.nodes.statement.variable.ASTVariableDeclaration
 import spn_compiler.backend.software.ast.nodes.types.ASTType
 
-class ASTVariable private[ast]
-  (val ty : ASTType, val name : String) extends ASTNode {
+class ASTVariable private[ast] (val ty : ASTType, val name : String) extends ASTNode {
 
   private var _declaration : Option[ASTVariableDeclaration] = None
 
@@ -14,6 +13,8 @@ class ASTVariable private[ast]
   def declaration : ASTVariableDeclaration = _declaration.orNull
 
   def declaration_=(declare : ASTVariableDeclaration) : Unit = _declaration = Some(declare)
+
+  def getType : ASTType = ty
 
 }
 
