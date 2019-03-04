@@ -8,6 +8,9 @@ sealed abstract class ASTType{
 
   def compatible(ty : ASTType) : Boolean = this.equals(ty)
 
+  // TODO: Currently all scalar types are convertible among each other. Issue warning for precision loss.
+  def convertible(ty : ASTType) : Boolean = this.isScalarType && ty.isScalarType
+
   def isScalarType : Boolean = false
 
   def isArrayType : Boolean = false

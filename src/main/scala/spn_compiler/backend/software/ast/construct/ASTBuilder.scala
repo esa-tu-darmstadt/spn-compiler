@@ -8,6 +8,7 @@ import spn_compiler.backend.software.ast.nodes.value.ASTValue
 import spn_compiler.backend.software.ast.nodes.value.access.ASTVariableRead
 import spn_compiler.backend.software.ast.nodes.value.constant.ASTConstant
 import spn_compiler.backend.software.ast.nodes.value.expression._
+import spn_compiler.backend.software.ast.nodes.value.type_conversion.ASTTypeConversion
 import spn_compiler.backend.software.ast.nodes.variable.ASTVariable
 
 class ASTBuilder {
@@ -103,5 +104,10 @@ class ASTBuilder {
   def neg(op : ASTValue) : ASTNeg = new ASTNeg(op)
 
   def not(op : ASTValue) : ASTNot = new ASTNot(op)
+
+  //
+  // Type conversions.
+  //
+  def convert(op : ASTValue, targetType : ASTType) : ASTTypeConversion = new ASTTypeConversion(op, targetType)
 
 }
