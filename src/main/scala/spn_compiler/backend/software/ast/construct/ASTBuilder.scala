@@ -7,7 +7,7 @@ import spn_compiler.backend.software.ast.nodes.types.{ASTType, ScalarType}
 import spn_compiler.backend.software.ast.nodes.value.ASTValue
 import spn_compiler.backend.software.ast.nodes.value.access.ASTVariableRead
 import spn_compiler.backend.software.ast.nodes.value.constant.ASTConstant
-import spn_compiler.backend.software.ast.nodes.value.expression.ASTAddition
+import spn_compiler.backend.software.ast.nodes.value.expression._
 import spn_compiler.backend.software.ast.nodes.variable.ASTVariable
 
 class ASTBuilder {
@@ -61,10 +61,47 @@ class ASTBuilder {
   def assignElement(reference : ASTReference, element : String, value : ASTValue) : ASTVariableAssignment =
     new ASTVariableAssignment(referenceElement(reference, element), value)
 
+  //
+  // Constants and literals.
+  //
+
   def constantValue[ConstantType <: ScalarType, BaseType <: ConstantType#BaseType]
     (ty : ConstantType, value : BaseType) : ASTConstant[ConstantType, BaseType] =
       new ASTConstant[ConstantType, BaseType](ty, value)
 
-  def add(leftOp : ASTValue, rightOp : ASTValue): ASTAddition = new ASTAddition(leftOp, rightOp)
+  //
+  // Binary and unary expressions.
+  //
+  def add(leftOp : ASTValue, rightOp : ASTValue) : ASTAddition = new ASTAddition(leftOp, rightOp)
+
+  def sub(leftOp : ASTValue, rightOp : ASTValue) : ASTSubtraction = new ASTSubtraction(leftOp, rightOp)
+
+  def mul(leftOp : ASTValue, rightOp : ASTValue) : ASTMultiplication = new ASTMultiplication(leftOp, rightOp)
+
+  def div(leftOp : ASTValue, rightOp : ASTValue) : ASTDivision = new ASTDivision(leftOp, rightOp)
+
+  def rem(leftOp : ASTValue, rightOp : ASTValue) : ASTRemainder = new ASTRemainder(leftOp, rightOp)
+
+  def and(leftOp : ASTValue, rightOp : ASTValue) : ASTAnd = new ASTAnd(leftOp, rightOp)
+
+  def or(leftOp : ASTValue, rightOp : ASTValue) : ASTOr = new ASTOr(leftOp, rightOp)
+
+  def xor(leftOp : ASTValue, rightOp : ASTValue) : ASTXor = new ASTXor(leftOp, rightOp)
+
+  def cmpEQ(leftOp : ASTValue, rightOp : ASTValue) : ASTCmpEQ = new ASTCmpEQ(leftOp, rightOp)
+
+  def cmpNE(leftOp : ASTValue, rightOp : ASTValue) : ASTCmpNE = new ASTCmpNE(leftOp, rightOp)
+
+  def cmpLT(leftOp : ASTValue, rightOp : ASTValue) : ASTCmpLT = new ASTCmpLT(leftOp, rightOp)
+
+  def cmpLE(leftOp : ASTValue, rightOp : ASTValue) : ASTCmpLE = new ASTCmpLE(leftOp, rightOp)
+
+  def cmpGT(leftOp : ASTValue, rightOp : ASTValue) : ASTCmpGT = new ASTCmpGT(leftOp, rightOp)
+
+  def cmpGE(leftOp : ASTValue, rightOp : ASTValue) : ASTCmpGE = new ASTCmpGE(leftOp, rightOp)
+
+  def neg(op : ASTValue) : ASTNeg = new ASTNeg(op)
+
+  def not(op : ASTValue) : ASTNot = new ASTNot(op)
 
 }

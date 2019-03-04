@@ -8,17 +8,27 @@ sealed abstract class ASTType{
 
   def compatible(ty : ASTType) : Boolean = this.equals(ty)
 
+  def isScalarType : Boolean = false
+
   def isArrayType : Boolean = false
 
   def isStructType : Boolean = false
 
+  def isLogicType : Boolean = false
+
 }
 
-trait ScalarType extends ASTType
+trait ScalarType extends ASTType {
+  override def isScalarType: Boolean = true
+}
 
 trait NumericType extends ScalarType
 
-case object IntegerType extends NumericType {
+trait LogicType extends ScalarType {
+  override def isLogicType: Boolean = true
+}
+
+case object IntegerType extends NumericType with LogicType {
   override type BaseType = Int
 }
 
@@ -26,7 +36,7 @@ case object RealType extends NumericType {
   override type BaseType = Double
 }
 
-case object BooleanType extends ScalarType {
+case object BooleanType extends ScalarType with LogicType {
   override type BaseType = Boolean
 }
 
