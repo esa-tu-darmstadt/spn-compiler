@@ -3,6 +3,7 @@ package spn_compiler.backend.software.ast.construct
 import spn_compiler.backend.software.ast.construct.util.UniqueNameCreator
 import spn_compiler.backend.software.ast.nodes.reference.{ASTElementReference, ASTIndexReference, ASTReference, ASTVariableReference}
 import spn_compiler.backend.software.ast.nodes.statement.variable.{ASTVariableAssignment, ASTVariableDeclaration}
+import spn_compiler.backend.software.ast.nodes.statement.{ASTBlockStatement, ASTStatement}
 import spn_compiler.backend.software.ast.nodes.types.{ASTType, ScalarType}
 import spn_compiler.backend.software.ast.nodes.value.ASTValue
 import spn_compiler.backend.software.ast.nodes.value.access.ASTVariableRead
@@ -14,6 +15,27 @@ import spn_compiler.backend.software.ast.nodes.variable.ASTVariable
 class ASTBuilder {
 
   type ASTBuildingException = RuntimeException
+
+  //
+  // Statement handling
+  //
+
+  // Block statements
+  def insertBeforeInBlock(block : ASTBlockStatement, insertionPoint : ASTStatement, stmt : ASTStatement): ASTStatement = {
+    block.addBefore(insertionPoint, stmt)
+  }
+
+  def insertAfterInBlock(block : ASTBlockStatement, insertionPoint : ASTStatement, stmt : ASTStatement) : ASTStatement = {
+    block.addAfter(insertionPoint, stmt)
+  }
+
+  def appendToBlock(block : ASTBlockStatement, stmt : ASTStatement) : ASTStatement = {
+    block.addAtEnd(stmt)
+  }
+
+  def deleteFromBlock(block : ASTBlockStatement, stmt : ASTStatement) : Unit = {
+    block.remove(stmt)
+  }
 
   //
   // Variable handling

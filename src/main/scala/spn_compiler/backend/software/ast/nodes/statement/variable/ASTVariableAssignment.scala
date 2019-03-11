@@ -1,9 +1,10 @@
 package spn_compiler.backend.software.ast.nodes.statement.variable
 
 import spn_compiler.backend.software.ast.nodes.reference.ASTReference
+import spn_compiler.backend.software.ast.nodes.statement.ASTStatement
 import spn_compiler.backend.software.ast.nodes.value.ASTValue
 
-class ASTVariableAssignment private[ast](val lhs : ASTReference, val value : ASTValue) {
+class ASTVariableAssignment private[ast](val lhs : ASTReference, val value : ASTValue) extends ASTStatement {
 
   require(lhs.getType==value.getType, "Type of the assigned value must match type of the variable!")
 
