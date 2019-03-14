@@ -3,7 +3,12 @@ package spn_compiler.backend.software.ast.nodes.reference
 import spn_compiler.backend.software.ast.nodes.ASTNode
 import spn_compiler.backend.software.ast.nodes.types.{ASTType, ArrayType, StructType}
 import spn_compiler.backend.software.ast.nodes.value.ASTValue
-import spn_compiler.backend.software.ast.nodes.variable.ASTVariable
+
+trait ASTReferencable extends ASTNode {
+
+  def getType : ASTType
+
+}
 
 trait ASTReference extends ASTNode {
 
@@ -11,7 +16,7 @@ trait ASTReference extends ASTNode {
 
 }
 
-class ASTVariableReference private[ast](val variable : ASTVariable) extends ASTReference {
+class ASTVariableReference private[ast](val variable : ASTReferencable) extends ASTReference {
 
   def getType : ASTType = variable.getType
 
@@ -19,7 +24,7 @@ class ASTVariableReference private[ast](val variable : ASTVariable) extends ASTR
 
 object ASTVariableReference {
 
-  def unapply(arg : ASTVariableReference) : Option[(ASTType, ASTVariable)] = Some(arg.getType, arg.variable)
+  def unapply(arg : ASTVariableReference) : Option[(ASTType, ASTReferencable)] = Some(arg.getType, arg.variable)
 
 }
 

@@ -1,7 +1,7 @@
 package spn_compiler.backend.software.ast.construct
 
 import spn_compiler.backend.software.ast.construct.util.UniqueNameCreator
-import spn_compiler.backend.software.ast.nodes.reference.{ASTElementReference, ASTIndexReference, ASTReference, ASTVariableReference}
+import spn_compiler.backend.software.ast.nodes.reference._
 import spn_compiler.backend.software.ast.nodes.statement.control_flow.{ASTForLoop, ASTIfStatement}
 import spn_compiler.backend.software.ast.nodes.statement.variable.{ASTVariableAssignment, ASTVariableDeclaration}
 import spn_compiler.backend.software.ast.nodes.statement.{ASTBlockStatement, ASTStatement}
@@ -94,7 +94,7 @@ class ASTBuilder {
     insertStatement(new ASTVariableDeclaration(variable))
   }
 
-  def referenceVariable(variable : ASTVariable) : ASTVariableReference = new ASTVariableReference(variable)
+  def referenceVariable(variable : ASTReferencable) : ASTVariableReference = new ASTVariableReference(variable)
 
   def referenceIndex(reference : ASTReference, index : ASTValue) : ASTIndexReference =
     new ASTIndexReference(reference, index)

@@ -1,10 +1,10 @@
 package spn_compiler.backend.software.ast.nodes.variable
 
-import spn_compiler.backend.software.ast.nodes.ASTNode
+import spn_compiler.backend.software.ast.nodes.reference.ASTReferencable
 import spn_compiler.backend.software.ast.nodes.statement.variable.ASTVariableDeclaration
 import spn_compiler.backend.software.ast.nodes.types.ASTType
 
-class ASTVariable private[ast] (val ty : ASTType, val name : String) extends ASTNode {
+class ASTVariable private[ast] (val ty : ASTType, val name : String) extends ASTReferencable {
 
   private var _declaration : Option[ASTVariableDeclaration] = None
 
