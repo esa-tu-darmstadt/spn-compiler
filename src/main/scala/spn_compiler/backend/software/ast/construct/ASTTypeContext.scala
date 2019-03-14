@@ -18,6 +18,7 @@ trait ASTTypeContext {
     structType
   }
 
+  // TODO: Check if we really need to maintain this map or if we just rely on equals/hashcode.
   protected val arrayTypes : mutable.Map[ASTType, ArrayType] = mutable.Map()
 
   def createArrayType(elementType : ASTType) : ASTType =

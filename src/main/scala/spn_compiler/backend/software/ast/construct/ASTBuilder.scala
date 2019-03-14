@@ -6,10 +6,10 @@ import spn_compiler.backend.software.ast.nodes.reference._
 import spn_compiler.backend.software.ast.nodes.statement.control_flow.{ASTCallStatement, ASTForLoop, ASTIfStatement, ASTReturnStatement}
 import spn_compiler.backend.software.ast.nodes.statement.variable.{ASTVariableAssignment, ASTVariableDeclaration}
 import spn_compiler.backend.software.ast.nodes.statement.{ASTBlockStatement, ASTStatement}
-import spn_compiler.backend.software.ast.nodes.types.{ASTType, ScalarType}
+import spn_compiler.backend.software.ast.nodes.types.{ASTType, ScalarType, StructType}
 import spn_compiler.backend.software.ast.nodes.value.ASTValue
 import spn_compiler.backend.software.ast.nodes.value.access.ASTVariableRead
-import spn_compiler.backend.software.ast.nodes.value.constant.ASTConstant
+import spn_compiler.backend.software.ast.nodes.value.constant.{ASTArrayInit, ASTConstant, ASTStructInit}
 import spn_compiler.backend.software.ast.nodes.value.expression._
 import spn_compiler.backend.software.ast.nodes.value.function.ASTCallExpression
 import spn_compiler.backend.software.ast.nodes.value.type_conversion.ASTTypeConversion
@@ -157,6 +157,13 @@ trait ASTBuilder {
   def constantValue[ConstantType <: ScalarType, BaseType <: ConstantType#BaseType]
     (ty : ConstantType, value : BaseType) : ASTConstant[ConstantType, BaseType] =
       new ASTConstant[ConstantType, BaseType](ty, value)
+
+  def initArray(values : ASTValue*) : ASTArrayInit = new ASTArrayInit(values:_*)
+
+  def initArray[ConstantType <: ScalarType, BaseType <: ConstantType#BaseType](ty : ConstantType, values : BaseType*)
+    : ASTArrayInit = new ASTArrayInit(values.map(constantValue(ty, _)):_*)
+
+  def initStruct(structType: StructType, values : ASTValue*) : ASTStructInit = new ASTStructInit(structType, values:_*)
 
   //
   // Binary and unary expressions.
