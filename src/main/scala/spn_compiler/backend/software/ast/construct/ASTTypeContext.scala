@@ -6,11 +6,11 @@ import spn_compiler.backend.software.ast.nodes.types.{ASTType, ArrayType, Struct
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
-class ASTTypeContext {
+trait ASTTypeContext {
 
-  val structNameCreator = new UniqueNameCreator
+  private val structNameCreator = new UniqueNameCreator
 
-  val structTypes : ListBuffer[StructType] = ListBuffer[StructType]()
+  protected val structTypes : ListBuffer[StructType] = ListBuffer[StructType]()
 
   def createStructType(name : String, _elements : (String, ASTType)*): StructType = {
     val structType = StructType(structNameCreator.makeUniqueName(name), _elements.toList)
@@ -18,7 +18,7 @@ class ASTTypeContext {
     structType
   }
 
-  val arrayTypes : mutable.Map[ASTType, ArrayType] = mutable.Map()
+  protected val arrayTypes : mutable.Map[ASTType, ArrayType] = mutable.Map()
 
   def createArrayType(elementType : ASTType) : ASTType =
     arrayTypes.getOrElseUpdate(elementType, ArrayType(elementType))

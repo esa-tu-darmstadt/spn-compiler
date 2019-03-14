@@ -3,13 +3,14 @@ package spn_compiler.backend.software.ast.nodes.statement
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 import org.scalatest.{FlatSpec, Matchers}
-import spn_compiler.backend.software.ast.construct.{ASTBuilder, _}
+import spn_compiler.backend.software.ast.construct._
+import spn_compiler.backend.software.ast.nodes.module.ASTModule
 import spn_compiler.backend.software.ast.nodes.types.IntegerType
 
 @RunWith(classOf[JUnitRunner])
 class ASTBlockStatementTest extends FlatSpec with Matchers {
 
-  private val builder = new ASTBuilder
+  private val builder = new ASTModule("test-dummy")
   private val block = new ASTBlockStatement
   builder.setInsertionPoint(block)
   private val varFive = builder.createVariable(IntegerType, "five")

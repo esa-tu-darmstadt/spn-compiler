@@ -15,20 +15,28 @@ import spn_compiler.backend.software.ast.nodes.value.function.ASTCallExpression
 import spn_compiler.backend.software.ast.nodes.value.type_conversion.ASTTypeConversion
 import spn_compiler.backend.software.ast.nodes.variable.ASTVariable
 
-class ASTBuilder {
+import scala.collection.mutable.ListBuffer
+
+trait ASTBuilder {
 
   type ASTBuildingException = RuntimeException
 
   //
   // Function handling
   //
+  protected val localFunctions : ListBuffer[ASTFunction] = ListBuffer()
+
   def declareExternalFunction(name : String, returnType : ASTType, parameters : ASTType*) : ASTFunctionPrototype =
     new ASTFunctionPrototype(name, returnType, parameters:_*)
 
   def createFunctionParameter(name : String, ty : ASTType) : ASTFunctionParameter = new ASTFunctionParameter(name, ty)
 
-  def defineLocalFunction(name : String, returnType : ASTType, parameters : ASTFunctionParameter*) : ASTFunction =
-    new ASTFunction(name, returnType, parameters:_*)
+  def defineLocalFunction(name : String, returnType : ASTType, parameters : ASTFunctionParameter*) : ASTFunction = {
+    val func = new ASTFunction(name, returnType, parameters:_*)
+    localFunctions += func
+    func
+  }
+
 
   //
   // Maintain insertion point

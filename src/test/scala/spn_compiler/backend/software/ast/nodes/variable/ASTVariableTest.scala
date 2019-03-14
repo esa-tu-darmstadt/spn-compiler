@@ -3,7 +3,7 @@ package spn_compiler.backend.software.ast.nodes.variable
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 import org.scalatest.{FlatSpec, Matchers}
-import spn_compiler.backend.software.ast.construct.{ASTBuilder, ASTTypeContext}
+import spn_compiler.backend.software.ast.nodes.module.ASTModule
 import spn_compiler.backend.software.ast.nodes.reference.{ASTElementReference, ASTIndexReference, ASTVariableReference}
 import spn_compiler.backend.software.ast.nodes.statement.variable.{ASTVariableAssignment, ASTVariableDeclaration}
 import spn_compiler.backend.software.ast.nodes.types.IntegerType
@@ -12,7 +12,7 @@ import spn_compiler.backend.software.ast.nodes.value.access.ASTVariableRead
 @RunWith(classOf[JUnitRunner])
 class ASTVariableTest extends FlatSpec with Matchers {
 
-  val builder = new ASTBuilder
+  val builder = new ASTModule("test-dummy")
   val variable = builder.createVariable(IntegerType, "var")
   val five = builder.constantValue(IntegerType, 5)
 
@@ -20,7 +20,7 @@ class ASTVariableTest extends FlatSpec with Matchers {
   // Basic variables
   //
   "A variable" should "be creatable through the ASTBuilder interface" in {
-    "val builder = new ASTBuilder\n" +
+    "val builder = new ASTModule(\"test-dummy\")\n" +
       "  val variable = builder.createVariable(IntegerType, \"var\")" should compile
   }
 
@@ -43,7 +43,7 @@ class ASTVariableTest extends FlatSpec with Matchers {
   // Variable declarations
   //
   "A variable-declaration" should "be constructable through the ASTBuilder interface" in {
-    "val builder = new ASTBuilder\n" +
+    "val builder = new ASTModule(\"test-dummy\")\n" +
       "val variable = builder.createVariable(IntegerType, \"var\")\n" +
       "val declaration = builder.declareVariable(variable)" should compile
   }
@@ -93,8 +93,7 @@ class ASTVariableTest extends FlatSpec with Matchers {
     testValue should be(five)
   }
 
-  val context = new ASTTypeContext
-  val arrayType = context.createArrayType(IntegerType)
+  val arrayType = builder.createArrayType(IntegerType)
   val arrayVar = builder.createVariable(arrayType, "arr")
   val index = builder.constantValue(IntegerType, 1)
 
@@ -138,7 +137,7 @@ class ASTVariableTest extends FlatSpec with Matchers {
   }
 
   val element = "elem1"
-  val structType = context.createStructType("struct_type", (element, IntegerType))
+  val structType = builder.createStructType("struct_type", (element, IntegerType))
   val structVar = builder.createVariable(structType, "strct")
 
   "A struct reference" should "be constructable from a variable" in {
