@@ -1,10 +1,8 @@
 package spn_compiler.backend.software.ast.nodes.statement
 
-import spn_compiler.backend.software.ast.construct.ASTBuilder
-
 import scala.collection.mutable.ListBuffer
 
-class ASTBlockStatement private[ast](private val builder : ASTBuilder) {
+class ASTBlockStatement private[ast] {
 
   private val statements : ListBuffer[ASTStatement] = ListBuffer()
 

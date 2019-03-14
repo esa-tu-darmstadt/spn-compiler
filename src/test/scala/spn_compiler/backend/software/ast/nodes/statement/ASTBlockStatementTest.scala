@@ -10,7 +10,7 @@ import spn_compiler.backend.software.ast.nodes.types.IntegerType
 class ASTBlockStatementTest extends FlatSpec with Matchers {
 
   private val builder = new ASTBuilder
-  private val block = new ASTBlockStatement(builder)
+  private val block = new ASTBlockStatement
   builder.setInsertionPoint(block)
   private val varFive = builder.createVariable(IntegerType, "five")
   private val varSix = builder.createVariable(IntegerType, "six")

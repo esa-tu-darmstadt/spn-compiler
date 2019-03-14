@@ -2,6 +2,7 @@ package spn_compiler.backend.software.ast.construct
 
 import spn_compiler.backend.software.ast.construct.util.UniqueNameCreator
 import spn_compiler.backend.software.ast.nodes.reference.{ASTElementReference, ASTIndexReference, ASTReference, ASTVariableReference}
+import spn_compiler.backend.software.ast.nodes.statement.control_flow.{ASTForLoop, ASTIfStatement}
 import spn_compiler.backend.software.ast.nodes.statement.variable.{ASTVariableAssignment, ASTVariableDeclaration}
 import spn_compiler.backend.software.ast.nodes.statement.{ASTBlockStatement, ASTStatement}
 import spn_compiler.backend.software.ast.nodes.types.{ASTType, ScalarType}
@@ -55,6 +56,20 @@ class ASTBuilder {
       case _ => stmt
   }
 
+  // Control flow
+
+  def createIf(testExpression : ASTValue): ASTIfStatement = insertStatement(new ASTIfStatement(testExpression))
+
+  def forLoop(initVar : Option[ASTReference], initValue : Option[ASTValue], testValue : ASTValue,
+                 incrVar : Option[ASTReference], incrValue : Option[ASTValue]) : ASTForLoop =
+    insertStatement(new ASTForLoop(initVar, initValue, testValue, incrVar, incrValue))
+
+  def forLoop(variable : ASTVariable, lowerBound : ASTValue, upperBound : ASTValue, stride : ASTValue) : ASTForLoop = {
+    val ref = referenceVariable(variable)
+    val comparison = cmpLT(readVariable(ref), upperBound)
+    val increment = add(readVariable(ref), stride)
+    insertStatement(new ASTForLoop(Some(ref), Some(lowerBound), comparison, Some(ref), Some(increment)))
+  }
 
 
   //
