@@ -21,6 +21,8 @@ sealed abstract class ASTType{
 
 }
 
+case object VoidType extends ASTType
+
 trait ScalarType extends ASTType {
   override def isScalarType: Boolean = true
 }

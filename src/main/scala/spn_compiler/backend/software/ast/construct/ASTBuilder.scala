@@ -1,8 +1,9 @@
 package spn_compiler.backend.software.ast.construct
 
 import spn_compiler.backend.software.ast.construct.util.UniqueNameCreator
+import spn_compiler.backend.software.ast.nodes.function.{ASTFunction, ASTFunctionParameter, ASTFunctionPrototype}
 import spn_compiler.backend.software.ast.nodes.reference._
-import spn_compiler.backend.software.ast.nodes.statement.control_flow.{ASTForLoop, ASTIfStatement}
+import spn_compiler.backend.software.ast.nodes.statement.control_flow.{ASTCallStatement, ASTForLoop, ASTIfStatement, ASTReturnStatement}
 import spn_compiler.backend.software.ast.nodes.statement.variable.{ASTVariableAssignment, ASTVariableDeclaration}
 import spn_compiler.backend.software.ast.nodes.statement.{ASTBlockStatement, ASTStatement}
 import spn_compiler.backend.software.ast.nodes.types.{ASTType, ScalarType}
@@ -10,6 +11,7 @@ import spn_compiler.backend.software.ast.nodes.value.ASTValue
 import spn_compiler.backend.software.ast.nodes.value.access.ASTVariableRead
 import spn_compiler.backend.software.ast.nodes.value.constant.ASTConstant
 import spn_compiler.backend.software.ast.nodes.value.expression._
+import spn_compiler.backend.software.ast.nodes.value.function.ASTCallExpression
 import spn_compiler.backend.software.ast.nodes.value.type_conversion.ASTTypeConversion
 import spn_compiler.backend.software.ast.nodes.variable.ASTVariable
 
@@ -18,10 +20,19 @@ class ASTBuilder {
   type ASTBuildingException = RuntimeException
 
   //
-  // Statement handling
+  // Function handling
   //
+  def declareExternalFunction(name : String, returnType : ASTType, parameters : ASTType*) : ASTFunctionPrototype =
+    new ASTFunctionPrototype(name, returnType, parameters:_*)
 
-  // Insertion point
+  def createFunctionParameter(name : String, ty : ASTType) : ASTFunctionParameter = new ASTFunctionParameter(name, ty)
+
+  def defineLocalFunction(name : String, returnType : ASTType, parameters : ASTFunctionParameter*) : ASTFunction =
+    new ASTFunction(name, returnType, parameters:_*)
+
+  //
+  // Maintain insertion point
+  //
   protected case class ASTInsertionPoint(block : Option[ASTBlockStatement], stmt : Option[ASTStatement])
 
   protected var insertionPoint : ASTInsertionPoint = ASTInsertionPoint(None, None)
@@ -56,7 +67,9 @@ class ASTBuilder {
       case _ => stmt
   }
 
-  // Control flow
+  //
+  // Control flow handling
+  //
 
   def createIf(testExpression : ASTValue): ASTIfStatement = insertStatement(new ASTIfStatement(testExpression))
 
@@ -70,6 +83,16 @@ class ASTBuilder {
     val increment = add(readVariable(ref), stride)
     insertStatement(new ASTForLoop(Some(ref), Some(lowerBound), comparison, Some(ref), Some(increment)))
   }
+
+  def createCallStatement(call : ASTCallExpression) : ASTCallStatement = insertStatement(new ASTCallStatement(call))
+
+  def createCallStatement(function : ASTFunctionPrototype, parameters : ASTValue*) : ASTCallStatement =
+    insertStatement(new ASTCallStatement(new ASTCallExpression(function, parameters:_*)))
+
+  def call(function : ASTFunctionPrototype, parameters : ASTValue*) : ASTCallExpression =
+    new ASTCallExpression(function, parameters:_*)
+
+  def ret(returnValue : ASTValue) : ASTReturnStatement = insertStatement(new ASTReturnStatement(returnValue))
 
 
   //
