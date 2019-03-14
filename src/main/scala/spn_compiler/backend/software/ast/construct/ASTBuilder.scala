@@ -20,22 +20,42 @@ class ASTBuilder {
   // Statement handling
   //
 
-  // Block statements
-  def insertBeforeInBlock(block : ASTBlockStatement, insertionPoint : ASTStatement, stmt : ASTStatement): ASTStatement = {
-    block.addBefore(insertionPoint, stmt)
+  // Insertion point
+  protected case class ASTInsertionPoint(block : Option[ASTBlockStatement], stmt : Option[ASTStatement])
+
+  protected var insertionPoint : ASTInsertionPoint = ASTInsertionPoint(None, None)
+
+  def setInsertionPoint(block : ASTBlockStatement) : Unit = {
+    insertionPoint = ASTInsertionPoint(Some(block), None)
   }
 
-  def insertAfterInBlock(block : ASTBlockStatement, insertionPoint : ASTStatement, stmt : ASTStatement) : ASTStatement = {
-    block.addAfter(insertionPoint, stmt)
+  def setInsertionPointBefore(stmt : ASTStatement) : Unit = {
+    require(stmt.block.isDefined, "No block defined for statement!")
+    insertionPoint = ASTInsertionPoint(stmt.block, Some(stmt))
   }
 
-  def appendToBlock(block : ASTBlockStatement, stmt : ASTStatement) : ASTStatement = {
-    block.addAtEnd(stmt)
+  def setInsertionPointAfter(stmt : ASTStatement) : Unit = {
+    require(stmt.block.isDefined, "No block defined for statement!")
+    insertionPoint = ASTInsertionPoint(stmt.block, stmt.block.get.getNextStatement(stmt))
   }
 
-  def deleteFromBlock(block : ASTBlockStatement, stmt : ASTStatement) : Unit = {
-    block.remove(stmt)
+  def deleteStatement(stmt : ASTStatement) : Unit = {
+    if(stmt.block.isDefined){
+      stmt.block.get.delete(stmt)
+      if(insertionPoint.stmt.contains(stmt)){
+        setInsertionPoint(stmt.block.get)
+      }
+    }
   }
+
+  protected def insertStatement[Stmt <: ASTStatement](stmt : Stmt) : Stmt =
+    (insertionPoint.block, insertionPoint.stmt) match {
+      case (Some(block), Some(insertBefore)) => block.insertBefore(insertBefore, stmt)
+      case (Some(block), None) => block.append(stmt)
+      case _ => stmt
+  }
+
+
 
   //
   // Variable handling
@@ -56,7 +76,7 @@ class ASTBuilder {
     if(!variables.contains(variable)){
       throw new ASTBuildingException("Can only declare variable created with this builder before!")
     }
-    new ASTVariableDeclaration(variable)
+    insertStatement(new ASTVariableDeclaration(variable))
   }
 
   def referenceVariable(variable : ASTVariable) : ASTVariableReference = new ASTVariableReference(variable)
@@ -76,13 +96,13 @@ class ASTBuilder {
     readVariable(referenceElement(reference, element))
 
   def assignVariable(reference : ASTReference, value : ASTValue) : ASTVariableAssignment =
-    new ASTVariableAssignment(reference, value)
+    insertStatement(new ASTVariableAssignment(reference, value))
 
   def assignIndex(reference : ASTReference, index : ASTValue, value : ASTValue) : ASTVariableAssignment =
-    new ASTVariableAssignment(referenceIndex(reference, index), value)
+    insertStatement(new ASTVariableAssignment(referenceIndex(reference, index), value))
 
   def assignElement(reference : ASTReference, element : String, value : ASTValue) : ASTVariableAssignment =
-    new ASTVariableAssignment(referenceElement(reference, element), value)
+    insertStatement(new ASTVariableAssignment(referenceElement(reference, element), value))
 
   //
   // Constants and literals.

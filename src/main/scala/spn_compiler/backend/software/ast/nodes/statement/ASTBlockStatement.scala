@@ -8,47 +8,32 @@ class ASTBlockStatement private[ast](private val builder : ASTBuilder) {
 
   private val statements : ListBuffer[ASTStatement] = ListBuffer()
 
-  def insertBefore(insertionPoint : ASTStatement, stmt : ASTStatement) : ASTStatement = {
-    builder.insertBeforeInBlock(this, insertionPoint, stmt)
-  }
-
-  def insertAfter(insertionPoint : ASTStatement, stmt : ASTStatement) : ASTStatement = {
-    builder.insertAfterInBlock(this, insertionPoint, stmt)
-  }
-
-  def append(stmt : ASTStatement) : ASTStatement = {
-    builder.appendToBlock(this, stmt)
-  }
-
-  def ++(stmt : ASTStatement) : ASTStatement = append(stmt)
-
-  def delete(stmt : ASTStatement) : Unit = {
-    builder.deleteFromBlock(this, stmt)
-  }
-
-  private[ast] def addBefore(insertionPoint: ASTStatement, stmt : ASTStatement) : ASTStatement = {
+  private[ast] def insertBefore[Stmt <: ASTStatement](insertionPoint: ASTStatement, stmt : Stmt) : Stmt = {
     require(statements.contains(insertionPoint), "Can only insert before statement already contained in this block!")
     stmt.setBlock(this)
     statements.insert(statements.indexOf(insertionPoint), stmt)
     stmt
   }
 
-  private[ast] def addAfter(insertionPoint: ASTStatement, stmt : ASTStatement) : ASTStatement = {
-    require(statements.contains(insertionPoint), "Can only insert after statement already contained in this block!")
-    stmt.setBlock(this)
-    statements.insert(statements.indexOf(insertionPoint)+1, stmt)
-    stmt
-  }
-
-  private[ast] def addAtEnd(stmt : ASTStatement): ASTStatement = {
+  private[ast] def append[Stmt <: ASTStatement](stmt : Stmt): Stmt = {
     stmt.setBlock(this)
     statements.append(stmt)
     stmt
   }
 
-  private[ast] def remove(stmt : ASTStatement) : Unit = {
+  private[ast] def delete(stmt : ASTStatement) : Unit = {
     if(statements.contains(stmt)){
       statements.remove(statements.indexOf(stmt))
+    }
+  }
+
+  private[ast] def getNextStatement(stmt : ASTStatement) : Option[ASTStatement] = {
+    require(statements.contains(stmt), "Statement is not part of this block")
+    if(statements.last == stmt){
+      None
+    }
+    else {
+      Some(statements(statements.indexOf(stmt)+1))
     }
   }
 
