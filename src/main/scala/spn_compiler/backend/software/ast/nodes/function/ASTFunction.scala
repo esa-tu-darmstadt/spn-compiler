@@ -1,12 +1,15 @@
 package spn_compiler.backend.software.ast.nodes.function
 
 import spn_compiler.backend.software.ast.nodes.reference.ASTReferencable
+import spn_compiler.backend.software.ast.nodes.statement.ASTBlockStatement
 import spn_compiler.backend.software.ast.nodes.types.ASTType
 
 class ASTFunction private[ast](name : String, returnType : ASTType, private val params : ASTFunctionParameter*)
   extends ASTFunctionPrototype(name, returnType, params.map(_.ty):_*){
 
   def getParameters : List[ASTFunctionParameter] = params.toList
+
+  val body = new ASTBlockStatement
 
 }
 
