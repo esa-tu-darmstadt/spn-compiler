@@ -8,6 +8,8 @@ trait ASTReferencable extends ASTNode {
 
   def getType : ASTType
 
+  def name : String
+
 }
 
 trait ASTReference extends ASTNode {

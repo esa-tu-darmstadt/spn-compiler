@@ -239,7 +239,7 @@ trait ASTBuilder {
     insertStatement(new ASTVariableDeclaration(variable, Some(initValue)))
   }
 
-  private val globalVariables : ListBuffer[ASTVariableDeclaration] = ListBuffer()
+  protected val globalVariables : ListBuffer[ASTVariableDeclaration] = ListBuffer()
 
   /**
     * Declare the given variable as global variable in this module.
