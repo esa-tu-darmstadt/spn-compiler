@@ -161,7 +161,7 @@ trait ASTBuilder {
 
   /**
     * Create a call '''statement''' from a call '''expression''', discarding the return value if necessary.
-    * @param call [[ASTCallExpression]].
+    * @param call [[ASTCallExpression]] for the actual call.
     * @return New [[ASTCallStatement]]
     */
   def createCallStatement(call : ASTCallExpression) : ASTCallStatement = insertStatement(new ASTCallStatement(call))
@@ -237,6 +237,35 @@ trait ASTBuilder {
       throw new ASTBuildingException("Can only declare variable created with this builder before!")
     }
     insertStatement(new ASTVariableDeclaration(variable, Some(initValue)))
+  }
+
+  private val globalVariables : ListBuffer[ASTVariableDeclaration] = ListBuffer()
+
+  /**
+    * Declare the given variable as global variable in this module.
+    * @param variable [[ASTVariable]] to declare as global variable.
+    */
+  def declareGlobalVariable(variable : ASTVariable) : Unit = {
+    if(!variables.contains(variable)){
+      throw new ASTBuildingException("Can only declare variable created with this builder before!")
+    }
+    val declaration = new ASTVariableDeclaration(variable)
+    globalVariables += declaration
+    declaration
+  }
+
+  /**
+    * Declare the given variable as global variable in this module.
+    * @param variable [[ASTVariable]] to declare as global variable.
+    * @param initValue Initial value of the variable.
+    */
+  def declareGlobalVariable(variable : ASTVariable, initValue : ASTValue) : Unit = {
+    if(!variables.contains(variable)){
+      throw new ASTBuildingException("Can only declare variable created with this builder before!")
+    }
+    val declaration = new ASTVariableDeclaration(variable, Some(initValue))
+    globalVariables += declaration
+    declaration
   }
 
   /**
