@@ -51,7 +51,7 @@ class ASTVariableTest extends FlatSpec with Matchers {
   it should "pattern-match" in {
     val variable = builder.createVariable(IntegerType, "var")
     val declaration = builder.declareVariable(variable)
-    val ASTVariableDeclaration(variable2) = declaration
+    val ASTVariableDeclaration(variable2, None) = declaration
     variable2 should be(variable)
   }
 
