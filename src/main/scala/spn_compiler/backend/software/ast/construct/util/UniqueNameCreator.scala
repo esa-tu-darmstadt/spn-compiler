@@ -2,10 +2,19 @@ package spn_compiler.backend.software.ast.construct.util
 
 import scala.collection.mutable
 
+/**
+  * Utility class to compute unique names for entities.
+  */
 class UniqueNameCreator {
 
   private var existingNames : mutable.Map[String, Int] = mutable.Map()
 
+  /**
+    * Create a unique name, using the given name as base. The method will incrementally add suffixes to the name
+    * until the name is unique.
+    * @param name Base name.
+    * @return Unique name, based on the given name.
+    */
   def makeUniqueName(name : String) : String = {
     if(!existingNames.contains(name)){
       // If this is the first time we encounter this variable name, we can use the name directly.
