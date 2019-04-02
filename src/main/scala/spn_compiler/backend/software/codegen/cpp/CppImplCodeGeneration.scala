@@ -13,7 +13,7 @@ class CppImplCodeGeneration(ast : ASTModule, headerName : String,  writer : Code
   def generateCode() : Unit = {
     val ASTModule(name, _, _, functions) = ast
     writer.writeln("#include \"%s\"".format(headerName))
-
+    functions.foreach(writeFunction)
   }
 
   protected def writeFunction(function : ASTFunction) : Unit = {

@@ -1,5 +1,6 @@
 package spn_compiler.backend.software.codegen.cpp
 
+import spn_compiler.backend.software.ast.nodes.types.ScalarType
 import spn_compiler.backend.software.ast.nodes.value.ASTValue
 import spn_compiler.backend.software.ast.nodes.value.access.ASTVariableRead
 import spn_compiler.backend.software.ast.nodes.value.constant.{ASTArrayInit, ASTConstant, ASTStructInit}
@@ -13,7 +14,7 @@ trait CppValueCodeGeneration extends ReferenceCodeGeneration with TypeCodeGenera
   def generateValue(value : ASTValue) : String = value match {
     case ASTCallExpression(func, params : Seq[ASTValue]) =>
       "%s(%s)".format(func.name, params.map(generateValue).mkString(","))
-    case ASTConstant(_, const) => const.toString
+    case const : ASTConstant[ScalarType, AnyVal] => const.getConstantValue.toString
     case ASTArrayInit(values : Seq[ASTValue]) => "{%s}".format(values.map(generateValue).mkString(","))
     case ASTDivision(l, r) => "(%s) / (%s)".format(generateValue(l), generateValue(r))
     case ASTOr(l, r) => "(%s) | (%s)".format(generateValue(l), generateValue(r))
