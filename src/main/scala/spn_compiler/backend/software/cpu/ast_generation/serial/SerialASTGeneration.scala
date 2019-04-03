@@ -42,7 +42,7 @@ class SerialASTGeneration {
     spnFunction
   }
 
-  val constructedSubGraphs : mutable.Map[IRNode, ASTValue] = mutable.Map()
+  private val constructedSubGraphs : mutable.Map[IRNode, ASTValue] = mutable.Map()
 
   protected def constructSubAST(subTreeRot : IRNode, module : ASTModule, inputParam : ASTFunctionParameter) : ASTValue =
     constructedSubGraphs.getOrElseUpdate(subTreeRot, subTreeRot match {
