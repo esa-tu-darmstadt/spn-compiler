@@ -3,6 +3,9 @@ package spn_compiler.driver
 import java.io.File
 
 import scopt._
+import spn_compiler.backend.software.codegen.CodeWriter
+import spn_compiler.backend.software.codegen.cpp.{CppHeaderCodeGeneration, CppImplCodeGeneration}
+import spn_compiler.backend.software.cpu.ast_generation.serial.SerialASTGeneration
 import spn_compiler.frontend.parser.Parser
 import spn_compiler.util.statistics.GraphStatistics
 
@@ -32,6 +35,13 @@ object Driver extends App {
   if(cliConfig.computeStats){
     GraphStatistics.computeStatistics(spn, cliConfig.statsFile)
   }
+
+  val ast = new SerialASTGeneration().createAST(spn)
+
+  val headerFile = "spn.hpp"
+  CppHeaderCodeGeneration(ast, CodeWriter(new File(headerFile))).generateHeader()
+  new CppImplCodeGeneration(ast, headerFile, CodeWriter(new File("spn.cpp"))).generateCode()
+
 }
 
 case class CLIConfig(in : File = new File("structure.spn"), statsFile : File = new File("stats.spns"),
