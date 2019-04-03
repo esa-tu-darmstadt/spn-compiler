@@ -251,7 +251,6 @@ trait ASTBuilder {
     }
     val declaration = new ASTVariableDeclaration(variable)
     globalVariables += declaration
-    declaration
   }
 
   /**
@@ -265,7 +264,6 @@ trait ASTBuilder {
     }
     val declaration = new ASTVariableDeclaration(variable, Some(initValue))
     globalVariables += declaration
-    declaration
   }
 
   /**
