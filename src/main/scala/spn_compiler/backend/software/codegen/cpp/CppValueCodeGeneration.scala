@@ -12,10 +12,10 @@ import spn_compiler.backend.software.codegen.{ReferenceCodeGeneration, TypeCodeG
 trait CppValueCodeGeneration extends ReferenceCodeGeneration with TypeCodeGeneration {
 
   def generateValue(value : ASTValue) : String = value match {
-    case ASTCallExpression(func, params : Seq[ASTValue]) =>
+    case ASTCallExpression(func, params @ _*) =>
       "%s(%s)".format(func.name, params.map(generateValue).mkString(","))
     case const : ASTConstant[ScalarType, AnyVal] => const.getConstantValue.toString
-    case ASTArrayInit(values : Seq[ASTValue]) => "{%s}".format(values.map(generateValue).mkString(","))
+    case ASTArrayInit(values @ _*) => "{%s}".format(values.map(generateValue).mkString(","))
     case ASTDivision(l, r) => "(%s) / (%s)".format(generateValue(l), generateValue(r))
     case ASTOr(l, r) => "(%s) | (%s)".format(generateValue(l), generateValue(r))
     case ASTAnd(l, r) => "(%s) & (%s)".format(generateValue(l), generateValue(r))
@@ -33,7 +33,7 @@ trait CppValueCodeGeneration extends ReferenceCodeGeneration with TypeCodeGenera
     case ASTTypeConversion(srcVal, tty) => "((%s) %s)".format(generateType(tty), generateValue(srcVal))
     case ASTNot(op) => "~(%s)".format(generateValue(op))
     case ASTNeg(op) => "-(%s)".format(generateValue(op))
-    case ASTStructInit(_, values : Seq[ASTValue]) => "{%s}".format(values.map(generateValue).mkString(","))
+    case ASTStructInit(_, values @ _*) => "{%s}".format(values.map(generateValue).mkString(","))
     case ASTVariableRead(_, reference) => generateReference(reference)
   }
 

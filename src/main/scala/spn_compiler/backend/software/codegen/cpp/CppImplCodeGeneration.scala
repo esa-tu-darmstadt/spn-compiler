@@ -11,21 +11,28 @@ class CppImplCodeGeneration(ast : ASTModule, headerName : String,  writer : Code
   with CppReferenceCodeGeneration with CppTypeCodeGeneration {
 
   def generateCode() : Unit = {
-    val ASTModule(name, _, _, functions) = ast
+    val ASTModule(name, _, globalVars, functions) = ast
     writer.writeln("#include \"%s\"".format(headerName))
+    globalVars.foreach(writeGlobalVariable)
     functions.foreach(writeFunction)
+    writer.close()
+  }
+
+  protected def writeGlobalVariable(decl : ASTVariableDeclaration) : Unit = {
+    val appendix = if(decl.initValue.isDefined) " = %s".format(generateValue(decl.initValue.get)) else ""
+    writer.writeln("%s%s;".format(declareVariable(decl.variable.ty, decl.variable.name), appendix))
   }
 
   protected def writeFunction(function : ASTFunction) : Unit = {
     val parameters = function.getParameters.map(p => "%s %s".format(generateType(p.ty), p.name))
-    writer.write("%s %s(%s);".format(generateType(function.returnType),
+    writer.write("%s %s(%s)".format(generateType(function.returnType),
       function.name, parameters.mkString(",")))
     writeBlockStatement(function.body)
   }
 
   protected def writeBlockStatement(block : ASTBlockStatement) : Unit = {
     writer.writeln("{")
-    val ASTBlockStatement(statements : Seq[ASTStatement]) = block
+    val ASTBlockStatement(statements @ _*) = block
     statements.foreach(writeStatement)
     writer.writeln("}")
   }

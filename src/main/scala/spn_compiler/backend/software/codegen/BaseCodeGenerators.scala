@@ -14,6 +14,8 @@ trait TypeCodeGeneration {
 
   def generateType(ty : ASTType) : String
 
+  def declareVariable(ty : ASTType, varName : String) : String
+
 }
 
 trait ValueCodeGeneration {
