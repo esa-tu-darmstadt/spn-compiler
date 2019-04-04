@@ -6,43 +6,43 @@ import scopt._
 import spn_compiler.backend.software.codegen.CodeWriter
 import spn_compiler.backend.software.codegen.cpp.{CppHeaderCodeGeneration, CppImplCodeGeneration}
 import spn_compiler.backend.software.cpu.ast_generation.serial.SerialASTGeneration
+import spn_compiler.driver.config.{BaseConfig, CLIConfig, CPPCompileConfig}
+import spn_compiler.driver.option.{BaseOptions, CPPCompileOptions}
 import spn_compiler.frontend.parser.Parser
+import spn_compiler.util.logging.Logging
 import spn_compiler.util.statistics.GraphStatistics
 
-object Driver extends App {
+class CmdConfig extends CLIConfig[CmdConfig] with BaseConfig[CmdConfig] with CPPCompileConfig[CmdConfig] {
+  override def self: CmdConfig = this
+}
 
-  val builder = OParser.builder[CLIConfig]
-  val cliParser = {
+object Driver extends App with Logging {
+
+  val builder = OParser.builder[CmdConfig]
+  val cliParser : OParser[_, CmdConfig] = {
     import builder._
     OParser.sequence(
       programName("spnc"),
       head("spnc", "0.0.1"),
-      opt[File]("stats-out")
-        .action((x, c) => c.copy(statsFile = x))
-        .text("Output file for statistics, default stats.spns"),
-      opt[Unit]('s', "stats")
-        .action((x, c) => c.copy(computeStats = true)),
-      arg[File]("<input-file>")
-        .action((f,c) => c.copy(in = f))
+      BaseOptions.apply,
+      CPPCompileOptions.apply
     )
   }
 
-  val cliConfig : CLIConfig = OParser.parse(cliParser, args, CLIConfig())
+  val cliConfig : CmdConfig = OParser.parse(cliParser, args, new CmdConfig())
     .getOrElse(throw new RuntimeException("CLI Error!"))
 
-  val spn = Parser.parseFile(cliConfig.in)
+   val spn = Parser.parseFile(cliConfig.in)
 
-  if(cliConfig.computeStats){
-    GraphStatistics.computeStatistics(spn, cliConfig.statsFile)
-  }
+   if(cliConfig.computeStats){
+     GraphStatistics.computeStatistics(spn, cliConfig.statsFile)
+   }
 
-  val ast = new SerialASTGeneration().createAST(spn)
+   val ast = new SerialASTGeneration().createAST(spn)
 
-  val headerFile = "spn.hpp"
-  CppHeaderCodeGeneration(ast, CodeWriter(new File(headerFile))).generateHeader()
-  new CppImplCodeGeneration(ast, headerFile, CodeWriter(new File("spn.cpp"))).generateCode()
+   val headerFile = "spn.hpp"
+   CppHeaderCodeGeneration(ast, CodeWriter(new File(headerFile))).generateHeader()
+   new CppImplCodeGeneration(ast, headerFile, CodeWriter(new File("spn.cpp"))).generateCode()
 
 }
 
-case class CLIConfig(in : File = new File("structure.spn"), statsFile : File = new File("stats.spns"),
-                     computeStats : Boolean = false)
