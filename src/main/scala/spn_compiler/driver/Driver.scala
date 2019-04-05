@@ -1,38 +1,42 @@
 package spn_compiler.driver
 
-import java.io.File
-
 import scopt._
+import spn_compiler.driver.compile.cpu.CPUCompilerDriver
+import spn_compiler.driver.config.{BaseConfig, CLIConfig, CPPCompileConfig}
+import spn_compiler.driver.option.{BaseOptions, CPPCompileOptions}
 import spn_compiler.frontend.parser.Parser
+import spn_compiler.util.logging.Logging
 import spn_compiler.util.statistics.GraphStatistics
 
-object Driver extends App {
+class DriverConfig extends CLIConfig[DriverConfig] with BaseConfig[DriverConfig] with CPPCompileConfig[DriverConfig] {
+  override def self: DriverConfig = this
+}
 
-  val builder = OParser.builder[CLIConfig]
-  val cliParser = {
+object Driver extends App with Logging {
+
+  val builder = OParser.builder[DriverConfig]
+  val cliParser : OParser[_, DriverConfig] = {
     import builder._
     OParser.sequence(
       programName("spnc"),
-      head("spnc", "0.0.1"),
-      opt[File]("stats-out")
-        .action((x, c) => c.copy(statsFile = x))
-        .text("Output file for statistics, default stats.spns"),
-      opt[Unit]('s', "stats")
-        .action((x, c) => c.copy(computeStats = true)),
-      arg[File]("<input-file>")
-        .action((f,c) => c.copy(in = f))
+      head("spnc", "0.0.2"),
+      BaseOptions.apply,
+      CPPCompileOptions.apply
     )
   }
 
-  val cliConfig : CLIConfig = OParser.parse(cliParser, args, CLIConfig())
+  val cliConfig : DriverConfig = OParser.parse(cliParser, args, new DriverConfig())
     .getOrElse(throw new RuntimeException("CLI Error!"))
+
+  Logging.setVerbosityLevel(cliConfig.verbosityLevel)
 
   val spn = Parser.parseFile(cliConfig.in)
 
   if(cliConfig.computeStats){
-    GraphStatistics.computeStatistics(spn, cliConfig.statsFile)
+   GraphStatistics.computeStatistics(spn, cliConfig.statsFile)
   }
+
+  CPUCompilerDriver.execute(spn, cliConfig)
+
 }
 
-case class CLIConfig(in : File = new File("structure.spn"), statsFile : File = new File("stats.spns"),
-                     computeStats : Boolean = false)
