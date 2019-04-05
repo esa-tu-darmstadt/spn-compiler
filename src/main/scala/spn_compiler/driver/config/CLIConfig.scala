@@ -2,8 +2,14 @@ package spn_compiler.driver.config
 
 import java.io.File
 
+import spn_compiler.util.logging.Logging.{VerbosityLevel, VerbosityNormal}
+
 trait CLIConfig[R]{
   def self : R
+}
+
+object BaseConfig {
+
 }
 
 trait BaseConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
@@ -16,24 +22,12 @@ trait BaseConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
 
   def in : File = inputFile
 
-  sealed trait VerbosityLevel{
-    val level : Int
-  }
-  case object VerbosityNormal extends VerbosityLevel{
-    override val level: Int = 0
-  }
-  case object VerbosityVerbose extends VerbosityLevel{
-    override val level: Int = 1
-  }
-  case object VerbosityExtraVerbose extends VerbosityLevel{
-    override val level: Int = 2
-  }
-
   private var verbosity : VerbosityLevel = VerbosityNormal
   def setVerbosityLevel(level :VerbosityLevel) : R = {
     verbosity = if(level.level > verbosity.level) level else verbosity
     self
   }
+  def verbosityLevel : VerbosityLevel = verbosity
 
   private var _computeStats : Boolean = false
   def enableStats(enable : Boolean) : R = {

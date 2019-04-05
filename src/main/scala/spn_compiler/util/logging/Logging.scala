@@ -1,12 +1,32 @@
 package spn_compiler.util.logging
 
-import wvlet.log.LogLevel.DEBUG
+import wvlet.log.LogLevel.{DEBUG, INFO, TRACE}
 import wvlet.log.{LogFormatter, Logger}
 
 object Logging {
+
   private val logger = Logger("spnc")
   logger.setFormatter(LogFormatter.SourceCodeLogFormatter)
-  logger.setLogLevel(DEBUG)
+
+  sealed trait VerbosityLevel{
+    val level : Int
+  }
+  case object VerbosityNormal extends VerbosityLevel{
+    override val level: Int = 0
+  }
+  case object VerbosityVerbose extends VerbosityLevel{
+    override val level: Int = 1
+  }
+  case object VerbosityExtraVerbose extends VerbosityLevel{
+    override val level: Int = 2
+  }
+
+  def setVerbosityLevel(level : VerbosityLevel) : Unit = level match {
+    case VerbosityNormal => logger.setLogLevel(INFO)
+    case VerbosityVerbose => logger.setLogLevel(DEBUG)
+    case VerbosityExtraVerbose => logger.setLogLevel(TRACE)
+  }
+
 }
 
 trait Logging {
