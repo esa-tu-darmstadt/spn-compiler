@@ -113,7 +113,7 @@ trait ASTBuilder {
     }
   }
 
-  protected def insertStatement[Stmt <: ASTStatement](stmt : Stmt) : Stmt =
+  def insertStatement[Stmt <: ASTStatement](stmt : Stmt) : Stmt =
     (insertionPoint.block, insertionPoint.stmt) match {
       case (Some(block), Some(insertBefore)) => block.insertBefore(insertBefore, stmt)
       case (Some(block), None) => block.append(stmt)
@@ -129,7 +129,7 @@ trait ASTBuilder {
     * @param testExpression Boolean test expression.
     * @return New [[ASTIfStatement]]
     */
-  def createIf(testExpression : ASTValue): ASTIfStatement = insertStatement(new ASTIfStatement(testExpression))
+  def createIf(testExpression : ASTValue): ASTIfStatement = new ASTIfStatement(testExpression)
 
   /**
     * Create a for-loop with the following header: for(IVar = IVal; TVal; IncrVar = IncrVal).
@@ -142,21 +142,21 @@ trait ASTBuilder {
     */
   def forLoop(initVar : Option[ASTReference], initValue : Option[ASTValue], testValue : ASTValue,
                  incrVar : Option[ASTReference], incrValue : Option[ASTValue]) : ASTForLoop =
-    insertStatement(new ASTForLoop(initVar, initValue, testValue, incrVar, incrValue))
+    new ASTForLoop(initVar, initValue, testValue, incrVar, incrValue)
 
   /**
     * Create a for-loop with the following header: for(Var = LB; Var < UB; Var = Var + Stride).
-    * @param variable Var
+    * @param variable   Var
     * @param lowerBound LB
     * @param upperBound UB
-    * @param stride Stride
+    * @param stride     Stride
     * @return New [[ASTForLoop]]
     */
   def forLoop(variable : ASTVariable, lowerBound : ASTValue, upperBound : ASTValue, stride : ASTValue) : ASTForLoop = {
     val ref = referenceVariable(variable)
     val comparison = cmpLT(readVariable(ref), upperBound)
     val increment = add(readVariable(ref), stride)
-    insertStatement(new ASTForLoop(Some(ref), Some(lowerBound), comparison, Some(ref), Some(increment)))
+    new ASTForLoop(Some(ref), Some(lowerBound), comparison, Some(ref), Some(increment))
   }
 
   /**
@@ -164,7 +164,7 @@ trait ASTBuilder {
     * @param call [[ASTCallExpression]] for the actual call.
     * @return New [[ASTCallStatement]]
     */
-  def createCallStatement(call : ASTCallExpression) : ASTCallStatement = insertStatement(new ASTCallStatement(call))
+  def createCallStatement(call : ASTCallExpression) : ASTCallStatement = new ASTCallStatement(call)
 
   /**
     * Create a call '''statement''' for the given function with the given parameters, discarding the return value
@@ -174,7 +174,7 @@ trait ASTBuilder {
     * @return New [[ASTCallStatement]].
     */
   def createCallStatement(function : ASTFunctionPrototype, parameters : ASTValue*) : ASTCallStatement =
-    insertStatement(new ASTCallStatement(new ASTCallExpression(function, parameters:_*)))
+    new ASTCallStatement(new ASTCallExpression(function, parameters:_*))
 
   /**
     * Create a call '''expression''', calling the given function with the given parameters.
@@ -190,7 +190,7 @@ trait ASTBuilder {
     * @param returnValue Return value.
     * @return New [[ASTReturnStatement]].
     */
-  def ret(returnValue : ASTValue) : ASTReturnStatement = insertStatement(new ASTReturnStatement(returnValue))
+  def ret(returnValue : ASTValue) : ASTReturnStatement = new ASTReturnStatement(returnValue)
 
 
   //
@@ -223,7 +223,7 @@ trait ASTBuilder {
     if(!variables.contains(variable)){
       throw new ASTBuildingException("Can only declare variable created with this builder before!")
     }
-    insertStatement(new ASTVariableDeclaration(variable))
+    new ASTVariableDeclaration(variable)
   }
 
   /**
@@ -236,7 +236,7 @@ trait ASTBuilder {
     if(!variables.contains(variable)){
       throw new ASTBuildingException("Can only declare variable created with this builder before!")
     }
-    insertStatement(new ASTVariableDeclaration(variable, Some(initValue)))
+    new ASTVariableDeclaration(variable, Some(initValue))
   }
 
   protected val globalVariables : ListBuffer[ASTVariableDeclaration] = ListBuffer()
@@ -323,7 +323,7 @@ trait ASTBuilder {
     * @return [[ASTVariableAssignment]].
     */
   def assignVariable(reference : ASTReference, value : ASTValue) : ASTVariableAssignment =
-    insertStatement(new ASTVariableAssignment(reference, value))
+    new ASTVariableAssignment(reference, value)
 
   /**
     * Assign the given value to the given index of the given reference to some entity.
@@ -333,7 +333,7 @@ trait ASTBuilder {
     * @return [[ASTVariableAssignment]].
     */
   def assignIndex(reference : ASTReference, index : ASTValue, value : ASTValue) : ASTVariableAssignment =
-    insertStatement(new ASTVariableAssignment(referenceIndex(reference, index), value))
+    new ASTVariableAssignment(referenceIndex(reference, index), value)
 
   /**
     * Assign the given value to the given element (by name) of the given reference to some entity.
@@ -343,7 +343,7 @@ trait ASTBuilder {
     * @return [[ASTVariableAssignment]].
     */
   def assignElement(reference : ASTReference, element : String, value : ASTValue) : ASTVariableAssignment =
-    insertStatement(new ASTVariableAssignment(referenceElement(reference, element), value))
+    new ASTVariableAssignment(referenceElement(reference, element), value)
 
   //
   // Constants and literals.

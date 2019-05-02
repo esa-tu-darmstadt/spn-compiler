@@ -26,11 +26,13 @@ class SerialASTGeneration {
     val topLevelFunction = module.defineLocalFunction("spn_toplevel", VoidType, numElements, inputData, outputData)
     module.setInsertionPoint(topLevelFunction.body)
     val loopVar = module.createVariable(IntegerType, "i")
-    module.declareVariable(loopVar)
+    module.insertStatement(module.declareVariable(loopVar))
     val constantZero = module.constantValue(IntegerType, 0)
-    val forLoop = module.forLoop(loopVar, constantZero, numElements, module.constantValue(IntegerType, 1))
+    val forLoop = module.insertStatement(module.forLoop(loopVar, constantZero,
+      numElements, module.constantValue(IntegerType, 1)))
     module.setInsertionPoint(forLoop.body)
-    module.assignIndex(outputData, loopVar, module.call(spnFunction, module.readIndex(inputData, loopVar)))
+    module.insertStatement(module.assignIndex(outputData, loopVar,
+      module.call(spnFunction, module.readIndex(inputData, loopVar))))
     topLevelFunction
   }
 
@@ -38,7 +40,7 @@ class SerialASTGeneration {
     val inputParam = module.createFunctionParameter("activation", inputStructType)
     val spnFunction = module.defineLocalFunction("spn", RealType, inputParam)
     module.setInsertionPoint(spnFunction.body)
-    module.ret(constructSubAST(spnRoot, module, inputParam))
+    module.insertStatement(module.ret(constructSubAST(spnRoot, module, inputParam)))
     spnFunction
   }
 
