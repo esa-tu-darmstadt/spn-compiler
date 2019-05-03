@@ -1,12 +1,14 @@
 package spn_compiler.backend.software.ast.nodes.statement.control_flow
 
+import spn_compiler.backend.software.ast.extensions.openmp.constructs.OMPCanonicalLoop
 import spn_compiler.backend.software.ast.nodes.reference.ASTReference
 import spn_compiler.backend.software.ast.nodes.statement.{ASTBlockStatement, ASTStatement}
 import spn_compiler.backend.software.ast.nodes.types.BooleanType
 import spn_compiler.backend.software.ast.nodes.value.ASTValue
 
 class ASTForLoop private[ast](val initVar : Option[ASTReference], val initValue : Option[ASTValue], val testValue : ASTValue,
-                              val incrVar : Option[ASTReference], val incrValue : Option[ASTValue]) extends ASTStatement {
+                              val incrVar : Option[ASTReference], val incrValue : Option[ASTValue])
+  extends ASTStatement with OMPCanonicalLoop {
 
   require(!(initVar.isDefined ^ initValue.isDefined), "Init variable and value must both be given or empty!")
   require(initVar.isEmpty || initVar.get.getType == initValue.get.getType, "Init variable and value must be of the same type!")

@@ -24,6 +24,9 @@ object CPPCompileOptions {
         opt[Unit]("fast-math")
           .action((_, c) => c.enableFastMath(true))
           .text("Allow aggressive, lossy floating-point optimizations"),
+        opt[Unit]("openmp-parallel")
+          .action((_, c) => c.enableOMPParallelFor(true))
+          .text("Use OpenMP to parallelize processing of examples"),
         opt[Unit]('S', "code-only")
           .action((_, c) => c.setCodeOnly(true))
           .text("Only write C++ code output"),
