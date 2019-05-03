@@ -41,6 +41,13 @@ trait CPPCompileConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
   }
   def compilerDriver : CPPCompilerDriver = compiler
 
+  private var ompParFor : Boolean = false
+  def enableOMPParallelFor(bool : Boolean) : R = {
+    ompParFor = bool
+    self
+  }
+  def isOMPParallelForEnabled : Boolean = ompParFor
+
 }
 
 private[driver] object CPPCompileConfig{

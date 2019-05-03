@@ -9,7 +9,7 @@ import spn_compiler.graph_ir.nodes._
 
 import scala.collection.mutable
 
-class SerialASTGeneration {
+class ASTGeneration {
 
   def createAST(graph : IRGraph) : ASTModule = {
     val module = new ASTModule("spn")
