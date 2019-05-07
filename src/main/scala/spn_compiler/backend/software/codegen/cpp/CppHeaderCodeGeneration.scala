@@ -9,7 +9,7 @@ case class CppHeaderCodeGeneration(ast : ASTModule, writer : CodeWriter) extends
   with CppTypeCodeGeneration with CppReferenceCodeGeneration {
 
   def generateHeader() : Unit = {
-    val ASTModule(_, structTypes, _, functions) = ast
+    val ASTModule(_, _, structTypes, _, functions) = ast
     writer.writeln("#ifndef _SPN_H")
     writer.writeln("#define _SPN_H")
     structTypes.foreach(writeStructType)

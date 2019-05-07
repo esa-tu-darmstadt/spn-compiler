@@ -11,9 +11,10 @@ class OMPImplCodeGeneration(ast : ASTModule, headerName : String,  writer : Code
   extends CppImplCodeGeneration(ast, headerName, writer) {
 
   override def generateCode() : Unit = {
-    val ASTModule(name, _, globalVars, functions) = ast
+    val ASTModule(name, headers, _, globalVars, functions) = ast
     writer.writeln("#include \"%s\"".format(headerName))
     writer.writeln("#include <omp.h>")
+    headers.foreach(h => writer.writeln("#include <%s>".format(h)))
     globalVars.foreach(writeGlobalVariable)
     functions.foreach(writeFunction)
     writer.close()
