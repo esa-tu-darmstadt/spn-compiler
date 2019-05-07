@@ -11,8 +11,9 @@ class CppImplCodeGeneration(ast : ASTModule, headerName : String,  writer : Code
   with CppReferenceCodeGeneration with CppTypeCodeGeneration {
 
   def generateCode() : Unit = {
-    val ASTModule(name, _, globalVars, functions) = ast
+    val ASTModule(name, headers, _, globalVars, functions) = ast
     writer.writeln("#include \"%s\"".format(headerName))
+    headers.foreach(h => writer.writeln("#include <%s>".format(h)))
     globalVars.foreach(writeGlobalVariable)
     functions.foreach(writeFunction)
     writer.close()
