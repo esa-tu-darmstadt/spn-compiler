@@ -49,7 +49,7 @@ case class ArrayType private[ast](elemType : ASTType) extends ASTType {
   override def isArrayType: Boolean = true
 }
 
-case class StructType private[ast](name : String, elements : List[(String, ASTType)]) extends ASTType {
+class StructType private[ast](val name : String, val elements : List[(String, ASTType)]) extends ASTType {
 
   private val _elements : ListMap[String,  ASTType] = ListMap(elements :_*)
 
@@ -57,4 +57,10 @@ case class StructType private[ast](name : String, elements : List[(String, ASTTy
     _elements.getOrElse(id, throw new RuntimeException("No element with id %s found!".format(id)))
 
   override def isStructType: Boolean = true
+}
+
+object StructType {
+
+  def unapplySeq(arg: StructType): Option[(String, Seq[(String, ASTType)])] = Some(arg.name, arg.elements)
+
 }
