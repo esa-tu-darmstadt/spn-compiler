@@ -29,6 +29,6 @@ case object CUDAMemCpy extends ASTExternalFunction("cuda.h", "cudaMemcpy",
   IntegerType, ArrayType(VoidType),  ArrayType(VoidType), IntegerType, IntegerType)
 
 case object CUDAMalloc extends ASTExternalFunction("cuda.h", "cudaMalloc", IntegerType,
-  ArrayType(VoidType), IntegerType)
+  ArrayType(ArrayType(VoidType)), IntegerType)
 
 
