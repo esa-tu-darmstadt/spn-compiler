@@ -1,6 +1,7 @@
 package spn_compiler.backend.software.ast.construct
 
 import spn_compiler.backend.software.ast.construct.util.UniqueNameCreator
+import spn_compiler.backend.software.ast.extensions.cpp.value.CPPAddressOfOperator
 import spn_compiler.backend.software.ast.nodes.function.{ASTExternalFunction, ASTFunction, ASTFunctionParameter, ASTFunctionPrototype}
 import spn_compiler.backend.software.ast.nodes.reference._
 import spn_compiler.backend.software.ast.nodes.statement.control_flow.{ASTCallStatement, ASTForLoop, ASTIfStatement, ASTReturnStatement}
@@ -447,5 +448,16 @@ trait ASTBuilder {
     * @return [[ASTTypeConversion]].
     */
   def convert(op : ASTValue, targetType : ASTType) : ASTTypeConversion = new ASTTypeConversion(op, targetType)
+
+  //
+  // Address-of operator
+  //
+  /**
+    * Apply the C++-specific address-of operator to some reference, yielding a pointer to the underlying
+    * entity.
+    * @param ref Reference some entity.
+    * @return [[CPPAddressOfOperator]], essentially a array-type value representing the pointer.
+    */
+  def addressOf(ref : ASTReference) : CPPAddressOfOperator = new CPPAddressOfOperator(ref)
 
 }
