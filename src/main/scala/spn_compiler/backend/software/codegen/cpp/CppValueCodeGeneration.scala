@@ -1,6 +1,6 @@
 package spn_compiler.backend.software.codegen.cpp
 
-import spn_compiler.backend.software.ast.extensions.cpp.value.CPPAddressOfOperator
+import spn_compiler.backend.software.ast.extensions.cpp.value.{CPPAddressOfOperator, CPPSizeOfOperator}
 import spn_compiler.backend.software.ast.nodes.types.ScalarType
 import spn_compiler.backend.software.ast.nodes.value.ASTValue
 import spn_compiler.backend.software.ast.nodes.value.access.ASTVariableRead
@@ -37,6 +37,7 @@ trait CppValueCodeGeneration extends ReferenceCodeGeneration with TypeCodeGenera
     case ASTStructInit(_, values @ _*) => "{%s}".format(values.map(generateValue).mkString(","))
     case ASTVariableRead(_, reference) => generateReference(reference)
     case CPPAddressOfOperator(reference) => "&%s".format(generateReference(reference))
+    case CPPSizeOfOperator(reference) => "sizeof(%s)".format(generateReference(reference))
   }
 
   private def formatPrecedence(operand : ASTValue, operator : ASTValue) : String =
