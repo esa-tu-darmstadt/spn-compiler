@@ -1,0 +1,6 @@
+SumNode_0 SumNode(0.5*HistogramNode_1, 0.5*HistogramNode_2){
+	HistogramNode_1 Histogram(V0|[1,2,3,4];[0.3333,0.1667,0.5   ];[1,2,3])
+	HistogramNode_2 Histogram(V0|[1,2,3,4,5,6];[0.3333,0.1667,0.3333,0.    ,0.1667];[1,2,3,4,5])
+	}
+
+# V0

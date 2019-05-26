@@ -42,7 +42,12 @@ dependencies {
 
     // https://mvnrepository.com/artifact/org.wvlet.airframe/airframe-log
     compile group: 'org.wvlet.airframe', name: 'airframe-log_2.12', version: '19.4.0'
-    
+
+    // ScalaPB: Scala Protocol Buffer Compiler
+    // https://scalapb.github.io/
+    compile "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:0.9.0-M6"
+    compile 'io.grpc:grpc-netty-shaded:1.21.0'
+
 }
 
 apply plugin: 'application'

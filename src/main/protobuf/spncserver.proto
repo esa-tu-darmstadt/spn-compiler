@@ -1,0 +1,39 @@
+// Copyright 2015 gRPC authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "spn_compiler.server.grpc";
+option java_outer_classname = "SPNCompilerProto";
+option objc_class_prefix = "SPNCPROTO";
+
+package parser;
+
+// The SPN compiler service definition.
+service SPNCompiler {
+  // Compiles a valid SPN, or fails otherwise.
+  rpc SPNCompile_JSON (CompileRequest) returns (CompileReply) {}
+  rpc SPNCompile_Text (CompileRequest) returns (CompileReply) {}
+}
+
+// The compile request consists of the SPN to compile (as JSON).
+message CompileRequest {
+  string spn = 1;
+}
+
+// The return code of the compilation, indicating e.g. success / failure.
+message CompileReply {
+  string message = 1;
+}

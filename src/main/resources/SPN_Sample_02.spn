@@ -1,0 +1,22 @@
+SumNode_0 SumNode(0.4*ProductNode_1, 0.6*ProductNode_2){
+	ProductNode_1 ProductNode(CategoricalNode_3, SumNode_4){
+		CategoricalNode_3 Categorical(V0|p=[0.2, 0.8])
+		SumNode_4 SumNode(0.3*ProductNode_7, 0.7*ProductNode_8){
+			ProductNode_7 ProductNode(CategoricalNode_11, CategoricalNode_12){
+				CategoricalNode_11 Categorical(V1|p=[0.3, 0.7])
+				CategoricalNode_12 Categorical(V2|p=[0.4, 0.6])
+				}
+			ProductNode_8 ProductNode(CategoricalNode_13, CategoricalNode_14){
+				CategoricalNode_13 Categorical(V1|p=[0.5, 0.5])
+				CategoricalNode_14 Categorical(V2|p=[0.6, 0.4])
+				}
+			}
+		}
+	ProductNode_2 ProductNode(ProductNode_5, CategoricalNode_6){
+		ProductNode_5 ProductNode(CategoricalNode_9, CategoricalNode_10){
+			CategoricalNode_9 Categorical(V0|p=[0.2, 0.8])
+			CategoricalNode_10 Categorical(V1|p=[0.3, 0.7])
+			}
+		CategoricalNode_6 Categorical(V2|p=[0.4, 0.6])
+		}
+	}
