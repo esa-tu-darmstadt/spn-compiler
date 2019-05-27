@@ -39,9 +39,9 @@ class CUDAASTGeneration {
     module.insertStatement(module.declareVariable(deviceOutput))
     val inputSize = module.mul(module.sizeOf(inputData), numElements)
     val outputSize = module.mul(module.sizeOf(outputData), numElements)
-    module.insertStatement(module.call(CUDAMalloc, convert2MallocPointer(module, deviceInput), inputSize))
-    module.insertStatement(module.call(CUDAMalloc, convert2MallocPointer(module, deviceOutput), outputSize))
-    module.insertStatement(module.call(CUDAMemCpy, deviceInput, inputData, CUDAMemCpyHostToDevice))
+    module.insertStatement(module.createCallStatement(CUDAMalloc, convert2MallocPointer(module, deviceInput), inputSize))
+    module.insertStatement(module.createCallStatement(CUDAMalloc, convert2MallocPointer(module, deviceOutput), outputSize))
+    module.insertStatement(module.createCallStatement(CUDAMemCpy, deviceInput, inputData, CUDAMemCpyHostToDevice))
     val gridDim = module.createVariable(CUDADim3Type, "gridDim")
     module.insertStatement(module.dim3(gridDim,
       module.convert(module.call(Ceil,
@@ -49,7 +49,7 @@ class CUDAASTGeneration {
     val blockDim = module.createVariable(CUDADim3Type, "blockDim")
     module.insertStatement(module.dim3(blockDim, module.constantValue(IntegerType, 128)))
     module.insertStatement(module.invokeKernel(gridDim, blockDim, spnKernel, numElements, deviceInput, deviceOutput))
-    module.insertStatement(module.call(CUDAMemCpy, outputData, deviceOutput, outputSize, CUDAMemCpyDeviceToHost))
+    module.insertStatement(module.createCallStatement(CUDAMemCpy, outputData, deviceOutput, outputSize, CUDAMemCpyDeviceToHost))
     topLevelFunction
   }
 
@@ -122,7 +122,7 @@ class CUDAASTGeneration {
                                    index : ASTValue, variable : ASTVariable) : ASTStatement = buckets match {
     case Nil => module.assignVariable(variable, module.constantValue(RealType, 0.0))
     case head :: tail => {
-      val ifStmt = module.createIf(module.cmpLT(index, module.constantValue(RealType, head.upperBound)))
+      val ifStmt = module.createIf(module.cmpLT(index, module.constantValue(IntegerType, head.upperBound)))
       module.setInsertionPoint(ifStmt.thenBranch)
       module.insertStatement(module.assignVariable(variable, module.constantValue(RealType, head.value)))
       module.setInsertionPoint(ifStmt.elseBranch)
