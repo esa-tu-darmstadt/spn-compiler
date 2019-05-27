@@ -2,13 +2,16 @@ package spn_compiler.driver
 
 import scopt._
 import spn_compiler.driver.compile.cpu.CPUCompilerDriver
-import spn_compiler.driver.config.{BaseConfig, CLIConfig, CPPCompileConfig}
-import spn_compiler.driver.option.{BaseOptions, CPPCompileOptions}
+import spn_compiler.driver.config.{BaseConfig, CLIConfig, CPPCompileConfig, CompilerConfig}
+import spn_compiler.driver.option.{BaseOptions, CPPCompileOptions, CompilerOptions}
 import spn_compiler.frontend.parser.Parser
 import spn_compiler.util.logging.Logging
 import spn_compiler.util.statistics.GraphStatistics
 
-class DriverConfig extends CLIConfig[DriverConfig] with BaseConfig[DriverConfig] with CPPCompileConfig[DriverConfig] {
+class DriverConfig extends CLIConfig[DriverConfig]
+  with BaseConfig[DriverConfig]
+  with CompilerConfig[DriverConfig]
+  with CPPCompileConfig[DriverConfig] {
   override def self: DriverConfig = this
 }
 
@@ -21,6 +24,7 @@ object Driver extends App with Logging {
       programName("spnc"),
       head("spnc", "0.0.2"),
       BaseOptions.apply,
+      CompilerOptions.apply,
       CPPCompileOptions.apply
     )
   }
