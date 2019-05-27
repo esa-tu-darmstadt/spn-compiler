@@ -41,7 +41,8 @@ class CUDAASTGeneration {
     val outputSize = module.mul(module.sizeOf(outputData), numElements)
     module.insertStatement(module.createCallStatement(CUDAMalloc, convert2MallocPointer(module, deviceInput), inputSize))
     module.insertStatement(module.createCallStatement(CUDAMalloc, convert2MallocPointer(module, deviceOutput), outputSize))
-    module.insertStatement(module.createCallStatement(CUDAMemCpy, deviceInput, inputData, CUDAMemCpyHostToDevice))
+    module.insertStatement(module.createCallStatement(CUDAMemCpy, module.convert(deviceInput, ArrayType(VoidType)),
+      module.convert(inputData, ArrayType(VoidType)), CUDAMemCpyHostToDevice))
     val gridDim = module.createVariable(CUDADim3Type, "gridDim")
     module.insertStatement(module.dim3(gridDim,
       module.convert(module.call(Ceil,
@@ -49,7 +50,8 @@ class CUDAASTGeneration {
     val blockDim = module.createVariable(CUDADim3Type, "blockDim")
     module.insertStatement(module.dim3(blockDim, module.constantValue(IntegerType, 128)))
     module.insertStatement(module.invokeKernel(gridDim, blockDim, spnKernel, numElements, deviceInput, deviceOutput))
-    module.insertStatement(module.createCallStatement(CUDAMemCpy, outputData, deviceOutput, outputSize, CUDAMemCpyDeviceToHost))
+    module.insertStatement(module.createCallStatement(CUDAMemCpy, module.convert(outputData, ArrayType(VoidType)),
+      module.convert(deviceOutput, ArrayType(VoidType)), outputSize, CUDAMemCpyDeviceToHost))
     topLevelFunction
   }
 
