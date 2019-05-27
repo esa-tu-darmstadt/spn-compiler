@@ -26,7 +26,7 @@ trait CppTypeCodeGeneration extends TypeCodeGeneration {
     case IntegerType => "int %s".format(varName)
     case RealType => "double %s".format(varName)
     case BooleanType => "bool %s".format(varName)
-    case StructType(tyName, _) => "%s_t %s".format(tyName, varName)
+    case StructType(tyName, _) => "%s %s".format(tyName, varName)
     case ArrayType(elemType) => "%s %s[]".format(generateType(elemType), varName)
     case _ => throw new RuntimeException("Cannot declare variable fo type %s!".format(ty))
   }

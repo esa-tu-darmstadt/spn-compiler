@@ -1,6 +1,7 @@
 package spn_compiler.backend.software.codegen
 
 import spn_compiler.backend.software.ast.nodes.reference.ASTReference
+import spn_compiler.backend.software.ast.nodes.statement.{ASTBlockStatement, ASTStatement}
 import spn_compiler.backend.software.ast.nodes.types.{ASTType, StructType}
 import spn_compiler.backend.software.ast.nodes.value.ASTValue
 
@@ -29,5 +30,13 @@ trait TypeCodeGeneration extends CodeGenerator {
 trait ValueCodeGeneration {
 
   def generateValue(value : ASTValue) : String
+
+}
+
+trait StatementCodeGeneration extends CodeGenerator {
+
+  def generateBlockStatement(block : ASTBlockStatement) : Unit
+
+  def generateStatement(stmt : ASTStatement) : Unit
 
 }
