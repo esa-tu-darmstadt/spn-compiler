@@ -26,7 +26,7 @@ object CompilerOptions {
           .text("Allow aggressive, lossy floating-point optimizations"),
         opt[Unit]('S', "code-only")
           .action((_, c) => c.setCodeOnly(true))
-          .text("Only write C++ code output")
+          .text("Only write code output")
       )
     }
     parser

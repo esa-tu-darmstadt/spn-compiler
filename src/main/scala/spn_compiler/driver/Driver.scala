@@ -2,6 +2,7 @@ package spn_compiler.driver
 
 import scopt._
 import spn_compiler.driver.compile.cpu.CPUCompilerDriver
+import spn_compiler.driver.compile.cuda.CUDACompilerDriver
 import spn_compiler.driver.config.{BaseConfig, CLIConfig, CPPCompileConfig, CompilerConfig}
 import spn_compiler.driver.option.{BaseOptions, CPPCompileOptions, CompilerOptions}
 import spn_compiler.frontend.parser.Parser
@@ -40,7 +41,11 @@ object Driver extends App with Logging {
    GraphStatistics.computeStatistics(spn, cliConfig.statsFile)
   }
 
-  CPUCompilerDriver.execute(spn, cliConfig)
+  cliConfig.target match {
+    case BaseConfig.CPPTarget => CPUCompilerDriver.execute(spn, cliConfig)
+    case BaseConfig.CUDATarget => CUDACompilerDriver.execute(spn, cliConfig)
+  }
+
 
 }
 
