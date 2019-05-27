@@ -7,7 +7,7 @@ import spn_compiler.backend.software.ast.nodes.statement.variable.{ASTVariableAs
 import spn_compiler.backend.software.ast.nodes.statement.{ASTBlockStatement, ASTStatement}
 import spn_compiler.backend.software.codegen.CodeWriter
 
-class CppImplCodeGeneration(ast : ASTModule, headerName : String,  writer : CodeWriter) extends CppValueCodeGeneration
+class CppImplCodeGeneration(ast : ASTModule, headerName : String, val writer : CodeWriter) extends CppValueCodeGeneration
   with CppReferenceCodeGeneration with CppTypeCodeGeneration {
 
   def generateCode() : Unit = {
