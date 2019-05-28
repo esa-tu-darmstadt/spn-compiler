@@ -65,3 +65,11 @@ object StructType {
   def unapplySeq(arg: StructType): Option[(String, Seq[(String, ASTType)])] = Some(arg.name, arg.elements)
 
 }
+
+abstract class EnumBaseType {
+  def toString : String
+}
+
+class EnumType [B <: EnumBaseType] private[ast](enumValues : B*) extends ScalarType {
+  override type BaseType = B
+}
