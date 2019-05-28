@@ -19,8 +19,10 @@ trait CppStatementCodeGeneration extends StatementCodeGeneration
     case ASTIfStatement(testVal, thenBlock, elseBlock) => {
       writer.write("if(%s)".format(generateValue(testVal)))
       generateBlockStatement(thenBlock)
-      writer.write("else")
-      generateBlockStatement(elseBlock)
+      if(!elseBlock.isEmpty){
+        writer.write("else")
+        generateBlockStatement(elseBlock)
+      }
     }
 
     case ASTVariableAssignment(ref, value) =>
