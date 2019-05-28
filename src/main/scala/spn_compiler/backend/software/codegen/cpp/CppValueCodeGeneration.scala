@@ -74,6 +74,7 @@ trait CppValueCodeGeneration extends ReferenceCodeGeneration with TypeCodeGenera
     case ASTStructInit(_, values @ _*) => 0
     case ASTVariableRead(_, reference) => 2 // Array access and member access
     case CPPAddressOfOperator(_) => 3
+    case CPPSizeOfOperator(_) => 3
   }
 
 }
