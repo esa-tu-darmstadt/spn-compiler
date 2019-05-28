@@ -26,7 +26,7 @@ object CUDACompilerDriver extends Logging {
     val implFile = FileUtil.createFileInDirectory(codeDirectory, "spn.cu")
     debug(s"Writing SPN CUDA implementation to ${implFile.getAbsoluteFile.toString}")
     new CUDAImplCodeGeneration(ast, headerName, CodeWriter(implFile)).generateCode()
-    val mainFile = FileUtil.createFileInDirectory(codeDirectory, "main.cpp")
+    val mainFile = FileUtil.createFileInDirectory(codeDirectory, "main.cu")
     debug(s"Writing C++ main implementation to ${mainFile.getAbsoluteFile.toString}")
     CUDAEntryPoint.writeMain(mainFile)
     if(config.outputCodeOnly){

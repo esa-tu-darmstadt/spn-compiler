@@ -37,12 +37,13 @@ class CUDAASTGeneration {
     module.insertStatement(module.declareVariable(deviceInput))
     val deviceOutput = module.createVariable(ArrayType(RealType), "deviceOutput")
     module.insertStatement(module.declareVariable(deviceOutput))
-    val inputSize = module.mul(module.sizeOf(inputData), numElements)
-    val outputSize = module.mul(module.sizeOf(outputData), numElements)
+    val zero = module.constantValue(IntegerType, 0)
+    val inputSize = module.mul(module.sizeOf(module.referenceIndex(inputData, zero)), numElements)
+    val outputSize = module.mul(module.sizeOf(module.referenceIndex(outputData, zero)), numElements)
     module.insertStatement(module.createCallStatement(CUDAMalloc, convert2MallocPointer(module, deviceInput), inputSize))
     module.insertStatement(module.createCallStatement(CUDAMalloc, convert2MallocPointer(module, deviceOutput), outputSize))
     module.insertStatement(module.createCallStatement(CUDAMemCpy, module.convert(deviceInput, ArrayType(VoidType)),
-      module.convert(inputData, ArrayType(VoidType)), CUDAMemCpyHostToDevice))
+      module.convert(inputData, ArrayType(VoidType)), inputSize, CUDAMemCpyHostToDevice))
     val gridDim = module.createVariable(CUDADim3Type, "gridDim")
     module.insertStatement(module.dim3(gridDim,
       module.convert(module.call(Ceil,
@@ -127,8 +128,9 @@ class CUDAASTGeneration {
       val ifStmt = module.createIf(module.cmpLT(index, module.constantValue(IntegerType, head.upperBound)))
       module.setInsertionPoint(ifStmt.thenBranch)
       module.insertStatement(module.assignVariable(variable, module.constantValue(RealType, head.value)))
+      val elseBranch = constructHistogram(module, tail, index, variable)
       module.setInsertionPoint(ifStmt.elseBranch)
-      module.insertStatement(constructHistogram(module, tail, index, variable))
+      module.insertStatement(elseBranch)
       ifStmt
     }
   }

@@ -90,7 +90,7 @@ object CUDAEntryPoint {
       |    for(int i=0; i<sample_count; ++i){
       |        result[i] = 42.0;
       |    }
-      |
+      |    cudaFree(0);
       |    auto begin = std::chrono::high_resolution_clock::now();
       |
       |    // TODO Kernel invocation
@@ -103,13 +103,16 @@ object CUDAEntryPoint {
       |    	std::cout << "Sample count: " << sample_count << std::endl;
       |    	for(int i=0; i<sample_count; ++i){
       |            if(std::abs(std::log(result[i])-reference_data[i])>1e-6){
-      |            	std::cout << "ERROR: Significant deviation @" << i << ": " << std::log(result[i]) << " (" << result[i] << ") " << " vs. " << reference_data[i] << std::endl;
+      |            	//std::cout << "ERROR: Significant deviation @" << i << ": " << std::log(result[i]) << " (" << result[i] << ") " << " vs. " << reference_data[i] << std::endl;
       |            	++num_errors;
       |            }
       |    	}
       |    	if(num_errors==0){
       |            std::cout << "COMPUTATION OK" << std::endl;
       |    	}
+      |     else {
+      |         std::cout << "COMPUTATION ERROR: " << num_errors << std::endl;
+      |     }
       |    }
       |
       |    std::cout << std::setprecision(15)<< "time per instance " << std::chrono::duration_cast<std::chrono::microseconds>(end-begin).count() / (double) sample_count << " us" << std::endl;

@@ -12,9 +12,9 @@ class CUDAImplCodeGeneration(ast : CUDAModule, headerName : String, writer : Cod
   extends CppImplCodeGeneration(ast, headerName, writer) {
 
   override protected def writeFunction(function: ASTFunction): Unit = function match {
-    case kernel @ CUDAFunction(scope, name, returnType, parameterTypes @ _*) => {
-      writer.writeln("%s %s %s(%s);".format(scope.prefix, generateType(returnType), name,
-        parameterTypes.map(p => generateType(p.ty)).mkString(",")))
+    case kernel @ CUDAFunction(scope, name, returnType, parameters @ _*) => {
+      writer.writeln("%s %s %s(%s)".format(scope.prefix, generateType(returnType), name,
+        parameters.map(p => "%s %s".format(generateType(p.ty), p.name)).mkString(",")))
       generateBlockStatement(kernel.body)
     }
     case _ => super.writeFunction(function)
