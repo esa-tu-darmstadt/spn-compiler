@@ -7,8 +7,20 @@
  */
 
 plugins {
+    id "com.charlesahunt.scalapb" version "1.2.4"
     // Apply the scala plugin to add support for Scala
     id 'scala'
+}
+
+scalapbConfig {
+    // dependentProtoSources = ["/home/mhalk/hiwi/spn-compiler/src/main/protobuf/spncserver.proto"]
+    targetDir = "src/main/scala"
+    embeddedProtoc = true
+    protocVersion = "-v360"
+    grpc = true
+    // externalProtoSources = ["src/main/protobuf"]
+    extractedIncludeDir = "src/main/protobuf"
+    projectProtoSourceDir = "src/main/protobuf"
 }
 
 repositories {
@@ -54,6 +66,8 @@ apply plugin: 'application'
 
 mainClassName = "spn_compiler.driver.Driver"
 applicationName = 'spnc'
+
+task compileScala(dependsOn: scalapb)
 
 task spnc(type: CreateStartScripts) {
     mainClassName = "spn_compiler.util.statistics.StatisticsMerger"

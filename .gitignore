@@ -57,3 +57,8 @@ com_crashlytics_export_strings.xml
 crashlytics.properties
 crashlytics-build.properties
 fabric.properties
+
+# Files introduced by ScalaPB
+src/main/scala/com
+src/main/scala/scalapb
+src/main/protobuf
