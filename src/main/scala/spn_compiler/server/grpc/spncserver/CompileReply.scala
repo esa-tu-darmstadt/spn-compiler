@@ -15,13 +15,7 @@ final case class CompileReply(
     private[this] var __serializedSizeCachedValue: _root_.scala.Int = 0
     private[this] def __computeSerializedValue(): _root_.scala.Int = {
       var __size = 0
-      
-      {
-        val __value = message
-        if (__value != "") {
-          __size += _root_.com.google.protobuf.CodedOutputStream.computeStringSize(1, __value)
-        }
-      };
+      if (message != "") { __size += _root_.com.google.protobuf.CodedOutputStream.computeStringSize(1, message) }
       __size
     }
     final override def serializedSize: _root_.scala.Int = {
@@ -57,7 +51,7 @@ final case class CompileReply(
       )
     }
     def withMessage(__v: _root_.scala.Predef.String): CompileReply = copy(message = __v)
-    def getFieldByNumber(__fieldNumber: _root_.scala.Int): _root_.scala.Any = {
+    def getFieldByNumber(__fieldNumber: _root_.scala.Int): scala.Any = {
       (__fieldNumber: @_root_.scala.unchecked) match {
         case 1 => {
           val __t = message
@@ -66,7 +60,7 @@ final case class CompileReply(
       }
     }
     def getField(__field: _root_.scalapb.descriptors.FieldDescriptor): _root_.scalapb.descriptors.PValue = {
-      _root_.scala.Predef.require(__field.containingMessage eq companion.scalaDescriptor)
+      require(__field.containingMessage eq companion.scalaDescriptor)
       (__field.number: @_root_.scala.unchecked) match {
         case 1 => _root_.scalapb.descriptors.PString(message)
       }
@@ -77,8 +71,8 @@ final case class CompileReply(
 
 object CompileReply extends scalapb.GeneratedMessageCompanion[spn_compiler.server.grpc.spncserver.CompileReply] {
   implicit def messageCompanion: scalapb.GeneratedMessageCompanion[spn_compiler.server.grpc.spncserver.CompileReply] = this
-  def fromFieldsMap(__fieldsMap: scala.collection.immutable.Map[_root_.com.google.protobuf.Descriptors.FieldDescriptor, _root_.scala.Any]): spn_compiler.server.grpc.spncserver.CompileReply = {
-    _root_.scala.Predef.require(__fieldsMap.keys.forall(_.getContainingType() == javaDescriptor), "FieldDescriptor does not match message type.")
+  def fromFieldsMap(__fieldsMap: scala.collection.immutable.Map[_root_.com.google.protobuf.Descriptors.FieldDescriptor, scala.Any]): spn_compiler.server.grpc.spncserver.CompileReply = {
+    require(__fieldsMap.keys.forall(_.getContainingType() == javaDescriptor), "FieldDescriptor does not match message type.")
     val __fields = javaDescriptor.getFields
     spn_compiler.server.grpc.spncserver.CompileReply(
       __fieldsMap.getOrElse(__fields.get(0), "").asInstanceOf[_root_.scala.Predef.String]
@@ -86,7 +80,7 @@ object CompileReply extends scalapb.GeneratedMessageCompanion[spn_compiler.serve
   }
   implicit def messageReads: _root_.scalapb.descriptors.Reads[spn_compiler.server.grpc.spncserver.CompileReply] = _root_.scalapb.descriptors.Reads{
     case _root_.scalapb.descriptors.PMessage(__fieldsMap) =>
-      _root_.scala.Predef.require(__fieldsMap.keys.forall(_.containingMessage == scalaDescriptor), "FieldDescriptor does not match message type.")
+      require(__fieldsMap.keys.forall(_.containingMessage == scalaDescriptor), "FieldDescriptor does not match message type.")
       spn_compiler.server.grpc.spncserver.CompileReply(
         __fieldsMap.get(scalaDescriptor.findFieldByNumber(1).get).map(_.as[_root_.scala.Predef.String]).getOrElse("")
       )
@@ -95,7 +89,7 @@ object CompileReply extends scalapb.GeneratedMessageCompanion[spn_compiler.serve
   def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor = SpncserverProto.javaDescriptor.getMessageTypes.get(1)
   def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = SpncserverProto.scalaDescriptor.messages(1)
   def messageCompanionForFieldNumber(__number: _root_.scala.Int): _root_.scalapb.GeneratedMessageCompanion[_] = throw new MatchError(__number)
-  lazy val nestedMessagesCompanions: Seq[_root_.scalapb.GeneratedMessageCompanion[_ <: _root_.scalapb.GeneratedMessage]] = Seq.empty
+  lazy val nestedMessagesCompanions: Seq[_root_.scalapb.GeneratedMessageCompanion[_]] = Seq.empty
   def enumCompanionForFieldNumber(__fieldNumber: _root_.scala.Int): _root_.scalapb.GeneratedEnumCompanion[_] = throw new MatchError(__fieldNumber)
   lazy val defaultInstance = spn_compiler.server.grpc.spncserver.CompileReply(
   )
@@ -103,9 +97,4 @@ object CompileReply extends scalapb.GeneratedMessageCompanion[spn_compiler.serve
     def message: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Predef.String] = field(_.message)((c_, f_) => c_.copy(message = f_))
   }
   final val MESSAGE_FIELD_NUMBER = 1
-  def of(
-    message: _root_.scala.Predef.String
-  ): _root_.spn_compiler.server.grpc.spncserver.CompileReply = _root_.spn_compiler.server.grpc.spncserver.CompileReply(
-    message
-  )
 }

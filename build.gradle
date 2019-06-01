@@ -7,19 +7,25 @@
  */
 
 plugins {
-    id "com.charlesahunt.scalapb" version "1.2.4"
     // Apply the scala plugin to add support for Scala
     id 'scala'
+    // Apply the scalapb gradle plugin to add support for ScalaPB compilation
+    id "com.charlesahunt.scalapb" version "1.2.4"
+}
+
+ext {
+    scalapb_relTargetDir = "src/main/scala/spn_compiler/scalapb_temp"
+    scalapb_absTargetDir = project.getProjectDir().absolutePath + "/" + scalapb_relTargetDir
 }
 
 scalapbConfig {
-    // dependentProtoSources = ["/home/mhalk/hiwi/spn-compiler/src/main/protobuf/spncserver.proto"]
-    targetDir = "src/main/scala"
-    embeddedProtoc = true
-    protocVersion = "-v360"
-    grpc = true
-    // externalProtoSources = ["src/main/protobuf"]
-    extractedIncludeDir = "src/main/protobuf"
+    // This is somewhat hacky, since this plugin deletes(!) the target directory
+    // (Which would be all our Scala sources)
+    // The compiled files will be moved one directory-level up afterwards
+    // Thus, allowing a correct package structure
+    targetDir = project.ext.scalapb_relTargetDir
+    // embeddedProtoc = true // Might be useful for further troubleshooting -- if necessary
+    protocVersion = "-v371"
     projectProtoSourceDir = "src/main/protobuf"
 }
 
@@ -43,8 +49,8 @@ dependencies {
     // FastParse Library for fast parsers
     // https://mvnrepository.com/artifact/com.lihaoyi/fastparse
     compile group: 'com.lihaoyi', name: 'fastparse_2.12', version: '2.1.0'
-    
-    // Play ScalaJSON 
+
+    // Play ScalaJSON
     // https://www.playframework.com/documentation/2.6.x/ScalaJson
     compile group: 'com.typesafe.play', name: 'play-json_2.12', version: '2.6.10'
 
@@ -57,9 +63,9 @@ dependencies {
 
     // ScalaPB: Scala Protocol Buffer Compiler
     // https://scalapb.github.io/
-    compile "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:0.9.0-M6"
+    // NOTE: As of now (May 2019), the latest supported ScalaPB version of the gradle scalapb plugin is: 0.8.3
+    compile "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:0.8.3"
     compile 'io.grpc:grpc-netty-shaded:1.21.0'
-
 }
 
 apply plugin: 'application'
@@ -67,7 +73,20 @@ apply plugin: 'application'
 mainClassName = "spn_compiler.driver.Driver"
 applicationName = 'spnc'
 
-task compileScala(dependsOn: scalapb)
+// Force proto compilation and perform thorough clean-up
+compileScala.doFirst {
+    scalapb.compileProtos()
+    
+    delete scalapb_absTargetDir + "/com", scalapb_absTargetDir + "/scalapb"
+    ant.move(file: scalapb_absTargetDir, tofile: scalapb_absTargetDir + "/../..")
+    delete scalapb_absTargetDir
+
+    File targetDir = file(project.getProjectDir().absolutePath + "/target")
+    delete targetDir.absolutePath + "/external_protos"
+    if (targetDir.listFiles().length == 0) {
+        delete targetDir
+    }
+}
 
 task spnc(type: CreateStartScripts) {
     mainClassName = "spn_compiler.util.statistics.StatisticsMerger"

@@ -19,7 +19,7 @@ option java_package = "spn_compiler.server.grpc";
 option java_outer_classname = "SPNCompilerProto";
 option objc_class_prefix = "SPNCPROTO";
 
-package parser;
+package spn_compiler.server.grpc;
 
 // The SPN compiler service definition.
 service SPNCompiler {
