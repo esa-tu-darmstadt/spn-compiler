@@ -61,4 +61,5 @@ fabric.properties
 # Files introduced by ScalaPB
 src/main/scala/com
 src/main/scala/scalapb
-src/main/protobuf
+src/main/protobuf/google
+src/main/protobuf/scalapb

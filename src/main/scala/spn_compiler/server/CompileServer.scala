@@ -9,7 +9,6 @@ import spn_compiler.util.logging.Logging
 import spn_compiler.util.statistics.GraphStatistics
 
 import scala.concurrent.{ExecutionContext, Future}
-import java.util.logging.Logger
 
 import io.grpc.{Server, ServerBuilder}
 import spn_compiler.server.grpc.spncserver.{CompileReply, CompileRequest, SPNCompilerGrpc}
@@ -20,27 +19,7 @@ class CompileServerConfig extends CLIConfig[CompileServerConfig] with BaseConfig
 
 object CompileServer extends App with Logging {
 
-  System.err.println("CompileServer object")
-
-  private lazy val logger = Logger.getLogger(classOf[CompileServer].getName)
   private lazy val port = 50051
-
-  private lazy val builder = OParser.builder[CompileServerConfig]
-
-  private lazy val cliParser : OParser[_, CompileServerConfig] = {
-    import builder._
-    OParser.sequence(
-      programName("spnc"),
-      head("spnc", "0.0.2"),
-      BaseOptions.apply,
-      CPPCompileOptions.apply
-    )
-  }
-
-  private lazy val cliConfig: CompileServerConfig = OParser.parse(cliParser, args, new CompileServerConfig())
-    .getOrElse(throw new RuntimeException("CLI Error!"))
-
-  Logging.setVerbosityLevel(cliConfig.verbosityLevel)
 
   override def main(args: Array[String]): Unit = {
     val server = new CompileServer(ExecutionContext.global)
@@ -55,12 +34,11 @@ class CompileServer(executionContext: ExecutionContext) { self =>
 
   private def start(): Unit = {
     server = ServerBuilder.forPort(CompileServer.port).addService(SPNCompilerGrpc.bindService(new SPNCompilerImpl, executionContext)).build.start
-    CompileServer.logger.info("Server started, listening on " + CompileServer.port)
+    CompileServer.info("Server started, listening on " + CompileServer.port)
 
     sys.addShutdownHook {
-      System.err.println("*** shutting down gRPC server since JVM is shutting down")
+      CompileServer.info("Shutting down gRPC server since JVM is shutting down")
       self.stop()
-      System.err.println("*** server shut down")
     }
   }
 
@@ -81,10 +59,12 @@ class CompileServer(executionContext: ExecutionContext) { self =>
 
       val spn = Parser.parseString(req.spn)
 
-      CPUCompilerDriver.execute(spn, CompileServer.cliConfig)
+      val cliConfig = new CompileServerConfig().setVerbosityLevel(Logging.VerbosityVerbose)
 
-      if(CompileServer.cliConfig.computeStats){
-        GraphStatistics.computeStatistics(spn, CompileServer.cliConfig.statsFile)
+      CPUCompilerDriver.execute(spn, cliConfig)
+
+      if(cliConfig.computeStats){
+        GraphStatistics.computeStatistics(spn, cliConfig.statsFile)
       }
 
       val reply = CompileReply(message = "Compiled.\n" + req.spn)
@@ -92,10 +72,9 @@ class CompileServer(executionContext: ExecutionContext) { self =>
     }
 
     override def sPNCompileJSON(req: CompileRequest) = {
-      System.err.println("WARNING: sPNCompileJSON -- Not implemented!")
-      val reply = CompileReply(message = "Compiled.\n" + req.spn)
+      CompileServer.warn("WARNING: sPNCompileJSON -- Not implemented!")
+      val reply = CompileReply(message = "Could NOT compile.\n" + req.spn)
       Future.successful(reply)
-      System.err.println("WARNING: sPNCompileJSON -- Not implemented!")
     }
   }
 
