@@ -1,7 +1,7 @@
 package spn_compiler.backend.software.ast.construct
 
 import spn_compiler.backend.software.ast.construct.util.UniqueNameCreator
-import spn_compiler.backend.software.ast.nodes.function.{ASTFunction, ASTFunctionParameter, ASTFunctionPrototype}
+import spn_compiler.backend.software.ast.nodes.function.{ASTExternalFunction, ASTFunction, ASTFunctionParameter, ASTFunctionPrototype}
 import spn_compiler.backend.software.ast.nodes.reference._
 import spn_compiler.backend.software.ast.nodes.statement.control_flow.{ASTCallStatement, ASTForLoop, ASTIfStatement, ASTReturnStatement}
 import spn_compiler.backend.software.ast.nodes.statement.variable.{ASTVariableAssignment, ASTVariableDeclaration}
@@ -159,6 +159,8 @@ trait ASTBuilder {
     new ASTForLoop(Some(ref), Some(lowerBound), comparison, Some(ref), Some(increment))
   }
 
+  protected var externalHeaders : Set[String] = Set()
+
   /**
     * Create a call '''statement''' from a call '''expression''', discarding the return value if necessary.
     * @param call [[ASTCallExpression]] for the actual call.
@@ -173,8 +175,13 @@ trait ASTBuilder {
     * @param parameters Actual parameter values.
     * @return New [[ASTCallStatement]].
     */
-  def createCallStatement(function : ASTFunctionPrototype, parameters : ASTValue*) : ASTCallStatement =
+  def createCallStatement(function : ASTFunctionPrototype, parameters : ASTValue*) : ASTCallStatement = {
+    externalHeaders = function match {
+      case external : ASTExternalFunction => externalHeaders + external.header
+      case _ => externalHeaders
+    }
     new ASTCallStatement(new ASTCallExpression(function, parameters:_*))
+  }
 
   /**
     * Create a call '''expression''', calling the given function with the given parameters.
@@ -182,8 +189,13 @@ trait ASTBuilder {
     * @param parameters Actual parameter values.
     * @return New [[ASTCallExpression]].
     */
-  def call(function : ASTFunctionPrototype, parameters : ASTValue*) : ASTCallExpression =
+  def call(function : ASTFunctionPrototype, parameters : ASTValue*) : ASTCallExpression = {
+    externalHeaders = function match {
+      case external : ASTExternalFunction => externalHeaders + external.header
+      case _ => externalHeaders
+    }
     new ASTCallExpression(function, parameters:_*)
+  }
 
   /**
     * Create a return statement, returning the given value.

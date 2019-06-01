@@ -10,7 +10,7 @@ class ASTModule(val name : String) extends ASTNode with ASTBuilder with ASTTypeC
 
 object ASTModule {
 
-  def unapply(arg: ASTModule): Option[(String, List[StructType], List[ASTVariableDeclaration], List[ASTFunction])] =
-    Some(arg.name, arg.structTypes.toList, arg.globalVariables.toList, arg.localFunctions.toList)
+  def unapply(arg: ASTModule): Option[(String, List[String], List[StructType], List[ASTVariableDeclaration], List[ASTFunction])] =
+    Some(arg.name, arg.externalHeaders.toList, arg.structTypes.toList, arg.globalVariables.toList, arg.localFunctions.toList)
 
 }
