@@ -14,7 +14,6 @@ object CompilerOptions {
       OParser.sequence(
         opt[File]('o', "output")
           .action((f,c) => c.setOutFile(f))
-          .validate(f => if(f.isFile) success else failure("Output file must be a file!"))
           .text("Output file, default: spn.out"),
         opt[Int]('O', "optimization-level")
           .action((l, c) => c.setOptimizationLevel(l))
