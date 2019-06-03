@@ -20,7 +20,8 @@ class CUDAASTGeneration {
 
   def createAST(graph : IRGraph) : CUDAModule = {
     val module = new CUDAModule("spn")
-    val inputStructType = module.createStructType("activation", graph.inputVariables.map(v => (v.id, IntegerType)):_*)
+    val inputStructType = module.createStructType("activation",
+      graph.inputVariables.map(v => (s"input_${v.id}", IntegerType)):_*)
     val spnCalc = createSPNDeviceFunction(graph.rootNode, module, inputStructType)
     val spnKernel = createSPNKernel(module, spnCalc, inputStructType)
     val toplevelFunction = createCPUTopLevelFunction(spnKernel, module, inputStructType)
@@ -92,7 +93,7 @@ class CUDAASTGeneration {
 
   protected def constructSubAST(subTreeRoot : IRNode, module : CUDAModule, inputParam : ASTFunctionParameter) : ASTValue =
     constructedSubGraphs.getOrElseUpdate(subTreeRoot, subTreeRoot match {
-      case InputVar(id, _) => module.readElement(module.referenceVariable(inputParam), id)
+      case InputVar(id, _) => module.readElement(module.referenceVariable(inputParam), s"input_$id")
 
       case Histogram(id, indexVar, buckets) => {
         val activation = constructSubAST(indexVar, module, inputParam)
