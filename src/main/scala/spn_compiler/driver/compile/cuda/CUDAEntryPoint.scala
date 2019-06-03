@@ -21,10 +21,6 @@ object CUDAEntryPoint {
       |#include <cuda.h>
       |#include "spn.hpp"
       |
-      |#ifndef VALUES_PER_SAMPLE
-      |#define VALUES_PER_SAMPLE 5
-      |#endif
-      |
       |int* readInputSamples(char * inputfile, int * sample_count){
       |    std::ifstream infile(inputfile);
       |    std::string line;
@@ -33,7 +29,7 @@ object CUDAEntryPoint {
       |        lines.push_back(line);
       |    }
       |
-      |    auto * input_data = (int*) malloc(VALUES_PER_SAMPLE * lines.size() * sizeof(int));
+      |    std::vector<int> * input_data = new std::vector<int>();
       |    int sample_count_int = 0;
       |    for(const std::string& s : lines){
       |        std::istringstream stream(s);
@@ -46,7 +42,7 @@ object CUDAEntryPoint {
       |                std::cout << "ERROR: Could not parse double from " << token.c_str() << std::endl;
       |                exit(-1);
       |            }
-      |            input_data[sample_count_int*VALUES_PER_SAMPLE + value_count] = (int) value;
+      |            input_data->push_back((int) value);
       |            ++value_count;
       |        }
       |        ++sample_count_int;
@@ -54,7 +50,7 @@ object CUDAEntryPoint {
       |
       |    std::cout << "Read " << sample_count_int << " input samples" << std::endl;
       |    *sample_count = sample_count_int;
-      |    return input_data;
+      |    return input_data->data();
       |}
       |
       |double* readReferenceValues(char * outputfile, int sample_count){
