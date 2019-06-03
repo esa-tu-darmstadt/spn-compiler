@@ -54,6 +54,8 @@ class CUDAASTGeneration {
     module.insertStatement(module.invokeKernel(gridDim, blockDim, spnKernel, numElements, deviceInput, deviceOutput))
     module.insertStatement(module.createCallStatement(CUDAMemCpy, module.convert(outputData, ArrayType(VoidType)),
       module.convert(deviceOutput, ArrayType(VoidType)), outputSize, CUDAMemCpyDeviceToHost))
+    module.insertStatement(module.createCallStatement(CUDAFree, module.convert(deviceInput, ArrayType(VoidType))))
+    module.insertStatement(module.createCallStatement(CUDAFree, module.convert(deviceOutput, ArrayType(VoidType))))
     topLevelFunction
   }
 
