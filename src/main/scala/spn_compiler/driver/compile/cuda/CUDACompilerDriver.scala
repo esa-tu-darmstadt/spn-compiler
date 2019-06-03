@@ -3,14 +3,14 @@ package spn_compiler.driver.compile.cuda
 import spn_compiler.backend.software.codegen.CodeWriter
 import spn_compiler.backend.software.codegen.cuda.{CUDAHeaderCodeGeneration, CUDAImplCodeGeneration}
 import spn_compiler.backend.software.gpu.ast_generation.cuda.CUDAASTGeneration
-import spn_compiler.driver.config.CompilerConfig
+import spn_compiler.driver.config.{CUDACompileConfig, CompilerConfig}
 import spn_compiler.graph_ir.nodes.IRGraph
 import spn_compiler.util.file.FileUtil
 import spn_compiler.util.logging.Logging
 
 object CUDACompilerDriver extends Logging {
 
-  def execute[C <: CompilerConfig[C]](spn : IRGraph, config : C) : Unit = {
+  def execute[C <: CUDACompileConfig[C] with CompilerConfig[C]](spn : IRGraph, config : C) : Unit = {
     trace("Creating AST for CUDA compilation...")
     val ast = new CUDAASTGeneration().createAST(spn)
 
