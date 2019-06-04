@@ -2,7 +2,7 @@ package spn_compiler.driver.compile.cpu
 
 import java.io.File
 
-import spn_compiler.driver.config.CPPCompileConfig
+import spn_compiler.driver.config.{CPPCompileConfig, CompilerConfig}
 import spn_compiler.util.logging.Logging
 
 import scala.collection.mutable.ListBuffer
@@ -10,14 +10,14 @@ import scala.sys.process.Process
 
 trait CPPCompilerDriver {
 
-  def compile[C <: CPPCompileConfig[C]](config : C, files : File*)
+  def compile[C <: CPPCompileConfig[C] with CompilerConfig[C]](config : C, files : File*)
 
   def compilerName : (String, CPPCompilerDriver)
 }
 
 case object ClangCPPDriver extends CPPCompilerDriver with Logging {
 
-  override def compile[C <: CPPCompileConfig[C]](config: C, files: File*): Unit = {
+  override def compile[C <: CPPCompileConfig[C] with CompilerConfig[C]](config: C, files: File*): Unit = {
     val flags : ListBuffer[String] = ListBuffer()
     flags.append(s"-O${config.optimizationLevel}")
     if(config.isFastMathEnabled){
@@ -48,7 +48,7 @@ case object ClangCPPDriver extends CPPCompilerDriver with Logging {
 
 case object GCCCPPDriver extends CPPCompilerDriver with Logging {
 
-  override def compile[C <: CPPCompileConfig[C]](config: C, files: File*): Unit = {
+  override def compile[C <: CPPCompileConfig[C] with CompilerConfig[C]](config: C, files: File*): Unit = {
     val flags : ListBuffer[String] = ListBuffer()
     flags.append(s"-O${config.optimizationLevel}")
     if(config.isFastMathEnabled){

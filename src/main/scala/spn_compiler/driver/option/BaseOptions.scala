@@ -30,7 +30,18 @@ object BaseOptions {
           .text("Compute statistics about the SPN graph"),
         opt[File]("stats-out")
           .action((f, c) => c.setStatsFile(f))
-          .text("Output file for statistics, default: stats.spns")
+          .text("Output file for statistics, default: stats.spns"),
+        opt[String]('t', "target")
+          .validate(target =>
+            if(BaseConfig.availableTargets.exists(_.name.equalsIgnoreCase(target))){
+              success
+            }
+            else {
+              failure(s"No matching target with name $target")
+            })
+          .action((target, c) =>
+            c.setTarget(BaseConfig.availableTargets.filter(_.name.equalsIgnoreCase(target)).head))
+          .text(s"Compilation target. Available targets: ${BaseConfig.availableTargets.map(_.name).mkString(", ")}")
       )
     }
     parser

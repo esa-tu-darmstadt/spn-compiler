@@ -2,14 +2,11 @@ package spn_compiler.driver.config
 
 import java.io.File
 
+import spn_compiler.driver.config.BaseConfig.{CPPTarget, Target}
 import spn_compiler.util.logging.Logging.{VerbosityLevel, VerbosityNormal}
 
 trait CLIConfig[R]{
   def self : R
-}
-
-object BaseConfig {
-
 }
 
 trait BaseConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
@@ -44,4 +41,30 @@ trait BaseConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
   }
 
   def statsFile : File = _statsFile
+
+  private var _target : Target = CPPTarget
+  def setTarget(target : Target) : R = {
+    _target = target
+    self
+  }
+
+  def target : Target = _target
+
+}
+
+private[driver] object BaseConfig {
+
+  sealed trait Target {
+    def name : String
+  }
+  case object CPPTarget extends Target{
+    override def name: String = "cpp"
+  }
+  case object CUDATarget extends Target {
+    override def name: String = "cuda"
+  }
+
+  def availableTargets : List[Target] =
+    List(CPPTarget, CUDATarget)
+
 }
