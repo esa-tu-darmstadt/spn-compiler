@@ -13,7 +13,8 @@ class OMPASTGeneration extends ASTGeneration {
 
   override def createAST(graph : IRGraph) : ASTModule = {
     val module = new OMPModule("spn")
-    val inputStructType = module.createStructType("activation", graph.inputVariables.map(v => (v.id, IntegerType)):_*)
+    val inputStructType = module.createStructType("activation",
+      graph.inputVariables.map(v => (s"input_${v.id}", IntegerType)):_*)
     val spnFunction = createSPNFunction(graph.rootNode, module, inputStructType)
     val toplevelFunction = createTopLevelFunction(spnFunction, module, inputStructType)
     module
