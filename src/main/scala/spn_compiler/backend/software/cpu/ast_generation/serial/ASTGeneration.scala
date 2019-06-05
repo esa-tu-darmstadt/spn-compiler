@@ -13,7 +13,8 @@ class ASTGeneration {
 
   def createAST(graph : IRGraph) : ASTModule = {
     val module = new ASTModule("spn")
-    val inputStructType = module.createStructType("activation", graph.inputVariables.map(v => (v.id, IntegerType)):_*)
+    val inputStructType = module.createStructType("activation",
+      graph.inputVariables.map(v => (s"input_${v.id}", IntegerType)):_*)
     val spnFunction = createSPNFunction(graph.rootNode, module, inputStructType)
     val toplevelFunction = createTopLevelFunction(spnFunction, module, inputStructType)
     module
@@ -48,7 +49,7 @@ class ASTGeneration {
 
   protected def constructSubAST(subTreeRot : IRNode, module : ASTModule, inputParam : ASTFunctionParameter) : ASTValue =
     constructedSubGraphs.getOrElseUpdate(subTreeRot, subTreeRot match {
-      case InputVar(id, _) => module.readElement(module.referenceVariable(inputParam), id)
+      case InputVar(id, _) => module.readElement(module.referenceVariable(inputParam), s"input_$id")
 
       case Histogram(id, indexVar, buckets) => {
         val arrayInit = module.initArray(RealType, buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => b.value)):_*)

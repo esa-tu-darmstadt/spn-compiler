@@ -1,6 +1,7 @@
 package spn_compiler.backend.software.ast.construct
 
 import spn_compiler.backend.software.ast.construct.util.UniqueNameCreator
+import spn_compiler.backend.software.ast.extensions.cpp.value.{CPPAddressOfOperator, CPPSizeOfOperator}
 import spn_compiler.backend.software.ast.nodes.function.{ASTExternalFunction, ASTFunction, ASTFunctionParameter, ASTFunctionPrototype}
 import spn_compiler.backend.software.ast.nodes.reference._
 import spn_compiler.backend.software.ast.nodes.statement.control_flow.{ASTCallStatement, ASTForLoop, ASTIfStatement, ASTReturnStatement}
@@ -447,5 +448,28 @@ trait ASTBuilder {
     * @return [[ASTTypeConversion]].
     */
   def convert(op : ASTValue, targetType : ASTType) : ASTTypeConversion = new ASTTypeConversion(op, targetType)
+
+  //
+  // Address-of operator
+  //
+  /**
+    * Apply the C++-specific address-of operator to some reference, yielding a pointer to the underlying
+    * entity.
+    * @param ref Reference some entity.
+    * @return [[CPPAddressOfOperator]], essentially a array-type value representing the pointer.
+    */
+  def addressOf(ref : ASTReference) : CPPAddressOfOperator = new CPPAddressOfOperator(ref)
+
+  //
+  // Size-of operator
+  //
+  /**
+    * Apply the C++-specific sizeof-operator to some reference, yielding the number of bytes necessary
+    * to store one entity of the type of the reference.
+    * @param ref Reference to some variable.
+    * @return [[CPPSizeOfOperator]], essentially a integer value giving the number of bytes
+    *        requires to store one entity of the type of the given variable.
+    */
+  def sizeOf(ref : ASTReference) : CPPSizeOfOperator = new CPPSizeOfOperator(ref)
 
 }

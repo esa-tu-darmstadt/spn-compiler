@@ -13,7 +13,7 @@ trait ASTTypeContext {
   protected val structTypes : ListBuffer[StructType] = ListBuffer[StructType]()
 
   def createStructType(name : String, _elements : (String, ASTType)*): StructType = {
-    val structType = StructType(structNameCreator.makeUniqueName(name), _elements.toList)
+    val structType = new StructType(structNameCreator.makeUniqueName(name), _elements.toList)
     structTypes += structType
     structType
   }

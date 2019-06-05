@@ -5,14 +5,14 @@ import spn_compiler.backend.software.codegen.cpp.{CppHeaderCodeGeneration, CppIm
 import spn_compiler.backend.software.codegen.openmp.OMPImplCodeGeneration
 import spn_compiler.backend.software.cpu.ast_generation.openmp.OMPASTGeneration
 import spn_compiler.backend.software.cpu.ast_generation.serial.ASTGeneration
-import spn_compiler.driver.config.CPPCompileConfig
+import spn_compiler.driver.config.{CPPCompileConfig, CompilerConfig}
 import spn_compiler.graph_ir.nodes.IRGraph
 import spn_compiler.util.file.FileUtil
 import spn_compiler.util.logging.Logging
 
 object CPUCompilerDriver extends Logging {
 
-  def execute[C <: CPPCompileConfig[C]](spn : IRGraph, config : C): Unit = {
+  def execute[C <: CPPCompileConfig[C] with CompilerConfig[C]](spn : IRGraph, config : C): Unit = {
     trace(s"Creating AST for C++ compilation...")
     val astGenerator : ASTGeneration = if(config.isOMPParallelForEnabled){
       info("OpenMP parallel is enabled, using OpenMP worksharing loop for parallel processing")
