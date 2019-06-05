@@ -63,9 +63,9 @@ dependencies {
 
     // ScalaPB: Scala Protocol Buffer Compiler
     // https://scalapb.github.io/
-    // NOTE: As of now (May 2019), the latest supported ScalaPB version of the gradle scalapb plugin is: 0.8.3
-    compile "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:0.8.3"
-    compile 'io.grpc:grpc-netty-shaded:1.21.0'
+    // NOTE: As of now (May 2019), the latest supported ScalaPB version of the gradle scalapb plugin is: 0.8.4
+    compile "com.thesamet.scalapb:scalapb-runtime-grpc_2.12:0.8.4"
+    compile 'io.grpc:grpc-netty:1.21.0'
 }
 
 apply plugin: 'application'
