@@ -24,8 +24,8 @@ package spn_compiler.server.grpc;
 // The SPN compiler service definition.
 service SPNCompiler {
   // Compiles a valid SPN, or fails otherwise.
-  rpc SPNCompile_JSON (CompileRequest) returns (CompileReply) {}
-  rpc SPNCompile_Text (CompileRequest) returns (CompileReply) {}
+  rpc compileFromJson (CompileRequest) returns (CompileReply) {}
+  rpc compileFromText (CompileRequest) returns (CompileReply) {}
 }
 
 // The compile request consists of the SPN to compile (as JSON).
