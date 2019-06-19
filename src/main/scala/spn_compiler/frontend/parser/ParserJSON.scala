@@ -16,35 +16,26 @@ import scala.io.Source
   */
 object ParserJSON {
 
+  private val nonLeafNodes : List[String] = List("Sum", "Product")
+
   /**
     * Parse an SPN from textual representation in an input string.
+    *
     * @param jsonSpnObjStr Input JSON Object, representing a SPN (provided as string).
     * @return On success, returns a [[ParseTree]].
     */
-  def parseJSON(jsonSpnObjStr : String) : String = {
+  def parseJSON(jsonSpnObjStr: String): String = {
     // Parse input JSON-SPN-Object and retrieve its head, i.e.: root node
     // Assumption: There is exactly one node at the topmost level
-    val json: JsValue = Json.parse(jsonSpnObjStr).asInstanceOf[JsObject].values.head
+    val json: JsObject = Json.parse(jsonSpnObjStr).asInstanceOf[JsObject]
 
-    // "scope" of topmost JSON node equals an array of variables / inputs used by the entire SPN
-    val inputs = (json \ "scope").validate[JsArray]
+    println("__Got  : " + getInputList(json.values.head))
+    println("__Class: " + getInputList(json.values.head).getClass)
 
-    // List[InputVar] --OR-- Unit
-    val inputVars : List[InputVar] = inputs match {
-      case s: JsSuccess[JsArray] => {
-        // Inputs may be JsNumber and JsString in this case, contained by the JsArray
-        // Additionally, the JsStrings contain " characters, which have to be removed
-        // Goal: retrieve a List[String] without " in the input variable names
-        val vars : List[String] = s.get.as[List[JsValue]].map(e => e.toString().filterNot(c => Set('\"').contains(c)))
+    println(json.fields.head._1)
 
-        // Now replace each variable name with its respective InputVar, which yields: List[InputVar]
-        vars.map(v => InputVar(v, vars.indexOf(v)))
-      }
-      case e: JsError => throw new RuntimeException("Failed to parse SPN from JSON input:\n" + e.toString)
-    }
-
-    println("__Got  : " + inputVars)
-    println("__Class: " + inputVars.getClass)
+    val children_layer_1 = json.values.head("children").validate[JsArray].get.as[List[JsValue]]
+    printChildren(children_layer_1, 1)
 
     // implicit val irGraphReads = (
     // ) (IRGraph)
@@ -62,6 +53,55 @@ object ParserJSON {
 
     // TODO: Return useful info -> ParseTree ?
     "Reached end of parseJSON"
+  }
+
+  def printChildren(childList : List[JsValue], layer : Integer = 0) : Unit = {
+    for (child <- childList) {
+      // Since the cast to JsObject seems necessary in any case, use the 'fields' function to convert the JsValue
+      // This yields a Seq(String, JsValue) representing the nodeType and its subtree.
+      for (field <- child.asInstanceOf[JsObject].fields) {
+        val nodeType : String = field._1
+        val subtree : JsValue = field._2
+        println("  " * layer + nodeType)
+
+        if (nonLeafNodes contains nodeType) {
+          val subtreeValue: JsValue = subtree("children")
+          subtreeValue.result match {
+            case _ : JsDefined => subtreeValue.validate[JsArray] match {
+              case s: JsSuccess[JsArray] => printChildren(s.get.as[List[JsValue]], layer + 1)
+              case e: JsError => throw new RuntimeException(
+                "Expected field type of 'children' is %s but was: %s\n%s"
+                  .format(JsArray.getClass, subtreeValue.getClass, e.toString))
+            }
+            case _ : JsUndefined => throw new RuntimeException(
+              "Encountered '%s' non-leaf node without children.\nSubtree: %s"
+                .format(nodeType, subtree.toString()))
+          }
+        }
+      }
+    }
+  }
+
+  /**
+    * Retrieve a list of input variables, regarding the provided subtree.
+    *
+    * @param json JsValue representing the provided SPN subtree.
+    * @return On success, returns a List of [[InputVar]].
+    */
+  def getInputList(json: JsValue) : List[InputVar] = {
+    // "scope" of topmost JSON node equals an array of variables / inputs used by the SPN-subtree
+    json("scope").validate[JsArray] match {
+      case s: JsSuccess[JsArray] => {
+        // Inputs may be JsNumber and JsString in this case, contained by the JsArray
+        // Additionally, the JsStrings contain " characters, which have to be removed
+        // Goal: retrieve a List[String] without " in the input variable names
+        val vars : List[String] = s.get.as[List[JsValue]].map(e => e.toString().filterNot(c => Set('\"').contains(c)))
+
+        // Now replace each variable name with its respective InputVar, which yields: List[InputVar]
+        vars.map(v => InputVar(v, vars.indexOf(v)))
+      }
+      case e: JsError => throw new RuntimeException("Failed to retrieve input variables from JSON:\n" + e.toString)
+    }
   }
 
   /**
