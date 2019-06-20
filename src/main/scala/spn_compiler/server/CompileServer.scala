@@ -58,7 +58,6 @@ class CompileServer(executionContext: ExecutionContext) { self =>
   private class SPNCompilerImpl extends SPNCompilerGrpc.SPNCompiler {
     override def compileFromText(req: CompileRequest) = {
       CompileServer.debug("invoked compileFromText (CompileServer)")
-
       CompileServer.info("compileFromText received the following:\n" + req.spn)
 
       val spn = Parser.parseString(req.spn)
@@ -76,11 +75,16 @@ class CompileServer(executionContext: ExecutionContext) { self =>
 
     override def compileFromJson(req: CompileRequest) = {
       CompileServer.debug("invoked compileFromJson (CompileServer)")
-      CompileServer.warn("compileFromJson is NOT implemented!")
-
       CompileServer.info("compileFromJson received the following:\n" + req.spn)
 
       val spn = ParserJSON.parseJSON(req.spn)
+      val cliConfig = new CompileServerConfig().setVerbosityLevel(Logging.VerbosityVerbose)
+      // TODO: Changed signature -> Fix!
+      // CPUCompilerDriver.execute(spn, _)
+
+      if(cliConfig.computeStats){
+        GraphStatistics.computeStatistics(spn, cliConfig.statsFile)
+      }
 
       val reply = CompileReply(message = "No compilation!\n" + req.spn)
       Future.successful(reply)

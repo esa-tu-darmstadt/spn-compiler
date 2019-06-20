@@ -2,14 +2,8 @@ package spn_compiler.frontend.parser
 
 // import java.io.File
 
-import fastparse.MultiLineWhitespace._
-import fastparse._
-import spn_compiler.graph_ir.nodes
-import spn_compiler.graph_ir.nodes.{IRGraph, InputVar}
+import spn_compiler.graph_ir.nodes._
 import play.api.libs.json._
-import play.api.libs.functional.syntax._
-
-import scala.io.Source
 
 /**
   * Entry point for parsing SPN from textual representation in input strings/files.
@@ -19,66 +13,86 @@ object ParserJSON {
   private val nonLeafNodes : List[String] = List("Sum", "Product")
 
   /**
-    * Parse an SPN from textual representation in an input string.
+    * Parse an SPN from JSON representation in an IRGraph.
     *
-    * @param jsonSpnObjStr Input JSON Object, representing a SPN (provided as string).
-    * @return On success, returns a [[ParseTree]].
+    * @param jsonSpnObjStr Input JSON Object, representing a SPN (provided as [[String]]).
+    * @return On success, returns an [[IRGraph]].
     */
-  def parseJSON(jsonSpnObjStr: String): String = {
+  def parseJSON(jsonSpnObjStr: String): IRGraph = {
     // Parse input JSON-SPN-Object and retrieve its head, i.e.: root node
     // Assumption: There is exactly one node at the topmost level
     val json: JsObject = Json.parse(jsonSpnObjStr).asInstanceOf[JsObject]
-
-    println("__Got  : " + getInputList(json.values.head))
-    println("__Class: " + getInputList(json.values.head).getClass)
-
-    println(json.fields.head._1)
-
-    val children_layer_1 = json.values.head("children").validate[JsArray].get.as[List[JsValue]]
-    printChildren(children_layer_1, 1)
-
-    // implicit val irGraphReads = (
-    // ) (IRGraph)
-
-    /*
-    val parseResult = parse(text.trim, spn(_)) match {
-      case Parsed.Success(parseTree, _) => parseTree
-      case f : Parsed.Failure => throw new RuntimeException("Failed to parse SPN from input: \n"+f.trace().terminalsMsg)
-    }
-    // Perform identification on resulting parse-tree if the parser was successful.
-    new Identification().performIdentification(parseResult)
-    parseResult.validate()
-    new IRConstruction(parseResult).constructIRGraph
-    */
-
-    // TODO: Return useful info -> ParseTree ?
-    "Reached end of parseJSON"
+    val spnRoot = constructSubTree(json)
+    IRGraph(spnRoot, getInputList(json.values.head))
   }
 
-  def printChildren(childList : List[JsValue], layer : Integer = 0) : Unit = {
-    for (child <- childList) {
-      // Since the cast to JsObject seems necessary in any case, use the 'fields' function to convert the JsValue
-      // This yields a Seq(String, JsValue) representing the nodeType and its subtree.
-      for (field <- child.asInstanceOf[JsObject].fields) {
-        val nodeType : String = field._1
-        val subtree : JsValue = field._2
-        println("  " * layer + nodeType)
+  /**
+    * Construct an IRNode, starting from the provided root node
+    *
+    * @param root [[JsValue]] representing the considered SPN subtree's root.
+    * @return On success, returns an [[IRNode]].
+    */
+  def constructSubTree(root : JsValue) : IRNode = {
+    // Since the cast to JsObject seems necessary in any case, use the 'fields' function to convert the JsValue
+    // This yields a Seq(String, JsValue) representing the nodeType and its subtree.
+    // Assumption: There is exactly one element in the sequence.
+    val (nodeType : String, subtree : JsValue) = root.asInstanceOf[JsObject].fields.head
+    val id : String = nodeType + subtree("id").as[Int]
 
-        if (nonLeafNodes contains nodeType) {
-          val subtreeValue: JsValue = subtree("children")
-          subtreeValue.result match {
-            case _ : JsDefined => subtreeValue.validate[JsArray] match {
-              case s: JsSuccess[JsArray] => printChildren(s.get.as[List[JsValue]], layer + 1)
-              case e: JsError => throw new RuntimeException(
-                "Expected field type of 'children' is %s but was: %s\n%s"
-                  .format(JsArray.getClass, subtreeValue.getClass, e.toString))
+    // Parent (i.e.: "non-leaf") nodes are handled below
+    if (nonLeafNodes contains nodeType) {
+      val subtreeChildren: JsValue = subtree("children")
+      // Check if field 'children' exists (=> JsDefined) and if its type is of JsArray
+      // If not: throw corresponding exceptions
+      return subtreeChildren.result match {
+        case _: JsDefined => subtreeChildren.validate[JsArray] match {
+
+          // Handle the respective parent-node cases -> create their corresponding IRNode
+          case s: JsSuccess[JsArray] => return nodeType match {
+            case "Sum" => {
+              // Create the list of addends out of the child-nodes, then create pairs, using the field 'weights'
+              val addends = s.get.as[List[JsValue]].map(constructSubTree).zip(subtree("weights").as[List[Double]])
+              WeightedSum(id, addends.map { case (a, w) => WeightedAddend(a, w) })
             }
-            case _ : JsUndefined => throw new RuntimeException(
-              "Encountered '%s' non-leaf node without children.\nSubtree: %s"
-                .format(nodeType, subtree.toString()))
+            case "Product" => {
+              Product(id, s.get.as[List[JsValue]].map(constructSubTree))
+            }
           }
+
+          case e: JsError => throw new RuntimeException(
+            "Expected field type of 'children' is '%s' but was: '%s'\n%s"
+              .format(JsArray.getClass, subtreeChildren.getClass, e.toString))
         }
+
+        case _: JsUndefined => throw new RuntimeException(
+          "Encountered '%s' non-leaf node without field 'children':\n%s"
+            .format(nodeType, subtree.toString()))
       }
+    }
+
+    // Leaf nodes are handled below -> create their corresponding IRNode
+    nodeType match {
+      case "Categorical" => {
+        System.err.println("WARNING: '%s' branch not yet implemented -> creating '%s'".format(nodeType, id + "_dummy"))
+        InputVar(id + "_dummy", Int.MinValue)
+      }
+      case "Histogram" => {
+        val indexVar : InputVar = getInputList(subtree).head
+        val breaks = subtree("breaks").as[List[Int]]
+        val densities = subtree("densities").as[List[Double]]
+        require(breaks.size == (densities.size + 1), "Cannot construct histogram buckets from given breaks and values!")
+        // Zip all elements but the last (init) with all elements but the first.
+        // Result is a list of tuples with lower and upper bounds for each bucket.
+        val listBreaks = breaks.init zip breaks.tail
+        val buckets = (listBreaks zip densities).map { case ((lb, ub), d) => HistogramBucket(lb, ub, d) }
+        Histogram(id, indexVar, buckets)
+      }
+      case "Poisson" => {
+        val input: InputVar = getInputList(subtree).head
+        val lambda = subtree("lambda").as[Double]
+        PoissonDistribution(id, input, lambda)
+      }
+      case u => throw new RuntimeException("Unknown leaf-node type '%s'".format(u))
     }
   }
 
@@ -89,7 +103,7 @@ object ParserJSON {
     * @return On success, returns a List of [[InputVar]].
     */
   def getInputList(json: JsValue) : List[InputVar] = {
-    // "scope" of topmost JSON node equals an array of variables / inputs used by the SPN-subtree
+    // "scope" field of the topmost JSON node represents an array of variables / inputs used by the SPN-subtree
     json("scope").validate[JsArray] match {
       case s: JsSuccess[JsArray] => {
         // Inputs may be JsNumber and JsString in this case, contained by the JsArray
@@ -105,73 +119,31 @@ object ParserJSON {
   }
 
   /**
-    * Parse an SPN from textual representation in a file.
-    * @param file Input file name.
-    * @return On success, returns a [[ParseTree]].
+    * Print the provided subtree to console.
+    * (Used to train some Scala & PlayJSON with this method.)
+    *
+    * @param root [[JsValue]] representing the provided SPN subtree's root.
     */
-  // def parseFile(file : File) : IRGraph = parseJSON(Source.fromFile(file).mkString)
+  def printSubTree(root : JsValue, layer : Integer = 0) : Unit = {
+    // Since the cast to JsObject seems necessary in any case, use the 'fields' function to convert the JsValue
+    // This yields a Seq(String, JsValue) representing the nodeType and its subtree.
+    val(nodeType : String, subtree : JsValue) = root.asInstanceOf[JsObject].fields.head
+    println("  " * layer + nodeType)
 
-  /*
-   * Terminals
-   *
-   * ID	- Arbitrary string, starting with a letter
-   * REAL	- Real number, potentially in scientific notation
-   * INT	- Integer number, must not start with '0'
-   *
-   */
-  private def digits[ _ : P]    = P( CharsWhileIn("0-9") )
-  private def sign[_ : P]   = P( CharIn("+\\-") )
-  private def exponent[_ : P]   = P( CharIn("eE") ~ sign.? ~ digits )
-  private def fractional[_ : P] = P( "." ~ digits )
-  private def integral [_ : P]    = P( "0" | CharIn("1-9") ~ digits.? )
-  // Integer numbers
-  private def integer [_ : P]   = P( sign.? ~ integral ).!.map(_.toInt)
-  // Real numbers, potentially in scientific notation
-  private def real [_ : P]    = P( sign.? ~ integral ~ fractional ~ exponent.?).!.map(_.toDouble)
-  // All identifying strings starting with a letter. Strings may only contain letters, digits and underscores.
-  private def id [_ : P]    = P( CharsWhile(_.isLetter) ~ CharsWhile(c => c.isLetterOrDigit | c == '_').? ).!
-
-  /*
-   * Productions
-   */
-
-  // spn := node inputs
-  private def spn [_ : P] = P( node ~ inputs).map{case(r, inputs) => ParseTree(r, inputs)}
-
-  // node := sumNode | productNode | histogramNode | poissonNode
-  private def node [_ : P] : P[ParseTreeNode] = sumNode | productNode | histogramNode | poissonNode
-
-  // weightedOp := REAL '*' ID
-  private def weightedOp [_ : P] =
-  P( real ~ "*" ~ id ).map{case(d, r) => (d, NodeReferenceParseTree(r))}
-
-  // sumNode := ID 'SumNode' '(' weightedOp (',' weightedOp)* ')' '{' node* '}'
-  private def sumNode [_ : P] =
-  P( id ~ "SumNode" ~/ "(" ~ weightedOp.rep(sep = ","./) ~ ")" ~ "{" ~ node.rep./ ~ "}" )
-      .map{case(i, ops, nodes) => SumNodeParseTree(i, ops.toList, nodes.toList)}
-
-  // productNode := ID 'ProductNode' '(' ID (',' ID)* ')' '{' node* '}'
-  private def productNode [_ : P] =
-  P( id ~ "ProductNode" ~/ "(" ~ id.rep(sep = ","./) ~ ")" ~ "{" ~ node.rep./ ~ "}" )
-      .map{case(i, ops, nodes) => ProductNodeParseTree(i, ops.toList.map(r => NodeReferenceParseTree(r)), nodes.toList)}
-
-  // histogramBreak := INT '.'
-  private def histogramBreak [_ : P] = P( integer ~ "." )
-
-  // histogramNode := ID 'Histogram' '(' ID '|' '[' histogramBreak (',' histogramBreak)* ']' ';' '[' REAL (',' REAL)* ']' ')'
-  private def histogramNode [_ : P] =
-  P( id ~ "Histogram" ~/ "(" ~ id ~ "|" ~ "[" ~ histogramBreak.rep(sep = ","./) ~ "]" ~ ";" ~ "[" ~ real.rep(sep = ","./) ~ "]" ~ ")" )
-      .map{case(i, v, breaks, values) => HistogramNodeParseTree(i, NodeReferenceParseTree(v), breaks.toList, values.toList)}
-
-  // poissonNode := ID 'P' '(' ID '|' 'lambda' '=' REAL ')'
-  private def poissonNode [_ : P] =
-  P( id ~ "P" ~/ "(" ~ id ~ "|" ~ "lambda" ~ "=" ~ real ~ ")" )
-      .map{case(i, v, l) => PoissonNodeParseTree(i, NodeReferenceParseTree(v), l)}
-
-  // inputs := '#' ID (';' ID)*
-  private def inputs [_ : P] =
-    P( "#" ~ id.rep(sep = ";")).map(l => l.toList.map(v => InputVariableParseTree(v, l.indexOf(v))))
-
-
+    if (nonLeafNodes contains nodeType) {
+      val subtreeValue: JsValue = subtree("children")
+      subtreeValue.result match {
+        case _: JsDefined => subtreeValue.validate[JsArray] match {
+          case s: JsSuccess[JsArray] => s.get.as[List[JsValue]].foreach(printSubTree(_, layer + 1))
+          case e: JsError => throw new RuntimeException(
+            "Expected field type of 'children' is %s but was: %s\n%s"
+              .format(JsArray.getClass, subtreeValue.getClass, e.toString))
+        }
+        case _: JsUndefined => throw new RuntimeException(
+          "Encountered '%s' non-leaf node without children.\nSubtree: %s"
+            .format(nodeType, subtree.toString()))
+      }
+    }
+  }
 
 }
