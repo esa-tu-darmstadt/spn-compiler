@@ -58,9 +58,11 @@ class CompileServer(executionContext: ExecutionContext) { self =>
   private class SPNCompilerImpl extends SPNCompilerGrpc.SPNCompiler {
     override def compileFromText(req: CompileRequest) = {
       CompileServer.debug("invoked compileFromText (CompileServer)")
-      CompileServer.info("compileFromText received the following:\n" + req.spn)
+      // CompileServer.info("compileFromText received the following:\n" + req.spn)
 
       val spn = Parser.parseString(req.spn)
+      println("compileFromText:\n" + spn.toString)
+
       val cliConfig = new CompileServerConfig().setVerbosityLevel(Logging.VerbosityVerbose)
       // TODO: Changed signature -> Fix!
       // CPUCompilerDriver.execute(spn, _)
@@ -75,9 +77,11 @@ class CompileServer(executionContext: ExecutionContext) { self =>
 
     override def compileFromJson(req: CompileRequest) = {
       CompileServer.debug("invoked compileFromJson (CompileServer)")
-      CompileServer.info("compileFromJson received the following:\n" + req.spn)
+      // CompileServer.info("compileFromJson received the following:\n" + req.spn)
 
       val spn = ParserJSON.parseJSON(req.spn)
+      println("compileFromJson:\n" + spn.toString)
+
       val cliConfig = new CompileServerConfig().setVerbosityLevel(Logging.VerbosityVerbose)
       // TODO: Changed signature -> Fix!
       // CPUCompilerDriver.execute(spn, _)
