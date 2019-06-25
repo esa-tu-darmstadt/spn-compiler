@@ -17,7 +17,7 @@ object CUDACompilerDriver extends Logging {
     val codeDirectory = if(config.outputCodeOnly){
       info(s"Ignoring output file ${config.outputFile}, writing only code output")
       FileUtil.getParentDirectory(config.outputFile)
-    } else FileUtil.getTmpDirectory
+    } else FileUtil.createScratchpadDirectory
 
     val headerName = "spn.hpp"
     val headerFile = FileUtil.createFileInDirectory(codeDirectory, headerName)

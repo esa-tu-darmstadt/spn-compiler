@@ -8,6 +8,13 @@ object FileUtil extends Logging{
 
   def getTmpDirectory : File = new File(System.getProperty("java.io.tmpdir")).getAbsoluteFile
 
+  def createScratchpadDirectory : File = {
+    val hashCode = Math.abs(System.currentTimeMillis().hashCode())
+    val dir = getTmpDirectory.toPath.resolve(hashCode.toString).toFile
+    dir.mkdir()
+    dir
+  }
+
   def createFileInDirectory(dir : File, fileName : String) : File = {
     if(!dir.exists()){
       error(s"Cannot create file $fileName, $dir does not exist")
