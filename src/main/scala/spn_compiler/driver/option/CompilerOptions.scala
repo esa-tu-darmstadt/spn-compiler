@@ -23,6 +23,11 @@ object CompilerOptions {
         opt[Unit]("fast-math")
           .action((_, c) => c.enableFastMath(true))
           .text("Allow aggressive, lossy floating-point optimizations"),
+        opt[String]('D', "macro")
+            .action((s, c) => c.addMacro(s))
+            .valueName("<macro>=<value>")
+            .text("Define <macro> to <value> (or 1 if <value> omitted)")
+            .unbounded(),
         opt[Unit]('S', "code-only")
           .action((_, c) => c.setCodeOnly(true))
           .text("Only write code output")
