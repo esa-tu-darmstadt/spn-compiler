@@ -26,6 +26,7 @@ case object ClangCPPDriver extends CPPCompilerDriver with Logging {
     if(config.isOMPParallelForEnabled){
       flags.append("-fopenmp")
     }
+    flags.append(config.macros.map(m => s"-D$m").mkString(" "))
     flags.append(s"-o ${config.outputFile.getAbsoluteFile.toString}")
     val cmd : String = "clang++ %s %s".format(flags.mkString(" "), files.map(_.getAbsoluteFile.toString).mkString(" "))
     val process = Process(cmd)
@@ -57,6 +58,7 @@ case object GCCCPPDriver extends CPPCompilerDriver with Logging {
     if(config.isOMPParallelForEnabled){
       flags.append("-fopenmp")
     }
+    flags.append(config.macros.map(m => s"-D$m").mkString(" "))
     flags.append(s"-o ${config.outputFile.getAbsoluteFile.toString}")
     val cmd : String = "g++ %s %s".format(flags.mkString(" "), files.map(_.getAbsoluteFile.toString).mkString(" "))
     val process = Process(cmd)

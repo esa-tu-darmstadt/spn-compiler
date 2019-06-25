@@ -21,6 +21,7 @@ case object NVCCCompilerDriver extends Logging {
     }
     // cf. https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#extended-notation
     config.cudaArchitectures.foreach(a => flags.append(s"--generate-code arch=compute_$a,code=[sm_$a,compute_$a]"))
+    flags.append(config.macros.map(m => s"-D$m").mkString(" "))
     flags.append(s"-o ${config.outputFile.getAbsoluteFile.toString}")
     val cmd : String = "nvcc %s %s".format(flags.mkString(" "), files.map(_.getAbsoluteFile.toString).mkString(" "))
     val process = Process(cmd)
