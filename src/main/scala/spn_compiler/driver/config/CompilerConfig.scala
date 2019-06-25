@@ -2,6 +2,8 @@ package spn_compiler.driver.config
 
 import java.io.File
 
+import scala.collection.mutable.ListBuffer
+
 trait CompilerConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
 
   private var optLevel : Int = 0
@@ -31,5 +33,12 @@ trait CompilerConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
     self
   }
   def isFastMathEnabled : Boolean = fastMath
+
+  private val _macros : ListBuffer[String] = ListBuffer()
+  def addMacro(_macro : String) : R = {
+    _macros.append(_macro)
+    self
+  }
+  def macros : List[String] = _macros.toList
 
 }
