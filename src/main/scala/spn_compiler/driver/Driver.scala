@@ -24,7 +24,7 @@ object Driver extends App with Logging {
     import builder._
     OParser.sequence(
       programName("spnc"),
-      head("spnc", "0.0.2"),
+      head("spnc", "0.0.3"),
       BaseOptions.apply,
       CompilerOptions.apply,
       CPPCompileOptions.apply,
