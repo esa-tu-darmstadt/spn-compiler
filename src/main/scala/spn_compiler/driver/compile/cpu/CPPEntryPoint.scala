@@ -20,8 +20,8 @@ object CPPEntryPoint {
       |#include <vector>
       |#include "spn.hpp"
       |
-      |#ifndef VALUES_PER_SAMPLE
-      |#define VALUES_PER_SAMPLE 5
+      |#ifndef NUM_RUNS
+      |#define NUM_RUNS 1
       |#endif
       |
       |int* readInputSamples(char * inputfile, int * sample_count){
@@ -32,7 +32,7 @@ object CPPEntryPoint {
       |        lines.push_back(line);
       |    }
       |
-      |    auto * input_data = (int*) malloc(VALUES_PER_SAMPLE * lines.size() * sizeof(int));
+      |    std::vector<int> * input_data = new std::vector<int>();
       |    int sample_count_int = 0;
       |    for(const std::string& s : lines){
       |        std::istringstream stream(s);
@@ -45,7 +45,7 @@ object CPPEntryPoint {
       |                std::cout << "ERROR: Could not parse double from " << token.c_str() << std::endl;
       |                exit(-1);
       |            }
-      |            input_data[sample_count_int*VALUES_PER_SAMPLE + value_count] = (int) value;
+      |            input_data->push_back((int) value);
       |            ++value_count;
       |        }
       |        ++sample_count_int;
@@ -53,7 +53,7 @@ object CPPEntryPoint {
       |
       |    std::cout << "Read " << sample_count_int << " input samples" << std::endl;
       |    *sample_count = sample_count_int;
-      |    return input_data;
+      |    return input_data->data();
       |}
       |
       |double* readReferenceValues(char * outputfile, int sample_count){
@@ -85,36 +85,40 @@ object CPPEntryPoint {
       |    int sample_count = 0;
       |
       |    void * input_data = readInputSamples(argv[1], &sample_count);
-      |    double result[sample_count];
-      |    for(int i=0; i<sample_count; ++i){
-      |        result[i] = 42.0;
-      |    }
-      |
-      |    auto begin = std::chrono::high_resolution_clock::now();
-      |
-      |    // TODO Kernel invocation
-      |    spn_toplevel(sample_count, (activation_t*) input_data, result);
-      |
-      |    auto end = std::chrono::high_resolution_clock::now();
+      |    double * reference_data;
       |    if(has_reference){
-      |    	double * reference_data = readReferenceValues(argv[2], sample_count);
-      |    	int num_errors = 0;
-      |    	std::cout << "Sample count: " << sample_count << std::endl;
-      |    	for(int i=0; i<sample_count; ++i){
-      |            if(std::abs(std::log(result[i])-reference_data[i])>1e-6){
-      |            	std::cout << "ERROR: Significant deviation @" << i << ": " << std::log(result[i]) << " (" << result[i] << ") " << " vs. " << reference_data[i] << std::endl;
-      |            	++num_errors;
-      |            }
-      |    	}
-      |    	if(num_errors==0){
-      |            std::cout << "COMPUTATION OK" << std::endl;
-      |    	}
+      |        reference_data = readReferenceValues(argv[2], sample_count);
       |    }
+      |    int num_errors = 0;
+      |    std::chrono::microseconds duration{0};
+      |    for(int r=0; r < NUM_RUNS; ++r){
+      |        double result[sample_count];
+      |        for(int i=0; i<sample_count; ++i){
+      |	        result[i] = 42.0;
+      |        }
       |
-      |    std::cout << std::setprecision(15)<< "time per instance " << std::chrono::duration_cast<std::chrono::microseconds>(end-begin).count() / (double) sample_count << " us" << std::endl;
-      |    std::cout << std::setprecision(15) << "time per task " << std::chrono::duration_cast<std::chrono::microseconds>(end-begin).count()  << " us" << std::endl;
+      |        auto begin = std::chrono::high_resolution_clock::now();
+      |
+      |        spn_toplevel(sample_count, (activation_t*) input_data, result);
+      |
+      |        auto end = std::chrono::high_resolution_clock::now();
+      |        if(has_reference){
+      |        	for(int i=0; i<sample_count; ++i){
+      |	            if(std::abs(std::log(result[i])-reference_data[i])>1e-6){
+      |	            	std::cout << "ERROR: Significant deviation @" << i << ": " << std::log(result[i]) << " (" << result[i] << ") " << " vs. " << reference_data[i] << std::endl;
+      |	            	++num_errors;
+      |	            }
+      |        	}
+      |        }
+      |        duration = duration + std::chrono::duration_cast<std::chrono::microseconds>(end-begin);
+      |    }
+      |    if(num_errors==0){
+      |        std::cout << "COMPUTATION OK" << std::endl;
+      |	}
+      |
+      |    std::cout << std::setprecision(15)<< "time per instance " << (duration.count() / ((double) sample_count * (double) NUM_RUNS)) << " us" << std::endl;
+      |    std::cout << std::setprecision(15) << "time per task " << (duration.count() / ((double) NUM_RUNS))  << " us" << std::endl;
       |
       |    return 0;
-      |}
-      |""".stripMargin
+      |}""".stripMargin
 }

@@ -2,13 +2,18 @@ package spn_compiler.driver
 
 import scopt._
 import spn_compiler.driver.compile.cpu.CPUCompilerDriver
-import spn_compiler.driver.config.{BaseConfig, CLIConfig, CPPCompileConfig}
-import spn_compiler.driver.option.{BaseOptions, CPPCompileOptions}
+import spn_compiler.driver.compile.cuda.CUDACompilerDriver
+import spn_compiler.driver.config._
+import spn_compiler.driver.option.{BaseOptions, CPPCompileOptions, CUDACompileOptions, CompilerOptions}
 import spn_compiler.frontend.parser.Parser
 import spn_compiler.util.logging.Logging
 import spn_compiler.util.statistics.GraphStatistics
 
-class DriverConfig extends CLIConfig[DriverConfig] with BaseConfig[DriverConfig] with CPPCompileConfig[DriverConfig] {
+class DriverConfig extends CLIConfig[DriverConfig]
+  with BaseConfig[DriverConfig]
+  with CompilerConfig[DriverConfig]
+  with CPPCompileConfig[DriverConfig]
+  with CUDACompileConfig[DriverConfig]{
   override def self: DriverConfig = this
 }
 
@@ -19,9 +24,11 @@ object Driver extends App with Logging {
     import builder._
     OParser.sequence(
       programName("spnc"),
-      head("spnc", "0.0.2"),
+      head("spnc", "0.0.3"),
       BaseOptions.apply,
-      CPPCompileOptions.apply
+      CompilerOptions.apply,
+      CPPCompileOptions.apply,
+      CUDACompileOptions.apply
     )
   }
 
@@ -36,7 +43,11 @@ object Driver extends App with Logging {
    GraphStatistics.computeStatistics(spn, cliConfig.statsFile)
   }
 
-  CPUCompilerDriver.execute(spn, cliConfig)
+  cliConfig.target match {
+    case BaseConfig.CPPTarget => CPUCompilerDriver.execute(spn, cliConfig)
+    case BaseConfig.CUDATarget => CUDACompilerDriver.execute(spn, cliConfig)
+  }
+
 
 }
 

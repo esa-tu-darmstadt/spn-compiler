@@ -35,6 +35,8 @@ class ASTBlockStatement private[ast] {
     }
   }
 
+  def isEmpty : Boolean = statements.isEmpty
+
 }
 
 object ASTBlockStatement {

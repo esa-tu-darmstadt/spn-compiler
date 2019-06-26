@@ -21,14 +21,14 @@ class ASTBlockStatementTest extends FlatSpec with Matchers {
   private var stmt7 : ASTStatement = _
 
   "A statement" should "be appendable to a block" in {
-    stmt6 = builder.assignVariable(varSix, builder.constantValue(IntegerType, 6))
+    stmt6 = builder.insertStatement(builder.assignVariable(varSix, builder.constantValue(IntegerType, 6)))
     val ASTBlockStatement(testStmt) = block
     testStmt should be(stmt6)
   }
 
   it should "be inserted before another statement in a block" in {
     builder.setInsertionPointBefore(stmt6)
-    stmt5 = builder.assignVariable(varFive, builder.constantValue(IntegerType, 5))
+    stmt5 = builder.insertStatement(builder.assignVariable(varFive, builder.constantValue(IntegerType, 5)))
     val ASTBlockStatement(s1, s2) = block
     s1 should be(stmt5)
     s2 should be(stmt6)
@@ -36,7 +36,7 @@ class ASTBlockStatementTest extends FlatSpec with Matchers {
 
   it should "be inserted after another statement in a block" in {
     builder.setInsertionPointAfter(stmt6)
-    stmt7 = builder.assignVariable(varSeven, builder.constantValue(IntegerType, 7))
+    stmt7 = builder.insertStatement(builder.assignVariable(varSeven, builder.constantValue(IntegerType, 7)))
     val ASTBlockStatement(s1, s2, s3) = block
     s1 should be(stmt5)
     s2 should be(stmt6)
@@ -51,14 +51,11 @@ class ASTBlockStatementTest extends FlatSpec with Matchers {
   }
 
   "It" should "be possible to insert a statement after deleting the prior insertion point statement" in {
-    val stmt = builder.assignVariable(varFive, builder.constantValue(IntegerType, 42))
+    val stmt = builder.insertStatement(builder.assignVariable(varFive, builder.constantValue(IntegerType, 42)))
     val ASTBlockStatement(s1, s2, s3) = block
     s1 should be(stmt5)
     s2 should be(stmt7)
     s3 should be(stmt)
   }
-
-
-
 
 }

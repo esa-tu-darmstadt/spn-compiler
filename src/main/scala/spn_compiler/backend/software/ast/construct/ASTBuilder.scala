@@ -1,7 +1,8 @@
 package spn_compiler.backend.software.ast.construct
 
 import spn_compiler.backend.software.ast.construct.util.UniqueNameCreator
-import spn_compiler.backend.software.ast.nodes.function.{ASTFunction, ASTFunctionParameter, ASTFunctionPrototype}
+import spn_compiler.backend.software.ast.extensions.cpp.value.{CPPAddressOfOperator, CPPSizeOfOperator}
+import spn_compiler.backend.software.ast.nodes.function.{ASTExternalFunction, ASTFunction, ASTFunctionParameter, ASTFunctionPrototype}
 import spn_compiler.backend.software.ast.nodes.reference._
 import spn_compiler.backend.software.ast.nodes.statement.control_flow.{ASTCallStatement, ASTForLoop, ASTIfStatement, ASTReturnStatement}
 import spn_compiler.backend.software.ast.nodes.statement.variable.{ASTVariableAssignment, ASTVariableDeclaration}
@@ -113,7 +114,7 @@ trait ASTBuilder {
     }
   }
 
-  protected def insertStatement[Stmt <: ASTStatement](stmt : Stmt) : Stmt =
+  def insertStatement[Stmt <: ASTStatement](stmt : Stmt) : Stmt =
     (insertionPoint.block, insertionPoint.stmt) match {
       case (Some(block), Some(insertBefore)) => block.insertBefore(insertBefore, stmt)
       case (Some(block), None) => block.append(stmt)
@@ -129,7 +130,7 @@ trait ASTBuilder {
     * @param testExpression Boolean test expression.
     * @return New [[ASTIfStatement]]
     */
-  def createIf(testExpression : ASTValue): ASTIfStatement = insertStatement(new ASTIfStatement(testExpression))
+  def createIf(testExpression : ASTValue): ASTIfStatement = new ASTIfStatement(testExpression)
 
   /**
     * Create a for-loop with the following header: for(IVar = IVal; TVal; IncrVar = IncrVal).
@@ -142,29 +143,31 @@ trait ASTBuilder {
     */
   def forLoop(initVar : Option[ASTReference], initValue : Option[ASTValue], testValue : ASTValue,
                  incrVar : Option[ASTReference], incrValue : Option[ASTValue]) : ASTForLoop =
-    insertStatement(new ASTForLoop(initVar, initValue, testValue, incrVar, incrValue))
+    new ASTForLoop(initVar, initValue, testValue, incrVar, incrValue)
 
   /**
     * Create a for-loop with the following header: for(Var = LB; Var < UB; Var = Var + Stride).
-    * @param variable Var
+    * @param variable   Var
     * @param lowerBound LB
     * @param upperBound UB
-    * @param stride Stride
+    * @param stride     Stride
     * @return New [[ASTForLoop]]
     */
   def forLoop(variable : ASTVariable, lowerBound : ASTValue, upperBound : ASTValue, stride : ASTValue) : ASTForLoop = {
     val ref = referenceVariable(variable)
     val comparison = cmpLT(readVariable(ref), upperBound)
     val increment = add(readVariable(ref), stride)
-    insertStatement(new ASTForLoop(Some(ref), Some(lowerBound), comparison, Some(ref), Some(increment)))
+    new ASTForLoop(Some(ref), Some(lowerBound), comparison, Some(ref), Some(increment))
   }
+
+  protected var externalHeaders : Set[String] = Set()
 
   /**
     * Create a call '''statement''' from a call '''expression''', discarding the return value if necessary.
     * @param call [[ASTCallExpression]] for the actual call.
     * @return New [[ASTCallStatement]]
     */
-  def createCallStatement(call : ASTCallExpression) : ASTCallStatement = insertStatement(new ASTCallStatement(call))
+  def createCallStatement(call : ASTCallExpression) : ASTCallStatement = new ASTCallStatement(call)
 
   /**
     * Create a call '''statement''' for the given function with the given parameters, discarding the return value
@@ -173,8 +176,13 @@ trait ASTBuilder {
     * @param parameters Actual parameter values.
     * @return New [[ASTCallStatement]].
     */
-  def createCallStatement(function : ASTFunctionPrototype, parameters : ASTValue*) : ASTCallStatement =
-    insertStatement(new ASTCallStatement(new ASTCallExpression(function, parameters:_*)))
+  def createCallStatement(function : ASTFunctionPrototype, parameters : ASTValue*) : ASTCallStatement = {
+    externalHeaders = function match {
+      case external : ASTExternalFunction => externalHeaders + external.header
+      case _ => externalHeaders
+    }
+    new ASTCallStatement(new ASTCallExpression(function, parameters:_*))
+  }
 
   /**
     * Create a call '''expression''', calling the given function with the given parameters.
@@ -182,15 +190,20 @@ trait ASTBuilder {
     * @param parameters Actual parameter values.
     * @return New [[ASTCallExpression]].
     */
-  def call(function : ASTFunctionPrototype, parameters : ASTValue*) : ASTCallExpression =
+  def call(function : ASTFunctionPrototype, parameters : ASTValue*) : ASTCallExpression = {
+    externalHeaders = function match {
+      case external : ASTExternalFunction => externalHeaders + external.header
+      case _ => externalHeaders
+    }
     new ASTCallExpression(function, parameters:_*)
+  }
 
   /**
     * Create a return statement, returning the given value.
     * @param returnValue Return value.
     * @return New [[ASTReturnStatement]].
     */
-  def ret(returnValue : ASTValue) : ASTReturnStatement = insertStatement(new ASTReturnStatement(returnValue))
+  def ret(returnValue : ASTValue) : ASTReturnStatement = new ASTReturnStatement(returnValue)
 
 
   //
@@ -223,7 +236,7 @@ trait ASTBuilder {
     if(!variables.contains(variable)){
       throw new ASTBuildingException("Can only declare variable created with this builder before!")
     }
-    insertStatement(new ASTVariableDeclaration(variable))
+    new ASTVariableDeclaration(variable)
   }
 
   /**
@@ -236,7 +249,7 @@ trait ASTBuilder {
     if(!variables.contains(variable)){
       throw new ASTBuildingException("Can only declare variable created with this builder before!")
     }
-    insertStatement(new ASTVariableDeclaration(variable, Some(initValue)))
+    new ASTVariableDeclaration(variable, Some(initValue))
   }
 
   protected val globalVariables : ListBuffer[ASTVariableDeclaration] = ListBuffer()
@@ -323,7 +336,7 @@ trait ASTBuilder {
     * @return [[ASTVariableAssignment]].
     */
   def assignVariable(reference : ASTReference, value : ASTValue) : ASTVariableAssignment =
-    insertStatement(new ASTVariableAssignment(reference, value))
+    new ASTVariableAssignment(reference, value)
 
   /**
     * Assign the given value to the given index of the given reference to some entity.
@@ -333,7 +346,7 @@ trait ASTBuilder {
     * @return [[ASTVariableAssignment]].
     */
   def assignIndex(reference : ASTReference, index : ASTValue, value : ASTValue) : ASTVariableAssignment =
-    insertStatement(new ASTVariableAssignment(referenceIndex(reference, index), value))
+    new ASTVariableAssignment(referenceIndex(reference, index), value)
 
   /**
     * Assign the given value to the given element (by name) of the given reference to some entity.
@@ -343,7 +356,7 @@ trait ASTBuilder {
     * @return [[ASTVariableAssignment]].
     */
   def assignElement(reference : ASTReference, element : String, value : ASTValue) : ASTVariableAssignment =
-    insertStatement(new ASTVariableAssignment(referenceElement(reference, element), value))
+    new ASTVariableAssignment(referenceElement(reference, element), value)
 
   //
   // Constants and literals.
@@ -435,5 +448,28 @@ trait ASTBuilder {
     * @return [[ASTTypeConversion]].
     */
   def convert(op : ASTValue, targetType : ASTType) : ASTTypeConversion = new ASTTypeConversion(op, targetType)
+
+  //
+  // Address-of operator
+  //
+  /**
+    * Apply the C++-specific address-of operator to some reference, yielding a pointer to the underlying
+    * entity.
+    * @param ref Reference some entity.
+    * @return [[CPPAddressOfOperator]], essentially a array-type value representing the pointer.
+    */
+  def addressOf(ref : ASTReference) : CPPAddressOfOperator = new CPPAddressOfOperator(ref)
+
+  //
+  // Size-of operator
+  //
+  /**
+    * Apply the C++-specific sizeof-operator to some reference, yielding the number of bytes necessary
+    * to store one entity of the type of the reference.
+    * @param ref Reference to some variable.
+    * @return [[CPPSizeOfOperator]], essentially a integer value giving the number of bytes
+    *        requires to store one entity of the type of the given variable.
+    */
+  def sizeOf(ref : ASTReference) : CPPSizeOfOperator = new CPPSizeOfOperator(ref)
 
 }

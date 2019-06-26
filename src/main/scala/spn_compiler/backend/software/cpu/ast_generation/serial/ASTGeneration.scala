@@ -9,11 +9,12 @@ import spn_compiler.graph_ir.nodes._
 
 import scala.collection.mutable
 
-class SerialASTGeneration {
+class ASTGeneration {
 
   def createAST(graph : IRGraph) : ASTModule = {
     val module = new ASTModule("spn")
-    val inputStructType = module.createStructType("activation", graph.inputVariables.map(v => (v.id, IntegerType)):_*)
+    val inputStructType = module.createStructType("activation",
+      graph.inputVariables.map(v => (s"input_${v.id}", IntegerType)):_*)
     val spnFunction = createSPNFunction(graph.rootNode, module, inputStructType)
     val toplevelFunction = createTopLevelFunction(spnFunction, module, inputStructType)
     module
@@ -26,11 +27,13 @@ class SerialASTGeneration {
     val topLevelFunction = module.defineLocalFunction("spn_toplevel", VoidType, numElements, inputData, outputData)
     module.setInsertionPoint(topLevelFunction.body)
     val loopVar = module.createVariable(IntegerType, "i")
-    module.declareVariable(loopVar)
+    module.insertStatement(module.declareVariable(loopVar))
     val constantZero = module.constantValue(IntegerType, 0)
-    val forLoop = module.forLoop(loopVar, constantZero, numElements, module.constantValue(IntegerType, 1))
+    val forLoop = module.insertStatement(module.forLoop(loopVar, constantZero,
+      numElements, module.constantValue(IntegerType, 1)))
     module.setInsertionPoint(forLoop.body)
-    module.assignIndex(outputData, loopVar, module.call(spnFunction, module.readIndex(inputData, loopVar)))
+    module.insertStatement(module.assignIndex(outputData, loopVar,
+      module.call(spnFunction, module.readIndex(inputData, loopVar))))
     topLevelFunction
   }
 
@@ -38,7 +41,7 @@ class SerialASTGeneration {
     val inputParam = module.createFunctionParameter("activation", inputStructType)
     val spnFunction = module.defineLocalFunction("spn", RealType, inputParam)
     module.setInsertionPoint(spnFunction.body)
-    module.ret(constructSubAST(spnRoot, module, inputParam))
+    module.insertStatement(module.ret(constructSubAST(spnRoot, module, inputParam)))
     spnFunction
   }
 
@@ -46,7 +49,7 @@ class SerialASTGeneration {
 
   protected def constructSubAST(subTreeRot : IRNode, module : ASTModule, inputParam : ASTFunctionParameter) : ASTValue =
     constructedSubGraphs.getOrElseUpdate(subTreeRot, subTreeRot match {
-      case InputVar(id, _) => module.readElement(module.referenceVariable(inputParam), id)
+      case InputVar(id, _) => module.readElement(module.referenceVariable(inputParam), s"input_$id")
 
       case Histogram(id, indexVar, buckets) => {
         val arrayInit = module.initArray(RealType, buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => b.value)):_*)
