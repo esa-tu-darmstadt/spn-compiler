@@ -37,7 +37,7 @@ object Driver extends App with Logging {
 
   Logging.setVerbosityLevel(cliConfig.verbosityLevel)
 
-  val spn = Parser.parseFile(cliConfig.in)
+  val (spn, marginals) = Parser.parseFile(cliConfig.in)
 
   if(cliConfig.computeStats){
    GraphStatistics.computeStatistics(spn, cliConfig.statsFile)

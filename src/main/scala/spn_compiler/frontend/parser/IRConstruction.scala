@@ -16,10 +16,11 @@ class IRConstruction(private val parseTree : ParseTree) {
     * Construct a [[IRGraph]] from the parse tree.
     * @return [[IRGraph]] comprising the SPN and the list of input variables.
     */
-  def constructIRGraph : IRGraph = {
+  def constructIRGraph : (IRGraph, List[Set[InputVar]]) = {
     val inputVariables = parseTree.inputVariables.map(constructSubTree(_).asInstanceOf[InputVar])
+    val marginals = parseTree.marginals.map(_.map(constructSubTree(_).asInstanceOf[InputVar]))
     val spnRoot = constructSubTree(parseTree.rootNode)
-    IRGraph(spnRoot, inputVariables)
+    (IRGraph(spnRoot, inputVariables), marginals)
   }
 
   private def constructSubTree(subTreeRoot : ParseTreeNode) : IRNode = {

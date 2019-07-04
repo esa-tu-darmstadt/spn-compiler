@@ -15,6 +15,7 @@ class Identification {
   def performIdentification(parseTree: ParseTree) : Unit = {
     parseTree.inputVariables.foreach(v => resolvedReferences += v.name -> v)
     processGraph(parseTree.rootNode)
+    parseTree.marginals.foreach(_.foreach(resolveReference))
   }
 
   private def processGraph(rootNode : ParseTreeNode) : Unit = rootNode match {

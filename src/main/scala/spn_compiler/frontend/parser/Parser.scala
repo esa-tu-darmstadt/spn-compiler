@@ -4,7 +4,7 @@ import java.io.File
 
 import fastparse.MultiLineWhitespace._
 import fastparse._
-import spn_compiler.graph_ir.nodes.IRGraph
+import spn_compiler.graph_ir.nodes.{IRGraph, InputVar}
 
 import scala.io.Source
 
@@ -16,9 +16,12 @@ object Parser {
   /**
     * Parse an SPN from textual representation in an input string.
     * @param text Input string.
-    * @return On success, returns a [[ParseTree]].
+    * @return On success, returns a [[IRGraph]] and a list of sets
+    *         of [[InputVar]], with each set representing a
+    *         marginalization query, marginalizing the variables
+    *         in the set.
     */
-  def parseString(text : String) : IRGraph = {
+  def parseString(text : String) : (IRGraph, List[Set[InputVar]]) = {
     // Parse input text.
     val parseResult = parse(text.trim, spn(_)) match {
       case Parsed.Success(parseTree, _) => parseTree
@@ -32,10 +35,14 @@ object Parser {
 
   /**
     * Parse an SPN from textual representation in a file.
+    *
     * @param file Input file name.
-    * @return On success, returns a [[ParseTree]].
+    * @return On success, returns a [[IRGraph]] and a list of sets
+    *         of [[InputVar]], with each set representing a
+    *         marginalization query, marginalizing the variables
+    *         in the set.
     */
-  def parseFile(file : File) : IRGraph = parseString(Source.fromFile(file).mkString)
+  def parseFile(file : File) : (IRGraph, List[Set[InputVar]]) = parseString(Source.fromFile(file).mkString)
 
   /*
    * Terminals
@@ -62,7 +69,8 @@ object Parser {
    */
 
   // spn := node inputs
-  private def spn [_ : P] = P( node ~ inputs).map{case(r, inputs) => ParseTree(r, inputs)}
+  private def spn [_ : P] = P(node ~ inputs ~ marginals )
+    .map{case(r, inputs, marginals) => ParseTree(r, inputs, marginals)}
 
   // node := sumNode | productNode | histogramNode | poissonNode
   private def node [_ : P] : P[ParseTreeNode] = sumNode | productNode | histogramNode | poissonNode
@@ -98,5 +106,12 @@ object Parser {
   private def inputs [_ : P] =
     P( "#" ~ id.rep(sep = ";")).map(l => l.toList.map(v => InputVariableParseTree(v, l.indexOf(v))))
 
+  // marginalization := '#' ID (';' ID)*
+  private def marginalization [_ : P] =
+    P( ":" ~ id.rep(sep = ";")).map(l => Set(l.toList.map(v => NodeReferenceParseTree(v)):_*))
+
+  // marginals := marginals*
+  private def marginals [_ : P] =
+    P(marginalization.rep).map(_.toList)
 
 }

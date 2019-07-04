@@ -5,8 +5,12 @@ package spn_compiler.frontend.parser
   * @param rootNode Root node of the parse tree structure.
   * @param inputVariables List of input variables.
   */
-final case class ParseTree(rootNode : ParseTreeNode, inputVariables : List[InputVariableParseTree]) {
-  def validate() : Unit = rootNode.validate()
+final case class ParseTree(rootNode : ParseTreeNode, inputVariables : List[InputVariableParseTree],
+                           marginals : List[Set[NodeReferenceParseTree]]) {
+  def validate() : Unit = {
+    rootNode.validate()
+    marginals.foreach(_.foreach(_.validate))
+  }
 }
 
 /**
