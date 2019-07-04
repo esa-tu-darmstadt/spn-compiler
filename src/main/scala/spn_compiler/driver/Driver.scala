@@ -6,6 +6,7 @@ import spn_compiler.driver.compile.cuda.CUDACompilerDriver
 import spn_compiler.driver.config._
 import spn_compiler.driver.option.{BaseOptions, CPPCompileOptions, CUDACompileOptions, CompilerOptions}
 import spn_compiler.frontend.parser.Parser
+import spn_compiler.graph_ir.transform.Marginalization
 import spn_compiler.util.logging.Logging
 import spn_compiler.util.statistics.GraphStatistics
 
@@ -42,6 +43,8 @@ object Driver extends App with Logging {
   if(cliConfig.computeStats){
    GraphStatistics.computeStatistics(spn, cliConfig.statsFile)
   }
+
+  marginals.map(m => Marginalization.constructMarginalizedGraph(spn, m))
 
   cliConfig.target match {
     case BaseConfig.CPPTarget => CPUCompilerDriver.execute(spn, cliConfig)
