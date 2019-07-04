@@ -27,6 +27,7 @@ object ParserJSON {
     val inputs : List[InputVar] = getInputList(json.values.head)
     val inputsMap : Map[String, InputVar] = inputs.map(x => (x.id, x)).toMap
     val spnRoot = constructSubTree(json, inputsMap)
+    printSubTree(json)
     IRGraph(spnRoot, inputs)
   }
 
@@ -42,7 +43,7 @@ object ParserJSON {
     // This yields a Seq(String, JsValue) representing the nodeType and its subtree.
     // Assumption: There is exactly one element in the sequence.
     val (nodeType: String, subtree: JsValue) = root.asInstanceOf[JsObject].fields.head
-    val id: String = nodeType + subtree("id").as[Int]
+    val id: String = nodeType + "Node_" + subtree("id").as[Int]
 
     // Parent (i.e.: "non-leaf") nodes are handled below
     if (nonLeafNodes contains nodeType) {
