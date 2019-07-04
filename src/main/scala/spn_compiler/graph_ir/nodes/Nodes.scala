@@ -57,6 +57,12 @@ final case class HistogramBucket(lowerBound : Int, upperBound : Int, value : Dou
 case class Histogram(id : String, indexVar : InputVar, buckets : List[HistogramBucket]) extends IRNode(id)
 
 /**
+  * Represents a marginalized input variable.
+  * @param id see [[IRNode._identifier]]
+  */
+case class Marginal(id : String) extends IRNode(id)
+
+/**
   * Representation of an weighted (scaled) addend to a [[WeightedSum]].
   * @param addend [[IRNode]] used as addend.
   * @param weight Weight (scaling factor).
