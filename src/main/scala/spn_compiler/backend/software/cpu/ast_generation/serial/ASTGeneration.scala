@@ -55,6 +55,8 @@ class ASTGeneration {
     constructedSubGraphs.getOrElseUpdate(subTreeRot, subTreeRot match {
       case InputVar(id, _) => module.readElement(module.referenceVariable(inputParam), s"input_$id")
 
+      case Marginal(id) => module.constantValue(RealType, 1.0)
+
       case Histogram(id, indexVar, buckets) => {
         val arrayInit = module.initArray(RealType, buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => b.value)):_*)
         val globalVar = module.createVariable(module.createArrayType(RealType), id)
@@ -65,17 +67,26 @@ class ASTGeneration {
 
       case WeightedSum(id, addends) => {
         val operands = addends.map(wa => module.mul(constructSubAST(wa.addend, module, inputParam), module.constantValue(RealType, wa.weight)))
-        operands.tail.fold[ASTValue](operands.head)(module.add)
+        val rhs = operands.tail.fold[ASTValue](operands.head)(module.add)
+        val variable = module.createVariable(rhs.getType, id)
+        module.insertStatement(module.declareVariable(variable, rhs))
+        module.readVariable(variable)
       }
 
       case Sum(id, addends) => {
         val operands = addends.map(constructSubAST(_, module, inputParam))
-        operands.tail.fold(operands.head)(module.add)
+        val rhs = operands.tail.fold(operands.head)(module.add)
+        val variable = module.createVariable(rhs.getType, id)
+        module.insertStatement(module.declareVariable(variable, rhs))
+        module.readVariable(variable)
       }
 
       case Product(id, multiplicands) => {
         val operands = multiplicands.map(constructSubAST(_, module, inputParam))
-        operands.tail.fold(operands.head)(module.mul)
+        val rhs = operands.tail.fold(operands.head)(module.mul)
+        val variable = module.createVariable(rhs.getType, id)
+        module.insertStatement(module.declareVariable(variable, rhs))
+        module.readVariable(variable)
       }
     })
 
