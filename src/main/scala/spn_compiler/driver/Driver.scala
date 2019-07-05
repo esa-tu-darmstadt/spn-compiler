@@ -7,7 +7,7 @@ import spn_compiler.driver.config._
 import spn_compiler.driver.option.{BaseOptions, CPPCompileOptions, CUDACompileOptions, CompilerOptions}
 import spn_compiler.frontend.parser.Parser
 import spn_compiler.graph_ir.nodes.IRGraph
-import spn_compiler.graph_ir.transform.Marginalization
+import spn_compiler.graph_ir.transform.{BalanceTree, Marginalization}
 import spn_compiler.util.logging.Logging
 import spn_compiler.util.statistics.GraphStatistics
 
@@ -49,7 +49,8 @@ object Driver extends App with Logging {
 
   val compileFunction = cliConfig.target match {
     case BaseConfig.CPPTarget =>
-      (graph : IRGraph, suffix : String) => CPUCompilerDriver.execute(graph, cliConfig, suffix)
+      (graph : IRGraph, suffix : String) =>
+        CPUCompilerDriver.execute(BalanceTree.balanceTree(graph), cliConfig, suffix)
     case BaseConfig.CUDATarget =>
       (graph : IRGraph, suffix : String) => CUDACompilerDriver.execute(graph, cliConfig)
   }
