@@ -6,6 +6,7 @@ import spn_compiler.driver.compile.cuda.CUDACompilerDriver
 import spn_compiler.driver.config._
 import spn_compiler.driver.option.{BaseOptions, CPPCompileOptions, CUDACompileOptions, CompilerOptions}
 import spn_compiler.frontend.parser.Parser
+import spn_compiler.graph_ir.nodes.IRGraph
 import spn_compiler.graph_ir.transform.Marginalization
 import spn_compiler.util.logging.Logging
 import spn_compiler.util.statistics.GraphStatistics
@@ -44,12 +45,17 @@ object Driver extends App with Logging {
    GraphStatistics.computeStatistics(spn, cliConfig.statsFile)
   }
 
-  marginals.map(m => Marginalization.constructMarginalizedGraph(spn, m))
+  val marginalGraphs = marginals.map(m => Marginalization.constructMarginalizedGraph(spn, m))
 
-  cliConfig.target match {
-    case BaseConfig.CPPTarget => CPUCompilerDriver.execute(spn, cliConfig)
-    case BaseConfig.CUDATarget => CUDACompilerDriver.execute(spn, cliConfig)
+  val compileFunction = cliConfig.target match {
+    case BaseConfig.CPPTarget =>
+      (graph : IRGraph, suffix : String) => CPUCompilerDriver.execute(graph, cliConfig, suffix)
+    case BaseConfig.CUDATarget =>
+      (graph : IRGraph, suffix : String) => CUDACompilerDriver.execute(graph, cliConfig)
   }
+
+  compileFunction(spn, "")
+  marginalGraphs.zipWithIndex.foreach{case(g, i) => compileFunction(g, s"marginal$i")}
 
 
 }
