@@ -4,12 +4,8 @@ import spn_compiler.graph_ir.nodes._
 
 object Marginalization {
 
-  def constructMarginalizedGraph(spn : IRGraph, marginals : Set[InputVar]) : IRGraph = {
-    val graph = constructMarginalizedSubgraph(spn.rootNode, marginals)
-    val nonMarginalizedInputs = spn.inputVariables.filter(!marginals.contains(_))
-    val inputs = nonMarginalizedInputs.zipWithIndex.map{case (iv, i) => InputVar(iv.id, i)}
-    IRGraph(graph, inputs)
-  }
+  def constructMarginalizedGraph(spn : IRGraph, marginals : Set[InputVar]) : IRGraph =
+    IRGraph(constructMarginalizedSubgraph(spn.rootNode, marginals), spn.inputVariables)
 
   def constructMarginalizedSubgraph(rootNode: IRNode, marginals: Set[InputVar]): IRNode = rootNode match {
     case pd @ PoissonDistribution(id, variable, lambda) =>
