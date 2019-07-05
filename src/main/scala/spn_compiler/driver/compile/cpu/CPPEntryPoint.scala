@@ -4,9 +4,10 @@ import java.io.{BufferedWriter, File, FileWriter}
 
 object CPPEntryPoint {
 
-  def writeMain(mainFile : File) : Unit = {
+  def writeMain(mainFile : File, headerName : String, suffix : String) : Unit = {
     val writer = new BufferedWriter(new FileWriter(mainFile))
-    writer.write(mainCode)
+    val topLevelSuffix = if(suffix.length > 0) "_"+suffix else ""
+    writer.write(mainCode.format(headerName, topLevelSuffix))
     writer.close()
   }
 
@@ -18,7 +19,7 @@ object CPPEntryPoint {
       |#include <cmath>
       |#include <chrono>
       |#include <vector>
-      |#include "spn.hpp"
+      |#include "%s"
       |
       |#ifndef NUM_RUNS
       |#define NUM_RUNS 1
@@ -99,7 +100,7 @@ object CPPEntryPoint {
       |
       |        auto begin = std::chrono::high_resolution_clock::now();
       |
-      |        spn_toplevel(sample_count, (activation_t*) input_data, result);
+      |        spn_toplevel%s(sample_count, (activation_t*) input_data, result);
       |
       |        auto end = std::chrono::high_resolution_clock::now();
       |        if(has_reference){

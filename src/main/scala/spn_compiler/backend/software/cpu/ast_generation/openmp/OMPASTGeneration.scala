@@ -11,21 +11,22 @@ import spn_compiler.graph_ir.nodes.IRGraph
 
 class OMPASTGeneration extends ASTGeneration {
 
-  override def createAST(graph : IRGraph) : ASTModule = {
+  override def createAST(graph : IRGraph, suffix : String) : ASTModule = {
     val module = new OMPModule("spn")
     val inputStructType = module.createStructType("activation",
       graph.inputVariables.map(v => (s"input_${v.id}", IntegerType)):_*)
-    val spnFunction = createSPNFunction(graph.rootNode, module, inputStructType)
-    val toplevelFunction = createTopLevelFunction(spnFunction, module, inputStructType)
+    val spnFunction = createSPNFunction(graph.rootNode, module, inputStructType, suffix)
+    val toplevelFunction = createTopLevelFunction(spnFunction, module, inputStructType, suffix)
     module
   }
 
   protected def createTopLevelFunction(spnFunction: ASTFunction,
-                                                module: OMPModule, inputStructType: StructType): ASTFunction = {
+                                       module: OMPModule, inputStructType: StructType, suffix : String): ASTFunction = {
     val numElements = module.createFunctionParameter("num_examples", IntegerType)
     val inputData = module.createFunctionParameter("input_data", module.createArrayType(inputStructType))
     val outputData = module.createFunctionParameter("output_data", module.createArrayType(RealType))
-    val topLevelFunction = module.defineLocalFunction("spn_toplevel", VoidType, numElements, inputData, outputData)
+    val topLevelFunction = module.defineLocalFunction(s"spn_toplevel${if(suffix.length>0) "_"+suffix else ""}",
+      VoidType, numElements, inputData, outputData)
     module.setInsertionPoint(topLevelFunction.body)
     val loopVar = module.createVariable(IntegerType, "i")
     module.insertStatement(module.declareVariable(loopVar))
