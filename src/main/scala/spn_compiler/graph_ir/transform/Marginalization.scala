@@ -7,7 +7,7 @@ object Marginalization {
   def constructMarginalizedGraph(spn : IRGraph, marginals : Set[InputVar]) : IRGraph =
     IRGraph(constructMarginalizedSubgraph(spn.rootNode, marginals), spn.inputVariables)
 
-  def constructMarginalizedSubgraph(rootNode: IRNode, marginals: Set[InputVar]): IRNode = rootNode match {
+  private def constructMarginalizedSubgraph(rootNode: IRNode, marginals: Set[InputVar]): IRNode = rootNode match {
     case pd @ PoissonDistribution(id, variable, lambda) =>
       if(marginals.contains(variable))
         Marginal(id)
