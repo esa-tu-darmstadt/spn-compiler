@@ -51,8 +51,6 @@ class ASTGeneration {
     constructedSubGraphs.getOrElseUpdate(subTreeRot, subTreeRot match {
       case InputVar(id, _) => module.readElement(module.referenceVariable(inputParam), s"input_$id")
 
-      case Marginal(id) => module.constantValue(RealType, 1.0)
-
       case Histogram(id, indexVar, buckets) => {
         val arrayInit = module.initArray(RealType, buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => b.value)):_*)
         val globalVar = module.createVariable(module.createArrayType(RealType), id)
