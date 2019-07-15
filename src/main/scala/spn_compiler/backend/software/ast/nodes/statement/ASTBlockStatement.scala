@@ -25,6 +25,12 @@ class ASTBlockStatement private[ast] {
     }
   }
 
+  private[ast] def replace(oldStmt : ASTStatement, newStmt : ASTStatement) : Unit = {
+    if(oldStmt != newStmt){
+      statements(statements.indexOf(oldStmt)) = newStmt
+    }
+  }
+
   private[ast] def getNextStatement(stmt : ASTStatement) : Option[ASTStatement] = {
     require(statements.contains(stmt), "Statement is not part of this block")
     if(statements.last == stmt){
@@ -34,6 +40,8 @@ class ASTBlockStatement private[ast] {
       Some(statements(statements.indexOf(stmt)+1))
     }
   }
+
+  private[ast] def getAllStatements : List[ASTStatement] = statements.toList
 
   def isEmpty : Boolean = statements.isEmpty
 
