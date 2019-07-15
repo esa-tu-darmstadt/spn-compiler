@@ -11,7 +11,12 @@ class CppImplCodeGeneration(ast : ASTModule, headerName : String, val writer : C
   def generateCode() : Unit = {
     val ASTModule(name, headers, _, globalVars, functions) = ast
     writer.writeln("#include \"%s\"".format(headerName))
-    headers.foreach(h => writer.writeln("#include <%s>".format(h)))
+    headers.foreach{h =>
+      if(h.local)
+        writer.writeln("#include \"%s\"".format(h.name))
+      else
+        writer.writeln("#include <%s>".format(h.name))
+    }
     globalVars.foreach(writeGlobalVariable)
     functions.foreach(writeFunction)
     writer.close()
