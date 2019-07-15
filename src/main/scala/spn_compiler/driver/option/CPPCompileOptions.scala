@@ -13,6 +13,9 @@ object CPPCompileOptions {
         opt[Unit]("openmp-parallel")
           .action((_, c) => c.enableOMPParallelFor(true))
           .text("Use OpenMP to parallelize processing of examples"),
+        opt[Unit]("range-profiling")
+          .action((_, c) => c.enableRangeProfiling(true))
+          .text("Record all intermediate values in the tree and determine min and max values"),
         opt[String]("cpp-compiler")
           .action((name, c) =>
             c.setCompiler(CPPCompileConfig.availableCompilers.filter(d => d._1.equalsIgnoreCase(name)).head._2))
