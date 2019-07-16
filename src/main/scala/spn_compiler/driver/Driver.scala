@@ -6,9 +6,9 @@ import spn_compiler.driver.compile.cuda.CUDACompilerDriver
 import spn_compiler.driver.config._
 import spn_compiler.driver.option.{BaseOptions, CPPCompileOptions, CUDACompileOptions, CompilerOptions}
 import spn_compiler.frontend.parser.Parser
+import spn_compiler.graph_ir.analysis.GraphStatistics
 import spn_compiler.graph_ir.transform.BalanceTree
 import spn_compiler.util.logging.Logging
-import spn_compiler.util.statistics.GraphStatistics
 
 class DriverConfig extends CLIConfig[DriverConfig]
   with BaseConfig[DriverConfig]

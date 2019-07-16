@@ -1,4 +1,4 @@
-package spn_compiler.util.statistics
+package spn_compiler.graph_ir.analysis
 
 import java.io.{BufferedWriter, File, FileWriter}
 
@@ -8,7 +8,6 @@ import spn_compiler.graph_ir.nodes._
 
 import scala.collection.mutable
 import scala.io.Source
-
 
 /**
   * Statistics tool to compute statistic numbers (e.g. number of sum-nodes) from an SPN.
@@ -65,46 +64,72 @@ object GraphStatistics {
     }
   }
 
+  final def countAddOperands(node : IRNode) : Option[Int] = node match {
+    case WeightedSum(_, addends) => Some(addends.size)
+    case _ => None
+  }
+
+  final def countMulOperands(node : IRNode) : Option[Int] = node match {
+    case Product(_, multiplicands) => Some(multiplicands.size)
+    case _ => None
+  }
+
   /**
     * Object representation for SPN graph statistics.
-    * @param numAdders Number of weighted sums in the SPN.
-    * @param numMultipliers Number of multiplications in the SPN.
-    * @param numPoisson Number of Poisson distributions used as leaf nodes of the SPN.
-    * @param numHistogram Number of histograms used as leaf nodes of the SPN.
-    * @param numInputs Number of input variables to the SPN.
+    * @param operatorStatistics [[OperatorStatistics]] about the arithmetic operators in the SPN.
     * @param addOpStatistics [[OperandStatistics]] about the adders in the SPN.
     * @param mulOpStatistics [[OperandStatistics]] about the multiplications in the SPN.
     */
-  final case class GraphStatistics(numAdders : Int = 0, numMultipliers : Int = 0, numPoisson : Int = 0,
-                                           numHistogram : Int = 0, numInputs : Int = 0,
-                                           addOpStatistics : OperandStatistics = OperandStatistics(),
-                                           mulOpStatistics : OperandStatistics = OperandStatistics()) {
+  final case class GraphStatistics(operatorStatistics: OperatorStatistics = OperatorStatistics(),
+                                           addOpStatistics : OperandStatistics = OperandStatistics()(countAddOperands),
+                                           mulOpStatistics : OperandStatistics = OperandStatistics()(countMulOperands)) {
 
-    def addNode(node : IRNode) : GraphStatistics = node match {
+    def addNode(node : IRNode) : GraphStatistics = GraphStatistics(operatorStatistics.addNode(node),
+      addOpStatistics.addNode(node), mulOpStatistics.addNode(node))
+
+    def merge(gs : GraphStatistics) : GraphStatistics =
+      GraphStatistics(operatorStatistics.merge(gs.operatorStatistics), addOpStatistics.merge(gs.addOpStatistics),
+        mulOpStatistics.merge(gs.mulOpStatistics))
+
+    override def toString: String = {
+      val sb : mutable.StringBuilder = new StringBuilder()
+      sb.append(operatorStatistics.toString)
+      sb.append("Weighted adder number of operands - statistics:\n%s\n".format(addOpStatistics.toString))
+      sb.append("Multiplier number of operands - statistics:\n%s\n".format(mulOpStatistics.toString))
+      sb.toString()
+    }
+  }
+
+  sealed trait Statistics[T <: Statistics[T]] {
+    def addNode(node : IRNode) : T
+    def merge(stat : T) : T
+  }
+
+  final case class OperatorStatistics(numAdders : Int = 0, numMultipliers : Int = 0, numPoisson : Int = 0,
+                                      numHistogram : Int = 0, numInputs : Int = 0)
+    extends Statistics[OperatorStatistics]{
+    def addNode(node : IRNode) : OperatorStatistics = node match {
       case iv : InputVar =>
-        GraphStatistics(numAdders, numMultipliers, numPoisson, numHistogram, numInputs+1, addOpStatistics, mulOpStatistics)
+        OperatorStatistics(numAdders, numMultipliers, numPoisson, numHistogram, numInputs+1)
 
       case h : Histogram =>
-        GraphStatistics(numAdders, numMultipliers, numPoisson, numHistogram+1, numInputs, addOpStatistics, mulOpStatistics)
+        OperatorStatistics(numAdders, numMultipliers, numPoisson, numHistogram+1, numInputs)
 
       case p : PoissonDistribution =>
-        GraphStatistics(numAdders, numMultipliers, numPoisson+1, numHistogram, numInputs, addOpStatistics, mulOpStatistics)
+        OperatorStatistics(numAdders, numMultipliers, numPoisson+1, numHistogram, numInputs)
 
       case WeightedSum(_, addends) =>
-        GraphStatistics(numAdders+1, numMultipliers, numPoisson, numHistogram, numInputs,
-          addOpStatistics.increment(addends.size), mulOpStatistics)
+        OperatorStatistics(numAdders+1, numMultipliers, numPoisson, numHistogram, numInputs)
 
       case Product(_, multiplicands) =>
-        GraphStatistics(numAdders, numMultipliers+1, numPoisson, numHistogram, numInputs,
-          addOpStatistics, mulOpStatistics.increment(multiplicands.size))
+        OperatorStatistics(numAdders, numMultipliers+1, numPoisson, numHistogram, numInputs)
 
       case _ => ??? /* Unexpected case */
     }
 
-    def merge(gs : GraphStatistics) : GraphStatistics =
-      GraphStatistics(numAdders+gs.numAdders, numMultipliers+gs.numMultipliers, numPoisson+gs.numPoisson,
-        numHistogram+gs.numHistogram, numInputs+gs.numInputs, addOpStatistics.merge(gs.addOpStatistics),
-        mulOpStatistics.merge(gs.mulOpStatistics))
+    def merge(gs : OperatorStatistics) : OperatorStatistics =
+      OperatorStatistics(numAdders+gs.numAdders, numMultipliers+gs.numMultipliers, numPoisson+gs.numPoisson,
+        numHistogram+gs.numHistogram, numInputs+gs.numInputs)
 
     override def toString: String = {
       val sb : mutable.StringBuilder = new StringBuilder()
@@ -113,8 +138,6 @@ object GraphStatistics {
       sb.append("Number of multiplications:\t%d\n".format(numMultipliers))
       sb.append("Number of Poisson distr.:\t%d\n".format(numPoisson))
       sb.append("Number of histograms:\t\t%d\n".format(numHistogram))
-      sb.append("Weighted adder number of operands - statistics:\n%s\n".format(addOpStatistics.toString))
-      sb.append("Multiplier number of operands - statistics:\n%s\n".format(mulOpStatistics.toString))
       sb.toString()
     }
   }
@@ -124,14 +147,21 @@ object GraphStatistics {
     * @param histogram Histogram reflecting the number of operator instances per
     *                  number of operands.
     */
-  final case class OperandStatistics(histogram : Map[Int, Int] = Map()) {
-    def increment(numOperands : Int) : OperandStatistics = {
-      OperandStatistics(histogram + (numOperands -> (histogram.getOrElse(numOperands, 0)+1)))
-    }
+  final case class OperandStatistics(histogram : Map[Int, Int] = Map()) (lambda : IRNode => Option[Int])
+    extends Statistics[OperandStatistics] {
 
-    def merge(os : OperandStatistics) : OperandStatistics = {
-      OperandStatistics((histogram.keySet ++ os.histogram.keySet)
-        .map(k => k -> (histogram.getOrElse(k, 0) + os.histogram.getOrElse(k, 0))).toMap)
+    override def addNode(node: IRNode): OperandStatistics = increment(lambda(node))
+
+    private def increment(numOperands : Option[Int]) : OperandStatistics =
+      if(numOperands.isDefined)
+        OperandStatistics(histogram + (numOperands.get -> (histogram.getOrElse(numOperands.get, 0)+1)))(lambda)
+      else
+        this
+
+
+    override def merge(stat: OperandStatistics): OperandStatistics = {
+      OperandStatistics((histogram.keySet ++ stat.histogram.keySet)
+        .map(k => k -> (histogram.getOrElse(k, 0) + stat.histogram.getOrElse(k, 0))).toMap)(lambda)
     }
 
     override def toString: String =
@@ -143,6 +173,23 @@ object GraphStatistics {
   // Interface to the Play Scala JSON library.
   // Defines (de-)serialization of the graph- and operand statistics.
   //
+  implicit val operatorStatisticsWrite : Writes[OperatorStatistics] = new Writes[OperatorStatistics] {
+    override def writes(o: OperatorStatistics): JsValue = {
+      Json.obj("numAdd" -> o.numAdders,
+        "numMul" -> o.numMultipliers,
+        "numPoisson" -> o.numPoisson,
+        "numHist" -> o.numHistogram,
+        "numInput" -> o.numInputs)
+    }
+  }
+
+  implicit val operatorStatisticsRead : Reads[OperatorStatistics] =
+    ((JsPath \ "numAdd").read[Int] and
+      (JsPath \ "numMul").read[Int] and
+      (JsPath \ "numPoisson").read[Int] and
+      (JsPath \ "numHist").read[Int] and
+      (JsPath \ "numInput").read[Int])((a, m, p, h, i) => OperatorStatistics(a, m, p, h, i))
+
   implicit val operandStatisticsWrite : Writes[OperandStatistics] = new Writes[OperandStatistics] {
     override def writes(o: OperandStatistics): JsValue = {
       var arr = Json.arr()
@@ -162,25 +209,17 @@ object GraphStatistics {
 
   implicit val graphStatisticsWrite : Writes[GraphStatistics] = new Writes[GraphStatistics] {
     override def writes(o: GraphStatistics): JsValue = Json.obj(
-      "numAdd" -> o.numAdders,
-      "numMul" -> o.numMultipliers,
-      "numPoisson" -> o.numPoisson,
-      "numHist" -> o.numHistogram,
-      "numInput" -> o.numInputs,
+      "opStat" -> o.operatorStatistics,
       "addStat" -> o.addOpStatistics,
       "mulStat" -> o.mulOpStatistics
     )
   }
 
   implicit val graphStatisticsRead : Reads[GraphStatistics] =
-    ((JsPath \ "numAdd").read[Int] and
-      (JsPath \ "numMul").read[Int] and
-      (JsPath \ "numPoisson").read[Int] and
-      (JsPath \ "numHist").read[Int] and
-      (JsPath \ "numInput").read[Int] and
+    ((JsPath \ "opStat").read[OperatorStatistics] and
       (JsPath \ "addStat").read[Seq[OperandStatisticsEntry]] and
-      (JsPath \ "mulStat").read[Seq[OperandStatisticsEntry]])((a, b, c, d, e, f, g) =>
-      GraphStatistics(a, b, c, d, e, OperandStatistics(f.toMap), OperandStatistics(g.toMap)))
+      (JsPath \ "mulStat").read[Seq[OperandStatisticsEntry]])((os, as, ms) =>
+      GraphStatistics(os, OperandStatistics(as.toMap)(countAddOperands),
+        OperandStatistics(ms.toMap)(countMulOperands)))
 
 }
-
