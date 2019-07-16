@@ -41,6 +41,7 @@ object Driver extends App with Logging {
   val spn = Parser.parseFile(cliConfig.in)
 
   if(cliConfig.computeStats){
+    debug(s"Writing SPN graph statistics to ${cliConfig.statsFile.getAbsolutePath}")
    GraphStatistics.computeStatistics(spn, cliConfig.statsFile)
   }
 

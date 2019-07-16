@@ -43,23 +43,32 @@ object GraphStatistics {
     bw.close()
   }
 
-  private val computedNodes : mutable.Set[IRNode] = mutable.Set()
+  private val computedNodes : mutable.Map[IRNode, GraphStatistics] = mutable.Map()
 
   private def computeSubtree(subtreeRoot : IRNode) : GraphStatistics = {
     if (computedNodes.contains(subtreeRoot))
-      GraphStatistics()
+      computedNodes(subtreeRoot)
     else {
       val result = subtreeRoot match {
         case iv : InputVar => GraphStatistics().addNode(iv)
-        case h @ Histogram(_, indexVar, _) => GraphStatistics().addNode(h).merge(computeSubtree(indexVar))
-        case p @ PoissonDistribution(_, inputVar, _) => GraphStatistics().addNode(p).merge(computeSubtree(inputVar))
-        case ws @ WeightedSum(_, addends) =>
-          addends.map(a => computeSubtree(a.addend)).fold(GraphStatistics().addNode(ws))((s1, s2)=> s1 merge s2)
+        case h @ Histogram(_, indexVar, _) => {
+          val subtreeResult = computeSubtree(indexVar)
+          GraphStatistics().addNode(h).merge(subtreeResult)
+        }
+        case p @ PoissonDistribution(_, inputVar, _) => {
+          val subtreeResult = computeSubtree(inputVar)
+          GraphStatistics().addNode(p).merge(subtreeResult)
+        }
+        case ws @ WeightedSum(_, addends) =>{
+          val operandResults = addends.map(op => computeSubtree(op.addend))
+          operandResults.fold(GraphStatistics())((s1, s2)=> s1 merge s2).addNode(ws)
+        }
         case p @ Product(_, multiplicands) =>
-          multiplicands.map(m => computeSubtree(m)).fold(GraphStatistics().addNode(p))((s1, s2) => s1 merge s2)
+          val operandResults = multiplicands.map(computeSubtree)
+          operandResults.fold(GraphStatistics())((s1, s2) => s1 merge s2).addNode(p)
         case _ => ??? /* Unexpected case */
       }
-      computedNodes.add(subtreeRoot)
+      computedNodes += subtreeRoot -> result
       result
     }
   }
@@ -82,14 +91,15 @@ object GraphStatistics {
     */
   final case class GraphStatistics(operatorStatistics: OperatorStatistics = OperatorStatistics(),
                                            addOpStatistics : OperandStatistics = OperandStatistics()(countAddOperands),
-                                           mulOpStatistics : OperandStatistics = OperandStatistics()(countMulOperands)) {
+                                           mulOpStatistics : OperandStatistics = OperandStatistics()(countMulOperands),
+                                   numericStatistics: NumericStatistics = NumericStatistics()) {
 
     def addNode(node : IRNode) : GraphStatistics = GraphStatistics(operatorStatistics.addNode(node),
-      addOpStatistics.addNode(node), mulOpStatistics.addNode(node))
+      addOpStatistics.addNode(node), mulOpStatistics.addNode(node), numericStatistics.addNode(node))
 
     def merge(gs : GraphStatistics) : GraphStatistics =
       GraphStatistics(operatorStatistics.merge(gs.operatorStatistics), addOpStatistics.merge(gs.addOpStatistics),
-        mulOpStatistics.merge(gs.mulOpStatistics))
+        mulOpStatistics.merge(gs.mulOpStatistics), numericStatistics.merge(gs.numericStatistics))
 
     override def toString: String = {
       val sb : mutable.StringBuilder = new StringBuilder()
@@ -169,6 +179,71 @@ object GraphStatistics {
 
   }
 
+  type DynamicRange = (Double, Double)
+
+  final case class NumericStatistics(minValue : Double = 1.0, maxValue : Double = 0.0,
+                                     ranges : Map[IRNode, DynamicRange] = Map()) extends Statistics[NumericStatistics]{
+
+    def addNode(node : IRNode) : NumericStatistics = node match {
+      case h @ Histogram(_, _, buckets) => {
+        val bucketValues = buckets.map(_.value)
+        val minimum = bucketValues.fold(minValue)(min)
+        val maximum = bucketValues.fold(maxValue)(max)
+        NumericStatistics(minimum, maximum, ranges + (h -> (minimum, maximum)))
+      }
+
+      case p : PoissonDistribution => this // TODO Compute min. and max. values for Poisson distribution.
+
+      case ws @ WeightedSum(_, addends) => {
+        val minOperands = addends.map(a => ranges(a.addend)._1)
+        val maxOperands = addends.map(a => ranges(a.addend)._2)
+        val minSum = (minOperands zip addends.map(_.weight)).map{case(v, w) => v*w}.fold(0.0)(_+_)
+        val maxSum = (maxOperands zip addends.map(_.weight)).map{case(v, w) => v*w}.fold(0.0)(_+_)
+        val minimum = minOperands.fold(min(minValue, minSum))(min)
+        val maximum = maxOperands.fold(max(maxValue, maxSum))(max)
+        NumericStatistics(minimum, maximum, ranges + (ws -> (minimum, maximum)))
+      }
+
+      case p @ Product(_, multiplicands) => {
+        val minOperands = multiplicands.map(ranges(_)._1)
+        val maxOperands = multiplicands.map(ranges(_)._2)
+        val minProd = minOperands.fold(1.0)(_*_)
+        val maxProd = maxOperands.fold(1.0)(_*_)
+        val minimum = minOperands.fold(min(minValue, minProd))(min)
+        val maximum = maxOperands.fold(max(maxValue, maxProd))(max)
+        NumericStatistics(minimum, maximum, ranges + (p -> (minimum, maximum)))
+      }
+
+      case iv : InputVar => NumericStatistics()
+
+      case _ => ??? /* Unexpected case */
+    }
+
+    def merge(gs : NumericStatistics) : NumericStatistics =
+      NumericStatistics(min(minValue, gs.minValue), max(maxValue, gs.maxValue), ranges++gs.ranges)
+
+    private def min(a : Double, b : Double) : Double = (a, b) match {
+      case(0.0,0.0) => 0.0
+      case(0.0, v) => v
+      case(v, 0.0) => v
+      case(v1, v2) => Math.min(v1, v2)
+    }
+
+    private def max(a : Double, b : Double) : Double = (a,b) match {
+      case(1.0, 1.0) => 1.0
+      case(1.0, v) => v
+      case(v, 1.0) => v
+      case(v1, v2) => Math.max(v1, v2)
+    }
+
+    override def toString: String = {
+      val sb : mutable.StringBuilder = new StringBuilder()
+      sb.append("Smallest non-zero value:\t%f\n".format(minValue))
+      sb.append("Biggest non-one value:\t%f\n".format(maxValue))
+      sb.toString()
+    }
+  }
+
   //
   // Interface to the Play Scala JSON library.
   // Defines (de-)serialization of the graph- and operand statistics.
@@ -206,20 +281,31 @@ object GraphStatistics {
     ((JsPath \ "num_inputs").read[Int] and
       (JsPath \ "appearances").read[Int])((k, v) => k -> v)
 
+  implicit val numericStatisticsWrite : Writes[NumericStatistics] = new Writes[NumericStatistics] {
+    override def writes(o: NumericStatistics): JsValue =
+      Json.obj("minimum" -> o.minValue, "maximum" -> o.maxValue)
+  }
+
+  implicit val numericStatisticsRead : Reads[NumericStatistics] =
+    ((JsPath \ "minimum").read[Double] and
+      (JsPath \ "maximum").read[Double])((min, max) => NumericStatistics(min, max))
+
 
   implicit val graphStatisticsWrite : Writes[GraphStatistics] = new Writes[GraphStatistics] {
     override def writes(o: GraphStatistics): JsValue = Json.obj(
       "opStat" -> o.operatorStatistics,
       "addStat" -> o.addOpStatistics,
-      "mulStat" -> o.mulOpStatistics
+      "mulStat" -> o.mulOpStatistics,
+      "numStat" -> o.numericStatistics
     )
   }
 
   implicit val graphStatisticsRead : Reads[GraphStatistics] =
     ((JsPath \ "opStat").read[OperatorStatistics] and
       (JsPath \ "addStat").read[Seq[OperandStatisticsEntry]] and
-      (JsPath \ "mulStat").read[Seq[OperandStatisticsEntry]])((os, as, ms) =>
+      (JsPath \ "mulStat").read[Seq[OperandStatisticsEntry]] and
+      (JsPath \ "numStat").read[NumericStatistics])((os, as, ms, ns) =>
       GraphStatistics(os, OperandStatistics(as.toMap)(countAddOperands),
-        OperandStatistics(ms.toMap)(countMulOperands)))
+        OperandStatistics(ms.toMap)(countMulOperands), ns))
 
 }
