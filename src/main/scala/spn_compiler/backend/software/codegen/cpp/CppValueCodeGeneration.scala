@@ -34,7 +34,7 @@ trait CppValueCodeGeneration extends ReferenceCodeGeneration with TypeCodeGenera
     case ASTTypeConversion(srcVal, tty) => "((%s) %s)".format(generateType(tty), generateValue(srcVal))
     case not @ ASTNot(op) => "~%s".format(formatPrecedence(op, not))
     case neg @ ASTNeg(op) => "-%s".format(formatPrecedence(op, neg))
-    case ASTStructInit(_, values @ _*) => "{%s}".format(values.map(generateValue).mkString(","))
+    case ASTStructInit(t, values @ _*) => "%s{%s}".format(t.name, values.map(generateValue).mkString(","))
     case ASTVariableRead(_, reference) => generateReference(reference)
     case CPPAddressOfOperator(reference) => "&%s".format(generateReference(reference))
     case CPPSizeOfOperator(reference) => "sizeof(%s)".format(generateReference(reference))
