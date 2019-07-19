@@ -3,8 +3,9 @@ package spn_compiler.backend.software.cpu.ast_generation.serial
 import spn_compiler.backend.software.ast.construct._
 import spn_compiler.backend.software.ast.nodes.function.{ASTFunction, ASTFunctionParameter}
 import spn_compiler.backend.software.ast.nodes.module.ASTModule
-import spn_compiler.backend.software.ast.nodes.types.{IntegerType, RealType, StructType, VoidType}
+import spn_compiler.backend.software.ast.nodes.types._
 import spn_compiler.backend.software.ast.nodes.value.ASTValue
+import spn_compiler.backend.software.ast.predef.{LNS2Double, LNSInit, LNSType}
 import spn_compiler.graph_ir.nodes._
 
 import scala.collection.mutable
@@ -26,6 +27,10 @@ class ASTGeneration {
     val outputData = module.createFunctionParameter("output_data", module.createArrayType(RealType))
     val topLevelFunction = module.defineLocalFunction("spn_toplevel", VoidType, numElements, inputData, outputData)
     module.setInsertionPoint(topLevelFunction.body)
+    // TODO Make format and error configurable
+    // Initialize interpolator
+    module.insertStatement(module.createCallStatement(LNSInit, module.constantValue(IntegerType, 8),
+      module.constantValue(IntegerType, 32), module.constantValue(RealType, 1e-8)))
     val loopVar = module.createVariable(IntegerType, "i")
     module.insertStatement(module.declareVariable(loopVar))
     val constantZero = module.constantValue(IntegerType, 0)
@@ -41,7 +46,8 @@ class ASTGeneration {
     val inputParam = module.createFunctionParameter("activation", inputStructType)
     val spnFunction = module.defineLocalFunction("spn", RealType, inputParam)
     module.setInsertionPoint(spnFunction.body)
-    module.insertStatement(module.ret(constructSubAST(spnRoot, module, inputParam)))
+    // TODO Convert result to double
+    module.insertStatement(module.ret(lns2Double(constructSubAST(spnRoot, module, inputParam), module)))
     spnFunction
   }
 
@@ -52,15 +58,17 @@ class ASTGeneration {
       case InputVar(id, _) => module.readElement(module.referenceVariable(inputParam), s"input_$id")
 
       case Histogram(id, indexVar, buckets) => {
-        val arrayInit = module.initArray(RealType, buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => b.value)):_*)
-        val globalVar = module.createVariable(module.createArrayType(RealType), id)
+
+        val arrayInit = module.initArray(buckets.flatMap(b => (b.lowerBound until b.upperBound).map(double2LNS(_, module))):_*)
+        //val arrayInit = module.initArray(RealType, buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => b.value)):_*)
+        val globalVar = module.createVariable(module.createArrayType(LNSType), id)
         module.declareGlobalVariable(globalVar, arrayInit)
         val activation = constructSubAST(indexVar, module, inputParam)
         module.readIndex(module.referenceVariable(globalVar), activation)
       }
 
       case WeightedSum(id, addends) => {
-        val operands = addends.map(wa => module.mul(constructSubAST(wa.addend, module, inputParam), module.constantValue(RealType, wa.weight)))
+        val operands = addends.map(wa => module.mul(constructSubAST(wa.addend, module, inputParam), double2LNS(wa.weight, module)))
         val rhs = operands.tail.fold[ASTValue](operands.head)(module.add)
         val variable = module.createVariable(rhs.getType, id)
         module.insertStatement(module.declareVariable(variable, rhs))
@@ -83,5 +91,18 @@ class ASTGeneration {
         module.readVariable(variable)
       }
     })
+
+  private def double2LNS(value : Double, module : ASTModule) : ASTValue = {
+    val falseVal = module.constantValue(BooleanType, false)
+    val trueVal = module.constantValue(BooleanType, true)
+    if (value == 0.0)
+      module.initStruct(LNSType, module.constantValue(IntegerType, 0), falseVal, trueVal)
+    else
+    // TODO Make shift amount configurable
+      module.initStruct(LNSType, module.constantValue(IntegerType, (Math.log(value).toInt << 32)), falseVal, falseVal)
+  }
+
+  private def lns2Double(lns : ASTValue, module : ASTModule) : ASTValue =
+    module.call(LNS2Double, lns)
 
 }

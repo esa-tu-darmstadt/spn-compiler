@@ -13,9 +13,10 @@ abstract class ASTBinaryExpression protected (val leftOp : ASTValue, val rightOp
   val opcode : ASTBinaryExpression.BinOpCode
 
   def checkOperands() : Unit = {
-    require(leftOp.getType.compatible(rightOp.getType))
-    require(leftOp.getType.isScalarType)
-    require(rightOp.getType.isScalarType)
+    //require(leftOp.getType.compatible(rightOp.getType))
+    //require(leftOp.getType.isScalarType)
+    //require(rightOp.getType.isScalarType)
+    // TODO Allow use with classes/structs defining overloaded operators
   }
 
 }
