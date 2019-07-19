@@ -6,7 +6,7 @@ import spn_compiler.backend.software.codegen.cpp.{CppHeaderCodeGeneration, CppIm
 import spn_compiler.backend.software.codegen.openmp.OMPImplCodeGeneration
 import spn_compiler.backend.software.cpu.ast_generation.openmp.OMPASTGeneration
 import spn_compiler.backend.software.cpu.ast_generation.serial.ASTGeneration
-import spn_compiler.driver.compile.cpu.headers.CPPCompilerRuntimeHeader
+import spn_compiler.driver.compile.cpu.headers.{CPPCompilerRuntimeHeader, CPPLNSHeader}
 import spn_compiler.driver.config.{CPPCompileConfig, CompilerConfig}
 import spn_compiler.graph_ir.nodes.IRGraph
 import spn_compiler.util.file.FileUtil
@@ -16,12 +16,12 @@ object CPUCompilerDriver extends Logging {
 
   def execute[C <: CPPCompileConfig[C] with CompilerConfig[C]](spn : IRGraph, config : C): Unit = {
     trace(s"Creating AST for C++ compilation...")
-    val astGenerator : ASTGeneration = if(config.isOMPParallelForEnabled){
+    val astGenerator : ASTGeneration[C] = if(config.isOMPParallelForEnabled){
       info("OpenMP parallel is enabled, using OpenMP worksharing loop for parallel processing")
-      new OMPASTGeneration
+      new OMPASTGeneration(config)
     }
     else {
-      new ASTGeneration
+      new ASTGeneration(config)
     }
     val ast = astGenerator.createAST(spn)
     if(config.isRangeProfilingEnabled){
@@ -51,6 +51,11 @@ object CPUCompilerDriver extends Logging {
       val compilerRTFile = FileUtil.createFileInDirectory(codeDirectory, "spn-compiler-rt.hpp")
       debug(s"Writing compiler runtime header library to ${compilerRTFile.getAbsoluteFile.toString}")
       CPPCompilerRuntimeHeader.writeHeader(compilerRTFile)
+    }
+    if(config.isLNSSimulationEnabled){
+      val lnsFile = FileUtil.createFileInDirectory(codeDirectory, "lns.hpp")
+      debug(s"Writing LNS simulation header library to ${lnsFile.getAbsoluteFile.toString}")
+      CPPLNSHeader.writeHeader(lnsFile)
     }
     if(config.outputCodeOnly){
       return
