@@ -30,6 +30,10 @@ case object ClangCPPDriver extends CPPCompilerDriver with Logging {
     if(config.isRangeProfilingEnabled){
       flags.append("-DLNS_PROFILE")
     }
+    if(config.isLNSSimulationEnabled){
+      flags.append(s"-DLNS_INTEGER_BITS=${config.lnsIntegerBits}")
+      flags.append(s"-DLNS_FRACTION_BITS=${config.lnsFractionBits}")
+    }
     flags.append(s"-o ${config.outputFile.getAbsoluteFile.toString}")
     val cmd : String = "clang++ %s %s".format(flags.mkString(" "), files.map(_.getAbsoluteFile.toString).mkString(" "))
     val process = Process(cmd)
@@ -64,6 +68,10 @@ case object GCCCPPDriver extends CPPCompilerDriver with Logging {
     flags.append(config.macros.map(m => s"-D$m").mkString(" "))
     if(config.isRangeProfilingEnabled){
       flags.append("-DLNS_PROFILE")
+    }
+    if(config.isLNSSimulationEnabled){
+      flags.append(s"-DLNS_INTEGER_BITS=${config.lnsIntegerBits}")
+      flags.append(s"-DLNS_FRACTION_BITS=${config.lnsFractionBits}")
     }
     flags.append(s"-o ${config.outputFile.getAbsoluteFile.toString}")
     val cmd : String = "g++ %s %s".format(flags.mkString(" "), files.map(_.getAbsoluteFile.toString).mkString(" "))
