@@ -6,10 +6,11 @@ import spn_compiler.backend.software.ast.nodes.function.ASTFunction
 import spn_compiler.backend.software.ast.nodes.module.ASTModule
 import spn_compiler.backend.software.ast.nodes.types.{IntegerType, RealType, StructType, VoidType}
 import spn_compiler.backend.software.cpu.ast_generation.serial.ASTGeneration
+import spn_compiler.driver.config.CPPCompileConfig
 import spn_compiler.graph_ir.nodes.IRGraph
 
 
-class OMPASTGeneration extends ASTGeneration {
+class OMPASTGeneration[C <: CPPCompileConfig[C]](config : C) extends ASTGeneration(config) {
 
   override def createAST(graph : IRGraph) : ASTModule = {
     val module = new OMPModule("spn")
