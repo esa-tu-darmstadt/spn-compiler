@@ -19,8 +19,9 @@ object CPPEntryPoint {
       |#include <chrono>
       |#include <vector>
       |#include "spn.hpp"
+      |#ifdef SPN_PROFILE
       |#include "spn-compiler-rt.hpp"
-      |
+      |#endif
       |#ifndef NUM_RUNS
       |#define NUM_RUNS 1
       |#endif
@@ -119,7 +120,9 @@ object CPPEntryPoint {
       |
       |    std::cout << std::setprecision(15)<< "time per instance " << (duration.count() / ((double) sample_count * (double) NUM_RUNS)) << " us" << std::endl;
       |    std::cout << std::setprecision(15) << "time per task " << (duration.count() / ((double) NUM_RUNS))  << " us" << std::endl;
+      |    #ifdef LNS_PROFILE
       |    report_range();
+      |    #endif
       |    return 0;
       |}""".stripMargin
 }
