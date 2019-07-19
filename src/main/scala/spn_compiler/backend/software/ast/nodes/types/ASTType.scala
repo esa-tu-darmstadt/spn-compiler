@@ -38,6 +38,10 @@ case object IntegerType extends NumericType with LogicType {
   override type BaseType = Int
 }
 
+case object PreciseIntegerType extends NumericType with LogicType {
+  override type BaseType = String
+}
+
 case object RealType extends NumericType {
   override type BaseType = Double
 }

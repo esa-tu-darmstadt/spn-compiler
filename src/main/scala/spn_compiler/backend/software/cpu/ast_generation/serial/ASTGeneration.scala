@@ -1,6 +1,7 @@
 package spn_compiler.backend.software.cpu.ast_generation.serial
 
 import spn_compiler.backend.software.ast.construct._
+import spn_compiler.backend.software.ast.extensions.simulation.lns.LNS
 import spn_compiler.backend.software.ast.nodes.function.{ASTFunction, ASTFunctionParameter}
 import spn_compiler.backend.software.ast.nodes.module.ASTModule
 import spn_compiler.backend.software.ast.nodes.types._
@@ -46,7 +47,7 @@ class ASTGeneration {
     val inputParam = module.createFunctionParameter("activation", inputStructType)
     val spnFunction = module.defineLocalFunction("spn", RealType, inputParam)
     module.setInsertionPoint(spnFunction.body)
-    // TODO Convert result to double
+    // Convert result to double
     module.insertStatement(module.ret(lns2Double(constructSubAST(spnRoot, module, inputParam), module)))
     spnFunction
   }
@@ -59,7 +60,7 @@ class ASTGeneration {
 
       case Histogram(id, indexVar, buckets) => {
 
-        val arrayInit = module.initArray(buckets.flatMap(b => (b.lowerBound until b.upperBound).map(double2LNS(_, module))):_*)
+        val arrayInit = module.initArray(buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => double2LNS(b.value, module))):_*)
         //val arrayInit = module.initArray(RealType, buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => b.value)):_*)
         val globalVar = module.createVariable(module.createArrayType(LNSType), id)
         module.declareGlobalVariable(globalVar, arrayInit)
@@ -96,10 +97,11 @@ class ASTGeneration {
     val falseVal = module.constantValue(BooleanType, false)
     val trueVal = module.constantValue(BooleanType, true)
     if (value == 0.0)
-      module.initStruct(LNSType, module.constantValue(IntegerType, 0), falseVal, trueVal)
+      module.initStruct(LNSType, module.constantValue(PreciseIntegerType, "0x0"), falseVal, trueVal)
     else
-    // TODO Make shift amount configurable
-      module.initStruct(LNSType, module.constantValue(IntegerType, (Math.log(value).toInt << 32)), falseVal, falseVal)
+    // TODO Make number format configurable
+      module.initStruct(LNSType, module.constantValue(PreciseIntegerType, s"0x${LNS(value, 8, 32).exp2BigInt.toString(16)}"), trueVal, falseVal)
+
   }
 
   private def lns2Double(lns : ASTValue, module : ASTModule) : ASTValue =

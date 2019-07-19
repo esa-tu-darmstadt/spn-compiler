@@ -10,7 +10,7 @@ case object Ceil extends ASTExternalFunction(CMathHeader, "ceil", RealType, Real
 case object LNSHeader extends ASTExternalHeader("lns.h", true)
 
 case object LNSType extends StructType("lns_t",
-  List(("exp", IntegerType), ("sign", BooleanType), ("zero", BooleanType)))
+  List(("exp", PreciseIntegerType), ("sign", BooleanType), ("zero", BooleanType)))
 
 case object LNSInit extends ASTExternalFunction(LNSHeader, "initializeInterpolator", VoidType,
   IntegerType, IntegerType, RealType)
