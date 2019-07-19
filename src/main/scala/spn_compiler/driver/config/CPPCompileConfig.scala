@@ -25,6 +25,35 @@ trait CPPCompileConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
   }
   def isRangeProfilingEnabled : Boolean = rangeProfiling
 
+  private var lnsSim : Boolean = false
+  def enableLNSSimulation(bool : Boolean) : R = {
+    lnsSim = bool
+    self
+  }
+  def isLNSSimulationEnabled : Boolean = lnsSim
+
+  private var lnsIntBits : Int = 8
+  def setLNSIntBits(bits : Int) : R = {
+    lnsIntBits = bits
+    self
+  }
+  def lnsIntegerBits : Int = lnsIntBits
+
+  private var lnsFracBits : Int = 32
+  def setLNSFractionBits(bits : Int) : R = {
+    lnsFracBits = bits
+    self
+  }
+  def lnsFractionBits : Int = lnsFracBits
+
+  private var lnsError : Double = 1e-7
+  def setLNSInterpolationError(error: Double) : R = {
+    lnsError = error
+    self
+  }
+  def lnsInterpolationError : Double = lnsError
+
+
 }
 
 private[driver] object CPPCompileConfig{

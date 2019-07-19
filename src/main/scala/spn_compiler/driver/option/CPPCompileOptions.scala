@@ -16,6 +16,18 @@ object CPPCompileOptions {
         opt[Unit]("range-profiling")
           .action((_, c) => c.enableRangeProfiling(true))
           .text("Record all intermediate values in the tree and determine min and max values"),
+        opt[Unit]("lns-sim")
+            .action((_, c) => c.enableLNSSimulation(true))
+            .text("Simulate LNS-based arithmetic in software"),
+        opt[Int]("lns-int-bits")
+            .action((b, c) => c.setLNSIntBits(b))
+            .text("Set number of integer bits for the LNS fixed point format"),
+        opt[Int]("lns-fraction-bits")
+            .action((b,c) => c.setLNSFractionBits(b))
+            .text("Set number of fraction bits for the LNS fixed point format"),
+        opt[Double]("lns-interpolation-error")
+            .action((e,c) => c.setLNSInterpolationError(e))
+            .text("Set interpolation error for helper function in LNS addition"),
         opt[String]("cpp-compiler")
           .action((name, c) =>
             c.setCompiler(CPPCompileConfig.availableCompilers.filter(d => d._1.equalsIgnoreCase(name)).head._2))
