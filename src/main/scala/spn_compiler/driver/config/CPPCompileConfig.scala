@@ -18,6 +18,13 @@ trait CPPCompileConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
   }
   def isOMPParallelForEnabled : Boolean = ompParFor
 
+  private var rangeProfiling : Boolean = false
+  def enableRangeProfiling(bool : Boolean) : R = {
+    rangeProfiling = bool
+    self
+  }
+  def isRangeProfilingEnabled : Boolean = rangeProfiling
+
 }
 
 private[driver] object CPPCompileConfig{

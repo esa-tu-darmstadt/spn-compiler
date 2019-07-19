@@ -6,8 +6,9 @@ import spn_compiler.driver.compile.cuda.CUDACompilerDriver
 import spn_compiler.driver.config._
 import spn_compiler.driver.option.{BaseOptions, CPPCompileOptions, CUDACompileOptions, CompilerOptions}
 import spn_compiler.frontend.parser.Parser
+import spn_compiler.graph_ir.analysis.GraphStatistics
+import spn_compiler.graph_ir.transform.BalanceTree
 import spn_compiler.util.logging.Logging
-import spn_compiler.util.statistics.GraphStatistics
 
 class DriverConfig extends CLIConfig[DriverConfig]
   with BaseConfig[DriverConfig]
@@ -40,11 +41,12 @@ object Driver extends App with Logging {
   val spn = Parser.parseFile(cliConfig.in)
 
   if(cliConfig.computeStats){
+    debug(s"Writing SPN graph statistics to ${cliConfig.statsFile.getAbsolutePath}")
    GraphStatistics.computeStatistics(spn, cliConfig.statsFile)
   }
 
   cliConfig.target match {
-    case BaseConfig.CPPTarget => CPUCompilerDriver.execute(spn, cliConfig)
+    case BaseConfig.CPPTarget => CPUCompilerDriver.execute(BalanceTree.balanceTree(spn), cliConfig)
     case BaseConfig.CUDATarget => CUDACompilerDriver.execute(spn, cliConfig)
   }
 

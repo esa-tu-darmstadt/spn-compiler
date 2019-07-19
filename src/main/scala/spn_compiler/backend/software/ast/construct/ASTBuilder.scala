@@ -2,7 +2,7 @@ package spn_compiler.backend.software.ast.construct
 
 import spn_compiler.backend.software.ast.construct.util.UniqueNameCreator
 import spn_compiler.backend.software.ast.extensions.cpp.value.{CPPAddressOfOperator, CPPSizeOfOperator}
-import spn_compiler.backend.software.ast.nodes.function.{ASTExternalFunction, ASTFunction, ASTFunctionParameter, ASTFunctionPrototype}
+import spn_compiler.backend.software.ast.nodes.function._
 import spn_compiler.backend.software.ast.nodes.reference._
 import spn_compiler.backend.software.ast.nodes.statement.control_flow.{ASTCallStatement, ASTForLoop, ASTIfStatement, ASTReturnStatement}
 import spn_compiler.backend.software.ast.nodes.statement.variable.{ASTVariableAssignment, ASTVariableDeclaration}
@@ -160,7 +160,7 @@ trait ASTBuilder {
     new ASTForLoop(Some(ref), Some(lowerBound), comparison, Some(ref), Some(increment))
   }
 
-  protected var externalHeaders : Set[String] = Set()
+  protected var externalHeaders : Set[ASTExternalHeader] = Set()
 
   /**
     * Create a call '''statement''' from a call '''expression''', discarding the return value if necessary.

@@ -1,7 +1,7 @@
 package spn_compiler.backend.software.ast.extensions.cuda.predef
 
 import spn_compiler.backend.software.ast.extensions.cuda.predef.CUDAMemCpyKind.{Device2Device, Device2Host, Host2Device, Host2Host}
-import spn_compiler.backend.software.ast.nodes.function.ASTExternalFunction
+import spn_compiler.backend.software.ast.nodes.function.{ASTExternalFunction, ASTExternalHeader}
 import spn_compiler.backend.software.ast.nodes.types._
 import spn_compiler.backend.software.ast.nodes.value.constant.ASTConstant
 import spn_compiler.backend.software.ast.nodes.variable.ASTVariable
@@ -45,13 +45,15 @@ case object CUDAMemCpyHostToDevice extends CUDAMemCpyKind(Host2Device)
 case object CUDAMemCpyDeviceToHost extends CUDAMemCpyKind(Device2Host)
 case object CUDAMemCpyDeviceToDevice extends CUDAMemCpyKind(Device2Device)
 
-case object CUDAMemCpy extends ASTExternalFunction("cuda.h", "cudaMemcpy",
+case object CUDAHeader extends ASTExternalHeader("cuda.h")
+
+case object CUDAMemCpy extends ASTExternalFunction(CUDAHeader, "cudaMemcpy",
   IntegerType, ArrayType(VoidType),  ArrayType(VoidType), IntegerType, CUDAMemCpyKind.enumType)
 
-case object CUDAMalloc extends ASTExternalFunction("cuda.h", "cudaMalloc", IntegerType,
+case object CUDAMalloc extends ASTExternalFunction(CUDAHeader, "cudaMalloc", IntegerType,
   ArrayType(ArrayType(VoidType)), IntegerType)
 
-case object CUDAFree extends ASTExternalFunction("cuda.h", "cudaFree", IntegerType,
+case object CUDAFree extends ASTExternalFunction(CUDAHeader, "cudaFree", IntegerType,
   ArrayType(VoidType))
 
 
