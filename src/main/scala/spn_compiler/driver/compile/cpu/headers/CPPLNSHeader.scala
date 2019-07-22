@@ -50,18 +50,21 @@ object CPPLNSHeader {
       |    std::vector<__int128> memA, memB, memC;
       |    uint32_t upperAddressBit, lowerAddressBit, numAddressBits;
       |    uint32_t integer,fraction;
+      |    __int128 lastInterpolated = 0;
       |
       |public:
       |
       |    Interpolator(uint32_t integer, uint32_t fraction, std::vector<__int128> memA, std::vector<__int128> memB,
       |                        std::vector<__int128> memC, uint32_t upperAddressBit, uint32_t lowerAddressBit,
-      |                        uint32_t numAddressBits) : memA(std::move(memA)), memB(std::move(memB)), memC(std::move(memC)), upperAddressBit(upperAddressBit),
-      |                                                   lowerAddressBit(lowerAddressBit), numAddressBits(numAddressBits), integer(integer), fraction(fraction) {
+      |                        uint32_t numAddressBits, __int128 last) : memA(std::move(memA)), memB(std::move(memB)), memC(std::move(memC)), upperAddressBit(upperAddressBit),
+      |                                                   lowerAddressBit(lowerAddressBit), numAddressBits(numAddressBits), integer(integer), fraction(fraction),
+      |                                                   lastInterpolated(last) {
       |        assert(integer + fraction >= upperAddressBit - 1);
       |    };
       |
       |    __int128 ip(__int128 x) {
       |        uint32_t address = getAddress(x);
+      |        if(address == -1 ) return 0;
       |        __int128 a = memA[address];
       |        __int128 b = memB[address];
       |        __int128 c = memC[address];
@@ -76,6 +79,10 @@ object CPPLNSHeader {
       |    }
       |
       |    uint32_t getAddress(__int128 x) {
+      |        if(x > lastInterpolated) {
+      |            return -1;
+      |        }
+      |
       |        __int128 mask = bitmask(numAddressBits);
       |        __int128 shifted = x >> lowerAddressBit;
       |        return shifted & mask;
@@ -260,7 +267,8 @@ object CPPLNSHeader {
       |            c.emplace_back(value2fixedInt(spline.second.c, integer, fraction));
       |        }
       |
-      |        return new Interpolator{integer, fraction, std::move(a),std::move(b),std::move(c),std::get<0>(addressing),std::get<1>(addressing),std::get<2>(addressing)};
+      |        auto lastInterpolated = value2fixedInt(snap2Lower(pStart.first, initialStep), integer, fraction);
+      |        return new Interpolator{integer, fraction, std::move(a),std::move(b),std::move(c),std::get<0>(addressing),std::get<1>(addressing),std::get<2>(addressing), lastInterpolated};
       |    }
       |
       |};
@@ -312,14 +320,17 @@ object CPPLNSHeader {
       |    }
       |
       |    LNS operator*(LNS other) {
-      |        if(zero || other.zero) {
+      |        if(zero || other.zero) { // 0*0 = 0
       |            return LNS<integer, fraction>(0, false, true);
-      |        } else if(!sign) {
+      |        } else if(!sign) { // 0 * x= 0
       |            return LNS<integer, fraction>(other.exponent, other.sign, other.zero);
-      |        } else if(!other.sign) {
+      |        } else if(!other.sign) { // x * 0 = 0
       |            return LNS<integer, fraction>(exponent, sign, zero);
-      |        } else {
+      |        } else { // x * y...
       |            __int128 resultExp = (exponent + other.exponent) & bitmask(integer + fraction);
+      |            if(checkOverflow(exponent + other.exponent, integer + fraction)) {
+      |                return LNS<integer, fraction>(0, false, true);
+      |            }
       |            return LNS<integer, fraction>(resultExp, sign, false);
       |        }
       |    }
@@ -384,5 +395,6 @@ object CPPLNSHeader {
       |}
       |
       |
-      |#endif //LNSOFT_LNS_H""".stripMargin
+      |#endif //LNSOFT_LNS_H
+      |""".stripMargin
 }
