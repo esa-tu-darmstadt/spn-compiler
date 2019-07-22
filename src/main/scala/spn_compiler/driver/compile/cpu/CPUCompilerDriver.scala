@@ -6,7 +6,6 @@ import spn_compiler.backend.software.codegen.cpp.{CppHeaderCodeGeneration, CppIm
 import spn_compiler.backend.software.codegen.openmp.OMPImplCodeGeneration
 import spn_compiler.backend.software.cpu.ast_generation.openmp.OMPASTGeneration
 import spn_compiler.backend.software.cpu.ast_generation.serial.ASTGeneration
-import spn_compiler.driver.compile.cpu.headers.{CPPCompilerRuntimeHeader, CPPLNSHeader}
 import spn_compiler.driver.config.{CPPCompileConfig, CompilerConfig}
 import spn_compiler.graph_ir.nodes.IRGraph
 import spn_compiler.util.file.FileUtil
@@ -47,16 +46,6 @@ object CPUCompilerDriver extends Logging {
     val mainFile = FileUtil.createFileInDirectory(codeDirectory, "main.cpp")
     debug(s"Writing C++ main implementation to ${mainFile.getAbsoluteFile.toString}")
     CPPEntryPoint.writeMain(mainFile)
-    if(config.isRangeProfilingEnabled){
-      val compilerRTFile = FileUtil.createFileInDirectory(codeDirectory, "spn-compiler-rt.hpp")
-      debug(s"Writing compiler runtime header library to ${compilerRTFile.getAbsoluteFile.toString}")
-      CPPCompilerRuntimeHeader.writeHeader(compilerRTFile)
-    }
-    if(config.isLNSSimulationEnabled){
-      val lnsFile = FileUtil.createFileInDirectory(codeDirectory, "lns.hpp")
-      debug(s"Writing LNS simulation header library to ${lnsFile.getAbsoluteFile.toString}")
-      CPPLNSHeader.writeHeader(lnsFile)
-    }
     if(config.outputCodeOnly){
       return
     }

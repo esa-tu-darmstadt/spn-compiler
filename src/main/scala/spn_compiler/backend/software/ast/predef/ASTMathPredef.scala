@@ -7,7 +7,7 @@ case object CMathHeader extends ASTExternalHeader("cmath")
 
 case object Ceil extends ASTExternalFunction(CMathHeader, "ceil", RealType, RealType)
 
-case object LNSHeader extends ASTExternalHeader("lns.hpp", true)
+case object LNSHeader extends ASTExternalHeader("spn-lns.hpp", true)
 
 case object LNSType extends StructType("lns_t",
   List(("exp", PreciseIntegerType), ("sign", BooleanType), ("zero", BooleanType)))

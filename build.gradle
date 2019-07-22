@@ -62,3 +62,14 @@ applicationDistribution.into("bin") {
     from(spnc)
     fileMode = 0755
 }
+
+distributions {
+    main {
+        contents {
+            from('compiler-rt'){
+                into 'compiler-rt'
+            }
+            from 'setup.sh'
+        }
+    }
+}
