@@ -120,7 +120,7 @@ object CPPEntryPoint {
       |
       |    std::cout << std::setprecision(15)<< "time per instance " << (duration.count() / ((double) sample_count * (double) NUM_RUNS)) << " us" << std::endl;
       |    std::cout << std::setprecision(15) << "time per task " << (duration.count() / ((double) NUM_RUNS))  << " us" << std::endl;
-      |    #ifdef LNS_PROFILE
+      |    #ifdef SPN_PROFILE
       |    report_range();
       |    #endif
       |    return 0;

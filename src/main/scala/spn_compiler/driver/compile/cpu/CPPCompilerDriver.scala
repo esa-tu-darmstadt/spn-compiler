@@ -28,7 +28,7 @@ case object ClangCPPDriver extends CPPCompilerDriver with Logging {
     }
     flags.append(config.macros.map(m => s"-D$m").mkString(" "))
     if(config.isRangeProfilingEnabled){
-      flags.append("-DLNS_PROFILE")
+      flags.append("-DSPN_PROFILE")
     }
     if(config.isLNSSimulationEnabled){
       flags.append(s"-DLNS_INTEGER_BITS=${config.lnsIntegerBits}")
@@ -67,7 +67,7 @@ case object GCCCPPDriver extends CPPCompilerDriver with Logging {
     }
     flags.append(config.macros.map(m => s"-D$m").mkString(" "))
     if(config.isRangeProfilingEnabled){
-      flags.append("-DLNS_PROFILE")
+      flags.append("-DSPN_PROFILE")
     }
     if(config.isLNSSimulationEnabled){
       flags.append(s"-DLNS_INTEGER_BITS=${config.lnsIntegerBits}")
