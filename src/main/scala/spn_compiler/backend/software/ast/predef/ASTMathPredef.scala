@@ -1,6 +1,6 @@
 package spn_compiler.backend.software.ast.predef
 
-import spn_compiler.backend.software.ast.nodes.function.{ASTExternalFunction, ASTExternalHeader}
+import spn_compiler.backend.software.ast.nodes.function.{ASTExternalFunction, ASTExternalHeader, ASTExternalStructType}
 import spn_compiler.backend.software.ast.nodes.types._
 
 case object CMathHeader extends ASTExternalHeader("cmath")
@@ -16,3 +16,7 @@ case object LNSInit extends ASTExternalFunction(LNSHeader, "initializeInterpolat
   IntegerType, IntegerType, RealType)
 
 case object LNS2Double extends ASTExternalFunction(LNSHeader, "lns_get_value", RealType, LNSType)
+
+case object PositHeader extends ASTExternalHeader("spn-posit.hpp", true)
+
+case object PositType extends ASTExternalStructType(PositHeader, "posit_t", List(("exp", RealType)))

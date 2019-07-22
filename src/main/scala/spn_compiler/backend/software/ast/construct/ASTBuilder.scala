@@ -7,7 +7,7 @@ import spn_compiler.backend.software.ast.nodes.reference._
 import spn_compiler.backend.software.ast.nodes.statement.control_flow.{ASTCallStatement, ASTForLoop, ASTIfStatement, ASTReturnStatement}
 import spn_compiler.backend.software.ast.nodes.statement.variable.{ASTVariableAssignment, ASTVariableDeclaration}
 import spn_compiler.backend.software.ast.nodes.statement.{ASTBlockStatement, ASTStatement}
-import spn_compiler.backend.software.ast.nodes.types.{ASTType, ScalarType, StructType}
+import spn_compiler.backend.software.ast.nodes.types.{ASTType, ArrayType, ScalarType, StructType}
 import spn_compiler.backend.software.ast.nodes.value.ASTValue
 import spn_compiler.backend.software.ast.nodes.value.access.ASTVariableRead
 import spn_compiler.backend.software.ast.nodes.value.constant.{ASTArrayInit, ASTConstant, ASTStructInit}
@@ -222,9 +222,17 @@ trait ASTBuilder {
     * @return [[ASTVariable]].
     */
   def createVariable(ty : ASTType, name : String) : ASTVariable = {
+    checkExternalType(ty)
     val variable = new ASTVariable(ty, variableNameCreator.makeUniqueName(name))
     variables = variables + variable
     variable
+  }
+
+  private def checkExternalType(ty : ASTType) : Unit = ty match {
+    case ASTExternalStructType(h, _, _) => externalHeaders = externalHeaders + h
+    case ArrayType(elemType) => checkExternalType(elemType)
+    case StructType(_, elems @ _*) => elems.foreach(t => checkExternalType(t._2))
+    case _ =>
   }
 
   /**
