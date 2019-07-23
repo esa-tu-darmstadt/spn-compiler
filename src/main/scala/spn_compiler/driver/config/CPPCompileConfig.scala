@@ -53,6 +53,26 @@ trait CPPCompileConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
   }
   def lnsInterpolationError : Double = lnsError
 
+  private var positSim : Boolean = false
+  def enablePositSimulation(bool : Boolean) : R = {
+    positSim = bool
+    self
+  }
+  def isPositSimulationEnabled : Boolean = positSim
+
+  private var positN : Int = 32
+  def setPositSizeN(size : Int) : R = {
+    positN = size
+    self
+  }
+  def positSizeN : Int = positN
+
+  private var positES : Int = 6
+  def setPositSizeES(size : Int) : R = {
+    positES = size
+    self
+  }
+  def positSizeES : Int = positES
 
 }
 

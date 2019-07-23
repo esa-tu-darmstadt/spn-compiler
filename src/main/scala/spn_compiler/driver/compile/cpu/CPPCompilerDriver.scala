@@ -34,6 +34,10 @@ case object ClangCPPDriver extends CPPCompilerDriver with Logging {
       flags.append(s"-DLNS_INTEGER_BITS=${config.lnsIntegerBits}")
       flags.append(s"-DLNS_FRACTION_BITS=${config.lnsFractionBits}")
     }
+    if(config.isPositSimulationEnabled){
+      flags.append(s"-DPOSIT_SIZE_N=${config.positSizeN}")
+      flags.append(s"-DPOSIT_SIZE_ES=${config.positSizeES}")
+    }
     flags.append(s"-o ${config.outputFile.getAbsoluteFile.toString}")
     val cmd : String = "clang++ %s %s".format(flags.mkString(" "), files.map(_.getAbsoluteFile.toString).mkString(" "))
     val process = Process(cmd)

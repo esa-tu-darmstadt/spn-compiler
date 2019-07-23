@@ -25,9 +25,15 @@ object CPPCompileOptions {
         opt[Int]("lns-fraction-bits")
             .action((b,c) => c.setLNSFractionBits(b))
             .text("Set number of fraction bits for the LNS fixed point format"),
-        opt[Double]("lns-interpolation-error")
-            .action((e,c) => c.setLNSInterpolationError(e))
-            .text("Set interpolation error for helper function in LNS addition"),
+        opt[Unit]("posit-sim")
+          .action((_, c) => c.enablePositSimulation(true))
+          .text("Simulate Posit-based arithmetic in software"),
+        opt[Int]("posit-size")
+          .action((b, c) => c.setPositSizeN(b))
+          .text("Set number of bits for Posit number format (N)"),
+        opt[Int]("posit-exponent")
+          .action((b,c) => c.setPositSizeES(b))
+          .text("Set number of exponent bits for the Posit format (ES)"),
         opt[String]("cpp-compiler")
           .action((name, c) =>
             c.setCompiler(CPPCompileConfig.availableCompilers.filter(d => d._1.equalsIgnoreCase(name)).head._2))
