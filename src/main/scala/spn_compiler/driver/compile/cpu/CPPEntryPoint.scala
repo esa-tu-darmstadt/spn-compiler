@@ -87,7 +87,7 @@ object CPPEntryPoint {
       |  std::vector<int> * inputdata = readInputData(std::string{argv[1]}, &num_samples);
       |  std::vector<double> * results = new std::vector<double>(num_samples, 42.0);
       |  auto begin = std::chrono::high_resolution_clock::now();
-      |  spn_toplevel(10000, (activation_t*) inputdata->data(), results->data());
+      |  spn_toplevel(num_samples, (activation_t*) inputdata->data(), results->data());
       |  auto end = std::chrono::high_resolution_clock::now();
       |  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end-begin);
       |  int num_errors{0};
