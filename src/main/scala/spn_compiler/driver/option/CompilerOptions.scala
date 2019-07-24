@@ -28,6 +28,11 @@ object CompilerOptions {
             .valueName("<macro>=<value>")
             .text("Define <macro> to <value> (or 1 if <value> omitted)")
             .unbounded(),
+        opt[String]('f', "compiler-flag")
+            .action((f, c) => c.addCompilerFlag(f))
+            .valueName("<flag>")
+            .text("Pass compiler flag to C++/CUDA compiler")
+            .unbounded(),
         opt[Unit]('S', "code-only")
           .action((_, c) => c.setCodeOnly(true))
           .text("Only write code output")

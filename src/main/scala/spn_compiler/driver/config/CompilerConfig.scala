@@ -41,4 +41,11 @@ trait CompilerConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
   }
   def macros : List[String] = _macros.toList
 
+  private val flags : ListBuffer[String] = ListBuffer()
+  def addCompilerFlag(flag : String) : R = {
+    flags.append(flag)
+    self
+  }
+  def compilerFlags : List[String] = flags.toList
+
 }

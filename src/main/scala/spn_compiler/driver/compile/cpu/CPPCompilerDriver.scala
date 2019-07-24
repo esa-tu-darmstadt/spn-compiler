@@ -27,6 +27,7 @@ case object ClangCPPDriver extends CPPCompilerDriver with Logging {
       flags.append("-fopenmp")
     }
     flags.append(config.macros.map(m => s"-D$m").mkString(" "))
+    flags.append(config.compilerFlags.mkString(" "))
     if(config.isRangeProfilingEnabled){
       flags.append("-DSPN_PROFILE")
     }
@@ -70,6 +71,7 @@ case object GCCCPPDriver extends CPPCompilerDriver with Logging {
       flags.append("-fopenmp")
     }
     flags.append(config.macros.map(m => s"-D$m").mkString(" "))
+    flags.append(config.compilerFlags.mkString(" "))
     if(config.isRangeProfilingEnabled){
       flags.append("-DSPN_PROFILE")
     }
