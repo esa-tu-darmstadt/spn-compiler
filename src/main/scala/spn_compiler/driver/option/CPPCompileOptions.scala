@@ -25,6 +25,9 @@ object CPPCompileOptions {
         opt[Int]("lns-fraction-bits")
             .action((b,c) => c.setLNSFractionBits(b))
             .text("Set number of fraction bits for the LNS fixed point format"),
+        opt[Double]("lns-interpolation-error")
+          .action((e,c) => c.setLNSInterpolationError(e))
+          .text("Set interpolation error for helper function in LNS addition"),
         opt[Unit]("posit-sim")
           .action((_, c) => c.enablePositSimulation(true))
           .text("Simulate Posit-based arithmetic in software"),
