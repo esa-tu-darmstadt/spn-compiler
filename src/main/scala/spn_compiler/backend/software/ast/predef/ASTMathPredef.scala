@@ -20,3 +20,7 @@ case object LNS2Double extends ASTExternalFunction(LNSHeader, "lns_get_value", R
 case object PositHeader extends ASTExternalHeader("spn-posit.hpp", true)
 
 case object PositType extends ASTExternalStructType(PositHeader, "posit_t", List(("exp", RealType)))
+
+case object FPSimHeader extends ASTExternalHeader("spn-fp.hpp", true)
+
+case object FPSimType extends ASTExternalStructType(FPSimHeader, "spn_float_t", List(("d", RealType)))

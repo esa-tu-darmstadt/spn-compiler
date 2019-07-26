@@ -6,7 +6,7 @@ import spn_compiler.backend.software.ast.nodes.function.{ASTFunction, ASTFunctio
 import spn_compiler.backend.software.ast.nodes.module.ASTModule
 import spn_compiler.backend.software.ast.nodes.types._
 import spn_compiler.backend.software.ast.nodes.value.ASTValue
-import spn_compiler.backend.software.ast.predef.{LNS2Double, LNSInit, LNSType, PositType}
+import spn_compiler.backend.software.ast.predef._
 import spn_compiler.driver.config.CPPCompileConfig
 import spn_compiler.graph_ir.nodes._
 
@@ -71,6 +71,9 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
           else if(config.isPositSimulationEnabled) {
             module.initArray(buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => double2Posit(b.value, module))):_*)
           }
+          else if(config.isFPSimulationEnabled) {
+            module.initArray(buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => double2FPSim(b.value, module))):_*)
+          }
           else {
             module.initArray(RealType, buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => b.value)):_*)
           }
@@ -80,6 +83,9 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
           }
           else if(config.isPositSimulationEnabled) {
             PositType
+          }
+          else if(config.isFPSimulationEnabled) {
+            FPSimType
           }
           else {
             RealType
@@ -98,6 +104,9 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
           }
           else if(config.isPositSimulationEnabled){
             addends.map(wa => double2Posit(wa.weight, module))
+          }
+          else if(config.isFPSimulationEnabled){
+            addends.map(wa => double2FPSim(wa.weight, module))
           }
           else {
             addends.map(wa => module.constantValue(RealType, wa.weight))
@@ -142,6 +151,10 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
 
   private def double2Posit(value : Double, module : ASTModule) : ASTValue = {
     module.initStruct(PositType, module.constantValue(RealType, value))
+  }
+
+  private def double2FPSim(value : Double, module : ASTModule) : ASTValue = {
+    module.initStruct(FPSimType, module.constantValue(RealType, value))
   }
 
   private def lns2Double(lns : ASTValue, module : ASTModule) : ASTValue =
