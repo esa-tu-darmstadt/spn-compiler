@@ -39,6 +39,11 @@ case object ClangCPPDriver extends CPPCompilerDriver with Logging {
       flags.append(s"-DPOSIT_SIZE_N=${config.positSizeN}")
       flags.append(s"-DPOSIT_SIZE_ES=${config.positSizeES}")
     }
+    if(config.isFPSimulationEnabled){
+      flags.append(s"-DSPN_FLOAT_MANTISSA=${config.fpMantissa}")
+      flags.append(s"-DSPN_E_MIN=${config.fpMaxExponent}")
+      flags.append(s"-DSPN_E_MAX=${config.fpMinExponent}")
+    }
     flags.append(s"-o ${config.outputFile.getAbsoluteFile.toString}")
     val cmd : String = "clang++ %s %s".format(flags.mkString(" "), files.map(_.getAbsoluteFile.toString).mkString(" "))
     val process = Process(cmd)
@@ -82,6 +87,11 @@ case object GCCCPPDriver extends CPPCompilerDriver with Logging {
     if(config.isPositSimulationEnabled){
       flags.append(s"-DPOSIT_SIZE_N=${config.positSizeN}")
       flags.append(s"-DPOSIT_SIZE_ES=${config.positSizeES}")
+    }
+    if(config.isFPSimulationEnabled){
+      flags.append(s"-DSPN_FLOAT_MANTISSA=${config.fpMantissa}")
+      flags.append(s"-DSPN_E_MIN=${config.fpMaxExponent}")
+      flags.append(s"-DSPN_E_MAX=${config.fpMinExponent}")
     }
     flags.append(s"-o ${config.outputFile.getAbsoluteFile.toString}")
     val cmd : String = "g++ %s %s".format(flags.mkString(" "), files.map(_.getAbsoluteFile.toString).mkString(" "))

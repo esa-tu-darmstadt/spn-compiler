@@ -37,6 +37,18 @@ object CPPCompileOptions {
         opt[Int]("posit-exponent")
           .action((b,c) => c.setPositSizeES(b))
           .text("Set number of exponent bits for the Posit format (ES)"),
+        opt[Unit]("fp-sim")
+            .action((_, c) => c.enableFPSimulation(true))
+            .text("Simulate arbitrary precision floating point arithmetic in software"),
+        opt[Int]("fp-mantissa")
+            .action((m, c) => c.setFPMantissa(m))
+            .text("Set the bitwidth of the floating point mantissa in FP simulation"),
+        opt[Int]("fp-max-exp")
+            .action((m, c) => c.setFPMaxExponent(m))
+            .text("Set the maximal value for the exponent in the FP simulation"),
+        opt[Int]("fp-min-exp")
+            .action((m, c) => c.setFPMinExponent(m))
+            .text("Set the minimal value for the exponent in the FP simulation"),
         opt[String]("cpp-compiler")
           .action((name, c) =>
             c.setCompiler(CPPCompileConfig.availableCompilers.filter(d => d._1.equalsIgnoreCase(name)).head._2))

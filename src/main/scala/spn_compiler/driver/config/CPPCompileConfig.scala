@@ -74,6 +74,34 @@ trait CPPCompileConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
   }
   def positSizeES : Int = positES
 
+  private var fpSim : Boolean = false
+  def enableFPSimulation(bool : Boolean) : R = {
+    fpSim = bool
+    self
+  }
+  def isFPSimulationEnabled : Boolean = fpSim
+
+  private var fpMant : Int = 53
+  def setFPMantissa(mantissa : Int ) : R = {
+    fpMant = mantissa
+    self
+  }
+  def fpMantissa : Int = fpMant
+
+  private var fpExpMax : Int = 1000
+  def setFPMaxExponent(max : Int) : R = {
+    fpExpMax = max
+    self
+  }
+  def fpMaxExponent : Int = fpExpMax
+
+  private var fpExpMin : Int = -1000
+  def setFPMinExponent(min : Int) : R = {
+    fpExpMin = min
+    self
+  }
+  def fpMinExponent : Int = fpExpMin
+
 }
 
 private[driver] object CPPCompileConfig{
