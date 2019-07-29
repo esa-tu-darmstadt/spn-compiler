@@ -41,8 +41,8 @@ case object ClangCPPDriver extends CPPCompilerDriver with Logging {
     }
     if(config.isFPSimulationEnabled){
       flags.append(s"-DSPN_FLOAT_MANTISSA=${config.fpMantissa}")
-      flags.append(s"-DSPN_E_MIN=${config.fpMaxExponent}")
-      flags.append(s"-DSPN_E_MAX=${config.fpMinExponent}")
+      flags.append(s"-DSPN_E_MIN=${config.fpMinExponent}")
+      flags.append(s"-DSPN_E_MAX=${config.fpMaxExponent}")
     }
     flags.append(s"-o ${config.outputFile.getAbsoluteFile.toString}")
     val cmd : String = "clang++ %s %s".format(flags.mkString(" "), files.map(_.getAbsoluteFile.toString).mkString(" "))
@@ -90,8 +90,8 @@ case object GCCCPPDriver extends CPPCompilerDriver with Logging {
     }
     if(config.isFPSimulationEnabled){
       flags.append(s"-DSPN_FLOAT_MANTISSA=${config.fpMantissa}")
-      flags.append(s"-DSPN_E_MIN=${config.fpMaxExponent}")
-      flags.append(s"-DSPN_E_MAX=${config.fpMinExponent}")
+      flags.append(s"-DSPN_E_MIN=${config.fpMinExponent}")
+      flags.append(s"-DSPN_E_MAX=${config.fpMaxExponent}")
     }
     flags.append(s"-o ${config.outputFile.getAbsoluteFile.toString}")
     val cmd : String = "g++ %s %s".format(flags.mkString(" "), files.map(_.getAbsoluteFile.toString).mkString(" "))
