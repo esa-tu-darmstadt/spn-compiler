@@ -38,6 +38,7 @@ case object ClangCPPDriver extends CPPCompilerDriver with Logging {
     if(config.isPositSimulationEnabled){
       flags.append(s"-DPOSIT_SIZE_N=${config.positSizeN}")
       flags.append(s"-DPOSIT_SIZE_ES=${config.positSizeES}")
+      flags.append("-lbfp")
     }
     if(config.isFPSimulationEnabled){
       flags.append(s"-DSPN_FLOAT_MANTISSA=${config.fpMantissa}")
@@ -45,7 +46,7 @@ case object ClangCPPDriver extends CPPCompilerDriver with Logging {
       flags.append(s"-DSPN_E_MAX=${config.fpMaxExponent}")
     }
     flags.append(s"-o ${config.outputFile.getAbsoluteFile.toString}")
-    val cmd : String = "clang++ %s %s".format(flags.mkString(" "), files.map(_.getAbsoluteFile.toString).mkString(" "))
+    val cmd : String = "clang++ %s %s".format(files.map(_.getAbsoluteFile.toString).mkString(" "), flags.mkString(" "))
     val process = Process(cmd)
     try{
       debug(s"Running C++ compiler clang++ with command: $cmd")

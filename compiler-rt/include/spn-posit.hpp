@@ -1,7 +1,7 @@
 #ifndef SPN_POSIT_H
 #define SPN_POSIT_H
 
-#include "posit/posit.h"
+#include "posit/lib/posit.h"
 
 #ifndef POSIT_SIZE_N
   #define POSIT_SIZE_N 32
@@ -11,37 +11,49 @@
   #define POSIT_SIZE_ES 6
 #endif
 
-#ifndef POSIT_STORAGE_TYPE
-  #if POSIT_SIZE_N > 64
-	  #pragma message "POSIT SIZE GREATER 64 BITS NOT SUPPORTED"
-		#define POSIT_STORAGE_TYPE
-	#elif POSIT_SIZE_N > 32
-	  #define POSIT_STORAGE_TYPE int64_t
-	#elif POSIT_SIZE_N > 16
-	  #define POSIT_STORAGE_TYPE int32_t
-	#elif POSIT_SIZE_N > 8
-	  #define POSIT_STORAGE_TYPE int16_t
-	#else
-	  #define POSIT_STORAGE_TYPE int8_t
-	#endif
-#endif
+template<int N, int ES>
+struct softposit{
+  
+  softposit(double d) : posit{N, ES}{
+    posit.set(d);
+  }
+  
+  softposit(Posit p) : posit{N, ES}{
+    posit.set(p);
+  }
+  
+  softposit(softposit & s) : posit{N, ES}{
+    posit.set(s.posit);
+  }
+  
+  softposit& operator=(const softposit& s){
+    posit.set(s.posit);
+  }
+  
+  softposit(softposit && s) : posit{N, ES}{
+    posit.set(s.posit);
+  }
+  
+  softposit& operator=(softposit&& s){
+    posit.set(s.posit);
+  }
+  
+  friend softposit operator+(const softposit & a, const softposit & b){
+    return softposit{(a.posit + b.posit)};
+  }
+  
+  friend softposit operator*(const softposit & a, const softposit & b){
+    return softposit{(a.posit * b.posit)};
+  }
+  
+  operator double() {
+    return posit.getDouble();
+  }
+  
+private:
+  Posit posit;
+};
 
-#ifndef POSIT_FRACTION_TYPE
-  #if POSIT_SIZE_N > 64
-	  #pragma message "POSIT SIZE GREATER 64 BITS NOT SUPPORTED"
-		#define POSIT_FRACTION_TYPE
-	#elif POSIT_SIZE_N > 32
-	  #define POSIT_FRACTION_TYPE uint64_t
-	#elif POSIT_SIZE_N > 16
-	  #define POSIT_FRACTION_TYPE uint64_t
-	#elif POSIT_SIZE_N > 8
-	  #define POSIT_FRACTION_TYPE uint32_t
-	#else
-	  #define POSIT_FRACTION_TYPE uint16_t
-	#endif
-#endif
-
-typedef Posit<POSIT_STORAGE_TYPE, POSIT_SIZE_N, POSIT_SIZE_ES, 
-  POSIT_FRACTION_TYPE, PositSpec::WithNan> posit_t;
+typedef struct softposit<POSIT_SIZE_N, POSIT_SIZE_ES> posit_t;
 
 #endif
