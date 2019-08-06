@@ -49,6 +49,15 @@ object CPPCompileOptions {
         opt[Int]("fp-min-exp")
             .action((m, c) => c.setFPMinExponent(m))
             .text("Set the minimal value for the exponent in the FP simulation"),
+        opt[Unit]("fixed-sim")
+            .action((_, c) => c.enableFixedPointSimulation(true))
+            .text("Simulate fixed-point arithmetic in software"),
+        opt[Int]("fixed-int-bits")
+            .action((b, c) => c.setFixedPointIntBits(b))
+            .text("Set number of integer bits for the fixed point format"),
+        opt[Int]("fixed-fraction-bits")
+            .action((b,c) => c.setFixedPointFractionBits(b))
+            .text("Set number of fraction bits for the fixed point format"),
         opt[String]("cpp-compiler")
           .action((name, c) =>
             c.setCompiler(CPPCompileConfig.availableCompilers.filter(d => d._1.equalsIgnoreCase(name)).head._2))

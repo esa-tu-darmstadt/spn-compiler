@@ -102,6 +102,27 @@ trait CPPCompileConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
   }
   def fpMinExponent : Int = fpExpMin
 
+  private var fixedSim : Boolean = false
+  def enableFixedPointSimulation(bool : Boolean) : R = {
+    fixedSim = bool
+    self
+  }
+  def isFixedPointSimulationEnabled : Boolean = fixedSim
+
+  private var fixedIntBits : Int = 8
+  def setFixedPointIntBits(bits : Int) : R = {
+    fixedIntBits = bits
+    self
+  }
+  def fixedPointIntegerBits : Int = fixedIntBits
+
+  private var fixedFracBits : Int = 32
+  def setFixedPointFractionBits(bits : Int) : R = {
+    fixedFracBits = bits
+    self
+  }
+  def fixedPointFractionBits : Int = fixedFracBits
+
 }
 
 private[driver] object CPPCompileConfig{
