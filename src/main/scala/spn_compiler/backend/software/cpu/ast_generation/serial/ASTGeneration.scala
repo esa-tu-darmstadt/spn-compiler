@@ -74,6 +74,9 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
           else if(config.isFPSimulationEnabled) {
             module.initArray(buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => double2FPSim(b.value, module))):_*)
           }
+          else if(config.isFixedPointSimulationEnabled) {
+            module.initArray(buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => double2Fixed(b.value, module))):_*)
+          }
           else {
             module.initArray(RealType, buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => b.value)):_*)
           }
@@ -86,6 +89,9 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
           }
           else if(config.isFPSimulationEnabled) {
             FPSimType
+          }
+          else if(config.isFixedPointSimulationEnabled){
+            FixedType
           }
           else {
             RealType
@@ -107,6 +113,9 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
           }
           else if(config.isFPSimulationEnabled){
             addends.map(wa => double2FPSim(wa.weight, module))
+          }
+          else if(config.isFixedPointSimulationEnabled){
+            addends.map(wa => double2Fixed(wa.weight, module))
           }
           else {
             addends.map(wa => module.constantValue(RealType, wa.weight))
@@ -155,6 +164,10 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
 
   private def double2FPSim(value : Double, module : ASTModule) : ASTValue = {
     module.initStruct(FPSimType, module.constantValue(RealType, value))
+  }
+
+  private def double2Fixed(value : Double, module : ASTModule) : ASTValue = {
+    module.initStruct(FixedType, module.constantValue(RealType, value))
   }
 
   private def lns2Double(lns : ASTValue, module : ASTModule) : ASTValue =

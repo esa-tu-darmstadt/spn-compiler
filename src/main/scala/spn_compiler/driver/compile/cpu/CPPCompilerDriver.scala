@@ -45,6 +45,10 @@ case object ClangCPPDriver extends CPPCompilerDriver with Logging {
       flags.append(s"-DSPN_E_MIN=${config.fpMinExponent}")
       flags.append(s"-DSPN_E_MAX=${config.fpMaxExponent}")
     }
+    if(config.isFixedPointSimulationEnabled){
+      flags.append(s"-DSPN_FIXED_INTEGER_BITS=${config.fixedPointIntegerBits}")
+      flags.append(s"-DSPN_FIXED_FRACTION_BITS=${config.fixedPointFractionBits}")
+    }
     flags.append(s"-o ${config.outputFile.getAbsoluteFile.toString}")
     val cmd : String = "clang++ %s %s".format(files.map(_.getAbsoluteFile.toString).mkString(" "), flags.mkString(" "))
     val process = Process(cmd)
@@ -93,6 +97,10 @@ case object GCCCPPDriver extends CPPCompilerDriver with Logging {
       flags.append(s"-DSPN_FLOAT_MANTISSA=${config.fpMantissa}")
       flags.append(s"-DSPN_E_MIN=${config.fpMinExponent}")
       flags.append(s"-DSPN_E_MAX=${config.fpMaxExponent}")
+    }
+    if(config.isFixedPointSimulationEnabled){
+      flags.append(s"-DSPN_FIXED_INTEGER_BITS=${config.fixedPointIntegerBits}")
+      flags.append(s"-DSPN_FIXED_FRACTION_BITS=${config.fixedPointFractionBits}")
     }
     flags.append(s"-o ${config.outputFile.getAbsoluteFile.toString}")
     val cmd : String = "g++ %s %s".format(flags.mkString(" "), files.map(_.getAbsoluteFile.toString).mkString(" "))

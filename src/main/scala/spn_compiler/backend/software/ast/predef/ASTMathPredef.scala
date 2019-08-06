@@ -24,3 +24,7 @@ case object PositType extends ASTExternalStructType(PositHeader, "posit_t", List
 case object FPSimHeader extends ASTExternalHeader("spn-fp.hpp", true)
 
 case object FPSimType extends ASTExternalStructType(FPSimHeader, "spn_float_t", List(("d", RealType)))
+
+case object FixedHeader extends ASTExternalHeader("spn-fixed.hpp", true)
+
+case object FixedType extends ASTExternalStructType(FixedHeader, "spn_fixed_t", List(("d", RealType)))
