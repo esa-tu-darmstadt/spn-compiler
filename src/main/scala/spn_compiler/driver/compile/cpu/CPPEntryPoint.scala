@@ -11,115 +11,154 @@ object CPPEntryPoint {
   }
 
   private val mainCode =
-    """#include <iostream>
+    """#include <vector>
       |#include <fstream>
+      |#include <iostream>
       |#include <sstream>
-      |#include <iomanip>
+      |#include <cstring>
+      |#include <string>
       |#include <cmath>
       |#include <chrono>
-      |#include <vector>
+      |#include <omp.h>
       |#include "spn.hpp"
+      |#ifdef SPN_RANGE_PROFILE
       |#include "spn-compiler-rt.hpp"
-      |
+      |#endif
       |#ifndef NUM_RUNS
       |#define NUM_RUNS 1
       |#endif
       |
-      |int* readInputSamples(char * inputfile, int * sample_count){
-      |    std::ifstream infile(inputfile);
-      |    std::string line;
-      |    std::vector<std::string> lines;
-      |    while(std::getline(infile, line)){
-      |        lines.push_back(line);
-      |    }
+      |#ifndef BLOCK_SIZE
+      |  #define BLOCK_SIZE 100000
+      |#endif
       |
-      |    std::vector<int> * input_data = new std::vector<int>();
-      |    int sample_count_int = 0;
-      |    for(const std::string& s : lines){
-      |        std::istringstream stream(s);
-      |        std::string token;
-      |        int value_count = 0;
-      |        while(std::getline(stream, token, ';')){
-      |            std::istringstream value_string(token);
-      |            double value;
-      |            if(!(value_string >> value)){
-      |                std::cout << "ERROR: Could not parse double from " << token.c_str() << std::endl;
-      |                exit(-1);
-      |            }
-      |            input_data->push_back((int) value);
-      |            ++value_count;
-      |        }
-      |        ++sample_count_int;
-      |    }
+      |#ifndef DATA_REPEAT
+      |  #define DATA_REPEAT 1000
+      |#endif
       |
-      |    std::cout << "Read " << sample_count_int << " input samples" << std::endl;
-      |    *sample_count = sample_count_int;
-      |    return input_data->data();
-      |}
+      |#ifndef NUM_THREADS
+      |  #define NUM_THREADS 8
+      |#endif
       |
-      |double* readReferenceValues(char * outputfile, int sample_count){
-      |    std::ifstream infile(outputfile);
-      |    std::string line;
-      |    auto * output_data = (double*) malloc(sample_count * sizeof(double));
-      |    int count = 0;
-      |    while(count < sample_count && std::getline(infile, line)){
-      |        std::istringstream value_string(line);
+      |
+      |std::vector<int>* readInputData(std::string inputfile, int * num_samples){
+      |  std::vector<int> * inputdata = new std::vector<int>{};
+      |  std::ifstream infile;
+      |  infile.open(inputfile);
+      |  if(!infile.is_open()){
+      |    std::cerr << "Could not open input file!" << std::endl;
+      |    exit(-1);
+      |  }
+      |  int sample_count = 0;
+      |  std::string line;
+      |  while(std::getline(infile, line)){
+      |    std::istringstream linestream(line);
+      |    std::string token;
+      |    while(std::getline(linestream, token, ';')){
+      |        std::istringstream value_string(token);
       |        double value;
       |        if(!(value_string >> value)){
-      |            std::cout << "ERROR: Could not parse double from " << line.c_str() << std::endl;
+      |            std::cout << "ERROR: Could not parse double from "
+      |              << token.c_str() << std::endl;
       |            exit(-1);
       |        }
-      |        output_data[count] = value;
-      |        ++count;
+      |        inputdata->push_back((int) value);
       |    }
-      |
-      |    std::cout << "Read " << count << " reference values" << std::endl;
-      |    return output_data;
+      |    ++sample_count;
+      |  }
+      |  *num_samples = sample_count;
+      |  return inputdata;
       |}
       |
+      |std::vector<double>* readReferenceData(std::string referencefile){
+      |  std::vector<double> * referenceData = new std::vector<double>{};
+      |  std::ifstream reffile;
+      |  reffile.open(referencefile);
+      |  if(!reffile.is_open()){
+      |    std::cerr << "Could not open reference file!" << std::endl;
+      |    exit(-1);
+      |  }
+      |  std::string line;
+      |  while(std::getline(reffile, line)){
+      |    std::istringstream value_string(line);
+      |    double value;
+      |    if(!(value_string >> value)){
+      |      std::cerr << "ERROR: Could not parse double from "
+      |        << line.c_str() << std::endl;
+      |      exit(-1);
+      |    }
+      |    referenceData->push_back(value);
+      |  }
+      |  return referenceData;
+      |}
+      |
+      |
       |int main(int argc, char ** argv) {
-      |    if(argc < 2 || argc > 3 ){
-      |        std::cout << "Please provide input-file as first argument and - optionally- output-data file as second argument!" << std::endl;
-      |	exit(-1);
-      |    }
-      |    bool has_reference = (argc==3);
-      |    int sample_count = 0;
+      |  if(argc < 2){
+      |    std::cout << "Usage: tapasco-sw $INPUT_DATA_FILE [$REFERENCE_DATA_FILE]" << std::endl;
+      |    exit(-1);
+      |  }
+      |  int input_samples;
+      |  std::vector<int> * inputdata = readInputData(std::string{argv[1]}, &input_samples);
+      |  activation_t * indata = new activation_t[input_samples*DATA_REPEAT];
+      |  for(int i=0; i<DATA_REPEAT; ++i){
+      |    std::memcpy(&(indata[i*input_samples]), inputdata->data(), input_samples*sizeof(activation_t));
+      |  }
+      |  auto num_samples = input_samples * DATA_REPEAT;
+      |  int num_errors{0};
+      |  std::chrono::milliseconds duration{0};
+      |  for(int r=0; r < NUM_RUNS; ++r){
+      |    std::vector<double> * results = new std::vector<double>(num_samples, 42.0);
+      |    double * outdata = results->data();
       |
-      |    void * input_data = readInputSamples(argv[1], &sample_count);
-      |    double * reference_data;
-      |    if(has_reference){
-      |        reference_data = readReferenceValues(argv[2], sample_count);
+      |    int num_jobs = (int) ceil(((float) num_samples) / ((float) BLOCK_SIZE));
+      |    auto begin = std::chrono::high_resolution_clock::now();
+      |    #pragma omp parallel for num_threads(NUM_THREADS) firstprivate(indata, outdata)
+      |    for(int i=0; i<num_jobs; ++i){
+      |      int block_start = i * BLOCK_SIZE;
+      |      int block_size = std::min((num_samples - block_start), BLOCK_SIZE);
+      |      auto input_start = &(indata[block_start]);
+      |      auto output_start = &(outdata[block_start]);
+      |      spn_toplevel(block_size, input_start, output_start);
       |    }
-      |    int num_errors = 0;
-      |    std::chrono::microseconds duration{0};
-      |    for(int r=0; r < NUM_RUNS; ++r){
-      |        double result[sample_count];
-      |        for(int i=0; i<sample_count; ++i){
-      |	        result[i] = 42.0;
+      |    auto end = std::chrono::high_resolution_clock::now();
+      |    duration = duration +  std::chrono::duration_cast<std::chrono::milliseconds>(end-begin);
+      |    if(argc > 2){
+      |      std::vector<double> * referenceData = readReferenceData(std::string{argv[2]});
+      |      if(referenceData->size()!=input_samples){
+      |        std::cout << "Not enough reference data!" << std::endl;
+      |      }
+      |      else{
+      |        for(int i=0; i < num_samples; ++i){
+      |          int reference_index = i % referenceData->size();
+      |          double golden = (*referenceData)[reference_index];
+      |          double fpga_result = log((*results)[i]);
+      |          double error = fabs(golden - fpga_result);
+      |          if(error > 1E-6){
+      |            std::cerr << "Significant result deviation @" << i << ": " << golden
+      |              << " vs. " << fpga_result << " error: " << error << std::endl;
+      |            ++num_errors;
+      |          }
       |        }
-      |
-      |        auto begin = std::chrono::high_resolution_clock::now();
-      |
-      |        spn_toplevel(sample_count, (activation_t*) input_data, result);
-      |
-      |        auto end = std::chrono::high_resolution_clock::now();
-      |        if(has_reference){
-      |        	for(int i=0; i<sample_count; ++i){
-      |	            if(std::abs(std::log(result[i])-reference_data[i])>1e-6){
-      |	            	std::cout << "ERROR: Significant deviation @" << i << ": " << std::log(result[i]) << " (" << result[i] << ") " << " vs. " << reference_data[i] << std::endl;
-      |	            	++num_errors;
-      |	            }
-      |        	}
-      |        }
-      |        duration = duration + std::chrono::duration_cast<std::chrono::microseconds>(end-begin);
+      |      }
+      |      delete referenceData;
       |    }
-      |    if(num_errors==0){
-      |        std::cout << "COMPUTATION OK" << std::endl;
-      |	}
+      |    delete results;
+      |  }
       |
-      |    std::cout << std::setprecision(15)<< "time per instance " << (duration.count() / ((double) sample_count * (double) NUM_RUNS)) << " us" << std::endl;
-      |    std::cout << std::setprecision(15) << "time per task " << (duration.count() / ((double) NUM_RUNS))  << " us" << std::endl;
-      |    report_range();
-      |    return 0;
-      |}""".stripMargin
+      |  if(num_errors == 0){
+      |    std::cout << "Successfully completed computation" << std::endl;
+      |  } else {
+      |    std::cout << "Total number of computation errors: " << num_errors << std::endl;
+      |  }
+      |  std::cout << "Computation took " << (((double) duration.count())/NUM_RUNS) << "ms" << std::endl;
+      |  #ifdef SPN_RANGE_PROFILE
+      |  report_range();
+      |  #endif
+      |  delete inputdata;
+      |  delete[] indata;
+      |
+      |  return 0;
+      |}
+      |""".stripMargin
 }

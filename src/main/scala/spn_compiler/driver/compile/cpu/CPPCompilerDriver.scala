@@ -23,8 +23,9 @@ case object ClangCPPDriver extends CPPCompilerDriver with Logging {
     if(config.isFastMathEnabled){
       flags.append("-ffast-math")
     }
-    if(config.isOMPParallelForEnabled){
-      flags.append("-fopenmp")
+    flags.append("-fopenmp")
+    if(config.isRangeProfilingEnabled){
+      flags.append("-DSPN_RANGE_PROFILE")
     }
     flags.append(config.macros.map(m => s"-D$m").mkString(" "))
     flags.append(s"-o ${config.outputFile.getAbsoluteFile.toString}")
@@ -55,8 +56,9 @@ case object GCCCPPDriver extends CPPCompilerDriver with Logging {
     if(config.isFastMathEnabled){
       flags.append("-ffast-math")
     }
-    if(config.isOMPParallelForEnabled){
-      flags.append("-fopenmp")
+    flags.append("-fopenmp")
+    if(config.isRangeProfilingEnabled){
+      flags.append("-DSPN_RANGE_PROFILE")
     }
     flags.append(config.macros.map(m => s"-D$m").mkString(" "))
     flags.append(s"-o ${config.outputFile.getAbsoluteFile.toString}")
