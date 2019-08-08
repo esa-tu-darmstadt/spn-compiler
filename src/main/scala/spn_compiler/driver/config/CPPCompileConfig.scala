@@ -1,5 +1,6 @@
 package spn_compiler.driver.config
 
+import spn_compiler.backend.software.ast.predef.{LNSSWSimTypeFloat, LNSSWSimTypeDouble}
 import spn_compiler.driver.compile.cpu.{CPPCompilerDriver, ClangCPPDriver, GCCCPPDriver}
 
 trait CPPCompileConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
@@ -52,6 +53,22 @@ trait CPPCompileConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
     self
   }
   def lnsInterpolationError : Double = lnsError
+
+  private var lnsSwSim : Boolean = false
+  def enableLNSSoftwareSimulation(bool : Boolean) : R = {
+    lnsSwSim = bool
+    self
+  }
+
+  def isLNSSoftwareSimulationEnabled : Boolean = lnsSwSim
+
+  private var lnsSwType : Int = 1
+  def setLNSSoftwareType(lnstype : Int) : R = {
+    lnsSwType = lnstype
+    self
+  }
+
+  def lnsSoftwareType : Int = lnsSwType
 
   private var positSim : Boolean = false
   def enablePositSimulation(bool : Boolean) : R = {

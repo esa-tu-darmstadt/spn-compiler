@@ -28,6 +28,12 @@ object CPPCompileOptions {
         opt[Double]("lns-interpolation-error")
           .action((e,c) => c.setLNSInterpolationError(e))
           .text("Set interpolation error for helper function in LNS addition"),
+        opt[Unit]("lns-sw-sim")
+          .action((_, c) => c.enableLNSSoftwareSimulation(true))
+          .text("Simulate LNS-based arithmetic in software (non-MPFR)"),
+        opt[Int]("lns-sw-type")
+          .action((b, c) => c.setLNSSoftwareType(b))
+          .text("Set operand type of software LNS-based arithmetic (non-MPFR)"),
         opt[Unit]("posit-sim")
           .action((_, c) => c.enablePositSimulation(true))
           .text("Simulate Posit-based arithmetic in software"),

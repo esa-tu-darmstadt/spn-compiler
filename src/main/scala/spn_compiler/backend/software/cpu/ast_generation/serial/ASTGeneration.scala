@@ -68,6 +68,9 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
           if(config.isLNSSimulationEnabled){
             module.initArray(buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => double2LNS(b.value, module))):_*)
           }
+          else if(config.isLNSSoftwareSimulationEnabled) {
+            module.initArray(buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => double2LNSSW(b.value, module))):_*)
+          }
           else if(config.isPositSimulationEnabled) {
             module.initArray(buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => double2Posit(b.value, module))):_*)
           }
@@ -83,6 +86,12 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
         val arrayElementType =
           if(config.isLNSSimulationEnabled){
             LNSType
+          }
+          else if(config.isLNSSoftwareSimulationEnabled) {
+            if(config.lnsSoftwareType == 0)
+              LNSSWSimTypeFloat
+            else
+              LNSSWSimTypeDouble
           }
           else if(config.isPositSimulationEnabled) {
             PositType
@@ -107,6 +116,9 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
         val weights =
           if(config.isLNSSimulationEnabled){
             addends.map(wa => double2LNS(wa.weight, module))
+          }
+          else if(config.isLNSSoftwareSimulationEnabled){
+            addends.map(wa => double2LNSSW(wa.weight, module))
           }
           else if(config.isPositSimulationEnabled){
             addends.map(wa => double2Posit(wa.weight, module))
@@ -158,6 +170,16 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
         trueVal, falseVal)
   }
 
+  private def double2LNSSW(value : Double, module : ASTModule) : ASTValue = {
+    val LNSSWType = if(config.lnsSoftwareType == 0) LNSSWSimTypeFloat else LNSSWSimTypeDouble
+    val falseVal = module.constantValue(BooleanType, false)
+    val trueVal = module.constantValue(BooleanType, true)
+    if (value == 0.0)
+      module.initStruct(LNSSWType, module.constantValue(RealType, value), trueVal)
+    else
+      module.initStruct(LNSSWType, module.constantValue(RealType, value), falseVal)
+  }
+
   private def double2Posit(value : Double, module : ASTModule) : ASTValue = {
     module.initStruct(PositType, module.constantValue(RealType, value))
   }
@@ -172,5 +194,8 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
 
   private def lns2Double(lns : ASTValue, module : ASTModule) : ASTValue =
     module.call(LNS2Double, lns)
+
+  private def lnssw2Double(lns : ASTValue, module : ASTModule) : ASTValue =
+    module.call(LNSSW2Double, lns)
 
 }
