@@ -38,7 +38,6 @@ case object ClangCPPDriver extends CPPCompilerDriver with Logging {
     if(config.isPositSimulationEnabled){
       flags.append(s"-DPOSIT_SIZE_N=${config.positSizeN}")
       flags.append(s"-DPOSIT_SIZE_ES=${config.positSizeES}")
-      flags.append("-lbfp")
     }
     if(config.isFPSimulationEnabled){
       flags.append(s"-DSPN_FLOAT_MANTISSA=${config.fpMantissa}")
