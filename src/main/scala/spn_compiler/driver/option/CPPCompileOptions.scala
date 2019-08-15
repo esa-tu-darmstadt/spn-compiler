@@ -31,7 +31,7 @@ object CPPCompileOptions {
         opt[Unit]("lns-sw-sim")
           .action((_, c) => c.enableLNSSoftwareSimulation(true))
           .text("Simulate LNS-based arithmetic in software (non-MPFR)"),
-        opt[Int]("lns-sw-type")
+        opt[String]("lns-sw-type")
           .action((b, c) => c.setLNSSoftwareType(b))
           .text("Set operand type of software LNS-based arithmetic (non-MPFR)"),
         opt[Unit]("posit-sim")
