@@ -1,6 +1,7 @@
 package spn_compiler.driver.config
 
-import spn_compiler.backend.software.ast.predef.{LNSSWSimTypeFloat, LNSSWSimTypeDouble}
+import spn_compiler.backend.software.ast.predef.{LNSSWSimTypeDouble, LNSSWSimTypeFloat}
+import spn_compiler.driver.Driver.warn
 import spn_compiler.driver.compile.cpu.{CPPCompilerDriver, ClangCPPDriver, GCCCPPDriver}
 
 trait CPPCompileConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
@@ -63,8 +64,12 @@ trait CPPCompileConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
   def isLNSSoftwareSimulationEnabled : Boolean = lnsSwSim
 
   private var lnsSwType : Int = 1
-  def setLNSSoftwareType(lnstype : Int) : R = {
-    lnsSwType = lnstype
+  def setLNSSoftwareType(lnstype : String) : R = {
+    if (lnstype == "float"){
+      lnsSwType = 0
+    } else if (lnstype == "double"){
+      lnsSwType = 1
+    } else warn(s"Unknown LNS base type '${lnstype}'. Should be one of the following: {float, double (default)}.")
     self
   }
 

@@ -22,8 +22,6 @@ case object LNSSWSimHeader extends ASTExternalHeader("spn-lns-sw.hpp", true)
 case object LNSSWSimTypeFloat extends ASTExternalStructType(LNSSWSimHeader, "spn_lns_f", List(("d", RealType)))
 case object LNSSWSimTypeDouble extends ASTExternalStructType(LNSSWSimHeader, "spn_lns_d", List(("d", RealType)))
 
-case object LNSSW2Double extends ASTExternalFunction(LNSSWSimHeader, "double", RealType)
-
 case object PositHeader extends ASTExternalHeader("spn-posit.hpp", true)
 
 case object PositType extends ASTExternalStructType(PositHeader, "posit_t", List(("exp", RealType)))

@@ -195,7 +195,4 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
   private def lns2Double(lns : ASTValue, module : ASTModule) : ASTValue =
     module.call(LNS2Double, lns)
 
-  private def lnssw2Double(lns : ASTValue, module : ASTModule) : ASTValue =
-    module.call(LNSSW2Double, lns)
-
 }

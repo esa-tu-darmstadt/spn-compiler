@@ -91,6 +91,9 @@ case object GCCCPPDriver extends CPPCompilerDriver with Logging {
       flags.append(s"-DLNS_INTEGER_BITS=${config.lnsIntegerBits}")
       flags.append(s"-DLNS_FRACTION_BITS=${config.lnsFractionBits}")
     }
+    if(config.isLNSSoftwareSimulationEnabled){
+      flags.append(s"-DLNS_SW_TYPE=${config.lnsSoftwareType}")
+    }
     if(config.isPositSimulationEnabled){
       flags.append(s"-DPOSIT_SIZE_N=${config.positSizeN}")
       flags.append(s"-DPOSIT_SIZE_ES=${config.positSizeES}")
