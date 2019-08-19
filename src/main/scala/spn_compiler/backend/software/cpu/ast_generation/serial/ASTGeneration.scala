@@ -8,6 +8,7 @@ import spn_compiler.backend.software.ast.nodes.types._
 import spn_compiler.backend.software.ast.nodes.value.ASTValue
 import spn_compiler.backend.software.ast.predef._
 import spn_compiler.driver.config.CPPCompileConfig
+import spn_compiler.driver.config.LNS_SW_Type._
 import spn_compiler.graph_ir.nodes._
 
 import scala.collection.mutable
@@ -89,7 +90,7 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
             LNSType
           }
           else if(config.isLNSSoftwareSimulationEnabled) {
-            if(config.lnsSoftwareType == 0)
+            if(config.lnsSoftwareType == FLOAT)
               LNSSWSimTypeFloat
             else
               LNSSWSimTypeDouble
@@ -173,7 +174,7 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
   }
 
   private def double2LNSSW(value : Double, module : ASTModule) : ASTValue = {
-    val LNSSWType = if(config.lnsSoftwareType == 0) LNSSWSimTypeFloat else LNSSWSimTypeDouble
+    val LNSSWType = if(config.lnsSoftwareType == FLOAT) LNSSWSimTypeFloat else LNSSWSimTypeDouble
     val falseVal = module.constantValue(BooleanType, false)
     val trueVal = module.constantValue(BooleanType, true)
     if (value == 0.0)

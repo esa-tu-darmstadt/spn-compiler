@@ -1,7 +1,7 @@
 package spn_compiler.driver.option
 
 import scopt._
-import spn_compiler.driver.config.CPPCompileConfig
+import spn_compiler.driver.config.{CPPCompileConfig, LNS_SW_Type}
 
 object CPPCompileOptions {
 
@@ -33,6 +33,14 @@ object CPPCompileOptions {
           .text("Simulate LNS-based arithmetic in software (non-MPFR)"),
         opt[String]("lns-sw-type")
           .action((b, c) => c.setLNSSoftwareType(b))
+          .validate(name =>
+            if(LNS_SW_Type.isLNSSWType(name)){
+              success
+            }
+            else{
+              failure(s"No matching (non-MPFR) LNS-based operand type '$name'." +
+                s" Should be one of the following: ${LNS_SW_Type.getList}.")
+            })
           .text("Set operand type of software LNS-based arithmetic (non-MPFR)"),
         opt[Unit]("posit-sim")
           .action((_, c) => c.enablePositSimulation(true))

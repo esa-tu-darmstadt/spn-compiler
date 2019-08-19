@@ -3,8 +3,20 @@ package spn_compiler.driver.config
 import spn_compiler.backend.software.ast.predef.{LNSSWSimTypeDouble, LNSSWSimTypeFloat}
 import spn_compiler.driver.Driver.warn
 import spn_compiler.driver.compile.cpu.{CPPCompilerDriver, ClangCPPDriver, GCCCPPDriver}
+import spn_compiler.driver.config
+
+object LNS_SW_Type extends Enumeration {
+  type LNS_SW_Type = Value
+  val FLOAT: config.LNS_SW_Type.Value = Value("float")
+  val DOUBLE: config.LNS_SW_Type.Value = Value("double")
+
+  def isLNSSWType(s: String): Boolean = values.exists(_.toString == s.toLowerCase)
+  def getList: List[Value] = values.toList
+}
 
 trait CPPCompileConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
+
+  import spn_compiler.driver.config.LNS_SW_Type._
 
   private var compiler : CPPCompilerDriver = ClangCPPDriver
   def setCompiler(cxx : CPPCompilerDriver) : R = {
@@ -63,17 +75,15 @@ trait CPPCompileConfig[R <: CLIConfig[R]] extends CLIConfig[R] {
 
   def isLNSSoftwareSimulationEnabled : Boolean = lnsSwSim
 
-  private var lnsSwType : Int = 1
+  private var lnsSwType = DOUBLE
   def setLNSSoftwareType(lnstype : String) : R = {
-    if (lnstype == "float"){
-      lnsSwType = 0
-    } else if (lnstype == "double"){
-      lnsSwType = 1
-    } else warn(s"Unknown LNS base type '${lnstype}'. Should be one of the following: {float, double (default)}.")
+    if (isLNSSWType(lnstype)){
+      lnsSwType = LNS_SW_Type.withName(lnstype.toLowerCase)
+    } else warn(s"Unknown LNS operand type '${lnstype}'. Should be one of the following: ${LNS_SW_Type.getList}.")
     self
   }
 
-  def lnsSoftwareType : Int = lnsSwType
+  def lnsSoftwareType : LNS_SW_Type = lnsSwType
 
   private var positSim : Boolean = false
   def enablePositSimulation(bool : Boolean) : R = {

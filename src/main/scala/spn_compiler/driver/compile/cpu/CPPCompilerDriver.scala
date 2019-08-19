@@ -36,7 +36,7 @@ case object ClangCPPDriver extends CPPCompilerDriver with Logging {
       flags.append(s"-DLNS_FRACTION_BITS=${config.lnsFractionBits}")
     }
     if(config.isLNSSoftwareSimulationEnabled){
-      flags.append(s"-DLNS_SW_TYPE=${config.lnsSoftwareType}")
+      flags.append(s"-DLNS_SW_TYPE=${config.lnsSoftwareType.toString}")
     }
     if(config.isPositSimulationEnabled){
       flags.append(s"-DPOSIT_SIZE_N=${config.positSizeN}")
@@ -92,7 +92,7 @@ case object GCCCPPDriver extends CPPCompilerDriver with Logging {
       flags.append(s"-DLNS_FRACTION_BITS=${config.lnsFractionBits}")
     }
     if(config.isLNSSoftwareSimulationEnabled){
-      flags.append(s"-DLNS_SW_TYPE=${config.lnsSoftwareType}")
+      flags.append(s"-DLNS_SW_TYPE=${config.lnsSoftwareType.toString}")
     }
     if(config.isPositSimulationEnabled){
       flags.append(s"-DPOSIT_SIZE_N=${config.positSizeN}")
