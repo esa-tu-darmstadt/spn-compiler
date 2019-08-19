@@ -5,7 +5,7 @@ import spn_compiler.backend.software.ast.nodes.module.ASTModule
 import spn_compiler.backend.software.ast.nodes.statement.ASTStatement
 import spn_compiler.backend.software.ast.nodes.statement.control_flow.ASTReturnStatement
 import spn_compiler.backend.software.ast.nodes.statement.variable.{ASTVariableAssignment, ASTVariableDeclaration}
-import spn_compiler.backend.software.ast.nodes.types.ScalarType
+import spn_compiler.backend.software.ast.nodes.types.{IntegerType, ScalarType}
 import spn_compiler.backend.software.ast.nodes.value.ASTValue
 import spn_compiler.backend.software.ast.nodes.value.access.ASTVariableRead
 import spn_compiler.backend.software.ast.nodes.value.constant.ASTConstant
@@ -36,9 +36,10 @@ object DynamicRangeProfiling {
     case ASTMultiplication(l, r) =>
       module.mul(transformValue(l, module), transformValue(r, module))
 
-    case c : ASTConstant[ScalarType, AnyVal] => module.call(RegisterRange, c)
+    case c : ASTConstant[ScalarType, AnyVal] => module.call(RegisterRange, module.constantValue(IntegerType, 0), c)
 
-    case read : ASTVariableRead => module.call(RegisterRange, read)
+    case read : ASTVariableRead => module.call(RegisterRange,
+      module.constantValue(IntegerType, read.getAnnotation("spn.graph.depth").get.asInstanceOf[Int]), read)
   }
 
 }

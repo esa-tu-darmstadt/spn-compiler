@@ -51,6 +51,7 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
     val inputParam = module.createFunctionParameter("activation", inputStructType)
     val spnFunction = module.defineLocalFunction("spn", RealType, inputParam)
     module.setInsertionPoint(spnFunction.body)
+    calculateGraphDepth(spnRoot)
     val result = constructSubAST(spnRoot, module, inputParam)
     // Convert result to double if LNS simulation is enabled
     module.insertStatement(module.ret(if(config.isLNSSimulationEnabled) lns2Double(result, module) else result))
@@ -63,7 +64,7 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
     constructedSubGraphs.getOrElseUpdate(subTreeRot, subTreeRot match {
       case InputVar(id, _) => module.readElement(module.referenceVariable(inputParam), s"input_$id")
 
-      case Histogram(id, indexVar, buckets) => {
+      case h @ Histogram(id, indexVar, buckets) => {
         val arrayInit =
           if(config.isLNSSimulationEnabled){
             module.initArray(buckets.flatMap(b => (b.lowerBound until b.upperBound).map(_ => double2LNS(b.value, module))):_*)
@@ -110,9 +111,10 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
         module.declareGlobalVariable(globalVar, arrayInit)
         val activation = constructSubAST(indexVar, module, inputParam)
         module.readIndex(module.referenceVariable(globalVar), activation)
+          .addAnnotation("spn.graph.depth", graphDepth.getOrElse(h, 0))
       }
 
-      case WeightedSum(id, addends) => {
+      case ws @ WeightedSum(id, addends) => {
         val weights =
           if(config.isLNSSimulationEnabled){
             addends.map(wa => double2LNS(wa.weight, module))
@@ -138,23 +140,23 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
         val rhs = operands.tail.fold[ASTValue](operands.head)(module.add)
         val variable = module.createVariable(rhs.getType, id)
         module.insertStatement(module.declareVariable(variable, rhs))
-        module.readVariable(variable)
+        module.readVariable(variable).addAnnotation("spn.graph.depth", graphDepth.getOrElse(ws, 0))
       }
 
-      case Sum(id, addends) => {
+      case s @ Sum(id, addends) => {
         val operands = addends.map(constructSubAST(_, module, inputParam))
         val rhs = operands.tail.fold(operands.head)(module.add)
         val variable = module.createVariable(rhs.getType, id)
         module.insertStatement(module.declareVariable(variable, rhs))
-        module.readVariable(variable)
+        module.readVariable(variable).addAnnotation("spn.graph.depth", graphDepth.getOrElse(s, 0))
       }
 
-      case Product(id, multiplicands) => {
+      case p @ Product(id, multiplicands) => {
         val operands = multiplicands.map(constructSubAST(_, module, inputParam))
         val rhs = operands.tail.fold(operands.head)(module.mul)
         val variable = module.createVariable(rhs.getType, id)
         module.insertStatement(module.declareVariable(variable, rhs))
-        module.readVariable(variable)
+        module.readVariable(variable).addAnnotation("spn.graph.depth", graphDepth.getOrElse(p, 0))
       }
     })
 
@@ -194,5 +196,30 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
 
   private def lns2Double(lns : ASTValue, module : ASTModule) : ASTValue =
     module.call(LNS2Double, lns)
+
+  private val graphDepth : mutable.Map[IRNode, Int] = mutable.Map()
+
+  private def calculateGraphDepth(node : IRNode) : Int = node match {
+    case h : Histogram => {
+      graphDepth += h -> 0
+      0
+    }
+    case WeightedAddend(a, _) => calculateGraphDepth(a)
+    case ws @ WeightedSum(_, addends) => {
+      val depth = addends.map(calculateGraphDepth).fold(0){case (a, b) => if(a>b) a else b}+1
+      graphDepth += ws -> depth
+      depth
+    }
+    case s @ Sum(_, addends) => {
+      val depth = addends.map(calculateGraphDepth).fold(0){case (a, b) => if(a>b) a else b}+1
+      graphDepth += s -> depth
+      depth
+    }
+    case p @ Product(_, multiplicands) => {
+      val depth = multiplicands.map(calculateGraphDepth).fold(0){case (a, b) => if(a>b) a else b}+1
+      graphDepth += p -> depth
+      depth
+    }
+  }
 
 }
