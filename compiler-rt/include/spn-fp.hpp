@@ -33,7 +33,7 @@ public:
 		mpfr_set_emax(exp_max);
 		mpfr_set_emin(exp_min);
 		mpfr_init2(value, mantissa);
-		mpfr_set_d(value, d, SPN_RND);
+		mpfr_set_d(value, d, GMP_RNDD);
 	}
 	
 	softfloat(mpfr_t & val){

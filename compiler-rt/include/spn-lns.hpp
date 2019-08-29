@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <cmath>
 #include <iostream>
+#include <bitset>
 
 #ifndef LNS_INTEGER_BITS
   #define LNS_INTEGER_BITS 8
@@ -14,6 +15,10 @@
 
 #ifndef LNS_FRACTION_BITS
   #define LNS_FRACTION_BITS 32
+#endif
+
+#ifndef DEBUG
+#define DEBUG 0
 #endif
 
 inline __int128 bitmask(uint32_t bits) {
@@ -51,11 +56,16 @@ public:
 
     __int128 ip(__int128 x) {
         uint32_t address = getAddress(x);
+        if(DEBUG)std::cout << "Address: "<< std::bitset<32>(address).to_string() << std::endl;
         if(address == -1 ) return 0;
         __int128 a = memA[address];
         __int128 b = memB[address];
         __int128 c = memC[address];
 
+        if(DEBUG)std::cout << "A " << std::bitset<34>(a).to_string() << std::endl;
+        if(DEBUG)std::cout << "B " << std::bitset<34>(b).to_string() << std::endl;
+        if(DEBUG)std::cout << "C " << std::bitset<34>(c).to_string() << std::endl;
+        
         __int128 ax2 = ((x * x * a) >> (fraction * 2)) & bitmask((integer + fraction) * 2);
         __int128 bx = ((x * b) >> (fraction)) & bitmask(integer + fraction);
         __int128 result = (ax2 + c - bx) & bitmask(integer + fraction);
@@ -71,7 +81,7 @@ public:
         }
 
         __int128 mask = bitmask(numAddressBits);
-        __int128 shifted = x >> lowerAddressBit;
+        __int128 shifted = x >> (lowerAddressBit);
         return shifted & mask;
     }
 
@@ -121,17 +131,17 @@ inline void printlnBinary(__int128 x) {
 class InterpolationHelper{
 public:
     InterpolationHelper(uint32_t integer, uint32_t fraction, double_t error) : maxError(error), integer(integer), fraction(fraction){};
-
+    double_t xfd3max =                          log(2.0 - sqrt(3.0)) / log(2.0);
     double_t maxError = pow(10.0, -6.0), initialStep =            1.0;
     uint32_t integer, fraction;
     double_t f(double_t x) { return log(1.0 + pow(2.0, x)) / log(2.0); }
     double_t finv(double_t y) { return log(pow(2.0, y) - 1.0) / log(2.0); }
     double_t fd1(double_t x) { return pow(2.0, x) / (1.0 + pow(2.0, x)); }
-    double_t fd3(double_t x) { return -(pow(2.0, x) * pow(2.0, x) - 1.0) * pow(log(2.0), 2.0) / pow(1.0 + pow(2.0, x), 3.0); }
+    double_t fd3(double_t x) { return -(pow(2.0, x) * (pow(2, x) - 1.0) * pow(log(2.0), 2.0)) / pow(1.0 + pow(2, x), 3.0); }
     double_t snap2Lower(double_t x, double_t h) { return floor(x / h) * h; }
     double_t err_lu(double_t l, double_t u, double_t h) {
-        if(u < xfd3max) {
-            return 1.0 / (9.0 *sqrt(3.0)) * pow(h,3.0) * fabs(fd3(u));
+        if (u < xfd3max) {
+            return 1.0 / (9.0 * sqrt(3.0)) * pow(h, 3.0) * fabs(fd3(u));
         } else if (l > xfd3max) {
             return 1.0 / (9.0 * sqrt(3.0)) * pow(h, 3.0) * fabs(fd3(l));
         } else {
@@ -139,7 +149,7 @@ public:
         }
     }
 
-    double_t xfd3max =                          log(2.0 - sqrt(3.0)) / log(2.0);
+    
     std::pair<double_t, double_t > pStart =     std::make_pair(finv(maxError), maxError);
     std::vector<std::tuple<double_t , double_t , double_t >> pieces = getPieces();
     QuadSpline initialSpline =                  getInitialSpline();
@@ -150,9 +160,18 @@ public:
 
     std::vector<std::tuple<double_t , double_t , double_t >> getPieces(){
         std::vector<std::tuple<double_t, double_t, double_t>> p;
+        //std::cout << "xdf3max" << xfd3max<< std::endl;
         double_t h_curr = initialStep;
         double_t x_curr = snap2Lower(pStart.first, h_curr);
         double_t x_next = x_curr;
+        /*std::cout <<"xc " << x_curr << std::endl;
+        std::cout << "xn "<< x_next << std::endl;
+        std::cout << err_lu(x_curr, x_next + h_curr, h_curr) << std::endl;
+        */
+        while(err_lu(x_curr, x_next + h_curr, h_curr) > maxError) {
+            h_curr = h_curr / 2.0;
+        }
+        //std::cout <<"hcurr" << h_curr << std::endl;
         while(x_curr < 0.0) {
             if (err_lu(x_curr, x_next + h_curr, h_curr) <= maxError && x_next < 0.0) {
                 x_next = x_next + h_curr;
@@ -162,6 +181,12 @@ public:
                 h_curr = h_curr / 2.0;
             }
         }
+        for(auto x : p) {
+            std::cout << std::get<0>(x) << " " <<std::get<1>(x) << " " << std::get<2>(x) <<std::endl;
+        
+        }
+        
+        
         return p;
     };
 
@@ -191,7 +216,7 @@ public:
             double_t y = f(x);
             points.emplace_back(std::make_pair(x, y));
         }
-
+        //std::cout << "Points.size " << points.size() << std::endl;
         for(size_t i = 0; i < points.size() - 1; i ++) {
             auto pn = points[i];
             auto pn1 = points[i + 1];
@@ -243,6 +268,7 @@ public:
             fullLookupTab.emplace_back(std::make_pair(counter, getSpline(i)));
             counter ++;
         }
+        std::cout << "Size: " << fullLookupTab.size() << std::endl;
         return fullLookupTab;
     }
 
@@ -253,7 +279,7 @@ public:
             b.emplace_back(value2fixedInt(spline.second.b, integer, fraction));
             c.emplace_back(value2fixedInt(spline.second.c, integer, fraction));
         }
-
+        //std::cout << "Size: " << a.size() << std::endl;
         auto lastInterpolated = value2fixedInt(snap2Lower(pStart.first, initialStep), integer, fraction);
         return new Interpolator{integer, fraction, std::move(a),std::move(b),std::move(c),std::get<0>(addressing),std::get<1>(addressing),std::get<2>(addressing), lastInterpolated};
     }
@@ -261,6 +287,7 @@ public:
 };
 
 static void initializeInterpolator(int integer, int fraction, double error) {
+    //std::cout << error << std::endl;
     interpolator = InterpolationHelper(integer, fraction, error).getInterpolator();
 }
 
@@ -273,6 +300,7 @@ private:
 public:
 
     LNS operator+(LNS other){
+        if(zero && other.zero) return LNS(0, false, true);
         if(zero) {
             return LNS(other.exponent, other.sign, other.zero);
         }
@@ -295,13 +323,26 @@ public:
 
         __int128 exp;
         if(aGE) {
-            exp = (exponent - y) & bitmask(integer + fraction);
+            exp = (exponent - y);
         } else {
-            exp = (other.exponent - y) & bitmask(integer + fraction);
+            exp = (other.exponent - y);
         }
+        if(checkOverflow(exp, integer + fraction)) {
+            std::cout << "Holla" <<std::endl;
+            return LNS<integer,fraction>(0, false, true);
+        }
+        exp = exp & bitmask(integer + fraction);
+        
         bool rsign = true;
         if(exp == 0) {
             rsign = false;
+        }
+        if(DEBUG){
+        std::cout <<"This: " << std::bitset<34>(exponent).to_string() << std::endl;
+        std::cout <<"That: " << std::bitset<34>(other.exponent).to_string() << std::endl;
+        std::cout <<"x: " << std::bitset<34>(diff).to_string() << std::endl;
+        std::cout <<"y: " << std::bitset<34>(y).to_string() << std::endl;
+        std::cout << std::bitset<34>(exp).to_string() << std::endl;
         }
         return LNS<integer, fraction>(exp, rsign, false);
     }
@@ -316,7 +357,7 @@ public:
         } else { // x * y...
             __int128 resultExp = (exponent + other.exponent) & bitmask(integer + fraction);
             if(checkOverflow(exponent + other.exponent, integer + fraction)) {
-                return LNS<integer, fraction>(0, false, true);
+                return LNS<integer, fraction>(0, false, true); // This will occasionally happen (7 examples)
             }
             return LNS<integer, fraction>(resultExp, sign, false);
         }
@@ -337,6 +378,7 @@ public:
             sign = true;
             auto exp =  value2fixedInt(logval, integer, fraction);
             if(checkOverflow(exp, integer + fraction)) {
+                //std::cout << "Saturating a Converion" << std::endl;
                 sign = false;
                 zero = true;
                 exponent = 0;
@@ -346,7 +388,10 @@ public:
         }
     }
 
-    LNS(__int128 exponent, bool sign, bool zero) : exponent(exponent), sign(sign), zero(zero) {};
+    LNS(__int128 exponent, bool sign, bool zero) : exponent(exponent), sign(sign), zero(zero) {
+        //if (zero) std::cout << "Alarm v2" << std::endl;
+        
+    };
 
     void println() {
         std::cout <<"Q" << integer << "." << fraction << "\tzero: " << zero << " sign: " << sign << " exp: " << std::bitset<integer + fraction>(exponent) <<
