@@ -5,6 +5,7 @@ import spn_compiler.backend.software.ast.extensions.openmp.OMPModule
 import spn_compiler.backend.software.ast.nodes.function.ASTFunction
 import spn_compiler.backend.software.ast.nodes.module.ASTModule
 import spn_compiler.backend.software.ast.nodes.types.{IntegerType, RealType, StructType, VoidType}
+import spn_compiler.backend.software.ast.predef.LNSInit
 import spn_compiler.backend.software.cpu.ast_generation.serial.ASTGeneration
 import spn_compiler.driver.config.CPPCompileConfig
 import spn_compiler.graph_ir.nodes.IRGraph
@@ -28,6 +29,13 @@ class OMPASTGeneration[C <: CPPCompileConfig[C]](config : C) extends ASTGenerati
     val outputData = module.createFunctionParameter("output_data", module.createArrayType(RealType))
     val topLevelFunction = module.defineLocalFunction("spn_toplevel", VoidType, numElements, inputData, outputData)
     module.setInsertionPoint(topLevelFunction.body)
+    if(config.isLNSSimulationEnabled){
+      // Initialize interpolator if LNS simulation is enabled
+      module.insertStatement(module.createCallStatement(LNSInit,
+        module.constantValue(IntegerType, config.lnsIntegerBits),
+        module.constantValue(IntegerType, config.lnsFractionBits),
+        module.constantValue(RealType, config.lnsInterpolationError)))
+    }
     val loopVar = module.createVariable(IntegerType, "i")
     module.insertStatement(module.declareVariable(loopVar))
     val constantZero = module.constantValue(IntegerType, 0)

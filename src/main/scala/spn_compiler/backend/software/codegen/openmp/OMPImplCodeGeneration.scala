@@ -11,7 +11,12 @@ class OMPImplCodeGeneration(ast : ASTModule, headerName : String,  writer : Code
     val ASTModule(name, headers, _, globalVars, functions) = ast
     writer.writeln("#include \"%s\"".format(headerName))
     writer.writeln("#include <omp.h>")
-    headers.foreach(h => writer.writeln("#include <%s>".format(h)))
+    headers.foreach{h =>
+      if(h.local)
+        writer.writeln("#include \"%s\"".format(h.name))
+      else
+        writer.writeln("#include <%s>".format(h.name))
+    }
     globalVars.foreach(writeGlobalVariable)
     functions.foreach(writeFunction)
     writer.close()
