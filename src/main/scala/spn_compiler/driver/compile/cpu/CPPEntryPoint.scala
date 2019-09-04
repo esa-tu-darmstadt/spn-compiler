@@ -101,11 +101,10 @@ object CPPEntryPoint {
       |      double golden = (*referenceData)[i];
       |      double result = (*results)[i];
       |      double error = fabs(golden - log(result));
-      |      std::cout << result <<"(" << log(result) << ")" << " vs " << exp(golden) <<"(" << golden << ") " << error << std::endl;
       |      max_error = std::max(max_error, error);
       |      min_error = std::min(min_error, error);
       |      avg_error += error;
-      |      if(error > 1E-6 && false){
+      |      if(error > 1E-6){
       |        std::cerr << "Significant result deviation " << golden
       |          << " vs. " << (*results)[i] << " error: " << error << std::endl;
       |        ++num_errors;
