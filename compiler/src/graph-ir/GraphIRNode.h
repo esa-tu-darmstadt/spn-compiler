@@ -44,7 +44,7 @@ struct HistogramBucket{int lowerBound; int upperBound; double value;};
 
 class Histogram : public GraphIRNode {
 public:
-    Histogram(std::string id, InputVar* indexVar, const std::vector<HistogramBucket>& buckets);
+    Histogram(std::string id, std::shared_ptr<InputVar> indexVar, const std::vector<HistogramBucket>& buckets);
 
     std::shared_ptr<InputVar> indexVar() const;
 
