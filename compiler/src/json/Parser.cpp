@@ -177,7 +177,7 @@ std::shared_ptr<Histogram> Parser::parseHistogram(json &obj) const {
         return nullptr;
     }
 
-    std::vector<HistogramBucket> buckets(densities.size());
+    std::vector<HistogramBucket> buckets;
     auto b1 = breaks.begin();
     auto b2 = breaks.begin();
     b2++;
