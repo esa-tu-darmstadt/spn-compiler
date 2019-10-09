@@ -5,14 +5,12 @@
 #include <spnc.h>
 #include <json/Parser.h>
 #include <iostream>
+#include <util/DotVisitor.h>
 
 bool spnc::parseJSON(const std::string &inputFile) {
     Parser parser;
     auto rootNode = parser.parseJSONFile(inputFile);
-    std::cout << *rootNode << std::endl;
-    auto root = std::static_pointer_cast<WeightedSum>(rootNode);
-    for(auto& a : *root->addends()){
-        std::cout << *a.addend << std::endl;
-    }
+    DotVisitor dot;
+    dot.writeDotGraph(rootNode, "spn.dot");
     return true;
 }

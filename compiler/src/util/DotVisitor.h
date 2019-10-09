@@ -2,16 +2,18 @@
 // Created by ls on 10/9/19.
 //
 
-#ifndef SPNC_BASEVISITOR_H
-#define SPNC_BASEVISITOR_H
+#ifndef SPNC_DOTVISITOR_H
+#define SPNC_DOTVISITOR_H
 
-#include "Visitor.h"
 
-class BaseVisitor : public Visitor {
+#include <transform/BaseVisitor.h>
+#include <sstream>
+
+class DotVisitor : BaseVisitor {
 
 public:
 
-    void visitIRNode(GraphIRNode& n, arg_t arg) override ;
+    void writeDotGraph(const NodeReference& rootNode, const std::string& outputFile);
 
     void visitInputvar(InputVar& n, arg_t arg) override ;
 
@@ -23,7 +25,10 @@ public:
 
     void visitWeightedSum(WeightedSum& n, arg_t arg) override ;
 
+private:
+    std::stringstream nodes{};
+    std::stringstream edges{};
 };
 
 
-#endif //SPNC_BASEVISITOR_H
+#endif //SPNC_DOTVISITOR_H

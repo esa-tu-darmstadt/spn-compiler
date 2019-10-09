@@ -6,7 +6,8 @@ add_library(spnc SHARED src/Driver.cpp
                         src/graph-ir/Sum.cpp
                         src/graph-ir/Product.cpp
                         src/json/Parser.cpp
-                        src/transform/BaseVisitor.cpp)
+                        src/transform/BaseVisitor.cpp
+                        src/util/DotVisitor.cpp)
 
 target_include_directories(spnc
                             PUBLIC
