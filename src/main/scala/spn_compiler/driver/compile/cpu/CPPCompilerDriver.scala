@@ -28,7 +28,7 @@ case object ClangCPPDriver extends CPPCompilerDriver with Logging {
     }
     flags.append(config.macros.map(m => s"-D$m").mkString(" "))
     flags.append(s"-o ${config.outputFile.getAbsoluteFile.toString}")
-    val cmd : String = "clang++ %s %s".format(flags.mkString(" "), files.map(_.getAbsoluteFile.toString).mkString(" "))
+    val cmd : String = "clang++ -std=c++17 %s %s".format(flags.mkString(" "), files.map(_.getAbsoluteFile.toString).mkString(" "))
     val process = Process(cmd)
     try{
       debug(s"Running C++ compiler clang++ with command: $cmd")
@@ -60,7 +60,7 @@ case object GCCCPPDriver extends CPPCompilerDriver with Logging {
     }
     flags.append(config.macros.map(m => s"-D$m").mkString(" "))
     flags.append(s"-o ${config.outputFile.getAbsoluteFile.toString}")
-    val cmd : String = "g++ %s %s".format(flags.mkString(" "), files.map(_.getAbsoluteFile.toString).mkString(" "))
+    val cmd : String = "g++ -std=c++17 %s %s".format(flags.mkString(" "), files.map(_.getAbsoluteFile.toString).mkString(" "))
     val process = Process(cmd)
     try{
       debug(s"Running C++ compiler g++ with command: $cmd")
