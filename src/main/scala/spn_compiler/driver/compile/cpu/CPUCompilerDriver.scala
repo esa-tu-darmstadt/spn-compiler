@@ -46,9 +46,9 @@ object CPUCompilerDriver extends Logging {
     }
     val mainFile = FileUtil.createFileInDirectory(codeDirectory, "main.cpp")
     debug(s"Writing C++ main implementation to ${mainFile.getAbsoluteFile.toString}")
-    CPPEntryPoint.writeMain(mainFile)
-    val compilerRTFile = FileUtil.createFileInDirectory(codeDirectory, "spn-compiler-rt.hpp")
+    CPPEntryPoint.writeMain(mainFile, config.isRangeProfilingEnabled)
     if(config.isRangeProfilingEnabled){
+      val compilerRTFile = FileUtil.createFileInDirectory(codeDirectory, "spn-compiler-rt.hpp")
       debug(s"Writing compiler runtime header library to ${compilerRTFile.getAbsoluteFile.toString}")
       CPPCompilerRuntimeHeader.writeHeader(compilerRTFile)
     }
