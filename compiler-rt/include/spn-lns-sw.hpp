@@ -10,38 +10,30 @@ public:
     isZero = false;
 	}
 
-	softLNS(float f){
-    if (f == 0) {
-      value = float(0);
+	softLNS(T t){
+    if (t == 0) {
+      value = T(0.0);
       isZero = true;
     } else {
-      value = log(f);
+      value = T( log(static_cast<T>(t)));
       isZero = false;
     }
 	}
 
-	softLNS(double d){
-    if (d == 0) {
-      value = double(0);
-      isZero = true;
-    } else {
-      value = log(d);
-      isZero = false;
-    }
-	}
-
-  explicit softLNS(float f, bool z) : value(f), isZero(z) {}
-  explicit softLNS(double d, bool z) : value(d), isZero(z) {}
+  explicit softLNS(float t, bool z) : value(t), isZero(z) {}
+  explicit softLNS(float t, bool z, bool init) : value(log(t)), isZero(z) {}
+  explicit softLNS(double t, bool z) : value(t), isZero(z) {}
+  explicit softLNS(double t, bool z, bool init) : value(log(t)), isZero(z) {}
 
 	friend softLNS operator+(const softLNS & a, const softLNS & b){
     if (a.isZero){
-      return softLNS{b.value, b.isZero};
+      return softLNS{((T) b.value), b.isZero};
     } else if (b.isZero){
-      return softLNS{a.value, a.isZero};
+      return softLNS{((T) a.value), a.isZero};
     } else if (a.value > b.value){
-      return softLNS{a.value + log(1 + exp(b.value - a.value)), false};
+      return softLNS{((T) a.value) + log(1 + exp(((T) b.value) - ((T) a.value))), false};
     } else {
-      return softLNS{b.value + log(1 + exp(a.value - b.value)), false};
+      return softLNS{((T) b.value) + log(1 + exp(((T) a.value) - ((T) b.value))), false};
     }
 	}
 
@@ -49,15 +41,15 @@ public:
     if (a.isZero || b.isZero){
       return softLNS{T(0), true};
     } else {
-      return softLNS{a.value + b.value, false};
+      return softLNS{((T) a.value) + ((T) b.value), false};
     }
 	}
 
 	operator double(){
     if (!isZero) {
-      return exp(value);
+      return exp(static_cast<double>(value));
     }
-		return 0.0;
+	return 0.0;
 	}
 
 	void print(){
@@ -66,8 +58,9 @@ public:
 
 private:
 	T value;
-  bool isZero;
+    bool isZero;
 };
 
+typedef struct softLNS<_Float16> spn_lns_h;
 typedef struct softLNS<float> spn_lns_f;
 typedef struct softLNS<double> spn_lns_d;

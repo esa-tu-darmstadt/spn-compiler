@@ -174,13 +174,17 @@ class ASTGeneration[C <: CPPCompileConfig[C]](private val config : C) {
   }
 
   private def double2LNSSW(value : Double, module : ASTModule) : ASTValue = {
-    val LNSSWType = if(config.lnsSoftwareType == FLOAT) LNSSWSimTypeFloat else LNSSWSimTypeDouble
+    val LNSSWType = config.lnsSoftwareType match {
+      case FLOAT => LNSSWSimTypeFloat
+      case _ => LNSSWSimTypeDouble
+      // Possibility to add error handling, set double as default for now
+    }
     val falseVal = module.constantValue(BooleanType, false)
     val trueVal = module.constantValue(BooleanType, true)
     if (value == 0.0)
-      module.initStruct(LNSSWType, module.constantValue(RealType, value), trueVal)
+      module.initStruct(LNSSWType, module.constantValue(RealType, value), trueVal, trueVal)
     else
-      module.initStruct(LNSSWType, module.constantValue(RealType, value), falseVal)
+      module.initStruct(LNSSWType, module.constantValue(RealType, value), falseVal, trueVal)
   }
 
   private def double2Posit(value : Double, module : ASTModule) : ASTValue = {
