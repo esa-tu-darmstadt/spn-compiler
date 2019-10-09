@@ -3,6 +3,7 @@
 //
 
 #include "GraphIRNode.h"
+#include "../transform/Visitor.h"
 
 WeightedSum::WeightedSum(std::string id, const std::vector <WeightedAddend> &addends) : GraphIRNode(std::move(id)) {
     _addends = std::make_shared<std::vector<WeightedAddend>>(addends.size());
@@ -10,3 +11,7 @@ WeightedSum::WeightedSum(std::string id, const std::vector <WeightedAddend> &add
 }
 
 std::shared_ptr<std::vector<WeightedAddend>> WeightedSum::addends() const {return _addends;}
+
+void WeightedSum::accept(Visitor& visitor, arg_t arg) {
+    return visitor.visitWeightedSum(*this, arg);
+}

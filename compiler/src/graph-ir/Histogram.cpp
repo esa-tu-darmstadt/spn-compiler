@@ -1,4 +1,5 @@
 #include "GraphIRNode.h"
+#include "../transform/Visitor.h"
 
 //
 // Created by ls on 10/7/19.
@@ -12,3 +13,7 @@ Histogram::Histogram(std::string id, std::shared_ptr<InputVar> indexVar, const s
 std::shared_ptr<InputVar> Histogram::indexVar() const {return _indexVar;}
 
 std::shared_ptr<std::vector<HistogramBucket>> Histogram::buckets() const {return _buckets;}
+
+void Histogram::accept(Visitor& visitor, arg_t arg) {
+    return visitor.visitHistogram(*this, arg);
+}

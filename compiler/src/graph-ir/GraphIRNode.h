@@ -11,6 +11,9 @@
 #include <vector>
 #include <memory>
 
+class Visitor;
+typedef std::shared_ptr<void> arg_t;
+
 class GraphIRNode {
 
 public:
@@ -21,6 +24,8 @@ public:
     friend std::ostream& operator<<(std::ostream& os, const GraphIRNode& node);
 
     std::string id() const;
+
+    virtual void accept(Visitor& visitor, arg_t arg) = 0;
 
 private:
     std::string _id;
@@ -36,6 +41,8 @@ public:
 
     std::string dump() const override;
 
+    void accept(Visitor& visitor, arg_t arg) override ;
+
 private:
     int _index;
 };
@@ -49,6 +56,8 @@ public:
     std::shared_ptr<InputVar> indexVar() const;
 
     std::shared_ptr<std::vector<HistogramBucket>> buckets() const;
+
+    void accept(Visitor& visitor, arg_t arg) override ;
 
 private:
     std::shared_ptr<InputVar> _indexVar;
@@ -66,6 +75,8 @@ public:
 
     std::shared_ptr<std::vector<WeightedAddend>> addends() const;
 
+    void accept(Visitor& visitor, arg_t arg) override ;
+
 private:
     std::shared_ptr<std::vector<WeightedAddend>> _addends;
 };
@@ -76,6 +87,8 @@ public:
 
     std::shared_ptr<std::vector<NodeReference>> addends() const;
 
+    void accept(Visitor& visitor, arg_t arg) override ;
+
 private:
     std::shared_ptr<std::vector<NodeReference>> _addends;
 };
@@ -85,6 +98,8 @@ public:
     Product(std::string id, const std::vector<NodeReference>& multiplicands);
 
     std::shared_ptr<std::vector<NodeReference>> multiplicands();
+
+    void accept(Visitor& visitor, arg_t arg) override ;
 
 private:
     std::shared_ptr<std::vector<NodeReference>> _multiplicands;
