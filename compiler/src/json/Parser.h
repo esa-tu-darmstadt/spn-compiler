@@ -13,7 +13,7 @@ using json = nlohmann::json;
 
 class Parser {
 public:
-    std::shared_ptr<GraphIRNode> parseJSONFile(const std::string& inputFile);
+    IRGraph parseJSONFile(const std::string& inputFile);
 private:
     std::unordered_map<std::string, std::shared_ptr<InputVar>> inputVars;
 

@@ -11,6 +11,9 @@
 #include <vector>
 #include <memory>
 
+/*
+ * Forward declaration of types related to the visitor to break circular dependency.
+ */
 class Visitor;
 typedef std::shared_ptr<void> arg_t;
 
@@ -31,6 +34,8 @@ private:
     std::string _id;
 
 };
+
+typedef std::shared_ptr<GraphIRNode> NodeReference;
 
 class InputVar : public GraphIRNode {
 
@@ -64,8 +69,6 @@ private:
 
     std::shared_ptr<std::vector<HistogramBucket>> _buckets;
 };
-
-typedef std::shared_ptr<GraphIRNode> NodeReference;
 
 struct WeightedAddend{NodeReference addend; double weight;};
 
@@ -105,5 +108,6 @@ private:
     std::shared_ptr<std::vector<NodeReference>> _multiplicands;
 };
 
+struct IRGraph{NodeReference rootNode; std::shared_ptr<std::vector<std::shared_ptr<InputVar>>> inputs;};
 
 #endif //SPNC_GRAPHIRNODE_H

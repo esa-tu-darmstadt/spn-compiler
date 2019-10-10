@@ -6,7 +6,7 @@
 #include <iostream>
 #include "Parser.h"
 
-std::shared_ptr<GraphIRNode> Parser::parseJSONFile(const std::string& inputFile) {
+IRGraph Parser::parseJSONFile(const std::string& inputFile) {
     std::cout << "Input file: " << inputFile << std::endl;
     std::ifstream i(inputFile);
     // TODO Check that opening the file worked out;
@@ -14,7 +14,7 @@ std::shared_ptr<GraphIRNode> Parser::parseJSONFile(const std::string& inputFile)
     i >> j;
     if(!j.is_object()){
         std::cerr << "ERROR: Could not parse SPN from " << inputFile << std::endl;
-        return nullptr;
+        assert(false);
     }
 
     json rootNode;
@@ -29,28 +29,30 @@ std::shared_ptr<GraphIRNode> Parser::parseJSONFile(const std::string& inputFile)
     }
     else{
         std::cerr << "Unknown root node type, could not parse top-level scope" << std::endl;
-        return nullptr;
+        assert(false);
     }
 
     if(!rootNode.contains("scope")){
         std::cerr << "No field scope in root node, could not parse top-level scope" << std::endl;
-        return nullptr;
+        assert(false);
     }
 
     json topLevelScope = rootNode["scope"];
     if(!topLevelScope.is_array()){
         std::cerr << "Scope is not an array, could not parse top-level scope" << std::endl;
-        return nullptr;
+        assert(false);
     }
 
+    auto inputs = std::make_shared<std::vector<std::shared_ptr<InputVar>>>(0);
     size_t index = 0;
     for(json& var : topLevelScope){
         std::string varName = var.get<std::string>();
-        inputVars.emplace(varName, std::make_shared<InputVar>(varName, index++));
+        auto input = std::make_shared<InputVar>(varName, index++);
+        inputVars.emplace(varName, input);
+        inputs->push_back(input);
     }
 
-    return parseNode(j);
-
+    return IRGraph{parseNode(j), inputs};
 }
 
 std::shared_ptr<GraphIRNode> Parser::parseNode(json &obj) const {

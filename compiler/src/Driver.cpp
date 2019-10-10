@@ -10,9 +10,9 @@
 
 bool spnc::parseJSON(const std::string &inputFile) {
     Parser parser;
-    auto rootNode = parser.parseJSONFile(inputFile);
-    rootNode = BinaryTreeTransform().binarizeTree(rootNode);
+    auto irGraph = parser.parseJSONFile(inputFile);
+    irGraph.rootNode = BinaryTreeTransform().binarizeTree(irGraph.rootNode);
     DotVisitor dot;
-    dot.writeDotGraph(rootNode, "spn.dot");
+    dot.writeDotGraph(irGraph.rootNode, "spn.dot");
     return true;
 }
