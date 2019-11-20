@@ -21,7 +21,7 @@ public:
 private:
     LLVMContext context;
     IRBuilder<> builder;
-    std::unique_ptr<Module> module;
+    std::shared_ptr<Module> module;
     std::unordered_map<std::string, Value*> node2value;
 
 
