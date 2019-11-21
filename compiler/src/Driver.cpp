@@ -7,7 +7,7 @@
 #include <iostream>
 #include <util/DotVisitor.h>
 #include <transform/BinaryTreeTransform.h>
-#include <codegen/llvm-ir/LLVMCodegen.h>
+#include <codegen/llvm-ir/CPU/LLVMCPUCodegen.h>
 
 bool spnc::parseJSON(const std::string &inputFile) {
     Parser parser;
@@ -15,6 +15,6 @@ bool spnc::parseJSON(const std::string &inputFile) {
     irGraph.rootNode = BinaryTreeTransform().binarizeTree(irGraph.rootNode);
     DotVisitor dot;
     dot.writeDotGraph(irGraph.rootNode, "spn.dot");
-    LLVMCodegen().generateLLVMIR(irGraph);
+    LLVMCPUCodegen().generateLLVMIR(irGraph);
     return true;
 }

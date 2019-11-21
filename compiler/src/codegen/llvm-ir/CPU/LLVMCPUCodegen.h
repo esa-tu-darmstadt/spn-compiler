@@ -2,8 +2,8 @@
 // Created by ls on 10/9/19.
 //
 
-#ifndef SPNC_LLVMCODEGEN_H
-#define SPNC_LLVMCODEGEN_H
+#ifndef SPNC_LLVMCPUCODEGEN_H
+#define SPNC_LLVMCPUCODEGEN_H
 
 #include <unordered_map>
 #include <graph-ir/GraphIRNode.h>
@@ -11,10 +11,10 @@
 
 using namespace llvm;
 
-class LLVMCodegen {
+class LLVMCPUCodegen {
 
 public:
-    explicit LLVMCodegen();
+    explicit LLVMCPUCodegen();
 
     void generateLLVMIR(IRGraph& graph);
 
@@ -24,8 +24,7 @@ private:
     std::shared_ptr<Module> module;
     std::unordered_map<std::string, Value*> node2value;
 
-
 };
 
 
-#endif //SPNC_LLVMCODEGEN_H
+#endif //SPNC_LLVMCPUCODEGEN_H

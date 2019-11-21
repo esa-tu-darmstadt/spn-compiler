@@ -1,29 +1,22 @@
 //
-// Created by lukas on 18.11.19.
+// Created by lukas on 20.11.19.
 //
+#include "CodeGenScalarBody.h"
 
-#include "CodeGenOperations.h"
-
-CodeGenOperations::CodeGenOperations(Module& m, Function& f, IRBuilder<> &b,
-        InputVarValueMap inputMap) : module{m}, function{f}, builder{b},
-        inputVarValueMap{inputMap} {}
-
-Type* CodeGenOperations::getValueType() {
-    return Type::getDoubleTy(module.getContext());
-}
-
-Value* CodeGenOperations::getValueForNode(NodeReference node, arg_t arg) {
-    if(!node2value.count(node.get())){
-        node->accept(*this, arg);
+Value* CodeGenScalarBody::emitBody(IRGraph& graph, Value* indVar, InputVarValueMap inputs, OutputAddressMap output) {
+    // Initialize node-to-value map with inputs.
+    for(const auto& inputVar : *graph.inputs){
+        node2value[inputVar.get()] = inputs(inputVar->index(), indVar);
     }
-    return node2value[node.get()];
+    graph.rootNode->accept(*this, nullptr);
+    assert(node2value.count(graph.rootNode.get()) && "Node LLVM IR value generated for root node!");
+    auto storeAddress = output(indVar);
+    builder.CreateStore(node2value[graph.rootNode.get()], storeAddress);
+    auto const1 = ConstantInt::get(indVar->getType(), 1);
+    return builder.CreateAdd(indVar, const1, "indvar.incr");
 }
 
-void CodeGenOperations::visitInputvar(InputVar &n, arg_t arg) {
-    node2value[&n] = inputVarValueMap(n.index(), builder, module.getContext());
-}
-
-void CodeGenOperations::visitHistogram(Histogram &n, arg_t arg) {
+void CodeGenScalarBody::visitHistogram(Histogram &n, arg_t arg) {
     std::vector<Constant*> values;
     size_t max_index = 0;
     for(auto& b : *n.buckets()){
@@ -35,7 +28,7 @@ void CodeGenOperations::visitHistogram(Histogram &n, arg_t arg) {
     auto arrayType = ArrayType::get(getValueType(), max_index);
     auto initializer = ConstantArray::get(arrayType, values);
     auto globalArray = new GlobalVariable(module, arrayType, true, GlobalValue::InternalLinkage,
-            initializer, "histogram");
+                                          initializer, "histogram");
     auto index = getValueForNode(n.indexVar(), arg);
     auto const0 = ConstantInt::get(IntegerType::get(module.getContext(), 32), 0);
     auto address = builder.CreateGEP(globalArray, {const0, index}, "hist_address");
@@ -43,7 +36,7 @@ void CodeGenOperations::visitHistogram(Histogram &n, arg_t arg) {
     node2value[&n] = value;
 }
 
-void CodeGenOperations::visitProduct(Product &n, arg_t arg) {
+void CodeGenScalarBody::visitProduct(Product &n, arg_t arg) {
     assert(n.multiplicands()->size()==2 && "Excepting only binary operations in code generation!");
     auto leftOp = getValueForNode(n.multiplicands()->at(0), arg);
     auto rightOp = getValueForNode(n.multiplicands()->at(1), arg);
@@ -51,7 +44,7 @@ void CodeGenOperations::visitProduct(Product &n, arg_t arg) {
     node2value[&n] = product;
 }
 
-void CodeGenOperations::visitSum(Sum &n, arg_t arg) {
+void CodeGenScalarBody::visitSum(Sum &n, arg_t arg) {
     assert(n.addends()->size()==2 && "Excepting only binary operations in code generation!");
     auto leftOp = getValueForNode(n.addends()->at(0), arg);
     auto rightOp = getValueForNode(n.addends()->at(1), arg);
@@ -59,7 +52,7 @@ void CodeGenOperations::visitSum(Sum &n, arg_t arg) {
     node2value[&n] = sum;
 }
 
-void CodeGenOperations::visitWeightedSum(WeightedSum &n, arg_t arg) {
+void CodeGenScalarBody::visitWeightedSum(WeightedSum &n, arg_t arg) {
     assert(n.addends()->size()==2 && "Expecting only binary operations in code generation!");
     auto leftAddend = n.addends()->at(0);
     auto leftOp = getValueForNode(leftAddend.addend, arg);
@@ -72,3 +65,15 @@ void CodeGenOperations::visitWeightedSum(WeightedSum &n, arg_t arg) {
     auto sum = builder.CreateFAdd(leftMul, rightMul, "weighted_sum");
     node2value[&n] = sum;
 }
+
+Type* CodeGenScalarBody::getValueType() {
+    return Type::getDoubleTy(module.getContext());
+}
+
+Value* CodeGenScalarBody::getValueForNode(const NodeReference& node, arg_t arg) {
+    if(!node2value.count(node.get())){
+        node->accept(*this, std::move(arg));
+    }
+    return node2value[node.get()];
+}
+
