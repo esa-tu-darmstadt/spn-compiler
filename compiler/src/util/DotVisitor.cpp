@@ -21,9 +21,9 @@ void DotVisitor::visitInputvar(InputVar &n, arg_t arg) {
 
 void DotVisitor::visitHistogram(Histogram &n, arg_t arg) {
     nodes << "v" << n.id() << " [shape=box, label=\"histogram " << n.id();
-    nodes << "\\n #buckets: " << n.buckets()->size() << "\"];" << std::endl;
-    edges << "v" << n.id() << " -> v" << n.indexVar()->id() << ";" << std::endl;
-    n.indexVar()->accept(*this, nullptr);
+    nodes << "\\n #buckets: " << n.buckets()->size() << " \\n #input:" << n.indexVar()->id() << "  \"];" << std::endl;
+    //edges << "v" << n.id() << " -> v" << n.indexVar()->id() << ";" << std::endl;
+    //n.indexVar()->accept(*this, nullptr);
 }
 
 void DotVisitor::visitProduct(Product &n, arg_t arg) {

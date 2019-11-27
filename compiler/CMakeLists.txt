@@ -15,6 +15,8 @@ add_library(spnc SHARED src/Driver.cpp
         src/transform/BaseVisitor.cpp
         src/util/DotVisitor.cpp
         src/transform/BinaryTreeTransform.cpp
+	src/transform/ExecOrderProducer.cpp
+        src/codegen/shared/VectorizationTraversal.cpp
         src/codegen/llvm-ir/LLVMCodegen.cpp)
 
 target_include_directories(spnc
