@@ -11,8 +11,8 @@
 #include <string>
 #include <queue>
 
-#define SIMD_WIDTH 2
-#define MIN_LENGTH 3
+#define SIMD_WIDTH 4
+#define MIN_LENGTH 2
 
 LLVMCodegen::LLVMCodegen() : builder{context} {
     module = std::make_unique<Module>("spn-llvm", context);
@@ -154,16 +154,42 @@ void LLVMCodegen::emitVecBody(IRGraph &graph, Value* in, Value* out) {
 
     while (nodeGroupSequence.size() > 0) {
       sequences.push_back(nodeGroupSequence);
-      std::vector<NodeReference> newRoots;
-      for (auto &n : nodeGroupSequence[1]) {
-        pruned.insert(n->id());
-	newRoots.push_back(n);
+      if (roots.size() > SIMD_WIDTH) {
+	// Prevent other groupings than the one in nodeGroupSequence[0] by splitting the roots set
+        roots.erase(std::remove_if(roots.begin(), roots.end(),
+                                   [&](auto &nr) {
+                                     for (auto &n : nodeGroupSequence[0]) {
+                                       if (nr->id() == n->id()) {
+                                         return true;
+                                       }
+                                     }
+                                     return false;
+                                   }),
+                    roots.end());
+
+        std::unordered_set<std::string> prunesOfSplit;
+	for (auto &n : nodeGroupSequence[1]) {
+          prunesOfSplit.insert(n->id());
+        }
+	rootSetQueue.push({nodeGroupSequence[0], prunesOfSplit});
+      } else {
+        for (auto &n : nodeGroupSequence[1]) {
+          pruned.insert(n->id());
+        }
       }
-      std::unordered_set<std::string> newPrunes;
-      for (auto &n : nodeGroupSequence[2]) {
-	newPrunes.insert(n->id());
+
+      // add new root sets along the chain
+      for (int i = 1; i + 1 < nodeGroupSequence.size(); i++) {
+        std::vector<NodeReference> newRoots;
+        for (auto &n : nodeGroupSequence[i]) {
+          newRoots.push_back(n);
+        }
+        std::unordered_set<std::string> newPrunes;
+        for (auto &n : nodeGroupSequence[i+1]) {
+          newPrunes.insert(n->id());
+        }
+        rootSetQueue.push({newRoots, newPrunes});
       }
-      rootSetQueue.push({newRoots, newPrunes});
 
       std::cout << "new chain " << std::endl;
       for (auto &e : nodeGroupSequence) {
@@ -171,9 +197,8 @@ void LLVMCodegen::emitVecBody(IRGraph &graph, Value* in, Value* out) {
         for (auto &n : e)
           std::cout << "id " << n->id() << std::endl;
       }
-      
-      nodeGroupSequence = getLongestChain(roots, pruned);
 
+      nodeGroupSequence = getLongestChain(roots, pruned);
     }
     rootSetQueue.pop();
   }
