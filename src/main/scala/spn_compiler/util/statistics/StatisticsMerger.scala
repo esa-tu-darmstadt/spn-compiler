@@ -4,6 +4,7 @@ import java.io.{File, FileInputStream, FileOutputStream}
 import java.nio.file.Files
 
 import scopt.OParser
+import spn_compiler.graph_ir.analysis.GraphStatistics
 
 /**
   * The statistics merger tool allows to merge SPN graph statistics from

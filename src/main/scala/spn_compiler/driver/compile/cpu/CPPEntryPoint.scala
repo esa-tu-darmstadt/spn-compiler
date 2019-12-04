@@ -4,13 +4,21 @@ import java.io.{BufferedWriter, File, FileWriter}
 
 object CPPEntryPoint {
 
-  def writeMain(mainFile : File) : Unit = {
+  def writeMain(mainFile : File, includeRuntime : Boolean) : Unit = {
     val writer = new BufferedWriter(new FileWriter(mainFile))
+    writer.write(includes)
+    writer.newLine()
+    if (includeRuntime) {
+      writer.write(runtimeInclude)
+    } else {
+      writer.write(dummyRuntime)
+    }
+    writer.newLine()
     writer.write(mainCode)
     writer.close()
   }
 
-  private val mainCode =
+  private val includes =
     """#include <iostream>
       |#include <fstream>
       |#include <sstream>
@@ -18,8 +26,14 @@ object CPPEntryPoint {
       |#include <cmath>
       |#include <chrono>
       |#include <vector>
-      |#include "spn.hpp"
-      |
+      |#include "spn.hpp"""".stripMargin
+
+  private val runtimeInclude = """#include "spn-compiler-rt.hpp""""
+
+  private val dummyRuntime = """void report_range(){}"""
+
+  private val mainCode =
+    """
       |#ifndef NUM_RUNS
       |#define NUM_RUNS 1
       |#endif
@@ -118,7 +132,7 @@ object CPPEntryPoint {
       |
       |    std::cout << std::setprecision(15)<< "time per instance " << (duration.count() / ((double) sample_count * (double) NUM_RUNS)) << " us" << std::endl;
       |    std::cout << std::setprecision(15) << "time per task " << (duration.count() / ((double) NUM_RUNS))  << " us" << std::endl;
-      |
+      |    report_range();
       |    return 0;
       |}""".stripMargin
 }

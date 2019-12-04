@@ -61,17 +61,26 @@ class ASTGeneration {
 
       case WeightedSum(id, addends) => {
         val operands = addends.map(wa => module.mul(constructSubAST(wa.addend, module, inputParam), module.constantValue(RealType, wa.weight)))
-        operands.tail.fold[ASTValue](operands.head)(module.add)
+        val rhs = operands.tail.fold[ASTValue](operands.head)(module.add)
+        val variable = module.createVariable(rhs.getType, id)
+        module.insertStatement(module.declareVariable(variable, rhs))
+        module.readVariable(variable)
       }
 
       case Sum(id, addends) => {
         val operands = addends.map(constructSubAST(_, module, inputParam))
-        operands.tail.fold(operands.head)(module.add)
+        val rhs = operands.tail.fold(operands.head)(module.add)
+        val variable = module.createVariable(rhs.getType, id)
+        module.insertStatement(module.declareVariable(variable, rhs))
+        module.readVariable(variable)
       }
 
       case Product(id, multiplicands) => {
         val operands = multiplicands.map(constructSubAST(_, module, inputParam))
-        operands.tail.fold(operands.head)(module.mul)
+        val rhs = operands.tail.fold(operands.head)(module.mul)
+        val variable = module.createVariable(rhs.getType, id)
+        module.insertStatement(module.declareVariable(variable, rhs))
+        module.readVariable(variable)
       }
     })
 

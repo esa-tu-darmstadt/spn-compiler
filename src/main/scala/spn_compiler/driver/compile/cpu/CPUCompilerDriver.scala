@@ -1,10 +1,12 @@
 package spn_compiler.driver.compile.cpu
 
+import spn_compiler.backend.software.ast.transform.DynamicRangeProfiling
 import spn_compiler.backend.software.codegen.CodeWriter
 import spn_compiler.backend.software.codegen.cpp.{CppHeaderCodeGeneration, CppImplCodeGeneration}
 import spn_compiler.backend.software.codegen.openmp.OMPImplCodeGeneration
 import spn_compiler.backend.software.cpu.ast_generation.openmp.OMPASTGeneration
 import spn_compiler.backend.software.cpu.ast_generation.serial.ASTGeneration
+import spn_compiler.driver.compile.cpu.headers.CPPCompilerRuntimeHeader
 import spn_compiler.driver.config.{CPPCompileConfig, CompilerConfig}
 import spn_compiler.graph_ir.nodes.IRGraph
 import spn_compiler.util.file.FileUtil
@@ -22,6 +24,9 @@ object CPUCompilerDriver extends Logging {
       new ASTGeneration
     }
     val ast = astGenerator.createAST(spn)
+    if(config.isRangeProfilingEnabled){
+      DynamicRangeProfiling.transformAST(ast)
+    }
     val codeDirectory = if(config.outputCodeOnly){
       info(s"Ignoring output file ${config.outputFile}, writing only code output")
       FileUtil.getParentDirectory(config.outputFile)
@@ -41,7 +46,12 @@ object CPUCompilerDriver extends Logging {
     }
     val mainFile = FileUtil.createFileInDirectory(codeDirectory, "main.cpp")
     debug(s"Writing C++ main implementation to ${mainFile.getAbsoluteFile.toString}")
-    CPPEntryPoint.writeMain(mainFile)
+    CPPEntryPoint.writeMain(mainFile, config.isRangeProfilingEnabled)
+    if(config.isRangeProfilingEnabled){
+      val compilerRTFile = FileUtil.createFileInDirectory(codeDirectory, "spn-compiler-rt.hpp")
+      debug(s"Writing compiler runtime header library to ${compilerRTFile.getAbsoluteFile.toString}")
+      CPPCompilerRuntimeHeader.writeHeader(compilerRTFile)
+    }
     if(config.outputCodeOnly){
       return
     }
