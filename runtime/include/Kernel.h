@@ -13,19 +13,23 @@ class Kernel {
 
 public:
 
-    static std::optional<Kernel> initialize(const std::string& fileName, const std::string& kernelName);
+    Kernel(const std::string& fN, const std::string& kN);
+
+    ~Kernel();
+
+    void execute(size_t num_elements, void* inputs, double* outputs) const;
 
 private:
 
-    Kernel(const std::string& fN, const std::string& kN, kernel_function_t k);
+    bool initialized = false;
 
     kernel_function_t kernel;
+
+    void* handle;
 
     const std::string& fileName;
 
     const std::string& kernelName;
-
-
 
 };
 
