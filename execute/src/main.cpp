@@ -10,7 +10,7 @@ int main(int argc, char* argv[]){
     auto parseResult = spnc::parseJSON(std::string(argv[1]));
     std::cout << "Parsed JSON? " << parseResult << std::endl;
     Kernel kernel("/home/wimi/ls/Code/SPN/spn-compiler-v2/cmake-build-debug/execute/libdynamic-load-test.so", "foo");
-    int a[]{1, 2, 3, 4, 5};
+    double a[]{1., 2., 3., 4., 5.};
     double b[5];
     kernel.execute(5, a, b);
     for(auto d : b){
