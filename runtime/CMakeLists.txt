@@ -1,5 +1,4 @@
 add_library(spnc-rt SHARED
-        src/runtime.cpp
         src/Kernel.cpp)
 
 set_target_properties(spnc-rt PROPERTIES
