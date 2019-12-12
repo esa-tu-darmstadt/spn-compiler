@@ -20,14 +20,8 @@ public:
   void generateLLVMIR(IRGraph &graph, bool vectorize);
 
 private:
-  void emitBody(IRGraph &graph, Value *in, Value *out);
-  void emitVecBody(IRGraph &graph, Value *in, Value *out);
-  void emitInput(InputVar* n, Value* addr);
-  void emitHistogram(Histogram* n);
-  void emitProduct(Product* n);
-  void emitSum(Sum* n);
-  void emitWeightedSum(WeightedSum* n);
-  void emitStore(GraphIRNode* n, Value* addr);
+  std::unordered_map<std::string, std::vector<NodeReference>>
+  getVectorization(IRGraph &graph);
   std::vector<std::vector<NodeReference>>
   getLongestChain(std::vector<NodeReference> roots,
                   std::unordered_set<std::string> pruned);
@@ -35,9 +29,8 @@ private:
   IRBuilder<> builder;
   std::unique_ptr<Module> module;
   std::unordered_map<std::string, Value *> node2value;
-  std::unordered_map<std::string, Value*> input2value;
-  Function* func;
+  std::unordered_map<std::string, Value *> input2value;
+  Function *func;
 };
-
 
 #endif //SPNC_LLVMCODEGEN_H
