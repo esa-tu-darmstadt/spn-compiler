@@ -13,7 +13,7 @@
 #include <string>
 #include <queue>
 
-#define SIMD_WIDTH 4
+#define SIMD_WIDTH 2
 #define MIN_LENGTH 2
 #define USE_SOLVER 1
 
@@ -248,25 +248,11 @@ void LLVMCodegen::generateLLVMIR(IRGraph &graph, bool vectorize) {
       }
     }
 
-    std::stack<NodeReference> instrStack;
-    instrStack.push(graph.rootNode);
-
-    BFSOrderProducer stackBuilder;
-    graph.rootNode->accept(stackBuilder, {});
-    while (!stackBuilder.q.empty()) {
-      auto &ref = stackBuilder.q.front();
-      instrStack.push(ref.second);
-      ref.second->accept(stackBuilder, {});
-      stackBuilder.q.pop();
-    }
-
     IREmitter codeEmitter(partOf, directVecInputs, vectors, in_ptr, func,
                           context, builder, module.get(), SIMD_WIDTH);
-    while (!instrStack.empty()) {
-      instrStack.top()->accept(codeEmitter, {});
-      instrStack.pop();
-    }
 
+    
+    graph.rootNode->accept(codeEmitter, {});
     builder.CreateStore(codeEmitter.getNodeMap()[graph.rootNode->id()].val,
                         out_ptr);
     
