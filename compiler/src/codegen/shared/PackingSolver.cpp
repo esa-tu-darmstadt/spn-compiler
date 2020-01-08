@@ -1,83 +1,63 @@
 #include "codegen/shared/PackingSolver.h"
-#include "codegen/shared/SchedulingConflictTraversal.h"
 #include "gurobi_c++.h"
 
-std::unordered_map<std::string, size_t>
-PackingSolver::getPacking(IRGraph &graph, size_t width) {
-  GRBEnv env = GRBEnv(true);
-  env.set("LogFile", "mip1.log");
-  env.start();
+#define REC_SOLVE true
 
-  // Create an empty model
-  GRBModel model = GRBModel(env);
+class IndexRefMapper : public BaseVisitor {
 
-  SchedulingConflictTraversal sct(width, model);
-  sct.findConflicts(graph.rootNode);
-  
-  sct.generateVariables();
-
-  std::cout << "#vars " << sct.vecVars.size()+sct.serVars.size() << std::endl;
-  /*
-  for (int i = 0; i < 10; i++) {
-    for (auto& l : sct.vecVars[(sct.vecVars.size()/10)*i].lanes) {
-      std::cout << " " << sct.names[l] << " ";
-    }
-    std::cout << std::endl;
+public:
+  IndexRefMapper(std::unordered_map<std::string, size_t> &idIndexMap)
+      : idMap(idIndexMap) {}
+  void buildMap(const NodeReference &rootNode) {
+    nodeRefs.resize(idMap.size());
+    nodeRefs[idMap[rootNode->id()]] = rootNode;
+    rootNode->accept(*this, {});
   }
-  */
-  class IndexRefMapper : public BaseVisitor {
 
-  public:
-    IndexRefMapper(std::unordered_map<std::string, size_t>& idIndexMap)
-        : idMap(idIndexMap) {}
-    void buildMap(const NodeReference &rootNode) {
-      nodeRefs.resize(idMap.size());
-      nodeRefs[idMap[rootNode->id()]] = rootNode;
-      rootNode->accept(*this, {});
+  void visitHistogram(Histogram &n, arg_t arg) {}
+
+  void visitProduct(Product &n, arg_t arg) {
+    for (auto &c : *n.multiplicands()) {
+      if (idMap.find(c->id()) == idMap.end())
+        continue;
+      nodeRefs[idMap[c->id()]] = c;
+      c->accept(*this, {});
     }
+  }
 
-    void visitHistogram(Histogram &n, arg_t arg) {}
-
-    void visitProduct(Product &n, arg_t arg) {
-      for (auto &c : *n.multiplicands()) {
-	if (idMap.find(c->id()) == idMap.end())
-	  continue;
-	nodeRefs[idMap[c->id()]] = c;
-        c->accept(*this, {});
-      }
+  void visitSum(Sum &n, arg_t arg) {
+    for (auto &c : *n.addends()) {
+      if (idMap.find(c->id()) == idMap.end())
+        continue;
+      nodeRefs[idMap[c->id()]] = c;
+      c->accept(*this, {});
     }
+  }
 
-    void visitSum(Sum &n, arg_t arg) {
-      for (auto &c : *n.addends()) {
-	if (idMap.find(c->id()) == idMap.end())
-	  continue;
-	nodeRefs[idMap[c->id()]] = c;
-        c->accept(*this, {});
-      }
+  void visitWeightedSum(WeightedSum &n, arg_t arg) {
+    for (auto &c : *n.addends()) {
+      if (idMap.find(c.addend->id()) == idMap.end())
+        continue;
+      nodeRefs[idMap[c.addend->id()]] = c.addend;
+      c.addend->accept(*this, {});
     }
+  }
+  std::unordered_map<std::string, size_t> &idMap;
+  std::vector<NodeReference> nodeRefs;
+};
 
-    void visitWeightedSum(WeightedSum &n, arg_t arg) {
-      for (auto &c : *n.addends()) {
-	if (idMap.find(c.addend->id()) == idMap.end())
-	  continue;
-	nodeRefs[idMap[c.addend->id()]] = c.addend;
-        c.addend->accept(*this, {});
-      }
-    }
-    std::unordered_map<std::string, size_t> &idMap;
-    std::vector<NodeReference> nodeRefs;
-  };
-
-  
-
-  IndexRefMapper irm(sct.idMap);
-  irm.buildMap(graph.rootNode);
+solverResult PackingSolver::runSolver(
+    std::vector<std::pair<std::set<size_t>, std::set<size_t>>> &conflicts,
+    std::unordered_map<std::string, size_t> &idMap,
+    std::vector<vecVar> &vecVars,
+    std::unordered_map<size_t, std::vector<size_t>> &partOf,
+    std::unordered_map<size_t, GRBVar> &serVars,
+    std::unordered_map<size_t, std::vector<size_t>> &fixedPacks,
+    IndexRefMapper &irm, std::unordered_map<size_t, size_t>& singleOpToFixedVec, GRBModel& model) {
 
   class InputProducer : public BaseVisitor {
 
   public:
-    InputProducer(std::unordered_map<std::string, size_t> &idIndexMap)
-        : idMap(idIndexMap) {}
     void visitProduct(Product &n, arg_t arg) {
       inputs.clear();
       for (auto &c : *n.multiplicands()) {
@@ -98,27 +78,30 @@ PackingSolver::getPacking(IRGraph &graph, size_t width) {
 	inputs.push_back(c.addend->id());
       }
     }
-    std::unordered_map<std::string, size_t> &idMap;
     std::vector<std::string> inputs;
   };
 
-  InputProducer ip(sct.idMap);
+  InputProducer ip;
   GRBQuadExpr obj = 0.0;
-  for (int vecIndex = 0; vecIndex < sct.vecVars.size(); vecIndex++) {
-    auto &v = sct.vecVars[vecIndex];
+  // if first is activated, only one of second can be activated
+  std::unordered_map<size_t, std::vector<size_t>> exclusions;
+
+  std::unordered_map<size_t, std::unordered_map<size_t, std::vector<size_t>>> directVecInputMap;
+  for (int vecIndex = 0; vecIndex < vecVars.size(); vecIndex++) {
+    auto &v = vecVars[vecIndex];
     std::unordered_set<size_t> coveredVecInputs;
 
     std::vector<std::pair<std::vector<size_t>, size_t>> vInputs;
 
-    for (auto &l : v.lanes) {
+    for (auto &l : flattenPack(v.lanes, irm.nodeRefs.size(), fixedPacks)) {
       irm.nodeRefs[l]->accept(ip, {});
       std::vector<size_t> idVec;
       size_t histogramInputs = 0;
       for (auto &name : ip.inputs) {
-	if (sct.idMap.find(name) == sct.idMap.end())
+	if (idMap.find(name) == idMap.end())
 	  histogramInputs++;
 	else
-	  idVec.push_back(sct.idMap[name]);
+	  idVec.push_back(idMap[name]);
       }
       vInputs.push_back({idVec, histogramInputs});
     }
@@ -157,13 +140,13 @@ PackingSolver::getPacking(IRGraph &graph, size_t width) {
 
     // TODO
     // Most significant inaccuracies at the moment:
-    // Multiple values (one for each lane) can be inserted with one instr
+    // Multiple values (one for each lane) can be inserted with one instr (?)
     // Multiple scalar values for a single lane can be combinded beforehand and
     // thus need only one insertion
-    for (int i = 0; i < v.lanes.size(); i++) {
+    for (int i = 0; i < vInputs.size(); i++) {
       std::vector<size_t> possibleInputVecs;
       for (auto &inputID : vInputs[i].first) {
-        auto &inVecs = sct.partOf[inputID];
+        auto &inVecs = partOf[inputID];
         possibleInputVecs.insert(possibleInputVecs.end(), inVecs.begin(),
                                  inVecs.end());
       }
@@ -179,9 +162,10 @@ PackingSolver::getPacking(IRGraph &graph, size_t width) {
           }
         } else {
           // check if vec can be direct input to v
-          auto &valuesProvidedBy_vec_ = sct.vecVars[vec].lanes;
-          bool foundInputsForAllLanes = true;
-          for (int j = 0; j < v.lanes.size(); j++) {
+          auto valuesProvidedBy_vec_ = flattenPack(vecVars[vec].lanes, irm.nodeRefs.size(), fixedPacks);
+          int foundInputsForLanes = 0;
+	  std::vector<size_t> inputIds;
+          for (int j = 0; j < vInputs.size(); j++) {
             auto &neededInputsForThisLane = vInputs[j].first;
             bool foundInputForLane = false;
 
@@ -190,6 +174,7 @@ PackingSolver::getPacking(IRGraph &graph, size_t width) {
               for (auto &pv : valuesProvidedBy_vec_) {
                 if (ni == pv) {
                   foundInputForLane = true;
+		  inputIds.push_back(pv);
                   break;
                 }
               }
@@ -197,66 +182,83 @@ PackingSolver::getPacking(IRGraph &graph, size_t width) {
                 break;
               }
             }
-            if (!foundInputForLane) {
-              foundInputsForAllLanes = false;
+            if (foundInputForLane) {
+              foundInputsForLanes++;
             }
           }
 
-          // TODO: it's not always necessary for all width values to be
-          // needed to be cheaper than the default case (extract all)
-          // Example:
-          // Width 4, 3 values are needed, one extract + one shuffle (?) + one
-          // 0 or 1 insert (neutral element) is still cheaper than extracting
-          // all 4 vals
-          if (foundInputsForAllLanes) {
+          if (foundInputsForLanes == vInputs.size()) {
             // vec does not need to be extracted, it can be directly
-            // multiplied onto v
+            // multiplied onto v as all values provided by vec are needed by v
             coveredVecInputs.insert(vec);
-            // assume cost of one for this mult if both are selected
-            obj += sct.vecVars[vec].var * v.var * 1;
-              continue;
+	    directVecInputMap[vecIndex][vec] = inputIds;
+            // assume cost of one for this op if both are selected
+            obj += vecVars[vec].var * v.var * 1;
+            continue;
+          } else if (foundInputsForLanes * 3 >
+                     (vInputs.size() - foundInputsForLanes) + 1) {
+            // In the general case, we would need _foundInputsForLanes_ * extract,
+            // arith, insert (cost 3) operations if vec and v are selected
+            // An alternative, which is is cheaper if this branch is taken, is
+            // to extract the not needed values beforehand (this cost will be
+            // accounted for by the nodes that need these values), insert
+            // neutral values into those lanes and then use the vector as a whole
+            obj += vecVars[vec].var * v.var *
+                   (vInputs.size() - foundInputsForLanes + 1);
+            coveredVecInputs.insert(vec);
+            directVecInputMap[vecIndex][vec] = inputIds;
+            // TODO For now we will allow one user of vec to use this shortcut,
+            // although with copies, half extracts, register renaming etc. this
+            // could be modelled more precisely
+	    exclusions[vec].push_back(vecIndex);
+            continue;
           }
         }
         // if we get here, we will need to extract the value from vec, perform
         // the arith and insert it into the starting vector for v
         // -> cost estimate: 3
-        obj += sct.vecVars[vec].var * v.var * 3;
+        obj += vecVars[vec].var * v.var * 3;
       }
 
       for (auto& inputVal : vInputs[i].first) {
-	// Only arith and insert necessary
-	// -> cost estimate: 2
-	obj += v.var*sct.serVars[inputVal]*2;
+	auto singleOpMapIt = singleOpToFixedVec.find(inputVal);
+	if (singleOpMapIt == singleOpToFixedVec.end()) {
+	  // inputVal is still a single value, thus only arith and insert necessary
+          // -> cost estimate: 2
+          obj += v.var * serVars[inputVal] * 2;
+	}
       }
     }
-
-    directVecInputs.insert({vecIndex, coveredVecInputs});
   }
 
-  for (int i = 0; i < sct.serVars.size(); i++) {
-    irm.nodeRefs[i]->accept(ip, {});
+  for (auto &serVar : serVars) {
+    // serVar represents a single value
+    irm.nodeRefs[serVar.first]->accept(ip, {});
     std::vector<size_t> idVec;
     size_t histogramInputs = 0;
     for (auto &name : ip.inputs) {
-      if (sct.idMap.find(name) == sct.idMap.end())
+      if (idMap.find(name) == idMap.end())
         histogramInputs++;
       else
-        idVec.push_back(sct.idMap[name]);
+        idVec.push_back(idMap[name]);
     }
     // we assume one arithmetic operation per input, however, for the two
     // inputs, only one arithmetic operation is needed, thus we substract one
-    obj -= sct.serVars[i]*1;
+    obj -= serVar.second * 1;
 
     // Each histogram input takes one arithmetic instruction
-    obj += sct.serVars[i]*histogramInputs;
-    
-    for (auto& input : idVec) {
-      // when both values are not in a vector, there is no extra cost besides
-      // the arithmetic operation
-      obj += sct.serVars[i]*sct.serVars[input]*1;
-      for (auto& vecIn : sct.partOf[input]) {
+    obj += serVar.second * histogramInputs;
+
+    for (auto &input : idVec) {
+      auto singleOpMapIt = singleOpToFixedVec.find(input);
+      if (singleOpMapIt == singleOpToFixedVec.end()) {
+        // when both values are not in a vector, there is no extra cost
+        // besides the arithmetic operation
+        obj += serVar.second * serVars[input] * 1;
+      }
+      for (auto &vecIn : partOf[input]) {
         // cost: extract + arith = 2
-	obj += sct.serVars[i]*sct.vecVars[vecIn].var*2;
+        obj += serVar.second * vecVars[vecIn].var * 2;
       }
     }
   }
@@ -266,15 +268,18 @@ PackingSolver::getPacking(IRGraph &graph, size_t width) {
   // for (x,y) e vecVars x vecVars
   // if exists l1 in x that is needed in y and l2 in y that is needed in x,
   // x+y<=1
-  for (auto &vec : sct.vecVars) {
-    for (auto &l : vec.lanes) {
-      for (auto &dep : sct.conflicts[l].second) {
-        auto &possiblyConflictingVecs = sct.partOf[dep];
+  for (auto &vec : vecVars) {
+    for (auto &l : flattenPack(vec.lanes, irm.nodeRefs.size(), fixedPacks)) {
+      for (auto &dep : conflicts[l].second) {
+        // Note: partOf[dep] may return an empty vector if dep represents a
+        // fixed vec but since the components of dep are also in
+        // _conflicts[l].second_, this is no problem
+        auto &possiblyConflictingVecs = partOf[dep];
         for (auto &depVec : possiblyConflictingVecs) {
           bool conflict = false;
-          for (auto &depVecLane : sct.vecVars[depVec].lanes) {
-            for (auto &reverseDep : sct.conflicts[depVecLane].second) {
-              for (auto l2 : vec.lanes) {
+          for (auto &depVecLane : flattenPack(vecVars[depVec].lanes, irm.nodeRefs.size(), fixedPacks)) {
+            for (auto &reverseDep : conflicts[depVecLane].second) {
+              for (auto l2 : flattenPack(vec.lanes, irm.nodeRefs.size(), fixedPacks)) {
                 if (l2 == reverseDep) {
                   conflict = true;
                   break;
@@ -292,44 +297,160 @@ PackingSolver::getPacking(IRGraph &graph, size_t width) {
 
           // vec needs a value from depVec and depVec needs a value from vec,
           // thus they cannot both be selected at the same time
-          model.addConstr(sct.vecVars[dep].var + sct.vecVars[depVec].var <= 1);
+          model.addConstr(vecVars[dep].var + vecVars[depVec].var <= 1);
         }
       }
     }
   }
 
   // make sure each value is calculated only once
-  for (int i = 0; i < sct.serVars.size(); i++) {
+  for (int i = 0; i < irm.nodeRefs.size(); i++) {
     GRBLinExpr opSum = 0.0;
-    opSum += sct.serVars[i];
-    for (auto& vec : sct.partOf[i]) {
-      opSum += sct.vecVars[vec].var;
+    if (singleOpToFixedVec.find(i) == singleOpToFixedVec.end())
+      opSum += serVars[i];
+    
+    for (auto& vec : partOf[i]) {
+      opSum += vecVars[vec].var;
     }
     model.addConstr(opSum == 1);
   }
 
-  model.optimize();
-  std::unordered_map<std::string, size_t> res;
+  for (auto& ex : exclusions) {
+    GRBQuadExpr opSum = 0.0;
+    for (auto& vec : ex.second) {
+      opSum += vecVars[ex.first].var*vecVars[vec].var;
+    }
+    model.addQConstr(opSum <= 1);
+  }
 
-  for (int i = 0; i < sct.vecVars.size(); i++) {
-    if (sct.vecVars[i].var.get(GRB_DoubleAttr_X) > 0.1) {
-      std::vector<NodeReference> laneRefs;
-      for (auto& l : sct.vecVars[i].lanes) {
-	laneRefs.push_back(irm.nodeRefs[l]);
-	res.insert({sct.names[l], i});
+  model.optimize();
+  std::unordered_set<size_t> vecs;
+  std::vector<size_t> nonVecs;
+
+  for (int i = 0; i < vecVars.size(); i++) {
+    if (vecVars[i].var.get(GRB_DoubleAttr_X) > 0.1) {
+      vecs.insert(i);
+    }
+  }
+  for (auto &serVar : serVars) {
+    if (serVar.second.get(GRB_DoubleAttr_X) > 0.1) {
+      nonVecs.push_back(serVar.first);
+    }
+  }
+  std::unordered_map<size_t,std::unordered_map<size_t, std::vector<size_t>>> directVecs;
+
+  for (auto& vec : vecs) {
+    for (auto& direct : directVecInputMap[vec]) {
+      if (vecs.find(direct.first) != vecs.end()) {
+	// both _vec_ and _direct.first_ were selected, so we store _direct_ as a direct input
+	directVecs[vec].insert(direct);
       }
-      vectors.insert({i, laneRefs});
-      std::cout << "selected ";
-      for (auto& l : sct.vecVars[i].lanes) {
-	std::cout << sct.names[l] << ", ";
+    }
+  }
+  
+  return {vecs,nonVecs, directVecs};
+}
+
+std::unordered_map<std::string, size_t>
+PackingSolver::getPacking(IRGraph &graph, size_t width) {
+  GRBEnv env = GRBEnv(true);
+  env.set("LogFile", "mip1.log");
+  env.start();
+
+  // Create an empty model
+  GRBModel model = GRBModel(env);
+
+  int initWidth;
+
+  if (REC_SOLVE)
+    initWidth = 2;
+  else
+    initWidth = width;
+
+  SchedulingConflictTraversal sct(initWidth, &model);
+  sct.findConflicts(graph.rootNode);
+  
+  sct.generateVariables();
+
+  model.update();
+  
+  std::cout << "#vars " << sct.vecVars.size()+sct.serVars.size() << std::endl;
+
+  IndexRefMapper irm(sct.idMap);
+  irm.buildMap(graph.rootNode);
+
+  auto packing = runSolver(sct.conflicts, sct.idMap, sct.vecVars, sct.partOf,
+			   sct.serVars, sct.fixedPacks, irm, sct.singleOpToFixedVec, model);
+
+  std::cout << "selected " << std::endl;
+  for (auto i : packing.vecs) {
+    for (auto &t : flattenPack(sct.vecVars[i].lanes, irm.nodeRefs.size(),
+                               sct.fixedPacks)) {
+      std::cout << sct.names[t] << ", ";
+    }
+    std::cout << std::endl;
+  }
+
+  
+  for (auto &serVar : packing.nonVecs) {
+      std::cout << sct.names[serVar] << std::endl;
+  }
+
+  if (REC_SOLVE) {
+    while (initWidth < width) {
+      GRBModel newModel = GRBModel(env);
+      sct.setupNewIteration(packing.vecs, packing.nonVecs, &newModel);
+      sct.generateVariables();
+      newModel.update();
+      std::cout << "#vars " << sct.vecVars.size() + sct.serVars.size()
+                << std::endl;
+      packing = runSolver(sct.conflicts, sct.idMap, sct.vecVars, sct.partOf,
+			       sct.serVars, sct.fixedPacks, irm, sct.singleOpToFixedVec, newModel);
+
+      initWidth *=2;
+
+      std::cout << "selected " << std::endl;
+      for (auto i : packing.vecs) {
+        for (auto &t : flattenPack(sct.vecVars[i].lanes, irm.nodeRefs.size(),
+                                   sct.fixedPacks)) {
+          std::cout << sct.names[t] << ", ";
+        }
+        std::cout << std::endl;
       }
-      std::cout << std::endl;
+
+      for (auto &serVar : packing.nonVecs) {
+        std::cout << sct.names[serVar] << std::endl;
+      }
     }
   }
 
-  for (int i = 0; i < sct.serVars.size(); i++) {
-    if (sct.serVars[i].get(GRB_DoubleAttr_X) > 0.1) {
-      std::cout << "selected " << sct.names[i] << std::endl;
+  std::unordered_map<std::string, size_t> res;
+  std::unordered_map<size_t, size_t> vecVarIdxToVectorsIdx;
+
+  for (auto &vec : packing.vecs) {
+    size_t vectorId = vectors.size();
+
+    vecVarIdxToVectorsIdx.insert({vec, vectorId});
+
+    std::vector<NodeReference> laneRefs;
+
+    for (auto &t : flattenPack(sct.vecVars[vec].lanes, irm.nodeRefs.size(),
+                               sct.fixedPacks)) {
+      laneRefs.push_back(irm.nodeRefs[t]);
+      res.insert({sct.names[t], vectorId});
+    }
+    vectors.push_back(laneRefs);
+  }
+
+  for (auto& vec : packing.directVecInputs) {
+    size_t vecIdx = vecVarIdxToVectorsIdx[vec.first];
+    for (auto& in : vec.second) {
+      size_t inVecIdx = vecVarIdxToVectorsIdx[in.first];
+      std::vector<std::string> inputNames;
+      for (auto& id : in.second) {
+	inputNames.push_back(sct.names[id]);
+      }
+      directVecInputs[vecIdx][inVecIdx] = inputNames;
     }
   }
 

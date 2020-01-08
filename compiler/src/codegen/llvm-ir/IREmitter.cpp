@@ -2,8 +2,8 @@
 
 IREmitter::IREmitter(
       std::unordered_map<std::string, size_t> &vec,
-      std::unordered_map<size_t, std::unordered_set<size_t>>& directVecInputs,
-      std::unordered_map<size_t, std::vector<NodeReference>>& vectors, Value *in,
+      std::unordered_map<size_t, std::unordered_map<size_t, std::vector<std::string>>>& directVecInputs,
+      std::vector<std::vector<NodeReference>>& vectors, Value *in,
       Function *func, LLVMContext &context, IRBuilder<> &builder,
       Module *module, unsigned width)
     : _vec(vec), _directVecInputs(directVecInputs), _vectors(vectors), _in(in),
@@ -23,6 +23,26 @@ void IREmitter::visitInputvar(InputVar &n, arg_t arg) {
   input2value.insert({n.id(), val});
 }
 
+Value* IREmitter::getHistogramPtr(Histogram& n) {
+  std::vector<Constant *> values;
+  size_t max_index = 0;
+  for (auto &b : *n.buckets()) {
+    for (int i = 0; i < (b.upperBound - b.lowerBound); ++i) {
+      values.push_back(ConstantFP::get(Type::getDoubleTy(_context), b.value));
+    }
+    max_index = (b.upperBound > max_index) ? b.upperBound : max_index;
+  }
+  assert(max_index == values.size());
+  auto arrayType = ArrayType::get(Type::getDoubleTy(_context), values.size());
+  auto initializer = ConstantArray::get(arrayType, values);
+  // XXX This leaks?
+  auto arr = new GlobalVariable(*_module, arrayType, true,
+                                GlobalValue::InternalLinkage, initializer);
+  return _builder.CreateGEP(arr,
+                            {ConstantInt::get(Type::getInt64Ty(_context), 0),
+                             ConstantInt::get(Type::getInt64Ty(_context), 0)});
+}
+
 void IREmitter::visitHistogram(Histogram &n, arg_t arg) {
   // TODO Vectorized version generated, not emitted atm, use avx gather and
   // constantarray (when sensible)
@@ -38,7 +58,7 @@ void IREmitter::visitHistogram(Histogram &n, arg_t arg) {
   
   auto in = input2value[n.indexVar()->id()];
   auto &buckets = *n.buckets();
-  // replace this with a sensible heuristic
+  // TODO replace this with a sensible heuristic
   if (buckets.size() > 10000) {
     auto inBlock = _builder.GetInsertBlock();
     auto exit = BasicBlock::Create(_context, "exit" + n.id(), _func);
@@ -81,36 +101,25 @@ void IREmitter::visitHistogram(Histogram &n, arg_t arg) {
     _builder.CreateRetVoid();
     _builder.SetInsertPoint(exit);
   } else {
-    std::vector<Constant*> values;
-    size_t max_index = 0;
-    for(auto& b : *n.buckets()){
-        for(int i=0; i < (b.upperBound - b.lowerBound); ++i){
-            values.push_back(ConstantFP::get(Type::getDoubleTy(_context), b.value));
-        }
-        max_index = (b.upperBound > max_index) ? b.upperBound : max_index;
-    }
-    assert(max_index == values.size());
-    auto arrayType = ArrayType::get(Type::getDoubleTy(_context), values.size());
-    auto initializer = ConstantArray::get(arrayType, values);
-    auto globalArray = new GlobalVariable(*_module, arrayType, true, GlobalValue::InternalLinkage,
-                                          initializer);
+    auto globalArray = getHistogramPtr(n);
     auto address = _builder.CreateGEP(
-        globalArray, {ConstantInt::get(IntegerType::get(_context, 32), 0), in});
+        globalArray, {in});
     auto out = _builder.CreateLoad(address);
+    out->setName(n.id());
     node2value.insert({n.id(), {out, -1, 0}});
   }
 }
 
 void IREmitter::visitProduct(Product &n, arg_t arg) {
-  emitArith(n);
+  emitArith(n, arg);
 }
 
 void IREmitter::visitSum(Sum &n, arg_t arg) {
-  emitArith(n);
+  emitArith(n, arg);
 }
 
 void IREmitter::visitWeightedSum(WeightedSum &n, arg_t arg) {
-  emitArith(n);
+  emitArith(n, arg);
 }
 
 std::unordered_map<std::string, irVal>

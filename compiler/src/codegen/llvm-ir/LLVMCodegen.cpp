@@ -13,7 +13,7 @@
 #include <string>
 #include <queue>
 
-#define SIMD_WIDTH 2
+#define SIMD_WIDTH 4
 #define MIN_LENGTH 2
 #define USE_SOLVER 1
 
@@ -211,32 +211,41 @@ void LLVMCodegen::generateLLVMIR(IRGraph &graph, bool vectorize) {
     auto functionType = FunctionType::get(Type::getVoidTy(context), argTypes, false);
     func = Function::Create(functionType, Function::ExternalLinkage, "spn_element", module.get());
     auto bb = BasicBlock::Create(context, "main", func);
-    auto lh = BasicBlock::Create(context, "loop-header", func);
-    auto lb = BasicBlock::Create(context, "loop-body", func);
+    auto olh = BasicBlock::Create(context, "outer-loop-header", func);
+    auto ilh = BasicBlock::Create(context, "inner-loop-header", func);
+    auto ilb = BasicBlock::Create(context, "inner-loop-body", func);
+    auto ile = BasicBlock::Create(context, "inner-loop-exit", func);
     auto ex = BasicBlock::Create(context, "exit", func);
     
+    auto iterations = ConstantInt::getSigned(Type::getInt64Ty(context), 1000);
     auto arg_it = func->arg_begin();
     auto input = arg_it++;
     auto output = arg_it++;
     auto count = arg_it;
 
     builder.SetInsertPoint(bb);
-    builder.CreateBr(lh);
+    builder.CreateBr(olh);
 
-    builder.SetInsertPoint(lh);
+    builder.SetInsertPoint(olh);
+    auto cur_iteration = builder.CreatePHI(Type::getInt64Ty(context), 2);
+    cur_iteration->addIncoming(ConstantInt::getSigned(Type::getInt64Ty(context), 0), bb);
+    auto cmpo = builder.CreateICmpSLT(cur_iteration, iterations);
+    builder.CreateCondBr(cmpo, ilh, ex);
+
+    builder.SetInsertPoint(ilh);
     auto cur_count = builder.CreatePHI(Type::getInt64Ty(context), 2);
-    cur_count->addIncoming(ConstantInt::getSigned(Type::getInt64Ty(context), 0), bb);
-    auto cmp = builder.CreateICmpSLT(cur_count, count);
-    builder.CreateCondBr(cmp, lb, ex);
+    cur_count->addIncoming(ConstantInt::getSigned(Type::getInt64Ty(context), 0), olh);
+    auto cmpi = builder.CreateICmpSLT(cur_count, count);
+    builder.CreateCondBr(cmpi, ilb, ile);
 
-    builder.SetInsertPoint(lb);
+    builder.SetInsertPoint(ilb);
     auto in_offset = builder.CreateMul(cur_count, ConstantInt::getSigned(Type::getInt64Ty(context), graph.inputs->size()));
     auto in_ptr = builder.CreateGEP(input, {in_offset});
     auto out_ptr = builder.CreateGEP(output, {cur_count});
 
     std::unordered_map<std::string, size_t> partOf;
-    std::unordered_map<size_t, std::unordered_set<size_t>> directVecInputs;
-    std::unordered_map<size_t, std::vector<NodeReference>> vectors;
+    std::unordered_map<size_t, std::unordered_map<size_t, std::vector<std::string>>> directVecInputs;
+    std::vector<std::vector<NodeReference>> vectors;
     if (vectorize) {
       if (USE_SOLVER) {
         PackingSolver solver;
@@ -254,11 +263,16 @@ void LLVMCodegen::generateLLVMIR(IRGraph &graph, bool vectorize) {
     
     graph.rootNode->accept(codeEmitter, {});
     builder.CreateStore(codeEmitter.getNodeMap()[graph.rootNode->id()].val,
-                        out_ptr);
+                        out_ptr, true);
     
-    auto inc = builder.CreateAdd(cur_count, ConstantInt::getSigned(Type::getInt64Ty(context), 1));
-    cur_count->addIncoming(inc, builder.GetInsertBlock());
-    builder.CreateBr(lh);
+    auto inci = builder.CreateAdd(cur_count, ConstantInt::getSigned(Type::getInt64Ty(context), 1));
+    cur_count->addIncoming(inci, builder.GetInsertBlock());
+    builder.CreateBr(ilh);
+
+    builder.SetInsertPoint(ile);
+    auto inco = builder.CreateAdd(cur_iteration, ConstantInt::getSigned(Type::getInt64Ty(context), 1));
+    cur_iteration->addIncoming(inco, ile);
+    builder.CreateBr(olh);
 
     builder.SetInsertPoint(ex);
     builder.CreateRetVoid();

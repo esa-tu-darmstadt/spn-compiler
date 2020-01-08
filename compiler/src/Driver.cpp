@@ -9,7 +9,7 @@
 #include <transform/BinaryTreeTransform.h>
 #include <codegen/llvm-ir/LLVMCodegen.h>
 
-#define VECTORIZE false
+#define VECTORIZE true
 
 bool spnc::parseJSON(const std::string &inputFile) {
     Parser parser;
