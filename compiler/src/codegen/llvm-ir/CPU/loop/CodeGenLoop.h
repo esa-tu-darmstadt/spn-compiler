@@ -11,19 +11,22 @@
 
 using namespace llvm;
 
-class CodeGenLoop {
-public:
-    CodeGenLoop(Module& m, IRGraph& g) : module{m}, graph{g} {}
+namespace spnc {
 
-    virtual void emitLoop(Function& function, IRBuilder<>& builder, Value* lowerBound, Value* upperBound) = 0;
+    class CodeGenLoop {
+    public:
+        CodeGenLoop(Module& m, IRGraph& g) : module{m}, graph{g} {}
 
-    virtual std::vector<Type*> constructInputArgumentTypes() = 0;
+        virtual void emitLoop(Function& function, IRBuilder<>& builder, Value* lowerBound, Value* upperBound) = 0;
 
-    virtual std::vector<Type*> constructOutputArgumentTypes() = 0;
+        virtual std::vector<Type*> constructInputArgumentTypes() = 0;
 
-protected:
-    Module& module;
-    IRGraph& graph;
-};
+        virtual std::vector<Type*> constructOutputArgumentTypes() = 0;
+
+    protected:
+        Module& module;
+        IRGraph& graph;
+    };
+}
 
 #endif //SPNC_CODEGENLOOP_H

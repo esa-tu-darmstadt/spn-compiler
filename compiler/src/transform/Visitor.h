@@ -7,24 +7,27 @@
 
 #include "../graph-ir/GraphIRNode.h"
 
-typedef std::shared_ptr<void> arg_t;
+namespace spnc {
 
-class Visitor {
+    using arg_t = std::shared_ptr<void>;
 
-public:
+    class Visitor {
 
-    virtual void visitIRNode(GraphIRNode& n, arg_t arg) = 0;
+    public:
 
-    virtual void visitInputvar(InputVar& n, arg_t arg) = 0;
+        virtual void visitIRNode(GraphIRNode& n, arg_t arg) = 0;
 
-    virtual void visitHistogram(Histogram& n, arg_t arg) = 0;
+        virtual void visitInputvar(InputVar& n, arg_t arg) = 0;
 
-    virtual void visitProduct(Product& n, arg_t arg) = 0;
+        virtual void visitHistogram(Histogram& n, arg_t arg) = 0;
 
-    virtual void visitSum(Sum& n, arg_t arg) = 0;
+        virtual void visitProduct(Product& n, arg_t arg) = 0;
 
-    virtual void visitWeightedSum(WeightedSum& n, arg_t arg) = 0;
+        virtual void visitSum(Sum& n, arg_t arg) = 0;
 
-};
+        virtual void visitWeightedSum(WeightedSum& n, arg_t arg) = 0;
+
+    };
+}
 
 #endif //SPNC_VISITOR_H
