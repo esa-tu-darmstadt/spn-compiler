@@ -7,24 +7,33 @@
 
 #include <unordered_map>
 #include <graph-ir/GraphIRNode.h>
+#include <driver/Actions.h>
 #include "llvm/IR/IRBuilder.h"
 
 using namespace llvm;
 
-class LLVMCPUCodegen {
+namespace spnc {
 
-public:
-    explicit LLVMCPUCodegen();
+    class LLVMCPUCodegen : public ActionSingleInput<IRGraph, llvm::Module> {
 
-    void generateLLVMIR(IRGraph& graph);
+    public:
+        explicit LLVMCPUCodegen(ActionWithOutput<IRGraph>& _input);
 
-private:
-    LLVMContext context;
-    IRBuilder<> builder;
-    std::shared_ptr<Module> module;
-    std::unordered_map<std::string, Value*> node2value;
+        void generateLLVMIR(IRGraph& graph);
 
-};
+        llvm::Module& execute() override ;
+
+    private:
+        LLVMContext context;
+        IRBuilder<> builder;
+        std::unique_ptr<Module> module;
+        std::unordered_map<std::string, Value*> node2value;
+        bool cached = false;
+
+    };
+}
+
+
 
 
 #endif //SPNC_LLVMCPUCODEGEN_H
