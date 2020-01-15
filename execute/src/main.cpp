@@ -6,6 +6,6 @@
 #include <iostream>
 
 int main(int argc, char* argv[]){
-    auto parseResult = spnc::parseJSON(std::string(argv[1]));
+    auto parseResult = spnc::spnc::parseJSON(std::string(argv[1]));
     std::cout << "Parsed JSON? " << parseResult << std::endl;
 }

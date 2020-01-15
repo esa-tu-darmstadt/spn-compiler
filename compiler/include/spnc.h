@@ -7,9 +7,13 @@
 
 #include <string>
 
-class spnc{
-public:
-    static bool parseJSON(const std::string& inputFile);
-};
+namespace spnc {
+    class spnc{
+    public:
+        static bool parseJSON(const std::string& inputFile);
+    };
+}
+
+
 
 #endif //SPNC_SPNC_H
