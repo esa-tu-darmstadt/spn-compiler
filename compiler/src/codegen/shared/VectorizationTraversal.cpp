@@ -15,9 +15,8 @@ void VectorizationTraversal::visitHistogram(Histogram &n, arg_t arg) {
   
   std::pair<std::string, std::vector<NodeReference>>* path =
       (std::pair<std::string, std::vector<NodeReference>> *)arg.get();
-  
-  path->second.push_back(n.indexVar());
-  path->first = path->first + "h";
+  // Histograms are handled by the IREmitter
+  path->second.pop_back();
   _paths.push_back(*path);
 }
 

@@ -2,6 +2,7 @@
 #include "gurobi_c++.h"
 
 #define REC_SOLVE true
+#define CONSTR_EXCLUSIONS false
 
 class IndexRefMapper : public BaseVisitor {
 
@@ -86,7 +87,7 @@ solverResult PackingSolver::runSolver(
   // if first is activated, only one of second can be activated
   std::unordered_map<size_t, std::vector<size_t>> exclusions;
 
-  std::unordered_map<size_t, std::unordered_map<size_t, std::vector<size_t>>> directVecInputMap;
+  std::unordered_map<size_t, std::unordered_set<size_t>> directVecInputMap;
   for (int vecIndex = 0; vecIndex < vecVars.size(); vecIndex++) {
     auto &v = vecVars[vecIndex];
     std::unordered_set<size_t> coveredVecInputs;
@@ -191,7 +192,8 @@ solverResult PackingSolver::runSolver(
             // vec does not need to be extracted, it can be directly
             // multiplied onto v as all values provided by vec are needed by v
             coveredVecInputs.insert(vec);
-	    directVecInputMap[vecIndex][vec] = inputIds;
+	    directVecInputMap[vecIndex].insert(vec);
+	    exclusions[vec].push_back(vecIndex);
             // assume cost of one for this op if both are selected
             obj += vecVars[vec].var * v.var * 1;
             continue;
@@ -206,7 +208,7 @@ solverResult PackingSolver::runSolver(
             obj += vecVars[vec].var * v.var *
                    (vInputs.size() - foundInputsForLanes + 1);
             coveredVecInputs.insert(vec);
-            directVecInputMap[vecIndex][vec] = inputIds;
+            directVecInputMap[vecIndex].insert(vec);
             // TODO For now we will allow one user of vec to use this shortcut,
             // although with copies, half extracts, register renaming etc. this
             // could be modelled more precisely
@@ -314,15 +316,15 @@ solverResult PackingSolver::runSolver(
     }
     model.addConstr(opSum == 1);
   }
-
-  for (auto& ex : exclusions) {
-    GRBQuadExpr opSum = 0.0;
-    for (auto& vec : ex.second) {
-      opSum += vecVars[ex.first].var*vecVars[vec].var;
+  if (CONSTR_EXCLUSIONS) {
+    for (auto &ex : exclusions) {
+      GRBQuadExpr opSum = 0.0;
+      for (auto &vec : ex.second) {
+        opSum += vecVars[ex.first].var * vecVars[vec].var;
+      }
+      model.addQConstr(opSum <= 1);
     }
-    model.addQConstr(opSum <= 1);
   }
-
   model.optimize();
   std::unordered_set<size_t> vecs;
   std::vector<size_t> nonVecs;
@@ -337,13 +339,22 @@ solverResult PackingSolver::runSolver(
       nonVecs.push_back(serVar.first);
     }
   }
-  std::unordered_map<size_t,std::unordered_map<size_t, std::vector<size_t>>> directVecs;
-
+  std::unordered_map<size_t,std::unordered_set<size_t>> directVecs;
+  std::unordered_set<size_t> usedDirectVecInputs;
   for (auto& vec : vecs) {
     for (auto& direct : directVecInputMap[vec]) {
-      if (vecs.find(direct.first) != vecs.end()) {
-	// both _vec_ and _direct.first_ were selected, so we store _direct_ as a direct input
-	directVecs[vec].insert(direct);
+      if (vecs.find(direct) != vecs.end() 
+	  // each vector can only be direct input to one vector
+	  // TODO reflect this in the cost model
+	  ) {
+        // both _vec_ and _direct.first_ were selected, so we store _direct_ as a direct input
+        if (usedDirectVecInputs.find(direct) !=
+            usedDirectVecInputs.end()) {
+	  std::cout << "double use" << std::endl;
+        } else {
+          directVecs[vec].insert(direct);
+          usedDirectVecInputs.insert(direct);
+        }
       }
     }
   }
@@ -351,8 +362,8 @@ solverResult PackingSolver::runSolver(
   return {vecs,nonVecs, directVecs};
 }
 
-std::unordered_map<std::string, size_t>
-PackingSolver::getPacking(IRGraph &graph, size_t width) {
+vectorizationResultInfo
+PackingSolver::getVectorization(IRGraph &graph, size_t width) {
   GRBEnv env = GRBEnv(true);
   env.set("LogFile", "mip1.log");
   env.start();
@@ -445,14 +456,10 @@ PackingSolver::getPacking(IRGraph &graph, size_t width) {
   for (auto& vec : packing.directVecInputs) {
     size_t vecIdx = vecVarIdxToVectorsIdx[vec.first];
     for (auto& in : vec.second) {
-      size_t inVecIdx = vecVarIdxToVectorsIdx[in.first];
-      std::vector<std::string> inputNames;
-      for (auto& id : in.second) {
-	inputNames.push_back(sct.names[id]);
-      }
-      directVecInputs[vecIdx][inVecIdx] = inputNames;
+      size_t inVecIdx = vecVarIdxToVectorsIdx[in];
+      directVecInputs[vecIdx].insert(inVecIdx);
     }
   }
 
-  return res;
+  return {res, directVecInputs, vectors};
 }

@@ -20,11 +20,6 @@ public:
   void generateLLVMIR(IRGraph &graph, bool vectorize);
 
 private:
-  std::unordered_map<std::string, std::vector<NodeReference>>
-  getVectorization(IRGraph &graph);
-  std::vector<std::vector<NodeReference>>
-  getLongestChain(std::vector<NodeReference> roots,
-                  std::unordered_set<std::string> pruned);
   LLVMContext context;
   IRBuilder<> builder;
   std::unique_ptr<Module> module;

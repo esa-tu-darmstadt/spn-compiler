@@ -18,7 +18,7 @@ class IREmitter : public BaseVisitor {
 public:
   IREmitter(
       std::unordered_map<std::string, size_t> &vec,
-      std::unordered_map<size_t, std::unordered_map<size_t, std::vector<std::string>>>& directVecInputs,
+      std::unordered_map<size_t, std::unordered_set<size_t>>& directVecInputs,
       std::vector<std::vector<NodeReference>>& vectors, Value *in,
       Function *func, LLVMContext &context, IRBuilder<> &builder,
       Module *module, unsigned width);
@@ -70,7 +70,7 @@ private:
 	break;
       }
     }
-    //assert(weight > 0.0);
+    assert(weight > 0.0);
     auto mul = _builder.CreateFMul(
         ConstantFP::get(Type::getDoubleTy(_context), weight), in);
     return _builder.CreateFAdd(acc, mul);
@@ -85,77 +85,122 @@ private:
 
   template <class T>
   Value *handleScalarInput(T &n, Value *acc, NodeReference in) {
-    if (node2value.find(in->id()) == node2value.end())
-      in->accept(*this, {});
+    assert(node2value.find(in->id()) != node2value.end());
     auto inInfo = node2value[in->id()];
     Value *inVal;
     if (inInfo.pos == -1)
       inVal = inInfo.val;
     else
-      inVal = _builder.CreateExtractElement(inInfo.val, inInfo.pos);
+      inVal = _builder.CreateExtractElement(inInfo.val, inInfo.pos, in->id() + "_extr");
     return scalarArith(n, acc, inVal, in->id());
   }
 
-  Value *vecArith(WeightedSum &n, Value *acc, Value* in, size_t inId, size_t width) {
-    std::vector<Value *> weights;
+  Value *vecArith(WeightedSum &n, Value *acc, Value *in,
+                  std::unordered_map<size_t, NodeReference> accOrder,
+                  std::vector<std::pair<std::string, size_t>> inOrder) {
 
-    for (int i = 0; i < width; i++) {
-      std::string inputName;
-      if (i < _vectors[inId].size())
-	inputName = _vectors[inId][i]->id();
-      
-      auto inputs = ((WeightedSum *)_vectors[_vec[n.id()]][i].get())->addends();
+    Value *weights = UndefValue::get(
+        VectorType::get(Type::getDoubleTy(_context), simdWidth));
+
+    for (auto &lane : accOrder) {
+      auto inputs = ((WeightedSum *)lane.second.get())->addends();
       double weight = 0.0;
-      for (auto &w : *inputs) {
-        if (w.addend->id() == inputName) {
-          weight = w.weight;
+      for (auto &inVal : inOrder) {
+        if (inVal.second == lane.first) {
+	  for (auto& in : *inputs) {
+            if (inVal.first == in.addend->id()) {
+	      weight = in.weight;
+	    }
+          }
+          assert(weight > 0.0);
         }
       }
-      // Note: it may be, that weight is not set, because the value in slot _i_
-      // of _inId_ is not actually used, thus we cannot find any input for
-      // inputName, which is either "" or an id that is used by other values. We
-      // can choose any weight then, because the i-th value in in _in_ is 0.0
-      // (i.e. neutral wrt addition) anyway, so we just leave it at 0.0
-      weights.push_back(ConstantFP::get(Type::getDoubleTy(_context), weight));
+      weights = _builder.CreateInsertElement(weights, ConstantFP::get(Type::getDoubleTy(_context), weight), lane.first);
     }
-
-    Value *weightVec = _builder.CreateVectorSplat(simdWidth, weights[0]);
-
-    for (int i = 1; i < width; i++) {
-      weightVec = _builder.CreateInsertElement(weightVec, weights[i], i);
-    }
-    auto mul = _builder.CreateFMul(in, weightVec);
+    auto mul = _builder.CreateFMul(in, weights);
     return _builder.CreateFAdd(acc, mul);
   }
 
-  Value *vecArith(Sum &n, Value *acc, Value* in, size_t inId, size_t width) {
+  Value *vecArith(Sum &n, Value *acc, Value* in,
+                  std::unordered_map<size_t, NodeReference> accOrder,
+                  std::vector<std::pair<std::string, size_t>> inOrder) {
     return _builder.CreateFAdd(acc, in);
   }
 
-  Value *vecArith(Product &n, Value *acc, Value* in, size_t inId, size_t width) {
+  Value *vecArith(Product &n, Value *acc, Value* in,
+                  std::unordered_map<size_t, NodeReference> accOrder,
+                  std::vector<std::pair<std::string, size_t>> inOrder) {
     return _builder.CreateFMul(acc, in);
   }
-  
+
+  bool createInputs(std::vector<
+          std::pair<NodeReference, std::vector<std::pair<std::string, size_t>>>>
+		    inputs) {
+
+    while (inputs.size() > 0) {
+      std::vector<
+          std::pair<NodeReference, std::vector<std::pair<std::string, size_t>>>>
+          deferredInputs;
+      for (auto &in : inputs) {
+        in.first->accept(
+            *this,
+            in.second.size()
+                ? std::make_shared<std::vector<std::pair<std::string, size_t>>>(
+                      in.second)
+                : std::shared_ptr<
+                      std::vector<std::pair<std::string, size_t>>>());
+        if (tryOtherNode) {
+          deferredInputs.push_back(in);
+          tryOtherNode = false;
+        }
+      }
+      if (deferredInputs.size() == inputs.size()) {
+        // no more progress was made in this iteration, so we will try to
+        // create the other inputs of the consumer of _n_ first
+        return false;
+      }
+      inputs = deferredInputs;
+    }
+    return true;
+  }
   template <class T> void emitArith(T &n, arg_t arg) {
     // Node might have been handled already by another node it shares a vector
     // with
+
+    if (n.id() == "60" || n.id() == "65" || n.id() == "57" || n.id() == "70" ) {
+      std::cout << "hit " << std::endl;
+    }
     if (node2value.find(n.id()) != node2value.end())
       return;
 
     auto it = _vec.find(n.id());
     if (it == _vec.end()) {
       Value *out = ConstantFP::get(Type::getDoubleTy(_context), getNeutralValue<T>());
+      std::vector<
+          std::pair<NodeReference, std::vector<std::pair<std::string, size_t>>>>
+          inputs;
+      
+      for (int i = 0; i < getInputLength(n); i++) {
+	inputs.push_back({getInput(n, i), {}});
+      }
+      
+      if (!createInputs(inputs)) {
+	tryOtherNode = true;
+	return;
+      }
+      
       for (int i = 0; i < getInputLength(n); i++) {
 	out = handleScalarInput(n, out, getInput(n, i));
       }
       out->setName(n.id());
       node2value.insert({n.id(), {out, -1, 0}});
     } else {
-      // scalar histo, non histo scalar, direct vec, extract vec
-      std::vector<std::vector<NodeReference>> histogramInputs;
-      // first is vector id, second is lane in this vector
-      std::vector<std::set<std::pair<size_t, unsigned>>> extractVec;
-      std::vector<std::vector<NodeReference>> scalarIn;
+      if (vecsWithOrder.find(it->second) != vecsWithOrder.end() && arg.get() == nullptr) {
+	tryOtherNode = true;
+	return;
+      }
+      std::unordered_map<size_t, std::vector<NodeReference>> histogramInputs;
+      std::unordered_map<size_t, std::vector<NodeReference>> scalarIn;
       std::unordered_set<size_t> directVec;
       struct isHistoVisitor : public BaseVisitor {
         void visitHistogram(Histogram &n, arg_t arg) { isHisto = true; }
@@ -167,24 +212,23 @@ private:
       };
       isHistoVisitor histoCheck;
 
-      std::vector<NodeReference> order;
-      order.resize(_vectors[it->second].size());
+      std::unordered_map<size_t, NodeReference> order;
 
       
       if (arg.get() == nullptr) {
 	// There is no restriction on the order of the elements because all elements are extracted
-	order = _vectors[it->second];
+	for (int i = 0; i < _vectors[it->second].size(); i++) {
+	  order.insert({i, _vectors[it->second][i]});
+	}
       } else {
-	std::unordered_set<size_t> used;
 	std::vector<NodeReference> flexible;
 	auto* reqs = (std::vector<std::pair<std::string, size_t>>*) arg.get();
 	for (auto& elem : _vectors[it->second]) {
 	  bool set = false;
 	  for (auto& req : *reqs) {
 	    if (req.first == elem->id()) {
+	      assert(order.find(req.second) == order.end());
 	      order[req.second] = elem;
-	      assert(used.find(req.second) == used.end());
-	      used.insert(req.second);
 	      set = true;
 	      break;
 	    }
@@ -195,76 +239,82 @@ private:
 	}
 	int i = 0;
         for (auto &e : flexible) {
-          while (used.find(i) != used.end())
+          while (order.find(i) != order.end())
             i++;
           order[i] = e;
 	  i++;
         }
+	std::vector<NodeReference> newRefVec;
       }
 
       auto& directInputs = _directVecInputs[it->second];
       std::unordered_map<size_t, std::vector<std::pair<std::string, size_t>>> newReqs;
       
-      for (int i = 0; i < order.size(); i++) {
-	auto& in = order[i];
+      for (auto& lane : order) {
+	auto& in = lane.second;
+	histogramInputs.insert({lane.first, {}});
+	scalarIn.insert({lane.first, {}});
         // Used to check if we've already planned for an element of a vector to
-        // be a direct op In that case, we cannot use another element from that
+        // be a direct op. In that case, we cannot use another element from that
         // same vector for the same lane, instead, the second needed value of
         // that vector will have to be extracted
         std::unordered_set<size_t> usedDirects;
         T *curNode = (T *)in.get();
-	histogramInputs.push_back({});
-	extractVec.push_back({});
-	scalarIn.push_back({});
         for (int j = 0; j < getInputLength(*curNode); j++) {
           NodeReference m = getInput(*curNode, j);
 
 	  m->accept(histoCheck, {});
 
 	  if (histoCheck.isHisto) {
-	    histogramInputs.back().push_back(m);
+	    histogramInputs[lane.first].push_back(m);
 	    continue;
 	  }
 	  
           if (_vec.find(m->id()) == _vec.end()) {
 	    // input is scalar
-            m->accept(*this, {});
-	    scalarIn.back().push_back(m);
+	    scalarIn[lane.first].push_back(m);
 	  } else {
 	    size_t vecId = _vec[m->id()];
 	    if (directInputs.find(vecId) == directInputs.end() || usedDirects.find(vecId) != usedDirects.end()) {
-              m->accept(*this, {});
-              if (n.id() == "8" || n.id() == "26")
-                std::cout << "hit" << std::endl;
-              extractVec.back().insert({vecId, node2value[m->id()].pos});
+              scalarIn[lane.first].push_back(m);
             } else {
 	      usedDirects.insert(vecId);
-	      newReqs[vecId].push_back({m->id(), i});
+	      newReqs[vecId].push_back({m->id(), lane.first});
             }
           }
         }
       }
 
-      // now that all position requirements for direct input vectors are collected, they can be created
+      std::vector<
+          std::pair<NodeReference, std::vector<std::pair<std::string, size_t>>>>
+          inputs;
+
       for (auto &direct : newReqs) {
-        _vectors[direct.first][0]->accept(
-            *this,
-            std::make_shared<std::vector<std::pair<std::string, size_t>>>(
-                direct.second));
+	inputs.push_back({_vectors[direct.first][0], direct.second});
 	directVec.insert(direct.first);
       }
 
+      for (auto& lane : scalarIn) {
+	for (auto& node : lane.second) {
+	  inputs.push_back({node, {}});
+	}
+      }
+      if (!createInputs(inputs)) {
+	tryOtherNode = true;
+	return;
+      }
+
       struct iteratorVector {
-        iteratorVector(std::vector<std::vector<NodeReference>> &histoIn) {
+        iteratorVector(std::unordered_map<size_t, std::vector<NodeReference>> &histoIn) {
           for (auto &vec : histoIn) {
-            iterators.push_back(vec.begin());
-            ends.push_back(vec.end());
+            iterators.insert({vec.first, vec.second.begin()});
+            ends.insert({vec.first, vec.second.end()});
           }
         }
 
 	bool isEnd() {
-	  for (int i = 0; i < ends.size(); i++) {
-	    if (iterators[i] == ends[i])
+	  for (auto& it : iterators) {
+	    if (it.second == ends[it.first])
 	      return true;
 	  }
 	  return false;
@@ -272,41 +322,40 @@ private:
 
 	void advance() {
 	  for (auto& histIt : iterators) {
-	    histIt++;
+	    histIt.second++;
 	  }
 	}
-        std::vector<decltype(histogramInputs[0].begin())> iterators;
-        std::vector<decltype(histogramInputs[0].begin())> ends;
+        std::unordered_map<size_t,decltype(histogramInputs.begin()->second.begin())> iterators;
+        std::unordered_map<size_t,decltype(histogramInputs.begin()->second.begin())> ends;
       };
-      
       auto vecIt = iteratorVector(histogramInputs);
-      for (; !vecIt.isEnd(); vecIt.advance()) {
-        std::vector<Value*> inputOffsets;
-        std::vector<Value*> histogramArrays;
-	std::vector<NodeReference> histoNodeRefs;
+      for (;!vecIt.isEnd(); vecIt.advance()) {
+        std::unordered_map<size_t,Value*> inputOffsets;
+        std::unordered_map<size_t,Value*> histogramArrays;
+	std::unordered_map<size_t,NodeReference> histoNodeRefs;
         for (auto &nodeRef : vecIt.iterators) {
-	  histoNodeRefs.push_back(*nodeRef);
-          Histogram *histObject = (Histogram *)nodeRef->get();
+	  histoNodeRefs[nodeRef.first] = *(nodeRef.second);
+          Histogram *histObject = (Histogram *)nodeRef.second->get();
           auto inputObject = histObject->indexVar();
-          inputOffsets.push_back(ConstantInt::getSigned(
-              Type::getInt32Ty(_context), inputObject->index()));
-          histogramArrays.push_back(getHistogramPtr(*histObject));
+          inputOffsets[nodeRef.first] = ConstantInt::getSigned(
+              Type::getInt32Ty(_context), inputObject->index());
+          histogramArrays[nodeRef.first] = getHistogramPtr(*histObject);
         }
 
         // For now we don't support avx512, so it's always a 4 wide input
         // address vector although we might actually only use 2
 	assert(simdWidth == 2 || simdWidth == 4);
         Value *inputAddressVector =
-            _builder.CreateVectorSplat(4, inputOffsets[0]);
+            UndefValue::get(VectorType::get(Type::getInt32Ty(_context), 4));
 
-        Value *histogramAddressVector =
-	  _builder.CreateVectorSplat(simdWidth, _builder.CreatePtrToInt(histogramArrays[0], IntegerType::get(_context, 64)));
+        Value *histogramAddressVector = UndefValue::get(
+            VectorType::get(IntegerType::get(_context, 64), simdWidth));
 
-        for (int i = 1; i < order.size(); i++) {
+        for (auto& in : inputOffsets) {
           inputAddressVector = _builder.CreateInsertElement(
-              inputAddressVector, inputOffsets[i], i);
+              inputAddressVector, in.second, in.first);
           histogramAddressVector = _builder.CreateInsertElement(
-              histogramAddressVector, _builder.CreatePtrToInt(histogramArrays[i], IntegerType::get(_context, 64)), i);
+              histogramAddressVector, _builder.CreatePtrToInt(histogramArrays[in.first], IntegerType::get(_context, 64)), in.first);
         }
 
 	Function* intGather = Intrinsic::getDeclaration(_module,llvm::Intrinsic::x86_avx2_gather_d_d);
@@ -315,8 +364,14 @@ private:
 	intArgs.push_back(UndefValue::get(VectorType::get(Type::getInt32Ty(_context), 4)));
 	intArgs.push_back(_builder.CreatePointerCast(_in, PointerType::getUnqual(Type::getInt8Ty(_context))));
 	intArgs.push_back(inputAddressVector);
-        intArgs.push_back(Constant::getAllOnesValue(
-            VectorType::get(Type::getInt32Ty(_context), 4)));
+
+        Value* mask = Constant::getNullValue(
+            VectorType::get(Type::getInt32Ty(_context), 4));
+	for (auto& in : inputOffsets) {
+	  mask  = _builder.CreateInsertElement(mask, Constant::getAllOnesValue(Type::getInt32Ty(_context)), in.first);
+	}
+
+        intArgs.push_back(mask);
         intArgs.push_back(
             ConstantInt::getSigned(Type::getInt8Ty(_context), sizeof(int32_t)));
 
@@ -329,13 +384,13 @@ private:
               {0, 1});
         }
 
-        auto scaledInput = _builder.CreateMul(
-            _builder.CreateZExt(
-                inputVector,
-                VectorType::get(IntegerType::get(_context, 64), simdWidth)),
-            _builder.CreateVectorSplat(
-                simdWidth, ConstantInt::get(IntegerType::get(_context, 64),
-                                            sizeof(double))));
+        auto doubleSizeSplat = _builder.CreateVectorSplat(
+            simdWidth,
+            ConstantInt::get(IntegerType::get(_context, 64), sizeof(double)));
+        auto zextInputs = _builder.CreateZExt(
+            inputVector,
+            VectorType::get(IntegerType::get(_context, 64), simdWidth));
+        auto scaledInput = _builder.CreateMul(doubleSizeSplat, zextInputs);
         auto histoLoadAddresses = _builder.CreateAdd(scaledInput, histogramAddressVector);
 
 	Function* doubleGather;
@@ -350,96 +405,101 @@ private:
         doubleArgs.push_back(ConstantPointerNull::get(
             PointerType::getUnqual(Type::getInt8Ty(_context))));
         doubleArgs.push_back(histoLoadAddresses);
-        doubleArgs.push_back(Constant::getAllOnesValue(
-            VectorType::get(Type::getDoubleTy(_context), simdWidth)));
+
+        Value* doubleMask = Constant::getNullValue(
+            VectorType::get(Type::getDoubleTy(_context), simdWidth));
+	for (auto& in : inputOffsets) {
+	  doubleMask  = _builder.CreateInsertElement(doubleMask, Constant::getAllOnesValue(Type::getDoubleTy(_context)), in.first);
+	}
+
+        doubleArgs.push_back(doubleMask);
         doubleArgs.push_back(
             ConstantInt::getSigned(Type::getInt8Ty(_context), 1));
 
 	auto histoLoad = _builder.CreateCall(doubleGather, doubleArgs);
         size_t newId = _vectors.size();
-        _vectors.push_back(histoNodeRefs);
+	std::vector<NodeReference> newRefVec;
+	for (auto& ref : histoNodeRefs) {
+	  newRefVec.push_back(ref.second);
+	}
+        _vectors.push_back(newRefVec);
         std::string histVecName = "";
-        for (int i = 0; i < order.size(); i++) {
-          histVecName += histoNodeRefs[i]->id() + "_";
-          node2value.insert({histoNodeRefs[i]->id(), {histoLoad, i, newId}});
+        for (auto& ref : histoNodeRefs) {
+          histVecName += ref.second->id() + "_";
+          node2value.insert({ref.second->id(), {histoLoad, static_cast<int>(ref.first), newId}});
+	  newReqs[newId].push_back({ref.second->id(), ref.first});
         }
 	inputVector->setName(histVecName+"idx");
         histoLoad->setName(histVecName);
         directVec.insert(newId);
       }
       
-      std::vector<Value *> serialInputs;
+      std::unordered_map<size_t, Value *> serialInputs;
       // First emit all reductions of inputs which do not come in a vector
-      for (int i = 0; i < order.size(); i++) {
-        T *curNode = (T *)order[i].get();
+      for (auto& lane : order) {
+        T *curNode = (T *)lane.second.get();
 
         Value *aggSerIn =
             ConstantFP::get(Type::getDoubleTy(_context), getNeutralValue<T>());
 
-        while (vecIt.iterators[i] != vecIt.ends[i]) {
-          auto &hist = vecIt.iterators[i];
+        while (vecIt.iterators[lane.first] != vecIt.ends[lane.first]) {
+          auto &hist = vecIt.iterators[lane.first];
+          // Note: this accept can't fail, since it's a scalar histogram, thus
+          // has neither inputs nor order
+          (*hist)->accept(*this, {});
           aggSerIn = handleScalarInput(*curNode, aggSerIn, *hist);
           hist++;
         }
 
-        for (auto &scalarRef : scalarIn[i]) {
+        for (auto &scalarRef : scalarIn[lane.first]) {
           aggSerIn = handleScalarInput(*curNode, aggSerIn, scalarRef);
         }
 
-        for (auto &extract : extractVec[i]) {
-          aggSerIn =
-              handleScalarInput(*curNode, aggSerIn, _vectors[extract.first][extract.second]);
-        }
-        serialInputs.push_back(aggSerIn);
+        serialInputs[lane.first] = aggSerIn;
       }
-      Value *out = _builder.CreateVectorSplat(simdWidth, serialInputs[0]);
+      Value *out = UndefValue::get(
+          VectorType::get(Type::getDoubleTy(_context), simdWidth));
 
-      for (int i = 1; i < order.size(); i++) {
-        out = _builder.CreateInsertElement(out, serialInputs[i], i);
+      for (auto &lane : order) {
+        out = _builder.CreateInsertElement(out, serialInputs[lane.first], lane.first);
       }
-      
+
       for (auto& direct : directVec) {
-	if (newReqs.find(direct) == newReqs.end() || newReqs[direct].size() == order.size()) {
-          out = vecArith(n, out, node2value[_vectors[direct][0]->id()].val, direct, order.size());
-        } else {
-	  // not all _values_ in direct are needed by _out_
-	  std::cout << "half extract in " << n.id() << std::endl;
-	  Value* directVecVal = node2value[_vectors[direct][0]->id()].val;
-	  for (int i = 0; i < order.size(); i++) {
-	    bool needed = false;
-            if (i < _vectors[direct].size()) {
-              auto &direcLane = _vectors[direct][i];
-              for (auto &neededVal : newReqs[direct]) {
-                if (direcLane->id() == neededVal.first) {
-                  needed = true;
-                  break;
-                }
-              }
-            }
-            if (!needed) {
-              directVecVal = _builder.CreateInsertElement(
-                  directVecVal,
-                  ConstantFP::get(Type::getDoubleTy(_context),
-                                  getNeutralValue<T>()),
-                  i);
+        Value *directVecVal = node2value[_vectors[direct][0]->id()].val;
+        for (auto &lane : order) {
+          bool needed = false;
+
+          for (auto &providedVal : newReqs[direct]) {
+            if (lane.first == providedVal.second) {
+              needed = true;
+              break;
             }
           }
-	  out = vecArith(n, out, directVecVal, direct, order.size());
-	}
-	
+          if (!needed) {
+            directVecVal = _builder.CreateInsertElement(
+                directVecVal,
+                ConstantFP::get(Type::getDoubleTy(_context),
+                                getNeutralValue<T>()),
+                lane.first);
+          }
+        }
+        out = vecArith(n, out, directVecVal, order, newReqs[direct]);
       }
+
       std::string valName = "";
-      for (int i = 0; i < order.size(); i++) {
-	valName += _vectors[it->second][i]->id() + "_";
+      for (auto& lane : order) {
+	valName += lane.second->id() + "_";
         node2value.insert(
-            {_vectors[it->second][i]->id(), {out, i, it->second}});
+			  {lane.second->id(), {out, static_cast<int>(lane.first), it->second}});
       }
       out->setName(valName);
     }
   }
   std::unordered_map<std::string, size_t>& _vec;
-  std::unordered_map<size_t, std::unordered_map<size_t, std::vector<std::string>>>& _directVecInputs;
+  std::unordered_map<size_t, std::unordered_set<size_t>>& _directVecInputs;
   std::vector<std::vector<NodeReference>>& _vectors;
+  std::unordered_set<size_t> vecsWithOrder;
+  bool tryOtherNode = false;
   Value *_in;
   Function *_func;
   LLVMContext &_context;

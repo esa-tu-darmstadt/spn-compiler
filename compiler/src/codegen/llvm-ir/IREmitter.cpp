@@ -2,13 +2,20 @@
 
 IREmitter::IREmitter(
       std::unordered_map<std::string, size_t> &vec,
-      std::unordered_map<size_t, std::unordered_map<size_t, std::vector<std::string>>>& directVecInputs,
+      std::unordered_map<size_t, std::unordered_set<size_t>>& directVecInputs,
       std::vector<std::vector<NodeReference>>& vectors, Value *in,
       Function *func, LLVMContext &context, IRBuilder<> &builder,
       Module *module, unsigned width)
     : _vec(vec), _directVecInputs(directVecInputs), _vectors(vectors), _in(in),
       _func(func), _context(context), _builder(builder), _module(module),
-      simdWidth(width) {}
+      simdWidth(width) {
+  for (auto& vec : directVecInputs) {
+    for (auto& inVec : vec.second) {
+      vecsWithOrder.insert(inVec);
+    }
+  }
+
+}
 
 void IREmitter::visitInputvar(InputVar &n, arg_t arg) {
   // Node might have been handled already by another node it shares a vector
