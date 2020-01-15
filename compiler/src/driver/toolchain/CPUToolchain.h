@@ -7,13 +7,16 @@
 
 #include <llvm/IR/Module.h>
 #include <driver/Job.h>
+#include <driver/BaseActions.h>
 
 namespace spnc {
+
+    using Bitcode = File<FileType::LLVM_BC>;
 
     class CPUToolchain {
 
     public:
-        static std::unique_ptr<Job<llvm::Module>> constructJob(const std::string& inputFile) ;
+        static std::unique_ptr<Job<Bitcode>> constructJob(const std::string& inputFile) ;
 
     };
 
