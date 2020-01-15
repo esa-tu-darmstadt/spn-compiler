@@ -13,6 +13,7 @@ add_library(spnc SHARED src/Driver.cpp
         src/graph-ir/Product.cpp
         src/json/Parser.cpp
         src/transform/BaseVisitor.cpp
+        src/transform/IRTransformationPass.cpp
         src/util/DotVisitor.cpp
         src/transform/BinaryTreeTransform.cpp
         src/codegen/llvm-ir/CPU/LLVMCPUCodegen.cpp

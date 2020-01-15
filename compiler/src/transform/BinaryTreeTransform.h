@@ -9,29 +9,39 @@
 #include <graph-ir/GraphIRNode.h>
 #include <unordered_map>
 #include "BaseVisitor.h"
+#include "IRTransformationPass.h"
 
-class BinaryTreeTransform : public BaseVisitor {
+namespace spnc {
+    class BinaryTreeTransform : public BaseVisitor, public IRTransformationPass {
 
-public:
-    NodeReference binarizeTree(const NodeReference& rootNode);
+    public:
 
-    void visitHistogram(Histogram& n, arg_t arg) override ;
+        explicit BinaryTreeTransform(ActionWithOutput<IRGraph>& _input);
 
-    void visitProduct(Product& n, arg_t arg) override ;
+        IRGraph transform(IRGraph& input) override ;
 
-    void visitSum(Sum& n, arg_t arg) override ;
+        NodeReference binarizeTree(const NodeReference& rootNode);
 
-    void visitWeightedSum(WeightedSum& n, arg_t arg) override ;
+        void visitHistogram(Histogram& n, arg_t arg) override ;
 
-private:
-    std::unordered_map<std::string, NodeReference> updated_nodes;
+        void visitProduct(Product& n, arg_t arg) override ;
 
-    template<class T>
-    NodeReference splitChildren(const std::vector<NodeReference>& children, const std::string& prefix) const;
+        void visitSum(Sum& n, arg_t arg) override ;
 
-    NodeReference splitWeightedChildren(const std::vector<WeightedAddend>& children, const std::string& prefix) const;
+        void visitWeightedSum(WeightedSum& n, arg_t arg) override ;
 
-};
+    private:
+        std::unordered_map<std::string, NodeReference> updated_nodes;
+
+        template<class T>
+        NodeReference splitChildren(const std::vector<NodeReference>& children, const std::string& prefix) const;
+
+        NodeReference splitWeightedChildren(const std::vector<WeightedAddend>& children, const std::string& prefix) const;
+
+    };
+}
+
+
 
 
 #endif //SPNC_BINARYTREETRANSFORM_H
