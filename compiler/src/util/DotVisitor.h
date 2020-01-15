@@ -8,27 +8,45 @@
 
 #include <transform/BaseVisitor.h>
 #include <sstream>
+#include <driver/Actions.h>
+#include <driver/BaseActions.h>
 
-class DotVisitor : BaseVisitor {
+namespace spnc {
 
-public:
+    class DotVisitor : BaseVisitor, ActionSingleInput<IRGraph, File<FileType::DOT>> {
 
-    void writeDotGraph(const NodeReference& rootNode, const std::string& outputFile);
+    public:
 
-    void visitInputvar(InputVar& n, arg_t arg) override ;
+        explicit DotVisitor(ActionWithOutput<IRGraph>& _input, const std::string& outputFile);
 
-    void visitHistogram(Histogram& n, arg_t arg) override ;
+        File<FileType::DOT> &execute() override;
 
-    void visitProduct(Product& n, arg_t arg) override ;
+    private:
 
-    void visitSum(Sum& n, arg_t arg) override ;
+        void writeDotGraph(const NodeReference& rootNode);
 
-    void visitWeightedSum(WeightedSum& n, arg_t arg) override ;
+    public:
 
-private:
-    std::stringstream nodes{};
-    std::stringstream edges{};
-};
+        void visitInputvar(InputVar& n, arg_t arg) override ;
+
+        void visitHistogram(Histogram& n, arg_t arg) override ;
+
+        void visitProduct(Product& n, arg_t arg) override ;
+
+        void visitSum(Sum& n, arg_t arg) override ;
+
+        void visitWeightedSum(WeightedSum& n, arg_t arg) override ;
+
+    private:
+        std::stringstream nodes{};
+        std::stringstream edges{};
+        const std::string& outfile;
+        bool cached = false;
+        File<FileType::DOT> file = File<FileType::DOT>("uninitialized.dot");
+    };
+}
+
+
 
 
 #endif //SPNC_DOTVISITOR_H
