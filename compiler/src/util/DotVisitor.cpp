@@ -13,7 +13,7 @@ namespace spnc {
     void DotVisitor::writeDotGraph(const NodeReference& rootNode) {
       rootNode->accept(*this, nullptr);
       std::ofstream fileStream;
-      fileStream.open(outfile);
+      fileStream.open(outfile.fileName());
       fileStream << "digraph spn {" << std::endl;
       fileStream << nodes.rdbuf();
       fileStream << edges.rdbuf();
@@ -58,8 +58,7 @@ namespace spnc {
     spnc::File<FileType::DOT>& spnc::DotVisitor::execute() {
       if(!cached){
         writeDotGraph(input.execute().rootNode);
-        file = File<FileType::DOT>{outfile};
       }
-      return file;
+      return outfile;
     }
 }

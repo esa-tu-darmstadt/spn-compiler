@@ -22,7 +22,7 @@ namespace spnc {
       std::cout << "Input file: " << file.fileName() << std::endl;
       // TODO Check that opening the file worked out;
       json j;
-      file.stream() >> j;
+      std::ifstream{file.fileName()} >> j;
       if(!j.is_object()){
         std::cerr << "ERROR: Could not parse SPN from " << file.fileName() << std::endl;
         assert(false);

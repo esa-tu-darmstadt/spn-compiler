@@ -8,25 +8,9 @@
 #include <fstream>
 #include <memory>
 #include "Actions.h"
+#include <util/FileSystem.h>
 
 namespace spnc {
-
-    enum class FileType{SPN_JSON, LLVM_BC, OBJECT, SHARED_OBJECT, DOT};
-
-    template<FileType Type>
-    class File {
-    public:
-        explicit File(const std::string& fileName) : fName{fileName}, fileStream{fileName} {}
-
-        std::ifstream& stream() { return fileStream; }
-
-        const std::string& fileName() { return fName; }
-
-    private:
-        std::string fName;
-
-        std::ifstream fileStream;
-    };
 
     template<FileType Type>
     class FileInputAction : public ActionWithOutput<File<Type>> {

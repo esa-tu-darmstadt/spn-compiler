@@ -40,9 +40,8 @@ namespace spnc {
     private:
         std::stringstream nodes{};
         std::stringstream edges{};
-        const std::string& outfile;
         bool cached = false;
-        File<FileType::DOT> file = File<FileType::DOT>("uninitialized.dot");
+        File<FileType::DOT> outfile;
     };
 }
 

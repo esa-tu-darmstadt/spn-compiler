@@ -15,7 +15,7 @@ namespace spnc {
 
     public:
 
-        explicit LLVMWriteBitcode(ActionWithOutput<llvm::Module>& _input, const std::string& outputFile);
+        explicit LLVMWriteBitcode(ActionWithOutput<llvm::Module>& _input, File<FileType::LLVM_BC> outputFile);
 
         File<FileType::LLVM_BC> &execute() override;
 

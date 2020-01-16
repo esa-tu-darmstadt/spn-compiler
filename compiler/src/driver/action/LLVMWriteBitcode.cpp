@@ -7,8 +7,8 @@
 
 namespace spnc {
 
-    LLVMWriteBitcode::LLVMWriteBitcode(spnc::ActionWithOutput<llvm::Module> &_input, const std::string &outputFile)
-      : ActionSingleInput<llvm::Module, File<FileType::LLVM_BC> >{_input}, outFile{outputFile} {}
+    LLVMWriteBitcode::LLVMWriteBitcode(spnc::ActionWithOutput<llvm::Module> &_input, File<FileType::LLVM_BC> outputFile)
+      : ActionSingleInput<llvm::Module, File<FileType::LLVM_BC> >{_input}, outFile{std::move(outputFile)} {}
 
     File<FileType::LLVM_BC> & LLVMWriteBitcode::execute() {
       if(!cached){

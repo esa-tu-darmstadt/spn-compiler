@@ -22,7 +22,8 @@ namespace spnc {
       // Invoke LLVM code-generation on transformed tree.
       auto llvmCodeGen = std::make_unique<LLVMCPUCodegen>(*binaryTreeTransform);
       // Write generated LLVM module to bitcode-file.
-      auto writeBitcode = std::make_unique<LLVMWriteBitcode>(*llvmCodeGen, "test.bc");
+      auto bitCodeFile = FileSystem::createTempFile<FileType::LLVM_BC>();
+      auto writeBitcode = std::make_unique<LLVMWriteBitcode>(*llvmCodeGen, std::move(bitCodeFile));
       job->addAction(std::move(fileInput));
       job->addAction(std::move(parser));
       job->addAction(std::move(binaryTreeTransform));
