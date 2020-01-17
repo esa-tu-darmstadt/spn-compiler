@@ -7,12 +7,13 @@
 #include <transform/BinaryTreeTransform.h>
 #include <codegen/llvm-ir/CPU/LLVMCPUCodegen.h>
 #include <driver/action/LLVMWriteBitcode.h>
+#include <driver/action/LLVMStaticCompiler.h>
 #include "CPUToolchain.h"
 
 namespace spnc {
 
-    std::unique_ptr<Job<Bitcode>> CPUToolchain::constructJob(const std::string &inputFile) {
-      std::unique_ptr<Job<Bitcode >> job{new Job<Bitcode>()};
+    std::unique_ptr<Job<ObjectFile>> CPUToolchain::constructJob(const std::string &inputFile) {
+      std::unique_ptr<Job<ObjectFile>> job{new Job<ObjectFile >()};
       // Construct file input action.
       auto fileInput = std::make_unique<FileInputAction<FileType::SPN_JSON>>(inputFile);
       // Construct parser to parse JSON from input file.
@@ -24,11 +25,16 @@ namespace spnc {
       // Write generated LLVM module to bitcode-file.
       auto bitCodeFile = FileSystem::createTempFile<FileType::LLVM_BC>();
       auto writeBitcode = std::make_unique<LLVMWriteBitcode>(*llvmCodeGen, std::move(bitCodeFile));
+      // Compile generated bitcode-file to object file.
+      auto objectFile = FileSystem::createTempFile<FileType::OBJECT>(false);
+      std::cout << "Compiling to object-file " << objectFile.fileName() << std::endl;
+      auto compileObject = std::make_unique<LLVMStaticCompiler>(*writeBitcode, std::move(objectFile));
       job->addAction(std::move(fileInput));
       job->addAction(std::move(parser));
       job->addAction(std::move(binaryTreeTransform));
       job->addAction(std::move(llvmCodeGen));
-      job->setFinalAction(std::move(writeBitcode));
+      job->addAction(std::move(writeBitcode));
+      job->setFinalAction(std::move(compileObject));
       return std::move(job);
     }
 

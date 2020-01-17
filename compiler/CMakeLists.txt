@@ -7,6 +7,7 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 add_library(spnc SHARED src/Driver.cpp
         src/driver/toolchain/CPUToolchain.cpp
         src/driver/action/LLVMWriteBitcode.cpp
+        src/driver/action/LLVMStaticCompiler.cpp
         src/graph-ir/GraphIRNode.cpp
         src/graph-ir/InputVar.cpp
         src/graph-ir/Histogram.cpp
