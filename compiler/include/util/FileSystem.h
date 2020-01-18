@@ -35,6 +35,10 @@ namespace spnc {
 
     enum class FileType{SPN_JSON, LLVM_BC, OBJECT, SHARED_OBJECT, DOT};
 
+    using LLVMBitcode = File<FileType::LLVM_BC>;
+    using ObjectFile = File<FileType::OBJECT>;
+    using SharedObject = File<FileType::SHARED_OBJECT>;
+
     template<FileType Type>
     class File {
     public:

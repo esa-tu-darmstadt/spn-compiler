@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <sstream>
+#include <iostream>
 
 namespace spnc {
 
