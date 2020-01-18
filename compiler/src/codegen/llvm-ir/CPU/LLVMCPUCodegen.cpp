@@ -7,8 +7,8 @@
 
 namespace spnc {
 
-    LLVMCPUCodegen::LLVMCPUCodegen(ActionWithOutput<IRGraph>& _input)
-      : ActionSingleInput<IRGraph, llvm::Module>(_input), builder{context} {
+    LLVMCPUCodegen::LLVMCPUCodegen(ActionWithOutput<IRGraph>& _input, const std::string& _kernelName)
+      : ActionSingleInput<IRGraph, llvm::Module>(_input), builder{context}, kernelName{_kernelName} {
       module = std::make_unique<Module>("spn-llvm", context);
     }
 
@@ -22,7 +22,7 @@ namespace spnc {
       auto outputArgs = codegenLoop.constructOutputArgumentTypes();
       argTypes.insert(argTypes.end(), outputArgs.begin(), outputArgs.end());
       auto functionType = FunctionType::get(Type::getVoidTy(context), argTypes, false);
-      auto function = Function::Create(functionType, Function::ExternalLinkage, "spn_element", module.get());
+      auto function = Function::Create(functionType, Function::ExternalLinkage, kernelName, module.get());
       auto bb = BasicBlock::Create(context, "main", function);
       builder.SetInsertPoint(bb);
       codegenLoop.emitLoop(*function, builder, ConstantInt::get(int64Ty, 0), function->arg_begin());

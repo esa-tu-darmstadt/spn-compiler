@@ -17,7 +17,7 @@ namespace spnc {
     class LLVMCPUCodegen : public ActionSingleInput<IRGraph, llvm::Module> {
 
     public:
-        explicit LLVMCPUCodegen(ActionWithOutput<IRGraph>& _input);
+        LLVMCPUCodegen(ActionWithOutput<IRGraph>& _input, const std::string& _kernelName);
 
         void generateLLVMIR(IRGraph& graph);
 
@@ -27,6 +27,7 @@ namespace spnc {
         LLVMContext context;
         IRBuilder<> builder;
         std::unique_ptr<Module> module;
+        std::string kernelName;
         std::unordered_map<std::string, Value*> node2value;
         bool cached = false;
 
