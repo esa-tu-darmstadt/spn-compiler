@@ -9,6 +9,9 @@
 
 #include <string>
 #include <Kernel.h>
+#include <unordered_map>
+#include <memory>
+#include "../src/Executable.h"
 
 using namespace spnc;
 
@@ -35,6 +38,8 @@ namespace spnc_rt {
         explicit spn_runtime() = default;
 
         static spn_runtime* _instance;
+
+        std::unordered_map<size_t, std::unique_ptr<Executable>> cached_executables;
 
     };
 

@@ -16,7 +16,11 @@ namespace spnc_rt {
     }
 
     void spn_runtime::execute(const Kernel &kernel, size_t num_elements, void *inputs, double *outputs) {
-
+      if(!cached_executables.count(kernel.unique_id())){
+        cached_executables.emplace(std::pair<size_t, std::unique_ptr<Executable>>{kernel.unique_id(),
+                                                                                  std::make_unique<Executable>(kernel)});
+      }
+      cached_executables[kernel.unique_id()]->execute(num_elements, inputs, outputs);
     }
 
 }
