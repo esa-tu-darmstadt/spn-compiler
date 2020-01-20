@@ -24,7 +24,7 @@ PYBIND11_MODULE(spncpy, m) {
                       void* input_ptr = (void*) input_buf.ptr;
                       double* output_ptr = (double*) output_buf.ptr;
 
-                      kernel.execute(num_elements, input_ptr, output_ptr);
+                      spnc_rt::spn_runtime::instance().execute(kernel, num_elements, input_ptr, output_ptr);
 
                       return result;
 

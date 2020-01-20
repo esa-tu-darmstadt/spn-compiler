@@ -6,27 +6,46 @@
 #define SPNC_PARSER_H
 
 #include <unordered_map>
+#include <driver/Actions.h>
+#include <driver/BaseActions.h>
 #include "../graph-ir/GraphIRNode.h"
 #include "json.hpp"
 
 using json = nlohmann::json;
 
-class Parser {
-public:
-    IRGraph parseJSONFile(const std::string& inputFile);
-private:
-    std::unordered_map<std::string, std::shared_ptr<InputVar>> inputVars;
+namespace spnc {
 
-    std::shared_ptr<GraphIRNode> parseNode(json& obj) const;
+class Parser : public ActionSingleInput<File<FileType::SPN_JSON>, IRGraph> {
+    public:
 
-    std::shared_ptr<WeightedSum> parseSum(json& obj) const;
+        explicit Parser(ActionWithOutput<File<FileType::SPN_JSON>>& _input);
 
-    std::shared_ptr<Product> parseProduct(json& obj) const;
+        IRGraph& execute() override ;
 
-    std::shared_ptr<Histogram> parseHistogram(json& obj) const;
+    private:
 
-    std::vector<NodeReference> parseChildren(json& obj) const;
-};
+        IRGraph parseJSONFile(File<FileType::SPN_JSON>& file);
+
+        std::unordered_map<std::string, std::shared_ptr<InputVar>> inputVars;
+
+        std::shared_ptr<GraphIRNode> parseNode(json& obj) const;
+
+        std::shared_ptr<WeightedSum> parseSum(json& obj) const;
+
+        std::shared_ptr<Product> parseProduct(json& obj) const;
+
+        std::shared_ptr<Histogram> parseHistogram(json& obj) const;
+
+        std::vector<NodeReference> parseChildren(json& obj) const;
+
+        IRGraph graph = {nullptr, nullptr};
+
+        bool cached = false;
+    };
+
+}
+
+
 
 
 #endif //SPNC_PARSER_H
