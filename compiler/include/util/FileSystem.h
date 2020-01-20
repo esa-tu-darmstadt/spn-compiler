@@ -79,6 +79,11 @@ namespace spnc {
         case FileType::SHARED_OBJECT: fileExtension = ".so"; break;
         default:                      fileExtension = "";
       }
+      /*
+       * We are currently using the "old" tmpnam-function from the C standard library.
+       * FIXME: Replace this with the C++17 filesystem header as soon as it becomes
+       * available on all relevant platforms, including Mac OS.
+       */
       std::string tmpName = std::string{std::tmpnam(nullptr)} + fileExtension;
       return File<Type>{tmpName, deleteTmpOnExit};
     }
