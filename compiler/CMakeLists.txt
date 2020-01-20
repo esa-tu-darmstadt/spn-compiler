@@ -5,7 +5,6 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 
 add_library(spnc SHARED src/Driver.cpp
-        src/driver/Kernel.cpp
         src/driver/toolchain/CPUToolchain.cpp
         src/driver/action/LLVMWriteBitcode.cpp
         src/driver/action/LLVMStaticCompiler.cpp
@@ -30,13 +29,12 @@ target_include_directories(spnc
         $<INSTALL_INTERFACE:include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 
+        $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../common/include>
+
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${LLVM_INCLUDE_DIRS})
 
 llvm_map_components_to_libnames(llvm_libs all)
 target_link_libraries(spnc PRIVATE ${llvm_libs})
-
-set_target_properties(spnc PROPERTIES
-        CXX_STANDARD 17
-        CXX_STANDARD_REQUIRED YES)

@@ -1,11 +1,8 @@
 add_library(spnc-rt SHARED
-        src/runtime.cpp)
+        src/runtime.cpp
+        src/Executable.cpp)
 
-set_target_properties(spnc-rt PROPERTIES
-        CXX_STANDARD 17
-        CXX_STANDARD_REQUIRED YES)
-
-target_include_directories(spnc
+target_include_directories(spnc-rt
         PUBLIC
         $<INSTALL_INTERFACE:include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -13,4 +10,4 @@ target_include_directories(spnc
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-target_link_libraries(spnc-rt PRIVATE elf spnc)
+target_link_libraries(spnc-rt PRIVATE elf spnc-common)

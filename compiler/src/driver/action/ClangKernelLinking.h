@@ -7,7 +7,7 @@
 
 #include <driver/Actions.h>
 #include <util/FileSystem.h>
-#include <driver/Kernel.h>
+#include "../../../../common/include/Kernel.h"
 
 namespace spnc {
 

@@ -7,7 +7,7 @@
 #include <driver/toolchain/CPUToolchain.h>
 
 namespace spnc {
-    bool spnc::parseJSON(const std::string &inputFile) {
+    bool spn_compiler::parseJSON(const std::string &inputFile) {
       auto job = CPUToolchain::constructJob(inputFile);
       job->execute();
       return true;
