@@ -7,23 +7,25 @@
 
 #include "Visitor.h"
 
-class BaseVisitor : public Visitor {
+namespace spnc {
 
-public:
+    class BaseVisitor : public Visitor {
 
-    void visitIRNode(GraphIRNode& n, arg_t arg) override ;
+    public:
 
-    void visitInputvar(InputVar& n, arg_t arg) override ;
+        void visitIRNode(GraphIRNode& n, arg_t arg) override ;
 
-    void visitHistogram(Histogram& n, arg_t arg) override ;
+        void visitInputvar(InputVar& n, arg_t arg) override ;
 
-    void visitProduct(Product& n, arg_t arg) override ;
+        void visitHistogram(Histogram& n, arg_t arg) override ;
 
-    void visitSum(Sum& n, arg_t arg) override ;
+        void visitProduct(Product& n, arg_t arg) override ;
 
-    void visitWeightedSum(WeightedSum& n, arg_t arg) override ;
+        void visitSum(Sum& n, arg_t arg) override ;
 
-};
+        void visitWeightedSum(WeightedSum& n, arg_t arg) override ;
 
+    };
+}
 
 #endif //SPNC_BASEVISITOR_H

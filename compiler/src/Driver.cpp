@@ -3,18 +3,14 @@
 //
 
 #include <spnc.h>
-#include <json/Parser.h>
 #include <iostream>
-#include <util/DotVisitor.h>
-#include <transform/BinaryTreeTransform.h>
-#include <codegen/llvm-ir/CPU/LLVMCPUCodegen.h>
+#include <driver/toolchain/CPUToolchain.h>
 
-bool spnc::parseJSON(const std::string &inputFile) {
-    Parser parser;
-    auto irGraph = parser.parseJSONFile(inputFile);
-    irGraph.rootNode = BinaryTreeTransform().binarizeTree(irGraph.rootNode);
-    DotVisitor dot;
-    dot.writeDotGraph(irGraph.rootNode, "spn.dot");
-    LLVMCPUCodegen().generateLLVMIR(irGraph);
-    return true;
+namespace spnc {
+    bool spnc::parseJSON(const std::string &inputFile) {
+      auto job = CPUToolchain::constructJob(inputFile);
+      job->execute();
+      return true;
+    }
 }
+

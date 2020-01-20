@@ -5,6 +5,11 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 
 add_library(spnc SHARED src/Driver.cpp
+        src/driver/Kernel.cpp
+        src/driver/toolchain/CPUToolchain.cpp
+        src/driver/action/LLVMWriteBitcode.cpp
+        src/driver/action/LLVMStaticCompiler.cpp
+        src/driver/action/ClangKernelLinking.cpp
         src/graph-ir/GraphIRNode.cpp
         src/graph-ir/InputVar.cpp
         src/graph-ir/Histogram.cpp
@@ -13,6 +18,7 @@ add_library(spnc SHARED src/Driver.cpp
         src/graph-ir/Product.cpp
         src/json/Parser.cpp
         src/transform/BaseVisitor.cpp
+        src/transform/IRTransformationPass.cpp
         src/util/DotVisitor.cpp
         src/transform/BinaryTreeTransform.cpp
         src/codegen/llvm-ir/CPU/LLVMCPUCodegen.cpp
@@ -30,3 +36,7 @@ target_include_directories(spnc
 
 llvm_map_components_to_libnames(llvm_libs all)
 target_link_libraries(spnc PRIVATE ${llvm_libs})
+
+set_target_properties(spnc PROPERTIES
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED YES)

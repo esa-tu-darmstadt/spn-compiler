@@ -6,8 +6,12 @@
 #define SPNC_RUNTIME_H
 
 #include <string>
-#include "Kernel.h"
+#include <driver/Kernel.h>
 
-Kernel loadKernel(const std::string& fileName, const std::string& kernelName);
+namespace spnc {
+
+    Kernel loadKernel(const std::string& fileName, const std::string& kernelName);
+
+}
 
 #endif //SPNC_RUNTIME_H
