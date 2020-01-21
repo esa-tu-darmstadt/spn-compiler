@@ -3,12 +3,13 @@
 //
 
 #include <iostream>
+#include <sstream>
 #include "Parser.h"
 
 namespace spnc {
 
-    Parser::Parser(spnc::ActionWithOutput<spnc::File<FileType::SPN_JSON>> &_input)
-      : ActionSingleInput<File<FileType::SPN_JSON>, IRGraph>{_input} {}
+    Parser::Parser(spnc::ActionWithOutput<std::string> &_input)
+      : ActionSingleInput<std::string, IRGraph>{_input} {}
 
     IRGraph& Parser::execute() {
       if(!cached){
@@ -18,13 +19,12 @@ namespace spnc {
       return graph;
     }
 
-    IRGraph Parser::parseJSONFile(File<FileType::SPN_JSON>& file) {
-      std::cout << "Input file: " << file.fileName() << std::endl;
-      // TODO Check that opening the file worked out;
+    IRGraph Parser::parseJSONFile(std::string& input) {
+      std::stringstream stream{input};
       json j;
-      std::ifstream{file.fileName()} >> j;
+      stream >> j;
       if(!j.is_object()){
-        std::cerr << "ERROR: Could not parse SPN from " << file.fileName() << std::endl;
+        std::cerr << "ERROR: Could not parse SPN from input string!" << std::endl;
         assert(false);
       }
 

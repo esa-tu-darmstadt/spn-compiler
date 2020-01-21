@@ -13,16 +13,31 @@
 namespace spnc {
 
     template<FileType Type>
-    class FileInputAction : public ActionWithOutput<File<Type>> {
+    class FileInputAction : public ActionWithOutput<std::string> {
     public:
-        explicit FileInputAction(const std::string& fileName) : file{fileName} {}
+        explicit FileInputAction(const std::string& _fileName) : fileName{_fileName} {}
 
-        File<Type>& execute() override {
-          return file;
+        std::string& execute() override {
+          if(!cached){
+            content = std::make_unique<std::string>();
+            std::ifstream in(fileName);
+            if(!in){
+              std::cerr << "ERROR: Could not read file " << fileName << std::endl;
+              throw std::system_error{};
+            }
+            in.seekg(0, std::ios::end);
+            content->resize(in.tellg());
+            in.seekg(0, std::ios::beg);
+            in.read(&(*content)[0], content->size());
+            in.close();
+          }
+          return *content;
         }
 
     private:
-        File<Type> file;
+        std::string fileName;
+        std::unique_ptr<std::string> content;
+        bool cached = false;
 
     };
 

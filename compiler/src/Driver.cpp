@@ -8,7 +8,7 @@
 
 namespace spnc {
     bool spn_compiler::parseJSON(const std::string &inputFile) {
-      auto job = CPUToolchain::constructJob(inputFile);
+      auto job = CPUToolchain::constructJobFromFile(inputFile);
       job->execute();
       return true;
     }
