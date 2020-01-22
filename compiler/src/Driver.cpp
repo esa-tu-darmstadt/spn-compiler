@@ -7,15 +7,18 @@
 #include <driver/toolchain/CPUToolchain.h>
 
 namespace spnc {
-    bool spn_compiler::parseJSON(const std::string &inputFile) {
+    Kernel spn_compiler::parseJSON(const std::string &inputFile) {
       auto job = CPUToolchain::constructJobFromFile(inputFile);
-      job->execute();
-      return true;
+      auto& kernel = job->execute();
+      std::cout << "File: " << kernel.fileName() << " Function: " << kernel.kernelName() << std::endl;
+      return kernel;
     }
 
-    bool spn_compiler::parseJSONString(const std::string &jsonString) {
-      std::cout << jsonString << std::endl;
-      return true;
+    Kernel spn_compiler::parseJSONString(const std::string &jsonString) {
+      auto job = CPUToolchain::constructJobFromString(jsonString);
+      auto& kernel = job->execute();
+      std::cout << "File: " << kernel.fileName() << " Function: " << kernel.kernelName() << std::endl;
+      return kernel;
     }
 }
 

@@ -11,22 +11,24 @@
 
 namespace spnc {
 
-    class ClangKernelLinking : public ActionSingleInput<ObjectFile, SharedObject> {
+    class ClangKernelLinking : public ActionSingleInput<ObjectFile, Kernel> {
 
     public:
 
         ClangKernelLinking(ActionWithOutput<ObjectFile>& _input, SharedObject outputFile,
                 const std::string& kernelFunctionName);
 
-        SharedObject& execute() override;
+        Kernel& execute() override;
 
     private:
 
         SharedObject outFile;
 
-        bool cached = false;
-
         std::string kernelName;
+
+        Kernel kernel;
+
+        bool cached = false;
 
     };
 

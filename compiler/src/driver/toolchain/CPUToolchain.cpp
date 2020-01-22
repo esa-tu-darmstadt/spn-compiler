@@ -13,20 +13,20 @@
 
 namespace spnc {
 
-    std::unique_ptr<Job<SharedObject> > CPUToolchain::constructJobFromFile(const std::string &inputFile) {
+    std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::string &inputFile) {
       // Construct file input action.
       auto fileInput = std::make_unique<FileInputAction<FileType::SPN_JSON>>(inputFile);
       return constructJob(std::move(fileInput));
     }
 
-    std::unique_ptr<Job<SharedObject> > CPUToolchain::constructJobFromString(const std::string &inputString) {
+    std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromString(const std::string &inputString) {
       // Construct string input action.
       auto stringInput = std::make_unique<StringInputAction>(inputString);
       return constructJob(std::move(stringInput));
     }
 
-    std::unique_ptr<Job<SharedObject>> CPUToolchain::constructJob(std::unique_ptr<ActionWithOutput<std::string>> input) {
-      std::unique_ptr<Job<SharedObject>> job{new Job<SharedObject >()};
+    std::unique_ptr<Job<Kernel>> CPUToolchain::constructJob(std::unique_ptr<ActionWithOutput<std::string>> input) {
+      std::unique_ptr<Job<Kernel>> job{new Job<Kernel>()};
       // Construct parser to parse JSON from input.
       auto parser = std::make_unique<Parser>(*input);
       // Transform all operations into binary (two inputs) operations.

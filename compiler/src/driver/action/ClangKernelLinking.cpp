@@ -9,10 +9,13 @@ namespace spnc {
 
     ClangKernelLinking::ClangKernelLinking(ActionWithOutput<ObjectFile> &_input,
                                            SharedObject outputFile, const std::string &kernelFunctionName)
-                                           : ActionSingleInput<ObjectFile, SharedObject>(_input),
-                                               outFile{std::move(outputFile)}, kernelName{kernelFunctionName} {}
+                                           : ActionSingleInput<ObjectFile, Kernel>(_input),
+                                             kernel{outputFile.fileName(), kernelFunctionName},
+                                               outFile{std::move(outputFile)}, kernelName{kernelFunctionName}{
+      kernel = Kernel{outFile.fileName(), kernelName};
+    }
 
-    SharedObject& ClangKernelLinking::execute() {
+    Kernel& ClangKernelLinking::execute() {
         if(!cached){
             std::vector<std::string> command;
             command.emplace_back("clang");
@@ -25,7 +28,7 @@ namespace spnc {
             Command::executeExternalCommand(command);
             cached = true;
         }
-        return outFile;
+        return kernel;
     }
 
 }
