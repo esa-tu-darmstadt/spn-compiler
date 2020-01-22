@@ -12,5 +12,10 @@ namespace spnc {
       job->execute();
       return true;
     }
+
+    bool spn_compiler::parseJSONString(const std::string &jsonString) {
+      std::cout << jsonString << std::endl;
+      return true;
+    }
 }
 

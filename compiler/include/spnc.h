@@ -11,6 +11,7 @@ namespace spnc {
     class spn_compiler{
     public:
         static bool parseJSON(const std::string& inputFile);
+        bool parseJSONString(const std::string& jsonString);
     };
 }
 

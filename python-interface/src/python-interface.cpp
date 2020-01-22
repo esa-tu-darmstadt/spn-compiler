@@ -5,6 +5,7 @@
 #include <pybind11/numpy.h>
 
 #include "../../runtime/include/spnc-runtime.h"
+#include "../../compiler/include/spnc.h"
 
 namespace py = pybind11;
 
@@ -29,6 +30,10 @@ PYBIND11_MODULE(spncpy, m) {
                       return result;
 
                   });
+
+  py::class_<spn_compiler>(m, "SPNCompiler")
+          .def(py::init())
+          .def("parseJSONString", &spn_compiler::parseJSONString);
 
   //m.def("execute", &execute);
 }
