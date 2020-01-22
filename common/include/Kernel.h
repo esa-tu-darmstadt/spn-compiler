@@ -18,7 +18,7 @@ namespace spnc {
           _unique_id = std::hash<std::string>{}(fN + kN);
         }
 
-        const std::string& fileName() const {return _fileName;}
+        std::string fileName() const {return std::string{_fileName};}
 
         const std::string& kernelName() const {return _kernelName;}
 
@@ -26,9 +26,9 @@ namespace spnc {
 
     private:
 
-        const std::string _fileName;
+        std::string _fileName;
 
-        const std::string _kernelName;
+        std::string _kernelName;
 
         size_t _unique_id;
 

@@ -19,7 +19,7 @@ PYBIND11_MODULE(spncpy, m) {
                   [](const Kernel& kernel, int num_elements, py::array_t<double>& inputs){
                       py::buffer_info input_buf = inputs.request();
 
-                      auto result = py::array_t<double>(input_buf.size);
+                      auto result = py::array_t<double>(num_elements);
                       py::buffer_info output_buf = result.request();
 
                       void* input_ptr = (void*) input_buf.ptr;
