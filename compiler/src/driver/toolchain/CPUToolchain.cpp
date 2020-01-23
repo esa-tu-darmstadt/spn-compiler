@@ -13,12 +13,22 @@
 
 namespace spnc {
 
-    std::unique_ptr<Job<SharedObject>> CPUToolchain::constructJob(const std::string &inputFile) {
-      std::unique_ptr<Job<SharedObject>> job{new Job<SharedObject >()};
+    std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::string &inputFile) {
       // Construct file input action.
       auto fileInput = std::make_unique<FileInputAction<FileType::SPN_JSON>>(inputFile);
-      // Construct parser to parse JSON from input file.
-      auto parser = std::make_unique<Parser>(*fileInput);
+      return constructJob(std::move(fileInput));
+    }
+
+    std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromString(const std::string &inputString) {
+      // Construct string input action.
+      auto stringInput = std::make_unique<StringInputAction>(inputString);
+      return constructJob(std::move(stringInput));
+    }
+
+    std::unique_ptr<Job<Kernel>> CPUToolchain::constructJob(std::unique_ptr<ActionWithOutput<std::string>> input) {
+      std::unique_ptr<Job<Kernel>> job{new Job<Kernel>()};
+      // Construct parser to parse JSON from input.
+      auto parser = std::make_unique<Parser>(*input);
       // Transform all operations into binary (two inputs) operations.
       auto binaryTreeTransform = std::make_unique<BinaryTreeTransform>(*parser);
       // Invoke LLVM code-generation on transformed tree.
@@ -34,7 +44,7 @@ namespace spnc {
       auto sharedObject = FileSystem::createTempFile<FileType::SHARED_OBJECT>(false);
       std::cout << "Compiling to object-file " << sharedObject.fileName() << std::endl;
       auto linkSharedObject = std::make_unique<ClangKernelLinking>(*compileObject, std::move(sharedObject), kernelName);
-      job->addAction(std::move(fileInput));
+      job->addAction(std::move(input));
       job->addAction(std::move(parser));
       job->addAction(std::move(binaryTreeTransform));
       job->addAction(std::move(llvmCodeGen));

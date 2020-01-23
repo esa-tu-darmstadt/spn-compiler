@@ -6,7 +6,7 @@
 extern "C" {
   void foo(size_t num_elements, void *inputs, double *outputs) {
     std::cout << "Dynamically loaded function foo" << std::endl;
-    double *int_inputs = (double *) inputs;
+    auto *int_inputs = (int *) inputs;
     for (int i = 0; i < num_elements; ++i) {
       outputs[i] = int_inputs[i] * 2.0;
     }

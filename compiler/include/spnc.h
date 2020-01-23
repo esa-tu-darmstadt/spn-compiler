@@ -6,11 +6,13 @@
 #define SPNC_SPNC_H
 
 #include <string>
+#include <Kernel.h>
 
 namespace spnc {
     class spn_compiler{
     public:
-        static bool parseJSON(const std::string& inputFile);
+        static Kernel parseJSON(const std::string& inputFile);
+        Kernel parseJSONString(const std::string& jsonString);
     };
 }
 

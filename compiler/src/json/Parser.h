@@ -15,16 +15,17 @@ using json = nlohmann::json;
 
 namespace spnc {
 
-class Parser : public ActionSingleInput<File<FileType::SPN_JSON>, IRGraph> {
+class Parser : public ActionSingleInput<std::string, IRGraph> {
+
     public:
 
-        explicit Parser(ActionWithOutput<File<FileType::SPN_JSON>>& _input);
+        explicit Parser(ActionWithOutput<std::string>& _input);
 
         IRGraph& execute() override ;
 
     private:
 
-        IRGraph parseJSONFile(File<FileType::SPN_JSON>& file);
+        IRGraph parseJSONFile(std::string& file);
 
         std::unordered_map<std::string, std::shared_ptr<InputVar>> inputVars;
 
