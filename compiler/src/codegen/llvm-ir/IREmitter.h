@@ -2,6 +2,7 @@
 #include <graph-ir/GraphIRNode.h>
 #include "llvm/IR/IRBuilder.h"
 #include "transform/BaseVisitor.h"
+#include "util/GraphIRTools.h"
 #include <unordered_map>
 #include <set>
 #include <iostream>
@@ -39,28 +40,6 @@ private:
   template <> double getNeutralValue<WeightedSum>() {return 0.0;}
   template <> double getNeutralValue<Sum>() {return 0.0;}
   template <> double getNeutralValue<Product>() {return 1.0;}
-
-  size_t getInputLength(WeightedSum &n) {
-    return n.addends()->size();
-  }
-
-  size_t getInputLength(Sum &n) {
-    return n.addends()->size();
-  }
-
-  size_t getInputLength(Product &n) {
-    return n.multiplicands()->size();
-  }
-
-  NodeReference getInput(WeightedSum& n, int pos) {
-    return (*n.addends())[pos].addend;
-  }
-  NodeReference getInput(Sum& n, int pos) {
-    return (*n.addends())[pos];
-  }
-  NodeReference getInput(Product& n, int pos) {
-    return (*n.multiplicands())[pos];
-  }
 
   Value *scalarArith(WeightedSum &n, Value *acc, Value *in, std::string id) {
     double weight = 0.0;
@@ -166,10 +145,6 @@ private:
   template <class T> void emitArith(T &n, arg_t arg) {
     // Node might have been handled already by another node it shares a vector
     // with
-
-    if (n.id() == "60" || n.id() == "65" || n.id() == "57" || n.id() == "70" ) {
-      std::cout << "hit " << std::endl;
-    }
     if (node2value.find(n.id()) != node2value.end())
       return;
 

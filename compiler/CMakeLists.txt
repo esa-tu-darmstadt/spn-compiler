@@ -45,11 +45,15 @@ add_library(spnc SHARED src/Driver.cpp
         src/json/Parser.cpp
         src/transform/BaseVisitor.cpp
         src/util/DotVisitor.cpp
+        src/util/GraphIRTools.cpp
         src/transform/BinaryTreeTransform.cpp
         src/codegen/shared/VectorizationTraversal.cpp
         src/codegen/shared/BFSOrderProducer.cpp
         src/codegen/shared/PackingSolver.cpp
         src/codegen/shared/PackingTrivial.cpp
+        src/codegen/shared/PackingHeuristic.cpp
+        src/codegen/shared/HeuristicChainBuilder.cpp
+        src/codegen/shared/InitialChainBuilder.cpp
         src/codegen/shared/SchedulingConflictTraversal.cpp
         src/codegen/llvm-ir/LLVMCodegen.cpp
         src/codegen/llvm-ir/IREmitter.cpp)

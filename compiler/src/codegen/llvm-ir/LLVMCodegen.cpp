@@ -6,6 +6,7 @@
 #include "codegen/llvm-ir/IREmitter.h"
 #include "codegen/shared/PackingSolver.h"
 #include "codegen/shared/PackingTrivial.h"
+#include "codegen/shared/PackingHeuristic.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include <iostream>
 #include <stdexcept>
@@ -13,7 +14,8 @@
 #include <queue>
 
 #define SIMD_WIDTH 4
-#define USE_SOLVER 1
+#define USE_SOLVER 0
+#define USE_HEURISTIC 1
 
 LLVMCodegen::LLVMCodegen() : builder{context} {
     module = std::make_unique<Module>("spn-llvm", context);
@@ -64,15 +66,21 @@ void LLVMCodegen::generateLLVMIR(IRGraph &graph, bool vectorize) {
       if (USE_SOLVER) {
         PackingSolver packer;
         auto vecInfo = packer.getVectorization(graph, SIMD_WIDTH);
-	partOf = vecInfo.partOf;
-	directVecInputs = vecInfo.directVecInputs;
-	vectors = vecInfo.vectors;
-      } else {
-	PackingTrivial packer;
+        partOf = vecInfo.partOf;
+        directVecInputs = vecInfo.directVecInputs;
+        vectors = vecInfo.vectors;
+      } else if (USE_HEURISTIC) {
+        PackingHeuristic packer;
         auto vecInfo = packer.getVectorization(graph, SIMD_WIDTH);
-	partOf = vecInfo.partOf;
-	directVecInputs = vecInfo.directVecInputs;
-	vectors = vecInfo.vectors;
+        partOf = vecInfo.partOf;
+        directVecInputs = vecInfo.directVecInputs;
+        vectors = vecInfo.vectors;
+      } else {
+        PackingTrivial packer;
+        auto vecInfo = packer.getVectorization(graph, SIMD_WIDTH);
+        partOf = vecInfo.partOf;
+        directVecInputs = vecInfo.directVecInputs;
+        vectors = vecInfo.vectors;
       }
     }
 

@@ -1,8 +1,9 @@
 #include "PackingTrivial.h"
-#include "codegen/shared/BFSOrderProducer.h"
+#include "util/GraphIRTools.h"
 #include "codegen/shared/VectorizationTraversal.h"
 #include <map>
 #include <iostream>
+#include <queue>
 
 #define MIN_LENGTH 2
 
@@ -104,29 +105,8 @@ struct rootSetInfo {
 };
 
 vectorizationResultInfo PackingTrivial::getVectorization(IRGraph& graph, size_t width) {
-  // Perform BFS to find starting tree level
-  std::vector<NodeReference> vectorRoots;
-  BFSOrderProducer visitor;
-  graph.rootNode->accept(visitor, {});
-  while (!visitor.q.empty()) {
-    if (visitor.currentLevel < visitor.q.front().first) {
-      if (vectorRoots.size() >= width) {
-        break;
-      } else {
-        visitor.currentLevel++;
-	vectorRoots.clear();
-      }
-    }
-    visitor.q.front().second->accept(visitor, {});
-    vectorRoots.push_back(visitor.q.front().second);
-    visitor.q.pop();
-  }
-
-  if (vectorRoots.size() < width)
-    return {};
-  
   std::queue<rootSetInfo> rootSetQueue;
-  
+  auto vectorRoots = getAtLeastNEqualHeightNodes(graph.rootNode.get(), width);
   rootSetQueue.push({vectorRoots, {}, {-1, 0}});
   // sequences[second][0] is direct input for sequences[first.first][first.second]
   std::unordered_map<size_t, std::unordered_map<size_t, std::vector<size_t>>> directInputs;
