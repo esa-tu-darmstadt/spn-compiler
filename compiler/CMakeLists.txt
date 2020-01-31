@@ -19,6 +19,7 @@ add_library(spnc SHARED src/Driver.cpp
         src/transform/BaseVisitor.cpp
         src/transform/IRTransformationPass.cpp
         src/util/DotVisitor.cpp
+        src/util/GraphStatVisitor.cpp
         src/transform/BinaryTreeTransform.cpp
         src/codegen/llvm-ir/CPU/LLVMCPUCodegen.cpp
         src/codegen/llvm-ir/CPU/body/CodeGenScalarBody.cpp

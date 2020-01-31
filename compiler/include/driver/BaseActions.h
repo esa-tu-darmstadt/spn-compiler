@@ -50,6 +50,20 @@ namespace spnc {
     private:
         std::unique_ptr<std::string> content;
     };
+
+    template<typename InOut, typename SecondIn>
+    class JoinAction : public ActionDualInput<InOut, SecondIn, InOut> {
+
+    public:
+        JoinAction(ActionWithOutput<InOut>& _input1, ActionWithOutput<SecondIn>& _input2)
+          : ActionDualInput<InOut, SecondIn, InOut>{_input1, _input2} {}
+
+        InOut& execute() override {
+          this->input2.execute();
+          return this->input1.execute();
+        }
+
+    };
 }
 
 
