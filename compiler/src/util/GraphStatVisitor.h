@@ -15,7 +15,10 @@
 
 using json = nlohmann::json;
 
-typedef struct {int level; std::set<std::string> features;} GraphStatLevelInfo;
+enum class NODETYPE { SUM, PRODUCT, HISTOGRAM };
+
+typedef struct { int level; } GraphStatLevelInfo;
+
 
 namespace spnc {
 
@@ -45,17 +48,20 @@ namespace spnc {
 
     private:
         int count_features = 0;
-        // std::set<std::string> features;
-
         int count_nodes_sum = 0;
         int count_nodes_product = 0;
         int count_nodes_histogram = 0;
-
         int count_nodes_inner = 0;
         int count_nodes_leaf = 0;
-        int max_depth = 0;
+        int depth_max = 0;
+        int depth_min = 0x7FFFFFFF;
+        int depth_median = 0;
+
+        double depth_average = 0.0;
 
         bool cached = false;
+
+        std::map<NODETYPE, std::multimap<int, std::string>> spn_node_stats;
 
         File<FileType::SPN_JSON> outfile;
     };

@@ -11,27 +11,96 @@ namespace spnc {
       : ActionSingleInput<IRGraph, File<FileType::SPN_JSON>>{_input}, outfile{outputFile} {}
 
     void GraphStatVisitor::collectGraphStats(const NodeReference& rootNode) {
-      std::shared_ptr<void> passed_arg(new GraphStatLevelInfo({1, {}}));
+      std::vector<NODETYPE> nodetype_inner = {NODETYPE::SUM, NODETYPE::PRODUCT};
+      std::vector<NODETYPE> nodetype_leaf = {NODETYPE::HISTOGRAM};
+
+      spn_node_stats = {{NODETYPE::SUM,       std::multimap<int, std::string>()},
+                        {NODETYPE::PRODUCT,   std::multimap<int, std::string>()},
+                        {NODETYPE::HISTOGRAM, std::multimap<int, std::string>()}};
+
+      std::shared_ptr<void> passed_arg(new GraphStatLevelInfo({1}));
       rootNode->accept(*this, passed_arg);
 
-      count_nodes_inner = count_nodes_sum + count_nodes_product;
-      count_nodes_leaf = count_nodes_histogram;
+      int count_node_temp = 0;
+
+      for (NODETYPE n : nodetype_inner) {
+        count_node_temp = spn_node_stats.find(n)->second.size();
+        count_nodes_inner += count_node_temp;
+
+        switch(n) {
+          case NODETYPE::SUM:
+            count_nodes_sum = count_node_temp;
+            break;
+          case NODETYPE::PRODUCT:
+            count_nodes_product = count_node_temp;
+            break;
+          default:
+            // Encountered specified but unhandled NODETYPE
+            assert(false);
+        }
+
+      }
+
+      for (NODETYPE n : nodetype_leaf) {
+        auto nodes = spn_node_stats.find(n)->second;
+        count_node_temp = nodes.size();
+        count_nodes_leaf += count_node_temp;
+
+        switch(n) {
+          case NODETYPE::HISTOGRAM:
+            count_nodes_histogram = count_node_temp;
+            break;
+          default:
+            // Encountered specified but unhandled NODETYPE
+            assert(false);
+        }
+
+        // Note: end() will (unlike begin()) point "behind" the data we're looking for, hence the decrement.
+        depth_min = nodes.begin()->first;
+        depth_max = (--nodes.end())->first;
+
+        // Since the used multimap is ordered, we can simply use the respective node count to get the median index.
+        int median_index_temp = count_node_temp / 2;
+
+        // ToDo: Determining the median depth has to be revisited once other leaf nodes are supported (2020-JAN-31).
+        int level = 0;
+        for (auto & node : nodes) {
+          level = node.first;
+          depth_average += level;
+
+          if (median_index_temp > 0) {
+            --median_index_temp;
+            if (median_index_temp == 0) {
+              depth_median = level;
+            }
+          }
+        }
+
+      }
+
+      depth_average = depth_average / count_nodes_leaf;
 
       std::cout << "====================================" << std::endl;
       std::cout << "|          SPN Statistics          |" << std::endl;
       std::cout << "====================================" << std::endl;
       std::cout << " > Number of features: " << count_features << std::endl;
-      std::cout << " > Maximum depth: " << max_depth << std::endl;
+      std::cout << " > Minimum depth: " << depth_min << std::endl;
+      std::cout << " > Maximum depth: " << depth_max << std::endl;
+      std::cout << " > Average depth: " << depth_average << std::endl;
+      std::cout << " > Median depth:  " << depth_median << std::endl;
       std::cout << " > Nodes (inner, leaf): (" << count_nodes_inner << ", " << count_nodes_leaf << ")" << std::endl;
       std::cout << " > Sum-Nodes: " << count_nodes_sum << std::endl;
       std::cout << " > Product-Nodes: " << count_nodes_product << std::endl;
       std::cout << " > Histogram-Nodes: " << count_nodes_histogram << std::endl;
       std::cout << "====================================" << std::endl;
-      
+
       json stats;
 
       stats["count_features"] = count_features;
-      stats["max_depth"] = max_depth;
+      stats["depth_min"] = depth_min;
+      stats["depth_max"] = depth_max;
+      stats["depth_average"] = depth_average;
+      stats["depth_median"] = depth_median;
       stats["count_nodes_inner"] = count_nodes_inner;
       stats["count_nodes_leaf"] = count_nodes_leaf;
       stats["count_nodes_sum"] = count_nodes_sum;
@@ -47,38 +116,38 @@ namespace spnc {
     void GraphStatVisitor::visitInputvar(InputVar &n, arg_t arg) {}
 
     void GraphStatVisitor::visitHistogram(Histogram &n, arg_t arg) {
-      ++count_nodes_histogram;
       int currentLevel = std::static_pointer_cast<GraphStatLevelInfo>(arg)->level;
-
-      if (max_depth < currentLevel) {
-        max_depth = currentLevel;
-      }
+      spn_node_stats.find(NODETYPE::HISTOGRAM)->second.insert(std::pair<int, std::string>(currentLevel, n.id()));
 
       n.indexVar()->accept(*this, nullptr);
     }
 
     void GraphStatVisitor::visitProduct(Product &n, arg_t arg) {
-      ++count_nodes_product;
       int currentLevel = std::static_pointer_cast<GraphStatLevelInfo>(arg)->level;
+      spn_node_stats.find(NODETYPE::PRODUCT)->second.insert(std::pair<int, std::string>(currentLevel, n.id()));
 
       for(auto& child : *n.multiplicands()){
-        std::shared_ptr<void> passed_arg(new GraphStatLevelInfo({currentLevel + 1, {}}));
+        std::shared_ptr<void> passed_arg(new GraphStatLevelInfo({currentLevel + 1}));
         child->accept(*this, passed_arg);
       }
     }
 
     void GraphStatVisitor::visitSum(Sum &n, arg_t arg) {
+      int currentLevel = std::static_pointer_cast<GraphStatLevelInfo>(arg)->level;
+      spn_node_stats.find(NODETYPE::SUM)->second.insert(std::pair<int, std::string>(currentLevel, n.id()));
+
       for(auto& child : *n.addends()){
-        child->accept(*this, nullptr);
+        std::shared_ptr<void> passed_arg(new GraphStatLevelInfo({currentLevel + 1}));
+        child->accept(*this, passed_arg);
       }
     }
 
     void GraphStatVisitor::visitWeightedSum(WeightedSum &n, arg_t arg) {
-      ++count_nodes_sum;
       int currentLevel = std::static_pointer_cast<GraphStatLevelInfo>(arg)->level;
+      spn_node_stats.find(NODETYPE::SUM)->second.insert(std::pair<int, std::string>(currentLevel, n.id()));
 
       for(auto& child : *n.addends()){
-        std::shared_ptr<void> passed_arg(new GraphStatLevelInfo({currentLevel + 1, {}}));
+        std::shared_ptr<void> passed_arg(new GraphStatLevelInfo({currentLevel + 1}));
         child.addend->accept(*this, passed_arg);
       }
     }
