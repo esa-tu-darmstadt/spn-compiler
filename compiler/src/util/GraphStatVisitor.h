@@ -22,13 +22,13 @@ typedef struct { int level; } GraphStatLevelInfo;
 
 namespace spnc {
 
-    class GraphStatVisitor : BaseVisitor, ActionSingleInput<IRGraph, File<FileType::SPN_JSON>> {
+    class GraphStatVisitor : public BaseVisitor, public ActionSingleInput<IRGraph, StatsFile> {
 
     public:
 
-        explicit GraphStatVisitor(ActionWithOutput<IRGraph>& _input, const std::string& outputFile);
+        explicit GraphStatVisitor(ActionWithOutput<IRGraph>& _input, StatsFile outputFile);
 
-        File<FileType::SPN_JSON> &execute() override;
+        StatsFile& execute() override;
 
     private:
 
@@ -54,7 +54,7 @@ namespace spnc {
         int count_nodes_inner = 0;
         int count_nodes_leaf = 0;
         int depth_max = 0;
-        int depth_min = 0x7FFFFFFF;
+        int depth_min = std::numeric_limits<int>::max();
         int depth_median = 0;
 
         double depth_average = 0.0;
@@ -63,7 +63,7 @@ namespace spnc {
 
         std::map<NODETYPE, std::multimap<int, std::string>> spn_node_stats;
 
-        File<FileType::SPN_JSON> outfile;
+        StatsFile outfile;
     };
 }
 

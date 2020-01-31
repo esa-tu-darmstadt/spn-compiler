@@ -33,11 +33,12 @@ namespace spnc {
 
     };
 
-    enum class FileType{SPN_JSON, LLVM_BC, OBJECT, SHARED_OBJECT, DOT};
+    enum class FileType{SPN_JSON, LLVM_BC, OBJECT, SHARED_OBJECT, DOT, STAT_JSON};
 
     using LLVMBitcode = File<FileType::LLVM_BC>;
     using ObjectFile = File<FileType::OBJECT>;
     using SharedObject = File<FileType::SHARED_OBJECT>;
+    using StatsFile = File<FileType::STAT_JSON>;
 
     template<FileType Type>
     class File {
@@ -72,7 +73,8 @@ namespace spnc {
     File<Type> FileSystem::createTempFile(bool deleteTmpOnExit) {
       std::string fileExtension;
       switch(Type){
-        case FileType::SPN_JSON:      fileExtension = ".json"; break;
+        case FileType::SPN_JSON:
+        case FileType::STAT_JSON:     fileExtension = ".json"; break;
         case FileType::LLVM_BC:       fileExtension = ".bc"; break;
         case FileType::DOT:           fileExtension = ".dot"; break;
         case FileType::OBJECT:        fileExtension = ".o"; break;

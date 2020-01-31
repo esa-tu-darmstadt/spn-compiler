@@ -7,8 +7,8 @@
 
 namespace spnc {
 
-  GraphStatVisitor::GraphStatVisitor(ActionWithOutput<IRGraph>& _input, const std::string &outputFile)
-      : ActionSingleInput<IRGraph, File<FileType::SPN_JSON>>{_input}, outfile{outputFile} {}
+  GraphStatVisitor::GraphStatVisitor(ActionWithOutput<IRGraph>& _input, StatsFile outputFile)
+      : ActionSingleInput<IRGraph, StatsFile>{_input}, outfile{std::move(outputFile)} {}
 
     void GraphStatVisitor::collectGraphStats(const NodeReference& rootNode) {
       std::vector<NODETYPE> nodetype_inner = {NODETYPE::SUM, NODETYPE::PRODUCT};
@@ -152,7 +152,7 @@ namespace spnc {
       }
     }
 
-    spnc::File<FileType::SPN_JSON>& spnc::GraphStatVisitor::execute() {
+    StatsFile& spnc::GraphStatVisitor::execute() {
       if(!cached){
         IRGraph graph = input.execute();
         count_features = graph.inputs->size();

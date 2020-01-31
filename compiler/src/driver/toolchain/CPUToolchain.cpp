@@ -9,6 +9,7 @@
 #include <driver/action/LLVMWriteBitcode.h>
 #include <driver/action/LLVMStaticCompiler.h>
 #include <driver/action/ClangKernelLinking.h>
+#include <util/GraphStatVisitor.h>
 #include "CPUToolchain.h"
 
 namespace spnc {
@@ -34,9 +35,16 @@ namespace spnc {
       // Invoke LLVM code-generation on transformed tree.
       std::string kernelName = "spn_kernel";
       auto llvmCodeGen = std::make_unique<LLVMCPUCodegen>(*binaryTreeTransform, kernelName);
+      // Collect graph statistics on transformed tree.
+      // TODO: Make execution optional via configuration.
+      // TODO: Determine output file-name via configuration.
+      auto statsFile = FileSystem::createTempFile<FileType::STAT_JSON>(false);
+      auto graphStats = std::make_unique<GraphStatVisitor>(*binaryTreeTransform, std::move(statsFile));
+      // Join the two actions happening on the transformed tree (graph-stats & LLVM code-gen).
+      auto joinAction = std::make_unique<JoinAction<llvm::Module, StatsFile>>(*llvmCodeGen, *graphStats);
       // Write generated LLVM module to bitcode-file.
       auto bitCodeFile = FileSystem::createTempFile<FileType::LLVM_BC>();
-      auto writeBitcode = std::make_unique<LLVMWriteBitcode>(*llvmCodeGen, std::move(bitCodeFile));
+      auto writeBitcode = std::make_unique<LLVMWriteBitcode>(*joinAction, std::move(bitCodeFile));
       // Compile generated bitcode-file to object file.
       auto objectFile = FileSystem::createTempFile<FileType::OBJECT>();
       auto compileObject = std::make_unique<LLVMStaticCompiler>(*writeBitcode, std::move(objectFile));
@@ -48,6 +56,8 @@ namespace spnc {
       job->addAction(std::move(parser));
       job->addAction(std::move(binaryTreeTransform));
       job->addAction(std::move(llvmCodeGen));
+      job->addAction(std::move(graphStats));
+      job->addAction(std::move(joinAction));
       job->addAction(std::move(writeBitcode));
       job->addAction(std::move(compileObject));
       job->setFinalAction(std::move(linkSharedObject));
