@@ -1,0 +1,52 @@
+#ifndef SPN_OPS
+#define SPN_OPS
+
+include "mlir/IR/OpBase.td"
+
+def SPN_Dialect : Dialect {
+    let name = "spn";
+    let cppNamespace = "spn";
+}
+
+class SPN_Op<string mnemonic, list<OpTrait> traits = []> : Op<SPN_Dialect, mnemonic, traits>;
+
+def ConstantOp : SPN_Op<"constant", [NoSideEffect]> {
+  // Provide a summary and description for this operation. This can be used to
+  // auto-generate documentation of the operations within our dialect.
+  let summary = "constant";
+  let description = [{
+    Constant operation turns a literal into an SSA value. The data is attached
+    to the operation as an attribute. For example:
+
+    ```mlir
+      %0 = "toy.constant"()
+         { value = dense<[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]> : tensor<2x3xf64> }
+        : () -> tensor<2x3xf64>
+    ```
+  }];
+
+  // The constant operation takes an attribute as the only input.
+  let arguments = (ins F64ElementsAttr:$value);
+
+  // The constant operation returns a single value of TensorType.
+  let results = (outs F64Tensor);
+
+  // Add custom build methods for the constant operation. These method populates
+  // the `state` that MLIR uses to create operations, i.e. these are used when
+  // using `builder.create<ConstantOp>(...)`.
+  let builders = [
+    // Build a constant with a given constant tensor value.
+    OpBuilder<"Builder *builder, OperationState &state, "
+              "DenseElementsAttr value", [{
+      build(builder, state, value.getType(), value);
+    }]>,
+
+    // Build a constant with a given constant floating-point value.
+    OpBuilder<"Builder *builder, OperationState &state, double value">
+  ];
+
+  // Invoke a static verify method to verify this constant operation.
+  let verifier = [{ return ::verify(*this); }];
+}
+
+#endif // SPN_OPS

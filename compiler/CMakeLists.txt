@@ -5,6 +5,10 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 add_definitions(${LLVM_DEFINITIONS})
 
+add_subdirectory(src/codegen/mlir/dialects/spn)
+message(STATUS "Generated header file: " ${TABLEGEN_HEADER})
+message(STATUS "Generated implementation file: " ${TABLEGEN_IMPL})
+
 add_library(spnc SHARED src/Driver.cpp
         src/driver/toolchain/CPUToolchain.cpp
         src/driver/action/LLVMWriteBitcode.cpp
@@ -24,7 +28,10 @@ add_library(spnc SHARED src/Driver.cpp
         src/transform/BinaryTreeTransform.cpp
         src/codegen/llvm-ir/CPU/LLVMCPUCodegen.cpp
         src/codegen/llvm-ir/CPU/body/CodeGenScalarBody.cpp
-        src/codegen/llvm-ir/CPU/loop/CodeGenSerialLoop.cpp)
+        src/codegen/llvm-ir/CPU/loop/CodeGenSerialLoop.cpp
+        src/codegen/mlir/dialects/spn/SPNDialect.cpp)
+
+message(STATUS "MLIR Include:" ${MLIR_INCLUDE_DIRS})
 
 target_include_directories(spnc
         PUBLIC
@@ -36,7 +43,52 @@ target_include_directories(spnc
 
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${LLVM_INCLUDE_DIRS})
+        ${LLVM_INCLUDE_DIRS}
+        ${MLIR_INCLUDE_DIRS}
+        ${CMAKE_CURRENT_BINARY_DIR})
+
+set(mlir_libs
+        MLIRAnalysis
+        MLIRAffineOps
+        MLIRAffineToStandard
+        MLIRLoopsToGPU
+        MLIRLinalgToLLVM
+
+        MLIRLoopToStandard
+        MLIREDSC
+        MLIRFxpMathOps
+        MLIRGPU
+        MLIRGPUtoNVVMTransforms
+        MLIRGPUtoROCDLTransforms
+        MLIRGPUtoSPIRVTransforms
+        MLIRLinalgOps
+        MLIRLLVMIR
+        MLIRLoopOps
+        MLIRNVVMIR
+        MLIROptMain
+        MLIRParser
+        MLIRPass
+        MLIRQuantizerTransforms
+        MLIRQuantOps
+        MLIRROCDLIR
+        MLIRSPIRV
+        MLIRStandardToSPIRVTransforms
+        MLIRSPIRVTestPasses
+        MLIRSPIRVTransforms
+        MLIRStandardOps
+        MLIRStandardToLLVM
+        MLIRTransforms
+        MLIRTestDialect
+        MLIRTestIR
+        MLIRTestPass
+        MLIRTestTransforms
+        MLIRSupport
+        MLIRVectorOps
+        MLIRVectorToLLVM
+        MLIRVectorToLoops
+        )
 
 llvm_map_components_to_libnames(llvm_libs bitwriter)
-target_link_libraries(spnc PRIVATE spnc-common ${llvm_libs})
+target_link_libraries(spnc PRIVATE spnc-common ${mlir_libs} ${llvm_libs})
+
+add_dependencies(spnc SPNOpsIncGen)
