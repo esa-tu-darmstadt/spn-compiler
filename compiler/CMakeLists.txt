@@ -3,6 +3,7 @@ find_package(LLVM REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
+add_definitions(${LLVM_DEFINITIONS})
 
 add_library(spnc SHARED src/Driver.cpp
         src/driver/toolchain/CPUToolchain.cpp
@@ -37,5 +38,5 @@ target_include_directories(spnc
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${LLVM_INCLUDE_DIRS})
 
-llvm_map_components_to_libnames(llvm_libs all)
-target_link_libraries(spnc PRIVATE ${llvm_libs})
+llvm_map_components_to_libnames(llvm_libs bitwriter)
+target_link_libraries(spnc PRIVATE spnc-common ${llvm_libs})
