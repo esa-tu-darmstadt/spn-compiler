@@ -31,6 +31,8 @@ namespace spnc {
         Type* getValueType();
 
         Value* getValueForNode(const NodeReference& node, arg_t arg);
+
+        void addMetaData(Value* val, MetadataTag tag);
     };
 }
 

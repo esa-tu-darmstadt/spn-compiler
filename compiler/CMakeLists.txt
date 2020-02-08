@@ -39,3 +39,19 @@ target_include_directories(spnc
 
 llvm_map_components_to_libnames(llvm_libs all)
 target_link_libraries(spnc PRIVATE ${llvm_libs})
+
+list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+
+include(AddLLVM)
+
+add_llvm_library( NumericalValueTracing MODULE
+        src/codegen/llvm-ir/transform/NumericalValueTracingPass.cpp
+
+        PLUGIN_TOOL
+        opt
+        )
+
+target_include_directories(NumericalValueTracing
+        PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${LLVM_INCLUDE_DIRS})
