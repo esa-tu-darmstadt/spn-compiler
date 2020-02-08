@@ -13,17 +13,12 @@
 #include <codegen/llvm-ir/CPU/body/CodeGenBody.h>
 
 /**
-  * Header file for the LLVM loadable plugin to profile computations / numerical values
+  * Header file for the LLVM loadable plugin to trace computations / numerical values
   */
 
 /*
-  The NumericalValueTracingPass will iterate over Functions and their BasicBlocks.
-  Basically: information is collected, then the respective "Inst" is profiled.
-  Only the actually used library-functions will be declared in the process!
-  (Therefore, fail on test: "ut_memls_declare_interface")
-  If everything is set-up properly "memTrace.out" will be written on execution
-  of a resulting binary. (Obviously requires the "memprofile/trace" libraries)
-  Example: make && ./memls++ . ./test/getstarted/simplefunc.cpp && ./a.out
+  The NumericalValueTracingPass will iterate over BasicBlocks.
+  Basically: information is collected, then the respective "Inst" is traced.
 */
 
 using namespace llvm;
