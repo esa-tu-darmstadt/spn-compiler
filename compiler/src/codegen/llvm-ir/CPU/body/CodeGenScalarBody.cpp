@@ -88,7 +88,7 @@ namespace spnc {
 
     void CodeGenScalarBody::addMetaData(Value* val, MetadataTag tag) {
       if (auto *I = dyn_cast<Instruction>(val)) {
-        auto metadata = ConstantAsMetadata::get(builder.getInt32(static_cast<int>(tag)));
+        auto metadata = ConstantAsMetadata::get(builder.getInt32(static_cast<ushort>(tag)));
         auto metadataNode = MDNode::get(builder.getContext(), metadata);
         I->setMetadata("spn.trace.nodeType", metadataNode);
       }

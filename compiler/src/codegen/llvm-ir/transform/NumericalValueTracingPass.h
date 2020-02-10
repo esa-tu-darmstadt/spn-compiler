@@ -45,6 +45,8 @@ public:
 private:
   IRBuilder<> *Builder{};
   Module *M{};
+  ushort MDKindID;
+
   std::map<spnc::MetadataTag, std::vector<Instruction*>> tracedInstructions;
 
   std::vector<spnc::MetadataTag> tracedTags = {spnc::MetadataTag::Sum, spnc::MetadataTag::WeightedSum,

@@ -19,7 +19,8 @@ namespace spnc {
 
   typedef std::function<Value*(Value* indVar)> OutputAddressMap;
 
-  enum class MetadataTag : int { Sum, WeightedSum=11, Product=42, Histogram=23 };
+  // Metadata-tags used to trace specific instructions. Values were set to simplify testing.
+  enum class MetadataTag : ushort { Sum=0x1, WeightedSum=0x2, Product=0x4, Histogram=0x8 };
 
   class CodeGenBody {
 

@@ -19,6 +19,7 @@ bool NumericalValueTracingPass::doInitialization(Module &MOD) {
   M = &MOD;
   auto &CTX = M->getContext(); // CTX holds global information
   Builder = new IRBuilder<>(CTX);
+  MDKindID = CTX.getMDKindID("spn.trace.nodeType");
   return false; // Module has not been modified
 }
 
@@ -46,7 +47,7 @@ void NumericalValueTracingPass::resetTracedInstructions() {
 void NumericalValueTracingPass::collectTracedInstructions(BasicBlock &BB) {
   for (Instruction &I: BB) {
     // Only specific Instructions are "interesting"
-    if (auto MD = I.getMetadata("spn.trace.nodeType")) {
+    if (auto MD = I.getMetadata(MDKindID)) {
       // Extract metadata which was stored as a constant int, based on the spnc::MetadataTag enum.
       Constant* val = dyn_cast<ConstantAsMetadata>(MD->getOperand(0))->getValue();
       int64_t metadata = cast<ConstantInt>(val)->getSExtValue();
