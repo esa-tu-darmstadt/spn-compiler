@@ -2,7 +2,6 @@
 // Created by lukas on 20.11.19.
 //
 #include "CodeGenScalarBody.h"
-#include <iostream>
 
 namespace spnc {
 
@@ -36,7 +35,7 @@ namespace spnc {
       auto const0 = ConstantInt::get(IntegerType::get(module.getContext(), 32), 0);
       auto address = builder.CreateGEP(globalArray, {const0, index}, "hist_address");
       auto value = builder.CreateLoad(address, "hist_value");
-      addMetaData(value, MetadataTag::Histogram);
+      addMetaData(value, TraceMDTag::Histogram);
       node2value[&n] = value;
     }
 
@@ -45,7 +44,7 @@ namespace spnc {
       auto leftOp = getValueForNode(n.multiplicands()->at(0), arg);
       auto rightOp = getValueForNode(n.multiplicands()->at(1), arg);
       auto product = builder.CreateFMul(leftOp, rightOp, "product");
-      addMetaData(product, MetadataTag::Product);
+      addMetaData(product, TraceMDTag::Product);
       node2value[&n] = product;
     }
 
@@ -54,7 +53,7 @@ namespace spnc {
       auto leftOp = getValueForNode(n.addends()->at(0), arg);
       auto rightOp = getValueForNode(n.addends()->at(1), arg);
       auto sum = builder.CreateFAdd(leftOp, rightOp, "sum");
-      addMetaData(sum, MetadataTag::Sum);
+      addMetaData(sum, TraceMDTag::Sum);
       node2value[&n] = sum;
     }
 
@@ -69,9 +68,9 @@ namespace spnc {
       auto rightConst = ConstantFP::get(getValueType(), rightAddend.weight);
       auto rightMul = builder.CreateFMul(rightOp, rightConst, "right_mul");
       auto sum = builder.CreateFAdd(leftMul, rightMul, "weighted_sum");
-      addMetaData(leftMul, MetadataTag::WeightedSum);
-      addMetaData(rightMul, MetadataTag::WeightedSum);
-      addMetaData(sum, MetadataTag::WeightedSum);
+      addMetaData(leftMul, TraceMDTag::WeightedSum);
+      addMetaData(rightMul, TraceMDTag::WeightedSum);
+      addMetaData(sum, TraceMDTag::WeightedSum);
       node2value[&n] = sum;
     }
 
@@ -86,11 +85,11 @@ namespace spnc {
       return node2value[node.get()];
     }
 
-    void CodeGenScalarBody::addMetaData(Value* val, MetadataTag tag) {
+    void CodeGenScalarBody::addMetaData(Value* val, TraceMDTag tag) {
       if (auto *I = dyn_cast<Instruction>(val)) {
         auto metadata = ConstantAsMetadata::get(builder.getInt32(static_cast<ushort>(tag)));
         auto metadataNode = MDNode::get(builder.getContext(), metadata);
-        I->setMetadata("spn.trace.nodeType", metadataNode);
+        I->setMetadata(TraceMDName, metadataNode);
       }
     }
 }

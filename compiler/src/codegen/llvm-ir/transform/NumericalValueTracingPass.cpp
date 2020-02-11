@@ -19,14 +19,13 @@ bool NumericalValueTracingPass::doInitialization(Module &MOD) {
   M = &MOD;
   auto &CTX = M->getContext(); // CTX holds global information
   Builder = new IRBuilder<>(CTX);
-  MDKindID = CTX.getMDKindID("spn.trace.nodeType");
+  MDKindID = CTX.getMDKindID(spnc::TraceMDName);
   return false; // Module has not been modified
 }
 
 bool NumericalValueTracingPass::runOnBasicBlock(BasicBlock &BB) {
   bool Traced = false;
   resetTracedInstructions();
-
   collectTracedInstructions(BB);
 
   for (auto tag : tracedTags) {
@@ -48,17 +47,17 @@ void NumericalValueTracingPass::collectTracedInstructions(BasicBlock &BB) {
   for (Instruction &I: BB) {
     // Only specific Instructions are "interesting"
     if (auto MD = I.getMetadata(MDKindID)) {
-      // Extract metadata which was stored as a constant int, based on the spnc::MetadataTag enum.
+      // Extract metadata which was stored as a constant int, based on the spnc::TraceMDTag enum.
       Constant* val = dyn_cast<ConstantAsMetadata>(MD->getOperand(0))->getValue();
       int64_t metadata = cast<ConstantInt>(val)->getSExtValue();
 
-      // Convert the collected data back to a spnc::MetadataTag.
-      auto tag = spnc::MetadataTag(metadata);
+      // Convert the collected data back to a spnc::TraceMDTag.
+      auto tag = spnc::TraceMDTag(metadata);
       switch (tag) {
-        case spnc::MetadataTag::Sum :
-        case spnc::MetadataTag::WeightedSum :
-        case spnc::MetadataTag::Product :
-        case spnc::MetadataTag::Histogram :
+        case spnc::TraceMDTag::Sum :
+        case spnc::TraceMDTag::WeightedSum :
+        case spnc::TraceMDTag::Product :
+        case spnc::TraceMDTag::Histogram :
           tracedInstructions.find(tag)->second.push_back(&I);
           break;
         default:
@@ -71,13 +70,13 @@ void NumericalValueTracingPass::collectTracedInstructions(BasicBlock &BB) {
   // Mini Trace Report
   std::cout << "Traced: '" << std::string(BB.getName()) << "'" << std::endl;
   std::cout << "\t Sum-Insn:         " <<
-    tracedInstructions.find(spnc::MetadataTag::Sum)->second.size() << std::endl;
+            tracedInstructions.find(spnc::TraceMDTag::Sum)->second.size() << std::endl;
   std::cout << "\t WeightedSum-Insn: " <<
-    tracedInstructions.find(spnc::MetadataTag::WeightedSum)->second.size() << std::endl;
+            tracedInstructions.find(spnc::TraceMDTag::WeightedSum)->second.size() << std::endl;
   std::cout << "\t Product-Insn:     " <<
-    tracedInstructions.find(spnc::MetadataTag::Product)->second.size() << std::endl;
+            tracedInstructions.find(spnc::TraceMDTag::Product)->second.size() << std::endl;
   std::cout << "\t Histogram-Insn:   " <<
-    tracedInstructions.find(spnc::MetadataTag::Histogram)->second.size() << std::endl;
+            tracedInstructions.find(spnc::TraceMDTag::Histogram)->second.size() << std::endl;
 
 }
 
@@ -85,9 +84,7 @@ bool NumericalValueTracingPass::traceInstructions(const std::vector<Instruction*
   bool TracedInstruction = false;
   for (Instruction* I : INSN) {
     Builder->SetInsertPoint(I->getNextNode());
-
     createCallTrace(I);
-
     // An instruction / value  was traced; i.e.: BB modified
     TracedInstruction = true;
   }

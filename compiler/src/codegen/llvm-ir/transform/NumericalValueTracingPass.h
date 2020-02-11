@@ -34,6 +34,8 @@ public:
 
   bool runOnBasicBlock(BasicBlock &BB) override;
 
+private:
+
   void collectTracedInstructions(BasicBlock &BB);
 
   bool traceInstructions(const std::vector<Instruction*>& I);
@@ -42,15 +44,14 @@ public:
 
   void resetTracedInstructions();
 
-private:
   IRBuilder<> *Builder{};
   Module *M{};
-  ushort MDKindID;
+  ushort MDKindID=std::numeric_limits<ushort>::max();
 
-  std::map<spnc::MetadataTag, std::vector<Instruction*>> tracedInstructions;
+  std::map<spnc::TraceMDTag, std::vector<Instruction*>> tracedInstructions;
 
-  std::vector<spnc::MetadataTag> tracedTags = {spnc::MetadataTag::Sum, spnc::MetadataTag::WeightedSum,
-                                               spnc::MetadataTag::Product, spnc::MetadataTag::Histogram };
+  std::vector<spnc::TraceMDTag> tracedTags = {spnc::TraceMDTag::Sum, spnc::TraceMDTag::WeightedSum,
+                                              spnc::TraceMDTag::Product, spnc::TraceMDTag::Histogram};
 };
 
 #endif //SPNC_NUMERICALVALUETRACINGPASS_H

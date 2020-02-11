@@ -32,7 +32,7 @@ namespace spnc {
 
         Value* getValueForNode(const NodeReference& node, arg_t arg);
 
-        void addMetaData(Value* val, MetadataTag tag);
+        void addMetaData(Value* val, TraceMDTag tag);
     };
 }
 
