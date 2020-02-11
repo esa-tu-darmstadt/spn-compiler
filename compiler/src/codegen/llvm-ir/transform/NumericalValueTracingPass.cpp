@@ -2,37 +2,52 @@
 // Created by mhalk on 2/6/20.
 //
 
-#include <algorithm>
 #include <iostream>
 #include "NumericalValueTracingPass.h"
 
 using namespace llvm;
 
-char NumericalValueTracingPass::ID = 43;
-
-static RegisterPass<NumericalValueTracingPass>
-        NumericalValueTracingPassReg("numvaltrace",
-                "Traces SPN-Nodes' instruction-values, e.g. for numerical analysis.",
-                false /* Only looks at CFG */, false /* Analysis Pass */);
-
-bool NumericalValueTracingPass::doInitialization(Module &MOD) {
-  M = &MOD;
-  auto &CTX = M->getContext(); // CTX holds global information
-  Builder = new IRBuilder<>(CTX);
-  MDKindID = CTX.getMDKindID(spnc::TraceMDName);
-  return false; // Module has not been modified
+extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
+llvmGetPassPluginInfo() {
+  return {
+    LLVM_PLUGIN_API_VERSION, "NumericalValueTracingPass", "v0.1",
+    [](PassBuilder &PB) {
+      PB.registerPipelineParsingCallback(
+        [](StringRef PassName, ModulePassManager &MPM, ...) {
+          if(PassName == "spn-numerical-trace-pass"){
+            MPM.addPass(NumericalValueTracingPass());
+            return true;
+          }
+          return false;
+        }
+      );
+    }
+  };
 }
 
-bool NumericalValueTracingPass::runOnBasicBlock(BasicBlock &BB) {
-  bool Traced = false;
-  resetTracedInstructions();
-  collectTracedInstructions(BB);
+PreservedAnalyses NumericalValueTracingPass::run(Module &MOD, ModuleAnalysisManager &MAM) {
+  // Initialize class members
+  M = &MOD;
+  auto &CTX = M->getContext();
+  Builder = new IRBuilder<>(CTX);
+  MDKindID = CTX.getMDKindID(spnc::TraceMDName);
 
-  for (auto tag : tracedTags) {
-    Traced |= traceInstructions(tracedInstructions.find(tag)->second);
+  // Run the pass on all Functions
+  for (Function &F : MOD) {
+    run(F);
   }
 
-  return Traced;
+  // Previous analysis results *should* still apply
+  return PreservedAnalyses::all();
+}
+
+void NumericalValueTracingPass::run(Function &F) {
+  resetTracedInstructions();
+  collectTracedInstructions(F);
+
+  for (auto tag : tracedTags) {
+    traceInstructions(tracedInstructions.find(tag)->second);
+  }
 }
 
 void NumericalValueTracingPass::resetTracedInstructions() {
@@ -43,32 +58,34 @@ void NumericalValueTracingPass::resetTracedInstructions() {
   }
 }
 
-void NumericalValueTracingPass::collectTracedInstructions(BasicBlock &BB) {
-  for (Instruction &I: BB) {
-    // Only specific Instructions are "interesting"
-    if (auto MD = I.getMetadata(MDKindID)) {
-      // Extract metadata which was stored as a constant int, based on the spnc::TraceMDTag enum.
-      Constant* val = dyn_cast<ConstantAsMetadata>(MD->getOperand(0))->getValue();
-      int64_t metadata = cast<ConstantInt>(val)->getSExtValue();
+void NumericalValueTracingPass::collectTracedInstructions(Function &F) {
+  for (BasicBlock &BB : F) {
+    for (Instruction &I: BB) {
+      // Only specific Instructions are "interesting"
+      if (auto MD = I.getMetadata(MDKindID)) {
+        // Extract metadata which was stored as a constant int, based on the spnc::TraceMDTag enum.
+        Constant *val = dyn_cast<ConstantAsMetadata>(MD->getOperand(0))->getValue();
+        int64_t metadata = cast<ConstantInt>(val)->getSExtValue();
 
-      // Convert the collected data back to a spnc::TraceMDTag.
-      auto tag = spnc::TraceMDTag(metadata);
-      switch (tag) {
-        case spnc::TraceMDTag::Sum :
-        case spnc::TraceMDTag::WeightedSum :
-        case spnc::TraceMDTag::Product :
-        case spnc::TraceMDTag::Histogram :
-          tracedInstructions.find(tag)->second.push_back(&I);
-          break;
-        default:
-          errs() << "Encountered unknown Metadata-ID '" << metadata << "'.";
-          assert(false);
+        // Convert the collected data back to a spnc::TraceMDTag.
+        auto tag = spnc::TraceMDTag(metadata);
+        switch (tag) {
+          case spnc::TraceMDTag::Sum :
+          case spnc::TraceMDTag::WeightedSum :
+          case spnc::TraceMDTag::Product :
+          case spnc::TraceMDTag::Histogram :
+            tracedInstructions.find(tag)->second.push_back(&I);
+            break;
+          default:
+            errs() << "Encountered unknown Metadata-ID '" << metadata << "'.";
+            assert(false);
+        }
       }
     }
   }
 
   // Mini Trace Report
-  std::cout << "Traced: '" << std::string(BB.getName()) << "'" << std::endl;
+  std::cout << "Traced: '" << std::string(F.getName()) << "'" << std::endl;
   std::cout << "\t Sum-Insn:         " <<
             tracedInstructions.find(spnc::TraceMDTag::Sum)->second.size() << std::endl;
   std::cout << "\t WeightedSum-Insn: " <<
@@ -80,16 +97,11 @@ void NumericalValueTracingPass::collectTracedInstructions(BasicBlock &BB) {
 
 }
 
-bool NumericalValueTracingPass::traceInstructions(const std::vector<Instruction*>& INSN) {
-  bool TracedInstruction = false;
+void NumericalValueTracingPass::traceInstructions(const std::vector<Instruction*>& INSN) {
   for (Instruction* I : INSN) {
     Builder->SetInsertPoint(I->getNextNode());
     createCallTrace(I);
-    // An instruction / value  was traced; i.e.: BB modified
-    TracedInstruction = true;
   }
-
-  return TracedInstruction;
 }
 
 void NumericalValueTracingPass::createCallTrace(Value* value) {
