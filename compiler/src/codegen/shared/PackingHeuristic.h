@@ -1,6 +1,35 @@
 #include "codegen/shared/Packer.h"
+#include "InitialChainBuilder.h"
+
+#include <codegen/llvm-ir/CostInfo.h>
+
+struct SIMDChainSet {
+  std::vector<size_t> SIMDChains;
+  int originatingChain;
+  int posInOriginatingChain;
+};
+
+struct setSolverRes {
+  std::vector<size_t> selectedSets;
+  size_t cost;
+};
 
 class PackingHeuristic : public Packer {
 public:
   vectorizationResultInfo getVectorization(IRGraph &graph, size_t width);
+ private:
+  setSolverRes returnBestSet(
+    std::vector<size_t> candidates, std::vector<SIMDChainSet> &simdChainSets,
+    InitialChainBuilder &icb,
+    std::unordered_map<size_t, std::unordered_map<size_t, std::vector<size_t>>>
+    &chainPosToPackVecMap, std::vector<size_t> source, std::set<size_t> pruned);
+
+  std::vector<std::pair<size_t, int>>
+  orderByPotential(std::vector<SIMDChain> &chains, std::vector<size_t> toOrder);
+
+  std::vector<SIMDChainSet>
+  buildSIMDChainSets(std::vector<size_t> &candidateSIMDChains, bool first,
+                     InitialChainBuilder &icb, size_t setsGoal);
+
+  std::unique_ptr<CostInfo> ci;
 };

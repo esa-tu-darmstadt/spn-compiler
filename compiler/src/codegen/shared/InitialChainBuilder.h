@@ -48,6 +48,9 @@ class InitialChainBuilder : public BaseVisitor {
   std::unordered_map<size_t, std::unordered_set<size_t>> dependsOnHistograms;
   std::vector<SIMDChain> candidateSIMDChains;
   std::unordered_map<size_t, size_t> childParentMap;
+  std::unordered_map<size_t, std::vector<size_t>> parentChildrenMap;
+  std::unordered_map<size_t, std::vector<size_t>> parentChildrenHistoMap;
+  // getBestSet relies on nodes[0] being the root of the tree
   std::vector<NodeReference> nodes;
   std::vector<size_t> histograms;
   std::unordered_set<size_t> coveredPreLeafNodes;

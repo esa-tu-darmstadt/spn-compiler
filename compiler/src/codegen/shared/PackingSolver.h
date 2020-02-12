@@ -1,3 +1,4 @@
+#include <codegen/llvm-ir/CostInfo.h>
 #include <unordered_set>
 #include "codegen/shared/Packer.h"
 #include "codegen/shared/SchedulingConflictTraversal.h"
@@ -28,4 +29,5 @@ public:
        std::unordered_map<size_t, std::vector<size_t>> &fixedPacks,
        IndexRefMapper &irm,
        std::unordered_map<size_t, size_t> &singleOpToFixedVec, GRBModel& model);
+  std::unique_ptr<CostInfo> ci;
 };

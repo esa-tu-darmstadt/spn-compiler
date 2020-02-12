@@ -56,7 +56,8 @@ add_library(spnc SHARED src/Driver.cpp
         src/codegen/shared/InitialChainBuilder.cpp
         src/codegen/shared/SchedulingConflictTraversal.cpp
         src/codegen/llvm-ir/LLVMCodegen.cpp
-        src/codegen/llvm-ir/IREmitter.cpp)
+        src/codegen/llvm-ir/IREmitter.cpp
+        src/codegen/llvm-ir/CostInfo.cpp)
 
 target_include_directories(spnc
         PUBLIC
@@ -68,6 +69,5 @@ target_include_directories(spnc
         ${LLVM_INCLUDE_DIRS}
 	${GUROBI_HEADER_DIRS}
 	${Boost_INCLUDE_DIR})
-
 llvm_map_components_to_libnames(llvm_libs all)
 target_link_libraries(spnc PRIVATE ${llvm_libs} ${GUROBI_LIBS})

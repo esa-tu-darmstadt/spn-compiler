@@ -120,24 +120,24 @@ solverResult PackingSolver::runSolver(
     if (vectorizableHistogramInputs >= 1) {
       // To combine #vectorizableHistogramInputs values we need
       // #vectorizableHistogramInputs-1 arithmetic operations
-      obj += v.var*(vectorizableHistogramInputs-1);
+      obj += v.var*(vectorizableHistogramInputs-1)*ci->vecArithCost;
     }
 
     // all non vectorizable inputs must perform their arithmetic operation scalar
     for (auto& l : vInputs) {
       size_t scalarHistInputs = l.second-vectorizableHistogramInputs;
-      obj += v.var*(scalarHistInputs);
-      // Note: the above overapproximates the # of necessary arithmetic
-      // operations by 1, which cancels out with the necessary insertion of
-      // the result scalar into the vector v
+      if (scalarHistInputs > 0) {
+        obj += v.var * ((scalarHistInputs)-1) * ci->scalarArithCost;
+        obj += v.var * ci->insertCost;
+      }
     }
 
     
-    // we assume one arithmetic operation per input, however, for the two
+    // we assume one arithmetic operation per input, however, for the first two
     // inputs, only one arithmetic operation is needed, thus we substract one
     // TODO this isn't really accurate, e.g. in cases where all inputs are scalar
     // Better: only substract if at least (?) two covering vec inputs are selected
-    obj -= v.var*1;
+    obj -= v.var*ci->vecArithCost;
 
     // TODO
     // Most significant inaccuracies at the moment:
@@ -195,18 +195,19 @@ solverResult PackingSolver::runSolver(
 	    directVecInputMap[vecIndex].insert(vec);
 	    exclusions[vec].push_back(vecIndex);
             // assume cost of one for this op if both are selected
-            obj += vecVars[vec].var * v.var * 1;
+            obj += vecVars[vec].var * v.var * ci->vecArithCost;
             continue;
-          } else if (foundInputsForLanes * 3 >
-                     (vInputs.size() - foundInputsForLanes) + 1) {
+          } else if (foundInputsForLanes * (ci->extractCost + ci->scalarArithCost + ci->insertCost) >
+                     (vInputs.size() - foundInputsForLanes)*ci->extractCost + ci->vecArithCost) {
             // In the general case, we would need _foundInputsForLanes_ * extract,
-            // arith, insert (cost 3) operations if vec and v are selected
+            // arith, insert  operations if vec and v are selected
             // An alternative, which is is cheaper if this branch is taken, is
             // to extract the not needed values beforehand (this cost will be
             // accounted for by the nodes that need these values), insert
             // neutral values into those lanes and then use the vector as a whole
             obj += vecVars[vec].var * v.var *
-                   (vInputs.size() - foundInputsForLanes + 1);
+                   ((vInputs.size() - foundInputsForLanes) * ci->extractCost +
+                    ci->vecArithCost);
             coveredVecInputs.insert(vec);
             directVecInputMap[vecIndex].insert(vec);
             // TODO For now we will allow one user of vec to use this shortcut,
@@ -219,7 +220,7 @@ solverResult PackingSolver::runSolver(
         // if we get here, we will need to extract the value from vec, perform
         // the arith and insert it into the starting vector for v
         // -> cost estimate: 3
-        obj += vecVars[vec].var * v.var * 3;
+        obj += vecVars[vec].var * v.var * (ci->extractCost + ci->scalarArithCost + ci->insertCost);
       }
 
       for (auto& inputVal : vInputs[i].first) {
@@ -227,7 +228,7 @@ solverResult PackingSolver::runSolver(
 	if (singleOpMapIt == singleOpToFixedVec.end()) {
 	  // inputVal is still a single value, thus only arith and insert necessary
           // -> cost estimate: 2
-          obj += v.var * serVars[inputVal] * 2;
+          obj += v.var * serVars[inputVal] * (ci->scalarArithCost + ci->insertCost);
 	}
       }
     }
@@ -246,21 +247,21 @@ solverResult PackingSolver::runSolver(
     }
     // we assume one arithmetic operation per input, however, for the two
     // inputs, only one arithmetic operation is needed, thus we substract one
-    obj -= serVar.second * 1;
+    obj -= serVar.second * ci->scalarArithCost;
 
     // Each histogram input takes one arithmetic instruction
-    obj += serVar.second * histogramInputs;
+    obj += serVar.second * histogramInputs * ci->scalarArithCost;
 
     for (auto &input : idVec) {
       auto singleOpMapIt = singleOpToFixedVec.find(input);
       if (singleOpMapIt == singleOpToFixedVec.end()) {
         // when both values are not in a vector, there is no extra cost
         // besides the arithmetic operation
-        obj += serVar.second * serVars[input] * 1;
+        obj += serVar.second * serVars[input] * ci->scalarArithCost;
       }
       for (auto &vecIn : partOf[input]) {
         // cost: extract + arith = 2
-        obj += serVar.second * vecVars[vecIn].var * 2;
+        obj += serVar.second * vecVars[vecIn].var * (ci->extractCost + ci->scalarArithCost);
       }
     }
   }
@@ -326,6 +327,7 @@ solverResult PackingSolver::runSolver(
     }
   }
   model.optimize();
+  model.write("test.lp");
   std::unordered_set<size_t> vecs;
   std::vector<size_t> nonVecs;
 
@@ -389,6 +391,7 @@ PackingSolver::getVectorization(IRGraph &graph, size_t width) {
 
   IndexRefMapper irm(sct.idMap);
   irm.buildMap(graph.rootNode);
+  ci = std::make_unique<CostInfo>(initWidth);
 
   auto packing = runSolver(sct.conflicts, sct.idMap, sct.vecVars, sct.partOf,
 			   sct.serVars, sct.fixedPacks, irm, sct.singleOpToFixedVec, model);
@@ -415,6 +418,7 @@ PackingSolver::getVectorization(IRGraph &graph, size_t width) {
       newModel.update();
       std::cout << "#vars " << sct.vecVars.size() + sct.serVars.size()
                 << std::endl;
+      ci = std::make_unique<CostInfo>(initWidth);
       packing = runSolver(sct.conflicts, sct.idMap, sct.vecVars, sct.partOf,
 			       sct.serVars, sct.fixedPacks, irm, sct.singleOpToFixedVec, newModel);
 

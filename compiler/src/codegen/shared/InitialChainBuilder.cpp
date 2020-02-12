@@ -229,6 +229,8 @@ void InitialChainBuilder::visitHistogram(Histogram &n, arg_t arg) {
   for (auto& prev : *prevNodes) {
     dependsOnHistograms[prev].insert(ownId);
   }
+
+  parentChildrenHistoMap[prevNodes->back()].push_back(ownId);
   histograms.push_back(ownId);
   coveredPreLeafNodes.insert(parentId);
 }
@@ -241,6 +243,9 @@ void InitialChainBuilder::visitProduct(Product &n, arg_t arg) {
     dependsOn[prev].insert(ownId);
   }
 
+  if (prevNodes->size() > 0) {
+    parentChildrenMap[prevNodes->back()].push_back(ownId);
+  }
   auto newPrevs = std::make_shared<std::vector<size_t>>(*prevNodes);
   newPrevs->push_back(ownId);
   for (auto &c : *n.multiplicands()) {
@@ -259,6 +264,9 @@ void InitialChainBuilder::visitSum(Sum &n, arg_t arg) {
     dependsOn[prev].insert(ownId);
   }
 
+  if (prevNodes->size() > 0) {
+    parentChildrenMap[prevNodes->back()].push_back(ownId);
+  }
   auto newPrevs = std::make_shared<std::vector<size_t>>(*prevNodes);
   newPrevs->push_back(ownId);
   for (auto &c : *n.addends()) {
@@ -269,8 +277,6 @@ void InitialChainBuilder::visitSum(Sum &n, arg_t arg) {
     c->accept(*this, newPrevs);
 
   }
-
-  
 }
 
 void InitialChainBuilder::visitWeightedSum(WeightedSum &n, arg_t arg) {
@@ -280,6 +286,10 @@ void InitialChainBuilder::visitWeightedSum(WeightedSum &n, arg_t arg) {
     dependsOn[prev].insert(ownId);
   }
 
+  if (prevNodes->size() > 0) {
+    parentChildrenMap[prevNodes->back()].push_back(ownId);
+  }
+  
   auto newPrevs = std::make_shared<std::vector<size_t>>(*prevNodes);
   newPrevs->push_back(ownId);
   for (auto &c : *n.addends()) {

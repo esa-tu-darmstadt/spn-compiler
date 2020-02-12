@@ -14,7 +14,7 @@
 #include <queue>
 
 #define SIMD_WIDTH 4
-#define USE_SOLVER 0
+#define USE_SOLVER 1
 #define USE_HEURISTIC 1
 
 LLVMCodegen::LLVMCodegen() : builder{context} {
