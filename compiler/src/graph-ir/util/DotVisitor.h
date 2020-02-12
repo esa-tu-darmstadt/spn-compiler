@@ -6,7 +6,7 @@
 #define SPNC_DOTVISITOR_H
 
 
-#include <transform/BaseVisitor.h>
+#include <graph-ir/transform/BaseVisitor.h>
 #include <sstream>
 #include <driver/Actions.h>
 #include <driver/BaseActions.h>

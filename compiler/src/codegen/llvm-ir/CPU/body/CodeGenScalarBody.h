@@ -6,7 +6,7 @@
 #define SPNC_CODEGENSCALARBODY_H
 
 #include <unordered_map>
-#include <transform/BaseVisitor.h>
+#include <graph-ir/transform/BaseVisitor.h>
 #include "CodeGenBody.h"
 
 namespace spnc {

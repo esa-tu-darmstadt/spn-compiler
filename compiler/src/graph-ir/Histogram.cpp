@@ -1,5 +1,5 @@
 #include "GraphIRNode.h"
-#include "../transform/Visitor.h"
+#include <graph-ir/transform/Visitor.h>
 
 //
 // Created by ls on 10/7/19.

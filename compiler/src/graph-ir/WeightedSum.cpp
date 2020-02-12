@@ -3,7 +3,7 @@
 //
 
 #include "GraphIRNode.h"
-#include "../transform/Visitor.h"
+#include <graph-ir/transform/Visitor.h>
 
 namespace spnc {
 

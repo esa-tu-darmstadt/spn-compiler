@@ -2,7 +2,7 @@
 // Created by ls on 10/8/19.
 //
 #include "GraphIRNode.h"
-#include "../transform/Visitor.h"
+#include <graph-ir/transform/Visitor.h>
 
 namespace spnc {
 

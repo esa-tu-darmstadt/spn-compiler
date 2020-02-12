@@ -5,7 +5,7 @@
 #ifndef SPNC_VISITOR_H
 #define SPNC_VISITOR_H
 
-#include "../graph-ir/GraphIRNode.h"
+#include "graph-ir/GraphIRNode.h"
 
 namespace spnc {
 

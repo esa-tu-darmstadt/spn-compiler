@@ -3,13 +3,13 @@
 //
 
 #include <driver/BaseActions.h>
-#include <json/Parser.h>
-#include <transform/BinaryTreeTransform.h>
+#include <frontend/json/Parser.h>
+#include <graph-ir/transform/BinaryTreeTransform.h>
 #include <codegen/llvm-ir/CPU/LLVMCPUCodegen.h>
 #include <driver/action/LLVMWriteBitcode.h>
 #include <driver/action/LLVMStaticCompiler.h>
 #include <driver/action/ClangKernelLinking.h>
-#include <util/GraphStatVisitor.h>
+#include <graph-ir/util/GraphStatVisitor.h>
 #include "CPUToolchain.h"
 
 namespace spnc {

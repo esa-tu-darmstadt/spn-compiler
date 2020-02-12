@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <driver/Actions.h>
 #include <driver/BaseActions.h>
-#include "../graph-ir/GraphIRNode.h"
+#include "graph-ir/GraphIRNode.h"
 #include "json.hpp"
 
 using json = nlohmann::json;
