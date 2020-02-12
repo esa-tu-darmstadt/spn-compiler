@@ -17,14 +17,15 @@ namespace spnc {
     class LLVMCPUCodegen : public ActionSingleInput<IRGraph, llvm::Module> {
 
     public:
-        LLVMCPUCodegen(ActionWithOutput<IRGraph>& _input, const std::string& _kernelName);
+        LLVMCPUCodegen(ActionWithOutput<IRGraph>& _input, const std::string& _kernelName,
+                std::shared_ptr<LLVMContext> _llvmContext);
 
         void generateLLVMIR(IRGraph& graph);
 
         llvm::Module& execute() override ;
 
     private:
-        LLVMContext context;
+        std::shared_ptr<LLVMContext> context;
         IRBuilder<> builder;
         std::unique_ptr<Module> module;
         std::string kernelName;

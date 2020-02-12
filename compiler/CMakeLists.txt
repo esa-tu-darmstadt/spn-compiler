@@ -24,7 +24,9 @@ add_library(spnc SHARED src/Driver.cpp
         src/graph-ir/transform/BinaryTreeTransform.cpp
         src/codegen/llvm-ir/CPU/LLVMCPUCodegen.cpp
         src/codegen/llvm-ir/CPU/body/CodeGenScalarBody.cpp
-        src/codegen/llvm-ir/CPU/loop/CodeGenSerialLoop.cpp)
+        src/codegen/llvm-ir/CPU/loop/CodeGenSerialLoop.cpp
+        src/codegen/llvm-ir/pipeline/LLVMPipeline.cpp
+        src/codegen/llvm-ir/transform/NumericalValueTracingPass.cpp)
 
 target_include_directories(spnc
         PUBLIC
@@ -38,7 +40,7 @@ target_include_directories(spnc
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${LLVM_INCLUDE_DIRS})
 
-llvm_map_components_to_libnames(llvm_libs bitwriter)
+llvm_map_components_to_libnames(llvm_libs bitwriter passes)
 target_link_libraries(spnc PRIVATE ${llvm_libs})
 
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
