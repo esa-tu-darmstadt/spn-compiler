@@ -6,8 +6,6 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 add_definitions(${LLVM_DEFINITIONS})
 
 add_subdirectory(src/codegen/mlir/dialects/spn)
-message(STATUS "Generated header file: " ${TABLEGEN_HEADER})
-message(STATUS "Generated implementation file: " ${TABLEGEN_IMPL})
 
 add_library(spnc SHARED src/Driver.cpp
         src/driver/toolchain/CPUToolchain.cpp

@@ -45,18 +45,16 @@ function(mlir_tablegen target definition)
     get_filename_component(name ${definition} NAME_WE)
 
     # Generate header containing all classes for the dialect using mlir-tblgen.
-    set(TABLEGEN_HEADER ${CMAKE_CURRENT_BINARY_DIR}/${name}.h.inc)
-    add_custom_command(OUTPUT ${TABLEGEN_HEADER}
-            COMMAND ${MLIR_TBLGEN} -gen-op-decls "-I=${MLIR_MAIN_SRC_DIR}" "-I=${MLIR_HEADER_DIR}" "-o=${TABLEGEN_HEADER}" ${path}
+    set(${target}_HEADER ${CMAKE_CURRENT_BINARY_DIR}/${name}.h.inc)
+    add_custom_command(OUTPUT ${${target}_HEADER}
+            COMMAND ${MLIR_TBLGEN} -gen-op-decls "-I=${MLIR_MAIN_SRC_DIR}" "-I=${MLIR_HEADER_DIR}" "-o=${${target}_HEADER}" ${path}
             DEPENDS "${path}")
-    set(TABLEGEN_HEADER ${TABLEGEN_HEADER} PARENT_SCOPE)
 
     # Generate implementation of all classes for the dialect using mlir-tblgen.
-    set(TABLEGEN_IMPL ${CMAKE_CURRENT_BINARY_DIR}/${name}.cpp.inc)
-    add_custom_command(OUTPUT ${TABLEGEN_IMPL}
-            COMMAND ${MLIR_TBLGEN} -gen-op-defs "-I=${MLIR_MAIN_SRC_DIR}" "-I=${MLIR_HEADER_DIR}" "-o=${TABLEGEN_IMPL}" ${path}
+    set(${target}_IMPL ${CMAKE_CURRENT_BINARY_DIR}/${name}.cpp.inc)
+    add_custom_command(OUTPUT ${${target}_IMPL}
+            COMMAND ${MLIR_TBLGEN} -gen-op-defs "-I=${MLIR_MAIN_SRC_DIR}" "-I=${MLIR_HEADER_DIR}" "-o=${${target}_IMPL}" ${path}
             DEPENDS "${path}")
-    set(TABLEGEN_IMPL ${TABLEGEN_IMPL} PARENT_SCOPE)
 
     # Add custom target specifying the dependency on output of mlir-tblgen.
     add_custom_target(${target} DEPENDS ${TABLEGEN_HEADER} ${TABLEGEN_IMPL})
