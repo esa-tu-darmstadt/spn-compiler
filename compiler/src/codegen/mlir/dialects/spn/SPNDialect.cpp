@@ -10,10 +10,6 @@
 using namespace mlir;
 using namespace mlir::spn;
 
-//===----------------------------------------------------------------------===//
-// ToyDialect
-//===----------------------------------------------------------------------===//
-
 /// Dialect creation, the instance will be owned by the context. This is the
 /// point of registration of custom types and operations for the dialect.
 SPNDialect::SPNDialect(mlir::MLIRContext *ctx) : mlir::Dialect("spn", ctx) {
@@ -22,10 +18,6 @@ SPNDialect::SPNDialect(mlir::MLIRContext *ctx) : mlir::Dialect("spn", ctx) {
 #include "src/codegen/mlir/dialects/spn/SPNOps.cpp.inc"
   >();
 }
-
-//===----------------------------------------------------------------------===//
-// Toy Operations
-//===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
 // ConstantOp
@@ -63,13 +55,42 @@ static mlir::LogicalResult verify(ConstantOp op) {
   for (int dim = 0, dimE = attrType.getRank(); dim < dimE; ++dim) {
     if (attrType.getShape()[dim] != resultType.getShape()[dim]) {
       return op.emitOpError(
-              "return type shape mismatches its attribute at dimension ")
-              << dim << ": " << attrType.getShape()[dim]
-              << " != " << resultType.getShape()[dim];
+          "return type shape mismatches its attribute at dimension ")
+          << dim << ": " << attrType.getShape()[dim]
+          << " != " << resultType.getShape()[dim];
     }
   }
   return mlir::success();
 }
+
+static mlir::LogicalResult verify(ProductOp op) {
+  auto numMultiplicands = std::distance(op.multiplicands().begin(), op.multiplicands().end());
+  if (numMultiplicands != op.opCount().getZExtValue()) {
+    return op.emitOpError("Number of multiplicands must match the specified operand count!");
+  }
+  return mlir::success();
+}
+
+static mlir::LogicalResult verify(SumOp op) {
+  auto numAddends = std::distance(op.addends().begin(), op.addends().end());
+  if (numAddends != op.opCount().getZExtValue()) {
+    return op.emitOpError("Number of addends must match the specified operand count!");
+  }
+  return mlir::success();
+}
+
+static mlir::LogicalResult verify(WeightedSumOp op) {
+  auto numAddends = std::distance(op.operands().begin(), op.operands().end());
+  if (numAddends != op.opCount().getZExtValue()) {
+    return op.emitOpError("Number of addends must match the specified operand count!");
+  }
+  auto numWeights = op.weights().size();
+  if (numWeights != op.opCount().getZExtValue()) {
+    return op.emitOpError("Number of weights must match the specified operand count!");
+  }
+  return mlir::success();
+}
+
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//
