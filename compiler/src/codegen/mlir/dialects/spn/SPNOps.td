@@ -10,6 +10,20 @@ def SPN_Dialect : Dialect {
 
 class SPN_Op<string mnemonic, list<OpTrait> traits = []> : Op<SPN_Dialect, mnemonic, traits>;
 
+def ProductOp : SPN_Op<"product", [NoSideEffect]> {
+  let summary = "product";
+  
+  let description = [{
+    N-ary product operation multiplies all operands into a single result.
+  }];
+
+  let arguments = (ins Variadic<F64>:$multiplicands);
+
+  let results = (outs F64);
+
+  //let verifier = [{ return ::verify(*this); }];
+}
+
 def ConstantOp : SPN_Op<"constant", [NoSideEffect]> {
   // Provide a summary and description for this operation. This can be used to
   // auto-generate documentation of the operations within our dialect.
