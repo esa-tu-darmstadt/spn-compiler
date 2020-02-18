@@ -1,4 +1,15 @@
-function(mlir_tablegen target definition)
+function(mlir_tablegen)
+    set(options GENERATE_STRUCT_ATTRIBUTES)
+    set(oneValueArgs TARGET_NAME DEFINITION)
+    cmake_parse_arguments(TBLGEN "${options}" "${oneValueArgs}" "" ${ARGN})
+
+    if (NOT TBLGEN_TARGET_NAME)
+        message(FATAL_ERROR "You must provide a target name!")
+    endif (NOT TBLGEN_TARGET_NAME)
+
+    if (NOT TBLGEN_DEFINITION)
+        message(FATAL_ERROR "You must provide a definition file!")
+    endif (NOT TBLGEN_DEFINITION)
 
     # Check for directory containing all LLVM tool binaries.
     if (NOT DEFINED LLVM_TOOLS_BINARY_DIR)
@@ -41,22 +52,42 @@ function(mlir_tablegen target definition)
         message(FATAL_ERROR "Did not find MLIR sources in ${MLIR_MAIN_SRC_DIR}!")
     endif (NOT EXISTS ${MLIR_MAIN_SRC_DIR})
 
-    get_filename_component(path ${definition} REALPATH)
-    get_filename_component(name ${definition} NAME_WE)
+    get_filename_component(path ${TBLGEN_DEFINITION} REALPATH)
+    get_filename_component(name ${TBLGEN_DEFINITION} NAME_WE)
 
-    # Generate header containing all classes for the dialect using mlir-tblgen.
-    set(${target}_HEADER ${CMAKE_CURRENT_BINARY_DIR}/${name}.h.inc)
-    add_custom_command(OUTPUT ${${target}_HEADER}
-            COMMAND ${MLIR_TBLGEN} -gen-op-decls "-I=${MLIR_MAIN_SRC_DIR}" "-I=${MLIR_HEADER_DIR}" "-o=${${target}_HEADER}" ${path}
+    # Generate header containing all classes for the dialect operations using mlir-tblgen.
+    set(${TBLGEN_TARGET_NAME}_HEADER ${CMAKE_CURRENT_BINARY_DIR}/${name}.h.inc)
+    add_custom_command(OUTPUT ${${TBLGEN_TARGET_NAME}_HEADER}
+            COMMAND ${MLIR_TBLGEN} -gen-op-decls "-I=${MLIR_MAIN_SRC_DIR}" "-I=${MLIR_HEADER_DIR}" "-o=${${TBLGEN_TARGET_NAME}_HEADER}" ${path}
             DEPENDS "${path}")
 
-    # Generate implementation of all classes for the dialect using mlir-tblgen.
-    set(${target}_IMPL ${CMAKE_CURRENT_BINARY_DIR}/${name}.cpp.inc)
-    add_custom_command(OUTPUT ${${target}_IMPL}
-            COMMAND ${MLIR_TBLGEN} -gen-op-defs "-I=${MLIR_MAIN_SRC_DIR}" "-I=${MLIR_HEADER_DIR}" "-o=${${target}_IMPL}" ${path}
+
+    # Generate implementation of all classes for the dialect operations using mlir-tblgen.
+    set(${TBLGEN_TARGET_NAME}_IMPL ${CMAKE_CURRENT_BINARY_DIR}/${name}.cpp.inc)
+    add_custom_command(OUTPUT ${${TBLGEN_TARGET_NAME}_IMPL}
+            COMMAND ${MLIR_TBLGEN} -gen-op-defs "-I=${MLIR_MAIN_SRC_DIR}" "-I=${MLIR_HEADER_DIR}" "-o=${${TBLGEN_TARGET_NAME}_IMPL}" ${path}
             DEPENDS "${path}")
+
+    if (${TBLGEN_GENERATE_STRUCT_ATTRIBUTES})
+        # Generate header containing all classes for the dialect struct attributes using mlir-tblgen.
+        set(${TBLGEN_TARGET_NAME}_ATTR_HEADER ${CMAKE_CURRENT_BINARY_DIR}/${name}.attr.h.inc)
+        add_custom_command(OUTPUT ${${TBLGEN_TARGET_NAME}_ATTR_HEADER}
+                COMMAND ${MLIR_TBLGEN} -gen-struct-attr-decls "-I=${MLIR_MAIN_SRC_DIR}" "-I=${MLIR_HEADER_DIR}" "-o=${${TBLGEN_TARGET_NAME}_ATTR_HEADER}" ${path}
+                DEPENDS "${path}")
+
+        # Generate implementation of all classes for the dialect struct attributes using mlir-tblgen.
+        set(${TBLGEN_TARGET_NAME}_ATTR_IMPL ${CMAKE_CURRENT_BINARY_DIR}/${name}.attr.cpp.inc)
+        add_custom_command(OUTPUT ${${TBLGEN_TARGET_NAME}_ATTR_IMPL}
+                COMMAND ${MLIR_TBLGEN} -gen-struct-attr-defs "-I=${MLIR_MAIN_SRC_DIR}" "-I=${MLIR_HEADER_DIR}" "-o=${${TBLGEN_TARGET_NAME}_ATTR_IMPL}" ${path}
+                DEPENDS "${path}")
+    endif (${TBLGEN_GENERATE_STRUCT_ATTRIBUTES})
+
 
     # Add custom target specifying the dependency on output of mlir-tblgen.
-    add_custom_target(${target} DEPENDS ${TABLEGEN_HEADER} ${TABLEGEN_IMPL})
+    add_custom_target(${TBLGEN_TARGET_NAME}
+            DEPENDS ${${TBLGEN_TARGET_NAME}_HEADER}
+            ${${TBLGEN_TARGET_NAME}_ATTR_HEADER}
+            ${${TBLGEN_TARGET_NAME}_IMPL}
+            ${${TBLGEN_TARGET_NAME}_ATTR_IMPL})
 
 endfunction(mlir_tablegen)
