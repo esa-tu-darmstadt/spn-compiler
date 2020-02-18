@@ -121,6 +121,18 @@ static mlir::LogicalResult verify(HistogramOp op) {
   return mlir::success();
 }
 
+static mlir::LogicalResult verify(InputVarOp op) {
+  if (!op.evidence().getType().isa<TensorType>()) {
+    return op.emitOpError("Expected evidence argument to be a tensor!");
+  }
+  auto evidenceType = op.evidence().getType().cast<ShapedType>();
+  // TODO Check if dimension 0 is correct here.
+  if (!evidenceType.hasRank() || op.index().getZExtValue() >= evidenceType.getDimSize(0)) {
+    return op.emitOpError("Index exceeds size of the evidence!");
+  }
+  return mlir::success();
+}
+
 static mlir::LogicalResult verify(SPNSingleQueryOp op) {
   auto* body = op.getBody();
   if (body->getNumArguments() != 1) {

@@ -80,6 +80,20 @@ def HistogramOp : SPN_Op<"histogram", [NoSideEffect]> {
   let verifier = [{ return ::verify(*this); }];
 }
 
+def InputVarOp : SPN_Op<"input_var", [NoSideEffect]> {
+  let summary = "input variable";
+
+  let description = [{
+    Reference to an input variable.
+  }];
+
+  let arguments = (ins I32Tensor:$evidence, PositiveI32Attr:$index);
+
+  let results = (outs I32);
+
+  let verifier = [{ return ::verify(*this); }];
+}
+
 class SPNQueryOp<string mnemonic, list<OpTrait> traits = []> 
   : SPN_Op<mnemonic, !listconcat(traits, [IsolatedFromAbove])>;
 
