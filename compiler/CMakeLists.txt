@@ -27,7 +27,8 @@ add_library(spnc SHARED src/Driver.cpp
         src/codegen/llvm-ir/CPU/LLVMCPUCodegen.cpp
         src/codegen/llvm-ir/CPU/body/CodeGenScalarBody.cpp
         src/codegen/llvm-ir/CPU/loop/CodeGenSerialLoop.cpp
-        src/codegen/mlir/dialects/spn/SPNDialect.cpp)
+        src/codegen/mlir/dialects/spn/SPNDialect.cpp
+        src/codegen/mlir/dialects/spn/SPNAttributes.cpp)
 
 message(STATUS "MLIR Include:" ${MLIR_INCLUDE_DIRS})
 

@@ -17,6 +17,8 @@ SPNDialect::SPNDialect(mlir::MLIRContext *ctx) : mlir::Dialect("spn", ctx) {
 #define GET_OP_LIST
 #include "src/codegen/mlir/dialects/spn/SPNOps.cpp.inc"
   >();
+
+  addAttributes<spn::Bucket>();
 }
 
 //===----------------------------------------------------------------------===//
@@ -97,3 +99,4 @@ static mlir::LogicalResult verify(WeightedSumOp op) {
 
 #define GET_OP_CLASSES
 #include "src/codegen/mlir/dialects/spn/SPNOps.cpp.inc"
+

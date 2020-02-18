@@ -22,10 +22,14 @@ namespace mlir {
             static llvm::StringRef getDialectNamespace() { return "spn"; }
         };
 
-        #define GET_OP_CLASSES
-        #include "src/codegen/mlir/dialects/spn/SPNOps.h.inc"
+#define GET_OP_CLASSES
+#include "src/codegen/mlir/dialects/spn/SPNOps.h.inc"
 
-    } // end namespace spn
+
+
+} // end namespace spn
+
+#include "src/codegen/mlir/dialects/spn/SPNOps.attr.h.inc"
 } // end namespace mlir
 
 #endif //SPNC_SPNDIALECT_H

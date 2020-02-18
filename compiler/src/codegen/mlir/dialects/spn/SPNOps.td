@@ -56,6 +56,28 @@ def WeightedSumOp : SPN_Op<"weighted_sum", [NoSideEffect]> {
   let verifier = [{ return ::verify(*this); }];
 }
 
+def LowerBoundAttr : StructFieldAttr<"lb", I32Attr>;
+
+def UpperBoundAttr : StructFieldAttr<"ub", I32Attr>;
+
+def HistValueAttr  : StructFieldAttr<"val", F64Attr>;
+
+def HistBucketAttr : StructAttr<"Bucket", SPN_Dialect, [LowerBoundAttr, UpperBoundAttr, HistValueAttr]>;
+
+def BucketListAttr : TypedArrayAttrBase<HistBucketAttr, "histogram bucket list">;
+
+def HistogramOp : SPN_Op<"histogram", [NoSideEffect]> {
+  let summary = "histogram";
+
+  let description = [{
+    Univariate distribution as leaf node, represented by a histogram.
+  }];
+
+  let arguments = (ins I32:$index, BucketListAttr:$buckets);
+
+  let results = (outs F64);
+}
+
 
 def ConstantOp : SPN_Op<"constant", [NoSideEffect]> {
   // Provide a summary and description for this operation. This can be used to
