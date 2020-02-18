@@ -93,6 +93,53 @@ static mlir::LogicalResult verify(WeightedSumOp op) {
   return mlir::success();
 }
 
+static mlir::LogicalResult verify(HistogramOp op) {
+  int64_t lb = std::numeric_limits<int64_t>::min();
+  int64_t ub = std::numeric_limits<int64_t>::min();
+  auto buckets = op.buckets();
+  for (auto b : buckets.getValue()) {
+    auto bucket = b.cast<Bucket>();
+    auto curLB = bucket.lb().getInt();
+    auto curUB = bucket.ub().getInt();
+    if (curUB < curLB) {
+      return op.emitOpError("Lower bound must be less or equal to upper bound!");
+    }
+    if (curLB > lb) {
+      if (curLB < ub) {
+        // The existing range and the new bucket overlap.
+        return op.emitOpError("Overlapping buckets in histogram!");
+      }
+      ub = curUB;
+    } else {
+      if (curUB > lb) {
+        // The new bucket and the existing range overlap.
+        return op.emitOpError("Overlapping buckets in histogram!");
+      }
+      lb = curLB;
+    }
+  }
+  return mlir::success();
+}
+
+static mlir::LogicalResult verify(SPNSingleQueryOp op) {
+  auto* body = op.getBody();
+  if (body->getNumArguments() != 1) {
+    return op.emitOpError("Expected body to have a single argument for the input evidence!");
+  }
+  if (!body->getArgument(0).getType().isa<TensorType>()) {
+    return op.emitOpError("Expected body argument to be a tensor!");
+  }
+  auto argType = body->getArgument(0).getType().cast<ShapedType>();
+  auto evidenceType = op.input().getType().cast<ShapedType>();
+  if (!argType.hasRank() || argType.getDimSize(0) != evidenceType.getDimSize(0)) {
+    return op.emitOpError("Expected the body argument dimensions to match the input query!");
+  }
+  if (argType.getElementType() != evidenceType.getElementType()) {
+    return op.emitOpError("Expected the body argument to have the same element type!");
+  }
+  return mlir::success();
+}
+
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//

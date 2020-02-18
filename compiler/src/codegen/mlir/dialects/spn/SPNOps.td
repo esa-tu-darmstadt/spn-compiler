@@ -76,6 +76,41 @@ def HistogramOp : SPN_Op<"histogram", [NoSideEffect]> {
   let arguments = (ins I32:$index, BucketListAttr:$buckets);
 
   let results = (outs F64);
+
+  let verifier = [{ return ::verify(*this); }];
+}
+
+class SPNQueryOp<string mnemonic, list<OpTrait> traits = []> 
+  : SPN_Op<mnemonic, !listconcat(traits, [IsolatedFromAbove])>;
+
+def SPNSingleQueryOp : SPNQueryOp<"query.single", [SingleBlockImplicitTerminator<"ReturnOp">]> {
+  let summary = "single query";
+
+  let description = [{
+    Single SPN probabilistic (joint probability) query execution.
+  }];
+
+  let arguments = (ins I32Tensor:$input);
+
+  let results = (outs F64);
+
+  let regions = (region SizedRegion<1>:$spn);
+
+  let verifier = [{ return ::verify(*this); }];
+
+  let extraClassDeclaration = [{
+    Block* getBody() { return &spn().front(); }
+  }];
+}
+
+def ReturnOp : SPN_Op<"return", [NoSideEffect, Terminator]> {
+  let summary = "return";
+
+  let description = [{
+    Return a single query value.
+  }];
+
+  let arguments = (ins F64:$retValue);
 }
 
 
