@@ -1,0 +1,129 @@
+{
+  "Sum": {
+    "children": [
+      {
+        "Product": {
+          "children": [
+            {
+              "Histogram": {
+                "bin_repr_points": [
+                  1,
+                  1
+                ],
+                "breaks": [
+                  0.0,
+                  1.0,
+                  2.0
+                ],
+                "densities": [
+                  0.25,
+                  0.75
+                ],
+                "id": 3,
+                "meta_type": "DISCRETE",
+                "scope": [
+                  "1"
+                ],
+                "type": "CATEGORICAL"
+              }
+            },
+            {
+              "Histogram": {
+                "bin_repr_points": [
+                  1,
+                  1
+                ],
+                "breaks": [
+                  0.0,
+                  1.0,
+                  2.0
+                ],
+                "densities": [
+                  0.25,
+                  0.75
+                ],
+                "id": 4,
+                "meta_type": "DISCRETE",
+                "scope": [
+                  "2"
+                ],
+                "type": "CATEGORICAL"
+              }
+            }
+          ],
+          "id": 1,
+          "scope": [
+            "1",
+            "2"
+          ]
+        }
+      },
+      {
+        "Product": {
+          "children": [
+            {
+              "Histogram": {
+                "bin_repr_points": [
+                  1,
+                  1
+                ],
+                "breaks": [
+                  0.0,
+                  1.0,
+                  2.0
+                ],
+                "densities": [
+                  0.25,
+                  0.75
+                ],
+                "id": 5,
+                "meta_type": "DISCRETE",
+                "scope": [
+                  "1"
+                ],
+                "type": "CATEGORICAL"
+              }
+            },
+            {
+              "Histogram": {
+                "bin_repr_points": [
+                  1,
+                  1
+                ],
+                "breaks": [
+                  0.0,
+                  1.0,
+                  2.0
+                ],
+                "densities": [
+                  0.25,
+                  0.75
+                ],
+                "id": 6,
+                "meta_type": "DISCRETE",
+                "scope": [
+                  "2"
+                ],
+                "type": "CATEGORICAL"
+              }
+            }
+          ],
+          "id": 2,
+          "scope": [
+            "1",
+            "2"
+          ]
+        }
+      }
+    ],
+    "id": 0,
+    "scope": [
+      "1",
+      "2"
+    ],
+    "weights": [
+      0.3,
+      0.7
+    ]
+  }
+}

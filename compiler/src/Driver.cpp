@@ -5,12 +5,15 @@
 #include <spnc.h>
 #include <iostream>
 #include <driver/toolchain/CPUToolchain.h>
+#include <driver/toolchain/MLIRToolchain.h>
 
 namespace spnc {
     Kernel spn_compiler::parseJSON(const std::string &inputFile) {
-      auto job = CPUToolchain::constructJobFromFile(inputFile);
-      auto& kernel = job->execute();
-      std::cout << "File: " << kernel.fileName() << " Function: " << kernel.kernelName() << std::endl;
+      auto job = MLIRToolchain::constructJobFromFile(inputFile);
+      auto& mlir = job->execute();
+      mlir.dump();
+      Kernel kernel{"/tmp/foo.o", "bar_baz"};
+      std::cout << "\nFile: " << kernel.fileName() << " Function: " << kernel.kernelName() << std::endl;
       return kernel;
     }
 
