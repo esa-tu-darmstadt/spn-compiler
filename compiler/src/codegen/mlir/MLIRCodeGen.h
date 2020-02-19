@@ -32,7 +32,11 @@ namespace spnc {
 
     void generateMLIR(IRGraph& graph);
 
-    mlir::FuncOp createSPNFunction(uint32_t numInputs);
+    void generateSPNBody(IRGraph& graph, const std::string& funcName);
+
+    void generateSPNToplevel(IRGraph& graph, const std::string& bodyFuncName);
+
+    mlir::FuncOp createSPNFunction(uint32_t numInputs, const std::string& funcName);
 
     std::shared_ptr<MLIRContext> context;
 

@@ -188,6 +188,10 @@ Operation::operand_range SPNSingleQueryOp::getArgOperands() {
   return getODSOperands(0);
 }
 
+void SPNSingleQueryOp::build(Builder* b, OperationState& state, Value input, const std::string& callee) {
+  build(b, state, b->getF64Type(), callee, input);
+}
+
 static mlir::LogicalResult verify(SPNSingleQueryOp op) {
   auto callee = op.getCallableForCallee();
   //callee.getCallableRegion();

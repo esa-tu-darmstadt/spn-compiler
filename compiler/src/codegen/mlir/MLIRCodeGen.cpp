@@ -25,7 +25,30 @@ ModuleOp& MLIRCodeGen::execute() {
 }
 
 void MLIRCodeGen::generateMLIR(spnc::IRGraph& graph) {
-  auto spnFunc = createSPNFunction(graph.inputs->size());
+  std::string bodyFuncName = kernelName + "_body";
+  generateSPNBody(graph, bodyFuncName);
+  generateSPNToplevel(graph, bodyFuncName);
+}
+
+void MLIRCodeGen::generateSPNToplevel(spnc::IRGraph& graph, const std::string& bodyFuncName) {
+  auto restore = builder.saveInsertionPoint();
+  Type elementType = builder.getIntegerType(32);
+  Type evidenceType = RankedTensorType::get({(int) graph.inputs->size()}, elementType);
+  auto func_type = builder.getFunctionType({evidenceType}, {builder.getF64Type()});
+  auto func = FuncOp::create(builder.getUnknownLoc(), kernelName, func_type);
+  auto& entryBlock = *func.addEntryBlock();
+  assert(entryBlock.getNumArguments() == 1 && "Expecting a single argument for SPN function!");
+  auto inputArg = entryBlock.getArgument(0);
+  builder.setInsertionPointToStart(&entryBlock);
+  auto query = builder.create<SPNSingleQueryOp>(builder.getUnknownLoc(), inputArg, bodyFuncName);
+  builder.create<ReturnOp>(builder.getUnknownLoc(), query);
+  module->push_back(func);
+  builder.restoreInsertionPoint(restore);
+}
+
+void MLIRCodeGen::generateSPNBody(spnc::IRGraph& graph, const std::string& funcName) {
+  auto restore = builder.saveInsertionPoint();
+  auto spnFunc = createSPNFunction(graph.inputs->size(), funcName);
   auto& entryBlock = *spnFunc.addEntryBlock();
   assert(entryBlock.getNumArguments() == 1 && "Expecting a single argument for SPN function!");
   auto inputArg = entryBlock.getArgument(0);
@@ -39,11 +62,12 @@ void MLIRCodeGen::generateMLIR(spnc::IRGraph& graph) {
   auto rootVal = node2value[graph.rootNode.get()];
   builder.create<ReturnOp>(builder.getUnknownLoc(), rootVal);
   module->push_back(spnFunc);
+  builder.restoreInsertionPoint(restore);
 }
 
-mlir::FuncOp MLIRCodeGen::createSPNFunction(uint32_t numInputs) {
+mlir::FuncOp MLIRCodeGen::createSPNFunction(uint32_t numInputs, const std::string& funcName) {
   Type elementType = builder.getIntegerType(32);
   Type evidenceType = RankedTensorType::get({numInputs}, elementType);
   auto func_type = builder.getFunctionType({evidenceType}, {builder.getF64Type()});
-  return FuncOp::create(builder.getUnknownLoc(), kernelName + "_spn", func_type);
+  return FuncOp::create(builder.getUnknownLoc(), funcName, func_type);
 }

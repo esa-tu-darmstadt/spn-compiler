@@ -131,6 +131,10 @@ def SPNSingleQueryOp : SPNQueryOp<"query.single", []> {
 
   let verifier = [{ return ::verify(*this); }];
 
+  let builders = [
+    OpBuilder<"Builder* b, OperationState& state, Value input, const std::string& callee">
+  ];
+
 }
 
 def ReturnOp : SPN_Op<"return", [NoSideEffect, Terminator]> {
