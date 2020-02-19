@@ -75,12 +75,20 @@ static mlir::LogicalResult verify(ProductOp op) {
   return mlir::success();
 }
 
+void ProductOp::build(Builder* b, OperationState& state, llvm::ArrayRef<Value> operands) {
+  build(b, state, b->getF64Type(), ValueRange(operands), b->getI32IntegerAttr(operands.size()));
+}
+
 static mlir::LogicalResult verify(SumOp op) {
   auto numAddends = std::distance(op.addends().begin(), op.addends().end());
   if (numAddends != op.opCount().getZExtValue()) {
     return op.emitOpError("Number of addends must match the specified operand count!");
   }
   return mlir::success();
+}
+
+void SumOp::build(Builder* b, OperationState& state, llvm::ArrayRef<Value> operands) {
+  build(b, state, b->getF64Type(), ValueRange(operands), b->getI32IntegerAttr(operands.size()));
 }
 
 static mlir::LogicalResult verify(WeightedSumOp op) {
@@ -95,9 +103,25 @@ static mlir::LogicalResult verify(WeightedSumOp op) {
   return mlir::success();
 }
 
+void WeightedSumOp::build(Builder* b,
+                          OperationState& state,
+                          llvm::ArrayRef<Value> operands,
+                          llvm::ArrayRef<double> weights) {
+  SmallVector<mlir::Attribute, 10> weightAttrs;
+  for (auto& w : weights) {
+    weightAttrs.push_back(b->getF64FloatAttr(w));
+  }
+  assert(weightAttrs.size() == operands.size() && "Number of weights must match number of operands!");
+  build(b, state, b->getF64Type(), ValueRange(operands), ArrayAttr::get(weightAttrs, b->getContext()),
+        b->getI32IntegerAttr(operands.size()));
+}
+
 static mlir::LogicalResult verify(HistogramOp op) {
   int64_t lb = std::numeric_limits<int64_t>::min();
   int64_t ub = std::numeric_limits<int64_t>::min();
+  if (op.buckets().size() != op.bucketCount().getZExtValue()) {
+    return op.emitOpError("bucketCount must match the actual number of buckets!");
+  }
   auto buckets = op.buckets();
   for (auto b : buckets.getValue()) {
     auto bucket = b.cast<Bucket>();
@@ -123,6 +147,23 @@ static mlir::LogicalResult verify(HistogramOp op) {
   return mlir::success();
 }
 
+void HistogramOp::build(Builder* b, OperationState& state, Value index,
+                        llvm::ArrayRef<std::tuple<int, int, double> > buckets) {
+  SmallVector<mlir::Attribute, 256> bucketList;
+  for (auto& bucket : buckets) {
+    auto bucketAttr = Bucket::get(b->getI64IntegerAttr(std::get<0>(bucket)),
+                                  b->getI64IntegerAttr(std::get<1>(bucket)),
+                                  b->getF64FloatAttr(std::get<2>(bucket)), b->getContext());
+    auto lb = b->getNamedAttr("lb", b->getI64IntegerAttr(std::get<0>(bucket)));
+    auto ub = b->getNamedAttr("ub", b->getI64IntegerAttr(std::get<1>(bucket)));
+    auto val = b->getNamedAttr("val", b->getF64FloatAttr(std::get<2>(bucket)));
+    auto dictAttr = b->getDictionaryAttr({lb, ub, val});
+    bucketList.push_back(dictAttr);
+  }
+  auto arrAttr = b->getArrayAttr(bucketList);
+  build(b, state, b->getF64Type(), index, arrAttr, b->getI32IntegerAttr(bucketList.size()));
+}
+
 static mlir::LogicalResult verify(InputVarOp op) {
   if (!op.evidence().getType().isa<TensorType>()) {
     return op.emitOpError("Expected evidence argument to be a tensor!");
@@ -133,6 +174,10 @@ static mlir::LogicalResult verify(InputVarOp op) {
     return op.emitOpError("Index exceeds size of the evidence!");
   }
   return mlir::success();
+}
+
+void InputVarOp::build(Builder* b, OperationState& state, Value input, size_t index) {
+  build(b, state, b->getF64Type(), input, b->getI32IntegerAttr(index));
 }
 
 CallInterfaceCallable SPNSingleQueryOp::getCallableForCallee() {

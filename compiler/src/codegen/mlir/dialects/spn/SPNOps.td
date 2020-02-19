@@ -26,6 +26,10 @@ def ProductOp : SPN_Op<"product", [NoSideEffect]> {
   let results = (outs F64);
 
   let verifier = [{ return ::verify(*this); }];
+
+  let builders = [
+    OpBuilder<"Builder* b, OperationState& state, llvm::ArrayRef<Value> operands">
+  ];
 }
 
 def SumOp : SPN_Op<"sum", [NoSideEffect, ]> {
@@ -40,6 +44,10 @@ def SumOp : SPN_Op<"sum", [NoSideEffect, ]> {
   let results = (outs F64);
 
   let verifier = [{ return ::verify(*this); }];
+
+  let builders = [
+    OpBuilder<"Builder* b, OperationState& state, llvm::ArrayRef<Value> operands">
+  ];
 }
 
 def WeightedSumOp : SPN_Op<"weighted_sum", [NoSideEffect]> {
@@ -55,6 +63,10 @@ def WeightedSumOp : SPN_Op<"weighted_sum", [NoSideEffect]> {
   let results = (outs F64);
 
   let verifier = [{ return ::verify(*this); }];
+
+  let builders = [
+    OpBuilder<"Builder* b, OperationState& state, llvm::ArrayRef<Value> operands, llvm::ArrayRef<double> weights">
+  ];
 }
 
 def LowerBoundAttr : StructFieldAttr<"lb", I32Attr>;
@@ -74,11 +86,15 @@ def HistogramOp : SPN_Op<"histogram", [NoSideEffect]> {
     Univariate distribution as leaf node, represented by a histogram.
   }];
 
-  let arguments = (ins I32:$index, BucketListAttr:$buckets);
+  let arguments = (ins I32:$index, BucketListAttr:$buckets, PositiveI32Attr:$bucketCount);
 
   let results = (outs F64);
 
   let verifier = [{ return ::verify(*this); }];
+
+  let builders = [
+    OpBuilder<"Builder* b, OperationState& state, Value index, llvm::ArrayRef<std::tuple<int, int, double>> buckets">
+  ];
 }
 
 def InputVarOp : SPN_Op<"input_var", [NoSideEffect]> {
@@ -93,6 +109,10 @@ def InputVarOp : SPN_Op<"input_var", [NoSideEffect]> {
   let results = (outs I32);
 
   let verifier = [{ return ::verify(*this); }];
+
+  let builders = [
+    OpBuilder<"Builder *b, OperationState& state, Value input, size_t index">
+  ];
 }
 
 class SPNQueryOp<string mnemonic, list<OpTrait> traits = []> 
