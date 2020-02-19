@@ -2,6 +2,7 @@
 #define SPN_OPS
 
 include "mlir/IR/OpBase.td"
+include "mlir/Analysis/CallInterfaces.td"
 
 class ArrayAttrElemCount<string name> :
     StrFunc<"$" # name # ".cast<ArrayAttr>().size()">;
@@ -95,26 +96,21 @@ def InputVarOp : SPN_Op<"input_var", [NoSideEffect]> {
 }
 
 class SPNQueryOp<string mnemonic, list<OpTrait> traits = []> 
-  : SPN_Op<mnemonic, !listconcat(traits, [IsolatedFromAbove])>;
+  : SPN_Op<mnemonic, !listconcat(traits, [DeclareOpInterfaceMethods<CallOpInterface>])>;
 
-def SPNSingleQueryOp : SPNQueryOp<"query.single", [SingleBlockImplicitTerminator<"ReturnOp">]> {
+def SPNSingleQueryOp : SPNQueryOp<"query.single", []> {
   let summary = "single query";
 
   let description = [{
     Single SPN probabilistic (joint probability) query execution.
   }];
 
-  let arguments = (ins I32Tensor:$input);
+  let arguments = (ins FlatSymbolRefAttr:$spn, I32Tensor:$input);
 
   let results = (outs F64);
 
-  let regions = (region SizedRegion<1>:$spn);
-
   let verifier = [{ return ::verify(*this); }];
 
-  let extraClassDeclaration = [{
-    Block* getBody() { return &spn().front(); }
-  }];
 }
 
 def ReturnOp : SPN_Op<"return", [NoSideEffect, Terminator]> {

@@ -5,17 +5,15 @@
 #ifndef SPNC_SPNDIALECT_H
 #define SPNC_SPNDIALECT_H
 
-#include "mlir/IR/Dialect.h"
-#include "mlir/IR/Function.h"
-
+#include <mlir/IR/Dialect.h>
+#include <mlir/IR/Function.h>
 
 namespace mlir {
-    namespace spn {
+  namespace spn {
 
-
-        class SPNDialect : public mlir::Dialect {
-        public:
-            explicit SPNDialect(mlir::MLIRContext *ctx);
+    class SPNDialect : public mlir::Dialect {
+    public:
+      explicit SPNDialect(mlir::MLIRContext* ctx);
 
             /// Provide a utility accessor to the dialect namespace. This is used by
             /// several utilities for casting between dialects.

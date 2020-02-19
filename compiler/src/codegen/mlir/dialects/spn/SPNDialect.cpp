@@ -4,15 +4,17 @@
 
 #include "SPNDialect.h"
 
-#include "mlir/IR/Builders.h"
-#include "mlir/IR/StandardTypes.h"
+#include <mlir/IR/Builders.h>
+#include <mlir/IR/StandardTypes.h>
+#include <mlir/IR/Function.h>
+#include <mlir/IR/DialectImplementation.h>
 
 using namespace mlir;
 using namespace mlir::spn;
 
 /// Dialect creation, the instance will be owned by the context. This is the
 /// point of registration of custom types and operations for the dialect.
-SPNDialect::SPNDialect(mlir::MLIRContext *ctx) : mlir::Dialect("spn", ctx) {
+SPNDialect::SPNDialect(mlir::MLIRContext* ctx) : mlir::Dialect("spn", ctx) {
   addOperations<
 #define GET_OP_LIST
 #include "src/codegen/mlir/dialects/spn/SPNOps.cpp.inc"
@@ -133,22 +135,18 @@ static mlir::LogicalResult verify(InputVarOp op) {
   return mlir::success();
 }
 
+CallInterfaceCallable SPNSingleQueryOp::getCallableForCallee() {
+  return getAttrOfType<SymbolRefAttr>("spn");
+}
+
+Operation::operand_range SPNSingleQueryOp::getArgOperands() {
+  return getODSOperands(0);
+}
+
 static mlir::LogicalResult verify(SPNSingleQueryOp op) {
-  auto* body = op.getBody();
-  if (body->getNumArguments() != 1) {
-    return op.emitOpError("Expected body to have a single argument for the input evidence!");
-  }
-  if (!body->getArgument(0).getType().isa<TensorType>()) {
-    return op.emitOpError("Expected body argument to be a tensor!");
-  }
-  auto argType = body->getArgument(0).getType().cast<ShapedType>();
-  auto evidenceType = op.input().getType().cast<ShapedType>();
-  if (!argType.hasRank() || argType.getDimSize(0) != evidenceType.getDimSize(0)) {
-    return op.emitOpError("Expected the body argument dimensions to match the input query!");
-  }
-  if (argType.getElementType() != evidenceType.getElementType()) {
-    return op.emitOpError("Expected the body argument to have the same element type!");
-  }
+  auto callee = op.getCallableForCallee();
+  //callee.getCallableRegion();
+  // TODO Verify that argument and return types match.
   return mlir::success();
 }
 

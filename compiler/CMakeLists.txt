@@ -9,6 +9,7 @@ add_subdirectory(src/codegen/mlir/dialects/spn)
 
 add_library(spnc SHARED src/Driver.cpp
         src/driver/toolchain/CPUToolchain.cpp
+        src/driver/toolchain/MLIRToolchain.cpp
         src/driver/action/LLVMWriteBitcode.cpp
         src/driver/action/LLVMStaticCompiler.cpp
         src/driver/action/ClangKernelLinking.cpp
@@ -64,7 +65,6 @@ set(mlir_libs
         MLIRLLVMIR
         MLIRLoopOps
         MLIRNVVMIR
-        MLIROptMain
         MLIRParser
         MLIRPass
         MLIRQuantizerTransforms
