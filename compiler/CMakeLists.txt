@@ -66,6 +66,7 @@ set(mlir_libs
         MLIRLLVMIR
         MLIRLoopOps
         MLIRNVVMIR
+        MLIROpenMP
         MLIRParser
         MLIRPass
         MLIRQuantizerTransforms

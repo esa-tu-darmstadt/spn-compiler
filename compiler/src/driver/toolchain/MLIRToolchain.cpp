@@ -9,6 +9,7 @@
 #include <transform/BinaryTreeTransform.h>
 #include <codegen/mlir/MLIRCodeGen.h>
 #include "MLIRToolchain.h"
+#include "mlir/InitAllDialects.h"
 
 using namespace spnc;
 
@@ -30,8 +31,11 @@ std::unique_ptr<Job<mlir::ModuleOp>> MLIRToolchain::constructJob(std::unique_ptr
   auto parser = std::make_unique<Parser>(*input);
   // Invoke MLIR code-generation on parsed tree.
   std::string kernelName = "spn_kernel";
-
-  auto mlirCodeGen = std::make_unique<MLIRCodeGen>(*parser, kernelName, std::make_shared<MLIRContext>());
+  mlir::registerAllDialects();
+  // Register our Dialect with MLIR.
+  mlir::registerDialect<mlir::spn::SPNDialect>();
+  auto ctx = std::make_shared<MLIRContext>();
+  auto mlirCodeGen = std::make_unique<MLIRCodeGen>(*parser, kernelName, ctx);
 
   job->addAction(std::move(input));
   job->addAction(std::move(parser));

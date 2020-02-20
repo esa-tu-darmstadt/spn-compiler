@@ -19,8 +19,8 @@ SPNDialect::SPNDialect(mlir::MLIRContext* ctx) : mlir::Dialect("spn", ctx) {
 #define GET_OP_LIST
 #include "src/codegen/mlir/dialects/spn/SPNOps.cpp.inc"
   >();
-
-  addAttributes<spn::Bucket>();
+  // We do not need to add the 'Bucket' attribute, because StructAttr are just
+  // type-safe wrappers around DictionaryAttr.
 }
 
 //===----------------------------------------------------------------------===//
@@ -194,7 +194,6 @@ void SPNSingleQueryOp::build(Builder* b, OperationState& state, Value input, con
 
 static mlir::LogicalResult verify(SPNSingleQueryOp op) {
   auto callee = op.getCallableForCallee();
-  //callee.getCallableRegion();
   // TODO Verify that argument and return types match.
   return mlir::success();
 }
