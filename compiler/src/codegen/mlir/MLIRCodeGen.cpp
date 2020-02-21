@@ -28,6 +28,10 @@ void MLIRCodeGen::generateMLIR(spnc::IRGraph& graph) {
   std::string bodyFuncName = kernelName + "_body";
   generateSPNBody(graph, bodyFuncName);
   generateSPNToplevel(graph, bodyFuncName);
+  auto verificationResult = module->verify();
+  if (verificationResult.value == LogicalResult::Failure) {
+    throw std::runtime_error("Verification of the generated MLIR module failed!");
+  }
 }
 
 void MLIRCodeGen::generateSPNToplevel(spnc::IRGraph& graph, const std::string& bodyFuncName) {

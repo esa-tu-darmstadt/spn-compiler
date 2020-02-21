@@ -31,7 +31,8 @@ add_library(spnc SHARED src/Driver.cpp
         src/codegen/mlir/dialects/spn/SPNDialect.cpp
         src/codegen/mlir/dialects/spn/SPNAttributes.cpp
         src/codegen/mlir/MLIRCodeGen.cpp
-        src/codegen/mlir/MLIRBodyGen.cpp)
+        src/codegen/mlir/MLIRBodyGen.cpp
+        src/codegen/mlir/transform/pattern/BinaryTreeTransformPatterns.cpp)
 
 message(STATUS "MLIR Include:" ${MLIR_INCLUDE_DIRS})
 
