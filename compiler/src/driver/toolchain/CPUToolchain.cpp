@@ -27,19 +27,20 @@ namespace spnc {
     }
 
     std::unique_ptr<Job<Kernel>> CPUToolchain::constructJob(std::unique_ptr<ActionWithOutput<std::string>> input) {
-      std::unique_ptr<Job<Kernel>> job{new Job<Kernel>()};
+      std::unique_ptr <Job<Kernel>> job{new Job<Kernel>()};
       // Construct parser to parse JSON from input.
-      auto& parser = job->insertAction<Parser>(*input);
+      auto graphIRContext = std::make_shared<GraphIRContext>();
+      auto& parser = job->insertAction<Parser>(*input, graphIRContext);
       // Transform all operations into binary (two inputs) operations.
-        BinaryTreeTransform& binaryTreeTransform = job->insertAction<BinaryTreeTransform>(parser);
-        // Invoke LLVM code-generation on transformed tree.
-        std::string kernelName = "spn_kernel";
-        auto& llvmCodeGen = job->insertAction<LLVMCPUCodegen>(binaryTreeTransform, kernelName);
-        // Collect graph statistics on transformed tree.
-        // TODO: Make execution optional via configuration.
-        // TODO: Determine output file-name via configuration.
-        auto statsFile = FileSystem::createTempFile<FileType::STAT_JSON>(false);
-        auto& graphStats = job->insertAction<GraphStatVisitor>(binaryTreeTransform, std::move(statsFile));
+      BinaryTreeTransform& binaryTreeTransform = job->insertAction<BinaryTreeTransform>(parser, graphIRContext);
+      // Invoke LLVM code-generation on transformed tree.
+      std::string kernelName = "spn_kernel";
+      auto& llvmCodeGen = job->insertAction<LLVMCPUCodegen>(binaryTreeTransform, kernelName);
+      // Collect graph statistics on transformed tree.
+      // TODO: Make execution optional via configuration.
+      // TODO: Determine output file-name via configuration.
+      auto statsFile = FileSystem::createTempFile<FileType::STAT_JSON>(false);
+      auto& graphStats = job->insertAction<GraphStatVisitor>(binaryTreeTransform, std::move(statsFile));
         // Join the two actions happening on the transformed tree (graph-stats & LLVM code-gen).
         auto& joinAction = job->insertAction < JoinAction < llvm::Module, StatsFile>>(llvmCodeGen, graphStats);
         // Write generated LLVM module to bitcode-file.

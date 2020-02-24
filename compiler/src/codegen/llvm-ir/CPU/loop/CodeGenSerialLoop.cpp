@@ -31,7 +31,7 @@ namespace spnc {
 
     std::vector<Type*> CodeGenSerialLoop::constructInputArgumentTypes() {
       auto intType = Type::getInt32Ty(module.getContext());
-      auto structElements = std::vector<Type*>(graph.inputs->size(), intType);
+      auto structElements = std::vector<Type*>(graph.inputs().size(), intType);
       auto activationType = StructType::create(module.getContext(), structElements, "activation_t", false);
       auto activationPtrType = PointerType::get(activationType, 0);
       return std::vector<Type*>{activationPtrType};

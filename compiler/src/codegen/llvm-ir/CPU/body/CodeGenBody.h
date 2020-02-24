@@ -8,6 +8,7 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
 #include <graph-ir/GraphIRNode.h>
+#include <graph-ir/IRGraph.h>
 
 namespace spnc {
     using namespace llvm;

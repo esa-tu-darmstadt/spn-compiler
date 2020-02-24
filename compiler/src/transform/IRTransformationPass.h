@@ -6,27 +6,31 @@
 #define SPNC_IRTRANSFORMATIONPASS_H
 
 #include <graph-ir/GraphIRNode.h>
+#include <graph-ir/GraphIRContext.h>
+#include <graph-ir/IRGraph.h>
 #include <driver/Actions.h>
 
 namespace spnc {
 
-    class IRTransformationPass : public ActionSingleInput<IRGraph, IRGraph> {
+  class IRTransformationPass : public ActionSingleInput<IRGraph, IRGraph> {
 
-    public:
+  public:
 
-        explicit IRTransformationPass(ActionWithOutput<IRGraph>& _input);
+    explicit IRTransformationPass(ActionWithOutput <IRGraph>& _input, std::shared_ptr <GraphIRContext> context);
 
-        IRGraph& execute() override ;
+    IRGraph& execute() override;
 
-        virtual IRGraph transform(IRGraph& input) = 0;
+    virtual void transform(IRGraph& input) = 0;
 
-    private:
+  private:
 
-        bool cached = false;
+    bool cached = false;
 
-        IRGraph transformedGraph;
+  protected:
 
-    };
+    IRGraph transformedGraph;
+
+  };
 }
 
 

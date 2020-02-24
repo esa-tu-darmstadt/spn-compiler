@@ -6,6 +6,7 @@
 #define SPNC_CODEGENSERIALLOOP_H
 
 #include <codegen/llvm-ir/CPU/body/CodeGenBody.h>
+#include <graph-ir/IRGraph.h>
 #include "CodeGenLoop.h"
 
 namespace spnc {

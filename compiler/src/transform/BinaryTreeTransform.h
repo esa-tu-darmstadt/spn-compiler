@@ -12,15 +12,16 @@
 #include "IRTransformationPass.h"
 
 namespace spnc {
+
     class BinaryTreeTransform : public BaseVisitor, public IRTransformationPass {
 
     public:
 
-        explicit BinaryTreeTransform(ActionWithOutput<IRGraph>& _input);
+        using IRTransformationPass::IRTransformationPass;
 
-        IRGraph transform(IRGraph& input) override ;
+      void transform(IRGraph& input) override;
 
-        NodeReference binarizeTree(const NodeReference& rootNode);
+      NodeReference binarizeTree(const NodeReference rootNode);
 
         void visitHistogram(Histogram& n, arg_t arg) override ;
 
@@ -33,10 +34,10 @@ namespace spnc {
     private:
         std::unordered_map<std::string, NodeReference> updated_nodes;
 
-        template<class T>
-        NodeReference splitChildren(const std::vector<NodeReference>& children, const std::string& prefix) const;
+      template<class T>
+      NodeReference splitChildren(const std::vector <NodeReference>& children, const std::string& prefix);
 
-        NodeReference splitWeightedChildren(const std::vector<WeightedAddend>& children, const std::string& prefix) const;
+      NodeReference splitWeightedChildren(const std::vector <WeightedAddend>& children, const std::string& prefix);
 
     };
 }

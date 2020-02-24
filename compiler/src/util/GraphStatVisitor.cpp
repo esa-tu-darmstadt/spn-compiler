@@ -10,12 +10,12 @@ namespace spnc {
   GraphStatVisitor::GraphStatVisitor(ActionWithOutput<IRGraph>& _input, StatsFile outputFile)
       : ActionSingleInput<IRGraph, StatsFile>{_input}, outfile{std::move(outputFile)} {}
 
-    void GraphStatVisitor::collectGraphStats(const NodeReference& rootNode) {
+    void GraphStatVisitor::collectGraphStats(const NodeReference rootNode) {
       std::vector<NODETYPE> nodetype_inner = {NODETYPE::SUM, NODETYPE::PRODUCT};
       std::vector<NODETYPE> nodetype_leaf = {NODETYPE::HISTOGRAM};
 
-      spn_node_stats = {{NODETYPE::SUM,       std::multimap<int, std::string>()},
-                        {NODETYPE::PRODUCT,   std::multimap<int, std::string>()},
+      spn_node_stats = {{NODETYPE::SUM, std::multimap<int, std::string>()},
+                        {NODETYPE::PRODUCT, std::multimap<int, std::string>()},
                         {NODETYPE::HISTOGRAM, std::multimap<int, std::string>()}};
 
       std::shared_ptr<void> passed_arg(new GraphStatLevelInfo({1}));
@@ -119,14 +119,14 @@ namespace spnc {
       int currentLevel = std::static_pointer_cast<GraphStatLevelInfo>(arg)->level;
       spn_node_stats.find(NODETYPE::HISTOGRAM)->second.insert(std::pair<int, std::string>(currentLevel, n.id()));
 
-      n.indexVar()->accept(*this, nullptr);
+      n.indexVar().accept(*this, nullptr);
     }
 
     void GraphStatVisitor::visitProduct(Product &n, arg_t arg) {
       int currentLevel = std::static_pointer_cast<GraphStatLevelInfo>(arg)->level;
       spn_node_stats.find(NODETYPE::PRODUCT)->second.insert(std::pair<int, std::string>(currentLevel, n.id()));
 
-      for(auto& child : *n.multiplicands()){
+      for (auto& child : n.multiplicands()) {
         std::shared_ptr<void> passed_arg(new GraphStatLevelInfo({currentLevel + 1}));
         child->accept(*this, passed_arg);
       }
@@ -136,7 +136,7 @@ namespace spnc {
       int currentLevel = std::static_pointer_cast<GraphStatLevelInfo>(arg)->level;
       spn_node_stats.find(NODETYPE::SUM)->second.insert(std::pair<int, std::string>(currentLevel, n.id()));
 
-      for(auto& child : *n.addends()){
+      for (auto& child : n.addends()) {
         std::shared_ptr<void> passed_arg(new GraphStatLevelInfo({currentLevel + 1}));
         child->accept(*this, passed_arg);
       }
@@ -146,17 +146,17 @@ namespace spnc {
       int currentLevel = std::static_pointer_cast<GraphStatLevelInfo>(arg)->level;
       spn_node_stats.find(NODETYPE::SUM)->second.insert(std::pair<int, std::string>(currentLevel, n.id()));
 
-      for(auto& child : *n.addends()){
+      for (auto& child : n.addends()) {
         std::shared_ptr<void> passed_arg(new GraphStatLevelInfo({currentLevel + 1}));
         child.addend->accept(*this, passed_arg);
       }
     }
 
     StatsFile& spnc::GraphStatVisitor::execute() {
-      if(!cached){
+      if(!cached) {
         IRGraph graph = input.execute();
-        count_features = graph.inputs->size();
-        collectGraphStats(graph.rootNode);
+        count_features = graph.inputs().size();
+        collectGraphStats(graph.rootNode());
         cached = true;
       }
       return outfile;
