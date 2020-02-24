@@ -13,30 +13,32 @@
 
 namespace spnc {
     /*
- * Forward declaration of types related to the visitor to break circular dependency.
- */
+     * Forward declaration of types related to the visitor to break circular dependency.
+     */
     class Visitor;
     typedef std::shared_ptr<void> arg_t;
 
     class GraphIRNode {
 
     public:
-        explicit GraphIRNode(std::string id);
+      explicit GraphIRNode(std::string id);
 
-        virtual std::string dump() const;
+      virtual std::string dump() const;
 
-        friend std::ostream& operator<<(std::ostream& os, const GraphIRNode& node);
+      friend std::ostream& operator<<(std::ostream& os, const GraphIRNode& node);
 
-        std::string id() const;
+      std::string id() const;
 
-        virtual void accept(Visitor& visitor, arg_t arg) = 0;
+      virtual void accept(Visitor& visitor, arg_t arg) = 0;
+
+      virtual ~GraphIRNode() {}
 
     private:
-        std::string _id;
+      std::string _id;
 
     };
 
-    typedef std::shared_ptr<GraphIRNode> NodeReference;
+  using NodeReference = GraphIRNode*;
 
     class InputVar : public GraphIRNode {
 
@@ -57,18 +59,18 @@ namespace spnc {
 
     class Histogram : public GraphIRNode {
     public:
-        Histogram(std::string id, std::shared_ptr<InputVar> indexVar, const std::vector<HistogramBucket>& buckets);
+      Histogram(std::string id, InputVar* indexVar, const std::vector<HistogramBucket>& buckets);
 
-        std::shared_ptr<InputVar> indexVar() const;
+      InputVar& indexVar() const;
 
-        std::shared_ptr<std::vector<HistogramBucket>> buckets() const;
+      const std::vector<HistogramBucket>& buckets() const;
 
         void accept(Visitor& visitor, arg_t arg) override ;
 
     private:
-        std::shared_ptr<InputVar> _indexVar;
+      InputVar* _indexVar;
 
-        std::shared_ptr<std::vector<HistogramBucket>> _buckets;
+      std::vector<HistogramBucket> _buckets;
     };
 
     struct WeightedAddend{NodeReference addend; double weight;};
@@ -77,39 +79,38 @@ namespace spnc {
     public:
         WeightedSum(std::string id, const std::vector<WeightedAddend>& addends);
 
-        std::shared_ptr<std::vector<WeightedAddend>> addends() const;
+      const std::vector<WeightedAddend>& addends() const;
 
         void accept(Visitor& visitor, arg_t arg) override ;
 
     private:
-        std::shared_ptr<std::vector<WeightedAddend>> _addends;
+      std::vector<WeightedAddend> _addends;
     };
 
     class Sum : public GraphIRNode {
     public:
         Sum(std::string id, const std::vector<NodeReference>& addends);
 
-        std::shared_ptr<std::vector<NodeReference>> addends() const;
+      const std::vector<NodeReference>& addends() const;
 
         void accept(Visitor& visitor, arg_t arg) override ;
 
     private:
-        std::shared_ptr<std::vector<NodeReference>> _addends;
+      std::vector<NodeReference> _addends;
     };
 
     class Product : public GraphIRNode {
     public:
         Product(std::string id, const std::vector<NodeReference>& multiplicands);
 
-        std::shared_ptr<std::vector<NodeReference>> multiplicands();
+      const std::vector<NodeReference>& multiplicands() const;
 
         void accept(Visitor& visitor, arg_t arg) override ;
 
     private:
-        std::shared_ptr<std::vector<NodeReference>> _multiplicands;
+      std::vector<NodeReference> _multiplicands;
     };
 
-    struct IRGraph{NodeReference rootNode; std::shared_ptr<std::vector<std::shared_ptr<InputVar>>> inputs;};
 }
 
 

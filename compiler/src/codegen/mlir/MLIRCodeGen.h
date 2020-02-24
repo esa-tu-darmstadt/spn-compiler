@@ -9,6 +9,7 @@
 #include <codegen/mlir/dialects/spn/SPNDialect.h>
 #include <driver/Actions.h>
 #include <graph-ir/GraphIRNode.h>
+#include <graph-ir/IRGraph.h>
 #include <mlir/IR/Module.h>
 #include <mlir/IR/Builders.h>
 #include <unordered_map>
@@ -46,7 +47,7 @@ namespace spnc {
 
     std::string kernelName;
 
-    std::unordered_map<GraphIRNode*, mlir::Value> node2value;
+    std::unordered_map<std::string, mlir::Value> node2value;
 
     bool cached = false;
 

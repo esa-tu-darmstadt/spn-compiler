@@ -18,7 +18,7 @@ namespace spnc {
 
   class MLIRBodyGen : public BaseVisitor {
   public:
-    MLIRBodyGen(mlir::OpBuilder* _builder, std::unordered_map<GraphIRNode*, mlir::Value>* n2v);
+    MLIRBodyGen(mlir::OpBuilder* _builder, std::unordered_map<std::string, mlir::Value>* n2v);
 
     void visitHistogram(Histogram& n, arg_t arg) override;
 
@@ -30,11 +30,11 @@ namespace spnc {
 
   private:
 
-    mlir::Value getValueForNode(const NodeReference& node, arg_t arg);
+    mlir::Value getValueForNode(NodeReference node, arg_t arg);
 
     mlir::OpBuilder* builder;
 
-    std::unordered_map<GraphIRNode*, mlir::Value>* node2value;
+    std::unordered_map<std::string, mlir::Value>* node2value;
   };
 
 }

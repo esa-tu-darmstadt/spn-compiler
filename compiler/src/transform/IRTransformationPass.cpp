@@ -6,14 +6,15 @@
 
 namespace spnc {
 
-    IRTransformationPass::IRTransformationPass(spnc::ActionWithOutput<IRGraph>& _input)
-      : ActionSingleInput<IRGraph, IRGraph>(_input){}
+  IRTransformationPass::IRTransformationPass(spnc::ActionWithOutput<IRGraph>& _input,
+                                             std::shared_ptr<GraphIRContext> context)
+      : ActionSingleInput<IRGraph, IRGraph>(_input), transformedGraph{context} {}
 
-    IRGraph & IRTransformationPass::execute() {
-      if(!cached){
-        transformedGraph = transform(input.execute());
-        cached = true;
-      }
-      return transformedGraph;
+  IRGraph& IRTransformationPass::execute() {
+    if (!cached) {
+      transform(input.execute());
+      cached = true;
     }
+    return transformedGraph;
+  }
 }

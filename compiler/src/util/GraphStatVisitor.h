@@ -12,6 +12,7 @@
 #include <driver/Actions.h>
 #include <driver/BaseActions.h>
 #include "../json/json.hpp"
+#include <graph-ir/IRGraph.h>
 
 using json = nlohmann::json;
 
@@ -32,7 +33,7 @@ namespace spnc {
 
     private:
 
-        void collectGraphStats(const NodeReference& rootNode);
+      void collectGraphStats(const NodeReference rootNode);
 
     public:
 

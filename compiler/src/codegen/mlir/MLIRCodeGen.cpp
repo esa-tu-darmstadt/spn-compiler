@@ -37,7 +37,7 @@ void MLIRCodeGen::generateMLIR(spnc::IRGraph& graph) {
 void MLIRCodeGen::generateSPNToplevel(spnc::IRGraph& graph, const std::string& bodyFuncName) {
   auto restore = builder.saveInsertionPoint();
   Type elementType = builder.getIntegerType(32);
-  Type evidenceType = RankedTensorType::get({(int) graph.inputs->size()}, elementType);
+  Type evidenceType = RankedTensorType::get({(int) graph.inputs().size()}, elementType);
   auto func_type = builder.getFunctionType({evidenceType}, {builder.getF64Type()});
   auto func = FuncOp::create(builder.getUnknownLoc(), kernelName, func_type);
   auto& entryBlock = *func.addEntryBlock();
@@ -52,18 +52,18 @@ void MLIRCodeGen::generateSPNToplevel(spnc::IRGraph& graph, const std::string& b
 
 void MLIRCodeGen::generateSPNBody(spnc::IRGraph& graph, const std::string& funcName) {
   auto restore = builder.saveInsertionPoint();
-  auto spnFunc = createSPNFunction(graph.inputs->size(), funcName);
+  auto spnFunc = createSPNFunction(graph.inputs().size(), funcName);
   auto& entryBlock = *spnFunc.addEntryBlock();
   assert(entryBlock.getNumArguments() == 1 && "Expecting a single argument for SPN function!");
   auto inputArg = entryBlock.getArgument(0);
   builder.setInsertionPointToStart(&entryBlock);
-  for (auto& input : *graph.inputs) {
+  for (auto input : graph.inputs()) {
     auto inVar = builder.create<InputVarOp>(builder.getUnknownLoc(), inputArg, input->index());
-    node2value[input.get()] = inVar;
+    node2value[input->id()] = inVar;
   }
   MLIRBodyGen bodygen{&builder, &node2value};
-  graph.rootNode->accept(bodygen, nullptr);
-  auto rootVal = node2value[graph.rootNode.get()];
+  graph.rootNode()->accept(bodygen, nullptr);
+  auto rootVal = node2value[graph.rootNode()->id()];
   builder.create<ReturnOp>(builder.getUnknownLoc(), rootVal);
   module->push_back(spnFunc);
   builder.restoreInsertionPoint(restore);
