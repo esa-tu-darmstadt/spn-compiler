@@ -30,42 +30,35 @@ namespace spnc {
     std::unique_ptr<Job<Kernel>> CPUToolchain::constructJob(std::unique_ptr<ActionWithOutput<std::string>> input) {
       std::unique_ptr<Job<Kernel>> job{new Job<Kernel>()};
       // Construct parser to parse JSON from input.
-      auto parser = std::make_unique<Parser>(*input);
+      auto graphIRContext = std::make_shared<GraphIRContext>();
+      auto& parser = job->insertAction<Parser>(*input, graphIRContext);
       // Transform all operations into binary (two inputs) operations.
-      auto binaryTreeTransform = std::make_unique<BinaryTreeTransform>(*parser);
+      BinaryTreeTransform& binaryTreeTransform = job->insertAction<BinaryTreeTransform>(parser, graphIRContext);
       // Invoke LLVM code-generation on transformed tree.
       std::string kernelName = "spn_kernel";
       std::shared_ptr<LLVMContext> llvmContext = std::make_shared<LLVMContext>();
-      auto llvmCodeGen = std::make_unique<LLVMCPUCodegen>(*binaryTreeTransform, kernelName, llvmContext);
+      auto& llvmCodeGen = job->insertAction<LLVMCPUCodegen>(binaryTreeTransform, kernelName, llvmContext);
       // Collect graph statistics on transformed tree.
       // TODO: Make execution optional via configuration.
       // TODO: Determine output file-name via configuration.
       auto statsFile = FileSystem::createTempFile<FileType::STAT_JSON>(false);
-      auto graphStats = std::make_unique<GraphStatVisitor>(*binaryTreeTransform, std::move(statsFile));
+      auto& graphStats = job->insertAction<GraphStatVisitor>(binaryTreeTransform, std::move(statsFile));
       // Join the two actions happening on the transformed tree (graph-stats & LLVM code-gen).
-      auto joinAction = std::make_unique<JoinAction<llvm::Module, StatsFile>>(*llvmCodeGen, *graphStats);
+      auto& joinAction = job->insertAction<JoinAction<llvm::Module, StatsFile>>(llvmCodeGen, graphStats);
       // Run LLVM IR transformation pipeline on the generated module.
-      auto llvmPipeline = std::make_unique<LLVMPipeline>(*joinAction, llvmContext);
+      auto& llvmPipeline = job->insertAction<LLVMPipeline>(joinAction, llvmContext);
       // Write generated LLVM module to bitcode-file.
       auto bitCodeFile = FileSystem::createTempFile<FileType::LLVM_BC>();
-      auto writeBitcode = std::make_unique<LLVMWriteBitcode>(*llvmPipeline, std::move(bitCodeFile));
+      auto& writeBitcode = job->insertAction<LLVMWriteBitcode>(llvmPipeline, std::move(bitCodeFile));
       // Compile generated bitcode-file to object file.
       auto objectFile = FileSystem::createTempFile<FileType::OBJECT>();
-      auto compileObject = std::make_unique<LLVMStaticCompiler>(*writeBitcode, std::move(objectFile));
+      auto& compileObject = job->insertAction<LLVMStaticCompiler>(writeBitcode, std::move(objectFile));
       // Link generated object file into shared object.
       auto sharedObject = FileSystem::createTempFile<FileType::SHARED_OBJECT>(false);
       std::cout << "Compiling to object-file " << sharedObject.fileName() << std::endl;
-      auto linkSharedObject = std::make_unique<ClangKernelLinking>(*compileObject, std::move(sharedObject), kernelName);
+      auto& linkSharedObject =
+          job->insertFinalAction<ClangKernelLinking>(compileObject, std::move(sharedObject), kernelName);
       job->addAction(std::move(input));
-      job->addAction(std::move(parser));
-      job->addAction(std::move(binaryTreeTransform));
-      job->addAction(std::move(llvmCodeGen));
-      job->addAction(std::move(graphStats));
-      job->addAction(std::move(joinAction));
-      job->addAction(std::move(llvmPipeline));
-      job->addAction(std::move(writeBitcode));
-      job->addAction(std::move(compileObject));
-      job->setFinalAction(std::move(linkSharedObject));
       return std::move(job);
     }
 

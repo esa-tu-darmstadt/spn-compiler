@@ -11,6 +11,7 @@
 #include <llvm/IR/Metadata.h>
 #include <llvm/IR/Module.h>
 #include <graph-ir/GraphIRNode.h>
+#include <graph-ir/IRGraph.h>
 
 namespace spnc {
     using namespace llvm;

@@ -10,6 +10,7 @@
 #include <sstream>
 #include <driver/Actions.h>
 #include <driver/BaseActions.h>
+#include <graph-ir/IRGraph.h>
 
 namespace spnc {
 
@@ -23,7 +24,7 @@ namespace spnc {
 
     private:
 
-        void writeDotGraph(const NodeReference& rootNode);
+      void writeDotGraph(const NodeReference rootNode);
 
     public:
 
