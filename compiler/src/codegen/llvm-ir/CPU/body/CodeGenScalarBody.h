@@ -25,12 +25,13 @@ namespace spnc {
         void visitSum(Sum &n, arg_t arg) override;
 
         void visitWeightedSum(WeightedSum &n, arg_t arg) override;
+
     private:
-        std::unordered_map<GraphIRNode*, Value*> node2value;
+        std::unordered_map<std::string, Value*> node2value;
 
         Type* getValueType();
 
-        Value* getValueForNode(const NodeReference& node, arg_t arg);
+      Value* getValueForNode(NodeReference node, arg_t arg);
     };
 }
 

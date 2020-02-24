@@ -37,5 +37,5 @@ target_include_directories(spnc
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${LLVM_INCLUDE_DIRS})
 
-llvm_map_components_to_libnames(llvm_libs all)
+llvm_map_components_to_libnames(llvm_libs bitwriter)
 target_link_libraries(spnc PRIVATE ${llvm_libs})
