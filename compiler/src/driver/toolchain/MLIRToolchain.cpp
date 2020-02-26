@@ -8,6 +8,7 @@
 #include <json/Parser.h>
 #include <transform/BinaryTreeTransform.h>
 #include <codegen/mlir/MLIRCodeGen.h>
+#include <codegen/mlir/pipeline/MLIRPipeline.h>
 #include "MLIRToolchain.h"
 #include "mlir/InitAllDialects.h"
 
@@ -36,8 +37,8 @@ std::unique_ptr<Job<mlir::ModuleOp>> MLIRToolchain::constructJob(std::unique_ptr
   // Register our Dialect with MLIR.
   mlir::registerDialect<mlir::spn::SPNDialect>();
   auto ctx = std::make_shared<MLIRContext>();
-  auto& mlirCodeGen = job->insertFinalAction<MLIRCodeGen>(parser, kernelName, ctx);
-
+  auto& mlirCodeGen = job->insertAction<MLIRCodeGen>(parser, kernelName, ctx);
+  auto& mlirPipeline = job->insertFinalAction<MLIRPipeline>(mlirCodeGen, ctx);
   job->addAction(std::move(input));
   return std::move(job);
 }

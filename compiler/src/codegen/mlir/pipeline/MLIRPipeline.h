@@ -1,0 +1,40 @@
+//
+// This file is part of the SPNC project.
+// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
+//
+
+#ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_PIPELINE_MLIRPIPELINE_H
+#define SPNC_COMPILER_SRC_CODEGEN_MLIR_PIPELINE_MLIRPIPELINE_H
+
+#include <driver/Actions.h>
+#include <mlir/IR/Module.h>
+#include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
+
+using namespace mlir;
+
+namespace spnc {
+
+  class MLIRPipeline : public ActionSingleInput<ModuleOp, ModuleOp> {
+
+  public:
+
+    MLIRPipeline(ActionWithOutput<ModuleOp>& _input, std::shared_ptr<MLIRContext> _mlirContext);
+
+    ModuleOp& execute() override;
+
+  private:
+
+    std::shared_ptr<MLIRContext> mlirContext;
+
+    bool cached = false;
+
+    PassManager pm;
+
+    std::unique_ptr<ModuleOp> module;
+
+  };
+
+}
+
+#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_PIPELINE_MLIRPIPELINE_H
