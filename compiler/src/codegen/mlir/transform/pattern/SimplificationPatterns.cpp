@@ -2,7 +2,8 @@
 // This file is part of the SPNC project.
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
-#include "BinaryTreeTransformPatterns.h"
+
+#include "SimplificationPatterns.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -42,6 +43,21 @@ PatternMatchResult BinarizeWeightedSumOp::matchAndRewrite(WeightedSumOp op, Patt
   SmallVector<Value, 2> ops{leftSum, rightSum};
   SmallVector<double, 2> newWeights{1.0, 1.0};
   auto newSum = rewriter.create<WeightedSumOp>(op.getLoc(), ops, newWeights);
+  rewriter.replaceOp(op, {newSum});
+  return matchSuccess();
+}
+
+PatternMatchResult SplitWeightedSumOp::matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const {
+  SmallVector<Value, 10> addends;
+  size_t index = 0;
+  for (auto a : op.operands()) {
+    auto w = op.weights()[index].cast<FloatAttr>().getValueAsDouble();
+    auto constant = rewriter.create<ConstantOp>(op.getLoc(), w);
+    SmallVector<Value, 2> multiplicands{a, constant};
+    addends.push_back(rewriter.create<ProductOp>(op.getLoc(), multiplicands));
+    ++index;
+  }
+  auto newSum = rewriter.create<SumOp>(op.getLoc(), addends);
   rewriter.replaceOp(op, {newSum});
   return matchSuccess();
 }

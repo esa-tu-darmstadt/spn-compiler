@@ -14,7 +14,7 @@ def SPN_Dialect : Dialect {
 
 class SPN_Op<string mnemonic, list<OpTrait> traits = []> : Op<SPN_Dialect, mnemonic, traits>;
 
-def ProductOp : SPN_Op<"product", [NoSideEffect]> {
+def ProductOp : SPN_Op<"product", [NoSideEffect, Commutative]> {
   let summary = "product";
   
   let description = [{
@@ -34,7 +34,7 @@ def ProductOp : SPN_Op<"product", [NoSideEffect]> {
   let hasCanonicalizer = 1;
 }
 
-def SumOp : SPN_Op<"sum", [NoSideEffect, ]> {
+def SumOp : SPN_Op<"sum", [NoSideEffect, Commutative]> {
   let summary = "sum";
 
   let description = [{

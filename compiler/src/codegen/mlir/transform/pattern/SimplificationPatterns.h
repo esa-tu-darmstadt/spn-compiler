@@ -3,8 +3,8 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_TRANSFORM_PATTERN_BINARYTREETRANSFORMPATTERNS_H
-#define SPNC_COMPILER_SRC_CODEGEN_MLIR_TRANSFORM_PATTERN_BINARYTREETRANSFORMPATTERNS_H
+#ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_TRANSFORM_PATTERN_SIMPLIFICATIONPATTERNS_H
+#define SPNC_COMPILER_SRC_CODEGEN_MLIR_TRANSFORM_PATTERN_SIMPLIFICATIONPATTERNS_H
 
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
@@ -18,6 +18,14 @@ namespace mlir {
 
       explicit BinarizeWeightedSumOp(MLIRContext* context)
           : OpRewritePattern<WeightedSumOp>(context, 1) {}
+
+      PatternMatchResult matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const override;
+
+    };
+
+    struct SplitWeightedSumOp : public mlir::OpRewritePattern<WeightedSumOp> {
+
+      explicit SplitWeightedSumOp(MLIRContext* context) : OpRewritePattern(context, 1) {}
 
       PatternMatchResult matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const override;
 
@@ -42,4 +50,4 @@ namespace mlir {
   }
 }
 
-#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_TRANSFORM_PATTERN_BINARYTREETRANSFORMPATTERNS_H
+#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_TRANSFORM_PATTERN_SIMPLIFICATIONPATTERNS_H
