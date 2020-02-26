@@ -9,7 +9,6 @@
 #include <mlir/IR/Function.h>
 #include <mlir/IR/DialectImplementation.h>
 #include "mlir/IR/PatternMatch.h"
-#include <codegen/mlir/transform/pattern/SimplificationPatterns.h>
 #include <codegen/mlir/transform/pattern/CanonicalizationPatterns.h>
 
 using namespace mlir;
@@ -51,7 +50,6 @@ void ProductOp::build(Builder* b, OperationState& state, llvm::ArrayRef<Value> o
 }
 
 void ProductOp::getCanonicalizationPatterns(OwningRewritePatternList& results, MLIRContext* context) {
-  results.insert<BinarizeProductOp>(context);
   results.insert<ReduceProductOp>(context);
   results.insert<ConstantFoldProductOp>(context);
 }
@@ -69,7 +67,6 @@ void SumOp::build(Builder* b, OperationState& state, llvm::ArrayRef<Value> opera
 }
 
 void SumOp::getCanonicalizationPatterns(OwningRewritePatternList& results, MLIRContext* context) {
-  results.insert<BinarizeSumOp>(context);
   results.insert<ReduceSumOp>(context);
   results.insert<ConstantFoldSumOp>(context);
 }
@@ -100,10 +97,8 @@ void WeightedSumOp::build(Builder* b,
 }
 
 void WeightedSumOp::getCanonicalizationPatterns(OwningRewritePatternList& results, MLIRContext* context) {
-  results.insert<BinarizeWeightedSumOp>(context);
   results.insert<ReduceWeightedSumOp>(context);
   results.insert<ConstantFoldWeightedSumOp>(context);
-  results.insert<SplitWeightedSumOp>(context);
 }
 
 static mlir::LogicalResult verify(HistogramOp op) {

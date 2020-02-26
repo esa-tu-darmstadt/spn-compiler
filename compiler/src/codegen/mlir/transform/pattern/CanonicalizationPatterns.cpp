@@ -132,8 +132,6 @@ PatternMatchResult ConstantFoldProductOp::matchAndRewrite(ProductOp op, PatternR
     if (auto constantOp = dyn_cast_or_null<ConstantOp>(m.getDefiningOp())) {
       acc *= constantOp.value().convertToDouble();
       ++constantOps;
-      llvm::errs() << "Constant op: ";
-      constantOp.dump();
     } else {
       multiplicands.push_back(m);
     }
