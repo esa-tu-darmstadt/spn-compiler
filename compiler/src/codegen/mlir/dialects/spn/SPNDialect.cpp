@@ -33,41 +33,9 @@ SPNDialect::SPNDialect(mlir::MLIRContext* ctx) : mlir::Dialect("spn", ctx) {
 /// expected to fill in order to build the operation.
 void ConstantOp::build(mlir::Builder *builder, mlir::OperationState &state,
                        double value) {
-  auto dataType = RankedTensorType::get({}, builder->getF64Type());
-  auto dataAttribute = DenseElementsAttr::get(dataType, value);
-  ConstantOp::build(builder, state, dataType, dataAttribute);
+  ConstantOp::build(builder, state, builder->getF64Type(), builder->getF64FloatAttr(value));
 }
 
-/// Verifier for the constant operation. This corresponds to the `::verify(...)`
-/// in the op definition.
-static mlir::LogicalResult verify(ConstantOp op) {
-  // If the return type of the constant is not an unranked tensor, the shape
-  // must match the shape of the attribute holding the data.
-  auto resultType = op.getResult().getType().dyn_cast<mlir::RankedTensorType>();
-  if (!resultType)
-    return success();
-
-  // Check that the rank of the attribute type matches the rank of the constant
-  // result type.
-  auto attrType = op.value().getType().cast<mlir::TensorType>();
-  if (attrType.getRank() != resultType.getRank()) {
-    return op.emitOpError(
-            "return type must match the one of the attached value "
-            "attribute: ")
-            << attrType.getRank() << " != " << resultType.getRank();
-  }
-
-  // Check that each of the dimensions match between the two types.
-  for (int dim = 0, dimE = attrType.getRank(); dim < dimE; ++dim) {
-    if (attrType.getShape()[dim] != resultType.getShape()[dim]) {
-      return op.emitOpError(
-          "return type shape mismatches its attribute at dimension ")
-          << dim << ": " << attrType.getShape()[dim]
-          << " != " << resultType.getShape()[dim];
-    }
-  }
-  return mlir::success();
-}
 
 static mlir::LogicalResult verify(ProductOp op) {
   auto numMultiplicands = std::distance(op.multiplicands().begin(), op.multiplicands().end());
