@@ -5,6 +5,7 @@
 
 #include "MLIRCodeGen.h"
 #include "MLIRBodyGen.h"
+#include <mlir/Analysis/Verifier.h>
 
 using namespace spnc;
 
@@ -28,7 +29,7 @@ void MLIRCodeGen::generateMLIR(spnc::IRGraph& graph) {
   std::string bodyFuncName = kernelName + "_body";
   generateSPNBody(graph, bodyFuncName);
   generateSPNToplevel(graph, bodyFuncName);
-  auto verificationResult = module->verify();
+  auto verificationResult = ::mlir::verify(module->getOperation());
   if (verificationResult.value == LogicalResult::Failure) {
     throw std::runtime_error("Verification of the generated MLIR module failed!");
   }

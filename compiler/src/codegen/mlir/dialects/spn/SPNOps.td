@@ -104,7 +104,7 @@ def InputVarOp : SPN_Op<"input_var", [NoSideEffect]> {
     Reference to an input variable.
   }];
 
-  let arguments = (ins I32Tensor:$evidence, PositiveI32Attr:$index);
+  let arguments = (ins I32Tensor:$evidence, I32Attr:$index);
 
   let results = (outs I32);
 
@@ -137,7 +137,7 @@ def SPNSingleQueryOp : SPNQueryOp<"query.single", []> {
 
 }
 
-def ReturnOp : SPN_Op<"return", [NoSideEffect, Terminator]> {
+def ReturnOp : SPN_Op<"return", [Terminator]> {
   let summary = "return";
 
   let description = [{

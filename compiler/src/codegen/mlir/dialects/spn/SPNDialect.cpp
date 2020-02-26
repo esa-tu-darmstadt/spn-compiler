@@ -124,9 +124,9 @@ static mlir::LogicalResult verify(HistogramOp op) {
   }
   auto buckets = op.buckets();
   for (auto b : buckets.getValue()) {
-    auto bucket = b.cast<Bucket>();
-    auto curLB = bucket.lb().getInt();
-    auto curUB = bucket.ub().getInt();
+    auto bucket = b.cast<DictionaryAttr>();
+    auto curLB = bucket.get("lb").cast<IntegerAttr>().getInt();
+    auto curUB = bucket.get("ub").cast<IntegerAttr>().getInt();
     if (curUB < curLB) {
       return op.emitOpError("Lower bound must be less or equal to upper bound!");
     }
@@ -177,7 +177,7 @@ static mlir::LogicalResult verify(InputVarOp op) {
 }
 
 void InputVarOp::build(Builder* b, OperationState& state, Value input, size_t index) {
-  build(b, state, b->getF64Type(), input, b->getI32IntegerAttr(index));
+  build(b, state, b->getIntegerType(32), input, b->getI32IntegerAttr((uint32_t) index));
 }
 
 CallInterfaceCallable SPNSingleQueryOp::getCallableForCallee() {
