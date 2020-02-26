@@ -8,6 +8,8 @@
 #include <mlir/IR/StandardTypes.h>
 #include <mlir/IR/Function.h>
 #include <mlir/IR/DialectImplementation.h>
+#include "mlir/IR/PatternMatch.h"
+#include <codegen/mlir/transform/pattern/BinaryTreeTransformPatterns.h>
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -79,6 +81,10 @@ void ProductOp::build(Builder* b, OperationState& state, llvm::ArrayRef<Value> o
   build(b, state, b->getF64Type(), ValueRange(operands), b->getI32IntegerAttr(operands.size()));
 }
 
+void ProductOp::getCanonicalizationPatterns(OwningRewritePatternList& results, MLIRContext* context) {
+  results.insert<BinarizeProductOp>(context);
+}
+
 static mlir::LogicalResult verify(SumOp op) {
   auto numAddends = std::distance(op.addends().begin(), op.addends().end());
   if (numAddends != op.opCount().getZExtValue()) {
@@ -89,6 +95,10 @@ static mlir::LogicalResult verify(SumOp op) {
 
 void SumOp::build(Builder* b, OperationState& state, llvm::ArrayRef<Value> operands) {
   build(b, state, b->getF64Type(), ValueRange(operands), b->getI32IntegerAttr(operands.size()));
+}
+
+void SumOp::getCanonicalizationPatterns(OwningRewritePatternList& results, MLIRContext* context) {
+  results.insert<BinarizeSumOp>(context);
 }
 
 static mlir::LogicalResult verify(WeightedSumOp op) {
@@ -114,6 +124,10 @@ void WeightedSumOp::build(Builder* b,
   assert(weightAttrs.size() == operands.size() && "Number of weights must match number of operands!");
   build(b, state, b->getF64Type(), ValueRange(operands), ArrayAttr::get(weightAttrs, b->getContext()),
         b->getI32IntegerAttr(operands.size()));
+}
+
+void WeightedSumOp::getCanonicalizationPatterns(OwningRewritePatternList& results, MLIRContext* context) {
+  results.insert<BinarizeWeightedSumOp>(context);
 }
 
 static mlir::LogicalResult verify(HistogramOp op) {

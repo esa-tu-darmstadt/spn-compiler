@@ -30,6 +30,8 @@ def ProductOp : SPN_Op<"product", [NoSideEffect]> {
   let builders = [
     OpBuilder<"Builder* b, OperationState& state, llvm::ArrayRef<Value> operands">
   ];
+
+  let hasCanonicalizer = 1;
 }
 
 def SumOp : SPN_Op<"sum", [NoSideEffect, ]> {
@@ -48,6 +50,8 @@ def SumOp : SPN_Op<"sum", [NoSideEffect, ]> {
   let builders = [
     OpBuilder<"Builder* b, OperationState& state, llvm::ArrayRef<Value> operands">
   ];
+
+  let hasCanonicalizer = 1;
 }
 
 def WeightedSumOp : SPN_Op<"weighted_sum", [NoSideEffect]> {
@@ -67,6 +71,8 @@ def WeightedSumOp : SPN_Op<"weighted_sum", [NoSideEffect]> {
   let builders = [
     OpBuilder<"Builder* b, OperationState& state, llvm::ArrayRef<Value> operands, llvm::ArrayRef<double> weights">
   ];
+
+  let hasCanonicalizer = 1;
 }
 
 def LowerBoundAttr : StructFieldAttr<"lb", I32Attr>;
