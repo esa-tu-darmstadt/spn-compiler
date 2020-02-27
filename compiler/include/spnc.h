@@ -9,7 +9,7 @@
 
 class spnc{
 public:
-    static bool parseJSON(const std::string& inputFile);
+    static bool parseJSON(int argc, char* argv[]);
 };
 
 #endif //SPNC_SPNC_H

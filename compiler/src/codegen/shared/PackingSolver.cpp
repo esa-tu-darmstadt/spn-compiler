@@ -1,7 +1,13 @@
 #include "codegen/shared/PackingSolver.h"
 #include "gurobi_c++.h"
 
-#define REC_SOLVE true
+extern llvm::cl::OptionCategory SPNCompiler;
+
+llvm::cl::opt<bool> incSolve(
+    "incSolve",
+    llvm::cl::desc("Use faster ILP process that builds vectors incrementally"),
+    llvm::cl::cat(SPNCompiler));
+
 #define CONSTR_EXCLUSIONS false
 
 class IndexRefMapper : public BaseVisitor {
@@ -92,9 +98,12 @@ solverResult PackingSolver::runSolver(
     auto &v = vecVars[vecIndex];
     std::unordered_set<size_t> coveredVecInputs;
 
-    std::vector<std::pair<std::vector<size_t>, size_t>> vInputs;
+    std::vector<std::vector<size_t>> vInputs;
+    std::multiset<size_t, std::greater<size_t>> inputHistos;
+    auto flatLanes = flattenPack(v.lanes, irm.nodeRefs.size(), fixedPacks);
+    size_t vecWidth = flatLanes.size();
 
-    for (auto &l : flattenPack(v.lanes, irm.nodeRefs.size(), fixedPacks)) {
+    for (auto &l : flatLanes) {
       irm.nodeRefs[l]->accept(ip, {});
       std::vector<size_t> idVec;
       size_t histogramInputs = 0;
@@ -104,34 +113,11 @@ solverResult PackingSolver::runSolver(
 	else
 	  idVec.push_back(idMap[name]);
       }
-      vInputs.push_back({idVec, histogramInputs});
+      vInputs.push_back(idVec);
+      inputHistos.insert(histogramInputs);
     }
-
-    // Account for cost from histogram inputs
-    // Assumption for now: #n wide gather load takes as long as #n loads, but
-    // doesn't need insert instr's, so they're equivalent and we don't calculate
-    // load costs, only the cost (savings) of vectorizing the arithmetic
-    // operations, they're an input for
-    size_t vectorizableHistogramInputs = std::numeric_limits<size_t>::max();
-    for (auto& l : vInputs) {
-      vectorizableHistogramInputs = std::min(vectorizableHistogramInputs, l.second);
-    }
-
-    if (vectorizableHistogramInputs >= 1) {
-      // To combine #vectorizableHistogramInputs values we need
-      // #vectorizableHistogramInputs-1 arithmetic operations
-      obj += v.var*(vectorizableHistogramInputs-1)*ci->vecArithCost;
-    }
-
-    // all non vectorizable inputs must perform their arithmetic operation scalar
-    for (auto& l : vInputs) {
-      size_t scalarHistInputs = l.second-vectorizableHistogramInputs;
-      if (scalarHistInputs > 0) {
-        obj += v.var * ((scalarHistInputs)-1) * ci->scalarArithCost;
-        obj += v.var * ci->insertCost;
-      }
-    }
-
+    
+    obj+= v.var*ci->histogramCost(inputHistos);
     
     // we assume one arithmetic operation per input, however, for the first two
     // inputs, only one arithmetic operation is needed, thus we substract one
@@ -144,92 +130,107 @@ solverResult PackingSolver::runSolver(
     // Multiple values (one for each lane) can be inserted with one instr (?)
     // Multiple scalar values for a single lane can be combinded beforehand and
     // thus need only one insertion
+    std::vector<std::vector<size_t>> possibleInputVecsPerLane;
+    std::unordered_set<size_t> allInputVecs;
     for (int i = 0; i < vInputs.size(); i++) {
       std::vector<size_t> possibleInputVecs;
-      for (auto &inputID : vInputs[i].first) {
+      for (auto &inputID : vInputs[i]) {
         auto &inVecs = partOf[inputID];
         possibleInputVecs.insert(possibleInputVecs.end(), inVecs.begin(),
                                  inVecs.end());
       }
+      possibleInputVecsPerLane.push_back(possibleInputVecs);
+      allInputVecs.insert(possibleInputVecs.begin(), possibleInputVecs.end());
+    }
 
+    for (auto& vec : allInputVecs) {
+      // check if vec can be direct input to v
+      auto valuesProvidedBy_vec_ =
+          flattenPack(vecVars[vec].lanes, irm.nodeRefs.size(), fixedPacks);
+      int foundInputsForLanes = 0;
+      std::vector<size_t> inputIds;
+      for (int j = 0; j < vInputs.size(); j++) {
+        auto &neededInputsForThisLane = vInputs[j];
+        bool foundInputForLane = false;
+
+        // TODO: optimize, e.g. build intersection of all #width partOfs
+        for (auto &ni : neededInputsForThisLane) {
+          for (auto &pv : valuesProvidedBy_vec_) {
+            if (ni == pv) {
+              foundInputForLane = true;
+              inputIds.push_back(pv);
+              break;
+            }
+          }
+          if (foundInputForLane) {
+            break;
+          }
+        }
+        if (foundInputForLane) {
+          foundInputsForLanes++;
+        }
+      }
+
+      if (foundInputsForLanes == vInputs.size()) {
+        // vec does not need to be extracted, it can be directly
+        // multiplied onto v as all values provided by vec are needed by v
+        coveredVecInputs.insert(vec);
+        directVecInputMap[vecIndex].insert(vec);
+        exclusions[vec].push_back(vecIndex);
+        // assume cost of one for this op if both are selected
+        obj += vecVars[vec].var * v.var * ci->vecArithCost;
+      } else if (foundInputsForLanes *
+                     (ci->getExtractCost(valuesProvidedBy_vec_.size()) +
+                      ci->scalarArithCost + ci->getInsertCost(vInputs.size())) >
+                 (vInputs.size() - foundInputsForLanes) *
+                         ci->getInsertCost(valuesProvidedBy_vec_.size()) +
+                     ci->vecArithCost) {
+        // In the general case, we would need _foundInputsForLanes_ * extract,
+        // arith, insert  operations if vec and v are selected
+        // An alternative, which is is cheaper if this branch is taken, is
+        // to extract the not needed values beforehand (this cost will be
+        // accounted for by the nodes that need these values), insert
+        // neutral values into those lanes and then use the vector as a whole
+        obj += vecVars[vec].var * v.var *
+               ((vInputs.size() - foundInputsForLanes) *
+                    ci->getInsertCost(valuesProvidedBy_vec_.size()) +
+                ci->vecArithCost);
+        coveredVecInputs.insert(vec);
+        directVecInputMap[vecIndex].insert(vec);
+        // TODO For now we will allow one user of vec to use this shortcut,
+        // although with copies, half extracts, register renaming etc. this
+        // could be modelled more precisely
+        exclusions[vec].push_back(vecIndex);
+      }
+    }
+
+    for (int i = 0; i < vInputs.size(); i++) {
+      auto &possibleInputVecs = possibleInputVecsPerLane[i];
       for (auto &vec : possibleInputVecs) {
-        if (i != 0) {
-          if (coveredVecInputs.find(vec) != coveredVecInputs.end()) {
-            // we already handled vec when looking at lane 0 and found it to be
-            // directly compatible
-            // Thus we do not need to account for cost of the combo v x vec
-            // again
-            continue;
-          }
-        } else {
-          // check if vec can be direct input to v
-          auto valuesProvidedBy_vec_ = flattenPack(vecVars[vec].lanes, irm.nodeRefs.size(), fixedPacks);
-          int foundInputsForLanes = 0;
-	  std::vector<size_t> inputIds;
-          for (int j = 0; j < vInputs.size(); j++) {
-            auto &neededInputsForThisLane = vInputs[j].first;
-            bool foundInputForLane = false;
-
-            // TODO: optimize, e.g. build intersection of all #width partOfs
-            for (auto &ni : neededInputsForThisLane) {
-              for (auto &pv : valuesProvidedBy_vec_) {
-                if (ni == pv) {
-                  foundInputForLane = true;
-		  inputIds.push_back(pv);
-                  break;
-                }
-              }
-              if (foundInputForLane) {
-                break;
-              }
-            }
-            if (foundInputForLane) {
-              foundInputsForLanes++;
-            }
-          }
-
-          if (foundInputsForLanes == vInputs.size()) {
-            // vec does not need to be extracted, it can be directly
-            // multiplied onto v as all values provided by vec are needed by v
-            coveredVecInputs.insert(vec);
-	    directVecInputMap[vecIndex].insert(vec);
-	    exclusions[vec].push_back(vecIndex);
-            // assume cost of one for this op if both are selected
-            obj += vecVars[vec].var * v.var * ci->vecArithCost;
-            continue;
-          } else if (foundInputsForLanes * (ci->extractCost + ci->scalarArithCost + ci->insertCost) >
-                     (vInputs.size() - foundInputsForLanes)*ci->extractCost + ci->vecArithCost) {
-            // In the general case, we would need _foundInputsForLanes_ * extract,
-            // arith, insert  operations if vec and v are selected
-            // An alternative, which is is cheaper if this branch is taken, is
-            // to extract the not needed values beforehand (this cost will be
-            // accounted for by the nodes that need these values), insert
-            // neutral values into those lanes and then use the vector as a whole
-            obj += vecVars[vec].var * v.var *
-                   ((vInputs.size() - foundInputsForLanes) * ci->extractCost +
-                    ci->vecArithCost);
-            coveredVecInputs.insert(vec);
-            directVecInputMap[vecIndex].insert(vec);
-            // TODO For now we will allow one user of vec to use this shortcut,
-            // although with copies, half extracts, register renaming etc. this
-            // could be modelled more precisely
-	    exclusions[vec].push_back(vecIndex);
-            continue;
-          }
+        auto valuesProvidedBy_vec_ =
+            flattenPack(vecVars[vec].lanes, irm.nodeRefs.size(), fixedPacks);
+        if (coveredVecInputs.find(vec) != coveredVecInputs.end()) {
+          // we already handled vec when looking at lane 0 and found it to be
+          // directly compatible
+          // Thus we do not need to account for cost of the combo v x vec
+          // again
+          continue;
         }
         // if we get here, we will need to extract the value from vec, perform
         // the arith and insert it into the starting vector for v
-        // -> cost estimate: 3
-        obj += vecVars[vec].var * v.var * (ci->extractCost + ci->scalarArithCost + ci->insertCost);
+        obj += vecVars[vec].var * v.var *
+               (ci->getExtractCost(valuesProvidedBy_vec_.size()) +
+                ci->scalarArithCost + ci->getInsertCost(vInputs.size()));
       }
 
-      for (auto& inputVal : vInputs[i].first) {
+      for (auto& inputVal : vInputs[i]) {
 	auto singleOpMapIt = singleOpToFixedVec.find(inputVal);
 	if (singleOpMapIt == singleOpToFixedVec.end()) {
 	  // inputVal is still a single value, thus only arith and insert necessary
           // -> cost estimate: 2
-          obj += v.var * serVars[inputVal] * (ci->scalarArithCost + ci->insertCost);
-	}
+          obj += v.var * serVars[inputVal] *
+                 (ci->scalarArithCost + ci->getInsertCost(vInputs.size()));
+        }
       }
     }
   }
@@ -261,7 +262,11 @@ solverResult PackingSolver::runSolver(
       }
       for (auto &vecIn : partOf[input]) {
         // cost: extract + arith = 2
-        obj += serVar.second * vecVars[vecIn].var * (ci->extractCost + ci->scalarArithCost);
+        obj += serVar.second * vecVars[vecIn].var *
+               (ci->getExtractCost(flattenPack(vecVars[vecIn].lanes,
+                                               irm.nodeRefs.size(), fixedPacks)
+                                       .size()) +
+                ci->scalarArithCost);
       }
     }
   }
@@ -375,7 +380,7 @@ PackingSolver::getVectorization(IRGraph &graph, size_t width) {
 
   int initWidth;
 
-  if (REC_SOLVE)
+  if (incSolve)
     initWidth = 2;
   else
     initWidth = width;
@@ -410,7 +415,7 @@ PackingSolver::getVectorization(IRGraph &graph, size_t width) {
       std::cout << sct.names[serVar] << std::endl;
   }
 
-  if (REC_SOLVE) {
+  if (incSolve) {
     while (initWidth < width) {
       GRBModel newModel = GRBModel(env);
       sct.setupNewIteration(packing.vecs, packing.nonVecs, &newModel);

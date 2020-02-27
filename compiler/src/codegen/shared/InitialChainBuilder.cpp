@@ -1,6 +1,5 @@
 #include "InitialChainBuilder.h"
 #include <iostream>
-#define CANDIDATES_GOAL 500
 template <typename T> class vecSetter : public BaseVisitor {
 public:
   vecSetter(T &Sum_, T &WeightedSum_, T &Product_ )
@@ -31,15 +30,16 @@ void InitialChainBuilder::performInitialBuild(NodeReference root) {
     vecSetter vs(scalarSumChain, scalarWeightedSumChain, scalarProductChain);
     auto it = childParentMap.find(histo);
     std::vector<size_t> nodeSeq;
-    nodeSeq.push_back(it->second);
-    it = childParentMap.find(it->second);
-    size_t height = 2;
     while (it != childParentMap.end()) {
       nodeSeq.push_back(it->second);
+      size_t scalarChainId = scalarChains.size();
+      scalarChains.push_back(std::vector<size_t>(nodeSeq.rbegin(), nodeSeq.rend()));
       nodes[it->second]->accept(vs, {});
-      vs.cur->push_back(std::vector<size_t>(nodeSeq.rbegin(), nodeSeq.rend()));
-      height++;
+      vs.cur->push_back(scalarChainId);
       it = childParentMap.find(it->second);
+      if (it != childParentMap.end()) {
+	childChains[it->second].push_back(scalarChainId);
+      }
     }
   }
 
@@ -65,40 +65,30 @@ void InitialChainBuilder::performInitialBuild(NodeReference root) {
     std::cout << std::endl;
   }
   */
-  generateCandidateChains(scalarProductChain, productChainConflicts, CANDIDATES_GOAL);
-  generateCandidateChains(scalarSumChain, sumChainConflicts, CANDIDATES_GOAL);
-  generateCandidateChains(scalarWeightedSumChain, weightedSumChainConflicts, CANDIDATES_GOAL);
-  /*
-  for (auto& simdChain : candidateSIMDChains) {
-    std::cout << "new simd chain, length:" << simdChain.length << " roots " << std::endl;
-    for (auto& bot : simdChain.bottomLanes) {
-      std::cout << nodes[bot]->id() << ",";
-    }
-    std::cout << std::endl;
-  }
-  */
 }
 
-size_t InitialChainBuilder::recChainGen(std::vector<size_t> selected, std::vector<size_t> stillAvailable, std::vector<std::vector<size_t>>& chains, std::unordered_map<size_t, std::set<size_t>>& conflicts) {
+size_t InitialChainBuilder::recChainGen(
+    std::vector<size_t> selected, std::vector<size_t> stillAvailable,
+    std::unordered_map<size_t, std::set<size_t>> &conflicts) {
   int commonLength = -1;
 
   if (selected.size() > 0)
-    commonLength = chains[selected[0]].size();
+    commonLength = scalarChains[selected[0]].size();
   
   if (selected.size() > 1) {
     // emit candidate chain
     for (int i = 1; i < selected.size(); i++) {
-      commonLength = std::min(commonLength, (int) chains[selected[i]].size());
+      commonLength = std::min(commonLength, (int) scalarChains[selected[i]].size());
     }
 
     size_t gatherCount = 0;
     std::vector<size_t> bottomLanes;
     for (auto& chain: selected) {
-      if (chains[chain].size() == commonLength) {
+      if (scalarChains[chain].size() == commonLength) {
 	gatherCount++;
 	
       }
-      bottomLanes.push_back(chains[chain][commonLength-1]);
+      bottomLanes.push_back(scalarChains[chain][commonLength-1]);
     }
     candidateSIMDChains.push_back({gatherCount, static_cast<size_t>(commonLength), bottomLanes});
   }
@@ -114,12 +104,12 @@ size_t InitialChainBuilder::recChainGen(std::vector<size_t> selected, std::vecto
   std::vector<size_t> sortedAvail(stillAvailable.begin(), stillAvailable.end());
   std::sort(sortedAvail.begin(), sortedAvail.end(), [&](size_t a, size_t b) {
     if (commonLength != -1) {
-      if (chains[a].size() == commonLength && chains[b].size() != commonLength)
+      if (scalarChains[a].size() == commonLength && scalarChains[b].size() != commonLength)
         return true;
-      else if (chains[b].size() == commonLength)
+      else if (scalarChains[b].size() == commonLength)
         return false;
     }
-    return chains[a].size() > chains[b].size();
+    return scalarChains[a].size() > scalarChains[b].size();
   });
 
   // another sort mechanism might be a score judging both the length of a
@@ -132,16 +122,22 @@ size_t InitialChainBuilder::recChainGen(std::vector<size_t> selected, std::vecto
   size_t buildFullWidthChains = 0;
   auto it = sortedAvail.begin();
   std::vector<size_t> used;
-  while (buildFullWidthChains < goalFullWidthChains && it != sortedAvail.end()) {
+  int i = 0;
+  while (it != sortedAvail.end() &&
+         ((selected.size() == 0 && buildFullWidthChains < candidatesGoal) ||
+          (selected.size() != 0 && i < (width - selected.size() + 1)))) {
     // find next scalarChain to select
     size_t maxScore = 0;
     auto tempIt = it;
-    for (; tempIt != sortedAvail.end() && chains[*tempIt].size() > maxScore; tempIt++) {
+    for (; tempIt != sortedAvail.end() && scalarChains[*tempIt].size() > maxScore; tempIt++) {
       // determine maximum common prefix between chain tempIt and already emitted chains
-      auto& candidateChain = chains[*tempIt];
+      auto& candidateChain = scalarChains[*tempIt];
+      size_t candidateLength = candidateChain.size();
+      if (commonLength != -1)
+	candidateLength = std::min(candidateLength, (unsigned long) commonLength);
       size_t maxCommonPrefix = 0;
       for (auto& handledChainIdx : used) {
-	auto& handledChain = chains[handledChainIdx];
+	auto& handledChain = scalarChains[handledChainIdx];
 	size_t commonPrefix = 0;
 	for (int i = 0; i < std::min(candidateChain.size(), handledChain.size()); i++) {
 	  if (candidateChain[i] != handledChain[i])
@@ -170,38 +166,37 @@ size_t InitialChainBuilder::recChainGen(std::vector<size_t> selected, std::vecto
         std::inserter(newAvail, newAvail.begin()));
 
     it++;
-    buildFullWidthChains += recChainGen(newSel, newAvail, chains, conflicts);
+    i++;
+    buildFullWidthChains += recChainGen(newSel, newAvail, conflicts);
   }
   return buildFullWidthChains;
 }
 
-void InitialChainBuilder::generateCandidateChains( std::vector<std::vector<size_t>>& chains, std::unordered_map<size_t, std::set<size_t>>& conflicts, size_t chainsGoal) {
+void InitialChainBuilder::generateCandidateChains( std::vector<size_t>& chains, std::unordered_map<size_t, std::set<size_t>>& conflicts, size_t chainsGoal) {
   candidatesGoal = chainsGoal;
-  std::vector<size_t> availableChains(chains.size());
-  for (size_t i = 0; i < chains.size(); i++) {
-    availableChains[i] = i;
-  }
-  recChainGen({}, availableChains, chains, conflicts);
+  recChainGen({}, chains, conflicts);
 }
    
 void InitialChainBuilder::findChainConflicts(
-    std::vector<std::vector<size_t>> &chains,
+    std::vector<size_t> &chains,
     std::unordered_map<size_t, std::vector<size_t>> &nodeConflicts,
     std::unordered_map<size_t, std::set<size_t>> &chainConflicts) {
 
-  for (int id  = 0 ; id < chains.size(); id++) {
-    auto& chain = chains[id]; 
+  for (int i = 0; i < chains.size(); i++) {
+    auto idx = chains[i];
+    auto& chain = scalarChains[idx]; 
     for (auto& node : chain) {
       auto& conflictsAtNode = nodeConflicts[node];
-      chainConflicts[id].insert(conflictsAtNode.begin(), conflictsAtNode.end());
+      chainConflicts[idx].insert(conflictsAtNode.begin(), conflictsAtNode.end());
     }
 
-    for (int id2 = id+1; id2 < chains.size(); id2++) {
-      auto &chain2 = chains[id2];
+    for (int i2 = i+1; i2 < chains.size(); i2++) {
+      auto idx2 = chains[i2];
+      auto &chain2 = scalarChains[idx2];
       if (dependsOn[chain[0]].find(chain2[0]) != dependsOn[chain[0]].end() ||
           dependsOn[chain2[0]].find(chain[0]) != dependsOn[chain2[0]].end()) {
-	chainConflicts[id].insert(id2);
-	chainConflicts[id2].insert(id);
+	chainConflicts[idx].insert(idx2);
+	chainConflicts[idx2].insert(idx);
       }
     }
   }
@@ -209,10 +204,10 @@ void InitialChainBuilder::findChainConflicts(
 
 
 void
-InitialChainBuilder::findConflicts(std::vector<std::vector<size_t>> &chains,
+InitialChainBuilder::findConflicts(std::vector<size_t> &chains,
 				   std::unordered_map<size_t, std::vector<size_t>> &conflicts) {
-  for (int id  = 0 ; id < chains.size(); id++) {
-    auto& chain = chains[id];
+  for (auto id : chains) {
+    auto& chain = scalarChains[id];
     for (auto& node : chain) {
       conflicts[node].push_back(id);
     }

@@ -13,9 +13,24 @@
 #include <string>
 #include <queue>
 
-#define SIMD_WIDTH 4
-#define USE_SOLVER 1
-#define USE_HEURISTIC 1
+extern llvm::cl::OptionCategory SPNCompiler;
+
+enum class SolverMethod { trivial, ilp, heuristic };
+
+cl::opt<size_t> SIMDWidth("simdWidth", llvm::cl::desc("Maximum available double lanes"), llvm::cl::cat(SPNCompiler));
+
+cl::opt<SolverMethod> solverMethod(
+    "vecMethod", llvm::cl::desc("Choose vectorization method:"),
+    cl::values(clEnumVal(SolverMethod::ilp, "Use ILP Solver"),
+               clEnumVal(SolverMethod::heuristic, "Use heuristic")),
+    llvm::cl::cat(SPNCompiler));
+
+cl::opt<size_t> iterationsOpt("iterations", llvm::cl::desc("No. of times the network should be evaluated"), llvm::cl::cat(SPNCompiler));
+
+llvm::cl::opt<std::string> OutputFilename(llvm::cl::Positional,
+                                          llvm::cl::Required,
+                                          llvm::cl::desc("<output file>"),
+                                          llvm::cl::cat(SPNCompiler));
 
 LLVMCodegen::LLVMCodegen() : builder{context} {
     module = std::make_unique<Module>("spn-llvm", context);
@@ -32,8 +47,12 @@ void LLVMCodegen::generateLLVMIR(IRGraph &graph, bool vectorize) {
     auto ilb = BasicBlock::Create(context, "inner-loop-body", func);
     auto ile = BasicBlock::Create(context, "inner-loop-exit", func);
     auto ex = BasicBlock::Create(context, "exit", func);
-    
-    auto iterations = ConstantInt::getSigned(Type::getInt64Ty(context), 1);
+    size_t usedIterations;
+    if (!!iterationsOpt)
+      usedIterations = iterationsOpt;
+    else
+      usedIterations = 1;
+    auto iterations = ConstantInt::getSigned(Type::getInt64Ty(context), usedIterations);
     auto arg_it = func->arg_begin();
     auto input = arg_it++;
     auto output = arg_it++;
@@ -62,22 +81,28 @@ void LLVMCodegen::generateLLVMIR(IRGraph &graph, bool vectorize) {
     std::unordered_map<std::string, size_t> partOf;
     std::unordered_map<size_t, std::unordered_set<size_t>> directVecInputs;
     std::vector<std::vector<NodeReference>> vectors;
+    size_t usedSIMDWidth;
+    if (!!SIMDWidth)
+      usedSIMDWidth = SIMDWidth;
+    else
+      usedSIMDWidth = 2;
+    
     if (vectorize) {
-      if (USE_SOLVER) {
+      if (solverMethod == SolverMethod::ilp) {
         PackingSolver packer;
-        auto vecInfo = packer.getVectorization(graph, SIMD_WIDTH);
+        auto vecInfo = packer.getVectorization(graph, usedSIMDWidth);
         partOf = vecInfo.partOf;
         directVecInputs = vecInfo.directVecInputs;
         vectors = vecInfo.vectors;
-      } else if (USE_HEURISTIC) {
+      } else if (solverMethod == SolverMethod::heuristic) {
         PackingHeuristic packer;
-        auto vecInfo = packer.getVectorization(graph, SIMD_WIDTH);
+        auto vecInfo = packer.getVectorization(graph, usedSIMDWidth);
         partOf = vecInfo.partOf;
         directVecInputs = vecInfo.directVecInputs;
         vectors = vecInfo.vectors;
       } else {
         PackingTrivial packer;
-        auto vecInfo = packer.getVectorization(graph, SIMD_WIDTH);
+        auto vecInfo = packer.getVectorization(graph, usedSIMDWidth);
         partOf = vecInfo.partOf;
         directVecInputs = vecInfo.directVecInputs;
         vectors = vecInfo.vectors;
@@ -85,7 +110,7 @@ void LLVMCodegen::generateLLVMIR(IRGraph &graph, bool vectorize) {
     }
 
     IREmitter codeEmitter(partOf, directVecInputs, vectors, in_ptr, func,
-                          context, builder, module.get(), SIMD_WIDTH);
+                          context, builder, module.get(), usedSIMDWidth);
     
     graph.rootNode->accept(codeEmitter, {});
     builder.CreateStore(codeEmitter.getNodeMap()[graph.rootNode->id()].val,
@@ -104,7 +129,6 @@ void LLVMCodegen::generateLLVMIR(IRGraph &graph, bool vectorize) {
     builder.CreateRetVoid();
     
     std::error_code EC;
-    llvm::raw_fd_ostream OS("/Users/johannesschulte/Desktop/Uni/MT/cpp-spn-compiler/debLLVMBuild/out.bc", EC);
-    //module->print(llvm::errs(), nullptr);
+    llvm::raw_fd_ostream OS(OutputFilename, EC);
     WriteBitcodeToFile(*module, OS);
 }

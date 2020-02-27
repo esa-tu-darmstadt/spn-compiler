@@ -73,7 +73,7 @@ void SchedulingConflictTraversal::findConflicts(NodeReference root) {
 }
 
 void SchedulingConflictTraversal::genVarsRec(std::vector<size_t> pack, std::vector<size_t> availableOps) {
-  if (pack.size() == simdWidth) {
+  if (pack.size() > 1) {
     size_t id = vecVars.size();
     
     std::string name;
@@ -82,7 +82,8 @@ void SchedulingConflictTraversal::genVarsRec(std::vector<size_t> pack, std::vect
       name += names[s] + "_";
     }
     vecVars.push_back({pack, model->addVar(0.0, 1.0, 0.0, GRB_BINARY, name)});
-    return;
+    if (pack.size() == simdWidth)
+      return;
   }
 
   for (auto n : availableOps) {

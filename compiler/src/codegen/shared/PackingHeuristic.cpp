@@ -4,14 +4,22 @@
 #include <queue>
 
 #define USE_INIT 1
-#define USED_CANDIDATES_INIT 20
-#define USED_CANDIDATES_DEP 5
 
+extern llvm::cl::OptionCategory SPNCompiler;
+
+llvm::cl::opt<size_t> rootCand("rootCand", llvm::cl::desc("Candidates to evaluate for whole tree"), llvm::cl::cat(SPNCompiler));
+llvm::cl::opt<size_t> depCand("depCand", llvm::cl::desc("Candidates to evaluate for subtrees of vectors"), llvm::cl::cat(SPNCompiler));
+
+llvm::cl::opt<size_t> chainCandidates("chainCandidates", llvm::cl::desc("No. of SIMD Chains to generate"), llvm::cl::cat(SPNCompiler));
+llvm::cl::opt<size_t> depChains("depChains",
+                          llvm::cl::desc("Factorto determine the numver of SIMD Chains to generate that "
+                                   "originate from a candidate vector"),
+                          llvm::cl::cat(SPNCompiler));
 
 class SerialCostCalc : public BaseVisitor {
 public:
   SerialCostCalc(CostInfo *ci_) : ci(ci_) {}
-  size_t getCost(const NodeReference &rootNode, std::unordered_set<std::string>* vectorized_) {
+  size_t getCost(const NodeReference &rootNode, std::unordered_map<std::string, size_t>* vectorized_) {
     vectorized = vectorized_;
     auto res = getCost(rootNode);
     vectorized = nullptr;
@@ -33,7 +41,7 @@ public:
     for (auto &c : *n.multiplicands()) {
       if (vectorized && vectorized->find(c->id()) != vectorized->end()) {
 	// extract and arith
-	curCost += ci->extractCost + ci->scalarArithCost;
+	curCost += ci->getExtractCost((*vectorized)[c->id()]) + ci->scalarArithCost;
       } else {
         curCost += ci->scalarArithCost;
         c->accept(*this, {});
@@ -45,7 +53,7 @@ public:
     for (auto &c : *n.addends()) {
       if (vectorized && vectorized->find(c->id()) != vectorized->end()) {
 	// extract and arith
-	curCost += ci->extractCost + ci->scalarArithCost;
+	curCost += ci->getExtractCost((*vectorized)[c->id()]) + ci->scalarArithCost;
       } else {
         curCost += ci->scalarArithCost;
         c->accept(*this, {});
@@ -57,7 +65,7 @@ public:
     for (auto &c : *n.addends()) {
       if (vectorized && vectorized->find(c.addend->id()) != vectorized->end()) {
 	// extract and arith
-	curCost += ci->extractCost + ci->scalarArithCost;
+	curCost += ci->getExtractCost((*vectorized)[c.addend->id()]) + ci->scalarArithCost;
       } else {
         curCost += ci->scalarArithCost;
         c.addend->accept(*this, {});
@@ -67,7 +75,7 @@ public:
 
 private:
   size_t curCost;
-  std::unordered_set<std::string>* vectorized = nullptr;
+  std::unordered_map<std::string, size_t>* vectorized = nullptr;
   CostInfo* ci;
 };
 
@@ -86,8 +94,9 @@ setSolverRes PackingHeuristic::returnBestSet(
   SerialCostCalc scc(ci.get());
   
   size_t bestCandidateCost = 0;
-  if (source.size() == 0) {
-    bestCandidateCost = scc.getCost(icb.nodes[0]);
+  std::vector<vectorizationResultInfo> bestSubTrees;
+  if (source.size() < 2) {
+    bestCandidateCost = scc.getCost(icb.nodes[source[0]]);
   } else {
     for (auto &lane : source) {
       std::vector<size_t> serNodes;
@@ -99,11 +108,13 @@ setSolverRes PackingHeuristic::returnBestSet(
 
       if (serNodes.size() > 0) {
         // cost of insertion
-        bestCandidateCost += ci->insertCost;
+        bestCandidateCost += ci->getInsertCost(source.size());
         // cost of scalar arithmetic operations for producing lane
         bestCandidateCost += (serNodes.size() - 1)*ci->scalarArithCost;
         for (auto &child : serNodes) {
-          bestCandidateCost += scc.getCost(icb.nodes[child]);
+	  auto childRes = getVectorizationRec(child, icb);
+          bestCandidateCost += childRes.second;
+	  bestSubTrees.push_back(childRes.first);
         }
       }
     }
@@ -112,27 +123,26 @@ setSolverRes PackingHeuristic::returnBestSet(
       bestCandidateCost += ci->vecArithCost;
     }
   }
-
-  std::cout << "ser cost: " << bestCandidateCost << std::endl;
   
   std::vector<size_t> bestSelectedSets;
 
   for (auto& cand : candidates) {
     size_t candidateCost = 0;
+    std::vector<vectorizationResultInfo> candidateSubtrees;
     std::vector<size_t> selectedSetsForCand;
     for (auto& chain : simdChainSets[cand].SIMDChains) {
-      if (source.size() != 0) {
+      if (source.size() < 2) {
         // cost of arith to source for vector produced by chain
-        // if this is the initial call to returnBestSet (i.e. source.size() ==
-        // 0), the cost of extracting the result of chain will be accounted for
+        // if this is the initial call to returnBestSet (i.e. source.size() <
+        // 2), the cost of extracting the result of chain will be accounted for
         // in serialCostCalc
         candidateCost += ci->vecArithCost;
       }
       auto curNodes = icb.candidateSIMDChains[chain].bottomLanes;
       std::set<size_t> prevNodes;
       for (int i = 0; i < icb.candidateSIMDChains[chain].length; i++) {
-        // first compute cost of doing all paths leading here serially
-	std::cout << "evaluate chain " << chain << " pos " << i << std::endl;
+	auto& sets = chainPosToPackVecMap[chain][i];
+
         auto res = returnBestSet(chainPosToPackVecMap[chain][i], simdChainSets,
                                   icb, chainPosToPackVecMap, curNodes,
                                   {prevNodes.begin(), prevNodes.end()});
@@ -146,6 +156,7 @@ setSolverRes PackingHeuristic::returnBestSet(
                                    res.selectedSets.begin(),
                                    res.selectedSets.end());
         candidateCost += res.cost;
+	candidateSubtrees.insert(candidateSubtrees.end(), res.subtrees.begin(), res.subtrees.end());
 
         prevNodes = {curNodes.begin(), curNodes.end()};
         for (int j = 0; j < curNodes.size(); j++) {
@@ -154,7 +165,8 @@ setSolverRes PackingHeuristic::returnBestSet(
       }
     }
 
-    std::set<size_t> coveredChildren;
+    // First: Node id, Second: Vector Width
+    std::set<std::pair<size_t, size_t>> coveredChildrenWithSize;
     for (auto &chain : simdChainSets[cand].SIMDChains) {
       auto curNodes = icb.candidateSIMDChains[chain].bottomLanes;
       for (int i = 1; i < icb.candidateSIMDChains[chain].length; i++) {
@@ -162,64 +174,64 @@ setSolverRes PackingHeuristic::returnBestSet(
           curNodes[j] = icb.childParentMap[curNodes[j]];
         }
       }
-      coveredChildren.insert(curNodes.begin(), curNodes.end());
+      for (auto& n : curNodes) {
+	coveredChildrenWithSize.insert({n, curNodes.size()});
+      }
     }
 
-    if (source.size() == 0) {
+    if (source.size() < 2) {
       // This is the original call to returnBestSet, so we need to account for
       // all nodes not handled by the selected sets.
-      std::unordered_set<std::string> childrenStrings;
-      for (auto& child : coveredChildren) {
-	childrenStrings.insert(icb.nodes[child]->id());
+      std::unordered_map<std::string, size_t> childrenStrings;
+      for (auto& child : coveredChildrenWithSize) {
+	childrenStrings.insert({icb.nodes[child.first]->id(), child.second});
       }
-      candidateCost += scc.getCost(icb.nodes[0], &childrenStrings);
+      candidateCost += scc.getCost(icb.nodes[source[0]], &childrenStrings);
       
     } else {
       // handle inputs to _source_ that were not covered by the chains of cand
+      std::set<size_t> coveredChildren;
+      for (auto& c : coveredChildrenWithSize)
+	coveredChildren.insert(c.first);
       if (pruned.size() > 0) {
         coveredChildren.insert(pruned.begin(), pruned.end());
         // cost of arithmetic for the pruned (i.e. preselected) input vector
         candidateCost += ci->vecArithCost;
       }
-
-      size_t gatherLoads = icb.parentChildrenHistoMap[source[0]].size();
-      for (int i = 1; i < source.size(); i++) {
-	gatherLoads = std::min(gatherLoads, icb.parentChildrenHistoMap[source[i]].size());
+      std::multiset<size_t, std::greater<size_t>> inputHistos;
+      for (int i = 0; i < source.size(); i++) {
+        inputHistos.insert(icb.parentChildrenHistoMap[source[i]].size());
       }
-
-      if (gatherLoads > 0) {
-	// Cost of arithmetic operations for gathered input vectors
-	candidateCost += gatherLoads*ci->vecArithCost;
-      }
+      candidateCost += ci->histogramCost(inputHistos);
       for (auto &lane : source) {
         std::vector<size_t> serNodes;
 
         auto &laneChildren = icb.parentChildrenMap[lane];
-        auto histoLoadCount = icb.parentChildrenHistoMap[lane].size()- gatherLoads;
 
         std::set_difference(laneChildren.begin(), laneChildren.end(),
                             coveredChildren.begin(), coveredChildren.end(),
                             std::inserter(serNodes, serNodes.begin()));
-        if (serNodes.size() == 0 && histoLoadCount == 0)
+        if (serNodes.size() == 0)
           continue;
         for (auto &serNode : serNodes) {
-          // TODO watchout for histograms here
-          candidateCost += scc.getCost(icb.nodes[serNode]);
+	  auto serNodeRes = getVectorizationRec(serNode, icb);
+          candidateCost += serNodeRes.second;
+	  candidateSubtrees.push_back(serNodeRes.first);
         }
 	// No. of arithemtic operations to combine the scalar inputs
-	candidateCost += (serNodes.size()+histoLoadCount-1)*ci->scalarArithCost;
+	candidateCost += (serNodes.size()-1)*ci->scalarArithCost;
         // cost of inserting serial inputs of _lane_ into vector
-        candidateCost += ci->insertCost;
+        candidateCost += ci->getInsertCost(source.size());
       }
     }
-    std::cout << "cost for cand" << cand << " is " << candidateCost << std::endl;
     if (candidateCost < bestCandidateCost) {
       bestCandidateCost = candidateCost;
       bestSelectedSets = selectedSetsForCand;
+      bestSubTrees = candidateSubtrees;
       bestSelectedSets.push_back(cand);
     }
   }
-  return {bestSelectedSets, bestCandidateCost};
+  return {bestSelectedSets, bestCandidateCost, bestSubTrees};
 }
 
 std::vector<std::pair<size_t, int>> PackingHeuristic::orderByPotential(std::vector<SIMDChain>& chains, std::vector<size_t> toOrder) {
@@ -228,7 +240,10 @@ std::vector<std::pair<size_t, int>> PackingHeuristic::orderByPotential(std::vect
     for (auto& idx : toOrder) {
       auto& cand = chains[idx];
       // TODO: This should also account for the # of actual gather loads
-      size_t saving = cand.length*(cand.bottomLanes.size()-1)-ci->insertCost*(cand.bottomLanes.size()-cand.gatherCount);
+      size_t saving = cand.length * (cand.bottomLanes.size() - 1) -
+                      ci->getInsertCost(cand.bottomLanes.size()) *
+                          (cand.bottomLanes.size() - cand.gatherCount) -
+                      ci->getHistogramPenalty(cand.gatherCount);
       savings.push_back({idx, saving});
     }
 
@@ -345,170 +360,271 @@ PackingHeuristic::buildSIMDChainSets(std::vector<size_t> &candidateSIMDChains,
   return SIMDChainSets;
 }
 
+std::pair<vectorizationResultInfo, size_t> PackingHeuristic::getVectorizationRec(size_t rootNode, InitialChainBuilder& icb) {
+  if (subTreeCache.find(rootNode) != subTreeCache.end())
+    return subTreeCache[rootNode];
+  size_t treeSize = icb.dependsOn[rootNode].size();
+  if (treeSize < 2) {
+    SerialCostCalc scc(ci.get());
+    auto cost = scc.getCost(icb.nodes[rootNode]);
+    return {{}, cost};
+  }
+
+  std::set<size_t> allChildChains;
+  std::queue<size_t> nodesToHandle;
+  nodesToHandle.push(rootNode);
+
+  // calculate (indirect) children chains of rootNode
+  while (!nodesToHandle.empty()) {
+    auto node = nodesToHandle.front();
+    allChildChains.insert(icb.childChains[node].begin(), icb.childChains[node].end());
+    for (auto& childNode : icb.parentChildrenMap[node])
+      nodesToHandle.push(childNode);
+    nodesToHandle.pop();
+  }
+
+  size_t firstSIMDChainIdx = icb.candidateSIMDChains.size();
+  std::vector<size_t> scalarProductChains;
+  std::set_intersection(allChildChains.begin(), allChildChains.end(),
+                        icb.scalarProductChain.begin(),
+                        icb.scalarProductChain.end(),
+                        std::back_inserter(scalarProductChains));
+
+  size_t usedCandGoal;
+  if (!!chainCandidates)
+    usedCandGoal = chainCandidates;
+  else
+    usedCandGoal = 500;
+  // scale no. of simd chains to produce according to treeSize
+  size_t candGoal = ((double)usedCandGoal)*((double) treeSize/(double) overallTreeSize)+1;
+  icb.generateCandidateChains(scalarProductChains, icb.productChainConflicts, candGoal);
+
+
+  std::vector<size_t> scalarSumChains;
+  std::set_intersection(allChildChains.begin(), allChildChains.end(),
+                        icb.scalarSumChain.begin(),
+                        icb.scalarSumChain.end(),
+                        std::back_inserter(scalarSumChains));
+
+  icb.generateCandidateChains(scalarSumChains, icb.sumChainConflicts, candGoal);
+
+  std::vector<size_t> scalarWeightedSumChains;
+  std::set_intersection(allChildChains.begin(), allChildChains.end(),
+                        icb.scalarWeightedSumChain.begin(),
+                        icb.scalarWeightedSumChain.end(),
+                        std::back_inserter(scalarWeightedSumChains));
+
+  icb.generateCandidateChains(scalarWeightedSumChains, icb.weightedSumChainConflicts, candGoal);
+
+  /*
+  for (auto& simdChain : candidateSIMDChains) {
+    std::cout << "new simd chain, length:" << simdChain.length << " roots " << std::endl;
+    for (auto& bot : simdChain.bottomLanes) {
+      std::cout << nodes[bot]->id() << ",";
+    }
+    std::cout << std::endl;
+  }
+  */
+
+  std::vector<size_t> availableSIMDChains(icb.candidateSIMDChains.size() -
+                                          firstSIMDChainIdx);
+
+  for (int i = firstSIMDChainIdx; i < icb.candidateSIMDChains.size(); i++) {
+    availableSIMDChains[i - firstSIMDChainIdx] = i;
+  }
+
+  size_t usedInit;
+  if (!!rootCand)
+    usedInit = rootCand;
+  else
+    usedInit = 20;
+  
+  auto simdChainSets =
+      buildSIMDChainSets(availableSIMDChains, true, icb, usedInit);
+  std::vector<size_t> initialChainSets;
+  for (int i = 0; i < simdChainSets.size(); i++) {
+    initialChainSets.push_back(i);
+  }
+
+  std::queue<size_t> selectedChains;
+  for (auto &set : simdChainSets) {
+    for (auto &usedChain : set.SIMDChains) {
+      selectedChains.push(usedChain);
+    }
+  }
+  // return indexes of all SIMDChainSets that originated from a specific vector
+  // in a specific chain
+  std::unordered_map<size_t, std::unordered_map<size_t, std::vector<size_t>>>
+      chainPosToPackVecMap;
+  std::unordered_set<size_t> handledChains;
+  while (!selectedChains.empty()) {
+    size_t chainIdx = selectedChains.front();
+    selectedChains.pop();
+    if (handledChains.find(chainIdx) != handledChains.end())
+      continue;
+
+    handledChains.insert(chainIdx);
+    auto &chain = icb.candidateSIMDChains[chainIdx];
+    std::vector<size_t> currentVec = chain.bottomLanes;
+    std::vector<size_t> prevVec(currentVec.size());
+    for (int j = 0; j < chain.length; j++) {
+      // For each vector in chain, try different ways to produce the other
+      // inputs necessary for that vector, each possibility is a SIMDChainSet
+
+      std::set<size_t> childScalarChains;
+      std::unordered_map<size_t, std::set<size_t>> conflictMap;
+      for (int k = 0; k < currentVec.size(); k++) {
+        std::set<size_t> conflicts;
+        auto &lane = currentVec[k];
+
+        for (auto &childChain : icb.childChains[lane]) {
+          // If the chain leading to the node _lane_ goes through the child of
+          // lane that is part of _chain_, we can not select it
+          if (j != 0 && icb.scalarChains[childChain][0] == prevVec[k])
+            continue;
+
+          // This chain must have conflicts with all other chains that are
+          // also leading to _lane_ such that the possible vectors are always
+          // direct input vectors for the vector "chain[j]"
+          conflicts.insert(childChain);
+          childScalarChains.insert(childChain);
+        }
+
+        for (auto &confChain : conflicts) {
+          conflictMap[confChain] = conflicts;
+        }
+        prevVec[k] = lane;
+        currentVec[k] = icb.childParentMap[lane];
+      }
+      size_t firstSIMDChainIdx = icb.candidateSIMDChains.size();
+      std::vector<size_t> childScalarChainsVec(childScalarChains.begin(), childScalarChains.end());
+      double avgChildCount = 0;
+      for (auto& lane : prevVec) {
+	avgChildCount+= icb.parentChildrenMap[lane].size();
+      }
+      avgChildCount /= prevVec.size();
+      if (j != 0)
+	avgChildCount -= 1.0;
+
+      size_t usedFactor;
+      if (!!depChains)
+	usedFactor = depChains;
+      else
+	usedFactor = 10;
+      icb.generateCandidateChains(childScalarChainsVec, conflictMap, avgChildCount*usedFactor);
+      std::vector<size_t> generatedSIMDChains(icb.candidateSIMDChains.size() -
+                                              firstSIMDChainIdx);
+      for (int i = 0; i < icb.candidateSIMDChains.size() - firstSIMDChainIdx;
+           i++) {
+        generatedSIMDChains[i] = firstSIMDChainIdx + i;
+      }
+
+      size_t usedDepCount;
+      if (!!depCand)
+	usedDepCount = depCand;
+      else
+	usedDepCount = 5;
+      
+      auto newSIMDChainSets = buildSIMDChainSets(generatedSIMDChains, false,
+                                                 icb, usedDepCount);
+
+      for (auto &set : newSIMDChainSets) {
+        size_t setId = simdChainSets.size();
+        set.originatingChain = chainIdx;
+        set.posInOriginatingChain = j;
+        simdChainSets.push_back(set);
+        chainPosToPackVecMap[chainIdx][j].push_back(setId);
+        for (auto &usedChain : set.SIMDChains) {
+          selectedChains.push(usedChain);
+        }
+      }
+    }
+  }
+
+  auto res = returnBestSet(initialChainSets, simdChainSets, icb,
+                           chainPosToPackVecMap, {rootNode}, {});
+
+  std::unordered_map<size_t, std::unordered_map<size_t, size_t>>
+      chainPosToVecId;
+  vectorizationResultInfo vecRes;
+  for (auto &set : res.selectedSets) {
+    for (auto &chainIdx : simdChainSets[set].SIMDChains) {
+      auto &chain = icb.candidateSIMDChains[chainIdx];
+      auto curVec = chain.bottomLanes;
+      for (int i = 0; i < chain.length; i++) {
+        std::vector<NodeReference> vector;
+        for (auto &lane : curVec) {
+          vector.push_back(icb.nodes[lane]);
+        }
+        size_t vecId = vecRes.vectors.size();
+        vecRes.vectors.push_back(vector);
+
+        for (auto &ref : vector) {
+          vecRes.partOf.insert({ref->id(), vecId});
+        }
+        if (i != 0) {
+          vecRes.directVecInputs[vecId].insert(vecId - 1);
+        }
+        chainPosToVecId[chainIdx][i] = vecId;
+        for (int j = 0; j < curVec.size(); j++) {
+          curVec[j] = icb.childParentMap[curVec[j]];
+        }
+      }
+    }
+  }
+
+  for (auto &setIdx : res.selectedSets) {
+    auto &set = simdChainSets[setIdx];
+    if (set.originatingChain == -1) {
+      // This is the top level set, thus its chains cannot be a direct input
+      // to other vectors
+      continue;
+    }
+    auto sourceIt =
+        chainPosToVecId[set.originatingChain].find(set.posInOriginatingChain);
+    assert(sourceIt != chainPosToVecId[set.originatingChain].end());
+    for (auto &chainIdx : set.SIMDChains) {
+      auto &chain = icb.candidateSIMDChains[chainIdx];
+
+      auto inputIt = chainPosToVecId[chainIdx].find(chain.length - 1);
+      assert(inputIt != chainPosToVecId[chainIdx].end());
+      vecRes.directVecInputs[sourceIt->second].insert(inputIt->second);
+    }
+  }
+  for (auto& subtree : res.subtrees) {
+    std::unordered_map<size_t, size_t> vecIdMap;
+    for (int i = 0; i < subtree.vectors.size(); i++) {
+      auto newId = vecRes.vectors.size();
+      vecRes.vectors.push_back(subtree.vectors[i]);
+      vecIdMap.insert({i, newId});
+    }
+
+    for (auto& node : subtree.partOf) {
+      vecRes.partOf.insert({node.first, vecIdMap[node.second]});
+    }
+
+    for (auto& vec : subtree.directVecInputs) {
+      auto& newInputs = vecRes.directVecInputs[vecIdMap[vec.first]];
+
+      for (auto& oldInput : vec.second) {
+	newInputs.insert(vecIdMap[oldInput]);
+      }
+    }
+    
+  }
+
+  
+  subTreeCache.insert({rootNode, {vecRes, res.cost}});
+  return {vecRes, res.cost};
+}
+
 vectorizationResultInfo PackingHeuristic::getVectorization(IRGraph &graph, size_t width) {
+  std::cout << "run heuristic" << std::endl;
   ci = std::make_unique<CostInfo>(width);
   if (USE_INIT) {
     InitialChainBuilder icb(width);
     icb.performInitialBuild(graph.rootNode);
-
-    std::vector<size_t> availableSIMDChains(icb.candidateSIMDChains.size());
-
-    for (int i = 0; i < icb.candidateSIMDChains.size(); i++) {
-      availableSIMDChains[i] = i;
-    }
-    auto simdChainSets = buildSIMDChainSets(availableSIMDChains, true, icb,
-                                            USED_CANDIDATES_INIT);
-    std::vector<size_t> initialChainSets;
-    for (int i = 0; i < simdChainSets.size(); i++) {
-      initialChainSets.push_back(i);
-    }
-
-    std::queue<size_t> selectedChains;
-    for (auto &set : simdChainSets) {
-      for (auto &usedChain : set.SIMDChains) {
-        selectedChains.push(usedChain);
-      }
-    }
-    // return indexes of all SIMDChainSets that originated from a specific vector in a specific chain
-    std::unordered_map<size_t, std::unordered_map<size_t, std::vector<size_t>>> chainPosToPackVecMap;
-    std::unordered_set<size_t> handledChains;
-    while (!selectedChains.empty()) {
-      size_t chainIdx = selectedChains.front();
-      selectedChains.pop();
-      if (handledChains.find(chainIdx) != handledChains.end())
-	continue;
-      
-      handledChains.insert(chainIdx);
-      auto& chain = icb.candidateSIMDChains[chainIdx];
-      std::vector<size_t> currentVec = chain.bottomLanes;
-      std::vector<size_t> prevVec(currentVec.size());
-      for (int j = 0; j < chain.length; j++) {
-        // For each vector in chain, try different ways to produce the other
-        // inputs necessary for that vector, each possibility is a SIMDChainSet
-
-        std::vector<std::vector<size_t>> scalarChains;
-	std::unordered_map<size_t, std::set<size_t>> conflictMap;
-        for (int k = 0; k < currentVec.size(); k++) {
-	  std::set<size_t> conflicts;
-	  auto& lane = currentVec[k];
-	  for (auto& histo : icb.dependsOnHistograms[lane]) {
-	    size_t cur = icb.childParentMap[histo];
-	    std::vector<size_t> newScalarChain;
-	    while (cur != lane) {
-              newScalarChain.push_back(cur);
-              cur = icb.childParentMap[cur];
-            }
-            if (newScalarChain.size() != 0 &&
-                (j == 0 || newScalarChain.back() != prevVec[k])) {
-              conflicts.insert(scalarChains.size());
-              scalarChains.push_back(newScalarChain);
-            }
-          }
-
-	  for (auto& confChain : conflicts) {
-	    conflictMap[confChain] = conflicts;
-	  }
-	  prevVec[k] = lane;
-          currentVec[k] = icb.childParentMap[lane];
-        }
-        size_t firstSIMDChainIdx = icb.candidateSIMDChains.size();
-        icb.generateCandidateChains(scalarChains, conflictMap, 10);
-	std::vector<size_t> generatedSIMDChains(icb.candidateSIMDChains.size()- firstSIMDChainIdx);
-	for (int i = 0; i < icb.candidateSIMDChains.size()- firstSIMDChainIdx; i++) {
-	  generatedSIMDChains[i] = firstSIMDChainIdx+i;
-	}
-
-	auto newSIMDChainSets = buildSIMDChainSets(generatedSIMDChains, false, icb, USED_CANDIDATES_DEP);
-
-	for (auto& set : newSIMDChainSets) {
-	  size_t setId = simdChainSets.size();
-	  set.originatingChain = chainIdx;
-	  set.posInOriginatingChain = j;
-	  simdChainSets.push_back(set);
-	  chainPosToPackVecMap[chainIdx][j].push_back(setId);
-	  for (auto& usedChain : set.SIMDChains) {
-	    selectedChains.push(usedChain);
-	  }
-	}
-        // TODO also generate independent trees that produce an input for (j,k),
-        // i.e. call PackingHeuristic recursively, and then make it possible for
-        // such a tree to be part of a SIMDChainSet
-      }
-    }
-
-    for (int i = 0; i< icb.candidateSIMDChains.size(); i++) {
-      auto& simdchain = icb.candidateSIMDChains[i];
-      std::cout << "chain id " << i << " length " << simdchain.length << "bottoms " << std::endl;
-      for (auto& bot : simdchain.bottomLanes) {
-	std::cout << icb.nodes[bot]->id() << ",";
-      }
-      std::cout << std::endl;
-    }
-
-    for (int i = 0; i < simdChainSets.size(); i++) {
-      auto& chainset = simdChainSets[i];
-      std::cout << "set id" << i << " from " << chainset.originatingChain << " pos "
-                << chainset.posInOriginatingChain << " consitituents "
-                << std::endl;
-      for (auto& simdchain : chainset.SIMDChains) {
-	std::cout << simdchain << ",";
-      }
-      std::cout << std::endl;
-    }
-
-    auto res = returnBestSet(initialChainSets, simdChainSets, icb, chainPosToPackVecMap, {}, {});
-    std::cout << "selected :  " << std::endl;
-    for (auto& set : res.selectedSets) {
-      std::cout << set << "," ;
-    }
-    std::cout << std::endl;
-    std::unordered_map<size_t, std::unordered_map<size_t, size_t>> chainPosToVecId;
-    vectorizationResultInfo vecRes;
-    for (auto& set : res.selectedSets) {
-      for (auto& chainIdx : simdChainSets[set].SIMDChains) {
-	auto& chain = icb.candidateSIMDChains[chainIdx];
-	auto curVec = chain.bottomLanes;
-	for (int i = 0; i < chain.length; i++) {
-	  std::vector<NodeReference> vector;
-	  for (auto& lane : curVec) {
-	    vector.push_back(icb.nodes[lane]);
-	  }
-	  size_t vecId = vecRes.vectors.size();
-	  vecRes.vectors.push_back(vector);
-
-	  for (auto& ref : vector) {
-	    vecRes.partOf.insert({ref->id(), vecId});
-	  }
-	  if (i != 0) {
-	    vecRes.directVecInputs[vecId].insert(vecId-1);
-	  }
-	  chainPosToVecId[chainIdx][i] = vecId;
-          for (int j = 0; j < curVec.size(); j++) {
-            curVec[j] = icb.childParentMap[curVec[j]];
-          }
-        }
-      }
-    }
-
-    for (auto &setIdx : res.selectedSets) {
-      auto &set = simdChainSets[setIdx];
-      if (set.originatingChain == -1) {
-        // This is the top level set, thus its chains cannot be a direct input
-        // to other vectors
-        continue;
-      }
-      auto sourceIt =
-          chainPosToVecId[set.originatingChain].find(set.posInOriginatingChain);
-      assert(sourceIt != chainPosToVecId[set.originatingChain].end());
-      for (auto &chainIdx : set.SIMDChains) {
-        auto &chain = icb.candidateSIMDChains[chainIdx];
-
-        auto inputIt = chainPosToVecId[chainIdx].find(chain.length - 1);
-        assert(inputIt != chainPosToVecId[chainIdx].end());
-        vecRes.directVecInputs[sourceIt->second].insert(inputIt->second);
-      }
-    }
-    return vecRes;
+    return getVectorizationRec(0, icb).first;
   }
   else {
     HeuristicChainBuilder hcb(graph, width);

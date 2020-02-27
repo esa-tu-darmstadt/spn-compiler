@@ -12,6 +12,7 @@ struct SIMDChainSet {
 struct setSolverRes {
   std::vector<size_t> selectedSets;
   size_t cost;
+  std::vector<vectorizationResultInfo> subtrees;
 };
 
 class PackingHeuristic : public Packer {
@@ -31,5 +32,9 @@ public:
   buildSIMDChainSets(std::vector<size_t> &candidateSIMDChains, bool first,
                      InitialChainBuilder &icb, size_t setsGoal);
 
+  std::pair<vectorizationResultInfo, size_t>
+  getVectorizationRec(size_t rootNode, InitialChainBuilder &icb);
   std::unique_ptr<CostInfo> ci;
+  std::unordered_map<size_t, std::pair<vectorizationResultInfo, size_t>> subTreeCache;
+  size_t overallTreeSize;
 };

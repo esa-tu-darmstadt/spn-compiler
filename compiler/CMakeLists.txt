@@ -64,10 +64,10 @@ target_include_directories(spnc
         $<INSTALL_INTERFACE:include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 
+        ${LLVM_INCLUDE_DIRS}
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${LLVM_INCLUDE_DIRS}
 	${GUROBI_HEADER_DIRS}
 	${Boost_INCLUDE_DIR})
 llvm_map_components_to_libnames(llvm_libs all)
-target_link_libraries(spnc PRIVATE ${llvm_libs} ${GUROBI_LIBS})
+target_link_libraries(spnc ${llvm_libs} ${GUROBI_LIBS})

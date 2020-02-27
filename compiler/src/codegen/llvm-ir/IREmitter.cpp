@@ -1,5 +1,13 @@
 #include "codegen/llvm-ir/IREmitter.h"
 
+llvm::cl::opt<bool> useGather(
+    "useGather",
+    llvm::cl::desc("Use AVX2 Gather instructions to load histograms"),
+    llvm::cl::cat(SPNCompiler));
+llvm::cl::opt<bool> selectBinary(
+    "selectBinary",
+    llvm::cl::desc("Use select instructions instead of histograms loads for histograms with only two buckets"),
+    llvm::cl::cat(SPNCompiler));
 IREmitter::IREmitter(
       std::unordered_map<std::string, size_t> &vec,
       std::unordered_map<size_t, std::unordered_set<size_t>>& directVecInputs,
@@ -14,7 +22,8 @@ IREmitter::IREmitter(
       vecsWithOrder.insert(inVec);
     }
   }
-
+  constantZero = ConstantFP::get(Type::getDoubleTy(_context), 0.0);
+  constantOne = ConstantFP::get(Type::getDoubleTy(_context), 1.0);
 }
 
 void IREmitter::visitInputvar(InputVar &n, arg_t arg) {
@@ -44,7 +53,7 @@ Value* IREmitter::getHistogramPtr(Histogram& n) {
   auto initializer = ConstantArray::get(arrayType, values);
   // XXX This leaks?
   auto arr = new GlobalVariable(*_module, arrayType, true,
-                                GlobalValue::InternalLinkage, initializer);
+                                GlobalValue::InternalLinkage, initializer, "histo" + n.id());
   return _builder.CreateGEP(arr,
                             {ConstantInt::get(Type::getInt64Ty(_context), 0),
                              ConstantInt::get(Type::getInt64Ty(_context), 0)});

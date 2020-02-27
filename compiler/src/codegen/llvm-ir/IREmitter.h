@@ -9,6 +9,11 @@
 
 using namespace llvm;
 
+extern llvm::cl::OptionCategory SPNCompiler;
+
+extern llvm::cl::opt<bool> useGather;
+extern llvm::cl::opt<bool> selectBinary;
+
 struct irVal {
   Value* val;
   int pos;
@@ -36,10 +41,10 @@ public:
 
 private:
   Value* getHistogramPtr(Histogram& n);
-  template <class T> double getNeutralValue();
-  template <> double getNeutralValue<WeightedSum>() {return 0.0;}
-  template <> double getNeutralValue<Sum>() {return 0.0;}
-  template <> double getNeutralValue<Product>() {return 1.0;}
+  template <class T> Value* getNeutralValue();
+  template <> Value* getNeutralValue<WeightedSum>() {return constantZero;}
+  template <> Value* getNeutralValue<Sum>() {return constantZero;}
+  template <> Value* getNeutralValue<Product>() {return constantOne;}
 
   Value *scalarArith(WeightedSum &n, Value *acc, Value *in, std::string id) {
     double weight = 0.0;
@@ -52,14 +57,20 @@ private:
     assert(weight > 0.0);
     auto mul = _builder.CreateFMul(
         ConstantFP::get(Type::getDoubleTy(_context), weight), in);
-    return _builder.CreateFAdd(acc, mul);
+    if (acc)
+      return _builder.CreateFAdd(acc, mul);
+    return mul;
   }
   Value *scalarArith(Sum &n, Value *acc, Value *in, std::string id) {
-    return _builder.CreateFAdd(acc, in);
+    if (acc)
+      return _builder.CreateFAdd(acc, in);
+    return in;
   }
   
   Value *scalarArith(Product &n, Value *acc, Value *in, std::string id) {
-    return _builder.CreateFMul(acc, in);
+    if (acc)
+      return _builder.CreateFMul(acc, in);
+    return in;
   }
 
   template <class T>
@@ -78,8 +89,12 @@ private:
                   std::unordered_map<size_t, NodeReference> accOrder,
                   std::vector<std::pair<std::string, size_t>> inOrder) {
 
+    size_t vectorWidth = 0;
+    for (auto &l : accOrder)
+      vectorWidth = std::max(l.first + 1, vectorWidth);
+    
     Value *weights = UndefValue::get(
-        VectorType::get(Type::getDoubleTy(_context), simdWidth));
+        VectorType::get(Type::getDoubleTy(_context), vectorWidth));
 
     for (auto &lane : accOrder) {
       auto inputs = ((WeightedSum *)lane.second.get())->addends();
@@ -97,19 +112,25 @@ private:
       weights = _builder.CreateInsertElement(weights, ConstantFP::get(Type::getDoubleTy(_context), weight), lane.first);
     }
     auto mul = _builder.CreateFMul(in, weights);
-    return _builder.CreateFAdd(acc, mul);
+    if (acc)
+      return _builder.CreateFAdd(acc, mul);
+    return mul;
   }
 
   Value *vecArith(Sum &n, Value *acc, Value* in,
                   std::unordered_map<size_t, NodeReference> accOrder,
                   std::vector<std::pair<std::string, size_t>> inOrder) {
-    return _builder.CreateFAdd(acc, in);
+    if (acc)
+      return _builder.CreateFAdd(acc, in);
+    return in;
   }
 
   Value *vecArith(Product &n, Value *acc, Value* in,
                   std::unordered_map<size_t, NodeReference> accOrder,
                   std::vector<std::pair<std::string, size_t>> inOrder) {
-    return _builder.CreateFMul(acc, in);
+    if (acc)
+      return _builder.CreateFMul(acc, in);
+    return in;
   }
 
   bool createInputs(std::vector<
@@ -150,7 +171,7 @@ private:
 
     auto it = _vec.find(n.id());
     if (it == _vec.end()) {
-      Value *out = ConstantFP::get(Type::getDoubleTy(_context), getNeutralValue<T>());
+      Value *out = getNeutralValue<T>();
       std::vector<
           std::pair<NodeReference, std::vector<std::pair<std::string, size_t>>>>
           inputs;
@@ -189,7 +210,6 @@ private:
 
       std::unordered_map<size_t, NodeReference> order;
 
-      
       if (arg.get() == nullptr) {
 	// There is no restriction on the order of the elements because all elements are extracted
 	for (int i = 0; i < _vectors[it->second].size(); i++) {
@@ -217,11 +237,15 @@ private:
           while (order.find(i) != order.end())
             i++;
           order[i] = e;
-	  i++;
+          i++;
         }
 	std::vector<NodeReference> newRefVec;
       }
 
+      size_t vectorWidth = 0;
+      for (auto& l : order)
+        vectorWidth = std::max(l.first + 1, vectorWidth);
+      
       auto& directInputs = _directVecInputs[it->second];
       std::unordered_map<size_t, std::vector<std::pair<std::string, size_t>>> newReqs;
       
@@ -305,117 +329,201 @@ private:
       };
       auto vecIt = iteratorVector(histogramInputs);
       for (;!vecIt.isEnd(); vecIt.advance()) {
-        std::unordered_map<size_t,Value*> inputOffsets;
-        std::unordered_map<size_t,Value*> histogramArrays;
-	std::unordered_map<size_t,NodeReference> histoNodeRefs;
-        for (auto &nodeRef : vecIt.iterators) {
-	  histoNodeRefs[nodeRef.first] = *(nodeRef.second);
-          Histogram *histObject = (Histogram *)nodeRef.second->get();
-          auto inputObject = histObject->indexVar();
-          inputOffsets[nodeRef.first] = ConstantInt::getSigned(
-              Type::getInt32Ty(_context), inputObject->index());
-          histogramArrays[nodeRef.first] = getHistogramPtr(*histObject);
-        }
+	Value* histoLoad;
+        std::unordered_map<size_t, NodeReference> histoNodeRefs;
+        if (useGather) {
+          std::unordered_map<size_t, Value *> inputOffsets;
+          std::unordered_map<size_t, Value *> histogramArrays;
+          for (auto &nodeRef : vecIt.iterators) {
+            histoNodeRefs[nodeRef.first] = *(nodeRef.second);
+            Histogram *histObject = (Histogram *)nodeRef.second->get();
+            auto inputObject = histObject->indexVar();
+            inputOffsets[nodeRef.first] = ConstantInt::getSigned(
+                Type::getInt32Ty(_context), inputObject->index());
+            histogramArrays[nodeRef.first] = getHistogramPtr(*histObject);
+          }
 
-        // For now we don't support avx512, so it's always a 4 wide input
-        // address vector although we might actually only use 2
-	assert(simdWidth == 2 || simdWidth == 4);
-        Value *inputAddressVector =
-            UndefValue::get(VectorType::get(Type::getInt32Ty(_context), 4));
+          // For now we don't support avx512, so it's always a 4 wide input
+          // address vector although we might actually only use 2
+          assert(simdWidth == 2 || simdWidth == 4);
+          Value *inputAddressVector =
+              UndefValue::get(VectorType::get(Type::getInt32Ty(_context), 4));
 
-        Value *histogramAddressVector = UndefValue::get(
-            VectorType::get(IntegerType::get(_context, 64), simdWidth));
+          Value *histogramAddressVector = UndefValue::get(
+              VectorType::get(IntegerType::get(_context, 64), simdWidth));
 
-        for (auto& in : inputOffsets) {
-          inputAddressVector = _builder.CreateInsertElement(
-              inputAddressVector, in.second, in.first);
-          histogramAddressVector = _builder.CreateInsertElement(
-              histogramAddressVector, _builder.CreatePtrToInt(histogramArrays[in.first], IntegerType::get(_context, 64)), in.first);
-        }
+          for (auto &in : inputOffsets) {
+            inputAddressVector = _builder.CreateInsertElement(
+                inputAddressVector, in.second, in.first);
+            histogramAddressVector = _builder.CreateInsertElement(
+                histogramAddressVector,
+                _builder.CreatePtrToInt(histogramArrays[in.first],
+                                        IntegerType::get(_context, 64)),
+                in.first);
+          }
 
-	Function* intGather = Intrinsic::getDeclaration(_module,llvm::Intrinsic::x86_avx2_gather_d_d);
-	std::vector<Value*> intArgs;
+          Function *intGather = Intrinsic::getDeclaration(
+              _module, llvm::Intrinsic::x86_avx2_gather_d_d);
+          std::vector<Value *> intArgs;
 
-	intArgs.push_back(UndefValue::get(VectorType::get(Type::getInt32Ty(_context), 4)));
-	intArgs.push_back(_builder.CreatePointerCast(_in, PointerType::getUnqual(Type::getInt8Ty(_context))));
-	intArgs.push_back(inputAddressVector);
+          intArgs.push_back(
+              UndefValue::get(VectorType::get(Type::getInt32Ty(_context), 4)));
+          intArgs.push_back(_builder.CreatePointerCast(
+              _in, PointerType::getUnqual(Type::getInt8Ty(_context))));
+          intArgs.push_back(inputAddressVector);
 
-        Value* mask = Constant::getNullValue(
-            VectorType::get(Type::getInt32Ty(_context), 4));
-	for (auto& in : inputOffsets) {
-	  mask  = _builder.CreateInsertElement(mask, Constant::getAllOnesValue(Type::getInt32Ty(_context)), in.first);
-	}
+          Value *mask = Constant::getNullValue(
+              VectorType::get(Type::getInt32Ty(_context), 4));
+          for (auto &in : inputOffsets) {
+            mask = _builder.CreateInsertElement(
+                mask, Constant::getAllOnesValue(Type::getInt32Ty(_context)),
+                in.first);
+          }
 
-        intArgs.push_back(mask);
-        intArgs.push_back(
-            ConstantInt::getSigned(Type::getInt8Ty(_context), sizeof(int32_t)));
+          intArgs.push_back(mask);
+          intArgs.push_back(ConstantInt::getSigned(Type::getInt8Ty(_context),
+                                                   sizeof(int32_t)));
 
-	Value* inputVector = _builder.CreateCall(intGather, intArgs);
+          Value *inputVector = _builder.CreateCall(intGather, intArgs);
 
-	if (simdWidth == 2) {
-          inputVector = _builder.CreateShuffleVector(
+          if (simdWidth == 2) {
+            inputVector = _builder.CreateShuffleVector(
+                inputVector,
+                UndefValue::get(VectorType::get(Type::getInt32Ty(_context), 4)),
+                {0, 1});
+          }
+
+          auto doubleSizeSplat = _builder.CreateVectorSplat(
+              simdWidth,
+              ConstantInt::get(IntegerType::get(_context, 64), sizeof(double)));
+          auto zextInputs = _builder.CreateZExt(
               inputVector,
-              UndefValue::get(VectorType::get(Type::getInt32Ty(_context), 4)),
-              {0, 1});
+              VectorType::get(IntegerType::get(_context, 64), simdWidth));
+          auto scaledInput = _builder.CreateMul(doubleSizeSplat, zextInputs);
+          auto histoLoadAddresses =
+              _builder.CreateAdd(scaledInput, histogramAddressVector);
+
+          Function *doubleGather;
+
+          if (simdWidth == 2)
+            doubleGather = Intrinsic::getDeclaration(
+                _module, llvm::Intrinsic::x86_avx2_gather_q_pd);
+          else
+            doubleGather = Intrinsic::getDeclaration(
+                _module, llvm::Intrinsic::x86_avx2_gather_q_pd_256);
+          std::vector<Value *> doubleArgs;
+
+          doubleArgs.push_back(UndefValue::get(
+              VectorType::get(Type::getDoubleTy(_context), simdWidth)));
+          doubleArgs.push_back(ConstantPointerNull::get(
+              PointerType::getUnqual(Type::getInt8Ty(_context))));
+          doubleArgs.push_back(histoLoadAddresses);
+
+          Value *doubleMask = Constant::getNullValue(
+              VectorType::get(Type::getDoubleTy(_context), simdWidth));
+          for (auto &in : inputOffsets) {
+            doubleMask = _builder.CreateInsertElement(
+                doubleMask,
+                Constant::getAllOnesValue(Type::getDoubleTy(_context)),
+                in.first);
+          }
+
+          doubleArgs.push_back(doubleMask);
+          doubleArgs.push_back(
+              ConstantInt::getSigned(Type::getInt8Ty(_context), 1));
+
+          histoLoad = _builder.CreateCall(doubleGather, doubleArgs);
+        } else {
+          histoLoad = UndefValue::get(
+              VectorType::get(Type::getDoubleTy(_context), vectorWidth));
+          bool binaryPossible = true;
+          if (selectBinary) {
+            for (auto &nodeRef : vecIt.iterators) {
+              Histogram *histObject = (Histogram *)nodeRef.second->get();
+              if (histObject->buckets()->size() != 2)
+                binaryPossible = false;
+            }
+          }
+
+          if (selectBinary && binaryPossible) {
+            Value* histoBounds = UndefValue::get(
+                VectorType::get(Type::getInt32Ty(_context), vectorWidth));
+
+            Value* lowerVals = UndefValue::get(
+                VectorType::get(Type::getDoubleTy(_context), vectorWidth));
+            Value* upperVals = UndefValue::get(
+                VectorType::get(Type::getDoubleTy(_context), vectorWidth));
+
+            Value* compareInputs =
+                UndefValue::get(VectorType::get(Type::getInt32Ty(_context), vectorWidth));
+
+            for (auto &nodeRef : vecIt.iterators) {
+              histoNodeRefs[nodeRef.first] = *(nodeRef.second);
+              Histogram *histObject = (Histogram *)nodeRef.second->get();
+	      auto& buckets = *histObject->buckets();
+              histoBounds = _builder.CreateInsertElement(
+                  histoBounds,
+                  ConstantInt::getSigned(Type::getInt32Ty(_context),
+                                         buckets[0].upperBound),
+                  nodeRef.first);
+
+              if (input2value.find(histObject->indexVar()->id()) == input2value.end()) {
+                histObject->indexVar()->accept(*this, {});
+              }
+
+              compareInputs = _builder.CreateInsertElement(
+                  compareInputs, input2value[histObject->indexVar()->id()],
+                  nodeRef.first);
+
+              lowerVals = _builder.CreateInsertElement(
+                  lowerVals,
+                  ConstantFP::get(Type::getDoubleTy(_context), buckets[0].value),
+                  nodeRef.first);
+	      
+              upperVals = _builder.CreateInsertElement(
+                  upperVals,
+                  ConstantFP::get(Type::getDoubleTy(_context), buckets[1].value),
+                  nodeRef.first);
+            }
+
+            auto lt = _builder.CreateICmpSLT(compareInputs, histoBounds);
+	    histoLoad = _builder.CreateSelect(lt, lowerVals, upperVals);
+
+          } else {
+            for (auto &nodeRef : vecIt.iterators) {
+              histoNodeRefs[nodeRef.first] = *(nodeRef.second);
+              Histogram *histObject = (Histogram *)nodeRef.second->get();
+              histObject->accept(*this, {});
+              histoLoad = _builder.CreateInsertElement(
+                  histoLoad, node2value[histObject->id()].val, nodeRef.first);
+            }
+          }
         }
-
-        auto doubleSizeSplat = _builder.CreateVectorSplat(
-            simdWidth,
-            ConstantInt::get(IntegerType::get(_context, 64), sizeof(double)));
-        auto zextInputs = _builder.CreateZExt(
-            inputVector,
-            VectorType::get(IntegerType::get(_context, 64), simdWidth));
-        auto scaledInput = _builder.CreateMul(doubleSizeSplat, zextInputs);
-        auto histoLoadAddresses = _builder.CreateAdd(scaledInput, histogramAddressVector);
-
-	Function* doubleGather;
-
-	if (simdWidth == 2)
-	  doubleGather = Intrinsic::getDeclaration(_module,llvm::Intrinsic::x86_avx2_gather_q_pd);
-	else
-	  doubleGather = Intrinsic::getDeclaration(_module,llvm::Intrinsic::x86_avx2_gather_q_pd_256);
-	std::vector<Value*> doubleArgs;
-	
-	doubleArgs.push_back(UndefValue::get(VectorType::get(Type::getDoubleTy(_context), simdWidth)));
-        doubleArgs.push_back(ConstantPointerNull::get(
-            PointerType::getUnqual(Type::getInt8Ty(_context))));
-        doubleArgs.push_back(histoLoadAddresses);
-
-        Value* doubleMask = Constant::getNullValue(
-            VectorType::get(Type::getDoubleTy(_context), simdWidth));
-	for (auto& in : inputOffsets) {
-	  doubleMask  = _builder.CreateInsertElement(doubleMask, Constant::getAllOnesValue(Type::getDoubleTy(_context)), in.first);
-	}
-
-        doubleArgs.push_back(doubleMask);
-        doubleArgs.push_back(
-            ConstantInt::getSigned(Type::getInt8Ty(_context), 1));
-
-	auto histoLoad = _builder.CreateCall(doubleGather, doubleArgs);
         size_t newId = _vectors.size();
-	std::vector<NodeReference> newRefVec;
-	for (auto& ref : histoNodeRefs) {
-	  newRefVec.push_back(ref.second);
-	}
+        std::vector<NodeReference> newRefVec;
+        for (auto &ref : histoNodeRefs) {
+          newRefVec.push_back(ref.second);
+        }
         _vectors.push_back(newRefVec);
         std::string histVecName = "";
-        for (auto& ref : histoNodeRefs) {
+        for (auto &ref : histoNodeRefs) {
           histVecName += ref.second->id() + "_";
-          node2value.insert({ref.second->id(), {histoLoad, static_cast<int>(ref.first), newId}});
-	  newReqs[newId].push_back({ref.second->id(), ref.first});
+          node2value[ref.second->id()] = {histoLoad,
+                                          static_cast<int>(ref.first), newId};
+          newReqs[newId].push_back({ref.second->id(), ref.first});
         }
-	inputVector->setName(histVecName+"idx");
+        //inputVector->setName(histVecName + "idx");
         histoLoad->setName(histVecName);
         directVec.insert(newId);
       }
-      
+
+      bool hasScalarInputs = false;
       std::unordered_map<size_t, Value *> serialInputs;
       // First emit all reductions of inputs which do not come in a vector
-      for (auto& lane : order) {
+      for (auto &lane : order) {
         T *curNode = (T *)lane.second.get();
 
-        Value *aggSerIn =
-            ConstantFP::get(Type::getDoubleTy(_context), getNeutralValue<T>());
+        Value *aggSerIn = nullptr;
 
         while (vecIt.iterators[lane.first] != vecIt.ends[lane.first]) {
           auto &hist = vecIt.iterators[lane.first];
@@ -431,14 +539,23 @@ private:
         }
 
         serialInputs[lane.first] = aggSerIn;
+	if (aggSerIn)
+	  hasScalarInputs=true;
       }
-      Value *out = UndefValue::get(
-          VectorType::get(Type::getDoubleTy(_context), simdWidth));
+      Value *out = nullptr;
 
-      for (auto &lane : order) {
-        out = _builder.CreateInsertElement(out, serialInputs[lane.first], lane.first);
+      if (hasScalarInputs) {
+        out = UndefValue::get(
+            VectorType::get(Type::getDoubleTy(_context), vectorWidth));
+
+        for (auto &lane : order) {
+          out = _builder.CreateInsertElement(out,
+                                             serialInputs[lane.first]
+                                                 ? serialInputs[lane.first]
+                                                 : getNeutralValue<T>(),
+                                             lane.first);
+        }
       }
-
       for (auto& direct : directVec) {
         Value *directVecVal = node2value[_vectors[direct][0]->id()].val;
         for (auto &lane : order) {
@@ -452,12 +569,26 @@ private:
           }
           if (!needed) {
             directVecVal = _builder.CreateInsertElement(
-                directVecVal,
-                ConstantFP::get(Type::getDoubleTy(_context),
-                                getNeutralValue<T>()),
+                directVecVal,getNeutralValue<T>(),
                 lane.first);
           }
         }
+
+	size_t inWidth = ((VectorType *)directVecVal->getType())->getElementCount().Min;
+        if (inWidth != vectorWidth) {
+          std::vector<uint32_t> indices;
+	  
+	  for (int i = 0; i < vectorWidth; i++) {
+	    if (order.find(i) != order.end()) {
+	      indices.push_back(i);
+	    } else {
+	      indices.push_back(inWidth);
+	    }
+	  }
+          directVecVal = _builder.CreateShuffleVector(
+              directVecVal, UndefValue::get(directVecVal->getType()), indices);
+        }
+
         out = vecArith(n, out, directVecVal, order, newReqs[direct]);
       }
 
@@ -483,4 +614,6 @@ private:
   std::unordered_map<std::string, irVal> node2value;
   std::unordered_map<std::string, Value *> input2value;
   unsigned simdWidth;
+  Value* constantZero;
+  Value* constantOne;
 };

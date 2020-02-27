@@ -20,23 +20,25 @@ class InitialChainBuilder : public BaseVisitor {
 
   void visitWeightedSum(WeightedSum &n, arg_t arg) override;
   void
-  findConflicts(std::vector<std::vector<size_t>> &chains,
+  findConflicts(std::vector<size_t> &chains,
                 std::unordered_map<size_t, std::vector<size_t>> &conflicts);
 
   void
   findChainConflicts(
-    std::vector<std::vector<size_t>> &chains,
+    std::vector<size_t> &chains,
     std::unordered_map<size_t, std::vector<size_t>> &nodeConflicts,
     std::unordered_map<size_t, std::set<size_t>> &chainConflicts);
 
 
-  void generateCandidateChains( std::vector<std::vector<size_t>>& chains, std::unordered_map<size_t, std::set<size_t>>& conflicts, size_t chainsGoal);
+  void generateCandidateChains( std::vector<size_t>& chains, std::unordered_map<size_t, std::set<size_t>>& conflicts, size_t chainsGoal);
 
-  size_t recChainGen(std::vector<size_t> selected, std::vector<size_t> stillAvailable, std::vector<std::vector<size_t>>& chains, std::unordered_map<size_t, std::set<size_t>>& conflicts);
+  size_t recChainGen(std::vector<size_t> selected, std::vector<size_t> stillAvailable, std::unordered_map<size_t, std::set<size_t>>& conflicts);
+
+  std::vector<std::vector<size_t>> scalarChains;
   
-  std::vector<std::vector<size_t>> scalarSumChain;
-  std::vector<std::vector<size_t>> scalarWeightedSumChain;
-  std::vector<std::vector<size_t>> scalarProductChain;
+  std::vector<size_t> scalarSumChain;
+  std::vector<size_t> scalarWeightedSumChain;
+  std::vector<size_t> scalarProductChain;
   // TODO make all of these maps vectors
   std::unordered_map<size_t, std::vector<size_t>> sumConflicts;
   std::unordered_map<size_t, std::vector<size_t>> weightedSumConflicts;
@@ -50,6 +52,7 @@ class InitialChainBuilder : public BaseVisitor {
   std::unordered_map<size_t, size_t> childParentMap;
   std::unordered_map<size_t, std::vector<size_t>> parentChildrenMap;
   std::unordered_map<size_t, std::vector<size_t>> parentChildrenHistoMap;
+  std::unordered_map<size_t, std::vector<size_t>> childChains;
   // getBestSet relies on nodes[0] being the root of the tree
   std::vector<NodeReference> nodes;
   std::vector<size_t> histograms;

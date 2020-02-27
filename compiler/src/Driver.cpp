@@ -8,15 +8,23 @@
 #include <util/DotVisitor.h>
 #include <transform/BinaryTreeTransform.h>
 #include <codegen/llvm-ir/LLVMCodegen.h>
+#include "llvm/Support/CommandLine.h"
 
-#define VECTORIZE true
+llvm::cl::OptionCategory SPNCompiler("SPN Compiler Options", "Options for controlling the spn compilation process.");
 
-bool spnc::parseJSON(const std::string &inputFile) {
-    Parser parser;
-    auto irGraph = parser.parseJSONFile(inputFile);
-    //irGraph.rootNode = BinaryTreeTransform().binarizeTree(irGraph.rootNode);
-    DotVisitor dot;
-    dot.writeDotGraph(irGraph.rootNode, "spn.dot");
-    LLVMCodegen().generateLLVMIR(irGraph, VECTORIZE);
-    return true;
+cl::opt<bool> Vectorize("vec", cl::desc("Enable vectorization"), llvm::cl::cat(SPNCompiler));
+
+
+llvm::cl::opt<std::string> InputFilename(llvm::cl::Positional, llvm::cl::Required,
+					 llvm::cl::desc("<input file>"), llvm::cl::cat(SPNCompiler));
+
+bool spnc::parseJSON(int argc, char* argv[]) {
+  llvm::cl::HideUnrelatedOptions(SPNCompiler);
+  llvm::cl::ParseCommandLineOptions(argc, argv);
+  Parser parser;
+  auto irGraph = parser.parseJSONFile(InputFilename);
+  DotVisitor dot;
+  dot.writeDotGraph(irGraph.rootNode, "spn.dot");
+  LLVMCodegen().generateLLVMIR(irGraph, Vectorize);
+  return true;
 }
