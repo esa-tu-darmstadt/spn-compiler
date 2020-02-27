@@ -31,21 +31,41 @@ namespace mlir {
 
     };
 
-    struct BinarizeSumOp : public mlir::OpRewritePattern<SumOp> {
+    template<typename NAryOp>
+    struct BinarizeNAryOp : public mlir::OpRewritePattern<NAryOp> {
 
-      explicit BinarizeSumOp(MLIRContext* context) : OpRewritePattern<SumOp>(context, 1) {}
+      explicit BinarizeNAryOp(MLIRContext* context) : OpRewritePattern<NAryOp>(context, 1) {}
 
-      PatternMatchResult matchAndRewrite(SumOp op, PatternRewriter& rewriter) const override;
+      PatternMatchResult matchAndRewrite(NAryOp op, PatternRewriter& rewriter) const override {
+        if (op.getNumOperands() <= 2) {
+          return BinarizeNAryOp<NAryOp>::matchFailure();
+        }
+        auto pivot = llvm::divideCeil(op.getNumOperands(), 2);
+        SmallVector<Value, 10> leftAddends;
+        SmallVector<Value, 10> rightAddends;
+        int count = 0;
+        for (auto a : op.operands()) {
+          if (count < pivot) {
+            leftAddends.push_back(a);
+          } else {
+            rightAddends.push_back(a);
+          }
+          ++count;
+        }
+
+        auto leftOp = rewriter.create<NAryOp>(op.getLoc(), leftAddends);
+        auto rightOp = rewriter.create<NAryOp>(op.getLoc(), rightAddends);
+        SmallVector<Value, 2> ops{leftOp, rightOp};
+        auto newOp = rewriter.create<NAryOp>(op.getLoc(), ops);
+        rewriter.replaceOp(op, {newOp});
+        return BinarizeNAryOp<NAryOp>::matchSuccess();
+      }
 
     };
 
-    struct BinarizeProductOp : public mlir::OpRewritePattern<ProductOp> {
+    using BinarizeSumOp = BinarizeNAryOp<SumOp>;
 
-      explicit BinarizeProductOp(MLIRContext* context) : OpRewritePattern<ProductOp>(context, 1) {}
-
-      PatternMatchResult matchAndRewrite(ProductOp op, PatternRewriter& rewriter) const override;
-
-    };
+    using BinarizeProductOp = BinarizeNAryOp<ProductOp>;
 
   }
 }

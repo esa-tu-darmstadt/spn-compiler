@@ -36,14 +36,16 @@ void ConstantOp::build(mlir::Builder *builder, mlir::OperationState &state,
   ConstantOp::build(builder, state, builder->getF64Type(), builder->getF64FloatAttr(value));
 }
 
-
-static mlir::LogicalResult verify(ProductOp op) {
-  auto numMultiplicands = std::distance(op.multiplicands().begin(), op.multiplicands().end());
-  if (numMultiplicands != op.opCount().getZExtValue()) {
-    return op.emitOpError("Number of multiplicands must match the specified operand count!");
+template<typename NAryOp>
+static mlir::LogicalResult verify(NAryOp op) {
+  auto numOperands = std::distance(op.operands().begin(), op.operands().end());
+  if (numOperands != op.opCount().getZExtValue()) {
+    return op.emitOpError("Number of operands must match the specified operand count!");
   }
   return mlir::success();
 }
+
+template mlir::LogicalResult verify<ProductOp>(ProductOp op);
 
 void ProductOp::build(Builder* b, OperationState& state, llvm::ArrayRef<Value> operands) {
   build(b, state, b->getF64Type(), ValueRange(operands), b->getI32IntegerAttr(operands.size()));
@@ -54,13 +56,7 @@ void ProductOp::getCanonicalizationPatterns(OwningRewritePatternList& results, M
   results.insert<ConstantFoldProductOp>(context);
 }
 
-static mlir::LogicalResult verify(SumOp op) {
-  auto numAddends = std::distance(op.addends().begin(), op.addends().end());
-  if (numAddends != op.opCount().getZExtValue()) {
-    return op.emitOpError("Number of addends must match the specified operand count!");
-  }
-  return mlir::success();
-}
+template mlir::LogicalResult verify<SumOp>(SumOp op);
 
 void SumOp::build(Builder* b, OperationState& state, llvm::ArrayRef<Value> operands) {
   build(b, state, b->getF64Type(), ValueRange(operands), b->getI32IntegerAttr(operands.size()));

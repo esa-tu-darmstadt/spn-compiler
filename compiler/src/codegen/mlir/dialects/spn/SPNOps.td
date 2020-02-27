@@ -14,44 +14,36 @@ def SPN_Dialect : Dialect {
 
 class SPN_Op<string mnemonic, list<OpTrait> traits = []> : Op<SPN_Dialect, mnemonic, traits>;
 
-def ProductOp : SPN_Op<"product", [NoSideEffect, Commutative]> {
+class SPN_NAry_Op<string mnemonic> : SPN_Op<mnemonic, [NoSideEffect, Commutative]> {
+
+  let arguments = (ins Variadic<F64>:$operands, PositiveI32Attr:$opCount);
+
+  let results = (outs F64);
+
+  let verifier = [{ return ::verify(*this); }];
+
+  let builders = [
+    OpBuilder<"Builder* b, OperationState& state, llvm::ArrayRef<Value> operands">
+  ];
+
+  let hasCanonicalizer = 1;
+
+}
+
+def ProductOp : SPN_NAry_Op<"product"> {
   let summary = "product";
   
   let description = [{
     N-ary product operation multiplies all operands into a single result.
   }];
-
-  let arguments = (ins Variadic<F64>:$multiplicands, PositiveI32Attr:$opCount);
-
-  let results = (outs F64);
-
-  let verifier = [{ return ::verify(*this); }];
-
-  let builders = [
-    OpBuilder<"Builder* b, OperationState& state, llvm::ArrayRef<Value> operands">
-  ];
-
-  let hasCanonicalizer = 1;
 }
 
-def SumOp : SPN_Op<"sum", [NoSideEffect, Commutative]> {
+def SumOp : SPN_NAry_Op<"sum"> {
   let summary = "sum";
 
   let description = [{
     N-ary (unweighted) sum operation adding all operands into a single result.
   }];
-
-  let arguments = (ins Variadic<F64>:$addends, PositiveI32Attr:$opCount);
-
-  let results = (outs F64);
-
-  let verifier = [{ return ::verify(*this); }];
-
-  let builders = [
-    OpBuilder<"Builder* b, OperationState& state, llvm::ArrayRef<Value> operands">
-  ];
-
-  let hasCanonicalizer = 1;
 }
 
 def WeightedSumOp : SPN_Op<"weighted_sum", [NoSideEffect]> {

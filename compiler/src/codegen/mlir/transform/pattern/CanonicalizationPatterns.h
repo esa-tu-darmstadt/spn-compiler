@@ -30,37 +30,63 @@ namespace mlir {
 
     };
 
-    struct ReduceSumOp : public mlir::OpRewritePattern<SumOp> {
+    template<typename NAryOp>
+    struct ReduceNAryOp : public mlir::OpRewritePattern<NAryOp> {
 
-      explicit ReduceSumOp(MLIRContext* context) : OpRewritePattern(context, 1) {}
+      explicit ReduceNAryOp(MLIRContext* context) : OpRewritePattern<NAryOp>(context, 1) {}
 
-      PatternMatchResult matchAndRewrite(SumOp op, PatternRewriter& rewriter) const override;
+      PatternMatchResult matchAndRewrite(NAryOp op, PatternRewriter& rewriter) const override {
+        if (op.getNumOperands() > 1) {
+          return ReduceNAryOp<NAryOp>::matchFailure();
+        }
 
-    };
-
-    struct ConstantFoldSumOp : public mlir::OpRewritePattern<SumOp> {
-
-      explicit ConstantFoldSumOp(MLIRContext* context) : OpRewritePattern(context, 1) {}
-
-      PatternMatchResult matchAndRewrite(SumOp op, PatternRewriter& rewriter) const override;
-
-    };
-
-    struct ReduceProductOp : public mlir::OpRewritePattern<ProductOp> {
-
-      explicit ReduceProductOp(MLIRContext* context) : OpRewritePattern(context, 1) {}
-
-      PatternMatchResult matchAndRewrite(ProductOp op, PatternRewriter& rewriter) const override;
+        if (op.getNumOperands() == 0) {
+          rewriter.eraseOp(op.getOperation());
+          return ReduceNAryOp<NAryOp>::matchSuccess();
+        }
+        assert(op.getNumOperands() == 1 && "Expecting only a single operand!");
+        rewriter.replaceOp(op, {op.operands()[0]});
+        return ReduceNAryOp<NAryOp>::matchSuccess();
+      }
 
     };
 
-    struct ConstantFoldProductOp : public mlir::OpRewritePattern<ProductOp> {
+    template<typename NAryOp, typename Acc, int Initial>
+    struct ConstantFoldNAryOp : public mlir::OpRewritePattern<NAryOp> {
 
-      explicit ConstantFoldProductOp(MLIRContext* context) : OpRewritePattern(context, 1) {}
+      explicit ConstantFoldNAryOp(MLIRContext* context) : OpRewritePattern<NAryOp>(context, 1) {}
 
-      PatternMatchResult matchAndRewrite(ProductOp op, PatternRewriter& rewriter) const override;
+      PatternMatchResult matchAndRewrite(NAryOp op, PatternRewriter& rewriter) const override {
+        SmallVector<Value, 10> operands;
+        auto acc = (double) Initial;
+        size_t constantOps = 0;
+        Acc accOp;
+        for (auto m : op.operands()) {
+          if (auto constantOp = dyn_cast_or_null<ConstantOp>(m.getDefiningOp())) {
+            acc = accOp(acc, constantOp.value().convertToDouble());
+            ++constantOps;
+          } else {
+            operands.push_back(m);
+          }
+        }
+        if (constantOps <= 1) {
+          return ConstantFoldNAryOp<NAryOp, Acc, Initial>::matchFailure();
+        }
 
+        if (acc != ((double) Initial)) {
+          operands.push_back(rewriter.create<ConstantOp>(op.getLoc(), acc));
+        }
+        auto newOp = rewriter.create<NAryOp>(op.getLoc(), operands);
+        rewriter.replaceOp(op, {newOp});
+        return ConstantFoldNAryOp<NAryOp, Acc, Initial>::matchSuccess();
+      }
     };
+
+    using ReduceSumOp = ReduceNAryOp<SumOp>;
+    using ReduceProductOp = ReduceNAryOp<ProductOp>;
+
+    using ConstantFoldSumOp = ConstantFoldNAryOp<SumOp, std::plus<>, 0>;
+    using ConstantFoldProductOp = ConstantFoldNAryOp<ProductOp, std::multiplies<>, 1>;
 
   }
 }
