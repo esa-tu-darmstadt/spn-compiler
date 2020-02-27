@@ -54,7 +54,7 @@ namespace spnc {
     size_t index = 0;
     for (json& var : topLevelScope) {
       std::string varName = var.get<std::string>();
-      auto input = graph.create<InputVar>(varName, index++);
+      auto input = graph.create<InputVar>("in_" + varName, index++);
       inputVars.emplace(varName, input);
     }
 
