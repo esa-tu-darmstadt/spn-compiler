@@ -23,7 +23,6 @@ namespace {
       ConversionTarget target(getContext());
 
       target.addLegalDialect<StandardOpsDialect>();
-      target.addLegalDialect<SPNDialect>();
 
       target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
       target.addDynamicallyLegalOp<FuncOp>([](FuncOp op) {
@@ -33,15 +32,13 @@ namespace {
         });
       });
 
-      target.addIllegalOp<spn::ConstantOp>();
-      target.addIllegalOp<spn::InputVarOp>();
+      target.addIllegalDialect<SPNDialect>();
+      target.addLegalOp<HistogramValueOp>();
 
       SPNTypeConverter typeConverter;
 
       OwningRewritePatternList patterns;
-      patterns.insert<ConstantOpLowering>(&getContext());
-      patterns.insert<InputVarLowering>(&getContext(), typeConverter);
-      patterns.insert<FunctionLowering>(&getContext(), typeConverter);
+      mlir::spn::populateSPNtoStandardConversionPatterns(patterns, &getContext(), typeConverter);
 
       auto module = getModule();
       if (failed(applyFullConversion(module, target, patterns, &typeConverter))) {

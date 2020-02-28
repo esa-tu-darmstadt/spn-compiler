@@ -25,16 +25,24 @@ namespace mlir {
 
     };
 
+    struct ReturnOpLowering : public OpRewritePattern<spn::ReturnOp> {
+
+      using OpRewritePattern<spn::ReturnOp>::OpRewritePattern;
+
+      PatternMatchResult matchAndRewrite(spn::ReturnOp op, PatternRewriter& rewriter) const final;
+
+    };
+
     template<typename SourceOp>
     class SPNOpLowering : public OpConversionPattern<SourceOp> {
 
     public:
-      SPNOpLowering(MLIRContext* context, SPNTypeConverter& _typeConverter,
+      SPNOpLowering(MLIRContext* context, TypeConverter& _typeConverter,
                     PatternBenefit benefit = 1) : OpConversionPattern<SourceOp>(context, benefit),
                                                   typeConverter{_typeConverter} {}
 
     protected:
-      SPNTypeConverter& typeConverter;
+      TypeConverter& typeConverter;
     };
 
     struct InputVarLowering : public SPNOpLowering<InputVarOp> {
@@ -51,6 +59,52 @@ namespace mlir {
                                          ConversionPatternRewriter& rewriter) const override;
 
     };
+
+    struct HistogramLowering : public SPNOpLowering<HistogramOp> {
+      using SPNOpLowering<HistogramOp>::SPNOpLowering;
+
+      PatternMatchResult matchAndRewrite(HistogramOp op, ArrayRef<Value> operands,
+                                         ConversionPatternRewriter& rewriter) const override;
+
+    };
+
+    struct SingleQueryLowering : public SPNOpLowering<SPNSingleQueryOp> {
+      using SPNOpLowering<SPNSingleQueryOp>::SPNOpLowering;
+
+      PatternMatchResult matchAndRewrite(SPNSingleQueryOp op, ArrayRef<Value> operands,
+                                         ConversionPatternRewriter& rewriter) const override;
+
+    };
+
+    template<typename SourceOp, typename TargetOp>
+    class NAryOpLowering : public SPNOpLowering<SourceOp> {
+      using SPNOpLowering<SourceOp>::SPNOpLowering;
+
+      PatternMatchResult matchAndRewrite(SourceOp op, ArrayRef<Value> operands,
+                                         ConversionPatternRewriter& rewriter) const override {
+        if (op.getNumOperands() > 2 || operands.size() != op.getNumOperands()) {
+          return NAryOpLowering<SourceOp, TargetOp>::matchFailure();
+        }
+
+        rewriter.replaceOpWithNewOp<TargetOp>(op, operands[0], operands[1]);
+        return NAryOpLowering<SourceOp, TargetOp>::matchSuccess();
+      }
+    };
+
+    using ProductOpLowering = NAryOpLowering<ProductOp, mlir::MulFOp>;
+    using SumOpLowering = NAryOpLowering<SumOp, mlir::AddFOp>;
+
+    static void populateSPNtoStandardConversionPatterns(OwningRewritePatternList& patterns, MLIRContext* context,
+                                                        TypeConverter& typeConverter) {
+      patterns.insert<ConstantOpLowering>(context);
+      patterns.insert<ReturnOpLowering>(context);
+      patterns.insert<InputVarLowering>(context, typeConverter);
+      patterns.insert<FunctionLowering>(context, typeConverter);
+      patterns.insert<HistogramLowering>(context, typeConverter);
+      patterns.insert<SingleQueryLowering>(context, typeConverter);
+      patterns.insert<ProductOpLowering>(context, typeConverter);
+      patterns.insert<SumOpLowering>(context, typeConverter);
+    }
 
   }
 }

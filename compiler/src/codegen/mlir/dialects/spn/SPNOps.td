@@ -95,6 +95,26 @@ def HistogramOp : SPN_Op<"histogram", [NoSideEffect]> {
   ];
 }
 
+def HistogramValueOp : SPN_Op<"histvalue", [NoSideEffect]> {
+  let summary = "histogram values";
+
+  let description = [{
+    High-level representation of an array of probability values associated with a histogram.
+    This is the 'unrolled' version of a histogram, where all buckets have been flattened into 
+    a single array of values, mainly for use in non-SPN dialects (e.g. Standard).
+  }];
+
+  let arguments = (ins F64ArrayAttr:$values, I32Attr:$lb, I32Attr:$ub);
+
+  let results = (outs F64MemRef);
+
+  let verifier = [{ return :: verify(*this); }];
+
+  let builders = [
+    OpBuilder<"Builder* b, OperationState& state, llvm::ArrayRef<double> values, int lb, int ub">
+  ];
+}
+
 def InputVarOp : SPN_Op<"input_var", [NoSideEffect]> {
   let summary = "input variable";
 

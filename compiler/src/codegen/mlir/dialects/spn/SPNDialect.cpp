@@ -145,6 +145,28 @@ void HistogramOp::build(Builder* b, OperationState& state, Value index,
   build(b, state, b->getF64Type(), index, arrAttr, b->getI32IntegerAttr(bucketList.size()));
 }
 
+static mlir::LogicalResult verify(HistogramValueOp op) {
+  if (op.ub().getZExtValue() <= op.lb().getZExtValue()) {
+    return op.emitOpError("Upper bound must be strictly greater than lower bound");
+  }
+  if (op.values().size() != (op.ub() - op.lb()).getZExtValue()) {
+    return op.emitOpError("Array count must match lower- and upper bound");
+  }
+  return mlir::success();
+}
+
+void HistogramValueOp::build(Builder* b, OperationState& state, llvm::ArrayRef<double> values, int lb, int ub) {
+  auto lbAttr = b->getI32IntegerAttr(lb);
+  auto ubAttr = b->getI32IntegerAttr(ub);
+  SmallVector<mlir::Attribute, 256> valueAttributes;
+  for (auto d : values) {
+    valueAttributes.push_back(b->getF64FloatAttr(d));
+  }
+  auto valuesAttr = b->getArrayAttr(valueAttributes);
+  auto memRefType = MemRefType::get({(ub - lb)}, b->getF64Type());
+  build(b, state, memRefType, valuesAttr, lbAttr, ubAttr);
+}
+
 static mlir::LogicalResult verify(InputVarOp op) {
   if (!op.evidence().getType().isa<TensorType>()) {
     return op.emitOpError("Expected evidence argument to be a tensor!");
