@@ -35,7 +35,9 @@ add_library(spnc SHARED src/Driver.cpp
         src/codegen/mlir/transform/pattern/CanonicalizationPatterns.cpp
         src/codegen/mlir/transform/pattern/SimplificationPatterns.cpp
         src/codegen/mlir/transform/passes/SPNOpSimplifier.cpp
-        src/codegen/mlir/pipeline/MLIRPipeline.cpp)
+        src/codegen/mlir/pipeline/MLIRPipeline.cpp
+        src/codegen/mlir/lowering/patterns/LowerSPNtoStandardPatterns.cpp
+        src/codegen/mlir/lowering/passes/SPNtoStandardLoweringPass.cpp)
 
 message(STATUS "MLIR Include:" ${MLIR_INCLUDE_DIRS})
 

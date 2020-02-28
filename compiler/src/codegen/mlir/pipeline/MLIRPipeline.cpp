@@ -7,6 +7,7 @@
 #include "mlir/Transforms/Passes.h"
 #include <iostream>
 #include <codegen/mlir/transform/passes/SPNMLIRPasses.h>
+#include <codegen/mlir/lowering/passes/SPNLoweringPasses.h>
 
 using namespace mlir;
 using namespace spnc;
@@ -15,6 +16,7 @@ MLIRPipeline::MLIRPipeline(spnc::ActionWithOutput<ModuleOp>& _input, std::shared
     : ActionSingleInput<ModuleOp, ModuleOp>{_input}, mlirContext{std::move(_mlirContext)}, pm{mlirContext.get()} {
   pm.addPass(mlir::spn::createSPNSimplificationPass());
   pm.addNestedPass<mlir::FuncOp>(mlir::createCanonicalizerPass());
+  pm.addPass(mlir::spn::createSPNtoStandardLoweringPass());
 }
 
 ModuleOp& MLIRPipeline::execute() {
