@@ -13,6 +13,7 @@
 #include "llvm/ADT/Sequence.h"
 #include <codegen/mlir/dialects/spn/SPNDialect.h>
 #include <codegen/mlir/lowering/types/SPNTypeConverter.h>
+#include "SPNOperationLowering.h"
 
 namespace mlir {
   namespace spn {
@@ -31,18 +32,6 @@ namespace mlir {
 
       PatternMatchResult matchAndRewrite(spn::ReturnOp op, PatternRewriter& rewriter) const final;
 
-    };
-
-    template<typename SourceOp>
-    class SPNOpLowering : public OpConversionPattern<SourceOp> {
-
-    public:
-      SPNOpLowering(MLIRContext* context, TypeConverter& _typeConverter,
-                    PatternBenefit benefit = 1) : OpConversionPattern<SourceOp>(context, benefit),
-                                                  typeConverter{_typeConverter} {}
-
-    protected:
-      TypeConverter& typeConverter;
     };
 
     struct InputVarLowering : public SPNOpLowering<InputVarOp> {

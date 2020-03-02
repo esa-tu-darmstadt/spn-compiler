@@ -11,6 +11,7 @@
 namespace mlir {
   namespace spn {
     std::unique_ptr<Pass> createSPNtoStandardLoweringPass();
+    std::unique_ptr<Pass> createSPNtoLLVMLoweringPass();
   }
 }
 

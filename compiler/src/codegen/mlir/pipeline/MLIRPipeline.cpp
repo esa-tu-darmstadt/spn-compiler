@@ -17,6 +17,7 @@ MLIRPipeline::MLIRPipeline(spnc::ActionWithOutput<ModuleOp>& _input, std::shared
   pm.addPass(mlir::spn::createSPNSimplificationPass());
   pm.addNestedPass<mlir::FuncOp>(mlir::createCanonicalizerPass());
   pm.addPass(mlir::spn::createSPNtoStandardLoweringPass());
+  pm.addPass(mlir::spn::createSPNtoLLVMLoweringPass());
 }
 
 ModuleOp& MLIRPipeline::execute() {
