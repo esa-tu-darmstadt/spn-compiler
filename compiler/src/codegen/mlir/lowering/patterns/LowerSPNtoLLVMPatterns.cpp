@@ -17,7 +17,7 @@ PatternMatchResult HistogramValueLowering::matchAndRewrite(HistogramValueOp op, 
   static int histCount = 0;
   auto llvmDialect = op.getContext()->getRegisteredDialect<LLVM::LLVMDialect>();
   auto doubleType = LLVM::LLVMType::getDoubleTy(llvmDialect);
-  auto arrType = LLVM::LLVMType::getArrayTy(doubleType, op.values().size());
+  auto arrType = LLVM::LLVMType::getArrayTy(doubleType, op.values().getNumElements());
   auto module = op.getParentOfType<ModuleOp>();
   auto restore = rewriter.saveInsertionPoint();
   rewriter.setInsertionPointToStart(module.getBody());

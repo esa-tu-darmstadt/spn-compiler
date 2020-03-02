@@ -149,7 +149,7 @@ static mlir::LogicalResult verify(HistogramValueOp op) {
   if (op.ub().getZExtValue() <= op.lb().getZExtValue()) {
     return op.emitOpError("Upper bound must be strictly greater than lower bound");
   }
-  if (op.values().size() != (op.ub() - op.lb()).getZExtValue()) {
+  if (op.values().getNumElements() != (op.ub() - op.lb()).getZExtValue()) {
     return op.emitOpError("Array count must match lower- and upper bound");
   }
   return mlir::success();
@@ -162,7 +162,8 @@ void HistogramValueOp::build(Builder* b, OperationState& state, llvm::ArrayRef<d
   for (auto d : values) {
     valueAttributes.push_back(b->getF64FloatAttr(d));
   }
-  auto valuesAttr = b->getArrayAttr(valueAttributes);
+  auto rankedType = RankedTensorType::get({(long) values.size()}, b->getF64Type());
+  auto valuesAttr = DenseFPElementsAttr::get(rankedType, values);
   auto memRefType = MemRefType::get({(ub - lb)}, b->getF64Type());
   build(b, state, memRefType, valuesAttr, lbAttr, ubAttr);
 }

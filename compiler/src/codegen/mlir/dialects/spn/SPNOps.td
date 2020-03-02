@@ -104,7 +104,7 @@ def HistogramValueOp : SPN_Op<"histvalue", [NoSideEffect]> {
     a single array of values, mainly for use in non-SPN dialects (e.g. Standard).
   }];
 
-  let arguments = (ins F64ArrayAttr:$values, I32Attr:$lb, I32Attr:$ub);
+  let arguments = (ins F64ElementsAttr:$values, I32Attr:$lb, I32Attr:$ub);
 
   let results = (outs F64MemRef);
 
