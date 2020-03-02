@@ -4,8 +4,12 @@
 //
 
 #include "MLIRPipeline.h"
-#include "mlir/Transforms/Passes.h"
-#include <iostream>
+#include <mlir/Transforms/Passes.h>
+#include <mlir/IR/MLIRContext.h>
+#include <mlir/IR/Module.h>
+#include <mlir/Pass/Pass.h>
+#include <mlir/Pass/PassManager.h>
+#include <mlir/Target/LLVMIR.h>
 #include <codegen/mlir/transform/passes/SPNMLIRPasses.h>
 #include <codegen/mlir/lowering/passes/SPNLoweringPasses.h>
 
@@ -23,7 +27,6 @@ MLIRPipeline::MLIRPipeline(spnc::ActionWithOutput<ModuleOp>& _input, std::shared
 ModuleOp& MLIRPipeline::execute() {
   if (!cached) {
     auto inputModule = input.execute();
-    inputModule.dump();
     module = std::make_unique<ModuleOp>(inputModule.clone());
     auto result = pm.run(*module);
     if (result.value == LogicalResult::Failure) {

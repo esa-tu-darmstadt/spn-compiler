@@ -9,25 +9,29 @@
 #include <transform/BinaryTreeTransform.h>
 #include <codegen/mlir/MLIRCodeGen.h>
 #include <codegen/mlir/pipeline/MLIRPipeline.h>
+#include <driver/action/MLIRtoLLVMConversion.h>
+#include <driver/action/LLVMWriteBitcode.h>
+#include <driver/action/LLVMStaticCompiler.h>
+#include <driver/action/ClangKernelLinking.h>
 #include "MLIRToolchain.h"
 #include "mlir/InitAllDialects.h"
 
 using namespace spnc;
 
-std::unique_ptr<Job<mlir::ModuleOp> > MLIRToolchain::constructJobFromFile(const std::string& inputFile) {
+std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::string& inputFile) {
   // Construct file input action.
   auto fileInput = std::make_unique<FileInputAction<FileType::SPN_JSON>>(inputFile);
   return constructJob(std::move(fileInput));
 }
 
-std::unique_ptr<Job<mlir::ModuleOp> > MLIRToolchain::constructJobFromString(const std::string& inputString) {
+std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromString(const std::string& inputString) {
   // Construct string input action.
   auto stringInput = std::make_unique<StringInputAction>(inputString);
   return constructJob(std::move(stringInput));
 }
 
-std::unique_ptr<Job<mlir::ModuleOp>> MLIRToolchain::constructJob(std::unique_ptr<ActionWithOutput<std::string>> input) {
-  std::unique_ptr<Job<mlir::ModuleOp>> job{new Job<mlir::ModuleOp>()};
+std::unique_ptr<Job<Kernel>> MLIRToolchain::constructJob(std::unique_ptr<ActionWithOutput<std::string>> input) {
+  std::unique_ptr<Job<Kernel>> job{new Job<Kernel>()};
   // Construct parser to parse JSON from input.
   auto graphIRContext = std::make_shared<GraphIRContext>();
   auto& parser = job->insertAction<Parser>(*input, graphIRContext);
@@ -38,7 +42,23 @@ std::unique_ptr<Job<mlir::ModuleOp>> MLIRToolchain::constructJob(std::unique_ptr
   mlir::registerDialect<mlir::spn::SPNDialect>();
   auto ctx = std::make_shared<MLIRContext>();
   auto& mlirCodeGen = job->insertAction<MLIRCodeGen>(parser, kernelName, ctx);
-  auto& mlirPipeline = job->insertFinalAction<MLIRPipeline>(mlirCodeGen, ctx);
+
+  // Run the MLIR-based pipeline, including progressive lowering to LLVM dialect.
+  auto& mlirPipeline = job->insertAction<MLIRPipeline>(mlirCodeGen, ctx);
+  // Convert the MLIR module to a LLVM IR module.
+  auto& llvmConversion = job->insertAction<MLIRtoLLVMConversion>(mlirPipeline, ctx);
+  // Write generated LLVM module to bitcode-file.
+  auto bitCodeFile = FileSystem::createTempFile<FileType::LLVM_BC>();
+  auto& writeBitcode = job->insertAction<LLVMWriteBitcode>(llvmConversion, std::move(bitCodeFile));
+  // Compile generated bitcode-file to object file.
+  auto objectFile = FileSystem::createTempFile<FileType::OBJECT>();
+  auto& compileObject = job->insertAction<LLVMStaticCompiler>(writeBitcode, std::move(objectFile));
+  // Link generated object file into shared object.
+  auto sharedObject = FileSystem::createTempFile<FileType::SHARED_OBJECT>(false);
+  std::cout << "Compiling to object-file " << sharedObject.fileName() << std::endl;
+  auto& linkSharedObject =
+      job->insertFinalAction<ClangKernelLinking>(compileObject, std::move(sharedObject), kernelName);
+
   job->addAction(std::move(input));
   return std::move(job);
 }

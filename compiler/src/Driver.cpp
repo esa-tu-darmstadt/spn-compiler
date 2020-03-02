@@ -10,9 +10,7 @@
 namespace spnc {
     Kernel spn_compiler::parseJSON(const std::string &inputFile) {
       auto job = MLIRToolchain::constructJobFromFile(inputFile);
-      auto& mlir = job->execute();
-      mlir.dump();
-      Kernel kernel{"/tmp/foo.o", "bar_baz"};
+      auto kernel = job->execute();
       std::cout << "\nFile: " << kernel.fileName() << " Function: " << kernel.kernelName() << std::endl;
       return kernel;
     }

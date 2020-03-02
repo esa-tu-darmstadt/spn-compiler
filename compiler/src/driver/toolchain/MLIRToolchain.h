@@ -14,12 +14,12 @@ namespace spnc {
   class MLIRToolchain {
 
   public:
-    static std::unique_ptr<Job<mlir::ModuleOp>> constructJobFromFile(const std::string& inputFile);
+    static std::unique_ptr<Job<Kernel>> constructJobFromFile(const std::string& inputFile);
 
-    static std::unique_ptr<Job<mlir::ModuleOp>> constructJobFromString(const std::string& inputString);
+    static std::unique_ptr<Job<Kernel>> constructJobFromString(const std::string& inputString);
 
   private:
-    static std::unique_ptr<Job<mlir::ModuleOp>> constructJob(std::unique_ptr<ActionWithOutput<std::string>> input);
+    static std::unique_ptr<Job<Kernel>> constructJob(std::unique_ptr<ActionWithOutput<std::string>> input);
 
   };
 

@@ -13,6 +13,7 @@ add_library(spnc SHARED src/Driver.cpp
         src/driver/action/LLVMWriteBitcode.cpp
         src/driver/action/LLVMStaticCompiler.cpp
         src/driver/action/ClangKernelLinking.cpp
+        src/driver/action/MLIRtoLLVMConversion.cpp
         src/graph-ir/GraphIRNode.cpp
         src/graph-ir/InputVar.cpp
         src/graph-ir/Histogram.cpp
@@ -65,6 +66,7 @@ set(mlir_libs
         MLIRLinalgToLLVM
         MLIRLoopToStandard
         MLIREDSC
+        MLIRExecutionEngine
         MLIRFxpMathOps
         MLIRGPU
         MLIRGPUtoNVVMTransforms
@@ -97,7 +99,7 @@ set(mlir_libs
         MLIRVectorToLoops
         )
 
-llvm_map_components_to_libnames(llvm_libs bitwriter)
+llvm_map_components_to_libnames(llvm_libs bitwriter native)
 target_link_libraries(spnc PRIVATE spnc-common ${mlir_libs} ${llvm_libs})
 
 add_dependencies(spnc SPNOpsIncGen)
