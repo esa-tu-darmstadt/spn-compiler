@@ -1,5 +1,6 @@
 //
-// Created by mhalk on 2/6/20.
+// This file is part of the SPNC project.
+// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
 #ifndef SPNC_NUMERICALVALUETRACINGPASS_H
@@ -8,9 +9,9 @@
 #include <llvm/IR/Function.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
-#include "llvm/IR/PassManager.h"
-#include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#include <llvm/IR/PassManager.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/Passes/PassPlugin.h>
 #include <llvm/Support/raw_ostream.h>
 #include <codegen/llvm-ir/CPU/body/CodeGenBody.h>
 
@@ -44,6 +45,7 @@ private:
     IRBuilder<> *Builder{};
     Module *M{};
     ushort MDKindID=std::numeric_limits<ushort>::max();
+    bool traced = false;
 
     std::map<spnc::TraceMDTag, std::vector<Instruction*>> tracedInstructions;
 

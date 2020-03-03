@@ -41,7 +41,7 @@ function(add_bitcode_library)
         file(MAKE_DIRECTORY "${output_dir}")
         set(bc_file "${output_dir}/${name}.bc")
         add_custom_command(OUTPUT "${bc_file}"
-                COMMAND ${CLANG} -emit-llvm ${path} -c -o "${bc_file}"
+                COMMAND ${CLANG} -emit-llvm ${path} -c -fPIC -o "${bc_file}"
                 DEPENDS "${path}")
         list(APPEND bc_files ${bc_file})
     endforeach(src)

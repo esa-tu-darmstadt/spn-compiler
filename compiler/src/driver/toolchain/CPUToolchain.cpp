@@ -8,6 +8,8 @@
 #include <codegen/llvm-ir/CPU/LLVMCPUCodegen.h>
 #include <driver/action/LLVMWriteBitcode.h>
 #include <driver/action/LLVMStaticCompiler.h>
+#include <driver/action/LLVMLinker.h>
+#include <driver/action/TracingLib.h>
 #include <driver/action/ClangKernelLinking.h>
 #include <graph-ir/util/GraphStatVisitor.h>
 #include <codegen/llvm-ir/pipeline/LLVMPipeline.h>
@@ -50,9 +52,16 @@ namespace spnc {
       // Write generated LLVM module to bitcode-file.
       auto bitCodeFile = FileSystem::createTempFile<FileType::LLVM_BC>();
       auto& writeBitcode = job->insertAction<LLVMWriteBitcode>(llvmPipeline, std::move(bitCodeFile));
+      // Link tracing library (bitcode) into prepared bitcode-file (which yields another bitcode-file)
+      auto bitCodeFileLinked = FileSystem::createTempFile<FileType::LLVM_BC>(false);
+      // TODO: Determine relative (or similar) traceLibPath = "../../../../build/compiler-rt/compiler-rt/trace.cpp.bc"
+      std::string traceLibPath = "/home/mhalk/hiwi/spn-compiler/build/compiler-rt/compiler-rt/trace.cpp.bc";
+      auto traceLibFile = File<FileType::LLVM_BC>(traceLibPath);
+      auto& bitCodeTraceLib = job->insertAction<TracingLib>(std::move(traceLibFile));
+      auto& linkBitcode = job->insertAction<LLVMLinker>(writeBitcode, bitCodeTraceLib, std::move(bitCodeFileLinked));
       // Compile generated bitcode-file to object file.
       auto objectFile = FileSystem::createTempFile<FileType::OBJECT>();
-      auto& compileObject = job->insertAction<LLVMStaticCompiler>(writeBitcode, std::move(objectFile));
+      auto& compileObject = job->insertAction<LLVMStaticCompiler>(linkBitcode, std::move(objectFile));
       // Link generated object file into shared object.
       auto sharedObject = FileSystem::createTempFile<FileType::SHARED_OBJECT>(false);
       std::cout << "Compiling to object-file " << sharedObject.fileName() << std::endl;

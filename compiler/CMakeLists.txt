@@ -9,6 +9,8 @@ add_library(spnc SHARED src/Driver.cpp
         src/driver/toolchain/CPUToolchain.cpp
         src/driver/action/LLVMWriteBitcode.cpp
         src/driver/action/LLVMStaticCompiler.cpp
+        src/driver/action/LLVMLinker.cpp
+        src/driver/action/TracingLib.cpp
         src/driver/action/ClangKernelLinking.cpp
         src/graph-ir/GraphIRNode.cpp
         src/graph-ir/InputVar.cpp
@@ -47,14 +49,21 @@ list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 
 include(AddLLVM)
 
-add_llvm_library( NumericalValueTracing MODULE
+add_llvm_library( NumericalValueTracingPass MODULE
         src/codegen/llvm-ir/transform/NumericalValueTracingPass.cpp
 
         PLUGIN_TOOL
         opt
         )
 
-target_include_directories(NumericalValueTracing
+target_include_directories(NumericalValueTracingPass
+        PUBLIC
+        $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+
+        $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../common/include>
+
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${LLVM_INCLUDE_DIRS})

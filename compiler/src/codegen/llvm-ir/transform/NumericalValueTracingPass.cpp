@@ -1,5 +1,6 @@
 //
-// Created by mhalk on 2/6/20.
+// This file is part of the SPNC project.
+// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
 #include <iostream>
@@ -46,7 +47,11 @@ void NumericalValueTracingPass::run(Function &F) {
   collectTracedInstructions(F);
 
   for (auto tag : tracedTags) {
-    traceInstructions(tracedInstructions.find(tag)->second);
+    std::vector<Instruction*> TI = tracedInstructions.find(tag)->second;
+    if (!TI.empty()) {
+      traced = true;
+      traceInstructions(TI);
+    }
   }
 }
 
@@ -106,7 +111,7 @@ void NumericalValueTracingPass::traceInstructions(const std::vector<Instruction*
 
 void NumericalValueTracingPass::createCallTrace(Value* value) {
   // ToDo: Review _TRACE_ function, esp. its signature & additionally possible traced instruction values. (2020-FEB-08)
-  const std::string Name = "_TRACE_";
+  const std::string Name = "trace";
   Function *F = M->getFunction(Name);
 
   // If F is not available, declare it.
