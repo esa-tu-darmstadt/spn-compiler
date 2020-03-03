@@ -155,14 +155,36 @@ def SPNSingleQueryOp : SPNQueryOp<"query.single", []> {
 
 }
 
+def SPNJointProbBatch : SPNQueryOp<"joint.batch", []> {
+  let summary = "joint probability batch";
+
+  let description = [{
+    Computation of SPN joint probability for batch of input samples.
+  }];
+
+  let arguments = (ins FlatSymbolRefAttr:$spn, I32Tensor:$input, F64Tensor:$output);
+
+  let verifier = [{ return ::verify(*this); }];
+
+  let builders = [
+    OpBuilder<"Builder* b, OperationState& state, Value input, Value output, const std::string& callee">
+  ];
+
+}
+
 def ReturnOp : SPN_Op<"return", [Terminator]> {
   let summary = "return";
 
   let description = [{
-    Return a single query value.
+    Return from SPN function, potentially returning a result.
   }];
 
-  let arguments = (ins F64:$retValue);
+  let arguments = (ins Variadic<F64>:$retValue);
+
+  let extraClassDeclaration = [{
+    bool hasOperand() { return getNumOperands() != 0; }
+  }];
+
 }
 
 

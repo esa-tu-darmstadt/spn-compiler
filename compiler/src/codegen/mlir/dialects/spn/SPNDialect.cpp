@@ -169,9 +169,6 @@ void HistogramValueOp::build(Builder* b, OperationState& state, llvm::ArrayRef<d
 }
 
 static mlir::LogicalResult verify(InputVarOp op) {
-  if (!op.evidence().getType().isa<TensorType>()) {
-    return op.emitOpError("Expected evidence argument to be a tensor!");
-  }
   auto evidenceType = op.evidence().getType().cast<ShapedType>();
   // TODO Check if dimension 0 is correct here.
   if (!evidenceType.hasRank() || op.index().getZExtValue() >= evidenceType.getDimSize(0)) {
@@ -199,6 +196,52 @@ void SPNSingleQueryOp::build(Builder* b, OperationState& state, Value input, con
 static mlir::LogicalResult verify(SPNSingleQueryOp op) {
   auto callee = op.getCallableForCallee();
   // TODO Verify that argument and return types match.
+  return mlir::success();
+}
+
+CallInterfaceCallable SPNJointProbBatch::getCallableForCallee() {
+  return getAttrOfType<SymbolRefAttr>("spn");
+}
+
+Operation::operand_range SPNJointProbBatch::getArgOperands() {
+  return getODSOperands(0);
+}
+
+void SPNJointProbBatch::build(Builder* b, OperationState& state, Value input, Value output, const std::string& callee) {
+  build(b, state, callee, input, output);
+}
+
+static mlir::LogicalResult verify(SPNJointProbBatch op) {
+  auto inputType = op.input().getType().cast<ShapedType>();
+  auto outputType = op.output().getType().cast<ShapedType>();
+
+  if (!inputType.hasRank() || inputType.getRank() != 2 || ShapedType::isDynamic(inputType.getDimSize(1))) {
+    op.emitOpError("Expected input to be a 2-dimensional tensor with static second dimension!");
+  }
+
+  if (!outputType.hasRank() || outputType.getRank() != 1) {
+    op.emitOpError("Expected output to be a 1-dimensional tensor!");
+  }
+
+  if (auto callOp = dyn_cast<CallOpInterface>(&*op)) {
+    auto callee = callOp.resolveCallable();
+    if (auto funcOp = dyn_cast<FuncOp>(callee)) {
+      llvm::errs() << "Function callee: " << funcOp.getName() << "\n";
+      if (funcOp.getNumArguments() != 1 || !funcOp.getArgument(0).getType().isa<TensorType>()) {
+        op.emitOpError("Callee should only have a single tensor as parameter!");
+      }
+      auto arg1 = funcOp.getArgument(0).getType().cast<ShapedType>();
+      auto inputShape = inputType.getDimSize(1);
+      if (!arg1.hasRank() || !arg1.hasStaticShape() || arg1.getDimSize(0) != inputShape
+          || arg1.getElementType() != inputType.getElementType()) {
+        op.emitOpError("Callee parameter must have same static size and type as input operand!");
+      }
+
+      if (funcOp.getType().getNumResults() != 1 || !funcOp.getType().getResult(0).isF64()) {
+        op.emitOpError("Callee must return a single F64 value!");
+      }
+    }
+  }
   return mlir::success();
 }
 
