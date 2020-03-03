@@ -3,6 +3,7 @@
 
 include "mlir/IR/OpBase.td"
 include "mlir/Analysis/CallInterfaces.td"
+include "SPNOpInterfaces.td"
 
 class ArrayAttrElemCount<string name> :
     StrFunc<"$" # name # ".cast<ArrayAttr>().size()">;
@@ -11,7 +12,7 @@ def SPN_Dialect : Dialect {
     let name = "spn";
     let cppNamespace = "spn";
 }
-
+ 
 class SPN_Op<string mnemonic, list<OpTrait> traits = []> : Op<SPN_Dialect, mnemonic, traits>;
 
 class SPN_NAry_Op<string mnemonic> : SPN_Op<mnemonic, [NoSideEffect, Commutative]> {
@@ -134,7 +135,8 @@ def InputVarOp : SPN_Op<"input_var", [NoSideEffect]> {
 }
 
 class SPNQueryOp<string mnemonic, list<OpTrait> traits = []> 
-  : SPN_Op<mnemonic, !listconcat(traits, [DeclareOpInterfaceMethods<CallOpInterface>])>;
+  : SPN_Op<mnemonic, !listconcat(traits, [DeclareOpInterfaceMethods<CallOpInterface>,
+      DeclareOpInterfaceMethods<QueryOpInterface>])>;
 
 def SPNSingleQueryOp : SPNQueryOp<"query.single", []> {
   let summary = "single query";

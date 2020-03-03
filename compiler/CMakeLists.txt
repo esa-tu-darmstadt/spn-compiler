@@ -31,6 +31,7 @@ add_library(spnc SHARED src/Driver.cpp
         src/codegen/llvm-ir/CPU/loop/CodeGenSerialLoop.cpp
         src/codegen/mlir/dialects/spn/SPNDialect.cpp
         src/codegen/mlir/dialects/spn/SPNAttributes.cpp
+        src/codegen/mlir/dialects/spn/SPNOpInterfaces.cpp
         src/codegen/mlir/MLIRCodeGen.cpp
         src/codegen/mlir/MLIRBodyGen.cpp
         src/codegen/mlir/transform/pattern/CanonicalizationPatterns.cpp
@@ -102,4 +103,4 @@ set(mlir_libs
 llvm_map_components_to_libnames(llvm_libs bitwriter native)
 target_link_libraries(spnc PRIVATE spnc-common ${mlir_libs} ${llvm_libs})
 
-add_dependencies(spnc SPNOpsIncGen)
+add_dependencies(spnc SPNOpsIncGen SPNOpInterfaceGen)
