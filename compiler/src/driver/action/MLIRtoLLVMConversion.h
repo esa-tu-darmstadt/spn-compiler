@@ -21,6 +21,27 @@ namespace spnc {
 
     llvm::Module& execute() override;
 
+    MLIRtoLLVMConversion(const MLIRtoLLVMConversion&) = delete;
+
+    MLIRtoLLVMConversion& operator=(const MLIRtoLLVMConversion&) = delete;
+
+    MLIRtoLLVMConversion(MLIRtoLLVMConversion&& conv) noexcept :
+        ActionSingleInput<mlir::ModuleOp, llvm::Module>{conv.input},
+        module{std::move(conv.module)}, ctx{std::move(conv.ctx)},
+        cached{conv.cached}, optimize{conv.optimize} {
+      conv.cached = false;
+    }
+
+    MLIRtoLLVMConversion& operator=(MLIRtoLLVMConversion&& conv) noexcept {
+      this->input = conv.input;
+      this->module = std::move(conv.module);
+      this->ctx = std::move(conv.ctx);
+      this->cached = conv.cached;
+      conv.cached = false;
+      this->optimize = conv.optimize;
+      return *this;
+    }
+
     ~MLIRtoLLVMConversion() override {
       // We have to release the LLVM module first,
       // as the LLVMContext is deleted together with the MLIRContext

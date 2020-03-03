@@ -18,6 +18,7 @@ MLIRtoLLVMConversion::MLIRtoLLVMConversion(spnc::ActionWithOutput<mlir::ModuleOp
 llvm::Module& spnc::MLIRtoLLVMConversion::execute() {
   if (!cached) {
     auto inputModule = input.execute();
+    inputModule.dump();
     module = mlir::translateModuleToLLVMIR(inputModule);
     if (!module) {
       throw std::runtime_error("Conversion to LLVM IR failed!");
@@ -31,6 +32,7 @@ llvm::Module& spnc::MLIRtoLLVMConversion::execute() {
     if (auto err = optPipeline(module.get())) {
       throw std::runtime_error("Optimization of LLVM IR failed!");
     }
+    module->dump();
     cached = true;
   }
   return *module;
