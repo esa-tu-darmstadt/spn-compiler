@@ -31,9 +31,17 @@ SPNDialect::SPNDialect(mlir::MLIRContext* ctx) : mlir::Dialect("spn", ctx) {
 /// Build a constant operation.
 /// The builder is passed as an argument, so is the state that this method is
 /// expected to fill in order to build the operation.
-void ConstantOp::build(mlir::Builder *builder, mlir::OperationState &state,
+void ConstantOp::build(mlir::Builder* builder, mlir::OperationState& state,
                        double value) {
   ConstantOp::build(builder, state, builder->getF64Type(), builder->getF64FloatAttr(value));
+}
+
+void ReturnOp::build(Builder* b, OperationState& state) {
+  build(b, state, llvm::None);
+}
+
+void ReturnOp::build(Builder* b, OperationState& state, Value retValue) {
+  build(b, state, ValueRange{retValue});
 }
 
 template<typename NAryOp>
@@ -232,8 +240,8 @@ void SPNSingleQueryOp::build(Builder* b, OperationState& state, Value input, con
 static mlir::LogicalResult verify(SPNSingleQueryOp op) {
   auto inputType = op.input().getType().cast<ShapedType>();
 
-  if (!inputType.hasRank() || inputType.getRank() != 2 || ShapedType::isDynamic(inputType.getDimSize(1))) {
-    op.emitOpError("Expected input to be a 2-dimensional tensor with static second dimension!");
+  if (!inputType.hasRank() || inputType.getRank() != 1 || ShapedType::isDynamic(inputType.getDimSize(0))) {
+    op.emitOpError("Expected input to be a 1-dimensional tensor with static dimension!");
   }
 
   if (auto queryOp = dyn_cast<QueryInterface>(&*op)) {

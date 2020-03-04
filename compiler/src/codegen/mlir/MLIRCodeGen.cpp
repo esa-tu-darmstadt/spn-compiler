@@ -39,17 +39,15 @@ void MLIRCodeGen::generateMLIR(spnc::IRGraph& graph) {
 void MLIRCodeGen::generateSPNToplevel(spnc::IRGraph& graph, const std::string& bodyFuncName) {
   auto restore = builder.saveInsertionPoint();
   Type elementType = builder.getIntegerType(32);
-  Type evidenceType = RankedTensorType::get({-1, (int) graph.inputs().size()}, elementType);
-  Type resultType = RankedTensorType::get({-1}, builder.getF64Type());
-  auto func_type = builder.getFunctionType({evidenceType, resultType}, llvm::None);
+  Type evidenceType = RankedTensorType::get({(int) graph.inputs().size()}, elementType);
+  auto func_type = builder.getFunctionType({evidenceType}, builder.getF64Type());
   auto func = FuncOp::create(builder.getUnknownLoc(), kernelName, func_type);
   auto& entryBlock = *func.addEntryBlock();
-  assert(entryBlock.getNumArguments() == 2 && "Expecting two arguments for SPN function!");
+  assert(entryBlock.getNumArguments() == 1 && "Expecting two arguments for SPN function!");
   auto inputArg = entryBlock.getArgument(0);
-  auto outputArg = entryBlock.getArgument(1);
   builder.setInsertionPointToStart(&entryBlock);
-  auto query = builder.create<SPNJointProbBatch>(builder.getUnknownLoc(), inputArg, outputArg, bodyFuncName);
-  builder.create<ReturnOp>(builder.getUnknownLoc(), llvm::None);
+  auto query = builder.create<SPNSingleQueryOp>(builder.getUnknownLoc(), inputArg, bodyFuncName);
+  builder.create<ReturnOp>(builder.getUnknownLoc(), query);
   module->push_back(func);
   builder.restoreInsertionPoint(restore);
 }

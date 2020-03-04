@@ -187,6 +187,11 @@ def ReturnOp : SPN_Op<"return", [Terminator]> {
     bool hasOperand() { return getNumOperands() != 0; }
   }];
 
+  let builders = [
+    OpBuilder<"Builder* b, OperationState& state, Value retValue">,
+    OpBuilder<"Builder* b, OperationState& state">
+  ];
+
 }
 
 
