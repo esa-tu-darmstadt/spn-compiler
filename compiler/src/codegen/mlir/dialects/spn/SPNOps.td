@@ -123,7 +123,7 @@ def InputVarOp : SPN_Op<"input_var", [NoSideEffect]> {
     Reference to an input variable.
   }];
 
-  let arguments = (ins I32Tensor:$evidence, I32Attr:$index);
+  let arguments = (ins I32:$evidence, I32Attr:$index);
 
   let results = (outs I32);
 

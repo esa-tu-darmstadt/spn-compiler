@@ -4,6 +4,7 @@
 //
 
 #include "LowerSPNtoStandardPatterns.h"
+#include "SPNOperationLowering.h"
 #include <mlir/IR/Matchers.h>
 #include <limits>
 
@@ -24,16 +25,11 @@ PatternMatchResult ReturnOpLowering::matchAndRewrite(spn::ReturnOp op, PatternRe
 
 PatternMatchResult InputVarLowering::matchAndRewrite(InputVarOp op, ArrayRef<Value> operands,
                                                      ConversionPatternRewriter& rewriter) const {
-  // After the type-conversion of the SPN function signature, the InputVarOp receives
-  // a memref with element-type I32 as its only argument. To retrieve a value for the input var,
-  // we generate a Standard dialect load, using the input var's index as constant index for the load.
-  auto indexAttr = rewriter.getIntegerAttr(rewriter.getIndexType(), op.index().getZExtValue());
-  auto indexVal = rewriter.create<mlir::ConstantOp>(op.getLoc(), indexAttr);
-  if (operands.size() != 1 || !operands[0].getType().isa<MemRefType>()) {
-    return matchFailure();
-  }
-  auto load = rewriter.create<mlir::LoadOp>(op.getLoc(), operands[0], ValueRange{indexVal});
-  rewriter.replaceOp(op, {load});
+  // InputVarOps are now only used to associate some high-level information
+  // about the input variable with the input to the SPN-function's argument
+  // at the corresponding index. We can simply replace the InputVarOp with
+  // its single argument.
+  rewriter.replaceOp(op, {operands[0]});
   return matchSuccess();
 }
 
@@ -135,7 +131,37 @@ PatternMatchResult HistogramLowering::matchAndRewrite(HistogramOp op, ArrayRef<V
 PatternMatchResult SingleQueryLowering::matchAndRewrite(SPNSingleQueryOp op, ArrayRef<Value> operands,
                                                         ConversionPatternRewriter& rewriter) const {
   SmallVector<Type, 1> retType{rewriter.getF64Type()};
-  // A SPNSingleQuery can simply be replaced with a call to the SPN function.
-  rewriter.replaceOpWithNewOp<mlir::CallOp>(op, retType, op.spnAttr(), ValueRange{operands});
+  if (!operands[0].getType().isa<MemRefType>()) {
+    return matchFailure();
+  }
+  auto memRefType = operands[0].getType().cast<MemRefType>();
+  if (!memRefType.hasStaticShape() || MemRefType::isDynamic(memRefType.getDimSize(0))) {
+    return matchFailure();
+  }
+  // Load each feature value from the memref (was a tensor before lowering) and
+  // replace SPNSingleQuery by a call to the SPN function.
+  auto memRef = operands[0];
+  auto numFeatures = memRefType.getDimSize(0);
+  SmallVector<Value, 10> loads;
+  for (size_t i = 0; i < numFeatures; ++i) {
+    auto load = createStaticLoad(rewriter, op.getLoc(), memRef, {i});
+    loads.push_back(load);
+  }
+  rewriter.replaceOpWithNewOp<mlir::CallOp>(op, retType, op.spnAttr(), loads);
   return matchSuccess();
+}
+
+template<typename SourceOp>
+LoadOp SPNOpLowering<SourceOp>::createStaticLoad(mlir::ConversionPatternRewriter& rewriter,
+                                                 mlir::Location loc,
+                                                 mlir::Value memRef,
+                                                 llvm::ArrayRef<size_t> indices) const {
+  assert(memRef.getType().isa<MemRefType>() && "Base address must be a memref!");
+  assert(!indices.empty() && "Expecting at least one static index!");
+  SmallVector<Value, 10> indexValues;
+  for (auto i : indices) {
+    auto constantIndex = rewriter.create<mlir::ConstantOp>(loc, rewriter.getIntegerAttr(rewriter.getIndexType(), i));
+    indexValues.push_back(constantIndex);
+  }
+  return rewriter.create<mlir::LoadOp>(loc, memRef, indexValues);
 }

@@ -56,11 +56,12 @@ void MLIRCodeGen::generateSPNBody(spnc::IRGraph& graph, const std::string& funcN
   auto restore = builder.saveInsertionPoint();
   auto spnFunc = createSPNFunction(graph.inputs().size(), funcName);
   auto& entryBlock = *spnFunc.addEntryBlock();
-  assert(entryBlock.getNumArguments() == 1 && "Expecting a single argument for SPN function!");
-  auto inputArg = entryBlock.getArgument(0);
+  assert(entryBlock.getNumArguments() == graph.inputs().size()
+             && "Expecting matching number of arguments for SPN function!");
   builder.setInsertionPointToStart(&entryBlock);
   for (auto input : graph.inputs()) {
-    auto inVar = builder.create<InputVarOp>(builder.getUnknownLoc(), inputArg, input->index());
+    int index = input->index();
+    auto inVar = builder.create<InputVarOp>(builder.getUnknownLoc(), entryBlock.getArgument(index), index);
     node2value[input->id()] = inVar;
   }
   MLIRBodyGen bodygen{&builder, &node2value};
@@ -73,7 +74,7 @@ void MLIRCodeGen::generateSPNBody(spnc::IRGraph& graph, const std::string& funcN
 
 mlir::FuncOp MLIRCodeGen::createSPNFunction(uint32_t numInputs, const std::string& funcName) {
   Type elementType = builder.getIntegerType(32);
-  Type evidenceType = RankedTensorType::get({numInputs}, elementType);
-  auto func_type = builder.getFunctionType({evidenceType}, {builder.getF64Type()});
+  SmallVector<Type, 10> inputs(numInputs, elementType);
+  auto func_type = builder.getFunctionType(inputs, {builder.getF64Type()});
   return FuncOp::create(builder.getUnknownLoc(), funcName, func_type);
 }

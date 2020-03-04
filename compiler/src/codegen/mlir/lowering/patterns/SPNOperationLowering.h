@@ -5,7 +5,9 @@
 
 #ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_LOWERING_PATTERNS_SPNOPERATIONLOWERING_H
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_LOWERING_PATTERNS_SPNOPERATIONLOWERING_H
+
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Dialect/StandardOps/Ops.h"
 
 namespace mlir {
   namespace spn {
@@ -19,6 +21,10 @@ namespace mlir {
 
     protected:
       TypeConverter& typeConverter;
+
+      LoadOp createStaticLoad(ConversionPatternRewriter& rewriter, Location loc,
+                              Value memRef, llvm::ArrayRef<size_t> indices) const;
+
     };
   }
 }
