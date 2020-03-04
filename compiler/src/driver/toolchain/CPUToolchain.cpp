@@ -53,11 +53,8 @@ namespace spnc {
       auto bitCodeFile = FileSystem::createTempFile<FileType::LLVM_BC>();
       auto& writeBitcode = job->insertAction<LLVMWriteBitcode>(llvmPipeline, std::move(bitCodeFile));
       // Link tracing library (bitcode) into prepared bitcode-file (which yields another bitcode-file)
-      auto bitCodeFileLinked = FileSystem::createTempFile<FileType::LLVM_BC>(false);
-      // TODO: Determine relative (or similar) traceLibPath = "../../../../build/compiler-rt/compiler-rt/trace.cpp.bc"
-      std::string traceLibPath = "/home/mhalk/hiwi/spn-compiler/build/compiler-rt/compiler-rt/trace.cpp.bc";
-      auto traceLibFile = File<FileType::LLVM_BC>(traceLibPath);
-      auto& bitCodeTraceLib = job->insertAction<TracingLib>(std::move(traceLibFile));
+      auto bitCodeFileLinked = FileSystem::createTempFile<FileType::LLVM_BC>();
+      auto& bitCodeTraceLib = job->insertAction<TracingLib>(std::move(getTraceLibFile()));
       auto& linkBitcode = job->insertAction<LLVMLinker>(writeBitcode, bitCodeTraceLib, std::move(bitCodeFileLinked));
       // Compile generated bitcode-file to object file.
       auto objectFile = FileSystem::createTempFile<FileType::OBJECT>();
@@ -69,6 +66,20 @@ namespace spnc {
           job->insertFinalAction<ClangKernelLinking>(compileObject, std::move(sharedObject), kernelName);
       job->addAction(std::move(input));
       return std::move(job);
+    }
+
+    File<FileType::LLVM_BC> CPUToolchain::getTraceLibFile() {
+      char* temp = getenv("SPNC_PATH_TRACE_LIB");
+      std::string traceLibPath;
+
+      if ((temp == nullptr) || (strlen(temp) <= 0)) {
+        // Use fallback value (default path and name, relative to 'build' directory)
+        traceLibPath = "./compiler-rt/compiler-rt/trace.cpp.bc";
+      } else {
+        traceLibPath = temp;
+      }
+      
+      return File<FileType::LLVM_BC>(traceLibPath);
     }
 
 }

@@ -22,6 +22,8 @@ namespace spnc {
     private:
         static std::unique_ptr<Job<Kernel>> constructJob(std::unique_ptr<ActionWithOutput<std::string>> input);
 
+        static File<FileType::LLVM_BC> getTraceLibFile();
+
     };
 
 }
