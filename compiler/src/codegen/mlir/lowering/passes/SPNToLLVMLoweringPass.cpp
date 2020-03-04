@@ -3,7 +3,7 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 #include <mlir/Transforms/DialectConversion.h>
-#include <mlir/Dialect/StandardOps/Ops.h>
+#include <mlir/Dialect/StandardOps/IR/Ops.h>
 #include <codegen/mlir/dialects/spn/SPNDialect.h>
 #include <mlir/Dialect/LLVMIR/LLVMDialect.h>
 #include <codegen/mlir/lowering/patterns/LowerSPNtoLLVMPatterns.h>

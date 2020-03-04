@@ -7,7 +7,7 @@
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_LOWERING_PATTERNS_SPNOPERATIONLOWERING_H
 
 #include "mlir/Transforms/DialectConversion.h"
-#include "mlir/Dialect/StandardOps/Ops.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 namespace mlir {
   namespace spn {

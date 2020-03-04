@@ -6,7 +6,6 @@
 #include "LowerSPNtoLLVMPatterns.h"
 #include <mlir/Dialect/LLVMIR/LLVMDialect.h>
 #include <mlir/IR/Module.h>
-#include "mlir/Dialect/StandardOps/Ops.h"
 #include <mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h>
 
 using namespace mlir;

@@ -4,7 +4,7 @@
 //
 
 #include <mlir/Transforms/DialectConversion.h>
-#include <mlir/Dialect/StandardOps/Ops.h>
+#include <mlir/Dialect/StandardOps/IR/Ops.h>
 #include <codegen/mlir/dialects/spn/SPNDialect.h>
 #include <codegen/mlir/lowering/types/SPNTypeConverter.h>
 #include "SPNLoweringPasses.h"
