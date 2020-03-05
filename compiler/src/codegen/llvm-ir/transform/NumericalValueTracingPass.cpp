@@ -30,7 +30,7 @@ PreservedAnalyses NumericalValueTracingPass::run(Module &MOD, ModuleAnalysisMana
   // Initialize class members
   M = &MOD;
   auto &CTX = M->getContext();
-  Builder = new IRBuilder<>(CTX);
+  Builder = std::make_unique<IRBuilder<>>(CTX);
   MDKindID = CTX.getMDKindID(spnc::TraceMDName);
 
   // Run the pass on all Functions

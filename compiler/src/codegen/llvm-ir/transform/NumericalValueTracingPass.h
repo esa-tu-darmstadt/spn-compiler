@@ -42,7 +42,7 @@ private:
 
     void resetTracedInstructions();
 
-    IRBuilder<> *Builder{};
+    std::unique_ptr<IRBuilder<>> Builder{};
     Module *M{};
     ushort MDKindID=std::numeric_limits<ushort>::max();
     bool traced = false;
