@@ -9,7 +9,7 @@
 #include <driver/action/LLVMWriteBitcode.h>
 #include <driver/action/LLVMStaticCompiler.h>
 #include <driver/action/LLVMLinker.h>
-#include <driver/action/TracingLib.h>
+#include <driver/action/DetectTracingLib.h>
 #include <driver/action/ClangKernelLinking.h>
 #include <graph-ir/util/GraphStatVisitor.h>
 #include <codegen/llvm-ir/pipeline/LLVMPipeline.h>
@@ -54,7 +54,7 @@ namespace spnc {
       auto& writeBitcode = job->insertAction<LLVMWriteBitcode>(llvmPipeline, std::move(bitCodeFile));
       // Link tracing library (bitcode) into prepared bitcode-file (which yields another bitcode-file)
       auto bitCodeFileLinked = FileSystem::createTempFile<FileType::LLVM_BC>();
-      auto& bitCodeTraceLib = job->insertAction<TracingLib>(std::move(getTraceLibFile()));
+      auto& bitCodeTraceLib = job->insertAction<DetectTracingLib>();
       auto& linkBitcode = job->insertAction<LLVMLinker>(writeBitcode, bitCodeTraceLib, std::move(bitCodeFileLinked));
       // Compile generated bitcode-file to object file.
       auto objectFile = FileSystem::createTempFile<FileType::OBJECT>();
@@ -66,20 +66,6 @@ namespace spnc {
           job->insertFinalAction<ClangKernelLinking>(compileObject, std::move(sharedObject), kernelName);
       job->addAction(std::move(input));
       return std::move(job);
-    }
-
-    File<FileType::LLVM_BC> CPUToolchain::getTraceLibFile() {
-      char* temp = getenv("SPNC_PATH_TRACE_LIB");
-      std::string traceLibPath;
-
-      if ((temp == nullptr) || (strlen(temp) <= 0)) {
-        // Use fallback value (default path and name, relative to 'build' directory)
-        traceLibPath = "./compiler-rt/compiler-rt/trace.cpp.bc";
-      } else {
-        traceLibPath = temp;
-      }
-      
-      return File<FileType::LLVM_BC>(traceLibPath);
     }
 
 }

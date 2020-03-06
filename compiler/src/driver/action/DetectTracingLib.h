@@ -6,6 +6,7 @@
 #ifndef SPNC_TRACINGLIB_H
 #define SPNC_TRACINGLIB_H
 
+#include <memory>
 #include <util/FileSystem.h>
 #include <driver/Actions.h>
 
@@ -13,18 +14,20 @@ namespace spnc {
 
     using BitcodeFile = File<FileType::LLVM_BC>;
 
-class TracingLib : public ActionWithOutput<BitcodeFile> {
+class DetectTracingLib : public ActionWithOutput<BitcodeFile> {
 
     public:
-        explicit TracingLib(BitcodeFile outputFile);
+        explicit DetectTracingLib();
 
         BitcodeFile& execute() override;
 
     private:
 
-        BitcodeFile outFile;
+        std::unique_ptr<BitcodeFile> outFile;
 
         bool cached = false;
+
+        bool error = false;
 
     };
 }

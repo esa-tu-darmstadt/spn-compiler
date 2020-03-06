@@ -8,7 +8,7 @@
 #include <llvm/IR/Module.h>
 #include <driver/Job.h>
 #include <driver/BaseActions.h>
-#include "../../../../common/include/Kernel.h"
+#include <Kernel.h>
 
 namespace spnc {
 
@@ -21,8 +21,6 @@ namespace spnc {
 
     private:
         static std::unique_ptr<Job<Kernel>> constructJob(std::unique_ptr<ActionWithOutput<std::string>> input);
-
-        static File<FileType::LLVM_BC> getTraceLibFile();
 
     };
 
