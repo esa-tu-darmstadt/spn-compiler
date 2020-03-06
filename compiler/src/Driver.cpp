@@ -5,6 +5,7 @@
 #include <spnc.h>
 #include <iostream>
 #include <driver/toolchain/CPUToolchain.h>
+#include <driver/Options.h>
 
 namespace spnc {
     Kernel spn_compiler::parseJSON(const std::string &inputFile) {
