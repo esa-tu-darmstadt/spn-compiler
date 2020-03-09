@@ -43,6 +43,13 @@ namespace spnc {
 
       public:
 
+        static std::string toLowerCase(const std::string& s) {
+          std::string result = s;
+          std::transform(result.begin(), result.end(), result.begin(),
+                         [](unsigned char c) { return std::tolower(c); });
+          return result;
+        }
+
         template<typename Value>
         static Value parse(const std::string& value) {
           // As a default, try to construct a the value from a string.
@@ -51,9 +58,7 @@ namespace spnc {
 
         template<>
         bool parse(const std::string& value) {
-          std::string v = value;
-          std::transform(v.begin(), v.end(), v.begin(),
-                         [](unsigned char c) { return std::tolower(c); });
+          std::string v = toLowerCase(value);
           return v == "true" || v == "yes";
         }
 
@@ -138,7 +143,7 @@ namespace spnc {
           auto parser = options.at(key);
           auto parseResult = parser->parse(key, value);
           if (!parseResult) {
-            std::cout << "Could not parse option value" << value << " for " << key << std::endl;
+            std::cout << "Could not parse option value " << value << " for " << key << std::endl;
           }
           config->push_back(key, std::move(parseResult.getValue()));
         }
@@ -196,7 +201,7 @@ namespace spnc {
         return elseValue;
       }
 
-    private:
+    protected:
 
       Value getVal(const Configuration& config) {
         return dynamic_cast<OptionValue<Value>&>(config.get(keyName)).get();
@@ -205,6 +210,59 @@ namespace spnc {
       bool hasDefault = false;
 
       Value defaultValue;
+
+    };
+
+    struct OptionEnumValue {
+      std::string name;
+      int value;
+      std::string desc;
+    };
+
+    // Utility macros to easily define allowed values for an enum option.
+#define EnumVal(ENUMVAL, DESC) \
+      spnc::interface::OptionEnumValue {#ENUMVAL, int(ENUMVAL), DESC}
+
+#define EnumValN(ENUMVAL, FLAGNAME, DESC) \
+      spnc::interface::OptionEnumValue {FLAGNAME, int(ENUMVAL), DESC}
+
+    class EnumOpt : public Option<int> {
+
+    public:
+
+      EnumOpt(std::string k, std::initializer_list<OptionEnumValue> options) : Option<int>{k} {
+        for (auto& o : options) {
+          enumValues.emplace(detail::OptionParsers::toLowerCase(o.name), o);
+        }
+      }
+
+      template<typename D>
+      EnumOpt(std::string k, D defaultVal, std::initializer_list<OptionEnumValue> options)
+          : Option<int>{k, int(defaultVal)} {
+        for (auto& o : options) {
+          enumValues.emplace(detail::OptionParsers::toLowerCase(o.name), o);
+        }
+      }
+
+      llvm::Optional<std::unique_ptr<OptValue>> parse(const std::string& key,
+                                                      const std::string& value) override {
+        if (key != keyName) {
+          // Key does not match this option.
+          return llvm::None;
+        }
+        auto v = detail::OptionParsers::toLowerCase(value);
+        if (!enumValues.count(v)) {
+          // The value does not match any of the enum values.
+          return llvm::None;
+        }
+        auto id = enumValues.at(v).value;
+        std::unique_ptr<OptValue> result = std::make_unique<OptionValue<int>>(id);
+        return result;
+      }
+
+    private:
+
+      std::unordered_map<std::string, OptionEnumValue> enumValues;
 
     };
 
