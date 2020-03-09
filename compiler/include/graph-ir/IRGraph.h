@@ -13,7 +13,7 @@ namespace spnc {
 
   public:
 
-    explicit IRGraph(std::shared_ptr <GraphIRContext> _context) : context{_context} {}
+    explicit IRGraph(std::shared_ptr<GraphIRContext> _context) : context{_context} {}
 
     template<typename N, typename ...T>
     N* create(T&& ... args) {
@@ -32,13 +32,13 @@ namespace spnc {
       _rootNode = rootNode;
     }
 
-    std::shared_ptr <GraphIRContext> getContext() { return context; }
+    std::shared_ptr<GraphIRContext> getContext() { return context; }
 
     std::vector<InputVar*>& inputs() { return _inputs; }
 
   private:
 
-    std::shared_ptr <GraphIRContext> context;
+    std::shared_ptr<GraphIRContext> context;
 
     std::vector<InputVar*> _inputs;
 

@@ -8,7 +8,7 @@
 #include <llvm/IR/Module.h>
 #include <driver/Job.h>
 #include <driver/BaseActions.h>
-#include "../../../../common/include/Kernel.h"
+#include <Kernel.h>
 
 namespace spnc {
 

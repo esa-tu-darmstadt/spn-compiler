@@ -25,7 +25,7 @@ namespace spnc {
 
   private:
 
-    std::vector <std::unique_ptr<GraphIRNode>> nodes;
+    std::vector<std::unique_ptr<GraphIRNode>> nodes;
 
   };
 

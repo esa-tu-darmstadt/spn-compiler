@@ -7,7 +7,7 @@
 namespace spnc {
 
   IRTransformationPass::IRTransformationPass(spnc::ActionWithOutput<IRGraph>& _input,
-                                             std::shared_ptr <GraphIRContext> context)
+                                             std::shared_ptr<GraphIRContext> context)
       : ActionSingleInput<IRGraph, IRGraph>(_input), transformedGraph{context} {}
 
   IRGraph& IRTransformationPass::execute() {

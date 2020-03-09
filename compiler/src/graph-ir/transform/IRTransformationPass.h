@@ -16,7 +16,7 @@ namespace spnc {
 
   public:
 
-    explicit IRTransformationPass(ActionWithOutput <IRGraph>& _input, std::shared_ptr <GraphIRContext> context);
+    explicit IRTransformationPass(ActionWithOutput<IRGraph>& _input, std::shared_ptr<GraphIRContext> context);
 
     IRGraph& execute() override;
 
