@@ -9,16 +9,23 @@
 #include <driver/Actions.h>
 #include <llvm/IR/PassManager.h>
 #include <llvm/Passes/PassBuilder.h>
+#include <driver/Options.h>
 
 using namespace llvm;
+using namespace spnc::interface;
 
 namespace spnc {
+
+  namespace option {
+    extern Option<bool> numericalTracing;
+  }
 
   class LLVMPipeline : public ActionSingleInput<Module, Module> {
 
   public:
 
-    explicit LLVMPipeline(ActionWithOutput<Module>& _input, std::shared_ptr<LLVMContext> _llvmContext);
+    explicit LLVMPipeline(ActionWithOutput<Module>& _input, std::shared_ptr<LLVMContext> _llvmContext,
+                          const Configuration& config);
 
     Module& execute() override;
 

@@ -8,7 +8,7 @@
 #include <map>
 
 int main(int argc, char* argv[]) {
-  options_t options{{"test", "YeS"}, {"enum", "debUG"}};
+  options_t options{{"target", "CPU"}, {"collect-graph-stats", "no"}};
   auto parseResult = spnc::spn_compiler::parseJSON(std::string(argv[1]), options);
   std::cout << "Parsed JSON? " << parseResult.fileName() << std::endl;
   Kernel kernel("/home/wimi/ls/Code/SPN/spn-compiler-v2/cmake-build-debug/execute/libdynamic-load-test.so", "foo");

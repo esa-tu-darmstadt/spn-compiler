@@ -6,15 +6,21 @@
 #include "LLVMPipeline.h"
 #include <llvm/Transforms/Utils/Cloning.h>
 #include <iostream>
+#include <driver/GlobalOptions.h>
 
 namespace spnc {
 
-  LLVMPipeline::LLVMPipeline(ActionWithOutput<Module>& _input, std::shared_ptr<LLVMContext> _llvmContext)
-      : ActionSingleInput<Module, Module>(_input),
-        llvmContext(std::move(_llvmContext)),
-        MPM{false}, MAM{false}, PB{} {
-    // TODO: Make addition of tracing pass dependent on configuration.
-    MPM.addPass(NumericalValueTracingPass());
+  Option<bool> spnc::option::numericalTracing{"numerical-tracing", false,
+                                              {depends(spnc::option::compilationTarget,
+                                                       int(spnc::option::TargetMachine::CPU))}};
+
+  LLVMPipeline::LLVMPipeline(ActionWithOutput<Module>& _input, std::shared_ptr<LLVMContext> _llvmContext,
+                             const Configuration& config) : ActionSingleInput<Module, Module>(_input),
+                                                            llvmContext(std::move(_llvmContext)),
+                                                            MPM{false}, MAM{false}, PB{} {
+    if (option::numericalTracing.get(config)) {
+      MPM.addPass(NumericalValueTracingPass());
+    }
     PB.registerModuleAnalyses(MAM);
   }
 

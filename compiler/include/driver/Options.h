@@ -53,6 +53,7 @@ namespace spnc {
 
         template<typename Value>
         static Value parse(const std::string& value) {
+          static_assert(std::is_constructible<Value, std::string>::value, "Must be constructible from string!");
           // As a default, try to construct a the value from a string.
           return Value{value};
         }
@@ -334,6 +335,9 @@ namespace spnc {
       }
 
       bool verify(const Configuration& config) override {
+        if (!modified->isPresent(config)) {
+          return true;
+        }
         if (!depOpt.isPresent(config)) {
           return false;
         }
