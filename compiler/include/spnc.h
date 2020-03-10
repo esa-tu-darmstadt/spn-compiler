@@ -7,13 +7,17 @@
 
 #include <string>
 #include <Kernel.h>
+#include <map>
 
 namespace spnc {
-    class spn_compiler{
-    public:
-        static Kernel parseJSON(const std::string& inputFile);
-        Kernel parseJSONString(const std::string& jsonString);
-    };
+
+  using options_t = std::map<std::string, std::string>;
+
+  class spn_compiler {
+  public:
+    static Kernel parseJSON(const std::string& inputFile, const options_t& options);
+    Kernel parseJSONString(const std::string& jsonString, const options_t& options);
+  };
 }
 
 

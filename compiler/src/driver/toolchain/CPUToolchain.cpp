@@ -14,29 +14,32 @@
 
 namespace spnc {
 
-    std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::string &inputFile) {
+    std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::string& inputFile,
+                                                                     const Configuration& config) {
       // Construct file input action.
       auto fileInput = std::make_unique<FileInputAction<FileType::SPN_JSON>>(inputFile);
-      return constructJob(std::move(fileInput));
+      return constructJob(std::move(fileInput), config);
     }
 
-    std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromString(const std::string &inputString) {
-      // Construct string input action.
-      auto stringInput = std::make_unique<StringInputAction>(inputString);
-      return constructJob(std::move(stringInput));
-    }
+  std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromString(const std::string& inputString,
+                                                                     const Configuration& config) {
+    // Construct string input action.
+    auto stringInput = std::make_unique<StringInputAction>(inputString);
+    return constructJob(std::move(stringInput), config);
+  }
 
-    std::unique_ptr<Job<Kernel>> CPUToolchain::constructJob(std::unique_ptr<ActionWithOutput<std::string>> input) {
-      std::unique_ptr <Job<Kernel>> job{new Job<Kernel>()};
-      // Construct parser to parse JSON from input.
-      auto graphIRContext = std::make_shared<GraphIRContext>();
-      auto& parser = job->insertAction<Parser>(*input, graphIRContext);
-      // Transform all operations into binary (two inputs) operations.
-      BinaryTreeTransform& binaryTreeTransform = job->insertAction<BinaryTreeTransform>(parser, graphIRContext);
-      // Invoke LLVM code-generation on transformed tree.
-      std::string kernelName = "spn_kernel";
-      auto& llvmCodeGen = job->insertAction<LLVMCPUCodegen>(binaryTreeTransform, kernelName);
-      // Collect graph statistics on transformed tree.
+  std::unique_ptr<Job<Kernel>> CPUToolchain::constructJob(std::unique_ptr<ActionWithOutput<std::string>> input,
+                                                          const Configuration& config) {
+    std::unique_ptr<Job<Kernel>> job{new Job<Kernel>()};
+    // Construct parser to parse JSON from input.
+    auto graphIRContext = std::make_shared<GraphIRContext>();
+    auto& parser = job->insertAction<Parser>(*input, graphIRContext);
+    // Transform all operations into binary (two inputs) operations.
+    BinaryTreeTransform& binaryTreeTransform = job->insertAction<BinaryTreeTransform>(parser, graphIRContext);
+    // Invoke LLVM code-generation on transformed tree.
+    std::string kernelName = "spn_kernel";
+    auto& llvmCodeGen = job->insertAction<LLVMCPUCodegen>(binaryTreeTransform, kernelName);
+    // Collect graph statistics on transformed tree.
       // TODO: Make execution optional via configuration.
       // TODO: Determine output file-name via configuration.
       auto statsFile = FileSystem::createTempFile<FileType::STAT_JSON>(false);

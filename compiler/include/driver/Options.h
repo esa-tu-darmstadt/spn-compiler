@@ -113,7 +113,6 @@ namespace spnc {
       virtual llvm::Optional<std::unique_ptr<OptValue>> parse(const std::string& key, const std::string& value) = 0;
 
       bool isPresent(const Configuration& config) {
-        std::cout << "Key: " << keyName << std::endl;
         return config.hasOption(keyName);
       }
 
@@ -339,7 +338,6 @@ namespace spnc {
           return false;
         }
         OptVal val = depOpt.get(config);
-        std::cout << "Dep: " << (Value{val} == depVal) << std::endl;
         return (Value{val} == depVal);
       }
 
