@@ -11,7 +11,7 @@
 #include <set>
 #include <driver/Actions.h>
 #include <driver/BaseActions.h>
-#include "../json/json.hpp"
+#include <frontend/json/json.hpp>
 #include <graph-ir/IRGraph.h>
 
 using json = nlohmann::json;

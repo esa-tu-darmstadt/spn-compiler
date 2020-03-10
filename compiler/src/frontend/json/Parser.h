@@ -12,7 +12,6 @@
 #include <graph-ir/IRGraph.h>
 #include <graph-ir/GraphIRContext.h>
 #include "json.hpp"
-#include <graph-ir/GraphIRNode.h>
 
 using json = nlohmann::json;
 
@@ -22,11 +21,11 @@ namespace spnc {
 
   public:
 
-    explicit Parser(ActionWithOutput <std::string>& _input, std::shared_ptr<GraphIRContext> context);
+    explicit Parser(ActionWithOutput<std::string>& _input, std::shared_ptr<GraphIRContext> context);
 
-        IRGraph& execute() override ;
+    IRGraph& execute() override;
 
-    private:
+  private:
 
     void parseJSONFile(std::string& file);
 

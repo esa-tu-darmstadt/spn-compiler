@@ -6,7 +6,7 @@
 #define SPNC_CODEGENSCALARBODY_H
 
 #include <unordered_map>
-#include <transform/BaseVisitor.h>
+#include <graph-ir/transform/BaseVisitor.h>
 #include "CodeGenBody.h"
 
 namespace spnc {
@@ -14,22 +14,24 @@ namespace spnc {
     class CodeGenScalarBody : public CodeGenBody, BaseVisitor {
 
     public:
-        CodeGenScalarBody(Module& m, Function& f, IRBuilder<>& b) : CodeGenBody(m, f, b) {}
+      CodeGenScalarBody(Module& m, Function& f, IRBuilder<>& b) : CodeGenBody(m, f, b) {}
 
-        Value* emitBody(IRGraph& graph, Value* indVar, InputVarValueMap inputs, OutputAddressMap output) override;
+      Value* emitBody(IRGraph& graph, Value* indVar, InputVarValueMap inputs, OutputAddressMap output) override;
 
-        void visitHistogram(Histogram &n, arg_t arg) override;
+      void visitHistogram(Histogram& n, arg_t arg) override;
 
-        void visitProduct(Product &n, arg_t arg) override;
+      void visitProduct(Product& n, arg_t arg) override;
 
-        void visitSum(Sum &n, arg_t arg) override;
+      void visitSum(Sum& n, arg_t arg) override;
 
-        void visitWeightedSum(WeightedSum &n, arg_t arg) override;
+      void visitWeightedSum(WeightedSum& n, arg_t arg) override;
 
     private:
-        std::unordered_map<std::string, Value*> node2value;
+      std::unordered_map<std::string, Value*> node2value;
 
-        Type* getValueType();
+      Type* getValueType();
+
+      void addMetaData(Value* val, TraceMDTag tag);
 
       Value* getValueForNode(NodeReference node, arg_t arg);
     };

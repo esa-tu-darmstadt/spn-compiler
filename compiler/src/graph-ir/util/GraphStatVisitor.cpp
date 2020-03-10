@@ -153,7 +153,7 @@ namespace spnc {
     }
 
     StatsFile& spnc::GraphStatVisitor::execute() {
-      if(!cached) {
+      if (!cached) {
         IRGraph graph = input.execute();
         count_features = graph.inputs().size();
         collectGraphStats(graph.rootNode());

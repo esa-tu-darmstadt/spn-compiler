@@ -4,6 +4,7 @@ project(spnc VERSION 0.0.2 LANGUAGES CXX)
 
 add_subdirectory(common)
 add_subdirectory(compiler)
+add_subdirectory(compiler-rt)
 add_subdirectory(execute)
 add_subdirectory(runtime)
 add_subdirectory(python-interface)

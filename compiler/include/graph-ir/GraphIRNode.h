@@ -59,18 +59,18 @@ namespace spnc {
 
     class Histogram : public GraphIRNode {
     public:
-      Histogram(std::string id, InputVar* indexVar, const std::vector <HistogramBucket>& buckets);
+      Histogram(std::string id, InputVar* indexVar, const std::vector<HistogramBucket>& buckets);
 
       InputVar& indexVar() const;
 
-      const std::vector <HistogramBucket>& buckets() const;
+      const std::vector<HistogramBucket>& buckets() const;
 
         void accept(Visitor& visitor, arg_t arg) override ;
 
     private:
       InputVar* _indexVar;
 
-      std::vector <HistogramBucket> _buckets;
+      std::vector<HistogramBucket> _buckets;
     };
 
     struct WeightedAddend{NodeReference addend; double weight;};
@@ -79,36 +79,36 @@ namespace spnc {
     public:
         WeightedSum(std::string id, const std::vector<WeightedAddend>& addends);
 
-      const std::vector <WeightedAddend>& addends() const;
+      const std::vector<WeightedAddend>& addends() const;
 
         void accept(Visitor& visitor, arg_t arg) override ;
 
     private:
-      std::vector <WeightedAddend> _addends;
+      std::vector<WeightedAddend> _addends;
     };
 
     class Sum : public GraphIRNode {
     public:
         Sum(std::string id, const std::vector<NodeReference>& addends);
 
-      const std::vector <NodeReference>& addends() const;
+      const std::vector<NodeReference>& addends() const;
 
         void accept(Visitor& visitor, arg_t arg) override ;
 
     private:
-      std::vector <NodeReference> _addends;
+      std::vector<NodeReference> _addends;
     };
 
     class Product : public GraphIRNode {
     public:
         Product(std::string id, const std::vector<NodeReference>& multiplicands);
 
-      const std::vector <NodeReference>& multiplicands() const;
+      const std::vector<NodeReference>& multiplicands() const;
 
         void accept(Visitor& visitor, arg_t arg) override ;
 
     private:
-      std::vector <NodeReference> _multiplicands;
+      std::vector<NodeReference> _multiplicands;
     };
 
 }

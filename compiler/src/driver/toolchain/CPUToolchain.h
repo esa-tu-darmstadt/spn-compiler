@@ -9,7 +9,7 @@
 #include <driver/Job.h>
 #include <driver/BaseActions.h>
 #include <driver/Options.h>
-#include "../../../../common/include/Kernel.h"
+#include <Kernel.h>
 
 using namespace spnc::interface;
 

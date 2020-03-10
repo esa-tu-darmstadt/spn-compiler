@@ -2,8 +2,8 @@
 // Created by ls on 10/7/19.
 //
 
+#include <graph-ir/transform/Visitor.h>
 #include <graph-ir/GraphIRNode.h>
-#include "../transform/Visitor.h"
 
 namespace spnc {
     InputVar::InputVar(std::string id, int index) : GraphIRNode{std::move(id)}, _index{index} {}
