@@ -6,10 +6,12 @@
 #include <iostream>
 #include <driver/toolchain/CPUToolchain.h>
 #include <driver/Options.h>
+#include <util/Logging.h>
 
 namespace spnc {
 
   Kernel spn_compiler::parseJSON(const std::string& inputFile, const options_t& options) {
+    SPDLOG_INFO("Welcome to the SPN compiler!");
     interface::Options::dump();
     auto config = interface::Options::parse(options);
     auto job = CPUToolchain::constructJobFromFile(inputFile, *config);

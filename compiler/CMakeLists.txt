@@ -46,4 +46,4 @@ target_include_directories(spnc
         ${LLVM_INCLUDE_DIRS})
 
 llvm_map_components_to_libnames(llvm_libs bitwriter passes)
-target_link_libraries(spnc PRIVATE ${llvm_libs})
+target_link_libraries(spnc PRIVATE ${llvm_libs} spdlog::spdlog)
