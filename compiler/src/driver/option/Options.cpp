@@ -8,3 +8,5 @@
 using namespace spnc::interface;
 
 std::unordered_map<std::string, Opt*> Options::options;
+std::vector<std::unique_ptr<OptModifier>> Options::allModifiers;
+std::vector<OptModifier*> Options::activeModifiers;

@@ -12,6 +12,7 @@
 #include <llvm/ADT/Optional.h>
 #include <algorithm>
 #include <map>
+#include <vector>
 
 namespace spnc {
 
@@ -111,9 +112,32 @@ namespace spnc {
 
       virtual llvm::Optional<std::unique_ptr<OptValue>> parse(const std::string& key, const std::string& value) = 0;
 
-    protected:
+      bool isPresent(const Configuration& config) {
+        std::cout << "Key: " << keyName << std::endl;
+        return config.hasOption(keyName);
+      }
+
+    public:
 
       std::string keyName;
+
+    };
+
+    class OptModifier {
+
+    public:
+
+      void initialize(Opt* opt) {
+        modified = opt;
+      }
+
+      virtual bool verify(const Configuration& config) = 0;
+
+      virtual ~OptModifier() = default;
+
+    protected:
+
+      Opt* modified = nullptr;
 
     };
 
@@ -121,8 +145,13 @@ namespace spnc {
 
     public:
 
-      static void addOption(const std::string& key, Opt* opt) {
+      static void addOption(const std::string& key, Opt* opt,
+                            std::initializer_list<OptModifier*> mods) {
         options.emplace(key, opt);
+        for (auto m : mods) {
+          m->initialize(opt);
+          activeModifiers.push_back(m);
+        }
       }
 
       static void dump() {
@@ -147,11 +176,29 @@ namespace spnc {
           }
           config->push_back(key, std::move(parseResult.getValue()));
         }
+        bool verified = true;
+        for (auto m : activeModifiers) {
+          verified &= m->verify(*config);
+        }
+        if (!verified) {
+          throw std::runtime_error("Could not verify configuration constraints!");
+        }
         return config;
+      }
+
+      template<class Modifier>
+      static Modifier* registerModifier(std::unique_ptr<Modifier> mod) {
+        Modifier* ptr = mod.get();
+        allModifiers.push_back(std::move(mod));
+        return ptr;
       }
 
       // DANGER ZONE: Correct static initialization order required.
       static std::unordered_map<std::string, Opt*> options;
+
+      static std::vector<std::unique_ptr<OptModifier>> allModifiers;
+
+      static std::vector<OptModifier*> activeModifiers;
 
     };
 
@@ -160,14 +207,15 @@ namespace spnc {
 
     public:
 
-      explicit Option(std::string k) noexcept : Opt{std::move(k)} {
-        Options::addOption(keyName, this);
+      explicit Option(std::string k, std::initializer_list<OptModifier*> modifier = {}) noexcept : Opt{std::move(k)} {
+        Options::addOption(keyName, this, modifier);
       }
 
-      Option(std::string k, Value defaultVal) noexcept : Opt{std::move(k)} {
+      Option(std::string k, Value defaultVal, std::initializer_list<OptModifier*> modifier = {}) noexcept : Opt{
+          std::move(k)} {
         hasDefault = true;
         defaultValue = defaultVal;
-        Options::addOption(keyName, this);
+        Options::addOption(keyName, this, modifier);
       }
 
       llvm::Optional<std::unique_ptr<OptValue>> parse(const std::string& key,
@@ -178,10 +226,6 @@ namespace spnc {
         std::unique_ptr<OptValue>
             result = std::make_unique<OptionValue<Value>>(detail::OptionParsers::parse<Value>(value));
         return result;
-      }
-
-      bool isPresent(const Configuration& config) {
-        return config.hasOption(keyName);
       }
 
       Value get(const Configuration& config) {
@@ -230,15 +274,16 @@ namespace spnc {
 
     public:
 
-      EnumOpt(std::string k, std::initializer_list<OptionEnumValue> options) : Option<int>{k} {
+      EnumOpt(std::string k, std::initializer_list<OptionEnumValue> options,
+              std::initializer_list<OptModifier*> modifier = {}) : Option<int>{k, modifier} {
         for (auto& o : options) {
           enumValues.emplace(detail::OptionParsers::toLowerCase(o.name), o);
         }
       }
 
       template<typename D>
-      EnumOpt(std::string k, D defaultVal, std::initializer_list<OptionEnumValue> options)
-          : Option<int>{k, int(defaultVal)} {
+      EnumOpt(std::string k, D defaultVal, std::initializer_list<OptionEnumValue> options,
+              std::initializer_list<OptModifier*> modifier = {}) : Option<int>{k, int(defaultVal), modifier} {
         for (auto& o : options) {
           enumValues.emplace(detail::OptionParsers::toLowerCase(o.name), o);
         }
@@ -265,6 +310,52 @@ namespace spnc {
       std::unordered_map<std::string, OptionEnumValue> enumValues;
 
     };
+
+    class RequiredOpt : public OptModifier {
+
+    public:
+
+      bool verify(const Configuration& config) override {
+        return modified->isPresent(config);
+      }
+
+    };
+
+    static RequiredOpt* required() {
+      return Options::registerModifier(std::make_unique<RequiredOpt>());
+    }
+
+    template<typename OptVal, typename Value>
+    class Depends : public OptModifier {
+
+    public:
+
+      Depends(Option<OptVal>& opt, Value depend) : depOpt{opt}, depVal{depend} {
+        static_assert(std::is_constructible<Value, OptVal>::value, "Incompatible type for dependency!");
+      }
+
+      bool verify(const Configuration& config) override {
+        if (!depOpt.isPresent(config)) {
+          return false;
+        }
+        OptVal val = depOpt.get(config);
+        std::cout << "Dep: " << (Value{val} == depVal) << std::endl;
+        return (Value{val} == depVal);
+      }
+
+    private:
+
+      Option<OptVal>& depOpt;
+
+      Value depVal;
+
+    };
+
+    template<typename OptVal, typename Value>
+    static Depends<OptVal, Value>* depends(Option<OptVal>& opt, Value depend) {
+      return Options::registerModifier(std::make_unique<Depends < OptVal, Value>>
+      (opt, depend));
+    }
 
   }
 
