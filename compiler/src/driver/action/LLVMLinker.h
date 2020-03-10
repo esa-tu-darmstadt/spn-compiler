@@ -11,26 +11,24 @@
 
 namespace spnc {
 
-    using BitcodeFile = File<FileType::LLVM_BC>;
+  using BitcodeFile = File<FileType::LLVM_BC>;
 
-    class LLVMLinker : public ActionDualInput<BitcodeFile, BitcodeFile, BitcodeFile> {
+  class LLVMLinker : public ActionDualInput<BitcodeFile, BitcodeFile, BitcodeFile> {
 
-    public:
-        explicit LLVMLinker(ActionWithOutput<BitcodeFile>& _input1,
-                            ActionWithOutput<BitcodeFile>& _input2,
-                            BitcodeFile outputFile);
+  public:
+    explicit LLVMLinker(ActionWithOutput<BitcodeFile>& _input1,
+                        ActionWithOutput<BitcodeFile>& _input2,
+                        BitcodeFile outputFile);
 
-        BitcodeFile& execute() override;
+    BitcodeFile& execute() override;
 
-    private:
+  private:
 
-        BitcodeFile outFile;
+    BitcodeFile outFile;
 
-        bool cached = false;
+    bool cached = false;
 
-    };
+  };
 }
-
-
 
 #endif //SPNC_LLVMLINKER_H

@@ -29,28 +29,28 @@ using namespace llvm;
 class NumericalValueTracingPass : public PassInfoMixin<NumericalValueTracingPass> {
 
 public:
-    PreservedAnalyses run(Module &MOD, ModuleAnalysisManager &MAM);
+  PreservedAnalyses run(Module& MOD, ModuleAnalysisManager& MAM);
 
 private:
-    void run(Function &F);
+  void run(Function& F);
 
-    void collectTracedInstructions(Function &F);
+  void collectTracedInstructions(Function& F);
 
-    void traceInstructions(const std::vector<Instruction*>& I);
+  void traceInstructions(const std::vector<Instruction*>& I);
 
-    void createCallTrace(Value* value);
+  void createCallTrace(Value* value);
 
-    void resetTracedInstructions();
+  void resetTracedInstructions();
 
-    std::unique_ptr<IRBuilder<>> Builder{};
-    Module *M{};
-    ushort MDKindID=std::numeric_limits<ushort>::max();
-    bool traced = false;
+  std::unique_ptr<IRBuilder<>> Builder{};
+  Module* M{};
+  ushort MDKindID = std::numeric_limits<ushort>::max();
+  bool traced = false;
 
-    std::map<spnc::TraceMDTag, std::vector<Instruction*>> tracedInstructions;
+  std::map<spnc::TraceMDTag, std::vector<Instruction*>> tracedInstructions;
 
-    std::vector<spnc::TraceMDTag> tracedTags = {spnc::TraceMDTag::Sum, spnc::TraceMDTag::WeightedSum,
-                                                spnc::TraceMDTag::Product, spnc::TraceMDTag::Histogram};
+  std::vector<spnc::TraceMDTag> tracedTags = {spnc::TraceMDTag::Sum, spnc::TraceMDTag::WeightedSum,
+                                              spnc::TraceMDTag::Product, spnc::TraceMDTag::Histogram};
 
 };
 

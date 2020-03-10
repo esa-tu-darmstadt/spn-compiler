@@ -52,21 +52,27 @@ namespace spnc {
           }
         }
 
-        File(File const&) = delete;
+      File(File const&) = delete;
 
-        void operator=(File const&) = delete;
+      void operator=(File const&) = delete;
 
-        File(File&& other) noexcept : fName{other.fName}, deleteOnExit{other.deleteOnExit} {
-          other.fName = "";
-          other.deleteOnExit = false;
-        }
+      File(File&& other) noexcept : fName{other.fName}, deleteOnExit{other.deleteOnExit} {
+        other.fName = "";
+        other.deleteOnExit = false;
+      }
 
-        const std::string& fileName() { return fName; }
+      File& operator=(File&& other) noexcept {
+        fName = std::move(other.fName);
+        deleteOnExit = std::move(other.deleteOnExit);
+        other.deleteOnExit = false;
+      }
+
+      const std::string& fileName() { return fName; }
 
     private:
-        std::string fName;
+      std::string fName;
 
-        bool deleteOnExit;
+      bool deleteOnExit;
     };
 
     template<FileType Type>

@@ -7,9 +7,9 @@
 
 namespace spnc {
 
-    Product::Product(std::string id, const std::vector<NodeReference> &multiplicands) : GraphIRNode{std::move(id)}{
-      std::copy(multiplicands.begin(), multiplicands.end(), std::back_inserter(_multiplicands));
-    }
+  Product::Product(std::string id, const std::vector<NodeReference>& multiplicands) : GraphIRNode{std::move(id)} {
+    std::copy(multiplicands.begin(), multiplicands.end(), std::back_inserter(_multiplicands));
+  }
 
   const std::vector<NodeReference>& Product::multiplicands() const { return _multiplicands; }
 

@@ -11,30 +11,30 @@ using namespace llvm;
 extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
 llvmGetPassPluginInfo() {
   return {
-    LLVM_PLUGIN_API_VERSION, "NumericalValueTracingPass", "v0.1",
-    [](PassBuilder &PB) {
-      PB.registerPipelineParsingCallback(
-        [](StringRef PassName, ModulePassManager &MPM, ...) {
-          if(PassName == "spn-numerical-trace-pass"){
-            MPM.addPass(NumericalValueTracingPass());
-            return true;
-          }
-          return false;
-        }
-      );
-    }
+      LLVM_PLUGIN_API_VERSION, "NumericalValueTracingPass", "v0.1",
+      [](PassBuilder& PB) {
+        PB.registerPipelineParsingCallback(
+            [](StringRef PassName, ModulePassManager& MPM, ...) {
+              if (PassName == "spn-numerical-trace-pass") {
+                MPM.addPass(NumericalValueTracingPass());
+                return true;
+              }
+              return false;
+            }
+        );
+      }
   };
 }
 
-PreservedAnalyses NumericalValueTracingPass::run(Module &MOD, ModuleAnalysisManager &MAM) {
+PreservedAnalyses NumericalValueTracingPass::run(Module& MOD, ModuleAnalysisManager& MAM) {
   // Initialize class members
   M = &MOD;
-  auto &CTX = M->getContext();
+  auto& CTX = M->getContext();
   Builder = std::make_unique<IRBuilder<>>(CTX);
   MDKindID = CTX.getMDKindID(spnc::TraceMDName);
 
   // Run the pass on all Functions
-  for (Function &F : MOD) {
+  for (Function& F : MOD) {
     run(F);
   }
 
@@ -42,7 +42,7 @@ PreservedAnalyses NumericalValueTracingPass::run(Module &MOD, ModuleAnalysisMana
   return PreservedAnalyses::all();
 }
 
-void NumericalValueTracingPass::run(Function &F) {
+void NumericalValueTracingPass::run(Function& F) {
   resetTracedInstructions();
   collectTracedInstructions(F);
 
@@ -63,13 +63,13 @@ void NumericalValueTracingPass::resetTracedInstructions() {
   }
 }
 
-void NumericalValueTracingPass::collectTracedInstructions(Function &F) {
-  for (BasicBlock &BB : F) {
-    for (Instruction &I: BB) {
+void NumericalValueTracingPass::collectTracedInstructions(Function& F) {
+  for (BasicBlock& BB : F) {
+    for (Instruction& I: BB) {
       // Only specific Instructions are "interesting"
       if (auto MD = I.getMetadata(MDKindID)) {
         // Extract metadata which was stored as a constant int, based on the spnc::TraceMDTag enum.
-        Constant *val = dyn_cast<ConstantAsMetadata>(MD->getOperand(0))->getValue();
+        Constant* val = dyn_cast<ConstantAsMetadata>(MD->getOperand(0))->getValue();
         int64_t metadata = cast<ConstantInt>(val)->getSExtValue();
 
         // Convert the collected data back to a spnc::TraceMDTag.
@@ -78,11 +78,9 @@ void NumericalValueTracingPass::collectTracedInstructions(Function &F) {
           case spnc::TraceMDTag::Sum :
           case spnc::TraceMDTag::WeightedSum :
           case spnc::TraceMDTag::Product :
-          case spnc::TraceMDTag::Histogram :
-            tracedInstructions.find(tag)->second.push_back(&I);
+          case spnc::TraceMDTag::Histogram :tracedInstructions.find(tag)->second.push_back(&I);
             break;
-          default:
-            errs() << "Encountered unknown Metadata-ID '" << metadata << "'.";
+          default:errs() << "Encountered unknown Metadata-ID '" << metadata << "'.";
             assert(false);
         }
       }
@@ -112,18 +110,18 @@ void NumericalValueTracingPass::traceInstructions(const std::vector<Instruction*
 void NumericalValueTracingPass::createCallTrace(Value* value) {
   // ToDo: Review _TRACE_ function, esp. its signature & additionally possible traced instruction values. (2020-FEB-08)
   const std::string Name = "trace";
-  Function *F = M->getFunction(Name);
+  Function* F = M->getFunction(Name);
 
   // If F is not available, declare it.
   if (!F) {
     GlobalValue::LinkageTypes Linkage = Function::ExternalLinkage;
-    Type *Params[] = { Builder->getDoubleTy() };
+    Type* Params[] = {Builder->getDoubleTy()};
 
-    FunctionType *Ty = FunctionType::get(Builder->getVoidTy(), Params, false);
+    FunctionType* Ty = FunctionType::get(Builder->getVoidTy(), Params, false);
     F = Function::Create(Ty, Linkage, Name, M);
   }
 
-  Value *Args[] = { value };
+  Value* Args[] = {value};
 
   Builder->CreateCall(F, Args);
 }

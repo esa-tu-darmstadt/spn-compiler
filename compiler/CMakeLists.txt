@@ -5,7 +5,10 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 add_definitions(${LLVM_DEFINITIONS})
 
-add_library(spnc SHARED src/Driver.cpp
+add_library(spnc SHARED
+        src/driver/option/Options.cpp
+        src/Driver.cpp
+        src/driver/option/GlobalOptions.cpp
         src/driver/toolchain/CPUToolchain.cpp
         src/driver/action/LLVMWriteBitcode.cpp
         src/driver/action/LLVMStaticCompiler.cpp

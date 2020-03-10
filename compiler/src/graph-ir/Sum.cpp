@@ -7,9 +7,9 @@
 
 namespace spnc {
 
-    Sum::Sum(std::string id, const std::vector<NodeReference> &addends) : GraphIRNode{std::move(id)}{
-      std::copy(addends.begin(), addends.end(), std::back_inserter(_addends));
-    }
+  Sum::Sum(std::string id, const std::vector<NodeReference>& addends) : GraphIRNode{std::move(id)} {
+    std::copy(addends.begin(), addends.end(), std::back_inserter(_addends));
+  }
 
   const std::vector<NodeReference>& Sum::addends() const { return _addends; }
 

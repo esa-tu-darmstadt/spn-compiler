@@ -12,26 +12,24 @@
 
 namespace spnc {
 
-    using BitcodeFile = File<FileType::LLVM_BC>;
+  using BitcodeFile = File<FileType::LLVM_BC>;
 
-class DetectTracingLib : public ActionWithOutput<BitcodeFile> {
+  class DetectTracingLib : public ActionWithOutput<BitcodeFile> {
 
-    public:
-        explicit DetectTracingLib();
+  public:
+    explicit DetectTracingLib();
 
-        BitcodeFile& execute() override;
+    BitcodeFile& execute() override;
 
-    private:
+  private:
 
-        std::unique_ptr<BitcodeFile> outFile;
+    std::unique_ptr<BitcodeFile> outFile;
 
-        bool cached = false;
+    bool cached = false;
 
-        bool error = false;
+    bool error = false;
 
-    };
+  };
 }
-
-
 
 #endif //SPNC_TRACINGLIB_H

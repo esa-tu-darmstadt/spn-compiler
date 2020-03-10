@@ -14,26 +14,26 @@
 #include <graph-ir/IRGraph.h>
 
 namespace spnc {
-    using namespace llvm;
+  using namespace llvm;
 
-    typedef std::function<Value*(size_t inputIndex, Value* indVar)> InputVarValueMap;
+  typedef std::function<Value*(size_t inputIndex, Value* indVar)> InputVarValueMap;
 
-    typedef std::function<Value*(Value* indVar)> OutputAddressMap;
+  typedef std::function<Value*(Value* indVar)> OutputAddressMap;
 
-    const static std::string TraceMDName = "spn.trace.nodeType";
+  const static std::string TraceMDName = "spn.trace.nodeType";
 
-    // Metadata-tags used to trace specific instructions. Values were set to simplify testing.
-    enum class TraceMDTag : ushort { Sum=0x1, WeightedSum=0x2, Product=0x4, Histogram=0x8 };
+  // Metadata-tags used to trace specific instructions. Values were set to simplify testing.
+  enum class TraceMDTag : ushort { Sum = 0x1, WeightedSum = 0x2, Product = 0x4, Histogram = 0x8 };
 
-    class CodeGenBody {
+  class CodeGenBody {
 
-    public:
-        CodeGenBody(Module& m, Function& f, IRBuilder<>& b) : module{m}, function{f}, builder{b} {}
+  public:
+    CodeGenBody(Module& m, Function& f, IRBuilder<>& b) : module{m}, function{f}, builder{b} {}
 
-        virtual Value* emitBody(IRGraph& graph, Value* indVar, InputVarValueMap inputs, OutputAddressMap output) = 0;
+    virtual Value* emitBody(IRGraph& graph, Value* indVar, InputVarValueMap inputs, OutputAddressMap output) = 0;
 
-    protected:
-        Module& module;
+  protected:
+    Module& module;
         Function& function;
         IRBuilder<>& builder;
     };
