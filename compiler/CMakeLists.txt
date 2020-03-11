@@ -8,6 +8,7 @@ add_definitions(${LLVM_DEFINITIONS})
 add_library(spnc SHARED
         src/driver/option/Options.cpp
         src/Driver.cpp
+        src/driver/util/Logging.cpp
         src/driver/option/GlobalOptions.cpp
         src/driver/toolchain/CPUToolchain.cpp
         src/driver/action/LLVMWriteBitcode.cpp

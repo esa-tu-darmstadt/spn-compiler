@@ -18,12 +18,6 @@ namespace spnc {
     static Kernel parseJSON(const std::string& inputFile, const options_t& options);
     Kernel parseJSONString(const std::string& jsonString, const options_t& options);
 
-  private:
-
-    static void initLogger();
-
-    static bool initOnce;
-
   };
 }
 
