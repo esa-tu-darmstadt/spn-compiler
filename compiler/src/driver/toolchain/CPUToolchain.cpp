@@ -21,7 +21,7 @@ namespace spnc {
   std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::string& inputFile,
                                                                    const Configuration& config) {
     // Construct file input action.
-    auto fileInput = std::make_unique<FileInputAction<FileType::SPN_JSON>>(inputFile);
+    auto fileInput = std::make_unique<FileInputAction>(inputFile);
     return constructJob(std::move(fileInput), config);
   }
 
