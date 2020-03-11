@@ -6,8 +6,8 @@
 #ifndef SPNC_COMPILER_INCLUDE_UTIL_LOGGING_H
 #define SPNC_COMPILER_INCLUDE_UTIL_LOGGING_H
 
+// Required to enable setting verbose log-levels.
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
-
 
 #include <spdlog/spdlog.h>
 
