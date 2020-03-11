@@ -10,29 +10,33 @@
 
 namespace spnc {
 
-    class Kernel {
+  ///
+  /// Thin wrapper for kernels, containing the location of the generated kernel file and the correct
+  /// function name.
+  ///
+  class Kernel {
 
-    public:
+  public:
 
-        Kernel(const std::string& fN, const std::string& kN) : _fileName{fN}, _kernelName{kN} {
-          _unique_id = std::hash<std::string>{}(fN + kN);
-        }
+    Kernel(const std::string& fN, const std::string& kN) : _fileName{fN}, _kernelName{kN} {
+      _unique_id = std::hash<std::string>{}(fN + kN);
+    }
 
-        std::string fileName() const {return std::string{_fileName};}
+    std::string fileName() const { return std::string{_fileName}; }
 
-        const std::string& kernelName() const {return _kernelName;}
+    const std::string& kernelName() const {return _kernelName;}
 
-        size_t unique_id() const {return _unique_id;}
+    size_t unique_id() const {return _unique_id;}
 
-    private:
+  private:
 
-        std::string _fileName;
+    std::string _fileName;
 
-        std::string _kernelName;
+    std::string _kernelName;
 
-        size_t _unique_id;
+    size_t _unique_id;
 
-    };
+  };
 
 }
 

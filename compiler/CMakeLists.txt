@@ -47,3 +47,10 @@ target_include_directories(spnc
 
 llvm_map_components_to_libnames(llvm_libs bitwriter passes)
 target_link_libraries(spnc PRIVATE ${llvm_libs} spdlog::spdlog)
+
+doxygen_doc(TARGET_NAME spnc
+        SRC_DIRECTORIES
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        DEPENDS
+        spnc-common)
