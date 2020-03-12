@@ -1,46 +1,69 @@
+# SPN Compiler #
+
 ## About `spnc` ##
 
-`spnc` is a multi-target compiler for Sum-Product Networks, 
-a class of machine learning models.
+`spnc` is a multi-target compiler for Sum-Product Networks, a class of machine learning models.
 
-`spnc` currently supports three different kinds of code generation for SPNs:
-* Serial C++ code, using `-t cpp`.
-* OpenMP thread parallel C++ code, using `-t cpp` and `--openmp-parallel` 
-in combination.
-* CUDA code for Nvidia GPUs, using `-t cuda`.
+As of release 0.0.4, `spnc` is completely implemented in `C++` and uses the LLVM compiler framework
+for code generation for the different targets.
 
-Support for generating SIMD execution with OpenMP is under way. 
-Additionally, `spnc` allows to compute
-statistics about an SPNs graph and output them to JSON.
+## Installation ##
 
-### Prerequisites ### 
+### Prerequisites ###
 
-`spnc` requires a recent version of Java to run. For compilation and execution 
-of C++/OpenMP code, at least one of `g++` or `clang++` needs to be installed on 
-your machine. If you want to use CUDA compilation for Nvidia GPUs, you need to 
-have `nvcc`.
+`spnc` requires a C++ compiler that supports at least the `C++14` standard as well as a 
+modern CMake (>= version 3.5)).
 
-### Installation ###
+### Building from source ###
 
-Either download one of the release zips from the github page or 
-compile `spnc` from source. To compile from source, simply run 
-`./gradlew installDist` in the root folder of `spnc` and use the executable 
-found at `build/install/spnc/bin/spnc`.
+The following procedure has been tested under Ubuntu 19.10, after installing the packages 
+`doxygen graphviz llvm-dev clang`.
 
-### Usage ###
+`$BASE_DIR` is used as a placeholder for a directory of your choice, replace it in the 
+following commands:
 
-`spnc` compiles SPNs from a textual representation 
-(see `src/main/resources/NIPS5.spn` for an example). 
+First, install and build pybind11:
+```
+cd $BASE_DIR
+git clone https://github.com/pybind/pybind11.git
+cd pybind11
+mkdir build
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=$BASE_DIR/pybind11/install \
+     -DPYTHON_EXECUTABLE:FILEPATH=/usr/bin/python3 ..
+make
+make install
+```
 
-Running `spnc` with the desired input-file will generate an executable. 
-The executable contains an automatically generated `main`-method which will 
-read input-data from a plain-text file and, if a second file-name is given,
-compare them to the reference data from the reference-file (also plain text).
-The executable will also track the time spent to execute the SPN inference 
-for all examples in the input sample. This works independent from the actual 
-execution mode (C++ serial, OpenMP, CUDA on Nvidia GPU).
+Second, install and build spdlog:
+```
+cd $BASE_DIR
+git clone https://github.com/gabime/spdlog.git
+cd spdlog
+mkdir build
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=$BASE_DIR/spdlog/install -DSPDLOG_BUILD_SHARED=ON ..
+make
+make install
+```
 
-Run `spnc --help` to see additional options.
+Now, download and build `spnc`:
+```
+cd $BASE_DIR
+git clone git@github.com:esa-tu-darmstadt/spn-compiler.git
+cd spn-compiler
+mkdir build
+cd build
+cmake -DCMAKE_PREFIX_PATH="$BASE_DIR/pybind11/install/share/cmake/pybind11;$BASE_DIR/spdlog/install/lib/cmake/spdlog" ..
+make
+make install
+```
 
-##### Limitations #####
-`spnc` *currently does not yet support Poisson or Gaussian distributions.*
+## Usage ##
+
+The `execute`-subproject contains a simple `driver` that can be used to run the compiler 
+on an SPN serialized to a JSON-file. 
+
+In addition, the compiler also has a pybind11-based Python interface (see `python-interface`).
+A demonstration of the interface can be found in the 
+[Python examples](https://github.com/esa-tu-darmstadt/spn-examples).
