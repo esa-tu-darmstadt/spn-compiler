@@ -5,8 +5,8 @@
 
 #include <util/FileSystem.h>
 #include <driver/BaseActions.h>
-#include <json/Parser.h>
-#include <transform/BinaryTreeTransform.h>
+#include <frontend/json/Parser.h>
+#include <graph-ir/transform/BinaryTreeTransform.h>
 #include <codegen/mlir/MLIRCodeGen.h>
 #include <codegen/mlir/pipeline/MLIRPipeline.h>
 #include <driver/action/MLIRtoLLVMConversion.h>
@@ -18,19 +18,22 @@
 
 using namespace spnc;
 
-std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::string& inputFile) {
+std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::string& inputFile,
+                                                                  const Configuration& config) {
   // Construct file input action.
-  auto fileInput = std::make_unique<FileInputAction<FileType::SPN_JSON>>(inputFile);
-  return constructJob(std::move(fileInput));
+  auto fileInput = std::make_unique<FileInputAction>(inputFile);
+  return constructJob(std::move(fileInput), config);
 }
 
-std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromString(const std::string& inputString) {
+std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromString(const std::string& inputString,
+                                                                    const Configuration& config) {
   // Construct string input action.
   auto stringInput = std::make_unique<StringInputAction>(inputString);
-  return constructJob(std::move(stringInput));
+  return constructJob(std::move(stringInput), config);
 }
 
-std::unique_ptr<Job<Kernel>> MLIRToolchain::constructJob(std::unique_ptr<ActionWithOutput<std::string>> input) {
+std::unique_ptr<Job<Kernel>> MLIRToolchain::constructJob(std::unique_ptr<ActionWithOutput<std::string>> input,
+                                                         const Configuration& config) {
   std::unique_ptr<Job<Kernel>> job{new Job<Kernel>()};
   // Construct parser to parse JSON from input.
   auto graphIRContext = std::make_shared<GraphIRContext>();

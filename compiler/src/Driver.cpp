@@ -1,24 +1,45 @@
 //
-// Created by ls on 10/8/19.
+// This file is part of the SPNC project.
+// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
 #include <spnc.h>
-#include <iostream>
 #include <driver/toolchain/CPUToolchain.h>
 #include <driver/toolchain/MLIRToolchain.h>
+#include <driver/Options.h>
+#include <driver/GlobalOptions.h>
+#include <util/Logging.h>
 
-namespace spnc {
-    Kernel spn_compiler::parseJSON(const std::string &inputFile) {
-      auto job = MLIRToolchain::constructJobFromFile(inputFile);
-      auto kernel = job->execute();
-      std::cout << "\nFile: " << kernel.fileName() << " Function: " << kernel.kernelName() << std::endl;
-      return kernel;
-    }
+using namespace spnc;
 
-    Kernel spn_compiler::parseJSONString(const std::string &jsonString) {
-      auto job = CPUToolchain::constructJobFromString(jsonString);
-      auto& kernel = job->execute();
-      return kernel;
-    }
+Kernel spn_compiler::parseJSON(const std::string& inputFile, const options_t& options) {
+  SPDLOG_INFO("Welcome to the SPN compiler!");
+  interface::Options::dump();
+  auto config = interface::Options::parse(options);
+  std::unique_ptr<Job<Kernel>> job;
+  if (spnc::option::useMLIRToolchain.get(*config)) {
+    job = MLIRToolchain::constructJobFromFile(inputFile, *config);
+  } else {
+    job = CPUToolchain::constructJobFromFile(inputFile, *config);
+  }
+  auto& kernel = job->execute();
+  SPDLOG_INFO("Generated Kernel in {}, kernel name {}", kernel.fileName(), kernel.kernelName());
+  return kernel;
 }
+
+Kernel spn_compiler::parseJSONString(const std::string& jsonString, const options_t& options) {
+  SPDLOG_INFO("Welcome to the SPN compiler!");
+  interface::Options::dump();
+  auto config = interface::Options::parse(options);
+  std::unique_ptr<Job<Kernel>> job;
+  if (spnc::option::useMLIRToolchain.get(*config)) {
+    job = MLIRToolchain::constructJobFromString(jsonString, *config);
+  } else {
+    job = CPUToolchain::constructJobFromString(jsonString, *config);
+  }
+  auto& kernel = job->execute();
+  SPDLOG_INFO("Generated Kernel in {}, kernel name '{}'", kernel.fileName(), kernel.kernelName());
+  return kernel;
+}
+
 

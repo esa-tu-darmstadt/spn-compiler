@@ -9,7 +9,7 @@
 #include <mlir/IR/Builders.h>
 #include <unordered_map>
 #include <graph-ir/GraphIRNode.h>
-#include <transform/BaseVisitor.h>
+#include <graph-ir/transform/BaseVisitor.h>
 #include "mlir/IR/StandardTypes.h"
 
 namespace spnc {

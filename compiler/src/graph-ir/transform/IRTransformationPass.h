@@ -1,5 +1,6 @@
 //
-// Created by ls on 1/14/20.
+// This file is part of the SPNC project.
+// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
 #ifndef SPNC_IRTRANSFORMATIONPASS_H
@@ -12,14 +13,23 @@
 
 namespace spnc {
 
+  ///
+  /// Base class for transformation passes operating on the graph-based IR.
+  /// A transformation can be integrated into the toolchain as action.
+  /// The transformed result is cached to avoid unnecessary recomputations.
   class IRTransformationPass : public ActionSingleInput<IRGraph, IRGraph> {
 
   public:
 
+    /// Constructor.
+    /// \param _input Action providing the input SPN graph.
+    /// \param context GraphIRContext to manage nodes.
     explicit IRTransformationPass(ActionWithOutput<IRGraph>& _input, std::shared_ptr<GraphIRContext> context);
 
     IRGraph& execute() override;
 
+    /// Execute the transformation.
+    /// \param input Input SPN graph.
     virtual void transform(IRGraph& input) = 0;
 
   private:
@@ -28,6 +38,8 @@ namespace spnc {
 
   protected:
 
+    ///
+    /// IR graph resulting from transformation.
     IRGraph transformedGraph;
 
   };
