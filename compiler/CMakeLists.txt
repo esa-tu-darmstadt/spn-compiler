@@ -5,17 +5,21 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 add_definitions(${LLVM_DEFINITIONS})
 
+add_subdirectory(src/codegen/mlir/dialects/spn)
+
 add_library(spnc SHARED
         src/driver/option/Options.cpp
         src/Driver.cpp
         src/driver/util/Logging.cpp
         src/driver/option/GlobalOptions.cpp
         src/driver/toolchain/CPUToolchain.cpp
+        src/driver/toolchain/MLIRToolchain.cpp
         src/driver/action/LLVMWriteBitcode.cpp
         src/driver/action/LLVMStaticCompiler.cpp
         src/driver/action/LLVMLinker.cpp
         src/driver/action/DetectTracingLib.cpp
         src/driver/action/ClangKernelLinking.cpp
+        src/driver/action/MLIRtoLLVMConversion.cpp
         src/graph-ir/GraphIRNode.cpp
         src/graph-ir/InputVar.cpp
         src/graph-ir/Histogram.cpp
@@ -32,7 +36,22 @@ add_library(spnc SHARED
         src/codegen/llvm-ir/CPU/body/CodeGenScalarBody.cpp
         src/codegen/llvm-ir/CPU/loop/CodeGenSerialLoop.cpp
         src/codegen/llvm-ir/pipeline/LLVMPipeline.cpp
-        src/codegen/llvm-ir/transform/NumericalValueTracingPass.cpp)
+        src/codegen/llvm-ir/transform/NumericalValueTracingPass.cpp
+        src/codegen/mlir/dialects/spn/SPNDialect.cpp
+        src/codegen/mlir/dialects/spn/SPNAttributes.cpp
+        src/codegen/mlir/dialects/spn/SPNOpInterfaces.cpp
+        src/codegen/mlir/MLIRCodeGen.cpp
+        src/codegen/mlir/MLIRBodyGen.cpp
+        src/codegen/mlir/transform/pattern/CanonicalizationPatterns.cpp
+        src/codegen/mlir/transform/pattern/SimplificationPatterns.cpp
+        src/codegen/mlir/transform/passes/SPNOpSimplifier.cpp
+        src/codegen/mlir/pipeline/MLIRPipeline.cpp
+        src/codegen/mlir/lowering/patterns/LowerSPNtoStandardPatterns.cpp
+        src/codegen/mlir/lowering/passes/SPNtoStandardLoweringPass.cpp
+        src/codegen/mlir/lowering/patterns/LowerSPNtoLLVMPatterns.cpp
+        src/codegen/mlir/lowering/passes/SPNToLLVMLoweringPass.cpp)
+
+message(STATUS "MLIR Include:" ${MLIR_INCLUDE_DIRS})
 
 target_include_directories(spnc
         PUBLIC
@@ -44,10 +63,55 @@ target_include_directories(spnc
 
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${LLVM_INCLUDE_DIRS})
+        ${LLVM_INCLUDE_DIRS}
+        ${MLIR_INCLUDE_DIRS}
+        ${CMAKE_CURRENT_BINARY_DIR})
 
-llvm_map_components_to_libnames(llvm_libs bitwriter passes)
-target_link_libraries(spnc PRIVATE ${llvm_libs} spdlog::spdlog)
+set(mlir_libs
+        MLIRAnalysis
+        MLIRAffineOps
+        MLIRAffineToStandard
+        MLIRLoopsToGPU
+        MLIRLinalgToLLVM
+        MLIRLoopToStandard
+        MLIREDSC
+        MLIRExecutionEngine
+        MLIRFxpMathOps
+        MLIRGPU
+        MLIRGPUtoNVVMTransforms
+        MLIRGPUtoROCDLTransforms
+        MLIRGPUtoSPIRVTransforms
+        MLIRLinalgOps
+        MLIRLLVMIR
+        MLIRLoopOps
+        MLIRNVVMIR
+        MLIROpenMP
+        MLIRParser
+        MLIRPass
+        MLIRQuantizerTransforms
+        MLIRQuantOps
+        MLIRROCDLIR
+        MLIRSPIRV
+        MLIRStandardToSPIRVTransforms
+        MLIRSPIRVTestPasses
+        MLIRSPIRVTransforms
+        MLIRStandardOps
+        MLIRStandardToLLVM
+        MLIRTransforms
+        MLIRTestDialect
+        MLIRTestIR
+        MLIRTestPass
+        MLIRTestTransforms
+        MLIRSupport
+        MLIRVectorOps
+        MLIRVectorToLLVM
+        MLIRVectorToLoops
+        )
+
+llvm_map_components_to_libnames(llvm_libs bitwriter native passes)
+target_link_libraries(spnc PRIVATE spnc-common ${mlir_libs} ${llvm_libs} spdlog::spdlog)
+
+add_dependencies(spnc SPNOpsIncGen SPNOpInterfaceGen)
 
 doxygen_doc(TARGET_NAME spnc
         SRC_DIRECTORIES

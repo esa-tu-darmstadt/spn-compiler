@@ -20,3 +20,5 @@ EnumOpt spnc::option::compilationTarget{"target",
                                         {required()}};
 
 Option<bool> spnc::option::deleteTemporaryFiles{"delete-temps", true};
+
+Option<bool> spnc::option::useMLIRToolchain{"use-mlir", true};

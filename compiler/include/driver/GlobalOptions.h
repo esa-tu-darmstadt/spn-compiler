@@ -39,6 +39,10 @@ namespace spnc {
     /// should be deleted after the compilation completes. Defaults to true.
     extern Option<bool> deleteTemporaryFiles;
 
+    ///
+    /// Flag to indicate whether the MLIR based toolchain should be used.
+    extern Option<bool> useMLIRToolchain;
+
   }
 }
 
