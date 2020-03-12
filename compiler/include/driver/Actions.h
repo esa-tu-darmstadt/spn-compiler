@@ -47,6 +47,8 @@ namespace spnc {
     explicit ActionSingleInput(ActionWithOutput<Input>& _input) : input{_input} {}
 
   protected:
+    ///
+    /// Reference to action providing input.
     ActionWithOutput<Input>& input;
 
   };
@@ -66,7 +68,13 @@ namespace spnc {
         : input1{_input1}, input2{_input2} {}
 
   protected:
+
+    ///
+    /// Reference to action providing first input.
     ActionWithOutput<Input1>& input1;
+
+    ///
+    /// Reference to action providing second input.
     ActionWithOutput<Input2>& input2;
 
   };

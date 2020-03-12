@@ -24,6 +24,10 @@ using namespace llvm;
 class NumericalValueTracingPass : public PassInfoMixin<NumericalValueTracingPass> {
 
 public:
+  /// Pass entry point.
+  /// \param MOD LLVM Module.
+  /// \param MAM Analysis manager.
+  /// \return Information about analyses preserved by this pass.
   PreservedAnalyses run(Module& MOD, ModuleAnalysisManager& MAM);
 
 private:

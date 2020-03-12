@@ -18,7 +18,13 @@ using json = nlohmann::json;
 
 enum class NODETYPE { SUM, PRODUCT, HISTOGRAM };
 
-typedef struct { int level; } GraphStatLevelInfo;
+///
+/// Detail level of graph statistics.
+typedef struct {
+  ///
+  /// Detail level.
+  int level;
+} GraphStatLevelInfo;
 
 namespace spnc {
 

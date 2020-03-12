@@ -29,8 +29,13 @@ namespace spnc_rt {
 
     Executable& operator=(const Executable&) = delete;
 
+    /// Move constructor.
+    /// \param other Move source.
     Executable(Executable&& other) noexcept;
 
+    /// Move assignment operator.
+    /// \param other Move source.
+    /// \return Reference to move target.
     Executable& operator=(Executable&& other) noexcept;
 
     ~Executable();

@@ -42,8 +42,12 @@ namespace spnc {
 
   protected:
 
+    ///
+    /// Surrounding LLVM IR Module.
     Module& module;
 
+    ///
+    /// SPN graph.
     IRGraph& graph;
 
   };

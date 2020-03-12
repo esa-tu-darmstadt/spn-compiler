@@ -181,6 +181,8 @@ namespace spnc {
 
     protected:
 
+      ///
+      /// String identifier of this option.
       std::string keyName;
 
     };
@@ -207,6 +209,8 @@ namespace spnc {
 
     protected:
 
+      ///
+      /// The Option that this modifier was attached to.
       Opt* modified = nullptr;
 
     };
@@ -284,10 +288,16 @@ namespace spnc {
       }
 
       // DANGER ZONE: Correct static initialization order required.
+      ///
+      /// Mapping of string identifier to Option (parser).
       static std::unordered_map<std::string, Opt*> options;
 
+      ///
+      /// All available, registered modifiers.
       static std::vector<std::unique_ptr<OptModifier>> allModifiers;
 
+      ///
+      /// Modifiers attached to registered options.
       static std::vector<OptModifier*> activeModifiers;
 
     };
@@ -317,6 +327,10 @@ namespace spnc {
         Options::addOption(keyName, this, modifier);
       }
 
+      /// Parse the option.
+      /// \param key String identifier of the option to parse.
+      /// \param value Value to parse.
+      /// \return llvm::None if the string identifier did not match, otherwise the parsed value.
       llvm::Optional<std::unique_ptr<OptValue>> parse(const std::string& key,
                                                       const std::string& value) override {
         if (key != keyName) {
@@ -355,12 +369,19 @@ namespace spnc {
 
     protected:
 
+      /// Retrieve value from configuration. Does not check for presence.
+      /// \param config Option configuration.
+      /// \return Value.
       Value getVal(const Configuration& config) {
         return dynamic_cast<OptionValue<Value>&>(config.get(keyName)).get();
       }
 
+      ///
+      /// Indicates if this Option has a default value.
       bool hasDefault = false;
 
+      ///
+      /// The default value, if it exists.
       Value defaultValue;
 
     };
@@ -368,8 +389,14 @@ namespace spnc {
     ///
     /// One possible value for an EnumOpt.
     struct OptionEnumValue {
+      ///
+      /// String identifer of this enumerated value.
       std::string name;
+      ///
+      /// Underlying integer value of the enumerated value.
       int value;
+      ///
+      /// Help description.
       std::string desc;
     };
 

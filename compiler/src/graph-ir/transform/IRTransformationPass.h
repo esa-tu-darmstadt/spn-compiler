@@ -38,6 +38,8 @@ namespace spnc {
 
   protected:
 
+    ///
+    /// IR graph resulting from transformation.
     IRGraph transformedGraph;
 
   };

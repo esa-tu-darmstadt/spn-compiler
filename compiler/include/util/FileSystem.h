@@ -16,6 +16,8 @@ namespace spnc {
   template<FileType Type>
   class File;
 
+  ///
+  /// Helper class providing methods to manage external files.
   class FileSystem {
 
   public:
@@ -23,6 +25,8 @@ namespace spnc {
     template<FileType Type>
     static File<Type> createTempFile(bool deleteTmpOnExit = true);
 
+    /// Delete the file given by the path.
+    /// \param fileName File path of the file to delete.
     static void deleteFile(const std::string& fileName) {
       std::remove(fileName.c_str());
     }
@@ -64,11 +68,16 @@ namespace spnc {
 
     void operator=(File const&) = delete;
 
+    /// Move constructor.
+    /// \param other Move source.
     File(File&& other) noexcept : fName{other.fName}, deleteOnExit{other.deleteOnExit} {
       other.fName = "";
       other.deleteOnExit = false;
     }
 
+    /// Move assignment.
+    /// \param other Move source.
+    /// \return Reference to the move target.
     File& operator=(File&& other) noexcept {
       fName = std::move(other.fName);
       deleteOnExit = std::move(other.deleteOnExit);

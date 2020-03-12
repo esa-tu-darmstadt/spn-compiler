@@ -32,6 +32,10 @@ namespace spnc {
     /// \return Simplified string representation.
     virtual std::string dump() const;
 
+    /// Print graph-IR node to output stream.
+    /// \param os Output stream.
+    /// \param node Node to print.
+    /// \return Reference to the output stream.
     friend std::ostream& operator<<(std::ostream& os, const GraphIRNode& node);
 
     /// Get the unique ID.
@@ -78,7 +82,17 @@ namespace spnc {
   ///
   /// Histogram bucket, consisting of an inclusive lower bound,
   /// an exclusive upper bound and the associated value.
-  struct HistogramBucket { int lowerBound; int upperBound; double value; };
+  struct HistogramBucket {
+    ///
+    /// Inclusive lower bound.
+    int lowerBound;
+    ///
+    /// Exclusive upper bound.
+    int upperBound;
+    ///
+    /// Associated probability value.
+    double value;
+  };
 
   ///
   /// Histogram as SPN leaf node.
@@ -110,7 +124,14 @@ namespace spnc {
   ///
   /// Addend for a WeightedSum, consisting of the child node and the corresponding weight.
   ///
-  struct WeightedAddend { NodeReference addend; double weight; };
+  struct WeightedAddend {
+    ///
+    /// Child node.
+    NodeReference addend;
+    ///
+    /// Associated weight.
+    double weight;
+  };
 
   ///
   /// N-ary weighted sum, where a weight is associated with each child node.

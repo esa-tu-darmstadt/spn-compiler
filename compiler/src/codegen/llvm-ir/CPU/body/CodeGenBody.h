@@ -47,8 +47,14 @@ namespace spnc {
     virtual Value* emitBody(IRGraph& graph, Value* indVar, InputVarValueMap inputs, OutputAddressMap output) = 0;
 
   protected:
+    ///
+    /// Surrounding LLVM IR Module.
     Module& module;
+    ///
+    /// Surrounding LLVM IR Function.
     Function& function;
+    ///
+    /// IRBuilder used to create instructions.
     IRBuilder<>& builder;
   };
 }
