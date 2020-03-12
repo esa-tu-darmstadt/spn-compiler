@@ -1,10 +1,10 @@
 //
-// Created by ls on 10/7/19.
+// This file is part of the SPNC project.
+// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
 #ifndef SPNC_GRAPHIRNODE_H
 #define SPNC_GRAPHIRNODE_H
-
 
 #include <string>
 #include <utility>
@@ -12,107 +12,186 @@
 #include <memory>
 
 namespace spnc {
-    /*
-     * Forward declaration of types related to the visitor to break circular dependency.
-     */
-    class Visitor;
-    typedef std::shared_ptr<void> arg_t;
+  /*
+   * Forward declaration of types related to the visitor to break circular dependency.
+   */
+  class Visitor;
+  typedef std::shared_ptr<void> arg_t;
 
-    class GraphIRNode {
+  ///
+  /// Base class of all nodes of the graph-based IR.
+  ///
+  class GraphIRNode {
 
-    public:
-      explicit GraphIRNode(std::string id);
+  public:
+    /// Constructor.
+    /// \param id Unique ID of the node.
+    explicit GraphIRNode(std::string id);
 
-      virtual std::string dump() const;
+    /// Simple string representation of the node.
+    /// \return Simplified string representation.
+    virtual std::string dump() const;
 
-      friend std::ostream& operator<<(std::ostream& os, const GraphIRNode& node);
+    /// Print graph-IR node to output stream.
+    /// \param os Output stream.
+    /// \param node Node to print.
+    /// \return Reference to the output stream.
+    friend std::ostream& operator<<(std::ostream& os, const GraphIRNode& node);
 
-      std::string id() const;
+    /// Get the unique ID.
+    /// \return Unique ID as string.
+    std::string id() const;
 
-      virtual void accept(Visitor& visitor, arg_t arg) = 0;
+    /// Part of the visitor pattern, accept the visitor.
+    /// \param visitor Visitor.
+    /// \param arg Pass-through argument.
+    virtual void accept(Visitor& visitor, arg_t arg) = 0;
 
-      virtual ~GraphIRNode() {}
+    virtual ~GraphIRNode() {}
 
-    private:
-      std::string _id;
+  private:
+    std::string _id;
 
-    };
+  };
 
   using NodeReference = GraphIRNode*;
 
-    class InputVar : public GraphIRNode {
+  ///
+  /// SPN feature (input variable).
+  ///
+  class InputVar : public GraphIRNode {
 
-    public:
-        InputVar(std::string id, int index);
+  public:
+    /// Constructor.
+    /// \param id Unique string ID.
+    /// \param index Index of the feature, corresponding to the index of the feature in the input vector.
+    InputVar(std::string id, int index);
 
-        int index() const;
+    /// Index of the feature.
+    /// \return Index.
+    int index() const;
 
-        std::string dump() const override;
+    std::string dump() const override;
 
-        void accept(Visitor& visitor, arg_t arg) override ;
+    void accept(Visitor& visitor, arg_t arg) override;
 
-    private:
-        int _index;
-    };
+  private:
+    int _index;
+  };
 
-    struct HistogramBucket{int lowerBound; int upperBound; double value;};
+  ///
+  /// Histogram bucket, consisting of an inclusive lower bound,
+  /// an exclusive upper bound and the associated value.
+  struct HistogramBucket {
+    ///
+    /// Inclusive lower bound.
+    int lowerBound;
+    ///
+    /// Exclusive upper bound.
+    int upperBound;
+    ///
+    /// Associated probability value.
+    double value;
+  };
 
-    class Histogram : public GraphIRNode {
-    public:
-      Histogram(std::string id, InputVar* indexVar, const std::vector<HistogramBucket>& buckets);
+  ///
+  /// Histogram as SPN leaf node.
+  ///
+  class Histogram : public GraphIRNode {
+  public:
+    /// Constructor.
+    /// \param id Unique string ID.
+    /// \param indexVar Associated input feature.
+    /// \param buckets List of HistogramBucket contained in this histogram.
+    Histogram(std::string id, InputVar* indexVar, const std::vector<HistogramBucket>& buckets);
 
-      InputVar& indexVar() const;
+    /// Get the associated input feature.
+    /// \return Input variable.
+    InputVar& indexVar() const;
 
-      const std::vector<HistogramBucket>& buckets() const;
+    /// Get the list of buckets associated with this histogram.
+    /// \return Bucket list.
+    const std::vector<HistogramBucket>& buckets() const;
 
-        void accept(Visitor& visitor, arg_t arg) override ;
+    void accept(Visitor& visitor, arg_t arg) override;
 
-    private:
-      InputVar* _indexVar;
+  private:
+    InputVar* _indexVar;
 
-      std::vector<HistogramBucket> _buckets;
-    };
+    std::vector<HistogramBucket> _buckets;
+  };
 
-    struct WeightedAddend{NodeReference addend; double weight;};
+  ///
+  /// Addend for a WeightedSum, consisting of the child node and the corresponding weight.
+  ///
+  struct WeightedAddend {
+    ///
+    /// Child node.
+    NodeReference addend;
+    ///
+    /// Associated weight.
+    double weight;
+  };
 
-    class WeightedSum : public GraphIRNode {
-    public:
-        WeightedSum(std::string id, const std::vector<WeightedAddend>& addends);
+  ///
+  /// N-ary weighted sum, where a weight is associated with each child node.
+  ///
+  class WeightedSum : public GraphIRNode {
 
-      const std::vector<WeightedAddend>& addends() const;
+  public:
+    /// Constructor.
+    /// \param id Unique string ID.
+    /// \param addends List of WeightedAddend.
+    WeightedSum(std::string id, const std::vector<WeightedAddend>& addends);
 
-        void accept(Visitor& visitor, arg_t arg) override ;
+    /// Get the list of addends.
+    /// \return Weighted addends.
+    const std::vector<WeightedAddend>& addends() const;
 
-    private:
-      std::vector<WeightedAddend> _addends;
-    };
+    void accept(Visitor& visitor, arg_t arg) override;
 
-    class Sum : public GraphIRNode {
-    public:
-        Sum(std::string id, const std::vector<NodeReference>& addends);
+  private:
+    std::vector<WeightedAddend> _addends;
+  };
 
-      const std::vector<NodeReference>& addends() const;
+  ///
+  /// Simple (non-weighted), n-ary sum.
+  class Sum : public GraphIRNode {
+  public:
+    /// Constructor.
+    /// \param id Unique string ID.
+    /// \param addends List of addends.
+    Sum(std::string id, const std::vector<NodeReference>& addends);
 
-        void accept(Visitor& visitor, arg_t arg) override ;
+    /// Get the list of addends.
+    /// \return Child nodes.
+    const std::vector<NodeReference>& addends() const;
 
-    private:
-      std::vector<NodeReference> _addends;
-    };
+    void accept(Visitor& visitor, arg_t arg) override;
 
-    class Product : public GraphIRNode {
-    public:
-        Product(std::string id, const std::vector<NodeReference>& multiplicands);
+  private:
+    std::vector<NodeReference> _addends;
+  };
 
-      const std::vector<NodeReference>& multiplicands() const;
+  ///
+  /// N-ary product.
+  class Product : public GraphIRNode {
+  public:
+    /// Constructor.
+    /// \param id Unique string ID.
+    /// \param multiplicands List of multiplicands.
+    Product(std::string id, const std::vector<NodeReference>& multiplicands);
 
-        void accept(Visitor& visitor, arg_t arg) override ;
+    /// Get the list of multiplicands.
+    /// \return Child nodes.
+    const std::vector<NodeReference>& multiplicands() const;
 
-    private:
-      std::vector<NodeReference> _multiplicands;
-    };
+    void accept(Visitor& visitor, arg_t arg) override;
+
+  private:
+    std::vector<NodeReference> _multiplicands;
+  };
 
 }
-
-
 
 #endif //SPNC_GRAPHIRNODE_H

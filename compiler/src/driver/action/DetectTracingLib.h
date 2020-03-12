@@ -12,18 +12,17 @@
 
 namespace spnc {
 
-  using BitcodeFile = File<FileType::LLVM_BC>;
-
-  class DetectTracingLib : public ActionWithOutput<BitcodeFile> {
+  ///
+  /// Action to locate the tracing library provided as LLVM bitcode library.
+  class DetectTracingLib : public ActionWithOutput<LLVMBitcode> {
 
   public:
-    explicit DetectTracingLib();
 
-    BitcodeFile& execute() override;
+    LLVMBitcode& execute() override;
 
   private:
 
-    std::unique_ptr<BitcodeFile> outFile;
+    std::unique_ptr<LLVMBitcode> outFile;
 
     bool cached = false;
 

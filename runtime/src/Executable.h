@@ -1,5 +1,6 @@
 //
-// Created by ls on 1/20/20.
+// This file is part of the SPNC project.
+// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
 #ifndef SPNC_EXECUTABLE_H
@@ -12,38 +13,50 @@ using namespace spnc;
 
 namespace spnc_rt {
 
-    typedef void (*kernel_function_t)(size_t num_elements, void* inputs, double* output);
+  typedef void (* kernel_function_t)(size_t num_elements, void* inputs, double* output);
 
-    class Executable {
+  ///
+  /// Manages a Kernel by loading it from the shared object using libelf.
+  class Executable {
 
-    public:
-        explicit Executable(const Kernel& kernel);
+  public:
 
-        Executable(const Executable&) = delete;
+    /// Constructor.
+    /// \param kernel Kernel to load and eventually execute.
+    explicit Executable(const Kernel& kernel);
 
-        Executable& operator=(const Executable&) = delete;
+    Executable(const Executable&) = delete;
 
-        Executable(Executable&& other) noexcept ;
+    Executable& operator=(const Executable&) = delete;
 
-        Executable& operator=(Executable&& other) noexcept ;
+    /// Move constructor.
+    /// \param other Move source.
+    Executable(Executable&& other) noexcept;
 
-        ~Executable();
+    /// Move assignment operator.
+    /// \param other Move source.
+    /// \return Reference to move target.
+    Executable& operator=(Executable&& other) noexcept;
 
-        void execute(size_t num_elements, void* inputs, double* outputs);
+    ~Executable();
 
-    private:
-        const Kernel * kernel;
+    /// Execute the Kernel.
+    /// \param num_elements Number of queries in the batch.
+    /// \param inputs Input SPN evidence.
+    /// \param outputs SPN output probabilities.
+    void execute(size_t num_elements, void* inputs, double* outputs);
 
-        void* handle;
+  private:
+    const Kernel* kernel;
 
-        kernel_function_t kernel_func;
+    void* handle;
 
-        void initialize();
+    kernel_function_t kernel_func;
 
-    };
+    void initialize();
+
+  };
 
 }
-
-
 
 #endif //SPNC_EXECUTABLE_H

@@ -15,20 +15,19 @@
 #include <llvm/Support/raw_ostream.h>
 #include <codegen/llvm-ir/CPU/body/CodeGenBody.h>
 
-/**
-  * Header file for the LLVM loadable plugin to trace computations / numerical values
-  */
-
-/*
-  The NumericalValueTracingPass will iterate over Functions in the provided Module.
-  Basically: information is collected, then the respective "Inst" is traced.
-*/
-
 using namespace llvm;
 
+///
+/// LLVM loadable plugin to trace computations / numerical values.
+/// The NumericalValueTracingPass will iterate over Functions in the provided Module.
+///  Basically: information is collected, then the respective "Inst" is traced.
 class NumericalValueTracingPass : public PassInfoMixin<NumericalValueTracingPass> {
 
 public:
+  /// Pass entry point.
+  /// \param MOD LLVM Module.
+  /// \param MAM Analysis manager.
+  /// \return Information about analyses preserved by this pass.
   PreservedAnalyses run(Module& MOD, ModuleAnalysisManager& MAM);
 
 private:

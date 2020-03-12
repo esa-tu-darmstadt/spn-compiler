@@ -15,7 +15,6 @@ Option<std::string> spnc::option::graphStatsFile{"graph-stats-file",
                                                  {depends(spnc::option::collectGraphStats, true)}};
 
 using spnc::option::TargetMachine;
-
 EnumOpt spnc::option::compilationTarget{"target",
                                         {EnumVal(CPU, "CPU")},
                                         {required()}};

@@ -1,5 +1,6 @@
 //
-// Created by ls on 10/8/19.
+// This file is part of the SPNC project.
+// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
 #ifndef SPNC_PARSER_H
@@ -17,10 +18,15 @@ using json = nlohmann::json;
 
 namespace spnc {
 
+  ///
+  /// Parser action parsing the SPN graph from its JSON serialization.
   class Parser : public ActionSingleInput<std::string, IRGraph> {
 
   public:
 
+    /// Constructor.
+    /// \param _input Action providing the input JSON serialization.
+    /// \param context GraphIRContext for the generated graph-IR.
     explicit Parser(ActionWithOutput<std::string>& _input, std::shared_ptr<GraphIRContext> context);
 
     IRGraph& execute() override;
@@ -43,12 +49,9 @@ namespace spnc {
 
     IRGraph graph;
 
-        bool cached = false;
-    };
+    bool cached = false;
+  };
 
 }
-
-
-
 
 #endif //SPNC_PARSER_H
