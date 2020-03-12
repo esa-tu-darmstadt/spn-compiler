@@ -10,7 +10,7 @@ target_include_directories(spnc-rt
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-target_link_libraries(spnc-rt PRIVATE elf spnc-common)
+target_link_libraries(spnc-rt PRIVATE elf spnc-common spdlog::spdlog)
 
 doxygen_doc(TARGET_NAME spnc-rt
         SRC_DIRECTORIES

@@ -9,7 +9,7 @@
 #include <vector>
 #include <sstream>
 #include <iostream>
-#include "Logging.h"
+#include "util/Logging.h"
 
 namespace spnc {
 

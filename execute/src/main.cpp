@@ -1,5 +1,6 @@
 //
-// Created by ls on 10/8/19.
+// This file is part of the SPNC project.
+// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
 #include <spnc.h>

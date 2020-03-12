@@ -4,7 +4,6 @@
 //
 
 #include <spnc.h>
-#include <iostream>
 #include <driver/toolchain/CPUToolchain.h>
 #include <driver/Options.h>
 #include <util/Logging.h>
