@@ -12,6 +12,8 @@
 namespace mlir {
   namespace spn {
 
+    ///
+    /// Pattern to rewrite a HistogramValueOp to operations from the LLVM dialect.
     struct HistogramValueLowering : public SPNOpLowering<HistogramValueOp> {
 
       using SPNOpLowering<HistogramValueOp>::SPNOpLowering;

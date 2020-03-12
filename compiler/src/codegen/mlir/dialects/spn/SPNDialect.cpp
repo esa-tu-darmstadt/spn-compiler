@@ -17,6 +17,7 @@ using namespace mlir::spn;
 /// Dialect creation, the instance will be owned by the context. This is the
 /// point of registration of custom types and operations for the dialect.
 SPNDialect::SPNDialect(mlir::MLIRContext* ctx) : mlir::Dialect("spn", ctx) {
+  // Register all SPN dialect operations.
   addOperations<
 #define GET_OP_LIST
 #include "src/codegen/mlir/dialects/spn/SPNOps.cpp.inc"
@@ -27,10 +28,8 @@ SPNDialect::SPNDialect(mlir::MLIRContext* ctx) : mlir::Dialect("spn", ctx) {
 
 //===----------------------------------------------------------------------===//
 // ConstantOp
+//===----------------------------------------------------------------------===//
 
-/// Build a constant operation.
-/// The builder is passed as an argument, so is the state that this method is
-/// expected to fill in order to build the operation.
 void ConstantOp::build(mlir::Builder* builder, mlir::OperationState& state,
                        double value) {
   ConstantOp::build(builder, state, builder->getF64Type(), builder->getF64FloatAttr(value));
@@ -44,6 +43,10 @@ void ReturnOp::build(Builder* b, OperationState& state, Value retValue) {
   build(b, state, ValueRange{retValue});
 }
 
+//===----------------------------------------------------------------------===//
+// N-ary operations.
+//===----------------------------------------------------------------------===//
+
 template<typename NAryOp>
 static mlir::LogicalResult verify(NAryOp op) {
   auto numOperands = std::distance(op.operands().begin(), op.operands().end());
@@ -52,6 +55,11 @@ static mlir::LogicalResult verify(NAryOp op) {
   }
   return mlir::success();
 }
+
+
+//===----------------------------------------------------------------------===//
+// ProductOp
+//===----------------------------------------------------------------------===//
 
 template mlir::LogicalResult verify<ProductOp>(ProductOp op);
 
@@ -64,6 +72,11 @@ void ProductOp::getCanonicalizationPatterns(OwningRewritePatternList& results, M
   results.insert<ConstantFoldProductOp>(context);
 }
 
+
+//===----------------------------------------------------------------------===//
+// SumOp
+//===----------------------------------------------------------------------===//
+
 template mlir::LogicalResult verify<SumOp>(SumOp op);
 
 void SumOp::build(Builder* b, OperationState& state, llvm::ArrayRef<Value> operands) {
@@ -74,6 +87,11 @@ void SumOp::getCanonicalizationPatterns(OwningRewritePatternList& results, MLIRC
   results.insert<ReduceSumOp>(context);
   results.insert<ConstantFoldSumOp>(context);
 }
+
+
+//===----------------------------------------------------------------------===//
+// WeightedSumOp
+//===----------------------------------------------------------------------===//
 
 static mlir::LogicalResult verify(WeightedSumOp op) {
   auto numAddends = std::distance(op.operands().begin(), op.operands().end());
@@ -104,6 +122,11 @@ void WeightedSumOp::getCanonicalizationPatterns(OwningRewritePatternList& result
   results.insert<ReduceWeightedSumOp>(context);
   results.insert<ConstantFoldWeightedSumOp>(context);
 }
+
+
+//===----------------------------------------------------------------------===//
+// HistogramOp
+//===----------------------------------------------------------------------===//
 
 static mlir::LogicalResult verify(HistogramOp op) {
   int64_t lb = std::numeric_limits<int64_t>::min();
@@ -139,6 +162,8 @@ static mlir::LogicalResult verify(HistogramOp op) {
 void HistogramOp::build(Builder* b, OperationState& state, Value index,
                         llvm::ArrayRef<std::tuple<int, int, double> > buckets) {
   SmallVector<mlir::Attribute, 256> bucketList;
+  // Create StructAttr for each bucket, comprising the inclusive lower bound,
+  // the exclusive lower bound and the probability value.
   for (auto& bucket : buckets) {
     auto bucketAttr = Bucket::get(b->getI64IntegerAttr(std::get<0>(bucket)),
                                   b->getI64IntegerAttr(std::get<1>(bucket)),
@@ -176,6 +201,11 @@ void HistogramValueOp::build(Builder* b, OperationState& state, llvm::ArrayRef<d
   build(b, state, memRefType, valuesAttr, lbAttr, ubAttr);
 }
 
+
+//===----------------------------------------------------------------------===//
+// InputVarOp
+//===----------------------------------------------------------------------===//
+
 static mlir::LogicalResult verify(InputVarOp op) {
   auto index = op.index().getZExtValue();
   auto blockArgument = op.getParentRegion()->front().getArgument(index);
@@ -188,6 +218,11 @@ static mlir::LogicalResult verify(InputVarOp op) {
 void InputVarOp::build(Builder* b, OperationState& state, Value input, size_t index) {
   build(b, state, b->getIntegerType(32), input, b->getI32IntegerAttr((uint32_t) index));
 }
+
+
+//===----------------------------------------------------------------------===//
+// QueryInterface
+//===----------------------------------------------------------------------===//
 
 static mlir::LogicalResult verifyQuery(QueryInterface op) {
   if (auto callOp = dyn_cast<CallOpInterface>(&*op)) {
@@ -210,6 +245,11 @@ static mlir::LogicalResult verifyQuery(QueryInterface op) {
   }
   return mlir::success();
 }
+
+
+//===----------------------------------------------------------------------===//
+// SPNSingleQueryOp
+//===----------------------------------------------------------------------===//
 
 CallInterfaceCallable SPNSingleQueryOp::getCallableForCallee() {
   return getAttrOfType<SymbolRefAttr>("spn");
@@ -247,6 +287,11 @@ static mlir::LogicalResult verify(SPNSingleQueryOp op) {
   }
   return mlir::success();
 }
+
+
+//===----------------------------------------------------------------------===//
+// SPNJointProbBatch
+//===----------------------------------------------------------------------===//
 
 CallInterfaceCallable SPNJointProbBatch::getCallableForCallee() {
   return getAttrOfType<SymbolRefAttr>("spn");

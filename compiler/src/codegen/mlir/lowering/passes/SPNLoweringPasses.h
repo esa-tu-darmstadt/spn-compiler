@@ -10,7 +10,14 @@
 
 namespace mlir {
   namespace spn {
+    /// Create a pass lowering SPN dialect operations to
+    /// operations from the Standard dialect.
+    /// \return Owning pointer to the created pass.
     std::unique_ptr<Pass> createSPNtoStandardLoweringPass();
+
+    /// Create a pass lowering SPN dialect operations to
+    /// operations from the LLVM dialect.
+    /// \return Owning pointer to the created pass.
     std::unique_ptr<Pass> createSPNtoLLVMLoweringPass();
   }
 }

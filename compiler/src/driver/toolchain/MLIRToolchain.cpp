@@ -58,7 +58,7 @@ std::unique_ptr<Job<Kernel>> MLIRToolchain::constructJob(std::unique_ptr<ActionW
   auto& compileObject = job->insertAction<LLVMStaticCompiler>(writeBitcode, std::move(objectFile));
   // Link generated object file into shared object.
   auto sharedObject = FileSystem::createTempFile<FileType::SHARED_OBJECT>(false);
-  std::cout << "Compiling to object-file " << sharedObject.fileName() << std::endl;
+  SPDLOG_INFO("Compiling to shared object file {}", sharedObject.fileName());
   auto& linkSharedObject =
       job->insertFinalAction<ClangKernelLinking>(compileObject, std::move(sharedObject), kernelName);
 

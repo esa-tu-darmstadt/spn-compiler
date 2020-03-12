@@ -3,6 +3,9 @@ include "mlir/IR/OpBase.td"
 #ifndef QUERY_OP_INTERFACE
 #define QUERY_OP_INTERFACE
 
+///
+/// Common interface of all SPN dialect operations
+/// representing query executions.
 def QueryOpInterface : OpInterface<"QueryInterface"> {
 
   let description = [{

@@ -14,12 +14,22 @@ using namespace spnc::interface;
 
 namespace spnc {
 
+  ///
+  /// Toolchain generating code for CPUs using LLVM.
   class MLIRToolchain {
 
   public:
+    /// Construct a job reading the SPN from an input file.
+    /// \param inputFile Input file.
+    /// \param config Compilation option configuration.
+    /// \return Job containing all necessary actions.
     static std::unique_ptr<Job<Kernel>> constructJobFromFile(const std::string& inputFile,
                                                              const Configuration& config);
 
+    /// Construct a job reading the SPN from an input string.
+    /// \param inputString Input string.
+    /// \param config Compilation option configuration.
+    /// \return Job containing all necessary actions.
     static std::unique_ptr<Job<Kernel>> constructJobFromString(const std::string& inputString,
                                                                const Configuration& config);
 

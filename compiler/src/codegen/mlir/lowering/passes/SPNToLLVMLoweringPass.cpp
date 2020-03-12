@@ -22,20 +22,24 @@ namespace {
 
       ConversionTarget target(getContext());
 
+      // Only operations from the LLVM dialect and modules will be legal after running this pass.
       target.addLegalDialect<LLVM::LLVMDialect>();
       target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
 
+      // Mark all operations from the SPN and Standard dialect as illegal.
       target.addIllegalDialect<SPNDialect>();
       target.addIllegalDialect<StandardOpsDialect>();
 
       LLVMTypeConverter typeConverter(&getContext());
 
+      // Create and populate list of pattern used for conversion.
       OwningRewritePatternList patterns;
       populateStdToLLVMConversionPatterns(typeConverter, patterns);
 
       patterns.insert<HistogramValueLowering>(&getContext(), typeConverter);
 
       auto module = getModule();
+      // Apply the full conversion to the module.
       if (failed(applyFullConversion(module, target, patterns, &typeConverter))) {
         signalPassFailure();
       }

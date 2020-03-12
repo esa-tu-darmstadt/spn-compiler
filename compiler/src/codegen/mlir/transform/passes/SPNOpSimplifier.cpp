@@ -15,6 +15,9 @@ using namespace mlir::spn;
 
 namespace {
 
+  ///
+  /// MLIR pass simplifying the operations from the SPN dialect
+  /// through a series of transformations.
   struct SPNOpSimplifier : public OperationPass<SPNOpSimplifier> {
 
     void runOnOperation() override {
@@ -36,5 +39,7 @@ std::unique_ptr<Pass> mlir::spn::createSPNSimplificationPass() {
   return std::make_unique<SPNOpSimplifier>();
 }
 
+///
+/// Make the pass available via mlir-opt.
 static PassRegistration<SPNOpSimplifier> pass("spn-simplify", "simplify SPN-dialect operations");
 

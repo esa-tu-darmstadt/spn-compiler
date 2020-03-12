@@ -22,9 +22,12 @@ namespace {
 
       ConversionTarget target(getContext());
 
+      // All operations from the Standard dialect and modules will be allowed after this pass.
       target.addLegalDialect<StandardOpsDialect>();
-
       target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
+
+      // Functions are dynamically legal, i.e. they are only legal if
+      // their signature has been converted to use MemRef instead of Tensor.
       target.addDynamicallyLegalOp<FuncOp>([](FuncOp op) {
         auto fnType = op.getType();
         return std::none_of(fnType.getInputs().begin(), fnType.getInputs().end(), [](Type t) {
@@ -32,15 +35,20 @@ namespace {
         });
       });
 
+      // Mark all operations from the SPN dialect except the HistogramValueOp as illegal.
+      // The HistogramValueOp will be converted directly into LLVM dialect later on.
       target.addIllegalDialect<SPNDialect>();
       target.addLegalOp<HistogramValueOp>();
 
+      // Instantiate the type converter for function signature rewrites.
       SPNTypeConverter typeConverter;
 
+      // Create and populate the list of patterns used for conversion.
       OwningRewritePatternList patterns;
       mlir::spn::populateSPNtoStandardConversionPatterns(patterns, &getContext(), typeConverter);
 
       auto module = getModule();
+      // Apply the conversion.
       if (failed(applyFullConversion(module, target, patterns, &typeConverter))) {
         signalPassFailure();
       }

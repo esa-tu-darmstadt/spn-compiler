@@ -10,6 +10,8 @@
 
 namespace mlir {
   namespace spn {
+    /// Instantiate the simplification pass.
+    /// \return Owning pointer to the created MLIR pass.
     std::unique_ptr<Pass> createSPNSimplificationPass();
   }
 }

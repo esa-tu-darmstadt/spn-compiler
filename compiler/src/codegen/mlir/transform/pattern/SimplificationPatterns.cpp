@@ -24,7 +24,8 @@ PatternMatchResult BinarizeWeightedSumOp::matchAndRewrite(WeightedSumOp op, Patt
     }
     ++count;
   }
-
+  // Equally split the operands into two halves and recurse,
+  // yielding a balanced tree.
   SmallVector<double, 10> leftWeights;
   SmallVector<double, 10> rightWeights;
   count = 0;

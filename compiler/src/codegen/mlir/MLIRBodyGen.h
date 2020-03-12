@@ -16,8 +16,15 @@ namespace spnc {
 
   using bucket_t = std::tuple<int, int, double>;
 
+  ///
+  /// Visitor generating SPN-dialect MLIR operations for each node in the SPN graph.
   class MLIRBodyGen : public BaseVisitor {
+
   public:
+
+    /// Constructor.
+    /// \param _builder MLIR operation builder used to create operations.
+    /// \param n2v Mapping from graph-IR node's unique ID to MLIR value.
     MLIRBodyGen(mlir::OpBuilder* _builder, std::unordered_map<std::string, mlir::Value>* n2v);
 
     void visitHistogram(Histogram& n, arg_t arg) override;

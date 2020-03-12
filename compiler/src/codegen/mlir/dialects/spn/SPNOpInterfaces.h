@@ -10,6 +10,7 @@
 
 namespace mlir {
 
+// The interfaces are generated via TableGen, just make them available.
 #include "src/codegen/mlir/dialects/spn/SPNOpInterfaces.op.interface.h.inc"
 
 }

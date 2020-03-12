@@ -15,10 +15,15 @@ using namespace mlir;
 
 namespace spnc {
 
+  ///
+  /// Action running a series of MLIR passes on a copy of the input MLIR module.
   class MLIRPipeline : public ActionSingleInput<ModuleOp, ModuleOp> {
 
   public:
 
+    /// Constructor.
+    /// \param _input Action providing the input MLIR module.
+    /// \param _mlirContext Surrounding MLIR context.
     MLIRPipeline(ActionWithOutput<ModuleOp>& _input, std::shared_ptr<MLIRContext> _mlirContext);
 
     ModuleOp& execute() override;

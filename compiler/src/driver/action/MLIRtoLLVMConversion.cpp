@@ -7,6 +7,7 @@
 #include <llvm/Support/TargetSelect.h>
 #include <mlir/ExecutionEngine/ExecutionEngine.h>
 #include <mlir/ExecutionEngine/OptUtils.h>
+#include <util/Logging.h>
 #include "MLIRtoLLVMConversion.h"
 
 using namespace spnc;
@@ -21,7 +22,7 @@ llvm::Module& spnc::MLIRtoLLVMConversion::execute() {
     inputModule.dump();
     module = mlir::translateModuleToLLVMIR(inputModule);
     if (!module) {
-      throw std::runtime_error("Conversion to LLVM IR failed!");
+      SPNC_FATAL_ERROR("Conversion to LLVM IR failed");
     }
 
     llvm::InitializeNativeTarget();
@@ -30,7 +31,7 @@ llvm::Module& spnc::MLIRtoLLVMConversion::execute() {
     // Run optimization pipeline to get rid of some clutter introduced during conversion to LLVM dialect in MLIR.
     auto optPipeline = mlir::makeOptimizingTransformer((optimize ? 3 : 0), 0, nullptr);
     if (auto err = optPipeline(module.get())) {
-      throw std::runtime_error("Optimization of LLVM IR failed!");
+      SPNC_FATAL_ERROR("Optimization of converted LLVM IR failed");
     }
     module->dump();
     cached = true;

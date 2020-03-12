@@ -20,9 +20,17 @@ using namespace mlir::spn;
 
 namespace spnc {
 
+  ///
+  /// Action generating an MLIR module for the SPN graph.
+  /// The graph-IR is turned into equivalent MLIR operations
+  /// from the SPNDialect and embedded into functions and a module.
   class MLIRCodeGen : public ActionSingleInput<IRGraph, ModuleOp> {
 
   public:
+    /// Constructor.
+    /// \param _input Action providing the input SPN graph.
+    /// \param _kernelName Name of the toplevel function.
+    /// \param _context MLIRContext to maintain the nodes.
     MLIRCodeGen(ActionWithOutput<IRGraph>& _input,
                 const std::string& _kernelName,
                 std::shared_ptr<MLIRContext> _context);

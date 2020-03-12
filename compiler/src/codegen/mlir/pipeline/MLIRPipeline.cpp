@@ -12,6 +12,7 @@
 #include <mlir/Target/LLVMIR.h>
 #include <codegen/mlir/transform/passes/SPNMLIRPasses.h>
 #include <codegen/mlir/lowering/passes/SPNLoweringPasses.h>
+#include <util/Logging.h>
 
 using namespace mlir;
 using namespace spnc;
@@ -27,10 +28,12 @@ MLIRPipeline::MLIRPipeline(spnc::ActionWithOutput<ModuleOp>& _input, std::shared
 ModuleOp& MLIRPipeline::execute() {
   if (!cached) {
     auto inputModule = input.execute();
+    // Clone the module to keep the original module available
+    // for actions using the same input module.
     module = std::make_unique<ModuleOp>(inputModule.clone());
     auto result = pm.run(*module);
     if (result.value == LogicalResult::Failure) {
-      throw std::runtime_error("Running the MLIR pass pipeline failed!");
+      SPNC_FATAL_ERROR("Running the MLIR pass pipeline failed!");
     }
     cached = true;
   }

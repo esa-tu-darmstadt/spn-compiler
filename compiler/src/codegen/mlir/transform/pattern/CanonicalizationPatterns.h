@@ -14,25 +14,43 @@
 namespace mlir {
   namespace spn {
 
+    ///
+    /// OpRewritePattern to reduce weighted sums as far as possible.
+    /// Operations with no operand are deleted.
+    /// For operations with a single operand, all uses are replaced by the operand.
+    /// If all weights are 1.0, the operation is replaced by an ordinary sum.
     struct ReduceWeightedSumOp : public mlir::OpRewritePattern<WeightedSumOp> {
 
+      /// Constructor.
+      /// \param context Surrounding MLIRContext.
       explicit ReduceWeightedSumOp(MLIRContext* context) : OpRewritePattern<WeightedSumOp>(context, 1) {}
 
       PatternMatchResult matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const override;
 
     };
 
+    ///
+    /// OpRewritePattern merging constant operands of a weighted sum into a single child node.
     struct ConstantFoldWeightedSumOp : public mlir::OpRewritePattern<WeightedSumOp> {
 
+      /// Constructor.
+      /// \param context Surrounding MLIRContext.
       explicit ConstantFoldWeightedSumOp(MLIRContext* context) : OpRewritePattern(context, 1) {}
 
       PatternMatchResult matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const override;
 
     };
 
+    /// OpRewritePattern to reduce n-ary operations as far as possible.
+    /// Operations with no operand are deleted.
+    /// For operations with a single operand, all uses are replaced by the operand.
+    /// Can only be applied to operations from the SPN dialect inheriting from SPN_NAry_Op.
+    /// \tparam NAryOp Operation type.
     template<typename NAryOp>
     struct ReduceNAryOp : public mlir::OpRewritePattern<NAryOp> {
 
+      /// Constructor.
+      /// \param context Surrounding MLIRContext.
       explicit ReduceNAryOp(MLIRContext* context) : OpRewritePattern<NAryOp>(context, 1) {}
 
       PatternMatchResult matchAndRewrite(NAryOp op, PatternRewriter& rewriter) const override {
@@ -51,9 +69,16 @@ namespace mlir {
 
     };
 
+    /// OpRewritePattern to merge constant operands of n-ary operations.
+    /// Can only be applied to operations from the SPN dialect inheriting from SPN_NAry_Op.
+    /// \tparam NAryOp Operation type
+    /// \tparam Acc Arithmetic operation to use for merging constant operands.
+    /// \tparam Initial Neutral element for the arithmetic operation.
     template<typename NAryOp, typename Acc, int Initial>
     struct ConstantFoldNAryOp : public mlir::OpRewritePattern<NAryOp> {
 
+      /// Constructor.
+      /// \param context Surrounding MLIRContext.
       explicit ConstantFoldNAryOp(MLIRContext* context) : OpRewritePattern<NAryOp>(context, 1) {}
 
       PatternMatchResult matchAndRewrite(NAryOp op, PatternRewriter& rewriter) const override {

@@ -7,4 +7,5 @@
 
 using namespace mlir;
 
+// Compile the operation interface generated via TableGen.
 #include "src/codegen/mlir/dialects/spn/SPNOpInterfaces.op.interface.cpp.inc"

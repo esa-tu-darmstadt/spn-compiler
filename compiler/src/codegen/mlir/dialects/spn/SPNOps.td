@@ -5,18 +5,23 @@ include "mlir/IR/OpBase.td"
 include "mlir/Analysis/CallInterfaces.td"
 include "SPNOpInterfaces.td"
 
-class ArrayAttrElemCount<string name> :
-    StrFunc<"$" # name # ".cast<ArrayAttr>().size()">;
-
+///
+/// Dialect for SPN-specific operations.
 def SPN_Dialect : Dialect {
     let name = "spn";
     let cppNamespace = "spn";
 }
  
+///
+/// Base class of all SPN-specific operations.
 class SPN_Op<string mnemonic, list<OpTrait> traits = []> : Op<SPN_Dialect, mnemonic, traits>;
 
+///
+/// Abstract base class of n-ary arithmetic operations.
 class SPN_NAry_Op<string mnemonic> : SPN_Op<mnemonic, [NoSideEffect, Commutative]> {
 
+  /// operands: Child nodes.
+  /// opCount: Number of child nodes.
   let arguments = (ins Variadic<F64>:$operands, PositiveI32Attr:$opCount);
 
   let results = (outs F64);
@@ -31,6 +36,8 @@ class SPN_NAry_Op<string mnemonic> : SPN_Op<mnemonic, [NoSideEffect, Commutative
 
 }
 
+///
+/// N-ary product operation.
 def ProductOp : SPN_NAry_Op<"product"> {
   let summary = "product";
   
@@ -39,6 +46,8 @@ def ProductOp : SPN_NAry_Op<"product"> {
   }];
 }
 
+///
+/// Non-weighted, n-ary sum operation.
 def SumOp : SPN_NAry_Op<"sum"> {
   let summary = "sum";
 
@@ -46,6 +55,7 @@ def SumOp : SPN_NAry_Op<"sum"> {
     N-ary (unweighted) sum operation adding all operands into a single result.
   }];
 }
+
 
 def WeightedSumOp : SPN_Op<"weighted_sum", [NoSideEffect]> {
   let summary = "weighted sum";
@@ -55,6 +65,9 @@ def WeightedSumOp : SPN_Op<"weighted_sum", [NoSideEffect]> {
     constant weight and adding all operands into a single result.
   }];
 
+  /// operands: Child nodes.
+  /// weights: Weights associated with the child nodes.
+  /// opCount: Number of child nodes.
   let arguments = (ins Variadic<F64>:$operands, F64ArrayAttr:$weights, PositiveI32Attr:$opCount);
 
   let results = (outs F64);
@@ -68,16 +81,23 @@ def WeightedSumOp : SPN_Op<"weighted_sum", [NoSideEffect]> {
   let hasCanonicalizer = 1;
 }
 
+/// Named attribute for the inclusive lower bound of a histogram bucket.
 def LowerBoundAttr : StructFieldAttr<"lb", I32Attr>;
 
+/// Named attribute for the exclusive upper bound of a histogram bucket.
 def UpperBoundAttr : StructFieldAttr<"ub", I32Attr>;
 
+/// Named attribute for the probability value of a histogram bucket.
 def HistValueAttr  : StructFieldAttr<"val", F64Attr>;
 
+/// Struct-attribute for a histogram bucket.
 def HistBucketAttr : StructAttr<"Bucket", SPN_Dialect, [LowerBoundAttr, UpperBoundAttr, HistValueAttr]>;
 
+/// List of histogram buckets as array-attribute.
 def BucketListAttr : TypedArrayAttrBase<HistBucketAttr, "histogram bucket list">;
 
+///
+/// Histogram as SPN leaf node.
 def HistogramOp : SPN_Op<"histogram", [NoSideEffect]> {
   let summary = "histogram";
 
@@ -96,6 +116,8 @@ def HistogramOp : SPN_Op<"histogram", [NoSideEffect]> {
   ];
 }
 
+///
+/// Operation holding histogram values.
 def HistogramValueOp : SPN_Op<"histvalue", [NoSideEffect]> {
   let summary = "histogram values";
 
@@ -116,6 +138,8 @@ def HistogramValueOp : SPN_Op<"histvalue", [NoSideEffect]> {
   ];
 }
 
+///
+/// SPN feature (input variable).
 def InputVarOp : SPN_Op<"input_var", [NoSideEffect]> {
   let summary = "input variable";
 
@@ -134,10 +158,14 @@ def InputVarOp : SPN_Op<"input_var", [NoSideEffect]> {
   ];
 }
 
+///
+/// Abstract base class of all operations representing SPN query execution.
 class SPNQueryOp<string mnemonic, list<OpTrait> traits = []> 
   : SPN_Op<mnemonic, !listconcat(traits, [DeclareOpInterfaceMethods<CallOpInterface>,
       DeclareOpInterfaceMethods<QueryOpInterface>])>;
 
+///
+/// Single query computation of an SPN.
 def SPNSingleQueryOp : SPNQueryOp<"query.single", []> {
   let summary = "single query";
 
@@ -157,6 +185,8 @@ def SPNSingleQueryOp : SPNQueryOp<"query.single", []> {
 
 }
 
+///
+/// Batch computation of joint probabilities for an SPN.
 def SPNJointProbBatch : SPNQueryOp<"joint.batch", []> {
   let summary = "joint probability batch";
 
@@ -174,6 +204,8 @@ def SPNJointProbBatch : SPNQueryOp<"joint.batch", []> {
 
 }
 
+///
+/// Return operation, returning 0 or 1 probability values.
 def ReturnOp : SPN_Op<"return", [Terminator]> {
   let summary = "return";
 
@@ -194,7 +226,8 @@ def ReturnOp : SPN_Op<"return", [Terminator]> {
 
 }
 
-
+///
+/// Constant operation.
 def ConstantOp : SPN_Op<"constant", [NoSideEffect]> {
 
   let summary = "constant";

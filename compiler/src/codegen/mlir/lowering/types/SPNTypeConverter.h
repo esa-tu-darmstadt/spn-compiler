@@ -10,9 +10,15 @@
 
 namespace mlir {
   namespace spn {
+
+    ///
+    /// TypeConverter for the SPN dialect, turning Tensors into equivalent MemRefs.
     class SPNTypeConverter : public TypeConverter {
 
     public:
+
+      ///
+      /// Constructor populating the TypeConverter.
       explicit SPNTypeConverter() {
         addConversion([](TensorType tensorType) -> Optional<Type> {
           if (!tensorType.hasRank()) {
