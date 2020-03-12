@@ -76,46 +76,7 @@ namespace spnc {
         /// \param value String containing the value.
         /// \return Parse result.
         template<typename Value>
-        static Value parse(const std::string& value) {
-          static_assert(std::is_constructible<Value, std::string>::value, "Must be constructible from string!");
-          // As a default, try to construct a the value from a string.
-          return Value{value};
-        }
-
-        /// Specialization to parse boolean options. The string is converted to lower case and the returned
-        /// boolean is true if the string was "true" or "yes" and false otherwise.
-        /// \param value String.
-        /// \return True if the string was "true" or "yes", false otherwise.
-        template<>
-        bool parse(const std::string& value) {
-          std::string v = toLowerCase(value);
-          return v == "true" || v == "yes";
-        }
-
-        /// Specialization to parse integer options, using standard library facilities to parse the int from the string.
-        /// \param value String.
-        /// \return Integer value.
-        template<>
-        int parse(const std::string& value) {
-          return std::stoi(value);
-        }
-
-        /// Specialization to parse floating-point options,
-        /// using standard library facilities to parse the double from the string.
-        /// \param value String.
-        /// \return Double-precision floating-point value.
-        template<>
-        double parse(const std::string& value) {
-          return std::stod(value);
-        }
-
-        /// Specialization to parse string options.
-        /// \param value String.
-        /// \return The same string.
-        template<>
-        std::string parse(const std::string& value) {
-          return value;
-        }
+        static Value parse(const std::string& value);
 
       };
 
