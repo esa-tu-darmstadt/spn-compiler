@@ -34,7 +34,6 @@ void LLVMCPUCodegen::generateLLVMIR(IRGraph& graph) {
   builder.SetInsertPoint(bb);
   codegenLoop.emitLoop(*function, builder, ConstantInt::get(int64Ty, 0), function->arg_begin());
   builder.CreateRetVoid();
-  module->dump();
 }
 
 llvm::Module& LLVMCPUCodegen::execute() {
