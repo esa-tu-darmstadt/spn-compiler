@@ -1,10 +1,10 @@
 //
-// Created by ls on 10/9/19.
+// This file is part of the SPNC project.
+// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
 #ifndef SPNC_BINARYTREETRANSFORM_H
 #define SPNC_BINARYTREETRANSFORM_H
-
 
 #include <graph-ir/GraphIRNode.h>
 #include <unordered_map>
@@ -13,36 +13,37 @@
 
 namespace spnc {
 
-    class BinaryTreeTransform : public BaseVisitor, public IRTransformationPass {
+  ///
+  /// IRTransformationPass decomposing all operations with more than two inputs
+  /// into a tree of two-input operations.
+  class BinaryTreeTransform : public BaseVisitor, public IRTransformationPass {
 
-    public:
+  public:
 
-        using IRTransformationPass::IRTransformationPass;
+    using IRTransformationPass::IRTransformationPass;
 
-      void transform(IRGraph& input) override;
+    void transform(IRGraph& input) override;
 
-      NodeReference binarizeTree(const NodeReference rootNode);
+    void visitHistogram(Histogram& n, arg_t arg) override;
 
-        void visitHistogram(Histogram& n, arg_t arg) override ;
+    void visitProduct(Product& n, arg_t arg) override;
 
-      void visitProduct(Product& n, arg_t arg) override;
+    void visitSum(Sum& n, arg_t arg) override;
 
-      void visitSum(Sum& n, arg_t arg) override;
+    void visitWeightedSum(WeightedSum& n, arg_t arg) override;
 
-      void visitWeightedSum(WeightedSum& n, arg_t arg) override;
+  private:
 
-    private:
-      std::unordered_map<std::string, NodeReference> updated_nodes;
+    NodeReference binarizeTree(const NodeReference rootNode);
 
-      template<class T>
-      NodeReference splitChildren(const std::vector<NodeReference>& children, const std::string& prefix);
+    std::unordered_map<std::string, NodeReference> updated_nodes;
 
-      NodeReference splitWeightedChildren(const std::vector<WeightedAddend>& children, const std::string& prefix);
+    template<class T>
+    NodeReference splitChildren(const std::vector<NodeReference>& children, const std::string& prefix);
 
-    };
+    NodeReference splitWeightedChildren(const std::vector<WeightedAddend>& children, const std::string& prefix);
+
+  };
 }
-
-
-
 
 #endif //SPNC_BINARYTREETRANSFORM_H

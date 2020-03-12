@@ -1,5 +1,6 @@
 //
-// Created by ls on 1/16/20.
+// This file is part of the SPNC project.
+// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
 #ifndef SPNC_LLVMSTATICCOMPILER_H
@@ -10,25 +11,27 @@
 
 namespace spnc {
 
-    using BitcodeFile = File<FileType::LLVM_BC>;
-    using ObjectFile = File<FileType::OBJECT>;
+  ///
+  /// Action to use the LLVM static compiler ("llc") to turn a LLVM bitcode file
+  /// into an object file (*.o).
+  class LLVMStaticCompiler : public ActionSingleInput<LLVMBitcode, ObjectFile> {
 
-    class LLVMStaticCompiler : public ActionSingleInput<BitcodeFile, ObjectFile> {
+  public:
 
-    public:
-        explicit LLVMStaticCompiler(ActionWithOutput<BitcodeFile>& _input, ObjectFile outputFile);
+    /// Constructor.
+    /// \param _input Action providing the input bitcode file.
+    /// \param outputFile File to write output to.
+    explicit LLVMStaticCompiler(ActionWithOutput<LLVMBitcode>& _input, ObjectFile outputFile);
 
-        ObjectFile& execute() override;
+    ObjectFile& execute() override;
 
-    private:
+  private:
 
-        ObjectFile outFile;
+    ObjectFile outFile;
 
-        bool cached = false;
+    bool cached = false;
 
-    };
+  };
 }
-
-
 
 #endif //SPNC_LLVMSTATICCOMPILER_H

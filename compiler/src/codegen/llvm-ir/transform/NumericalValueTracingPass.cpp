@@ -4,6 +4,7 @@
 //
 
 #include <iostream>
+#include <util/Logging.h>
 #include "NumericalValueTracingPass.h"
 
 using namespace llvm;
@@ -88,15 +89,11 @@ void NumericalValueTracingPass::collectTracedInstructions(Function& F) {
   }
 
   // Mini Trace Report
-  std::cout << "Traced: '" << std::string(F.getName()) << "'" << std::endl;
-  std::cout << "\t Sum-Insn:         " <<
-            tracedInstructions.find(spnc::TraceMDTag::Sum)->second.size() << std::endl;
-  std::cout << "\t WeightedSum-Insn: " <<
-            tracedInstructions.find(spnc::TraceMDTag::WeightedSum)->second.size() << std::endl;
-  std::cout << "\t Product-Insn:     " <<
-            tracedInstructions.find(spnc::TraceMDTag::Product)->second.size() << std::endl;
-  std::cout << "\t Histogram-Insn:   " <<
-            tracedInstructions.find(spnc::TraceMDTag::Histogram)->second.size() << std::endl;
+  SPDLOG_INFO("Traced function {}", F.getName().str());
+  SPDLOG_INFO("Sum instructions: {}", tracedInstructions.find(spnc::TraceMDTag::Sum)->second.size());
+  SPDLOG_INFO("Weighted sum instructions: {}", tracedInstructions.find(spnc::TraceMDTag::WeightedSum)->second.size());
+  SPDLOG_INFO("Product instructions: {}", tracedInstructions.find(spnc::TraceMDTag::Product)->second.size());
+  SPDLOG_INFO("Histogram instructions: {}", tracedInstructions.find(spnc::TraceMDTag::Histogram)->second.size());
 
 }
 

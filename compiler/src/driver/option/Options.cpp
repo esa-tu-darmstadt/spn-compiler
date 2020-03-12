@@ -7,6 +7,7 @@
 
 using namespace spnc::interface;
 
+// Definitions of the static members of class Options.
 std::unordered_map<std::string, Opt*> Options::options;
 std::vector<std::unique_ptr<OptModifier>> Options::allModifiers;
 std::vector<OptModifier*> Options::activeModifiers;

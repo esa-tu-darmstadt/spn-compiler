@@ -32,13 +32,14 @@ endfunction(doxygen_toplevel)
 
 function(doxygen_doc)
     set(oneValueArgs TARGET_NAME)
-    set(multiValueArgs SRC_DIRECTORIES DEPENDS)
+    set(multiValueArgs SRC_DIRECTORIES DEPENDS EXCLUDES)
     cmake_parse_arguments(DOXY "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     if (${SPNC_BUILD_DOC} AND ${DOXYGEN_FOUND})
         set(DOXY_BASE_DIR ${PROJECT_BINARY_DIR}/doc)
         set(DOXYGEN_OUTPUT_DIRECTORY ${DOXY_BASE_DIR}/${DOXY_TARGET_NAME})
         set(DOXYGEN_LAYOUT_FILE ${PROJECT_SOURCE_DIR}/docs/DoxygenLayout.xml)
+        set(DOXYGEN_EXCLUDE ${DOXY_EXCLUDES})
         # Generate own tag-file for use by targets depending on this one.
         set(DOXYGEN_GENERATE_TAGFILE ${DOXYGEN_OUTPUT_DIRECTORY}/${DOXY_TARGET_NAME}.tag)
         # Fill DOXYGEN_TAGFILES with the tag-files of the dependencies.

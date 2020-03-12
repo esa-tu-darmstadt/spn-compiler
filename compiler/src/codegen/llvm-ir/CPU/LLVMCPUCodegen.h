@@ -1,5 +1,6 @@
 //
-// Created by ls on 10/9/19.
+// This file is part of the SPNC project.
+// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
 #ifndef SPNC_LLVMCPUCODEGEN_H
@@ -14,28 +15,38 @@ using namespace llvm;
 
 namespace spnc {
 
-    class LLVMCPUCodegen : public ActionSingleInput<IRGraph, llvm::Module> {
+  ///
+  /// Action to invoke the LLVM IR code-generation. Turns an SPN-graph into a
+  /// function looping over all queries in a batch and computing the SPN bottom-up.
+  class LLVMCPUCodegen : public ActionSingleInput<IRGraph, llvm::Module> {
 
-    public:
-      LLVMCPUCodegen(ActionWithOutput<IRGraph>& _input, const std::string& _kernelName,
-                     std::shared_ptr<LLVMContext> _llvmContext);
+  public:
+    /// Constructor.
+    /// \param _input Input action providing the SPN graph.
+    /// \param _kernelName Name of the top-level function to create.
+    /// \param _llvmContext LLVMContext.
+    LLVMCPUCodegen(ActionWithOutput<IRGraph>& _input, std::string _kernelName,
+                   std::shared_ptr<LLVMContext> _llvmContext);
 
-      void generateLLVMIR(IRGraph& graph);
+    llvm::Module& execute() override;
 
-      llvm::Module& execute() override;
+  private:
 
-    private:
-      std::shared_ptr<LLVMContext> context;
-      IRBuilder<> builder;
-      std::unique_ptr<Module> module;
-      std::string kernelName;
-        std::unordered_map<std::string, Value*> node2value;
-        bool cached = false;
+    void generateLLVMIR(IRGraph& graph);
 
-    };
+    std::shared_ptr<LLVMContext> context;
+
+    IRBuilder<> builder;
+
+    std::unique_ptr<Module> module;
+
+    std::string kernelName;
+
+    std::unordered_map<std::string, Value*> node2value;
+
+    bool cached = false;
+
+  };
 }
-
-
-
 
 #endif //SPNC_LLVMCPUCODEGEN_H

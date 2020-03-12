@@ -1,5 +1,6 @@
 //
-// Created by lukas on 21.11.19.
+// This file is part of the SPNC project.
+// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
 #ifndef SPNC_CODEGENSCALARBODY_H
@@ -10,33 +11,36 @@
 #include "CodeGenBody.h"
 
 namespace spnc {
-    
-    class CodeGenScalarBody : public CodeGenBody, BaseVisitor {
 
-    public:
-      CodeGenScalarBody(Module& m, Function& f, IRBuilder<>& b) : CodeGenBody(m, f, b) {}
+  ///
+  /// Code generation for a scalar (i.e., non-vectorized) loop body.
+  class CodeGenScalarBody : public CodeGenBody, BaseVisitor {
 
-      Value* emitBody(IRGraph& graph, Value* indVar, InputVarValueMap inputs, OutputAddressMap output) override;
+  public:
 
-      void visitHistogram(Histogram& n, arg_t arg) override;
+    using CodeGenBody::CodeGenBody;
 
-      void visitProduct(Product& n, arg_t arg) override;
+    Value* emitBody(IRGraph& graph, Value* indVar, InputVarValueMap inputs, OutputAddressMap output) override;
 
-      void visitSum(Sum& n, arg_t arg) override;
+    void visitHistogram(Histogram& n, arg_t arg) override;
 
-      void visitWeightedSum(WeightedSum& n, arg_t arg) override;
+    void visitProduct(Product& n, arg_t arg) override;
 
-    private:
-      std::unordered_map<std::string, Value*> node2value;
+    void visitSum(Sum& n, arg_t arg) override;
 
-      Type* getValueType();
+    void visitWeightedSum(WeightedSum& n, arg_t arg) override;
 
-      void addMetaData(Value* val, TraceMDTag tag);
+  private:
 
-      Value* getValueForNode(NodeReference node, arg_t arg);
-    };
+    std::unordered_map<std::string, Value*> node2value;
+
+    Type* getValueType();
+
+    void addMetaData(Value* val, TraceMDTag tag);
+
+    Value* getValueForNode(NodeReference node, arg_t arg);
+
+  };
 }
-
-
 
 #endif //SPNC_CODEGENSCALARBODY_H

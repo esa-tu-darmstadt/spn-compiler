@@ -10,6 +10,7 @@
 namespace spnc {
 
   static bool initLogger() {
+    /// Statically initialize the logger to log to the terminal output.
     auto console = spdlog::stdout_color_mt("console");
     spdlog::set_default_logger(console);
     spdlog::cfg::load_env_levels();
