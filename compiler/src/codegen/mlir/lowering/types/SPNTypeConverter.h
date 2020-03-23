@@ -26,6 +26,21 @@ namespace mlir {
           }
           return MemRefType::get(tensorType.getShape(), tensorType.getElementType());
         });
+        addConversion([](FloatType floatType) -> Optional<Type> {
+          if (floatType.getWidth() != 64) {
+            return llvm::None;
+          }
+          return floatType;
+        });
+        addConversion([](MemRefType memrefType) -> Optional<Type> {
+          return memrefType;
+        });
+        addConversion([](IntegerType intType) -> Optional<Type> {
+          if (intType.getWidth() != 32) {
+            return llvm::None;
+          }
+          return intType;
+        });
       }
 
     };

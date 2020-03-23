@@ -7,6 +7,7 @@
 #include "SPNOperationLowering.h"
 #include <mlir/IR/Matchers.h>
 #include <limits>
+#include <util/Logging.h>
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -42,25 +43,34 @@ PatternMatchResult FunctionLowering::matchAndRewrite(FuncOp op, ArrayRef<Value> 
 
   // Conversion is currently limited to functions with a single argument.
   if (fnType.getNumResults() > 1) {
+    SPDLOG_ERROR("Function returns more than one result!");
     return matchFailure();
   }
 
   // Get the result type or None, if the function does not return a value.
-  auto resType = (fnType.getNumResults()) ? (ArrayRef<Type>) {fnType.getResults()[0]} : llvm::None;
+  SmallVector<Type, 1> results;
+  for (auto& r : fnType.getResults()) {
+    auto convertedType = typeConverter.convertType(r);
+    if (!convertedType) {
+      SPDLOG_ERROR("Could not convert function return type");
+      return matchFailure();
+    }
+    results.push_back(convertedType);
+  }
+  //auto resType = (fnType.getNumResults()) ? (ArrayRef<Type>) {fnType.getResults()[0]} : llvm::None;
 
   // Use a SignatureConversion to convert all argument types.
   TypeConverter::SignatureConversion signatureConverter(fnType.getNumInputs());
   for (auto argType : llvm::enumerate(fnType.getInputs())) {
-    auto convertedType = typeConverter.convertType(argType.value());
-    if (!convertedType) {
+    if (failed(typeConverter.convertSignatureArg((unsigned) argType.index(), argType.value(), signatureConverter))) {
+      SPDLOG_ERROR("Could not convert function argument type");
       return matchFailure();
     }
-    signatureConverter.addInputs(argType.index(), convertedType);
   }
 
   // Create a new function with the same name, but converted signature.
   auto newFuncOp = rewriter.create<FuncOp>(op.getLoc(), op.getName(),
-                                           rewriter.getFunctionType(signatureConverter.getConvertedTypes(), resType),
+                                           rewriter.getFunctionType(signatureConverter.getConvertedTypes(), results),
                                            llvm::None);
 
   // Copy over all attributes, except for name- and type-attributes.

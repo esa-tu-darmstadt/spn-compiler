@@ -26,22 +26,19 @@ namespace {
       target.addLegalDialect<StandardOpsDialect>();
       target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
 
+      // Instantiate the type converter for function signature rewrites.
+      SPNTypeConverter typeConverter;
+
       // Functions are dynamically legal, i.e. they are only legal if
       // their signature has been converted to use MemRef instead of Tensor.
-      target.addDynamicallyLegalOp<FuncOp>([](FuncOp op) {
-        auto fnType = op.getType();
-        return std::none_of(fnType.getInputs().begin(), fnType.getInputs().end(), [](Type t) {
-          return t.isa<TensorType>();
-        });
+      target.addDynamicallyLegalOp<FuncOp>([&typeConverter](FuncOp op) {
+        return typeConverter.isSignatureLegal(op.getType());
       });
 
       // Mark all operations from the SPN dialect except the HistogramValueOp as illegal.
       // The HistogramValueOp will be converted directly into LLVM dialect later on.
       target.addIllegalDialect<SPNDialect>();
       target.addLegalOp<HistogramValueOp>();
-
-      // Instantiate the type converter for function signature rewrites.
-      SPNTypeConverter typeConverter;
 
       // Create and populate the list of patterns used for conversion.
       OwningRewritePatternList patterns;

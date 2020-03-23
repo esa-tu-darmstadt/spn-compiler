@@ -5,10 +5,6 @@
 
 #include "MLIRPipeline.h"
 #include <mlir/Transforms/Passes.h>
-#include <mlir/IR/MLIRContext.h>
-#include <mlir/IR/Module.h>
-#include <mlir/Pass/Pass.h>
-#include <mlir/Pass/PassManager.h>
 #include <mlir/Target/LLVMIR.h>
 #include <codegen/mlir/transform/passes/SPNMLIRPasses.h>
 #include <codegen/mlir/lowering/passes/SPNLoweringPasses.h>
@@ -32,7 +28,7 @@ ModuleOp& MLIRPipeline::execute() {
     // for actions using the same input module.
     module = std::make_unique<ModuleOp>(inputModule.clone());
     auto result = pm.run(*module);
-    if (result.value == LogicalResult::Failure) {
+    if (failed(result)) {
       SPNC_FATAL_ERROR("Running the MLIR pass pipeline failed!");
     }
     cached = true;
