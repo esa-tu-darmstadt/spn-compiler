@@ -1,5 +1,7 @@
 #include "InitialChainBuilder.h"
+#include <algorithm>
 #include <iostream>
+
 template <typename T> class vecSetter : public BaseVisitor {
 public:
   vecSetter(T &Sum_, T &WeightedSum_, T &Product_ )

@@ -42,10 +42,10 @@ public:
 
 private:
   Value* getHistogramPtr(Histogram& n);
-  template <class T> Value* getNeutralValue();
-  template <> Value* getNeutralValue<WeightedSum>() {return constantZero;}
-  template <> Value* getNeutralValue<Sum>() {return constantZero;}
-  template <> Value* getNeutralValue<Product>() {return constantOne;}
+  
+  Value* getNeutralValue(WeightedSum& n) {return constantZero;}
+  Value* getNeutralValue(Sum& n) {return constantZero;}
+  Value* getNeutralValue(Product& n) {return constantOne;}
 
   Value *scalarArith(WeightedSum &n, Value *acc, Value *in, std::string id) {
     double weight = 0.0;
@@ -644,11 +644,11 @@ private:
             Value* blendVec = UndefValue::get(
                 VectorType::get(Type::getDoubleTy(_context), accWidth));
             blendVec =
-	      _builder.CreateInsertElement(blendVec, getNeutralValue<T>(), uint64_t(0));
+	      _builder.CreateInsertElement(blendVec, getNeutralValue(n), uint64_t(0));
 	    gaussAccVec = _builder.CreateShuffleVector(gaussAccVec, blendVec, maskVec);
           } else {
 	    for (int j = activeLanesInAcc; j <= i; j++) {
-	      gaussAccVec = _builder.CreateInsertElement(gaussAccVec, getNeutralValue<T>(), laneIdxs[j]);
+	      gaussAccVec = _builder.CreateInsertElement(gaussAccVec, getNeutralValue(n), laneIdxs[j]);
 	    }
 	  }
 	  activeLanesInAcc = i+1;
@@ -754,7 +754,7 @@ private:
           out = _builder.CreateInsertElement(out,
                                              serialInputs[lane.first]
                                                  ? serialInputs[lane.first]
-                                                 : getNeutralValue<T>(),
+                                                 : getNeutralValue(n),
                                              lane.first);
         }
       }
@@ -776,7 +776,7 @@ private:
           }
           if (!needed) {
             directVecVal = _builder.CreateInsertElement(
-                directVecVal,getNeutralValue<T>(),
+                directVecVal,getNeutralValue(n),
                 lane.first);
           }
         }

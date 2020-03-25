@@ -4,7 +4,7 @@
 #include <map>
 #include <iostream>
 #include <queue>
-
+#include <algorithm>
 #define MIN_LENGTH 2
 
 std::vector<std::vector<NodeReference>>

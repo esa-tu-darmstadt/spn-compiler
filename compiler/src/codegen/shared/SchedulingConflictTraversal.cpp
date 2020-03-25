@@ -1,5 +1,5 @@
 #include "SchedulingConflictTraversal.h"
-
+#include <algorithm>
 std::vector<size_t>
 flattenPack(std::vector<size_t> base, size_t limit,
             std::unordered_map<size_t, std::vector<size_t>> &fixedPacks) {
