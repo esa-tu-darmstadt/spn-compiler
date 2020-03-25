@@ -32,6 +32,7 @@ public:
   void visitInputvar(InputVar &n, arg_t arg) override;
 
   void visitHistogram(Histogram &n, arg_t arg) override;
+  void visitGauss(Gauss &n, arg_t arg) override;
 
   void visitProduct(Product &n, arg_t arg) override;
   void visitSum(Sum &n, arg_t arg) override;
@@ -133,6 +134,19 @@ private:
     return in;
   }
 
+  Value *vecAccArith(Product &n, Value *acc1, Value* acc2) {
+    return _builder.CreateFMul(acc1, acc2);
+  }
+  Value *vecAccArith(Sum &n, Value *acc1, Value* acc2) {
+    return _builder.CreateFAdd(acc1, acc2);
+  }
+  Value *vecAccArith(WeightedSum &n, Value *acc1, Value* acc2) {
+    // Note that the weightings have already been applied when individual
+    // children were combined into the two accumulators, so combining the
+    // accumulators is just a simple add
+    return _builder.CreateFAdd(acc1, acc2);
+  }
+  
   bool createInputs(std::vector<
           std::pair<NodeReference, std::vector<std::pair<std::string, size_t>>>>
 		    inputs) {
@@ -171,7 +185,7 @@ private:
 
     auto it = _vec.find(n.id());
     if (it == _vec.end()) {
-      Value *out = getNeutralValue<T>();
+      Value *out = nullptr;
       std::vector<
           std::pair<NodeReference, std::vector<std::pair<std::string, size_t>>>>
           inputs;
@@ -184,9 +198,21 @@ private:
 	tryOtherNode = true;
 	return;
       }
-      
+
+      std::sort(inputs.begin(), inputs.end(), [this](auto& a, auto& b) {
+	  auto ita = _vec.find(a.first->id());
+	  auto itb = _vec.find(b.first->id());
+
+	  if (ita == _vec.end()) {
+	    return false;
+	  } else if (itb == _vec.end()) {
+	    return true;
+	  } else {
+	    return ita->second < itb->second;
+	  }
+	});
       for (int i = 0; i < getInputLength(n); i++) {
-	out = handleScalarInput(n, out, getInput(n, i));
+	out = handleScalarInput(n, out, inputs[i].first);
       }
       out->setName(n.id());
       node2value.insert({n.id(), {out, -1, 0}});
@@ -196,17 +222,28 @@ private:
 	return;
       }
       std::unordered_map<size_t, std::vector<NodeReference>> histogramInputs;
+      std::unordered_map<size_t, std::vector<NodeReference>> gaussInputs;
       std::unordered_map<size_t, std::vector<NodeReference>> scalarIn;
       std::unordered_set<size_t> directVec;
       struct isHistoVisitor : public BaseVisitor {
         void visitHistogram(Histogram &n, arg_t arg) { isHisto = true; }
-
+        void visitGauss(Gauss &n, arg_t arg) { isHisto = false; }
         void visitProduct(Product &n, arg_t arg) { isHisto = false; }
         void visitSum(Sum &n, arg_t arg) { isHisto = false; }
         void visitWeightedSum(WeightedSum &n, arg_t arg) { isHisto = false; }
         bool isHisto = false;
       };
       isHistoVisitor histoCheck;
+
+      struct isGaussVisitor : public BaseVisitor {
+        void visitHistogram(Histogram &n, arg_t arg) { isGauss = false; }
+        void visitGauss(Gauss &n, arg_t arg) { isGauss = true; }
+        void visitProduct(Product &n, arg_t arg) { isGauss = false; }
+        void visitSum(Sum &n, arg_t arg) { isGauss = false; }
+        void visitWeightedSum(WeightedSum &n, arg_t arg) { isGauss = false; }
+        bool isGauss = false;
+      };
+      isGaussVisitor gaussCheck;
 
       std::unordered_map<size_t, NodeReference> order;
 
@@ -251,7 +288,8 @@ private:
       
       for (auto& lane : order) {
 	auto& in = lane.second;
-	histogramInputs.insert({lane.first, {}});
+	std::vector<NodeReference> laneGaussInputs;
+	std::vector<NodeReference> laneHistoInputs;
 	scalarIn.insert({lane.first, {}});
         // Used to check if we've already planned for an element of a vector to
         // be a direct op. In that case, we cannot use another element from that
@@ -265,9 +303,18 @@ private:
 	  m->accept(histoCheck, {});
 
 	  if (histoCheck.isHisto) {
-	    histogramInputs[lane.first].push_back(m);
+	    laneHistoInputs.push_back(m);
 	    continue;
 	  }
+
+          m->accept(gaussCheck, {});
+
+	  if (gaussCheck.isGauss) {
+	    laneGaussInputs.push_back(m);
+	    continue;
+	  }
+
+	  
 	  
           if (_vec.find(m->id()) == _vec.end()) {
 	    // input is scalar
@@ -282,6 +329,23 @@ private:
             }
           }
         }
+
+	// Sort so that closer values get into the same vector, improving locality
+
+        std::sort(laneGaussInputs.begin(), laneGaussInputs.end(),
+                  [](auto &a, auto &b) {
+                    return ((Gauss *)a.get())->indexVar()->index() <
+                           ((Gauss *)b.get())->indexVar()->index();
+                  });
+
+        std::sort(laneHistoInputs.begin(), laneHistoInputs.end(),
+                  [](auto &a, auto &b) {
+                    return ((Histogram *)a.get())->indexVar()->index() <
+                           ((Histogram *)b.get())->indexVar()->index();
+                  });
+
+        histogramInputs.insert({lane.first, laneHistoInputs});
+        gaussInputs.insert({lane.first, laneGaussInputs});
       }
 
       std::vector<
@@ -517,6 +581,144 @@ private:
         directVec.insert(newId);
       }
 
+      std::vector<size_t> laneIdxs;
+      for (auto& lane : gaussInputs) {
+	laneIdxs.push_back(lane.first);
+      }
+
+      std::sort(laneIdxs.begin(), laneIdxs.end(), [&](size_t a, size_t b) {
+        return gaussInputs[a].size() > gaussInputs[b].size();
+      });
+
+      std::vector<size_t> gaussVectorIdx(laneIdxs.size(), 0);
+      Value* biggestLane = nullptr;
+      
+      for (int i = 0; gaussInputs[laneIdxs[0]].size()-i != gaussInputs[laneIdxs[1]].size(); i++, gaussVectorIdx[0]++) {
+	auto& gaussNode = gaussInputs[laneIdxs[0]][i];
+	gaussNode->accept(*this, {});
+	auto& gaussVal = node2value[gaussNode->id()].val;
+	biggestLane = scalarArith(n, biggestLane, gaussVal, gaussNode->id());
+      }
+
+      Value* gaussAccVec = nullptr;
+      if (biggestLane) {
+        gaussAccVec = UndefValue::get(
+            VectorType::get(Type::getDoubleTy(_context), laneIdxs[0]+1));
+        gaussAccVec = _builder.CreateInsertElement(gaussAccVec, biggestLane, laneIdxs[0]);
+      }
+      size_t activeLanesInAcc = 1;
+      size_t accWidth = laneIdxs[0] + 1;
+      // now new gauss vectors can be created an accumulated onto gaussAccVec
+      for (int i = 1; i < laneIdxs.size(); i++) {
+        size_t gaussiansToHandle =
+            gaussInputs[laneIdxs[i]].size() -
+            (i < laneIdxs.size() - 1 ? gaussInputs[laneIdxs[i + 1]].size() : 0);
+
+        size_t newAccWidth = 0;
+        for (int j = 0; j <= i; j++) {
+          newAccWidth = std::max(laneIdxs[j], newAccWidth);
+        }
+        newAccWidth++;
+	
+	if (gaussAccVec && (gaussiansToHandle > 0 || i+1 == laneIdxs.size())) {
+	  if (newAccWidth > accWidth) {
+
+            Value* maskVec = UndefValue::get(
+                VectorType::get(Type::getInt32Ty(_context), newAccWidth));
+
+	    for (int j = 0; j < activeLanesInAcc; j++) {
+              maskVec = _builder.CreateInsertElement(
+                  maskVec,
+                  ConstantInt::getSigned(Type::getInt32Ty(_context),
+                                         laneIdxs[j]),
+                  laneIdxs[j]);
+            }
+
+	    for (int  j = activeLanesInAcc; j <= i; j++) {
+              maskVec = _builder.CreateInsertElement(
+                  maskVec,
+                  ConstantInt::getSigned(Type::getInt32Ty(_context), accWidth),
+                  laneIdxs[j]);
+            }
+
+            Value* blendVec = UndefValue::get(
+                VectorType::get(Type::getDoubleTy(_context), accWidth));
+            blendVec =
+	      _builder.CreateInsertElement(blendVec, getNeutralValue<T>(), uint64_t(0));
+	    gaussAccVec = _builder.CreateShuffleVector(gaussAccVec, blendVec, maskVec);
+          } else {
+	    for (int j = activeLanesInAcc; j <= i; j++) {
+	      gaussAccVec = _builder.CreateInsertElement(gaussAccVec, getNeutralValue<T>(), laneIdxs[j]);
+	    }
+	  }
+	  activeLanesInAcc = i+1;
+	  accWidth = newAccWidth;
+        } else if (gaussiansToHandle > 0) {
+          accWidth = newAccWidth;
+        }
+
+        for (int j = 0; j < gaussiansToHandle; j++) {
+	  std::vector<NodeReference> gaussNodes;
+          Value* constFactor = UndefValue::get(
+              VectorType::get(Type::getDoubleTy(_context), newAccWidth));
+	  
+          Value* constDivisor = UndefValue::get(
+              VectorType::get(Type::getDoubleTy(_context), newAccWidth));
+	  
+          Value* mean = UndefValue::get(
+              VectorType::get(Type::getDoubleTy(_context), newAccWidth));
+	  
+          Value* observation = UndefValue::get(
+              VectorType::get(Type::getDoubleTy(_context), newAccWidth));
+	  std::vector<std::pair<std::string, size_t>> gaussVecPositions;
+	  std::unordered_map<size_t, NodeReference> accPositions;
+          for (int k = 0; k <= i; k++) {
+	    size_t laneNo = laneIdxs[k];
+	    accPositions[laneNo] = order[laneNo];
+            Gauss* nr = (Gauss*) gaussInputs[laneNo][gaussVectorIdx[k]].get();
+	    double fac = 1 / (std::sqrt(2 * M_PI * nr->stddev() * nr->stddev()));
+            constFactor = _builder.CreateInsertElement(
+                constFactor,
+                ConstantFP::get(Type::getDoubleTy(_context), fac), laneNo);
+            constDivisor = _builder.CreateInsertElement(
+                constDivisor,
+                ConstantFP::get(Type::getDoubleTy(_context),
+                                -2.0 * nr->stddev() * nr->stddev()),
+                laneNo);
+
+	    mean = _builder.CreateInsertElement(
+                mean,
+                ConstantFP::get(Type::getDoubleTy(_context),
+				nr->mean()),
+                laneNo);
+
+            if (input2value.find(nr->indexVar()->id()) == input2value.end()) {
+              nr->indexVar()->accept(*this, {});
+            }
+
+            observation = _builder.CreateInsertElement(
+                observation,
+                _builder.CreateSIToFP(input2value[nr->indexVar()->id()],
+                                      Type::getDoubleTy(_context)),
+                laneNo);
+            gaussVecPositions.push_back({nr->id(), laneNo});
+            gaussVectorIdx[k]++;
+	  }
+	  auto normed = _builder.CreateFSub(observation, mean);
+	  auto squared = _builder.CreateFMul(normed, normed);
+	  
+	  auto division = _builder.CreateFDiv(squared, constDivisor);
+
+          auto expFunc = Intrinsic::getDeclaration(
+              _module, llvm::Intrinsic::exp,
+              {VectorType::get(Type::getDoubleTy(_context), newAccWidth)});
+
+          auto expRes = _builder.CreateCall(expFunc, {division});
+          auto density = _builder.CreateFMul(expRes, constFactor);
+          gaussAccVec = vecArith(n, gaussAccVec, density, accPositions, gaussVecPositions);
+        }
+      }
+
       bool hasScalarInputs = false;
       std::unordered_map<size_t, Value *> serialInputs;
       // First emit all reductions of inputs which do not come in a vector
@@ -556,6 +758,11 @@ private:
                                              lane.first);
         }
       }
+      if (out && gaussAccVec)
+	out = vecAccArith(n, out, gaussAccVec);
+      else if (gaussAccVec)
+	out = gaussAccVec;
+      
       for (auto& direct : directVec) {
         Value *directVecVal = node2value[_vectors[direct][0]->id()].val;
         for (auto &lane : order) {

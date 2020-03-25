@@ -7,6 +7,7 @@
 #include <iostream>
 #include <util/DotVisitor.h>
 #include <transform/BinaryTreeTransform.h>
+#include <transform/AlternatingNodesTransform.h>
 #include <codegen/llvm-ir/LLVMCodegen.h>
 #include "llvm/Support/CommandLine.h"
 
@@ -23,6 +24,8 @@ bool spnc::parseJSON(int argc, char* argv[]) {
   llvm::cl::ParseCommandLineOptions(argc, argv);
   Parser parser;
   auto irGraph = parser.parseJSONFile(InputFilename);
+  AlternatingNodesTransform ant;
+  irGraph.rootNode->accept(ant, {});
   DotVisitor dot;
   dot.writeDotGraph(irGraph.rootNode, "spn.dot");
   LLVMCodegen().generateLLVMIR(irGraph, Vectorize);

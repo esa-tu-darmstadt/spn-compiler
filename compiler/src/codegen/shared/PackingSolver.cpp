@@ -22,6 +22,7 @@ public:
   }
 
   void visitHistogram(Histogram &n, arg_t arg) {}
+  void visitGauss(Gauss &n, arg_t arg) {}
 
   void visitProduct(Product &n, arg_t arg) {
     for (auto &c : *n.multiplicands()) {
@@ -54,13 +55,15 @@ public:
 };
 
 solverResult PackingSolver::runSolver(
-    std::vector<std::pair<std::set<size_t>, std::set<size_t>>> &conflicts,
-    std::unordered_map<std::string, size_t> &idMap,
-    std::vector<vecVar> &vecVars,
-    std::unordered_map<size_t, std::vector<size_t>> &partOf,
-    std::unordered_map<size_t, GRBVar> &serVars,
-    std::unordered_map<size_t, std::vector<size_t>> &fixedPacks,
-    IndexRefMapper &irm, std::unordered_map<size_t, size_t>& singleOpToFixedVec, GRBModel& model) {
+       std::vector<std::pair<std::set<size_t>, std::set<size_t>>> &conflicts,
+       std::unordered_map<std::string, size_t> &idMap,
+       std::vector<vecVar> &vecVars,
+       std::unordered_map<size_t, std::vector<size_t>> &partOf,
+       std::unordered_map<size_t, GRBVar> &serVars,
+       std::unordered_map<size_t, std::vector<size_t>> &fixedPacks,
+       std::unordered_set<std::string>& histograms, std::unordered_set<std::string>& gaussians,
+       IndexRefMapper &irm,
+       std::unordered_map<size_t, size_t> &singleOpToFixedVec, GRBModel& model) {
 
   class InputProducer : public BaseVisitor {
 
@@ -100,6 +103,7 @@ solverResult PackingSolver::runSolver(
 
     std::vector<std::vector<size_t>> vInputs;
     std::multiset<size_t, std::greater<size_t>> inputHistos;
+    std::multiset<size_t> inputGaussians;
     auto flatLanes = flattenPack(v.lanes, irm.nodeRefs.size(), fixedPacks);
     size_t vecWidth = flatLanes.size();
 
@@ -107,17 +111,24 @@ solverResult PackingSolver::runSolver(
       irm.nodeRefs[l]->accept(ip, {});
       std::vector<size_t> idVec;
       size_t histogramInputs = 0;
+      size_t gaussInputs = 0;
       for (auto &name : ip.inputs) {
-	if (idMap.find(name) == idMap.end())
+	if (histograms.find(name) != histograms.end())
 	  histogramInputs++;
+	else if (gaussians.find(name) != gaussians.end())
+	  gaussInputs++;
 	else
 	  idVec.push_back(idMap[name]);
       }
       vInputs.push_back(idVec);
       inputHistos.insert(histogramInputs);
+      inputGaussians.insert(gaussInputs);
     }
     
     obj+= v.var*ci->histogramCost(inputHistos);
+
+    obj+= v.var*ci->gaussCost(inputGaussians);
+    
     
     // we assume one arithmetic operation per input, however, for the first two
     // inputs, only one arithmetic operation is needed, thus we substract one
@@ -240,9 +251,12 @@ solverResult PackingSolver::runSolver(
     irm.nodeRefs[serVar.first]->accept(ip, {});
     std::vector<size_t> idVec;
     size_t histogramInputs = 0;
+    size_t gaussInputs = 0;
     for (auto &name : ip.inputs) {
-      if (idMap.find(name) == idMap.end())
+      if (histograms.find(name) != histograms.end())
         histogramInputs++;
+      else if (gaussians.find(name) != gaussians.end())
+        gaussInputs++;
       else
         idVec.push_back(idMap[name]);
     }
@@ -252,6 +266,8 @@ solverResult PackingSolver::runSolver(
 
     // Each histogram input takes one arithmetic instruction
     obj += serVar.second * histogramInputs * ci->scalarArithCost;
+    
+    obj += serVar.second * gaussInputs * (ci->gaussArithCost + ci->scalarArithCost);
 
     for (auto &input : idVec) {
       auto singleOpMapIt = singleOpToFixedVec.find(input);
@@ -399,7 +415,8 @@ PackingSolver::getVectorization(IRGraph &graph, size_t width) {
   ci = std::make_unique<CostInfo>(initWidth);
 
   auto packing = runSolver(sct.conflicts, sct.idMap, sct.vecVars, sct.partOf,
-			   sct.serVars, sct.fixedPacks, irm, sct.singleOpToFixedVec, model);
+                           sct.serVars, sct.fixedPacks, sct.histograms,
+                           sct.gaussians, irm, sct.singleOpToFixedVec, model);
 
   std::cout << "selected " << std::endl;
   for (auto i : packing.vecs) {
@@ -425,7 +442,8 @@ PackingSolver::getVectorization(IRGraph &graph, size_t width) {
                 << std::endl;
       ci = std::make_unique<CostInfo>(initWidth);
       packing = runSolver(sct.conflicts, sct.idMap, sct.vecVars, sct.partOf,
-			       sct.serVars, sct.fixedPacks, irm, sct.singleOpToFixedVec, newModel);
+                          sct.serVars, sct.fixedPacks, sct.histograms,
+                          sct.gaussians, irm, sct.singleOpToFixedVec, newModel);
 
       initWidth *=2;
 

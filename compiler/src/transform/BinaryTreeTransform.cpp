@@ -14,6 +14,10 @@ void BinaryTreeTransform::visitHistogram(Histogram &n, arg_t arg) {
     updated_nodes.emplace(n.id(), std::static_pointer_cast<Histogram>(arg));
 }
 
+void BinaryTreeTransform::visitGauss(Gauss &n, arg_t arg) {
+    updated_nodes.emplace(n.id(), std::static_pointer_cast<Gauss>(arg));
+}
+
 void BinaryTreeTransform::visitProduct(Product &n, arg_t arg) {
     std::vector<NodeReference> newChildren;
     for(auto& c : *n.multiplicands()){

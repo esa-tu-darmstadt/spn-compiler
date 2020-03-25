@@ -37,6 +37,10 @@ public:
   void visitHistogram(Histogram &n, arg_t arg)  {
   }
 
+  void visitGauss(Gauss &n, arg_t arg) {
+    curCost += ci->gaussArithCost;
+  }
+
   void visitProduct(Product &n, arg_t arg) {
     for (auto &c : *n.multiplicands()) {
       if (vectorized && vectorized->find(c->id()) != vectorized->end()) {
@@ -199,10 +203,14 @@ setSolverRes PackingHeuristic::returnBestSet(
         candidateCost += ci->vecArithCost;
       }
       std::multiset<size_t, std::greater<size_t>> inputHistos;
+      std::multiset<size_t> inputGaussians;
       for (int i = 0; i < source.size(); i++) {
         inputHistos.insert(icb.parentChildrenHistoMap[source[i]].size());
+        inputGaussians.insert(icb.parentChildrenGaussMap[source[i]].size());
       }
       candidateCost += ci->histogramCost(inputHistos);
+      candidateCost += ci->gaussCost(inputGaussians);
+      
       for (auto &lane : source) {
         std::vector<size_t> serNodes;
 
@@ -234,16 +242,33 @@ setSolverRes PackingHeuristic::returnBestSet(
   return {bestSelectedSets, bestCandidateCost, bestSubTrees};
 }
 
-std::vector<std::pair<size_t, int>> PackingHeuristic::orderByPotential(std::vector<SIMDChain>& chains, std::vector<size_t> toOrder) {
+std::vector<std::pair<size_t, int>> PackingHeuristic::orderByPotential(std::vector<SIMDChain>& chains, std::vector<size_t> toOrder, InitialChainBuilder& icb, bool first) {
 
     std::vector<std::pair<size_t, int>> savings;
     for (auto& idx : toOrder) {
       auto& cand = chains[idx];
-      // TODO: This should also account for the # of actual gather loads
-      size_t saving = cand.length * (cand.bottomLanes.size() - 1) -
-                      ci->getInsertCost(cand.bottomLanes.size()) *
-                          (cand.bottomLanes.size() - cand.gatherCount) -
-                      ci->getHistogramPenalty(cand.gatherCount);
+      // TODO: This should also account for the # of actual leafs below this chain
+      int saving;
+      if (icb.parentChildrenHistoMap.size() != 0) {
+        saving = cand.length * (cand.bottomLanes.size() - 1) -
+                 ci->getInsertCost(cand.bottomLanes.size()) *
+                     (cand.bottomLanes.size() - cand.gatherCount) -
+                 ci->getHistogramPenalty(cand.gatherCount);
+	if (first)
+	  saving -= cand.bottomLanes.size()*ci->getExtractCost(cand.bottomLanes.size());
+      } else {
+        std::multiset<size_t> inputGaussians;
+	size_t gaussCount = 0;
+        for (auto& lane : cand.bottomLanes) {
+	  size_t gaussians = icb.parentChildrenGaussMap[lane].size();
+	  gaussCount += gaussians;
+	  inputGaussians.insert(gaussians);
+        }
+	// calc serial cost and vector cost and calc difference
+	size_t vecCost = ci->gaussCost(inputGaussians);
+	size_t serCost = gaussCount*(ci->gaussArithCost + ci->scalarArithCost);
+	saving = serCost - vecCost;
+      }
       savings.push_back({idx, saving});
     }
 
@@ -258,7 +283,7 @@ std::vector<SIMDChainSet>
 PackingHeuristic::buildSIMDChainSets(std::vector<size_t> &candidateSIMDChains,
                                      bool first, InitialChainBuilder &icb,
                                      size_t setsGoal) {
-  auto savings = orderByPotential(icb.candidateSIMDChains, candidateSIMDChains);
+  auto savings = orderByPotential(icb.candidateSIMDChains, candidateSIMDChains, icb, first);
   std::unordered_map<size_t, std::vector<size_t>> simdChainNodeConflicts;
   for (auto &simdChain : candidateSIMDChains) {
     auto &chain = icb.candidateSIMDChains[simdChain];
@@ -353,7 +378,7 @@ PackingHeuristic::buildSIMDChainSets(std::vector<size_t> &candidateSIMDChains,
       if (newAvail.size() == 0)
         break;
       avail = newAvail;
-      ordered = orderByPotential(icb.candidateSIMDChains, newAvail);
+      ordered = orderByPotential(icb.candidateSIMDChains, newAvail, icb, first);
     }
     SIMDChainSets.push_back(scs);
   }
@@ -364,6 +389,9 @@ std::pair<vectorizationResultInfo, size_t> PackingHeuristic::getVectorizationRec
   if (subTreeCache.find(rootNode) != subTreeCache.end())
     return subTreeCache[rootNode];
   size_t treeSize = icb.dependsOn[rootNode].size();
+  if (rootNode == 0) {
+    overallTreeSize = treeSize;
+  }
   if (treeSize < 2) {
     SerialCostCalc scc(ci.get());
     auto cost = scc.getCost(icb.nodes[rootNode]);
@@ -383,13 +411,6 @@ std::pair<vectorizationResultInfo, size_t> PackingHeuristic::getVectorizationRec
     nodesToHandle.pop();
   }
 
-  size_t firstSIMDChainIdx = icb.candidateSIMDChains.size();
-  std::vector<size_t> scalarProductChains;
-  std::set_intersection(allChildChains.begin(), allChildChains.end(),
-                        icb.scalarProductChain.begin(),
-                        icb.scalarProductChain.end(),
-                        std::back_inserter(scalarProductChains));
-
   size_t usedCandGoal;
   if (!!chainCandidates)
     usedCandGoal = chainCandidates;
@@ -397,6 +418,14 @@ std::pair<vectorizationResultInfo, size_t> PackingHeuristic::getVectorizationRec
     usedCandGoal = 500;
   // scale no. of simd chains to produce according to treeSize
   size_t candGoal = ((double)usedCandGoal)*((double) treeSize/(double) overallTreeSize)+1;
+  
+  size_t firstSIMDChainIdx = icb.candidateSIMDChains.size();
+  std::vector<size_t> scalarProductChains;
+  std::set_intersection(allChildChains.begin(), allChildChains.end(),
+                        icb.scalarProductChain.begin(),
+                        icb.scalarProductChain.end(),
+                        std::back_inserter(scalarProductChains));
+
   icb.generateCandidateChains(scalarProductChains, icb.productChainConflicts, candGoal);
 
 
@@ -415,16 +444,6 @@ std::pair<vectorizationResultInfo, size_t> PackingHeuristic::getVectorizationRec
                         std::back_inserter(scalarWeightedSumChains));
 
   icb.generateCandidateChains(scalarWeightedSumChains, icb.weightedSumChainConflicts, candGoal);
-
-  /*
-  for (auto& simdChain : candidateSIMDChains) {
-    std::cout << "new simd chain, length:" << simdChain.length << " roots " << std::endl;
-    for (auto& bot : simdChain.bottomLanes) {
-      std::cout << nodes[bot]->id() << ",";
-    }
-    std::cout << std::endl;
-  }
-  */
 
   std::vector<size_t> availableSIMDChains(icb.candidateSIMDChains.size() -
                                           firstSIMDChainIdx);
@@ -610,7 +629,6 @@ std::pair<vectorizationResultInfo, size_t> PackingHeuristic::getVectorizationRec
 	newInputs.insert(vecIdMap[oldInput]);
       }
     }
-    
   }
 
   

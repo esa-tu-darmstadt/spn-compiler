@@ -13,6 +13,7 @@ class InitialChainBuilder : public BaseVisitor {
   InitialChainBuilder(size_t width);
   void performInitialBuild(NodeReference root);
   void visitHistogram(Histogram &n, arg_t arg) override;
+  void visitGauss(Gauss &n, arg_t arg) override;
 
   void visitProduct(Product &n, arg_t arg) override;
 
@@ -47,15 +48,15 @@ class InitialChainBuilder : public BaseVisitor {
   std::unordered_map<size_t, std::set<size_t>> weightedSumChainConflicts;
   std::unordered_map<size_t, std::set<size_t>> productChainConflicts;
   std::unordered_map<size_t, std::unordered_set<size_t>> dependsOn;
-  std::unordered_map<size_t, std::unordered_set<size_t>> dependsOnHistograms;
   std::vector<SIMDChain> candidateSIMDChains;
   std::unordered_map<size_t, size_t> childParentMap;
   std::unordered_map<size_t, std::vector<size_t>> parentChildrenMap;
   std::unordered_map<size_t, std::vector<size_t>> parentChildrenHistoMap;
+  std::unordered_map<size_t, std::vector<size_t>> parentChildrenGaussMap;
   std::unordered_map<size_t, std::vector<size_t>> childChains;
   // getBestSet relies on nodes[0] being the root of the tree
   std::vector<NodeReference> nodes;
-  std::vector<size_t> histograms;
+  std::vector<size_t> leafs;
   std::unordered_set<size_t> coveredPreLeafNodes;
   size_t width;
   size_t candidatesGoal;

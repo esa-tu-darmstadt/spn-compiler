@@ -12,7 +12,6 @@ using namespace llvm;
 
 
 CostInfo::CostInfo(size_t width) {
-  if (ARCH == AVX2) {
     raw_os_ostream os{std::cout};
     LLVMInitializeX86TargetInfo();
     LLVMInitializeX86Target();
@@ -38,9 +37,8 @@ CostInfo::CostInfo(size_t width) {
     extractCost = tti.getVectorInstrCost(
         Instruction::ExtractElement,
         VectorType::get(Type::getDoubleTy(context), width));
-    return;
-  }
-  assert(false);
+    // Guess, verify
+    gaussArithCost = 4;
 
 }
 
@@ -48,10 +46,10 @@ CostInfo::CostInfo(size_t width) {
 size_t CostInfo::histogramCost(std::multiset<size_t, std::greater<size_t>> inputHistos) {
   if (AVX2) {
     auto it = inputHistos.begin();
-    // The first two lanes can be calculated with no extra insertion cost, since xmm is 128 bit wide
     if (*it == 0)
       return 0;
     size_t cost = (*it-1)*scalarArithCost;
+    // The first two lanes can be calculated with no extra insertion cost, since xmm is 128 bit wide
     if (inputHistos.size() > 2) {
       // This is an overapproximation: in the optimal case, the two lanes with
       // the most histogram children will be 1 and 2 or 3 and 4, i.e. for the
@@ -74,6 +72,34 @@ size_t CostInfo::histogramCost(std::multiset<size_t, std::greater<size_t>> input
     cost += (lane-1)*scalarArithCost+insertCost;
   }
 }
+
+size_t CostInfo::gaussCost(
+    std::multiset<size_t> inputGaussians) {
+  size_t laneCount = inputGaussians.size();
+  size_t coveredInputs = 0;
+  size_t cost = 0; 
+  for (auto& lane : inputGaussians) {
+    size_t vecLeafsToPerform = lane - coveredInputs;
+    // cost of building vectors
+    if (AVX2) {
+      // Since we can directly load into the high section of an 128-bit
+      // register, we only incur a penalty of 1 if the vector has more than 2
+      // elements (can't be bigger than 4)
+      size_t insertCostAVX2 = (laneCount-1) / 2;
+      cost += vecLeafsToPerform*insertCostAVX2;
+    } else {
+      cost += vecLeafsToPerform*insertCost*laneCount;
+    }
+    cost += vecLeafsToPerform*gaussArithCost;
+    laneCount--;
+    coveredInputs = lane;
+  }
+  // Cost of combinig all gauss vectors/scalars
+  cost += (*inputGaussians.rbegin())*vecArithCost;
+  return cost;
+}
+
+
 size_t CostInfo::getHistogramPenalty(size_t width) {
   if (AVX2) {
     if (width > 2)

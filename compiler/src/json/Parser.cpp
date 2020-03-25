@@ -6,6 +6,15 @@
 #include <iostream>
 #include "Parser.h"
 
+#include "llvm/Support/CommandLine.h"
+
+extern llvm::cl::OptionCategory SPNCompiler;
+
+llvm::cl::opt<bool> forceTree(
+    "forceTree",
+    llvm::cl::desc("Even if the SPN is not a tree, duplicate nodes such that it is."),
+    llvm::cl::cat(SPNCompiler));
+
 IRGraph Parser::parseJSONFile(const std::string& inputFile) {
     std::cout << "Input file: " << inputFile << std::endl;
     std::ifstream i(inputFile);
@@ -26,6 +35,9 @@ IRGraph Parser::parseJSONFile(const std::string& inputFile) {
     }
     else if(j.contains("Histogram")){
         rootNode = j["Histogram"];
+    }
+    else if(j.contains("Gaussian")){
+        rootNode = j["Gaussian"];
     }
     else{
         std::cerr << "Unknown root node type, could not parse top-level scope" << std::endl;
@@ -55,7 +67,7 @@ IRGraph Parser::parseJSONFile(const std::string& inputFile) {
     return IRGraph{parseNode(j), inputs};
 }
 
-std::shared_ptr<GraphIRNode> Parser::parseNode(json &obj) const {
+std::shared_ptr<GraphIRNode> Parser::parseNode(json &obj)  {
     if(obj.contains("Sum")){
         return parseSum(obj);
     }
@@ -65,20 +77,28 @@ std::shared_ptr<GraphIRNode> Parser::parseNode(json &obj) const {
     else if(obj.contains("Histogram")){
         return parseHistogram(obj);
     }
+    else if(obj.contains("Gaussian")){
+        return parseGauss(obj);
+    }
     else{
         std::cerr << "Unknown node type, could not parse node" << std::endl;
         return nullptr;
     }
 }
 
-std::shared_ptr<WeightedSum> Parser::parseSum(json &obj) const {
+std::shared_ptr<WeightedSum> Parser::parseSum(json &obj) {
     json body = obj["Sum"];
-
-    if(!body.contains("id")){
+    unsigned int id;
+    if (forceTree) {
+      id = curId;
+      curId++;
+    } else {
+      if (!body.contains("id")) {
         std::cerr << "Field id missing, could not parse node" << std::endl;
         return nullptr;
+      }
+      id = body["id"].get<unsigned int>();
     }
-    auto id = body["id"].get<unsigned int>();
     if(!body.contains("weights")){
         std::cerr << "Field weights missing, could not parse node" << std::endl;
         return nullptr;
@@ -105,21 +125,27 @@ std::shared_ptr<WeightedSum> Parser::parseSum(json &obj) const {
     return std::make_shared<WeightedSum>(std::to_string(id), addends);
 }
 
-std::shared_ptr<Product> Parser::parseProduct(json &obj) const {
+std::shared_ptr<Product> Parser::parseProduct(json &obj)  {
     json body = obj["Product"];
 
-    if(!body.contains("id")){
+    unsigned int id;
+    if (forceTree) {
+      id = curId;
+      curId++;
+    } else {
+      if (!body.contains("id")) {
         std::cerr << "Field id missing, could not parse node" << std::endl;
         return nullptr;
+      }
+      id = body["id"].get<unsigned int>();
     }
-    auto id = body["id"].get<unsigned int>();
 
     std::vector<NodeReference> children = parseChildren(body);
 
     return std::make_shared<Product>(std::to_string(id), children);
 }
 
-std::vector<NodeReference> Parser::parseChildren(json &body) const {
+std::vector<NodeReference> Parser::parseChildren(json &body)  {
     if(!body.contains("children") || !body["children"].is_array()){
         std::cerr << "Field children missing, could not parse node" << std::endl;
     }
@@ -132,14 +158,67 @@ std::vector<NodeReference> Parser::parseChildren(json &body) const {
     return children;
 }
 
-std::shared_ptr<Histogram> Parser::parseHistogram(json &obj) const {
-    json body = obj["Histogram"];
 
-    if(!body.contains("id")){
+std::shared_ptr<Gauss> Parser::parseGauss(json &obj)  {
+    json body = obj["Gaussian"];
+
+    unsigned int id;
+    if (forceTree) {
+      id = curId;
+      curId++;
+    } else {
+      if (!body.contains("id")) {
         std::cerr << "Field id missing, could not parse node" << std::endl;
         return nullptr;
+      }
+      id = body["id"].get<unsigned int>();
     }
-    auto id = body["id"].get<unsigned int>();
+
+    if(!body.contains("scope") || !body["scope"].is_array() || body["scope"].size()!=1){
+        std::cerr << "Field scope not correct, could not parse node" << std::endl;
+        return nullptr;
+    }
+    auto varName = body["scope"].at(0).get<std::string>();
+    if(!inputVars.count(varName)){
+        std::cerr << "Gaussian refers to unknown input variable, could not parse node" << std::endl;
+        return nullptr;
+    }
+    auto inputVar = inputVars.at(varName);
+
+    if(!body.contains("mean")){
+        std::cerr << "Field mean missing, could not parse node" << std::endl;
+        return nullptr;
+    }
+    auto mean = body["mean"].get<double>();
+
+    if (forceTree) {
+      double randomNum = dist(e2);
+      mean = mean*randomNum;
+    }
+
+    
+    if(!body.contains("stdev")){
+        std::cerr << "Field stddev missing, could not parse node" << std::endl;
+        return nullptr;
+    }
+    auto stddev = body["stdev"].get<double>();
+    return std::make_shared<Gauss>(std::to_string(id), inputVar, mean, stddev);
+}
+
+std::shared_ptr<Histogram> Parser::parseHistogram(json &obj)  {
+    json body = obj["Histogram"];
+
+    unsigned int id;
+    if (forceTree) {
+      id = curId;
+      curId++;
+    } else {
+      if (!body.contains("id")) {
+        std::cerr << "Field id missing, could not parse node" << std::endl;
+        return nullptr;
+      }
+      id = body["id"].get<unsigned int>();
+    }
 
     if(!body.contains("scope") || !body["scope"].is_array() || body["scope"].size()!=1){
         std::cerr << "Field scope not correct, could not parse node" << std::endl;

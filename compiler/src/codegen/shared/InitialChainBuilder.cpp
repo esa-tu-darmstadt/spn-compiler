@@ -26,9 +26,9 @@ void InitialChainBuilder::performInitialBuild(NodeReference root) {
   nodes.push_back(root);
   root->accept(*this, std::make_shared<std::vector<size_t>>());
 
-  for (auto& histo : histograms) {
+  for (auto& leaf : leafs) {
     vecSetter vs(scalarSumChain, scalarWeightedSumChain, scalarProductChain);
-    auto it = childParentMap.find(histo);
+    auto it = childParentMap.find(leaf);
     std::vector<size_t> nodeSeq;
     while (it != childParentMap.end()) {
       nodeSeq.push_back(it->second);
@@ -86,7 +86,6 @@ size_t InitialChainBuilder::recChainGen(
     for (auto& chain: selected) {
       if (scalarChains[chain].size() == commonLength) {
 	gatherCount++;
-	
       }
       bottomLanes.push_back(scalarChains[chain][commonLength-1]);
     }
@@ -112,13 +111,6 @@ size_t InitialChainBuilder::recChainGen(
     return scalarChains[a].size() > scalarChains[b].size();
   });
 
-  // another sort mechanism might be a score judging both the length of a
-  // sequence and how different it is to others already selected, e.g. multiply
-  // length with (1/(max(common prefix))
-  size_t goalFullWidthChains =
-      ((size_t)std::pow(candidatesGoal,
-                        ((double)width - selected.size()) / ((double)width))) +
-      1;
   size_t buildFullWidthChains = 0;
   auto it = sortedAvail.begin();
   std::vector<size_t> used;
@@ -160,9 +152,11 @@ size_t InitialChainBuilder::recChainGen(
     newSel.push_back(*it);
     std::vector<size_t> newAvail;
     auto& conf = conflicts[*it];
+
+    std::set<size_t> remainingAvailable(it, sortedAvail.end());
     
-    std::set_difference(stillAvailable.begin(),
-        stillAvailable.end(), conf.begin(), conf.end(),
+    std::set_difference(remainingAvailable.begin(),
+        remainingAvailable.end(), conf.begin(), conf.end(),
         std::inserter(newAvail, newAvail.begin()));
 
     it++;
@@ -221,12 +215,20 @@ void InitialChainBuilder::visitHistogram(Histogram &n, arg_t arg) {
   if (it != coveredPreLeafNodes.end())
     return;
   std::vector<size_t>* prevNodes = (std::vector<size_t>*) arg.get();
-  for (auto& prev : *prevNodes) {
-    dependsOnHistograms[prev].insert(ownId);
-  }
-
   parentChildrenHistoMap[prevNodes->back()].push_back(ownId);
-  histograms.push_back(ownId);
+  leafs.push_back(ownId);
+  coveredPreLeafNodes.insert(parentId);
+}
+
+void InitialChainBuilder::visitGauss(Gauss &n, arg_t arg) {
+  size_t ownId = nodes.size()-1;
+  auto parentId = childParentMap[ownId];
+  auto it = coveredPreLeafNodes.find(parentId);
+  if (it != coveredPreLeafNodes.end())
+    return;
+  std::vector<size_t>* prevNodes = (std::vector<size_t>*) arg.get();
+  parentChildrenGaussMap[prevNodes->back()].push_back(ownId);
+  leafs.push_back(ownId);
   coveredPreLeafNodes.insert(parentId);
 }
 

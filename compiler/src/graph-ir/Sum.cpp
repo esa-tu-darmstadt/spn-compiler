@@ -11,6 +11,10 @@ Sum::Sum(std::string id, const std::vector<NodeReference> &addends) : GraphIRNod
 
 std::shared_ptr<std::vector<NodeReference>> Sum::addends() const {return _addends;}
 
+void Sum::setAddends(
+    std::shared_ptr<std::vector<NodeReference>> newAddends) {
+  _addends = newAddends;
+}
 void Sum::accept(Visitor& visitor, arg_t arg) {
     return visitor.visitSum(*this, arg);
 }

@@ -39,6 +39,38 @@ void IREmitter::visitInputvar(InputVar &n, arg_t arg) {
   input2value.insert({n.id(), val});
 }
 
+void IREmitter::visitGauss(Gauss &n, arg_t arg) {
+  
+  if (node2value.find(n.id()) != node2value.end())
+    return;
+  
+  if (input2value.find(n.indexVar()->id()) == input2value.end()) {
+    n.indexVar()->accept(*this, {});
+  }
+
+  auto constFactor =
+      ConstantFP::get(Type::getDoubleTy(_context),
+                      1 / (std::sqrt(2 * M_PI * n.stddev() * n.stddev())));
+
+  auto obs = _builder.CreateSIToFP(input2value[n.indexVar()->id()],
+                                   Type::getDoubleTy(_context));
+  auto normed = _builder.CreateFSub(obs, ConstantFP::get(Type::getDoubleTy(_context), n.mean()));
+
+  auto num = _builder.CreateFMul(normed, normed);
+  auto denom = ConstantFP::get(Type::getDoubleTy(_context),
+                               -2.0 * n.stddev() * n.stddev());
+
+  auto div = _builder.CreateFDiv(num, denom);
+
+  auto expFunc = Intrinsic::getDeclaration(_module, llvm::Intrinsic::exp, {Type::getDoubleTy(_context)});
+
+  auto expRes = _builder.CreateCall(expFunc, {div});
+  
+  auto res = _builder.CreateFMul(expRes, constFactor);
+
+  node2value.insert({n.id(), {res, -1, 0}});
+}
+
 Value* IREmitter::getHistogramPtr(Histogram& n) {
   std::vector<Constant *> values;
   size_t max_index = 0;

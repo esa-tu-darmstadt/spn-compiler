@@ -12,6 +12,11 @@ WeightedSum::WeightedSum(std::string id, const std::vector <WeightedAddend> &add
 
 std::shared_ptr<std::vector<WeightedAddend>> WeightedSum::addends() const {return _addends;}
 
+void WeightedSum::setAddends(
+    std::shared_ptr<std::vector<WeightedAddend>> newAddends) {
+  _addends = newAddends;
+}
+
 void WeightedSum::accept(Visitor& visitor, arg_t arg) {
     return visitor.visitWeightedSum(*this, arg);
 }

@@ -19,6 +19,8 @@ public:
 
     virtual void visitHistogram(Histogram& n, arg_t arg) = 0;
 
+    virtual void visitGauss(Gauss &n, arg_t arg) = 0;
+
     virtual void visitProduct(Product& n, arg_t arg) = 0;
 
     virtual void visitSum(Sum& n, arg_t arg) = 0;

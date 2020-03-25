@@ -38,7 +38,12 @@ std::vector<size_t> SchedulingConflictTraversal::updateConflicts(GraphIRNode& n,
 }
 
 void SchedulingConflictTraversal::visitInputvar(InputVar &n, arg_t arg) {}
-void SchedulingConflictTraversal::visitHistogram(Histogram &n, arg_t arg) {}
+void SchedulingConflictTraversal::visitHistogram(Histogram &n, arg_t arg) {
+  histograms.insert(n.id());
+}
+void SchedulingConflictTraversal::visitGauss(Gauss &n, arg_t arg) {
+  gaussians.insert(n.id());
+}
 void SchedulingConflictTraversal::visitProduct(Product &n, arg_t arg) {
   auto p = updateConflicts(n, arg);
   products.push_back(p[p.size()-1]);

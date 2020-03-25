@@ -39,6 +39,7 @@ add_library(spnc SHARED src/Driver.cpp
         src/graph-ir/GraphIRNode.cpp
         src/graph-ir/InputVar.cpp
         src/graph-ir/Histogram.cpp
+        src/graph-ir/Gauss.cpp
         src/graph-ir/WeightedSum.cpp
         src/graph-ir/Sum.cpp
         src/graph-ir/Product.cpp
@@ -47,6 +48,7 @@ add_library(spnc SHARED src/Driver.cpp
         src/util/DotVisitor.cpp
         src/util/GraphIRTools.cpp
         src/transform/BinaryTreeTransform.cpp
+        src/transform/AlternatingNodesTransform.cpp
         src/codegen/shared/VectorizationTraversal.cpp
         src/codegen/shared/BFSOrderProducer.cpp
         src/codegen/shared/PackingSolver.cpp

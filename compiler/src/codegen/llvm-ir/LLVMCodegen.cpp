@@ -34,6 +34,9 @@ llvm::cl::opt<std::string> OutputFilename(llvm::cl::Positional,
 
 LLVMCodegen::LLVMCodegen() : builder{context} {
     module = std::make_unique<Module>("spn-llvm", context);
+    FastMathFlags fmf;
+    fmf.setFast(true);
+    builder.setFastMathFlags(fmf);
 }
 
 void LLVMCodegen::generateLLVMIR(IRGraph &graph, bool vectorize) {

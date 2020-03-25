@@ -27,6 +27,7 @@ public:
        std::unordered_map<size_t, std::vector<size_t>> &partOf,
        std::unordered_map<size_t, GRBVar> &serVars,
        std::unordered_map<size_t, std::vector<size_t>> &fixedPacks,
+       std::unordered_set<std::string>& histograms, std::unordered_set<std::string>& gaussians,
        IndexRefMapper &irm,
        std::unordered_map<size_t, size_t> &singleOpToFixedVec, GRBModel& model);
   std::unique_ptr<CostInfo> ci;

@@ -16,6 +16,7 @@ public:
     NodeReference binarizeTree(const NodeReference& rootNode);
 
     void visitHistogram(Histogram& n, arg_t arg) override ;
+    void visitGauss(Gauss& n, arg_t arg) override ;
 
     void visitProduct(Product& n, arg_t arg) override ;
 

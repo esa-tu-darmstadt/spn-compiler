@@ -26,7 +26,7 @@ public:
     &chainPosToPackVecMap, std::vector<size_t> source, std::set<size_t> pruned);
 
   std::vector<std::pair<size_t, int>>
-  orderByPotential(std::vector<SIMDChain> &chains, std::vector<size_t> toOrder);
+    orderByPotential(std::vector<SIMDChain> &chains, std::vector<size_t> toOrder, InitialChainBuilder& icb, bool first);
 
   std::vector<SIMDChainSet>
   buildSIMDChainSets(std::vector<size_t> &candidateSIMDChains, bool first,

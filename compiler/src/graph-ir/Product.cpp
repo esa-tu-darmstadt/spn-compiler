@@ -11,6 +11,10 @@ Product::Product(std::string id, const std::vector<NodeReference> &multiplicands
 
 std::shared_ptr<std::vector<NodeReference>> Product::multiplicands() { return _multiplicands; }
 
+void Product::setMultiplicands(std::shared_ptr<std::vector<NodeReference>> newMultiplicands) {
+  _multiplicands = newMultiplicands;
+}
+
 void Product::accept(Visitor& visitor, arg_t arg) {
     return visitor.visitProduct(*this, arg);
 }

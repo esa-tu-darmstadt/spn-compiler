@@ -21,6 +21,7 @@ public:
       : simdWidth(width), model(m) {};
   void visitInputvar(InputVar &n, arg_t arg) override;
   void visitHistogram(Histogram &n, arg_t arg) override;
+  void visitGauss(Gauss &n, arg_t arg) override;
   void visitProduct(Product &n, arg_t arg) override;
   void visitSum(Sum &n, arg_t arg) override;
   void visitWeightedSum(WeightedSum &n, arg_t arg) override;
@@ -45,6 +46,8 @@ public:
   std::unordered_map<size_t, GRBVar> serVars;
   std::unordered_map<size_t, std::vector<size_t>> fixedPacks;
   std::unordered_map<size_t, size_t> singleOpToFixedVec;
+  std::unordered_set<std::string> histograms;
+  std::unordered_set<std::string> gaussians;
   // maps index into vecVars to index into conflicts/fixedPacks
   std::unordered_map<size_t, size_t> oldVecs;
   size_t simdWidth;

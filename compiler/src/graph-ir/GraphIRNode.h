@@ -70,6 +70,27 @@ private:
     std::shared_ptr<std::vector<HistogramBucket>> _buckets;
 };
 
+
+class Gauss : public GraphIRNode {
+public:
+  Gauss(std::string id, std::shared_ptr<InputVar> indexVar, double mean,
+        double stddev);
+
+  std::shared_ptr<InputVar> indexVar() const;
+
+  double mean() const;
+
+  double stddev() const;
+
+  void accept(Visitor &visitor, arg_t arg) override;
+
+private:
+    std::shared_ptr<InputVar> _indexVar;
+
+    double _mean;
+    double _stddev;
+};
+
 struct WeightedAddend{NodeReference addend; double weight;};
 
 class WeightedSum : public GraphIRNode {
@@ -77,6 +98,7 @@ public:
     WeightedSum(std::string id, const std::vector<WeightedAddend>& addends);
 
     std::shared_ptr<std::vector<WeightedAddend>> addends() const;
+    void setAddends(std::shared_ptr<std::vector<WeightedAddend>> newAddends);
 
     void accept(Visitor& visitor, arg_t arg) override ;
 
@@ -90,6 +112,7 @@ public:
 
     std::shared_ptr<std::vector<NodeReference>> addends() const;
 
+    void setAddends(std::shared_ptr<std::vector<NodeReference>> newAddends);
     void accept(Visitor& visitor, arg_t arg) override ;
 
 private:
@@ -101,7 +124,9 @@ public:
     Product(std::string id, const std::vector<NodeReference>& multiplicands);
 
     std::shared_ptr<std::vector<NodeReference>> multiplicands();
+  
 
+    void setMultiplicands(std::shared_ptr<std::vector<NodeReference>> newMultiplicands);
     void accept(Visitor& visitor, arg_t arg) override ;
 
 private:
