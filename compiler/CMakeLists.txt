@@ -82,8 +82,6 @@ set(mlir_libs
         MLIRExecutionEngine
         )
 
-message(STATUS "MLIR LIBS: " ${mlir_libs})
-
 llvm_map_components_to_libnames(llvm_libs bitwriter native passes)
 target_link_libraries(spnc PRIVATE spnc-common ${mlir_libs} ${llvm_libs} spdlog::spdlog)
 
