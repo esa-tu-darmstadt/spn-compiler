@@ -18,8 +18,8 @@ namespace mlir {
 
       using SPNOpLowering<HistogramValueOp>::SPNOpLowering;
 
-      PatternMatchResult matchAndRewrite(HistogramValueOp op, ArrayRef<Value> operands,
-                                         ConversionPatternRewriter& rewriter) const override;
+      LogicalResult matchAndRewrite(HistogramValueOp op, ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
 
     };
 

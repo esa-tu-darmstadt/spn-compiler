@@ -2,16 +2,18 @@
 #define SPN_OPS
 
 include "mlir/IR/OpBase.td"
-include "mlir/Analysis/CallInterfaces.td"
+include "mlir/Interfaces/CallInterfaces.td"
+include "mlir/Interfaces/SideEffects.td"
 include "SPNOpInterfaces.td"
 
 ///
 /// Dialect for SPN-specific operations.
-def SPN_Dialect : Dialect {
-    let name = "spn";
-    let cppNamespace = "spn";
+def SPN_Dialect
+: Dialect {
+let name = "spn";
+let cppNamespace = "spn";
 }
- 
+
 ///
 /// Base class of all SPN-specific operations.
 class SPN_Op<string mnemonic, list<OpTrait> traits = []> : Op<SPN_Dialect, mnemonic, traits>;
@@ -22,14 +24,19 @@ class SPN_NAry_Op<string mnemonic> : SPN_Op<mnemonic, [NoSideEffect, Commutative
 
   /// operands: Child nodes.
   /// opCount: Number of child nodes.
-  let arguments = (ins Variadic<F64>:$operands, PositiveI32Attr:$opCount);
+  let arguments = (ins
+  Variadic <F64>: $operands, UI32Attr: $opCount
+  );
 
-  let results = (outs F64);
+  let results = (outs
+  F64);
 
-  let verifier = [{ return ::verify(*this); }];
+  let verifier =
+  [{ return ::verify(*this); }];
 
-  let builders = [
-    OpBuilder<"Builder* b, OperationState& state, llvm::ArrayRef<Value> operands">
+  let builders =
+  [
+  OpBuilder<"Builder* b, OperationState& state, llvm::ArrayRef<Value> operands">
   ];
 
   let hasCanonicalizer = 1;
@@ -58,27 +65,43 @@ def SumOp : SPN_NAry_Op<"sum"> {
 
 
 def WeightedSumOp : SPN_Op<"weighted_sum", [NoSideEffect]> {
-  let summary = "weighted sum";
-  
-  let description = [{
-    N-ary, weighted sum operation, multiplying each operand with the associated,
-    constant weight and adding all operands into a single result.
-  }];
+let summary = "weighted sum";
 
-  /// operands: Child nodes.
-  /// weights: Weights associated with the child nodes.
-  /// opCount: Number of child nodes.
-  let arguments = (ins Variadic<F64>:$operands, F64ArrayAttr:$weights, PositiveI32Attr:$opCount);
+let description =
+[{
+N-ary,
+weighted sum
+operation,
+multiplying each
+operand with
+the associated,
+    constant
+weightand adding
+all operands
+into a
+single result
+.
+}];
 
-  let results = (outs F64);
+/// operands: Child nodes.
+/// weights: Weights associated with the child nodes.
+/// opCount: Number of child nodes.
+let arguments = (ins
+Variadic <F64>:$operands, F64ArrayAttr:$weights, UI32Attr:$opCount);
 
-  let verifier = [{ return ::verify(*this); }];
+let results = (outs
+F64);
 
-  let builders = [
-    OpBuilder<"Builder* b, OperationState& state, llvm::ArrayRef<Value> operands, llvm::ArrayRef<double> weights">
-  ];
+let verifier =
+[{
+return ::verify(*this); }];
 
-  let hasCanonicalizer = 1;
+let builders =
+[
+OpBuilder<"Builder* b, OperationState& state, llvm::ArrayRef<Value> operands, llvm::ArrayRef<double> weights">
+];
+
+let hasCanonicalizer = 1;
 }
 
 /// Named attribute for the inclusive lower bound of a histogram bucket.
@@ -98,22 +121,34 @@ def BucketListAttr : TypedArrayAttrBase<HistBucketAttr, "histogram bucket list">
 
 ///
 /// Histogram as SPN leaf node.
-def HistogramOp : SPN_Op<"histogram", [NoSideEffect]> {
-  let summary = "histogram";
+def HistogramOp
+: SPN_Op<"histogram", [NoSideEffect]> {
+let summary = "histogram";
 
-  let description = [{
-    Univariate distribution as leaf node, represented by a histogram.
-  }];
+let description =
+[{
+Univariate distribution
+as leaf
+node,
+represented by
+a histogram
+.
+}];
 
-  let arguments = (ins I32:$index, BucketListAttr:$buckets, PositiveI32Attr:$bucketCount);
+let arguments = (ins
+I32:$index, BucketListAttr:$buckets, UI32Attr:$bucketCount);
 
-  let results = (outs F64);
+let results = (outs
+F64);
 
-  let verifier = [{ return ::verify(*this); }];
+let verifier =
+[{
+return ::verify(*this); }];
 
-  let builders = [
-    OpBuilder<"Builder* b, OperationState& state, Value index, llvm::ArrayRef<std::tuple<int, int, double>> buckets">
-  ];
+let builders =
+[
+OpBuilder<"Builder* b, OperationState& state, Value index, llvm::ArrayRef<std::tuple<int, int, double>> buckets">
+];
 }
 
 ///

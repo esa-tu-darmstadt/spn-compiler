@@ -11,8 +11,8 @@
 using namespace mlir;
 using namespace spn;
 
-PatternMatchResult HistogramValueLowering::matchAndRewrite(HistogramValueOp op, ArrayRef<Value> operands,
-                                                           ConversionPatternRewriter& rewriter) const {
+LogicalResult HistogramValueLowering::matchAndRewrite(HistogramValueOp op, ArrayRef<Value> operands,
+                                                      ConversionPatternRewriter& rewriter) const {
   static int histCount = 0;
   // Construct a global constant array for the histogram values.
   auto llvmDialect = op.getContext()->getRegisteredDialect<LLVM::LLVMDialect>();
@@ -47,5 +47,5 @@ PatternMatchResult HistogramValueLowering::matchAndRewrite(HistogramValueOp op, 
   memRef.setConstantSize(rewriter, op.getLoc(), 0, 2);
   memRef.setConstantStride(rewriter, op.getLoc(), 0, 1);
   rewriter.replaceOp(op, {memRef});
-  return matchSuccess();
+  return success();
 }

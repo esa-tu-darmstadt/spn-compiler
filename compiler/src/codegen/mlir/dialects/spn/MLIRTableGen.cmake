@@ -44,9 +44,6 @@ function(mlir_tablegen)
         message(FATAL_ERROR "Did not find generated MLIR headers in ${MLIR_GEN_HEADER_DIR}!")
     endif (NOT EXISTS ${MLIR_GEN_HEADER_DIR})
 
-    # Include both, the MLIR project headers and the generated headers for MLIR.
-    set(MLIR_INCLUDE_DIRS ${MLIR_HEADER_DIR} ";" ${MLIR_GEN_HEADER_DIR} PARENT_SCOPE)
-
     # Find MLIR sources in LLVM source tree, required for MLIR table-gen.
     set(MLIR_MAIN_SRC_DIR ${LLVM_BUILD_MAIN_SRC_DIR}/../mlir/lib)
     if (NOT EXISTS ${MLIR_MAIN_SRC_DIR})
