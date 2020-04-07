@@ -97,3 +97,20 @@ doxygen_doc(TARGET_NAME spnc
         spnc-common
         EXCLUDES
         ${CMAKE_CURRENT_SOURCE_DIR}/src/frontend/json/json.hpp)
+
+# CMake setup for a spnc-opt, a tool to run SPN-dialect passes, similar to mlir-opt.
+list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+include(AddLLVM)
+
+add_llvm_executable(spnc-opt src/tools/opt/spnc-opt.cpp)
+
+llvm_update_compile_flags(spnc-opt)
+
+target_include_directories(spnc-opt
+        PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${LLVM_INCLUDE_DIRS}
+        ${MLIR_INCLUDE_DIRS}
+        ${CMAKE_CURRENT_BINARY_DIR})
+
+target_link_libraries(spnc-opt PRIVATE ${mlir_libs} ${llvm_libs} spnc)
