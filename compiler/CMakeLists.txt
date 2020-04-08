@@ -112,3 +112,5 @@ target_include_directories(spnc-opt
         ${CMAKE_CURRENT_BINARY_DIR})
 
 target_link_libraries(spnc-opt PRIVATE ${mlir_libs} ${llvm_libs} spnc)
+
+add_subdirectory(test)
