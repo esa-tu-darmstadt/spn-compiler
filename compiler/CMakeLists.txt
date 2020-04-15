@@ -113,4 +113,6 @@ target_include_directories(spnc-opt
 
 target_link_libraries(spnc-opt PRIVATE ${mlir_libs} ${llvm_libs} spnc)
 
+# Update the path to llvm-lit (taken from llvm/cmake/modules/AddLLVM.cmake)
+set(LLVM_EXTERNAL_LIT "${LLVM_TOOLS_BINARY_DIR}/llvm-lit" CACHE STRING "Command used to spawn lit")
 add_subdirectory(test)
