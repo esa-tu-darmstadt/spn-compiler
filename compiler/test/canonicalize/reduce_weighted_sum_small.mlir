@@ -11,7 +11,7 @@ module {
     %6 = "spn.histogram"(%1) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i64, ub = 1 : i64, val = 2.500000e-01 : f64}, {lb = 1 : i64, ub = 2 : i64, val = 7.500000e-01 : f64}]} : (i32) -> f64
     %7 = "spn.product"(%5, %6) {opCount = 2 : ui32} : (f64, f64) -> f64
     %8 = "spn.weighted_sum"(%4, %7) {opCount = 2 : ui32, weights = [1.000000e+00, 1.000000e+00]} : (f64, f64) -> f64
-    %9 = "spn.weighted_sum"(%4, %8) {opCount = 2 : ui32, weights = [7.500000e-01, 7.500000e-01]} : (f64, f64) -> f64
+    %9 = "spn.weighted_sum"(%8) {opCount = 1 : ui32, weights = [7.500000e-01]} : (f64) -> f64
     "spn.return"(%9) : (f64) -> ()
   }
   func @spn_kernel(%arg0: tensor<2xi32>) -> f64 {
@@ -21,7 +21,8 @@ module {
 }
 
 //  This small test checks if a weighted sum is rewritten into an ordinary sum,
-//  if all weights are 1.0
+//  if all weights are 1.0. Furthermore, test rewrite of a weighted sum if it
+//  has only one operand: into a spn.product with 2 operands (op, weight).
 
 // CHECK-LABEL: @spn_kernel_body
 // CHECK-COUNT-2: "spn.input_var"(%arg{{[0-9]+}})
@@ -30,5 +31,10 @@ module {
 // CHECK-NOT: "spn.weighted_sum"
 // CHECK-NOT: "spn.constant"
 // CHECK-NOT: "spn.product"
-// CHECK-NEXT: "spn.sum"(%4, %7) {opCount = 2
-// CHECK: "spn.return"
+// CHECK-NEXT: [[ORDINARY_SUM:%[0-9]+]] = "spn.sum"(%4, %7) {opCount = 2
+// CHECK-NEXT: [[CONST_MULT:%[0-9]+]] = "spn.constant"() {value = 7.500000e-01
+// CHECK-DAG: "spn.product"(
+// CHECK-DAG: [[ORDINARY_SUM]]
+// CHECK-DAG: [[CONST_MULT]]
+// CHECK-SAME: ) {opCount = 2
+// CHECK-NEXT: "spn.return"
