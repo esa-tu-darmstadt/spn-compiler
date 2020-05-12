@@ -12,8 +12,8 @@ module {
     %7 = "spn.constant"() {value = 1.25000e-01 : f64} : () -> f64
     %8 = "spn.product"(%0, %6, %6, %2, %3, %4, %7, %7, %7) {opCount = 9 : ui32} : (f64, f64, f64, f64, f64, f64, f64, f64, f64) -> f64
     %9 = "spn.product"(%4, %8) {opCount = 2 : ui32} : (f64, f64) -> f64
-    "spn.return"(%8) : (f64) -> ()
-//    "spn.return"(%9) : (f64) -> ()
+    "spn.return"(%8) : (f64) -> ()  //* SAFE *//
+//    "spn.return"(%9) : (f64) -> ()  //* UN-SAFE *//
   }
   func @spn_kernel(%arg0: tensor<2xi32>) -> f64 {
     %0 = "spn.query.single"(%arg0) {spn = @spn_kernel_body} : (tensor<2xi32>) -> f64

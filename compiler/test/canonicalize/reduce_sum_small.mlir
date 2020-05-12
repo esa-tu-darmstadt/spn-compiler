@@ -8,8 +8,8 @@ module {
     %3 = "spn.sum"(%1, %2) {opCount = 2 : ui32} : (f64, f64) -> f64
     %4 = "spn.sum"() {opCount = 0 : ui32} : () -> f64
     %5 = "spn.sum"(%3, %4) {opCount = 2 : ui32} : (f64, f64) -> f64
-//    "spn.return"(%3) : (f64) -> ()
-    "spn.return"(%5) : (f64) -> ()
+    "spn.return"(%3) : (f64) -> () //* SAFE *//
+//    "spn.return"(%5) : (f64) -> () //* UN-SAFE *//
   }
   func @spn_kernel(%arg0: tensor<2xi32>) -> f64 {
     %0 = "spn.query.single"(%arg0) {spn = @spn_kernel_body} : (tensor<2xi32>) -> f64
