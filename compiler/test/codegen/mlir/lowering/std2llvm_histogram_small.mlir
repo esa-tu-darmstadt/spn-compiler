@@ -22,7 +22,7 @@ module {
 // CHECK-SAME: tensor<2xf64>
 
 // CHECK-LABEL: @spn_kernel_body
-// CHECK-SAME: ([[ARGUMENT_0:%[^( ,:!]+]]
+// CHECK-SAME: [[ARGUMENT_0:%[^( ,:!]+]]
 
 // CHECK: [[ADDRESS:%[0-9]+]] = llvm.mlir.addressof [[HISTOGRAM]]
 // CHECK: llvm.getelementptr [[ADDRESS]]
