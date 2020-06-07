@@ -13,10 +13,10 @@
 #endif
 
 int main(int argc, char* argv[]) {
-  options_t options{{"target", "CPU"}, {"collect-graph-stats", "no"}};
+  options_t options{{"target", "CPU"}, {"collect-graph-stats", "no"}, {"delete-temps", "false"}, {"bodyCodeGenMethod", "ILP"}};
   auto parseResult = spnc::spn_compiler::parseJSON(std::string(argv[1]), options);
   std::cout << "Parsed JSON? " << parseResult.fileName() << std::endl;
-  Kernel kernel(std::string(TEST_KERNEL_DIR) + "/libdynamic-load-test.so", "foo");
+  Kernel kernel(std::string(TEST_KERNEL_DIR) + "/libdynamic-load-test.dylib", "foo");
   int a[]{1, 2, 3, 4, 5};
   double b[5];
   spnc_rt::spn_runtime::instance().execute(kernel, 5, a, b);

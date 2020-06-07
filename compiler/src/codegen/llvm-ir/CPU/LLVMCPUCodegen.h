@@ -10,6 +10,7 @@
 #include <graph-ir/GraphIRNode.h>
 #include <driver/Actions.h>
 #include "llvm/IR/IRBuilder.h"
+#include <driver/GlobalOptions.h>
 
 using namespace llvm;
 
@@ -26,7 +27,7 @@ namespace spnc {
     /// \param _kernelName Name of the top-level function to create.
     /// \param _llvmContext LLVMContext.
     LLVMCPUCodegen(ActionWithOutput<IRGraph>& _input, std::string _kernelName,
-                   std::shared_ptr<LLVMContext> _llvmContext);
+                   std::shared_ptr<LLVMContext> _llvmContext, const Configuration& _config);
 
     llvm::Module& execute() override;
 
@@ -45,6 +46,8 @@ namespace spnc {
     std::unordered_map<std::string, Value*> node2value;
 
     bool cached = false;
+
+    const Configuration& config;
 
   };
 }

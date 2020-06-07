@@ -18,3 +18,6 @@ void Product::accept(Visitor& visitor, arg_t arg) {
   return visitor.visitProduct(*this, arg);
 }
 
+void Product::setMultiplicands(std::vector<NodeReference> newMultiplicands) {
+  _multiplicands = newMultiplicands;
+}

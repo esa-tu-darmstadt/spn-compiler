@@ -19,6 +19,7 @@ add_library(spnc SHARED
         src/graph-ir/GraphIRNode.cpp
         src/graph-ir/InputVar.cpp
         src/graph-ir/Histogram.cpp
+        src/graph-ir/Gauss.cpp
         src/graph-ir/WeightedSum.cpp
         src/graph-ir/Sum.cpp
         src/graph-ir/Product.cpp
@@ -27,9 +28,14 @@ add_library(spnc SHARED
         src/graph-ir/transform/IRTransformationPass.cpp
         src/graph-ir/util/DotVisitor.cpp
         src/graph-ir/util/GraphStatVisitor.cpp
+        src/graph-ir/util/GraphIRTools.cpp
+        src/graph-ir/util/BFSOrderProducer.cpp
         src/graph-ir/transform/BinaryTreeTransform.cpp
+        src/graph-ir/transform/AlternatingNodesTransform.cpp
         src/codegen/llvm-ir/CPU/LLVMCPUCodegen.cpp
         src/codegen/llvm-ir/CPU/body/CodeGenScalarBody.cpp
+        src/codegen/llvm-ir/CPU/body/CodeGenVecBody.cpp
+        src/codegen/llvm-ir/CPU/body/vec/IREmitter.cpp
         src/codegen/llvm-ir/CPU/loop/CodeGenSerialLoop.cpp
         src/codegen/llvm-ir/pipeline/LLVMPipeline.cpp
         src/codegen/llvm-ir/transform/NumericalValueTracingPass.cpp)

@@ -13,6 +13,7 @@
 #include <llvm/IR/Module.h>
 #include <graph-ir/GraphIRNode.h>
 #include <graph-ir/IRGraph.h>
+#include <driver/GlobalOptions.h>
 
 namespace spnc {
 
@@ -44,7 +45,7 @@ namespace spnc {
     /// \param inputs Mapping of features (SPN input variables) to LLVM IR Values.
     /// \param output Mapping from loop index to output store address.
     /// \return Value of the loop induction variable after execution of the body.
-    virtual Value* emitBody(IRGraph& graph, Value* indVar, InputVarValueMap inputs, OutputAddressMap output) = 0;
+    virtual Value* emitBody(IRGraph& graph, Value* indVar, InputVarValueMap inputs, OutputAddressMap output, const Configuration& config) = 0;
 
   protected:
     ///

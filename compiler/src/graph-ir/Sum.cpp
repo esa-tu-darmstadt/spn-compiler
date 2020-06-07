@@ -17,3 +17,8 @@ const std::vector<NodeReference>& Sum::addends() const { return _addends; }
 void Sum::accept(Visitor& visitor, arg_t arg) {
   return visitor.visitSum(*this, arg);
 }
+
+void Sum::setAddends(
+    std::vector<NodeReference> newAddends) {
+  _addends = newAddends;
+}

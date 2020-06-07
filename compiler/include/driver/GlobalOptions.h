@@ -39,6 +39,15 @@ namespace spnc {
     /// should be deleted after the compilation completes. Defaults to true.
     extern Option<bool> deleteTemporaryFiles;
 
+    enum BodyCGMethod { Scalar, ILP, Heuristic };
+
+    extern EnumOpt bodyCodeGenMethod;
+
+    extern Option<int> simdWidth;
+    /// Use AVX2 Gather instructions to load histograms
+    extern Option<bool> useGather;
+    /// Use select instructions instead of histograms loads for histograms with only two buckets
+    extern Option<bool> selectBinary;
   }
 }
 

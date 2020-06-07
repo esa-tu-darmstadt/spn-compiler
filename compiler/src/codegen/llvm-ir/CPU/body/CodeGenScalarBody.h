@@ -20,7 +20,7 @@ namespace spnc {
 
     using CodeGenBody::CodeGenBody;
 
-    Value* emitBody(IRGraph& graph, Value* indVar, InputVarValueMap inputs, OutputAddressMap output) override;
+    Value* emitBody(IRGraph& graph, Value* indVar, InputVarValueMap inputs, OutputAddressMap output, const Configuration& config) override;
 
     void visitHistogram(Histogram& n, arg_t arg) override;
 

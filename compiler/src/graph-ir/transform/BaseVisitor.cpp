@@ -21,6 +21,10 @@ void BaseVisitor::visitHistogram(Histogram& n, arg_t arg) {
   return visitIRNode(n, arg);
 }
 
+void BaseVisitor::visitGauss(Gauss& n, arg_t arg){
+    return visitIRNode(n, arg);
+}
+
 void BaseVisitor::visitProduct(Product& n, arg_t arg) {
   return visitIRNode(n, arg);
 }

@@ -4,11 +4,12 @@
 //
 
 #include <codegen/llvm-ir/CPU/body/CodeGenScalarBody.h>
+#include <codegen/llvm-ir/CPU/body/CodeGenVecBody.h>
 #include "CodeGenSerialLoop.h"
 
 using namespace spnc;
 
-void CodeGenSerialLoop::emitLoop(Function& function, IRBuilder<>& builder, Value* lowerBound, Value* upperBound) {
+void CodeGenSerialLoop::emitLoop(Function& function, IRBuilder<>& builder, Value* lowerBound, Value* upperBound, const Configuration& config) {
   // Create a simple CFG for the loop comprising three main blocks.
   auto preheader = builder.GetInsertBlock();
   auto header = BasicBlock::Create(module.getContext(), "serial.loop.header", &function);
@@ -23,10 +24,15 @@ void CodeGenSerialLoop::emitLoop(Function& function, IRBuilder<>& builder, Value
   builder.CreateCondBr(comp, body, end);
   builder.SetInsertPoint(body);
   // Invoke the code-generation for the body.
-  CodeGenScalarBody codegenBody{module, function, builder};
-  auto incrVar = codegenBody.emitBody(graph, phi,
-                                      getDefaultInputMap(function, builder),
-                                      getDefaultOutputMap(function, builder));
+  std::unique_ptr<CodeGenBody> codegenBody;
+  if (spnc::option::bodyCodeGenMethod.get(config) != option::Scalar)
+    codegenBody = std::make_unique<CodeGenVecBody>(module, function, builder);
+  else
+    codegenBody = std::make_unique<CodeGenScalarBody>(module, function, builder);
+
+  auto incrVar = codegenBody->emitBody(graph, phi,
+				       getDefaultInputMap(function, builder),
+				       getDefaultOutputMap(function, builder), config);
   builder.CreateBr(header);
   phi->addIncoming(incrVar, body);
   builder.SetInsertPoint(end);

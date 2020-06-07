@@ -10,7 +10,8 @@
 #include <memory>
 #include "Actions.h"
 #include <util/FileSystem.h>
-
+#include <system_error>
+		
 namespace spnc {
 
   ///
@@ -30,7 +31,7 @@ namespace spnc {
         std::ifstream in(fileName);
         if (!in) {
           std::cerr << "ERROR: Could not read file " << fileName << std::endl;
-          throw std::system_error{};
+          throw std::system_error({});
         }
         in.seekg(0, std::ios::end);
         content->resize(in.tellg());

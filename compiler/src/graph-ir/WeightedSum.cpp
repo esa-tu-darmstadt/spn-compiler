@@ -18,3 +18,7 @@ void WeightedSum::accept(Visitor& visitor, arg_t arg) {
   return visitor.visitWeightedSum(*this, arg);
 }
 
+void WeightedSum::setAddends(
+    std::vector<WeightedAddend> newAddends) {
+  _addends = newAddends;
+}

@@ -19,4 +19,13 @@ EnumOpt spnc::option::compilationTarget{"target",
                                         {EnumVal(CPU, "CPU")},
                                         {required()}};
 
+
 Option<bool> spnc::option::deleteTemporaryFiles{"delete-temps", true};
+
+using spnc::option::BodyCGMethod;
+EnumOpt spnc::option::bodyCodeGenMethod("bodyCodeGenMethod", Scalar, {EnumVal(Scalar, "Scalar"), EnumVal(ILP, "ILP"), EnumVal(Heuristic, "Heuristic")});
+
+Option<int> spnc::option::simdWidth{"simdWidth", 2};
+
+Option<bool> spnc::option::useGather{"useGather", false};
+Option<bool> spnc::option::selectBinary{"selectBinary", false};

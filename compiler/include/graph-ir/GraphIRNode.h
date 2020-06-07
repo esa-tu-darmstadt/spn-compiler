@@ -121,6 +121,25 @@ namespace spnc {
     std::vector<HistogramBucket> _buckets;
   };
 
+  class Gauss : public GraphIRNode {
+  public:
+    Gauss(std::string id, InputVar* indexVar, double mean,
+          double stddev);
+
+    InputVar& indexVar() const;
+
+    double mean() const;
+
+    double stddev() const;
+
+    void accept(Visitor &visitor, arg_t arg) override;
+
+  private:
+    InputVar* _indexVar;
+
+    double _mean;
+    double _stddev;
+  };
   ///
   /// Addend for a WeightedSum, consisting of the child node and the corresponding weight.
   ///
@@ -148,6 +167,7 @@ namespace spnc {
     /// \return Weighted addends.
     const std::vector<WeightedAddend>& addends() const;
 
+    void setAddends(std::vector<WeightedAddend> newAddends);
     void accept(Visitor& visitor, arg_t arg) override;
 
   private:
@@ -167,6 +187,7 @@ namespace spnc {
     /// \return Child nodes.
     const std::vector<NodeReference>& addends() const;
 
+    void setAddends(std::vector<NodeReference> newAddends);
     void accept(Visitor& visitor, arg_t arg) override;
 
   private:
@@ -186,6 +207,7 @@ namespace spnc {
     /// \return Child nodes.
     const std::vector<NodeReference>& multiplicands() const;
 
+    void setMultiplicands(std::vector<NodeReference> newMultiplicands);
     void accept(Visitor& visitor, arg_t arg) override;
 
   private:

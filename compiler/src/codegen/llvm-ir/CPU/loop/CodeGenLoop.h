@@ -9,6 +9,7 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
 #include <graph-ir/GraphIRNode.h>
+#include <driver/GlobalOptions.h>
 
 using namespace llvm;
 
@@ -30,7 +31,7 @@ namespace spnc {
     /// \param builder IRBuilder to create IR instructions.
     /// \param lowerBound LLVM IR Value corresponding to the inclusive lower bound of the loop.
     /// \param upperBound LLVM IR Value corresponding to the exclusive upper bound of the loop.
-    virtual void emitLoop(Function& function, IRBuilder<>& builder, Value* lowerBound, Value* upperBound) = 0;
+    virtual void emitLoop(Function& function, IRBuilder<>& builder, Value* lowerBound, Value* upperBound, const Configuration& config) = 0;
 
     /// Construct the input arguments for the surrounding function.
     /// \return List of types to insert into the signature of the surrounding function for the inputs.

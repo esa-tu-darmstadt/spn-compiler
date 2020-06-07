@@ -20,7 +20,7 @@ namespace spnc {
 
     using CodeGenLoop::CodeGenLoop;
 
-    void emitLoop(Function& function, IRBuilder<>& builder, Value* lowerBound, Value* upperBound) override;
+    void emitLoop(Function& function, IRBuilder<>& builder, Value* lowerBound, Value* upperBound, const Configuration& config) override;
 
     std::vector<Type*> constructInputArgumentTypes() override;
 
@@ -44,7 +44,6 @@ namespace spnc {
     }
 
   private:
-
     struct serialInputAccess {
 
       Function& function;

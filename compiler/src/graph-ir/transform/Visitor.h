@@ -32,6 +32,8 @@ namespace spnc {
     /// \param n Histogram as SPN leaf node.
     /// \param arg Pass-through argument.
     virtual void visitHistogram(Histogram& n, arg_t arg) = 0;
+    
+    virtual void visitGauss(Gauss &n, arg_t arg) = 0;
 
     /// Visit product node.
     /// \param n N-ary product.

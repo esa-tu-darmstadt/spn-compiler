@@ -9,9 +9,9 @@
 using namespace spnc;
 
 LLVMCPUCodegen::LLVMCPUCodegen(ActionWithOutput<IRGraph>& _input, std::string _kernelName,
-                               std::shared_ptr<LLVMContext> _llvmContext)
+                               std::shared_ptr<LLVMContext> _llvmContext, const Configuration& _config)
     : ActionSingleInput<IRGraph, llvm::Module>(_input),
-      context{std::move(_llvmContext)}, builder{*context}, kernelName{std::move(_kernelName)} {
+      context{std::move(_llvmContext)}, builder{*context}, kernelName{std::move(_kernelName)}, config(_config) {
   module = std::make_unique<Module>("spn-llvm", *context);
 }
 
@@ -32,7 +32,7 @@ void LLVMCPUCodegen::generateLLVMIR(IRGraph& graph) {
   // Create a single basic block and invoke the loop code-generation.
   auto bb = BasicBlock::Create(*context, "main", function);
   builder.SetInsertPoint(bb);
-  codegenLoop.emitLoop(*function, builder, ConstantInt::get(int64Ty, 0), function->arg_begin());
+  codegenLoop.emitLoop(*function, builder, ConstantInt::get(int64Ty, 0), function->arg_begin(), config);
   builder.CreateRetVoid();
 }
 

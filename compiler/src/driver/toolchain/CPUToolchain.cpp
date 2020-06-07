@@ -6,6 +6,7 @@
 #include <driver/BaseActions.h>
 #include <frontend/json/Parser.h>
 #include <graph-ir/transform/BinaryTreeTransform.h>
+#include <graph-ir/transform/AlternatingNodesTransform.h>
 #include <codegen/llvm-ir/CPU/LLVMCPUCodegen.h>
 #include <driver/action/LLVMWriteBitcode.h>
 #include <driver/action/LLVMStaticCompiler.h>
@@ -41,17 +42,22 @@ std::unique_ptr<Job<Kernel>> CPUToolchain::constructJob(std::unique_ptr<ActionWi
   auto graphIRContext = std::make_shared<GraphIRContext>();
   auto& parser = job->insertAction<Parser>(*input, graphIRContext);
   // Transform all operations into binary (two inputs) operations.
-  auto& binaryTreeTransform = job->insertAction<BinaryTreeTransform>(parser, graphIRContext);
+  ActionWithOutput<IRGraph>* transform;
+  if (spnc::option::bodyCodeGenMethod.get(config) == option::Scalar) {
+    transform = &job->insertAction<BinaryTreeTransform>(parser, graphIRContext);
+  } else {
+    transform = &parser; //&job->insertAction<AlternatingNodesTransform>(parser, graphIRContext);
+  }
   // Invoke LLVM code-generation on transformed tree.
   std::string kernelName = "spn_kernel";
   std::shared_ptr<LLVMContext> llvmContext = std::make_shared<LLVMContext>();
-  auto& llvmCodeGen = job->insertAction<LLVMCPUCodegen>(binaryTreeTransform, kernelName, llvmContext);
+  auto& llvmCodeGen = job->insertAction<LLVMCPUCodegen>(*transform, kernelName, llvmContext, config);
   ActionWithOutput<llvm::Module>* codegenResult = &llvmCodeGen;
   // If requested via the configuration, collect graph statistics.
   if (spnc::option::collectGraphStats.get(config)) {
     // Collect graph statistics on transformed tree.
     auto statsFile = StatsFile(spnc::option::graphStatsFile.get(config), deleteTmps);
-    auto& graphStats = job->insertAction<GraphStatVisitor>(binaryTreeTransform, std::move(statsFile));
+    auto& graphStats = job->insertAction<GraphStatVisitor>(*transform, std::move(statsFile));
     // Join the two actions happening on the transformed tree (graph-stats & LLVM code-gen).
     auto& joinAction = job->insertAction<JoinAction<llvm::Module, StatsFile>>(llvmCodeGen, graphStats);
     codegenResult = &joinAction;

@@ -7,7 +7,7 @@
 
 using namespace spnc;
 
-Value* CodeGenScalarBody::emitBody(IRGraph& graph, Value* indVar, InputVarValueMap inputs, OutputAddressMap output) {
+Value* CodeGenScalarBody::emitBody(IRGraph& graph, Value* indVar, InputVarValueMap inputs, OutputAddressMap output, const Configuration& config) {
   // Initialize node-to-value map with inputs.
   for (auto inputVar : graph.inputs()) {
     node2value[inputVar->id()] = inputs(inputVar->index(), indVar);
