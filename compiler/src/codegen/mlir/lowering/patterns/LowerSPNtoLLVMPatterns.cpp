@@ -25,7 +25,7 @@ LogicalResult HistogramValueLowering::matchAndRewrite(HistogramValueOp op, Array
                                                      arrType,
                                                      true,
                                                      LLVM::Linkage::Internal,
-                                                     "test_" + std::to_string(histCount++),
+                                                     "hist_" + std::to_string(histCount++),
                                                      op.values());
   rewriter.restoreInsertionPoint(restore);
   // Use the feature input value to index into the global constant array and load the value.
@@ -44,7 +44,7 @@ LogicalResult HistogramValueLowering::matchAndRewrite(HistogramValueOp op, Array
                                                   LLVM::LLVMType::getInt64Ty(llvmDialect),
                                                   rewriter.getI64IntegerAttr(0));
   memRef.setOffset(rewriter, op.getLoc(), const0);
-  memRef.setConstantSize(rewriter, op.getLoc(), 0, 2);
+  memRef.setConstantSize(rewriter, op.getLoc(), 0, op.values().getNumElements());
   memRef.setConstantStride(rewriter, op.getLoc(), 0, 1);
   rewriter.replaceOp(op, {memRef});
   return success();

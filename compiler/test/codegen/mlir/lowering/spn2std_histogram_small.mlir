@@ -2,7 +2,11 @@
 
 module {
   func @spn_kernel_body(%arg0: i32, %arg1: i32) -> f64 {
-    %0 = "spn.histogram"(%arg0) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i64, ub = 1 : i64, val = 2.500000e-01 : f64}, {lb = 1 : i64, ub = 2 : i64, val = 7.500000e-01 : f64}]} : (i32) -> f64
+    %0 = "spn.histogram"(%arg0) {bucketCount = 4 : ui32, buckets = [
+      {lb = 0 : i64, ub = 1 : i64, val = 2.500000e-01 : f64},
+      {lb = 1 : i64, ub = 2 : i64, val = 1.250000e-01 : f64},
+      {lb = 2 : i64, ub = 3 : i64, val = 6.250000e-02 : f64},
+      {lb = 3 : i64, ub = 4 : i64, val = 5.625000e-01 : f64}]} : (i32) -> f64
     "spn.return"(%0) : (f64) -> ()
   }
 }
