@@ -32,8 +32,8 @@ public:
 };
 
 void AlternatingNodesTransform::transform(IRGraph& input) {
-  input.rootNode()->accept(*this, {});
-  transformedGraph.setRootNode(input.rootNode());
+  transformedGraph=input;
+  transformedGraph.rootNode()->accept(*this, {});
 }
 
 void AlternatingNodesTransform::visitHistogram(Histogram &n, arg_t arg) {

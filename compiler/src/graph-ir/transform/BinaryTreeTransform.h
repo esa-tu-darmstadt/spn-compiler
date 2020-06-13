@@ -26,6 +26,8 @@ namespace spnc {
 
     void visitHistogram(Histogram& n, arg_t arg) override;
 
+    void visitGauss(Gauss& n, arg_t arg) override;
+
     void visitProduct(Product& n, arg_t arg) override;
 
     void visitSum(Sum& n, arg_t arg) override;

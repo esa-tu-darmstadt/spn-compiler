@@ -32,6 +32,14 @@ void DotVisitor::visitHistogram(Histogram& n, arg_t arg) {
   n.indexVar().accept(*this, nullptr);
 }
 
+void DotVisitor::visitGauss(Gauss &n, arg_t arg) {
+    nodes << "v" << n.id() << " [shape=box, label=\"gaussian " << n.id();
+    nodes << "\\n mean: " << n.mean() << "\\n stddev: " << n.stddev() <<  "\"];" << std::endl;
+    
+    edges << "v" << n.id() << " -> v" << n.indexVar().id() << ";" << std::endl;
+    n.indexVar().accept(*this, nullptr);
+}
+
 void DotVisitor::visitProduct(Product& n, arg_t arg) {
   nodes << "v" << n.id() << " [shape=box, label=\"product " << n.id() << "\"];" << std::endl;
   for (auto& child : n.multiplicands()) {

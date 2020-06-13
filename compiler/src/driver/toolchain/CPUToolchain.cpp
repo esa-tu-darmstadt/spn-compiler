@@ -40,13 +40,13 @@ std::unique_ptr<Job<Kernel>> CPUToolchain::constructJob(std::unique_ptr<ActionWi
   std::unique_ptr<Job<Kernel>> job{new Job<Kernel>()};
   // Construct parser to parse JSON from input.
   auto graphIRContext = std::make_shared<GraphIRContext>();
-  auto& parser = job->insertAction<Parser>(*input, graphIRContext);
+  auto& parser = job->insertAction<Parser>(*input, graphIRContext, config);
   // Transform all operations into binary (two inputs) operations.
   ActionWithOutput<IRGraph>* transform;
   if (spnc::option::bodyCodeGenMethod.get(config) == option::Scalar) {
     transform = &job->insertAction<BinaryTreeTransform>(parser, graphIRContext);
   } else {
-    transform = &parser; //&job->insertAction<AlternatingNodesTransform>(parser, graphIRContext);
+    transform = &job->insertAction<AlternatingNodesTransform>(parser, graphIRContext);
   }
   // Invoke LLVM code-generation on transformed tree.
   std::string kernelName = "spn_kernel";

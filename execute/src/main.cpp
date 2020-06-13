@@ -13,7 +13,7 @@
 #endif
 
 int main(int argc, char* argv[]) {
-  options_t options{{"target", "CPU"}, {"collect-graph-stats", "no"}, {"delete-temps", "false"}, {"bodyCodeGenMethod", "ILP"}};
+  options_t options{{"target", "CPU"}, {"collect-graph-stats", "no"}, {"delete-temps", "false"}, {"bodyCodeGenMethod", "ILP"}, {"simdWidth", "4"}, {"iterativeSolving", "True"}};
   auto parseResult = spnc::spn_compiler::parseJSON(std::string(argv[1]), options);
   std::cout << "Parsed JSON? " << parseResult.fileName() << std::endl;
   Kernel kernel(std::string(TEST_KERNEL_DIR) + "/libdynamic-load-test.dylib", "foo");

@@ -39,8 +39,11 @@ namespace spnc {
     /// should be deleted after the compilation completes. Defaults to true.
     extern Option<bool> deleteTemporaryFiles;
 
+    // Convert input SPN into a tree
+    extern Option<bool> forceTree;
+    
     enum BodyCGMethod { Scalar, ILP, Heuristic };
-
+    // Method to use for CPU code code generation
     extern EnumOpt bodyCodeGenMethod;
 
     extern Option<int> simdWidth;
@@ -48,6 +51,16 @@ namespace spnc {
     extern Option<bool> useGather;
     /// Use select instructions instead of histograms loads for histograms with only two buckets
     extern Option<bool> selectBinary;
+    // Run the ILP solver in multiple iteration of increasing node vector width
+    extern Option<bool> incSolve;
+    // Candidates to evaluate for whole tree
+    extern Option<int> rootCand;
+    // Candidates to evaluate for subtrees of vectors
+    extern Option<int> depCand;
+    // No. of SIMD Chains to generate
+    extern Option<int> chainCandidates;
+    // Factorto determine the number of SIMD Chains to generate that originate from a candidate vector
+    extern Option<int> depChains;
   }
 }
 

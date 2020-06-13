@@ -10,8 +10,10 @@
 
 using namespace spnc;
 
-Parser::Parser(spnc::ActionWithOutput<std::string>& _input, std::shared_ptr<GraphIRContext> context)
-    : ActionSingleInput<std::string, IRGraph>{_input}, graph{context} {}
+Parser::Parser(spnc::ActionWithOutput<std::string> &_input,
+               std::shared_ptr<GraphIRContext> context,
+               const Configuration &_config)
+  : ActionSingleInput<std::string, IRGraph>{_input}, graph{context}, forceTree{option::forceTree.get(_config)}, e2(rd()), dist(0.9999, 1.0001) {}
 
 IRGraph& Parser::execute() {
   if (!cached) {
@@ -37,6 +39,8 @@ void Parser::parseJSONFile(std::string& input) {
     rootNode = j["Product"];
   } else if (j.contains("Histogram")) {
     rootNode = j["Histogram"];
+  } else if (j.contains("Gaussian")) {
+    rootNode = j["Gaussian"];
   } else {
     SPNC_FATAL_ERROR("Unknown root node type, could not parse top-level scope");
   }
@@ -72,6 +76,8 @@ NodeReference Parser::parseNode(json& obj) {
     return parseProduct(obj);
   } else if (obj.contains("Histogram")) {
     return parseHistogram(obj);
+  } else if (obj.contains("Gaussian")) {
+    return parseGauss(obj);
   } else {
     SPNC_FATAL_ERROR("Unknown node type, could not parse node");
   }
@@ -83,7 +89,12 @@ WeightedSum* Parser::parseSum(json& obj) {
   if (!body.contains("id")) {
     SPNC_FATAL_ERROR("Field id missing, could not parse node");
   }
-  auto id = body["id"].get<unsigned int>();
+  unsigned int id;
+  if (forceTree)
+    id = curId++;
+  else
+    id = body["id"].get<unsigned int>();
+  
   if (!body.contains("weights")) {
     SPNC_FATAL_ERROR("Field weights missing, could not parse node");
   }
@@ -117,8 +128,12 @@ Product* Parser::parseProduct(json& obj) {
   if (!body.contains("id")) {
     SPNC_FATAL_ERROR("Field id missing, could not parse node");
   }
-  auto id = body["id"].get<unsigned int>();
-
+  unsigned int id;
+  if (forceTree)
+    id = curId++;
+  else
+    id = body["id"].get<unsigned int>();
+  
   // Recurse to parse child nodes.
   std::vector<NodeReference> children = parseChildren(body);
 
@@ -144,8 +159,12 @@ Histogram* Parser::parseHistogram(json& obj) {
   if (!body.contains("id")) {
     SPNC_FATAL_ERROR("Field id missing, could not parse node");
   }
-  auto id = body["id"].get<unsigned int>();
-
+  unsigned int id;
+  if (forceTree)
+    id = curId++;
+  else
+    id = body["id"].get<unsigned int>();
+  
   if (!body.contains("scope") || !body["scope"].is_array() || body["scope"].size() != 1) {
     SPNC_FATAL_ERROR("Field scope not correctly specified, could not parse node");
   }
@@ -191,6 +210,50 @@ Histogram* Parser::parseHistogram(json& obj) {
     buckets.push_back(HistogramBucket{*b1, *b2, *di});
   }
   return graph.create<Histogram>(std::to_string(id), inputVar, buckets);
+}
+
+Gauss* Parser::parseGauss(json &obj) {
+  json body = obj["Gaussian"];
+
+  if (!body.contains("id")) {
+    SPNC_FATAL_ERROR("Field id missing, could not parse node");
+  }
+
+  unsigned int id;
+  if (forceTree) {
+    id = curId;
+    curId++;
+  } else {
+    id = body["id"].get<unsigned int>();
+  }
+
+  if (!body.contains("scope") || !body["scope"].is_array() ||
+      body["scope"].size() != 1) {
+    SPNC_FATAL_ERROR(
+        "Field scope not correctly specified, could not parse node");
+  }
+  auto varName = body["scope"].at(0).get<std::string>();
+  if (!inputVars.count(varName)) {
+    SPNC_FATAL_ERROR(
+        "Gaussian refers to unknown input variable, could not parse node");
+  }
+  auto inputVar = inputVars.at(varName);
+
+  if (!body.contains("mean")) {
+    SPNC_FATAL_ERROR("Field mean missing, could not parse node");
+  }
+  auto mean = body["mean"].get<double>();
+
+  if (forceTree) {
+    double randomNum = dist(e2);
+    mean = mean * randomNum;
+  }
+
+  if (!body.contains("stdev")) {
+    SPNC_FATAL_ERROR("Field stddev missing, could not parse node");
+  }
+  auto stddev = body["stdev"].get<double>();
+  return graph.create<Gauss>(std::to_string(id), inputVar, mean, stddev);
 }
 
 
