@@ -25,7 +25,7 @@ namespace mlir {
       /// \param context Surrounding MLIRContext.
       explicit ReduceWeightedSumOp(MLIRContext* context) : OpRewritePattern<WeightedSumOp>(context, 1) {}
 
-      PatternMatchResult matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const override;
+      LogicalResult matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const override;
 
     };
 
@@ -37,7 +37,7 @@ namespace mlir {
       /// \param context Surrounding MLIRContext.
       explicit ConstantFoldWeightedSumOp(MLIRContext* context) : OpRewritePattern(context, 1) {}
 
-      PatternMatchResult matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const override;
+      LogicalResult matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const override;
 
     };
 
@@ -53,18 +53,18 @@ namespace mlir {
       /// \param context Surrounding MLIRContext.
       explicit ReduceNAryOp(MLIRContext* context) : OpRewritePattern<NAryOp>(context, 1) {}
 
-      PatternMatchResult matchAndRewrite(NAryOp op, PatternRewriter& rewriter) const override {
+      LogicalResult matchAndRewrite(NAryOp op, PatternRewriter& rewriter) const override {
         if (op.getNumOperands() > 1) {
-          return ReduceNAryOp<NAryOp>::matchFailure();
+          return failure();
         }
 
         if (op.getNumOperands() == 0) {
           rewriter.eraseOp(op.getOperation());
-          return ReduceNAryOp<NAryOp>::matchSuccess();
+          return success();
         }
         assert(op.getNumOperands() == 1 && "Expecting only a single operand!");
         rewriter.replaceOp(op, {op.operands()[0]});
-        return ReduceNAryOp<NAryOp>::matchSuccess();
+        return success();
       }
 
     };
@@ -81,7 +81,7 @@ namespace mlir {
       /// \param context Surrounding MLIRContext.
       explicit ConstantFoldNAryOp(MLIRContext* context) : OpRewritePattern<NAryOp>(context, 1) {}
 
-      PatternMatchResult matchAndRewrite(NAryOp op, PatternRewriter& rewriter) const override {
+      LogicalResult matchAndRewrite(NAryOp op, PatternRewriter& rewriter) const override {
         SmallVector<Value, 10> operands;
         auto acc = (double) Initial;
         size_t constantOps = 0;
@@ -95,7 +95,7 @@ namespace mlir {
           }
         }
         if (constantOps <= 1) {
-          return ConstantFoldNAryOp<NAryOp, Acc, Initial>::matchFailure();
+          return failure();
         }
 
         if (acc != ((double) Initial)) {
@@ -103,7 +103,7 @@ namespace mlir {
         }
         auto newOp = rewriter.create<NAryOp>(op.getLoc(), operands);
         rewriter.replaceOp(op, {newOp});
-        return ConstantFoldNAryOp<NAryOp, Acc, Initial>::matchSuccess();
+        return success();
       }
     };
 

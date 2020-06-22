@@ -9,10 +9,10 @@
 using namespace mlir;
 using namespace mlir::spn;
 
-PatternMatchResult ReduceWeightedSumOp::matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const {
+LogicalResult ReduceWeightedSumOp::matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const {
   if (op.getNumOperands() == 0) {
     rewriter.eraseOp(op.getOperation());
-    return matchSuccess();
+    return success();
   }
 
   if (op.getNumOperands() == 1) {
@@ -23,7 +23,7 @@ PatternMatchResult ReduceWeightedSumOp::matchAndRewrite(WeightedSumOp op, Patter
     SmallVector<Value, 2> ops{addend, constant};
     auto product = rewriter.create<ProductOp>(op.getLoc(), ops);
     rewriter.replaceOp(op, {product});
-    return matchSuccess();
+    return success();
   }
 
   SmallVector<Value, 10> operands;
@@ -34,16 +34,16 @@ PatternMatchResult ReduceWeightedSumOp::matchAndRewrite(WeightedSumOp op, Patter
     if (WI->cast<FloatAttr>().getValueAsDouble() == 1.0) {
       operands.push_back(*AI);
     } else {
-      return matchFailure();
+      return failure();
     }
   }
   // If all weights equal to 1.0, replace with simple sum operation.
   auto newSum = rewriter.create<SumOp>(op.getLoc(), operands);
   rewriter.replaceOp(op, {newSum});
-  return matchSuccess();
+  return success();
 }
 
-PatternMatchResult ConstantFoldWeightedSumOp::matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const {
+LogicalResult ConstantFoldWeightedSumOp::matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const {
   SmallVector<Value, 10> operands;
   SmallVector<double, 10> weights;
   double acc = 0.0;
@@ -62,7 +62,7 @@ PatternMatchResult ConstantFoldWeightedSumOp::matchAndRewrite(WeightedSumOp op, 
     ++index;
   }
   if (constantOperands <= 1) {
-    return matchFailure();
+    return failure();
   }
   if (acc > 0.0) {
     operands.push_back(rewriter.create<ConstantOp>(op.getLoc(), acc));
@@ -70,5 +70,5 @@ PatternMatchResult ConstantFoldWeightedSumOp::matchAndRewrite(WeightedSumOp op, 
   }
   auto newSum = rewriter.create<WeightedSumOp>(op.getLoc(), operands, weights);
   rewriter.replaceOp(op, {newSum});
-  return matchSuccess();
+  return success();
 }

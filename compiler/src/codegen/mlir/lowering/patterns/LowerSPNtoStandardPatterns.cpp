@@ -12,30 +12,30 @@
 using namespace mlir;
 using namespace mlir::spn;
 
-PatternMatchResult ConstantOpLowering::matchAndRewrite(spn::ConstantOp op, PatternRewriter& rewriter) const {
+LogicalResult ConstantOpLowering::matchAndRewrite(spn::ConstantOp op, PatternRewriter& rewriter) const {
   // Simply replace the operation with the equivalent from the Standard dialect.
   rewriter.replaceOpWithNewOp<mlir::ConstantOp>(op, op.valueAttr());
-  return matchSuccess();
+  return success();
 }
 
-PatternMatchResult ReturnOpLowering::matchAndRewrite(spn::ReturnOp op, PatternRewriter& rewriter) const {
+LogicalResult ReturnOpLowering::matchAndRewrite(spn::ReturnOp op, PatternRewriter& rewriter) const {
   // Simply replace the operation with the equivalent from the Standard dialect.
   rewriter.replaceOpWithNewOp<mlir::ReturnOp>(op, op.retValue());
-  return matchSuccess();
+  return success();
 }
 
-PatternMatchResult InputVarLowering::matchAndRewrite(InputVarOp op, ArrayRef<Value> operands,
-                                                     ConversionPatternRewriter& rewriter) const {
+LogicalResult InputVarLowering::matchAndRewrite(InputVarOp op, ArrayRef<Value> operands,
+                                                ConversionPatternRewriter& rewriter) const {
   // InputVarOps are now only used to associate some high-level information
   // about the input variable with the input to the SPN-function's argument
   // at the corresponding index. We can simply replace the InputVarOp with
   // its single argument.
   rewriter.replaceOp(op, {operands[0]});
-  return matchSuccess();
+  return success();
 }
 
-PatternMatchResult FunctionLowering::matchAndRewrite(FuncOp op, ArrayRef<Value> operands,
-                                                     ConversionPatternRewriter& rewriter) const {
+LogicalResult FunctionLowering::matchAndRewrite(FuncOp op, ArrayRef<Value> operands,
+                                                ConversionPatternRewriter& rewriter) const {
   // As part of this lowering, we convert all Tensor-values to MemRef-values.
   // Therefore, we need to rewrite the signature of the functions to convert
   // the types of the function arguments.
@@ -44,7 +44,7 @@ PatternMatchResult FunctionLowering::matchAndRewrite(FuncOp op, ArrayRef<Value> 
   // Conversion is currently limited to functions with a single argument.
   if (fnType.getNumResults() > 1) {
     SPDLOG_ERROR("Function returns more than one result!");
-    return matchFailure();
+    return failure();
   }
 
   // Get the result type or None, if the function does not return a value.
@@ -53,7 +53,7 @@ PatternMatchResult FunctionLowering::matchAndRewrite(FuncOp op, ArrayRef<Value> 
     auto convertedType = typeConverter.convertType(r);
     if (!convertedType) {
       SPDLOG_ERROR("Could not convert function return type");
-      return matchFailure();
+      return failure();
     }
     results.push_back(convertedType);
   }
@@ -64,7 +64,7 @@ PatternMatchResult FunctionLowering::matchAndRewrite(FuncOp op, ArrayRef<Value> 
   for (auto argType : llvm::enumerate(fnType.getInputs())) {
     if (failed(typeConverter.convertSignatureArg((unsigned) argType.index(), argType.value(), signatureConverter))) {
       SPDLOG_ERROR("Could not convert function argument type");
-      return matchFailure();
+      return failure();
     }
   }
 
@@ -87,11 +87,11 @@ PatternMatchResult FunctionLowering::matchAndRewrite(FuncOp op, ArrayRef<Value> 
   rewriter.applySignatureConversion(&newFuncOp.getBody(), signatureConverter);
   // Delete the old, now unused function to avoid name conflicts.
   rewriter.eraseOp(op);
-  return matchSuccess();
+  return success();
 }
 
-PatternMatchResult HistogramLowering::matchAndRewrite(HistogramOp op, ArrayRef<Value> operands,
-                                                      ConversionPatternRewriter& rewriter) const {
+LogicalResult HistogramLowering::matchAndRewrite(HistogramOp op, ArrayRef<Value> operands,
+                                                 ConversionPatternRewriter& rewriter) const {
   // Lower histogram. As the Standard dialect currently (2020/02/28) does not support Tensor-
   // or vector-constants, we will insert a HistogramValueOp, which contains a flattened array
   // of probability values from the histogram and will be converted to an actual array when
@@ -115,7 +115,7 @@ PatternMatchResult HistogramLowering::matchAndRewrite(HistogramOp op, ArrayRef<V
 
   // Currently, we assume that all input vars take no values <0.
   if (minLB < 0) {
-    return matchFailure();
+    return failure();
   }
 
   // Flatten the map into an array by filling up empty indices with 0 values.
@@ -135,18 +135,18 @@ PatternMatchResult HistogramLowering::matchAndRewrite(HistogramOp op, ArrayRef<V
   // Replace the histogram with a load from the array of constant values.
   auto histRead = rewriter.create<mlir::LoadOp>(op.getLoc(), histValueAray, ValueRange{castIndex});
   rewriter.replaceOp(op, {histRead});
-  return matchSuccess();
+  return success();
 }
 
-PatternMatchResult SingleQueryLowering::matchAndRewrite(SPNSingleQueryOp op, ArrayRef<Value> operands,
-                                                        ConversionPatternRewriter& rewriter) const {
+LogicalResult SingleQueryLowering::matchAndRewrite(SPNSingleQueryOp op, ArrayRef<Value> operands,
+                                                   ConversionPatternRewriter& rewriter) const {
   SmallVector<Type, 1> retType{rewriter.getF64Type()};
   if (!operands[0].getType().isa<MemRefType>()) {
-    return matchFailure();
+    return failure();
   }
   auto memRefType = operands[0].getType().cast<MemRefType>();
   if (!memRefType.hasStaticShape() || MemRefType::isDynamic(memRefType.getDimSize(0))) {
-    return matchFailure();
+    return failure();
   }
   // Load each feature value from the memref (was a tensor before lowering) and
   // replace SPNSingleQuery by a call to the SPN function.
@@ -158,7 +158,7 @@ PatternMatchResult SingleQueryLowering::matchAndRewrite(SPNSingleQueryOp op, Arr
     loads.push_back(load);
   }
   rewriter.replaceOpWithNewOp<mlir::CallOp>(op, retType, op.spnAttr(), loads);
-  return matchSuccess();
+  return success();
 }
 
 template<typename SourceOp>

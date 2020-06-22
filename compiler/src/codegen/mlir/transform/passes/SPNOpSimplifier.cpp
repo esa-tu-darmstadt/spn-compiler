@@ -38,8 +38,3 @@ namespace {
 std::unique_ptr<Pass> mlir::spn::createSPNSimplificationPass() {
   return std::make_unique<SPNOpSimplifier>();
 }
-
-///
-/// Make the pass available via mlir-opt.
-static PassRegistration<SPNOpSimplifier> pass("spn-simplify", "simplify SPN-dialect operations");
-

@@ -3,6 +3,10 @@ find_package(LLVM REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
+
+find_package(MLIR REQUIRED CONFIG)
+message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
+
 add_definitions(${LLVM_DEFINITIONS})
 
 add_subdirectory(src/codegen/mlir/dialects/spn)
@@ -67,45 +71,15 @@ target_include_directories(spnc
         ${MLIR_INCLUDE_DIRS}
         ${CMAKE_CURRENT_BINARY_DIR})
 
+get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
+
 set(mlir_libs
-        MLIRAnalysis
-        MLIRAffineOps
-        MLIRAffineToStandard
-        MLIRLoopsToGPU
-        MLIRLinalgToLLVM
-        MLIRLoopToStandard
-        MLIREDSC
-        MLIRExecutionEngine
-        MLIRFxpMathOps
-        MLIRGPU
-        MLIRGPUtoNVVMTransforms
-        MLIRGPUtoROCDLTransforms
-        MLIRGPUtoSPIRVTransforms
-        MLIRLinalgOps
-        MLIRLLVMIR
-        MLIRLoopOps
-        MLIRNVVMIR
-        MLIROpenMP
-        MLIRParser
-        MLIRPass
+        ${dialect_libs}
+        ${conversion_libs}
         MLIRQuantizerTransforms
-        MLIRQuantOps
-        MLIRROCDLIR
-        MLIRSPIRV
-        MLIRStandardToSPIRVTransforms
-        MLIRSPIRVTestPasses
-        MLIRSPIRVTransforms
-        MLIRStandardOps
-        MLIRStandardToLLVM
-        MLIRTransforms
-        MLIRTestDialect
-        MLIRTestIR
-        MLIRTestPass
-        MLIRTestTransforms
-        MLIRSupport
-        MLIRVectorOps
-        MLIRVectorToLLVM
-        MLIRVectorToLoops
+        MLIROptLib
+        MLIRExecutionEngine
         )
 
 llvm_map_components_to_libnames(llvm_libs bitwriter native passes)
@@ -121,3 +95,20 @@ doxygen_doc(TARGET_NAME spnc
         spnc-common
         EXCLUDES
         ${CMAKE_CURRENT_SOURCE_DIR}/src/frontend/json/json.hpp)
+
+# CMake setup for a spnc-opt, a tool to run SPN-dialect passes, similar to mlir-opt.
+list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+include(AddLLVM)
+
+add_llvm_executable(spnc-opt src/tools/opt/spnc-opt.cpp)
+
+llvm_update_compile_flags(spnc-opt)
+
+target_include_directories(spnc-opt
+        PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${LLVM_INCLUDE_DIRS}
+        ${MLIR_INCLUDE_DIRS}
+        ${CMAKE_CURRENT_BINARY_DIR})
+
+target_link_libraries(spnc-opt PRIVATE ${mlir_libs} ${llvm_libs} spnc)

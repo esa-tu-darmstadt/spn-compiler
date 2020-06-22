@@ -6,7 +6,7 @@
 #ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_LOWERING_PATTERNS_LOWERSPNTOSTANDARDPATTERNS_H
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_LOWERING_PATTERNS_LOWERSPNTOSTANDARDPATTERNS_H
 
-#include "mlir/Dialect/AffineOps/AffineOps.h"
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -29,7 +29,7 @@ namespace mlir {
       /// \param op Operation to match.
       /// \param rewriter Rewriter to create and insert operations.
       /// \return Indication if the match was successful.
-      PatternMatchResult matchAndRewrite(spn::ConstantOp op, PatternRewriter& rewriter) const final;
+      LogicalResult matchAndRewrite(spn::ConstantOp op, PatternRewriter& rewriter) const final;
 
     };
 
@@ -44,7 +44,7 @@ namespace mlir {
       /// \param op Operation to match.
       /// \param rewriter Rewriter to create and insert operations.
       /// \return Indication if the match was successful.
-      PatternMatchResult matchAndRewrite(spn::ReturnOp op, PatternRewriter& rewriter) const final;
+      LogicalResult matchAndRewrite(spn::ReturnOp op, PatternRewriter& rewriter) const final;
 
     };
 
@@ -55,8 +55,8 @@ namespace mlir {
 
       using SPNOpLowering<InputVarOp>::SPNOpLowering;
 
-      PatternMatchResult matchAndRewrite(InputVarOp op, ArrayRef<Value> operands,
-                                         ConversionPatternRewriter& rewriter) const override;
+      LogicalResult matchAndRewrite(InputVarOp op, ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
     };
 
     ///
@@ -65,8 +65,8 @@ namespace mlir {
     struct FunctionLowering : public SPNOpLowering<FuncOp> {
       using SPNOpLowering<FuncOp>::SPNOpLowering;
 
-      PatternMatchResult matchAndRewrite(FuncOp op, ArrayRef<Value> operands,
-                                         ConversionPatternRewriter& rewriter) const override;
+      LogicalResult matchAndRewrite(FuncOp op, ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
 
     };
 
@@ -76,8 +76,8 @@ namespace mlir {
     struct HistogramLowering : public SPNOpLowering<HistogramOp> {
       using SPNOpLowering<HistogramOp>::SPNOpLowering;
 
-      PatternMatchResult matchAndRewrite(HistogramOp op, ArrayRef<Value> operands,
-                                         ConversionPatternRewriter& rewriter) const override;
+      LogicalResult matchAndRewrite(HistogramOp op, ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
 
     };
 
@@ -87,8 +87,8 @@ namespace mlir {
     struct SingleQueryLowering : public SPNOpLowering<SPNSingleQueryOp> {
       using SPNOpLowering<SPNSingleQueryOp>::SPNOpLowering;
 
-      PatternMatchResult matchAndRewrite(SPNSingleQueryOp op, ArrayRef<Value> operands,
-                                         ConversionPatternRewriter& rewriter) const override;
+      LogicalResult matchAndRewrite(SPNSingleQueryOp op, ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
 
     };
 
@@ -101,14 +101,14 @@ namespace mlir {
     class NAryOpLowering : public SPNOpLowering<SourceOp> {
       using SPNOpLowering<SourceOp>::SPNOpLowering;
 
-      PatternMatchResult matchAndRewrite(SourceOp op, ArrayRef<Value> operands,
-                                         ConversionPatternRewriter& rewriter) const override {
+      LogicalResult matchAndRewrite(SourceOp op, ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override {
         if (op.getNumOperands() > 2 || operands.size() != op.getNumOperands()) {
-          return NAryOpLowering<SourceOp, TargetOp>::matchFailure();
+          return failure();
         }
 
         rewriter.replaceOpWithNewOp<TargetOp>(op, operands[0], operands[1]);
-        return NAryOpLowering<SourceOp, TargetOp>::matchSuccess();
+        return success();
       }
     };
 

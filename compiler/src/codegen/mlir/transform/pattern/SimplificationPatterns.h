@@ -24,7 +24,7 @@ namespace mlir {
       explicit BinarizeWeightedSumOp(MLIRContext* context)
           : OpRewritePattern<WeightedSumOp>(context, 1) {}
 
-      PatternMatchResult matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const override;
+      LogicalResult matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const override;
 
     };
 
@@ -36,7 +36,7 @@ namespace mlir {
       /// \param context Surrounding MLIRContext.
       explicit SplitWeightedSumOp(MLIRContext* context) : OpRewritePattern(context, 1) {}
 
-      PatternMatchResult matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const override;
+      LogicalResult matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const override;
 
     };
 
@@ -51,9 +51,9 @@ namespace mlir {
       /// \param context Surrounding MLIRContext.
       explicit BinarizeNAryOp(MLIRContext* context) : OpRewritePattern<NAryOp>(context, 1) {}
 
-      PatternMatchResult matchAndRewrite(NAryOp op, PatternRewriter& rewriter) const override {
+      LogicalResult matchAndRewrite(NAryOp op, PatternRewriter& rewriter) const override {
         if (op.getNumOperands() <= 2) {
-          return BinarizeNAryOp<NAryOp>::matchFailure();
+          return failure();
         }
         auto pivot = llvm::divideCeil(op.getNumOperands(), 2);
         SmallVector<Value, 10> leftOperands;
@@ -75,7 +75,7 @@ namespace mlir {
         SmallVector<Value, 2> ops{leftOp, rightOp};
         auto newOp = rewriter.create<NAryOp>(op.getLoc(), ops);
         rewriter.replaceOp(op, {newOp});
-        return BinarizeNAryOp<NAryOp>::matchSuccess();
+        return success();
       }
 
     };

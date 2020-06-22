@@ -7,6 +7,8 @@
 
 #include <mlir/IR/Dialect.h>
 #include <mlir/IR/Function.h>
+#include "mlir/IR/StandardTypes.h"
+#include "mlir/Interfaces/SideEffects.h"
 #include "SPNOpInterfaces.h"
 
 namespace mlir {

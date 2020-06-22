@@ -64,7 +64,7 @@ static mlir::LogicalResult verify(NAryOp op) {
 template mlir::LogicalResult verify<ProductOp>(ProductOp op);
 
 void ProductOp::build(Builder* b, OperationState& state, llvm::ArrayRef<Value> operands) {
-  build(b, state, b->getF64Type(), ValueRange(operands), b->getI32IntegerAttr(operands.size()));
+  build(b, state, b->getF64Type(), ValueRange(operands), b->getUI32IntegerAttr(operands.size()));
 }
 
 void ProductOp::getCanonicalizationPatterns(OwningRewritePatternList& results, MLIRContext* context) {
@@ -80,7 +80,7 @@ void ProductOp::getCanonicalizationPatterns(OwningRewritePatternList& results, M
 template mlir::LogicalResult verify<SumOp>(SumOp op);
 
 void SumOp::build(Builder* b, OperationState& state, llvm::ArrayRef<Value> operands) {
-  build(b, state, b->getF64Type(), ValueRange(operands), b->getI32IntegerAttr(operands.size()));
+  build(b, state, b->getF64Type(), ValueRange(operands), b->getUI32IntegerAttr(operands.size()));
 }
 
 void SumOp::getCanonicalizationPatterns(OwningRewritePatternList& results, MLIRContext* context) {
@@ -115,7 +115,7 @@ void WeightedSumOp::build(Builder* b,
   }
   assert(weightAttrs.size() == operands.size() && "Number of weights must match number of operands!");
   build(b, state, b->getF64Type(), ValueRange(operands), ArrayAttr::get(weightAttrs, b->getContext()),
-        b->getI32IntegerAttr(operands.size()));
+        b->getUI32IntegerAttr(operands.size()));
 }
 
 void WeightedSumOp::getCanonicalizationPatterns(OwningRewritePatternList& results, MLIRContext* context) {
@@ -175,7 +175,7 @@ void HistogramOp::build(Builder* b, OperationState& state, Value index,
     bucketList.push_back(dictAttr);
   }
   auto arrAttr = b->getArrayAttr(bucketList);
-  build(b, state, b->getF64Type(), index, arrAttr, b->getI32IntegerAttr(bucketList.size()));
+  build(b, state, b->getF64Type(), index, arrAttr, b->getUI32IntegerAttr(bucketList.size()));
 }
 
 static mlir::LogicalResult verify(HistogramValueOp op) {

@@ -8,9 +8,9 @@
 using namespace mlir;
 using namespace mlir::spn;
 
-PatternMatchResult BinarizeWeightedSumOp::matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const {
+LogicalResult BinarizeWeightedSumOp::matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const {
   if (op.getNumOperands() <= 2) {
-    return matchFailure();
+    return failure();
   }
   auto pivot = llvm::divideCeil(op.getNumOperands(), 2);
   SmallVector<Value, 10> leftAddends;
@@ -45,10 +45,10 @@ PatternMatchResult BinarizeWeightedSumOp::matchAndRewrite(WeightedSumOp op, Patt
   SmallVector<double, 2> newWeights{1.0, 1.0};
   auto newSum = rewriter.create<WeightedSumOp>(op.getLoc(), ops, newWeights);
   rewriter.replaceOp(op, {newSum});
-  return matchSuccess();
+  return success();
 }
 
-PatternMatchResult SplitWeightedSumOp::matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const {
+LogicalResult SplitWeightedSumOp::matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const {
   SmallVector<Value, 10> addends;
   size_t index = 0;
   for (auto a : op.operands()) {
@@ -60,5 +60,5 @@ PatternMatchResult SplitWeightedSumOp::matchAndRewrite(WeightedSumOp op, Pattern
   }
   auto newSum = rewriter.create<SumOp>(op.getLoc(), addends);
   rewriter.replaceOp(op, {newSum});
-  return matchSuccess();
+  return success();
 }
