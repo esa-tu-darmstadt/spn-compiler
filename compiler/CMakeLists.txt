@@ -53,7 +53,9 @@ add_library(spnc SHARED
         src/codegen/mlir/lowering/patterns/LowerSPNtoStandardPatterns.cpp
         src/codegen/mlir/lowering/passes/SPNtoStandardLoweringPass.cpp
         src/codegen/mlir/lowering/patterns/LowerSPNtoLLVMPatterns.cpp
-        src/codegen/mlir/lowering/passes/SPNToLLVMLoweringPass.cpp)
+        src/codegen/mlir/lowering/passes/SPNToLLVMLoweringPass.cpp
+        src/codegen/mlir/lowering/action/SPNToStandardLowering.cpp
+        src/codegen/mlir/lowering/action/SPNToLLVMLowering.cpp)
 
 message(STATUS "MLIR Include:" ${MLIR_INCLUDE_DIRS})
 

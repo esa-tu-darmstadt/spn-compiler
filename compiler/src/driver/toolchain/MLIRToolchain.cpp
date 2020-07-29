@@ -8,6 +8,8 @@
 #include <frontend/json/Parser.h>
 #include <graph-ir/transform/BinaryTreeTransform.h>
 #include <codegen/mlir/MLIRCodeGen.h>
+#include <codegen/mlir/lowering/action/SPNToLLVMLowering.h>
+#include <codegen/mlir/lowering/action/SPNToStandardLowering.h>
 #include <codegen/mlir/pipeline/MLIRPipeline.h>
 #include <driver/action/MLIRtoLLVMConversion.h>
 #include <driver/action/LLVMWriteBitcode.h>
@@ -45,11 +47,16 @@ std::unique_ptr<Job<Kernel>> MLIRToolchain::constructJob(std::unique_ptr<ActionW
   mlir::registerDialect<mlir::spn::SPNDialect>();
   auto ctx = std::make_shared<MLIRContext>();
   auto& mlirCodeGen = job->insertAction<MLIRCodeGen>(parser, kernelName, ctx);
-
-  // Run the MLIR-based pipeline, including progressive lowering to LLVM dialect.
+  // Run the MLIR-based pipeline, i.e. simplification and canonicalization.
   auto& mlirPipeline = job->insertAction<MLIRPipeline>(mlirCodeGen, ctx);
-  // Convert the MLIR module to a LLVM IR module.
-  auto& llvmConversion = job->insertAction<MLIRtoLLVMConversion>(mlirPipeline, ctx);
+  // Lower the SPN-MLIR dialect to Standard-MLIR.
+  auto& standardDialect = job->insertAction<SPNToStandardLowering>(mlirPipeline, ctx);
+
+  // Lower the Standard-MLIR dialect to LLVM-MLIR.
+  auto& llvmDialect = job->insertAction<SPNToLLVMLowering>(standardDialect, ctx);
+  // Convert the MLIR module to a LLVM-IR module.
+  auto& llvmConversion = job->insertAction<MLIRtoLLVMConversion>(llvmDialect, ctx);
+
   // Write generated LLVM module to bitcode-file.
   auto bitCodeFile = FileSystem::createTempFile<FileType::LLVM_BC>();
   auto& writeBitcode = job->insertAction<LLVMWriteBitcode>(llvmConversion, std::move(bitCodeFile));
