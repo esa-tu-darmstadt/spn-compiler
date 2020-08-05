@@ -5,8 +5,16 @@ set(SPNC_MLIR_TEST_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE INTERNAL "")
 set(SPNC_MLIR_TEST_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}" CACHE INTERNAL "")
 
 configure_lit_site_cfg(
-        ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.in
-        ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg)
+  ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.in
+  ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg)
+
+# (Re-)Set llvm-lit arguments
+set(CHECK_SPNC_LIT_ARGS "")
+
+# Add verbose flag if requested
+if(${CHECK_SPNC_VERBOSE})
+  set(CHECK_SPNC_LIT_ARGS "${CHECK_SPNC_LIT_ARGS};-v")
+endif()
 
 # Run regression tests
 add_lit_testsuite(check-spnc-mlir-tests "Running spnc-mlir regression tests"
