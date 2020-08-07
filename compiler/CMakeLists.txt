@@ -49,6 +49,7 @@ add_library(spnc SHARED
         src/codegen/mlir/transform/pattern/CanonicalizationPatterns.cpp
         src/codegen/mlir/transform/pattern/SimplificationPatterns.cpp
         src/codegen/mlir/transform/passes/SPNOpSimplifier.cpp
+        src/codegen/mlir/transform/passes/SPNOpCanonicalizer.cpp
         src/codegen/mlir/pipeline/MLIRPipeline.cpp
         src/codegen/mlir/lowering/patterns/LowerSPNtoStandardPatterns.cpp
         src/codegen/mlir/lowering/passes/SPNtoStandardLoweringPass.cpp
@@ -111,4 +112,10 @@ target_include_directories(spnc-opt
         ${MLIR_INCLUDE_DIRS}
         ${CMAKE_CURRENT_BINARY_DIR})
 
+set(SPNC_OPT_TOOL_BINARY_PATH "${CMAKE_CURRENT_BINARY_DIR}/spnc-opt")
+
 target_link_libraries(spnc-opt PRIVATE ${mlir_libs} ${llvm_libs} spnc)
+
+# Update the path to llvm-lit (taken from llvm/cmake/modules/AddLLVM.cmake)
+set(LLVM_EXTERNAL_LIT "${LLVM_TOOLS_BINARY_DIR}/llvm-lit" CACHE STRING "Command used to spawn lit")
+add_subdirectory(test)

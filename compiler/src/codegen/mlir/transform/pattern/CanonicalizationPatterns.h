@@ -42,7 +42,6 @@ namespace mlir {
     };
 
     /// OpRewritePattern to reduce n-ary operations as far as possible.
-    /// Operations with no operand are deleted.
     /// For operations with a single operand, all uses are replaced by the operand.
     /// Can only be applied to operations from the SPN dialect inheriting from SPN_NAry_Op.
     /// \tparam NAryOp Operation type.
@@ -58,10 +57,6 @@ namespace mlir {
           return failure();
         }
 
-        if (op.getNumOperands() == 0) {
-          rewriter.eraseOp(op.getOperation());
-          return success();
-        }
         assert(op.getNumOperands() == 1 && "Expecting only a single operand!");
         rewriter.replaceOp(op, {op.operands()[0]});
         return success();
@@ -98,7 +93,7 @@ namespace mlir {
           return failure();
         }
 
-        if (acc != ((double) Initial)) {
+        if (acc != ((double) Initial) || constantOps > 0) {
           operands.push_back(rewriter.create<ConstantOp>(op.getLoc(), acc));
         }
         auto newOp = rewriter.create<NAryOp>(op.getLoc(), operands);
