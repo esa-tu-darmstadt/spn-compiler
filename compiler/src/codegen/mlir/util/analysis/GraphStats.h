@@ -14,9 +14,9 @@
 #include <util/Logging.h>
 #include <set>
 
-using json = nlohmann::json;
+#include "GraphStats_enum.h"
 
-enum class NODETYPE { SUM, PRODUCT, HISTOGRAM };
+using json = nlohmann::json;
 
 ///
 /// Detail level of graph statistics.
@@ -24,7 +24,7 @@ typedef struct {
   ///
   /// Detail level.
   int level;
-} GraphStatLevelInfo;
+} GraphStatLevelInfo2;
 
 using namespace spnc;
 

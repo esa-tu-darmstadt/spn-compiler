@@ -5,6 +5,9 @@
 
 #include "GraphStats.h"
 
+#include "GraphStatsNodeCount.h"
+#include "GraphStatsNodeLevel.h"
+
 using namespace mlir;
 using namespace mlir::spn;
 using namespace spnc;
@@ -25,7 +28,11 @@ void GraphStats::collectGraphStats(ModuleOp& m) {
 
   StringRef spnName = getSPNFuncNameFromModule();
   auto root = getSPNRootByFuncName(spnName);
+
   visitNode(root, passed_arg);
+
+  GraphStatsNodeCount node_counts = GraphStatsNodeCount(*root);
+  GraphStatsNodeLevel node_levels = GraphStatsNodeLevel(*root, 0);
 
   int count_node_temp = 0;
 
@@ -82,6 +89,7 @@ void GraphStats::collectGraphStats(ModuleOp& m) {
 
   depth_average = depth_average / count_nodes_leaf;
 
+  /*
   SPDLOG_INFO("====================================");
   SPDLOG_INFO("|          SPN Statistics          |");
   SPDLOG_INFO("====================================");
@@ -94,6 +102,40 @@ void GraphStats::collectGraphStats(ModuleOp& m) {
   SPDLOG_INFO(" > Sum-Nodes: {}", count_nodes_sum);
   SPDLOG_INFO(" > Product-Nodes: {}", count_nodes_product);
   SPDLOG_INFO(" > Histogram-Nodes: {}", count_nodes_histogram);
+  SPDLOG_INFO("====================================");
+   */
+
+  auto level_results = node_levels.getResult();
+
+  int count_nodes_sum_2 = level_results.find(NODETYPE::SUM)->second.size();
+  int count_nodes_prod_2 = level_results.find(NODETYPE::PRODUCT)->second.size();
+  int count_nodes_hist_2 = level_results.find(NODETYPE::HISTOGRAM)->second.size();
+
+  int count_nodes_inner_2 = 0;
+  int count_nodes_leaf_2 = 0;
+
+  for (auto _nt : LISTOF_NODETYPE_INNER) {
+    count_nodes_inner_2 += level_results.find(_nt)->second.size();
+  }
+
+  for (auto _nt : LISTOF_NODETYPE_LEAF) {
+    count_nodes_leaf_2 += level_results.find(_nt)->second.size();
+  }
+
+  SPDLOG_INFO("====================================");
+  SPDLOG_INFO("|          SPN Statistics          |");
+  SPDLOG_INFO("====================================");
+  SPDLOG_INFO(" > Number of features: {}", count_features);
+  SPDLOG_INFO(" > Minimum depth: {} / {}", depth_min, node_levels.getDepthMin());
+  SPDLOG_INFO(" > Maximum depth: {} / {}", depth_max, node_levels.getDepthMax());
+  SPDLOG_INFO(" > Average depth: {} / {}", depth_average, node_levels.getDepthAvg());
+  SPDLOG_INFO(" > Median depth:  {} / {}", depth_median, node_levels.getDepthMedian());
+  SPDLOG_INFO(" > Nodes (inner, leaf): ({}, {}) / ({}, {}) / ({}, {})",
+              count_nodes_inner, count_nodes_leaf, node_counts.getCountNodesInner(), node_counts.getCountNodesLeaf(),
+              count_nodes_inner_2, count_nodes_leaf_2);
+  SPDLOG_INFO(" > Sum-Nodes: {} / {} / {}", count_nodes_sum, node_counts.getCountNodes(NODETYPE::SUM), count_nodes_sum_2);
+  SPDLOG_INFO(" > Product-Nodes: {} / {} / {}", count_nodes_product, node_counts.getCountNodes(NODETYPE::PRODUCT), count_nodes_prod_2);
+  SPDLOG_INFO(" > Histogram-Nodes: {} / {} / {}", count_nodes_histogram, node_counts.getCountNodes(NODETYPE::HISTOGRAM), count_nodes_hist_2);
   SPDLOG_INFO("====================================");
 
   json stats;
