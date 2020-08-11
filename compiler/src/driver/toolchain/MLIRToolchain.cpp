@@ -12,7 +12,7 @@
 #include <codegen/mlir/lowering/action/SPNToLLVMLowering.h>
 #include <codegen/mlir/lowering/action/SPNToStandardLowering.h>
 #include <codegen/mlir/pipeline/MLIRPipeline.h>
-#include <codegen/mlir/util/analysis/GraphStats.h>
+#include <codegen/mlir/util/action/GraphStatsCollection.h>
 #include <driver/action/MLIRtoLLVMConversion.h>
 #include <driver/action/LLVMWriteBitcode.h>
 #include <driver/action/LLVMStaticCompiler.h>
@@ -60,7 +60,7 @@ std::unique_ptr<Job<Kernel>> MLIRToolchain::constructJob(std::unique_ptr<ActionW
     auto deleteTmps = spnc::option::deleteTemporaryFiles.get(config);
     // Collect graph statistics on transformed / canonicalized MLIR.
     auto statsFile = StatsFile(spnc::option::graphStatsFile.get(config), deleteTmps);
-    auto& graphStats = job->insertAction<GraphStats>(mlirPipeline, std::move(statsFile));
+    auto& graphStats = job->insertAction<GraphStatsCollection>(mlirPipeline, std::move(statsFile));
     // Join the two actions happening on the transformed module (Graph-Stats & SPN-to-Standard-MLIR lowering).
     auto& joinAction = job->insertAction<JoinAction<mlir::ModuleOp, StatsFile>>(standardDialect, graphStats);
     standardDialectResult = &joinAction;

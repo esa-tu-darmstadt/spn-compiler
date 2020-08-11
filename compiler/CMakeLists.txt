@@ -49,7 +49,7 @@ add_library(spnc SHARED
         src/codegen/mlir/transform/pattern/CanonicalizationPatterns.cpp
         src/codegen/mlir/transform/pattern/SimplificationPatterns.cpp
         src/codegen/mlir/transform/passes/SPNOpSimplifier.cpp
-        src/codegen/mlir/util/analysis/GraphStats.cpp
+        src/codegen/mlir/util/action/GraphStatsCollection.cpp
         src/codegen/mlir/util/analysis/GraphStatsNodeCount.cpp
         src/codegen/mlir/util/analysis/GraphStatsNodeLevel.cpp
         src/codegen/mlir/pipeline/MLIRPipeline.cpp

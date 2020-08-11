@@ -28,9 +28,12 @@ namespace mlir {
     class GraphStatsNodeCount {
     public:
 
+      /// Default-Constructor.
+      explicit GraphStatsNodeCount();
+
       /// Constructor.
       /// \param _node Node which will be treated as SPN-graph root.
-      explicit GraphStatsNodeCount(Operation& _node);
+      explicit GraphStatsNodeCount(Operation* _node);
 
     private:
 
@@ -56,9 +59,12 @@ namespace mlir {
       /// Return a copy of the full (raw) analysis result.
       std::map<NODETYPE, int> getResult();
 
+      /// Return the operation (i.e. root) this analysis was constructed from.
+      Operation* getRoot() const;
+
     private:
 
-      Operation& root;
+      Operation* root;
 
       int count_nodes_inner = 0;
       int count_nodes_leaf = 0;

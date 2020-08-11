@@ -39,10 +39,13 @@ namespace mlir {
     class GraphStatsNodeLevel {
     public:
 
+      /// Default-Constructor.
+      explicit GraphStatsNodeLevel();
+
       /// Constructor.
       /// \param _root Node which will be treated as SPN-graph root.
       /// \param _rootlevel Integer which will determine the level of the provided root.
-      explicit GraphStatsNodeLevel(Operation& _root, int _rootlevel);
+      explicit GraphStatsNodeLevel(Operation* _root, int _rootlevel);
 
     private:
 
@@ -50,6 +53,9 @@ namespace mlir {
       /// \param op Pointer to the defining operation, representing a SPN node.
       /// \param arg Provided state information, e.g. (incremented) level-information from previous calls.
       void visitNode(Operation* op, const arg_t& arg);
+
+      /// Process gathered results -- stores different depths which have to be calculated / determined.
+      void processResults();
 
     public:
 
@@ -71,9 +77,12 @@ namespace mlir {
       /// Return a copy of the full (raw) analysis result.
       std::map<NODETYPE, std::multiset<int>> getResult();
 
+      /// Return the operation (i.e. root) this analysis was constructed from.
+      Operation* getRoot() const;
+
     private:
 
-      Operation& root;
+      Operation* root;
       int root_level = 0;
 
       int depth_max = 0;

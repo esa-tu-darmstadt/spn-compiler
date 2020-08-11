@@ -9,19 +9,22 @@ using namespace mlir;
 using namespace mlir::spn;
 using namespace spnc;
 
-GraphStatsNodeCount::GraphStatsNodeCount(Operation& _node) : root(_node) {
+GraphStatsNodeCount::GraphStatsNodeCount() : root(nullptr) {}
+
+GraphStatsNodeCount::GraphStatsNodeCount(Operation* _node) : root(_node) {
   update();
 }
 
 void GraphStatsNodeCount::update() {
+  count_nodes_inner = 0;
+  count_nodes_leaf = 0;
+  spn_node_counts.clear();
+
   for (auto nodetype : LISTOF_NODETYPE) {
     spn_node_counts.insert({nodetype, 0});
   }
 
-  count_nodes_inner = 0;
-  count_nodes_leaf = 0;
-
-  visitNode(&root);
+  visitNode(root);
 }
 
 void GraphStatsNodeCount::visitNode(Operation* op) {
@@ -78,9 +81,10 @@ int GraphStatsNodeCount::getCountNodesLeaf() const {
 }
 
 std::map<NODETYPE, int> GraphStatsNodeCount::getResult() {
-  // std::map<NODETYPE, int> resultCopy;
-  // std::copy(spn_node_counts.begin(), spn_node_counts.end(), resultCopy.begin());
-  // return std::move(resultCopy);
   return spn_node_counts;
+}
+
+Operation* GraphStatsNodeCount::getRoot() const {
+  return root;
 }
 
