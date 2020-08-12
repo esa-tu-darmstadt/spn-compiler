@@ -43,7 +43,7 @@ namespace mlir {
 
     public:
 
-      /// Update (i.e. re-calculate) all node counts, starting from the root (provided at construction).
+      /// Update (i.e. re-calculate) all node counts, starting from the root.
       void update();
 
       /// Return the count of encountered nodes with the provided type, located in the considered (sub-)graph.

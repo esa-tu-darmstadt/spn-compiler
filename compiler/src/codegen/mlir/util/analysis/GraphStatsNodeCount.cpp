@@ -66,8 +66,8 @@ int GraphStatsNodeCount::getCountNodes(NODETYPE _nodetype) {
   if (nodeCountElement != spn_node_counts.end()) {
     return nodeCountElement->second;
   } else {
-    // Encountered unhandled Op-Type
-    SPDLOG_WARN("Unhandled nodetype: '{}'", _nodetype);
+    // Encountered unavailable NODETYPE
+    SPDLOG_WARN("Count unavailable for nodetype (id): '{}'", _nodetype);
     return 0;
   }
 }

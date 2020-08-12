@@ -54,12 +54,12 @@ namespace mlir {
       /// \param arg Provided state information, e.g. (incremented) level-information from previous calls.
       void visitNode(Operation* op, const arg_t& arg);
 
-      /// Process gathered results -- stores different depths which have to be calculated / determined.
+      /// Process gathered results -- stores different depth-values which have to be calculated / determined.
       void processResults();
 
     public:
 
-      /// Update (i.e. re-calculate) all node levels, starting from the root (provided at construction).
+      /// Update (i.e. re-calculate) all node levels, starting from the root.
       void update();
 
       /// Return the maximum node-depth, w.r.t. the considered (sub-)graph.
