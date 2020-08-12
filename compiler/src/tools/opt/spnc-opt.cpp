@@ -3,6 +3,7 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
+#include <codegen/mlir/lowering/passes/SPNLoweringPasses.h>
 #include <codegen/mlir/transform/passes/SPNMLIRPasses.h>
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/MLIRContext.h"
@@ -61,6 +62,15 @@ int main(int argc, char** argv) {
   mlir::registerDialect<mlir::spn::SPNDialect>();
   mlir::registerPass("spn-simplify", "simplify SPN-dialect operations", []() -> std::unique_ptr<mlir::Pass> {
     return mlir::spn::createSPNSimplificationPass();
+  });
+  mlir::registerPass("spn-canonicalize", "canonicalize SPN-dialect operations", []() -> std::unique_ptr<mlir::Pass> {
+    return mlir::spn::createSPNCanonicalizationPass();
+  });
+  mlir::registerPass("spn-lowering-to-standard", "lower SPN-dialect to standard patterns", []() -> std::unique_ptr<mlir::Pass> {
+    return mlir::spn::createSPNtoStandardLoweringPass();
+  });
+  mlir::registerPass("spn-lowering-to-llvm", "lower SPN-dialect to LLVM patterns", []() -> std::unique_ptr<mlir::Pass> {
+    return mlir::spn::createSPNtoLLVMLoweringPass();
   });
 
   llvm::InitLLVM y(argc, argv);

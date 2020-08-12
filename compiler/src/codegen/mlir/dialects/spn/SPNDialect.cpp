@@ -53,6 +53,9 @@ static mlir::LogicalResult verify(NAryOp op) {
   if (numOperands != op.opCount().getZExtValue()) {
     return op.emitOpError("Number of operands must match the specified operand count!");
   }
+  if (numOperands <= 0) {
+    return op.emitOpError("Number of operands must be greater than zero!");
+  }
   return mlir::success();
 }
 
@@ -101,6 +104,9 @@ static mlir::LogicalResult verify(WeightedSumOp op) {
   auto numWeights = op.weights().size();
   if (numWeights != op.opCount().getZExtValue()) {
     return op.emitOpError("Number of weights must match the specified operand count!");
+  }
+  if (numAddends <= 0) {
+    return op.emitOpError("Number of addends must be greater than zero!");
   }
   return mlir::success();
 }

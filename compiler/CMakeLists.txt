@@ -49,7 +49,9 @@ add_library(spnc SHARED
         src/codegen/mlir/transform/pattern/CanonicalizationPatterns.cpp
         src/codegen/mlir/transform/pattern/SimplificationPatterns.cpp
         src/codegen/mlir/transform/passes/SPNOpSimplifier.cpp
+        src/codegen/mlir/transform/passes/SPNOpCanonicalizer.cpp  
         src/codegen/mlir/util/action/GraphStatsCollection.cpp
+        src/codegen/mlir/util/analysis/GraphStats_enum.h
         src/codegen/mlir/util/analysis/GraphStatsNodeCount.cpp
         src/codegen/mlir/util/analysis/GraphStatsNodeLevel.cpp
         src/codegen/mlir/pipeline/MLIRPipeline.cpp
@@ -58,7 +60,7 @@ add_library(spnc SHARED
         src/codegen/mlir/lowering/patterns/LowerSPNtoLLVMPatterns.cpp
         src/codegen/mlir/lowering/passes/SPNToLLVMLoweringPass.cpp
         src/codegen/mlir/lowering/action/SPNToStandardLowering.cpp
-        src/codegen/mlir/lowering/action/SPNToLLVMLowering.cpp src/codegen/mlir/util/analysis/GraphStats_enum.h)
+        src/codegen/mlir/lowering/action/SPNToLLVMLowering.cpp)
 
 message(STATUS "MLIR Include:" ${MLIR_INCLUDE_DIRS})
 
@@ -116,4 +118,10 @@ target_include_directories(spnc-opt
         ${MLIR_INCLUDE_DIRS}
         ${CMAKE_CURRENT_BINARY_DIR})
 
+set(SPNC_OPT_TOOL_BINARY_PATH "${CMAKE_CURRENT_BINARY_DIR}/spnc-opt")
+
 target_link_libraries(spnc-opt PRIVATE ${mlir_libs} ${llvm_libs} spnc)
+
+# Update the path to llvm-lit (taken from llvm/cmake/modules/AddLLVM.cmake)
+set(LLVM_EXTERNAL_LIT "${LLVM_TOOLS_BINARY_DIR}/llvm-lit" CACHE STRING "Command used to spawn lit")
+add_subdirectory(test)

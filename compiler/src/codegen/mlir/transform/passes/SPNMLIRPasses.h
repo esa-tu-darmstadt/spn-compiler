@@ -13,6 +13,9 @@ namespace mlir {
     /// Instantiate the simplification pass.
     /// \return Owning pointer to the created MLIR pass.
     std::unique_ptr<Pass> createSPNSimplificationPass();
+    /// Instantiate the canonicalization pass.
+    /// \return Owning pointer to the created MLIR pass.
+    std::unique_ptr<Pass> createSPNCanonicalizationPass();
   }
 }
 
