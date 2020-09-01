@@ -62,6 +62,11 @@ namespace mlir {
       /// Update (i.e. re-calculate) all node levels, starting from the root.
       void update();
 
+      /// Return the depth of the given operation, w.r.t. the considered (sub-)graph.
+      /// If the given operation could not be found, returns -1.
+      /// \param op Pointer to the defining operation, representing a SPN node.
+      int getDepthOperation(Operation* op) const;
+
       /// Return the maximum node-depth, w.r.t. the considered (sub-)graph.
       int getDepthMax() const;
 
@@ -75,7 +80,7 @@ namespace mlir {
       double getDepthAvg() const;
 
       /// Return a copy of the full (raw) analysis result.
-      std::map<NODETYPE, std::multiset<int>> getResult();
+      std::map<Operation*, int> getResult();
 
       /// Return the operation (i.e. root) this analysis was constructed from.
       Operation* getRoot() const;
@@ -91,7 +96,8 @@ namespace mlir {
 
       double depth_average = 0.0;
 
-      std::map<NODETYPE, std::multiset<int>> spn_node_stats;
+      std::multiset<int> leaf_levels;
+      std::map<Operation*, int> spn_op_levels;
 
     };
 

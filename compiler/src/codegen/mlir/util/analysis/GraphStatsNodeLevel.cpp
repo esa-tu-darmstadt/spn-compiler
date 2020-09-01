@@ -4,6 +4,7 @@
 //
 
 #include "GraphStatsNodeLevel.h"
+#include <numeric>
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -17,11 +18,7 @@ GraphStatsNodeLevel::GraphStatsNodeLevel(Operation* _root, int _rootlevel = 0) :
 
 void GraphStatsNodeLevel::update() {
   depth_average = 0.0;
-  spn_node_stats.clear();
-
-  for (auto nodetype : LISTOF_NODETYPE) {
-    spn_node_stats.insert({nodetype, std::multiset<int>()});
-  }
+  spn_op_levels.clear();
 
   std::shared_ptr<void> passed_arg(new GraphStatLevelInfo({root_level}));
 
@@ -35,70 +32,57 @@ void GraphStatsNodeLevel::visitNode(Operation* op, const arg_t& arg) {
     return;
   }
 
-  bool hasOperands = false;
   int currentLevel = std::static_pointer_cast<GraphStatLevelInfo>(arg)->level;
 
-  if (dyn_cast<SumOp>(op)) {
-    hasOperands = true;
-    spn_node_stats.find(NODETYPE::SUM)->second.insert(currentLevel);
-  } else if (dyn_cast<ProductOp>(op)) {
-    hasOperands = true;
-    spn_node_stats.find(NODETYPE::PRODUCT)->second.insert(currentLevel);
-  } else if (dyn_cast<HistogramOp>(op)) {
-    spn_node_stats.find(NODETYPE::HISTOGRAM)->second.insert(currentLevel);
-  } else if (dyn_cast<ConstantOp>(op)) {
-    // ToDo: Special handling of constants? Measure for improvement via optimizations?
-  } else {
-    // Encountered unhandled Op-Type
-    SPDLOG_WARN("Unhandled operation type: '{}'", op->getName().getStringRef().str());
-  }
+  spn_op_levels.emplace(op, currentLevel);
+  auto operands = op->getOperands();
 
-  if (hasOperands) {
-    for (auto child : op->getOperands()) {
+  // Operations with more than one operand -- assume: inner node, e.g. sum or product.
+  // Operations with one operand -- assume: leaf node.
+  // Operations with no operand -- assume: constant.
+  // ToDo: Special handling of constants? Measure for improvement via optimizations?
+  if (operands.size() > 1) {
+    for (auto child : operands) {
       arg_t passed_arg(new GraphStatLevelInfo({currentLevel + 1}));
       visitNode(child.getDefiningOp(), passed_arg);
+    }
+  } else if (operands.size() == 1) {
+    leaf_levels.insert(currentLevel);
+  }
+}
+
+void GraphStatsNodeLevel::processResults() {
+  int leaves = leaf_levels.size();
+
+  if (leaves > 0) {
+    // Note: end() will (unlike begin()) point "behind" the data we're looking for, hence the decrement.
+    depth_min = *leaf_levels.begin();
+    depth_max = *(--leaf_levels.end());
+
+    int sum = std::accumulate(leaf_levels.begin(), leaf_levels.end(), 0);
+    depth_average = (double) sum / leaves;
+
+    // Since the used multiset is ordered, we can simply use the respective node count to get the median index.
+    int median_index = leaves / 2;
+
+    if ((median_index >= 0) && (median_index < leaves)) {
+      auto median_it = leaf_levels.begin();
+      std::advance(median_it, median_index);
+      depth_median = *median_it;
     }
   }
 
 }
 
-void GraphStatsNodeLevel::processResults() {
-  int count_node_temp = 0;
-  int count_nodes_leaf = 0;
+int GraphStatsNodeLevel::getDepthOperation(Operation* op) const {
+  int depth = -1;
+  auto it = spn_op_levels.find(op);
 
-  for (NODETYPE n : LISTOF_NODETYPE_LEAF) {
-    auto nodes = spn_node_stats.find(n)->second;
-    count_node_temp = nodes.size();
-
-    if (count_node_temp <= 0) {
-      continue;
-    }
-
-    count_nodes_leaf += count_node_temp;
-
-    // Note: end() will (unlike begin()) point "behind" the data we're looking for, hence the decrement.
-    depth_min = *nodes.begin();
-    depth_max = *(--nodes.end());
-
-    // Since the used multimap is ordered, we can simply use the respective node count to get the median index.
-    int median_index_temp = count_node_temp / 2;
-
-    // ToDo: Determining the median depth has to be revisited once other leaf nodes are supported (2020-JAN-31).
-    for (auto& level : nodes) {
-      // level = node.first;
-      depth_average += level;
-
-      if (median_index_temp > 0) {
-        --median_index_temp;
-        if (median_index_temp == 0) {
-          depth_median = level;
-        }
-      }
-    }
-
+  if (it != spn_op_levels.end()) {
+    depth = it->second;
   }
 
-  depth_average = depth_average / count_nodes_leaf;
+  return depth;
 }
 
 int GraphStatsNodeLevel::getDepthMax() const {
@@ -117,8 +101,8 @@ double GraphStatsNodeLevel::getDepthAvg() const {
   return depth_average;
 }
 
-std::map<NODETYPE, std::multiset<int>> GraphStatsNodeLevel::getResult() {
-  return spn_node_stats;
+std::map<Operation*, int> GraphStatsNodeLevel::getResult() {
+  return spn_op_levels;
 }
 
 Operation* GraphStatsNodeLevel::getRoot() const {
