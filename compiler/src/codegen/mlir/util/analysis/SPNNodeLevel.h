@@ -3,8 +3,8 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_UTIL_ANALYSIS_GRAPHSTATSNODELEVEL_H
-#define SPNC_COMPILER_SRC_CODEGEN_MLIR_UTIL_ANALYSIS_GRAPHSTATSNODELEVEL_H
+#ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_UTIL_ANALYSIS_SPNNODELEVEL_H
+#define SPNC_COMPILER_SRC_CODEGEN_MLIR_UTIL_ANALYSIS_SPNNODELEVEL_H
 
 #include <codegen/mlir/dialects/spn/SPNDialect.h>
 #include <driver/Actions.h>
@@ -36,16 +36,16 @@ namespace mlir {
     ///
     /// Class to walk over a (sub-)graph, logging node-levels in the process.
     /// The results may be collected via get-interfaces.
-    class GraphStatsNodeLevel {
+    class SPNNodeLevel {
     public:
 
       /// Default-Constructor.
-      explicit GraphStatsNodeLevel();
+      explicit SPNNodeLevel();
 
       /// Constructor.
       /// \param _root Node which will be treated as SPN-graph root.
       /// \param _rootlevel Integer which will determine the level of the provided root.
-      explicit GraphStatsNodeLevel(Operation* _root, int _rootlevel);
+      explicit SPNNodeLevel(Operation* _root, int _rootlevel);
 
     private:
 
@@ -104,4 +104,4 @@ namespace mlir {
   }
 }
 
-#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_UTIL_ANALYSIS_GRAPHSTATSNODELEVEL_H
+#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_UTIL_ANALYSIS_SPNNODELEVEL_H

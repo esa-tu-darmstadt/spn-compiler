@@ -9,7 +9,7 @@
 #include <codegen/mlir/dialects/spn/SPNDialect.h>
 #include <codegen/mlir/util/analysis/GraphStats_enum.h>
 #include <codegen/mlir/util/analysis/GraphStatsNodeCount.h>
-#include <codegen/mlir/util/analysis/GraphStatsNodeLevel.h>
+#include <codegen/mlir/util/analysis/SPNNodeLevel.h>
 #include <driver/Actions.h>
 #include <driver/BaseActions.h>
 #include <frontend/json/json.hpp>
@@ -79,7 +79,7 @@ namespace mlir {
       Operation* spn_root_global = nullptr;
 
       GraphStatsNodeCount statistics_count;
-      GraphStatsNodeLevel statistics_depth;
+      SPNNodeLevel statistics_depth;
 
       StatsFile outfile;
     };

@@ -67,7 +67,7 @@ void GraphStatsCollection::initialize(ModuleOp&) {
 
   // Collect statistics for node counts and their depth.
   statistics_count = GraphStatsNodeCount(spn_root_global);
-  statistics_depth = GraphStatsNodeLevel(spn_root_global, 0);
+  statistics_depth = SPNNodeLevel(spn_root_global, 0);
 }
 
 StringRef GraphStatsCollection::getSPNFuncNameFromModule() {

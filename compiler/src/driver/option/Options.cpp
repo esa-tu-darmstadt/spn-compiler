@@ -57,3 +57,24 @@ bool spnc::interface::detail::OptionParsers::parse(const std::string& value) {
   std::string v = toLowerCase(value);
   return v == "true" || v == "yes";
 }
+
+void Options::registerCLOptions(CLI::App& app) {
+  for (auto& o : options) {
+    std::string opt_name;
+    // Adding the same option name prefixed with "--" will result in the option being NON-positional.
+    opt_name.append(o.first).append(",--").append(o.first);
+    app.add_option(opt_name);
+  }
+}
+
+std::map<std::string, std::string> Options::collectCLOptions(CLI::App& app) {
+  std::map<std::string, std::string> opts;
+
+  for (auto& o : app.get_options()) {
+    if (o->count() > 0) {
+      opts.emplace(*o->get_lnames().begin(), *o->results().begin());
+    }
+  }
+
+  return opts;
+}

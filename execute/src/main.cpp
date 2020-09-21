@@ -7,13 +7,18 @@
 #include <spnc-runtime.h>
 #include <iostream>
 #include <map>
+#include <driver/Options.h>
 
 #ifndef TEST_KERNEL_DIR
 #define TEST_KERNEL_DIR "/tmp"
 #endif
 
 int main(int argc, char* argv[]) {
-  options_t options{{"target", "CPU"}, {"collect-graph-stats", "no"}};
+  CLI::App app{"SPNC CLI"};
+  spnc::interface::Options::registerCLOptions(app);
+  CLI11_PARSE(app, argc, argv);
+
+  auto options = spnc::interface::Options::collectCLOptions(app);
   auto parseResult = spnc::spn_compiler::parseJSON(std::string(argv[1]), options);
   std::cout << "Parsed JSON? " << parseResult.fileName() << std::endl;
   Kernel kernel(std::string(TEST_KERNEL_DIR) + "/libdynamic-load-test.so", "foo");

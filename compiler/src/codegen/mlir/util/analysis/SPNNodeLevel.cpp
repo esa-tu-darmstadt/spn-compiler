@@ -3,20 +3,20 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#include "GraphStatsNodeLevel.h"
+#include "SPNNodeLevel.h"
 #include <numeric>
 
 using namespace mlir;
 using namespace mlir::spn;
 using namespace spnc;
 
-GraphStatsNodeLevel::GraphStatsNodeLevel() : root(nullptr), root_level(0) {}
+SPNNodeLevel::SPNNodeLevel() : root(nullptr), root_level(0) {}
 
-GraphStatsNodeLevel::GraphStatsNodeLevel(Operation* _root, int _rootlevel = 0) : root(_root), root_level(_rootlevel) {
+SPNNodeLevel::SPNNodeLevel(Operation* _root, int _rootlevel = 0) : root(_root), root_level(_rootlevel) {
   update();
 }
 
-void GraphStatsNodeLevel::update() {
+void SPNNodeLevel::update() {
   depth_average = 0.0;
   spn_op_levels.clear();
 
@@ -26,20 +26,24 @@ void GraphStatsNodeLevel::update() {
   processResults();
 }
 
-void GraphStatsNodeLevel::visitNode(Operation* op, const arg_t& arg) {
+void SPNNodeLevel::visitNode(Operation* op, const arg_t& arg) {
   if (op == nullptr) {
     // Encountered nullptr -- abort.
     return;
   }
+
+  std::cerr << "op >>" << std::endl;
+  op->dump();
+  std::cerr << "<< op" << std::endl;
 
   int currentLevel = std::static_pointer_cast<GraphStatLevelInfo>(arg)->level;
 
   spn_op_levels.emplace(op, currentLevel);
   auto operands = op->getOperands();
 
-  // Operations with more than one operand -- assume: inner node, e.g. sum or product.
-  // Operations with one operand -- assume: leaf node.
-  // Operations with no operand -- assume: constant.
+  // Operations with more than one operand -- possible: inner node, e.g. sum or product.
+  // Operations with one operand -- possible: leaf node.
+  // Operations with no operand -- possible: constant.
   // ToDo: Special handling of constants? Measure for improvement via optimizations?
   if (operands.size() > 1) {
     for (auto child : operands) {
@@ -47,11 +51,14 @@ void GraphStatsNodeLevel::visitNode(Operation* op, const arg_t& arg) {
       visitNode(child.getDefiningOp(), passed_arg);
     }
   } else if (operands.size() == 1) {
-    leaf_levels.insert(currentLevel);
+    // Add level of an encountered leaf
+    if (dyn_cast<HistogramOp>(op)) {
+      leaf_levels.insert(currentLevel);
+    }
   }
 }
 
-void GraphStatsNodeLevel::processResults() {
+void SPNNodeLevel::processResults() {
   int leaves = leaf_levels.size();
 
   if (leaves > 0) {
@@ -74,7 +81,7 @@ void GraphStatsNodeLevel::processResults() {
 
 }
 
-int GraphStatsNodeLevel::getDepthOperation(Operation* op) const {
+int SPNNodeLevel::getDepthOperation(Operation* op) const {
   int depth = -1;
   auto it = spn_op_levels.find(op);
 
@@ -85,26 +92,26 @@ int GraphStatsNodeLevel::getDepthOperation(Operation* op) const {
   return depth;
 }
 
-int GraphStatsNodeLevel::getDepthMax() const {
+int SPNNodeLevel::getDepthMax() const {
   return depth_max;
 }
 
-int GraphStatsNodeLevel::getDepthMin() const {
+int SPNNodeLevel::getDepthMin() const {
   return depth_min;
 }
 
-int GraphStatsNodeLevel::getDepthMedian() const {
+int SPNNodeLevel::getDepthMedian() const {
   return depth_median;
 }
 
-double GraphStatsNodeLevel::getDepthAvg() const {
+double SPNNodeLevel::getDepthAvg() const {
   return depth_average;
 }
 
-std::map<Operation*, int> GraphStatsNodeLevel::getResult() {
+std::map<Operation*, int> SPNNodeLevel::getResult() {
   return spn_op_levels;
 }
 
-Operation* GraphStatsNodeLevel::getRoot() const {
+Operation* SPNNodeLevel::getRoot() const {
   return root;
 }
