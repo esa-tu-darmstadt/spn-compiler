@@ -74,7 +74,7 @@ namespace mlir {
       int getDepthMin() const;
 
       /// Return the median node-depth, w.r.t. the considered (sub-)graph.
-      int getDepthMedian() const;
+      double getDepthMedian() const;
 
       /// Return the average node-depth, w.r.t. the considered (sub-)graph.
       double getDepthAvg() const;
@@ -92,9 +92,9 @@ namespace mlir {
 
       int depth_max = 0;
       int depth_min = std::numeric_limits<int>::max();
-      int depth_median = 0;
 
       double depth_average = 0.0;
+      double depth_median = 0.0;
 
       std::multiset<int> leaf_levels;
       std::map<Operation*, int> spn_op_levels;

@@ -15,7 +15,7 @@
 // NIPS5-DAG: count_nodes_sum{{[^[:alnum:],]*}}1
 // NIPS5-DAG: depth_average{{[^[:alnum:],]*}}4.4
 // NIPS5-DAG: depth_max{{[^[:alnum:],]*}}5
-// NIPS5-DAG: depth_median{{[^[:alnum:],]*}}4
+// NIPS5-DAG: depth_median{{[^[:alnum:],]*}}4.5
 // NIPS5-DAG: depth_min{{[^[:alnum:],]*}}4
 
 // NIPS10-DAG: count_features{{[^[:alnum:],]*}}10
@@ -26,5 +26,5 @@
 // NIPS10-DAG: count_nodes_sum{{[^[:alnum:],]*}}3
 // NIPS10-DAG: depth_average{{[^[:alnum:],]*}}6.166666666666667
 // NIPS10-DAG: depth_max{{[^[:alnum:],]*}}9
-// NIPS10-DAG: depth_median{{[^[:alnum:],]*}}6
+// NIPS10-DAG: depth_median{{[^[:alnum:],]*}}6.0
 // NIPS10-DAG: depth_min{{[^[:alnum:],]*}}5

@@ -66,9 +66,9 @@ namespace mlir {
       int count_nodes_leaf = 0;
       int depth_max = 0;
       int depth_min = std::numeric_limits<int>::max();
-      int depth_median = 0;
 
       double depth_average = 0.0;
+      double depth_median = 0.0;
 
       bool cached = false;
 

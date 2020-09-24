@@ -17,8 +17,12 @@ SPNNodeLevel::SPNNodeLevel(Operation* _root, int _rootlevel = 0) : root(_root), 
 }
 
 void SPNNodeLevel::update() {
+  depth_max = 0;
+  depth_min = std::numeric_limits<int>::max();
   depth_average = 0.0;
+  depth_median = 0.0;
   spn_op_levels.clear();
+  leaf_levels.clear();
 
   std::shared_ptr<void> passed_arg(new GraphStatLevelInfo({root_level}));
 
@@ -47,7 +51,8 @@ void SPNNodeLevel::visitNode(Operation* op, const arg_t& arg) {
       visitNode(child.getDefiningOp(), passed_arg);
     }
   } else if (operands.size() == 1) {
-    // Add level of an encountered leaf
+    // Add level of an encountered leaf.
+    // NOTE: ATM there is only one leaf type, others will have to be added with a dyn_cast<> as well.
     if (dyn_cast<HistogramOp>(op)) {
       leaf_levels.insert(currentLevel);
     }
@@ -65,13 +70,27 @@ void SPNNodeLevel::processResults() {
     int sum = std::accumulate(leaf_levels.begin(), leaf_levels.end(), 0);
     depth_average = (double) sum / leaves;
 
-    // Since the used multiset is ordered, we can simply use the respective node count to get the median index.
+    // Since the used multiset is ordered, we can simply use the respective node count to get the (lower) median index.
     int median_index = leaves / 2;
+    auto median_it = leaf_levels.begin();
 
-    if ((median_index >= 0) && (median_index < leaves)) {
-      auto median_it = leaf_levels.begin();
+    // Advance iterator to (one of) the median element(s).
+    if ((median_index > 0) && (median_index < leaves)) {
       std::advance(median_it, median_index);
-      depth_median = *median_it;
+    }
+
+    // "odd" case: No further actions required.
+    depth_median = *median_it;
+
+    // "even" case: add the second median element and store the average.
+    if ((leaves % 2) == 0) {
+      if ((median_index + 1) < leaves) {
+        depth_median += *(++median_it);
+      } else {
+        // Corner case -- two leaves -> use previous(!) index.
+        depth_median += *(--median_it);
+      }
+      depth_median = (double) depth_median / 2;
     }
   }
 
@@ -96,7 +115,7 @@ int SPNNodeLevel::getDepthMin() const {
   return depth_min;
 }
 
-int SPNNodeLevel::getDepthMedian() const {
+double SPNNodeLevel::getDepthMedian() const {
   return depth_median;
 }
 
