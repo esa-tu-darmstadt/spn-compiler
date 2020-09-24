@@ -32,10 +32,6 @@ void SPNNodeLevel::visitNode(Operation* op, const arg_t& arg) {
     return;
   }
 
-  std::cerr << "op >>" << std::endl;
-  op->dump();
-  std::cerr << "<< op" << std::endl;
-
   int currentLevel = std::static_pointer_cast<GraphStatLevelInfo>(arg)->level;
 
   spn_op_levels.emplace(op, currentLevel);
