@@ -3,6 +3,7 @@
 config.spnc_mlir_test_src_dir = "@SPNC_MLIR_TEST_SOURCE_DIR@"
 config.spnc_mlir_test_bin_dir = "@SPNC_MLIR_TEST_BINARY_DIR@"
 config.spnc_opt_tool_bin_path = "@SPNC_OPT_TOOL_BINARY_PATH@"
+config.spnc_driver_bin_path = "@SPNC_DRIVER_BINARY_PATH@"
 
 # Let the main config do the real work.
 lit_config.load_config(config, "@SPNC_MLIR_TEST_SOURCE_DIR@/lit.cfg")

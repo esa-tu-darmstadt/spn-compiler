@@ -50,11 +50,17 @@ add_library(spnc SHARED
         src/codegen/mlir/transform/pattern/SimplificationPatterns.cpp
         src/codegen/mlir/transform/passes/SPNOpSimplifier.cpp
         src/codegen/mlir/transform/passes/SPNOpCanonicalizer.cpp
+        src/codegen/mlir/util/action/GraphStatsCollection.cpp
+        src/codegen/mlir/util/analysis/GraphStats_enum.h
+        src/codegen/mlir/util/analysis/GraphStatsNodeCount.cpp
+        src/codegen/mlir/util/analysis/SPNNodeLevel.cpp
         src/codegen/mlir/pipeline/MLIRPipeline.cpp
         src/codegen/mlir/lowering/patterns/LowerSPNtoStandardPatterns.cpp
         src/codegen/mlir/lowering/passes/SPNtoStandardLoweringPass.cpp
         src/codegen/mlir/lowering/patterns/LowerSPNtoLLVMPatterns.cpp
-        src/codegen/mlir/lowering/passes/SPNToLLVMLoweringPass.cpp)
+        src/codegen/mlir/lowering/passes/SPNToLLVMLoweringPass.cpp
+        src/codegen/mlir/lowering/action/SPNToStandardLowering.cpp
+        src/codegen/mlir/lowering/action/SPNToLLVMLowering.cpp)
 
 message(STATUS "MLIR Include:" ${MLIR_INCLUDE_DIRS})
 

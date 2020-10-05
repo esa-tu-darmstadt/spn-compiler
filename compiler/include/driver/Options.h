@@ -14,6 +14,7 @@
 #include <map>
 #include <vector>
 #include <util/Logging.h>
+#include <CLI11.hpp>
 
 namespace spnc {
 
@@ -260,6 +261,14 @@ namespace spnc {
       ///
       /// Modifiers attached to registered options.
       static std::vector<OptModifier*> activeModifiers;
+
+      /// Register command-line options to a provided CLI11 app.
+      /// \param app Reference to which the options will be registered / added.
+      static void registerCLOptions(CLI::App& app);
+
+      /// Collect parsed command-line options and store into a container, which can be used internally.
+      /// \param app Reference from which the options will be extracted.
+      static std::map<std::string, std::string> collectCLOptions(CLI::App& app);
 
     };
 

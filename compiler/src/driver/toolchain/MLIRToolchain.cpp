@@ -5,10 +5,14 @@
 
 #include <util/FileSystem.h>
 #include <driver/BaseActions.h>
+#include <driver/GlobalOptions.h>
 #include <frontend/json/Parser.h>
 #include <graph-ir/transform/BinaryTreeTransform.h>
 #include <codegen/mlir/MLIRCodeGen.h>
+#include <codegen/mlir/lowering/action/SPNToLLVMLowering.h>
+#include <codegen/mlir/lowering/action/SPNToStandardLowering.h>
 #include <codegen/mlir/pipeline/MLIRPipeline.h>
+#include <codegen/mlir/util/action/GraphStatsCollection.h>
 #include <driver/action/MLIRtoLLVMConversion.h>
 #include <driver/action/LLVMWriteBitcode.h>
 #include <driver/action/LLVMStaticCompiler.h>
@@ -45,11 +49,28 @@ std::unique_ptr<Job<Kernel>> MLIRToolchain::constructJob(std::unique_ptr<ActionW
   mlir::registerDialect<mlir::spn::SPNDialect>();
   auto ctx = std::make_shared<MLIRContext>();
   auto& mlirCodeGen = job->insertAction<MLIRCodeGen>(parser, kernelName, ctx);
-
-  // Run the MLIR-based pipeline, including progressive lowering to LLVM dialect.
+  // Run the MLIR-based pipeline, i.e. simplification and canonicalization.
   auto& mlirPipeline = job->insertAction<MLIRPipeline>(mlirCodeGen, ctx);
-  // Convert the MLIR module to a LLVM IR module.
-  auto& llvmConversion = job->insertAction<MLIRtoLLVMConversion>(mlirPipeline, ctx);
+  // Lower the SPN-MLIR dialect to Standard-MLIR.
+  auto& standardDialect = job->insertAction<SPNToStandardLowering>(mlirPipeline, ctx);
+  ActionWithOutput<mlir::ModuleOp>* standardDialectResult = &standardDialect;
+
+  // If requested via the configuration, collect graph statistics.
+  if (spnc::option::collectGraphStats.get(config)) {
+    auto deleteTmps = spnc::option::deleteTemporaryFiles.get(config);
+    // Collect graph statistics on transformed / canonicalized MLIR.
+    auto statsFile = StatsFile(spnc::option::graphStatsFile.get(config), deleteTmps);
+    auto& graphStats = job->insertAction<GraphStatsCollection>(mlirPipeline, std::move(statsFile));
+    // Join the two actions happening on the transformed module (Graph-Stats & SPN-to-Standard-MLIR lowering).
+    auto& joinAction = job->insertAction<JoinAction<mlir::ModuleOp, StatsFile>>(standardDialect, graphStats);
+    standardDialectResult = &joinAction;
+  }
+
+  // Lower the Standard-MLIR dialect to LLVM-MLIR.
+  auto& llvmDialect = job->insertAction<SPNToLLVMLowering>(*standardDialectResult, ctx);
+  // Convert the MLIR module to a LLVM-IR module.
+  auto& llvmConversion = job->insertAction<MLIRtoLLVMConversion>(llvmDialect, ctx);
+
   // Write generated LLVM module to bitcode-file.
   auto bitCodeFile = FileSystem::createTempFile<FileType::LLVM_BC>();
   auto& writeBitcode = job->insertAction<LLVMWriteBitcode>(llvmConversion, std::move(bitCodeFile));
