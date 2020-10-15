@@ -7,7 +7,7 @@ from spn.algorithms.Validity import is_valid
 from spn.structure.Base import Product, Sum, rebuild_scopes_bottom_up, assign_ids
 from spn.structure.StatisticalTypes import Type, MetaType
 from spn.structure.leaves.histogram.Histograms import Histogram
-from spn.structure.leaves.parametric.Parametric import Gaussian
+from spn.structure.leaves.parametric.Parametric import Gaussian, Categorical
 
 # Magic import making the schema defined in the schema language available
 from  xspn.serialization.binary.capnproto import spflow_capnp
@@ -76,8 +76,10 @@ class BinarySerializer:
                 self._serialize_histogram(node, file, is_rootNode, visited_nodes)
             elif isinstance(node,Gaussian):
                 self._serialize_gaussian(node, file, is_rootNode, visited_nodes)
+            elif isinstance(node, Categorical):
+                self._serialize_categorical(node, file, is_rootNode, visited_nodes)
             else:
-                raise NotImplementedError(f"No serialization defined for node {node}")
+                raise NotImplementedError(f"No serialization defined for node {node} of type {type(node)}")
             visited_nodes.add(node.id)
 
     def _serialize_product(self, product, file, is_rootNode, visited_nodes):
@@ -153,6 +155,21 @@ class BinarySerializer:
         node.rootNode = is_rootNode
         node.id = gauss.id
         node.write(file)
+
+    def _serialize_categorical(self, categorical, file, is_rootNode, visited_nodes):
+        # Construct inner categorical leaf message.
+        cat_msg = spflow_capnp.CategoricalLeaf.new_message()
+        probabilities = cat_msg.init("probabilities", len(categorical.p))
+        for i,p in enumerate(categorical.p):
+            probabilities[i] = BinarySerializer._unwrap_value(p)
+        # Check that the scope is defined over a single variable
+        assert len(categorical.scope) == 1, "Expecting Categorical leaf to be univariate"
+        cat_msg.scope = BinarySerializer._unwrap_value(categorical.scope[0])
+        node = spflow_capnp.Node.new_message()
+        node.categorical = cat_msg
+        node.rootNode = is_rootNode
+        node.id = categorical.id
+        node.write(file)
     
     @staticmethod
     def _unwrap_value(value):
@@ -195,6 +212,8 @@ class BinaryDeserializer:
                 deserialized = self._deserialize_histogram(node, node_map)
             elif which == "gaussian":
                 deserialized = self._deserialize_gaussian(node, node_map)
+            elif which == "categorical":
+                deserialized = self._deserialize_categorical(node, node_map)
             else:
                 raise NotImplementedError(f"No deserialization defined for {which}")
             node_map[node.id] = deserialized
@@ -238,3 +257,9 @@ class BinaryDeserializer:
         gauss = Gaussian(node.gaussian.mean, node.gaussian.stddev, node.gaussian.scope)
         gauss.id = node.id
         return gauss
+
+    def _deserialize_categorical(self, node, node_map):
+        probabilities = node.categorical.probabilities
+        cat = Categorical(p=probabilities, scope=node.categorical.scope)
+        cat.id = node.id
+        return cat

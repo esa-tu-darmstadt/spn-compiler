@@ -40,6 +40,11 @@ struct GaussianLeaf {
     scope @2 : Int32;
 }
 
+struct CategoricalLeaf {
+    probabilities @0 : List(Float64);
+    scope @1 : Int32;
+}
+
 struct Node {
     id @0 : Int32;
     rootNode @1 : Bool = false;
@@ -49,5 +54,6 @@ struct Node {
         sum @3 : SumNode;
         hist @4 : HistogramLeaf;
         gaussian @5 : GaussianLeaf;
+        categorical @6 : CategoricalLeaf;
     }
 }
