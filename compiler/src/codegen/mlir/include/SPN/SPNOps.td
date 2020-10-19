@@ -14,7 +14,7 @@ class SPN_NAry_Op<string mnemonic> : SPN_Op<mnemonic, [NoSideEffect, Commutative
 
     let results = (outs F64);
 
-    let verifier = [{ return ::verify(*this); }];
+    let verifier = [{ return ::mlir::spn::verify(*this); }];
 
     let builders = [
         OpBuilder<"llvm::ArrayRef<Value> operands">
@@ -55,7 +55,7 @@ def WeightedSumOp : SPN_Op<"weighted_sum", [NoSideEffect, SameOperandsAndResultT
 
     let results = (outs F64);
 
-    let verifier = [{return ::verify(*this); }];
+    let verifier = [{return ::mlir::spn::verify(*this); }];
 
     let builders = [
         OpBuilder<"llvm::ArrayRef<Value> operands, llvm::ArrayRef<double> weights">
@@ -93,7 +93,7 @@ def HistogramOp : SPN_Op<"histogram", [NoSideEffect]> {
 
     let results = (outs F64);
 
-    let verifier = [{ return ::verify(*this); }];
+    let verifier = [{ return ::mlir::spn::verify(*this); }];
 
     let builders = [
         OpBuilder<"llvm::ArrayRef<std::tuple<int, int, double>> buckets">
