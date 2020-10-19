@@ -3,6 +3,7 @@
 
 include "SPNDialect.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/IR/RegionKindInterface.td"
 
 ///
 /// Abstract base class of n-ary arithmetic operations
@@ -144,6 +145,26 @@ def ConstantOp : SPN_Op<"constant", [NoSideEffect]> {
     // Build a constant with a given constant floating-point value.
     OpBuilder<"Builder *builder, OperationState &state, double value">
   ];
+
+}
+
+///
+/// Single joint probability evaluation, holds the graph as region of this operation.
+///
+def SingleJointQuery : SPN_Op<"single_joint",
+    [NoSideEffect, IsolatedFromAbove, DeclareOpInterfaceMethods<RegionKindInterface>]> {
+
+    let summary = "Single joint probability computation";
+
+    let description = [{
+        Represents a single joint probability computation by bottom-up evaluation of the
+        SPN-graph.
+        The single region associated with this operation represents the the SPN graph.
+    }];
+
+    let arguments = (ins UI32Attr:$numFeatures, TypeAttr:$inputType);
+
+    let regions = (region SizedRegion<1>:$graph);
 
 }
 

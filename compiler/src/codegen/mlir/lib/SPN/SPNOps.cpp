@@ -98,6 +98,10 @@ namespace mlir {
       return mlir::success();
     }
 
+    RegionKind mlir::spn::SingleJointQuery::getRegionKind(unsigned int index) {
+      return RegionKind::Graph;
+    }
+
   } // end of namespace spn
 } // end of namespace mlir
 
