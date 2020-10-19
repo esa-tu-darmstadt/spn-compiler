@@ -5,7 +5,6 @@
 
 #include <spnc.h>
 #include <driver/toolchain/CPUToolchain.h>
-#include <driver/toolchain/MLIRToolchain.h>
 #include <driver/Options.h>
 #include <driver/GlobalOptions.h>
 #include <util/Logging.h>
@@ -17,11 +16,7 @@ Kernel spn_compiler::parseJSON(const std::string& inputFile, const options_t& op
   interface::Options::dump();
   auto config = interface::Options::parse(options);
   std::unique_ptr<Job<Kernel>> job;
-  if (spnc::option::useMLIRToolchain.get(*config)) {
-    job = MLIRToolchain::constructJobFromFile(inputFile, *config);
-  } else {
-    job = CPUToolchain::constructJobFromFile(inputFile, *config);
-  }
+  job = CPUToolchain::constructJobFromFile(inputFile, *config);
   auto& kernel = job->execute();
   SPDLOG_INFO("Generated Kernel in {}, kernel name {}", kernel.fileName(), kernel.kernelName());
   return kernel;
@@ -32,11 +27,7 @@ Kernel spn_compiler::parseJSONString(const std::string& jsonString, const option
   interface::Options::dump();
   auto config = interface::Options::parse(options);
   std::unique_ptr<Job<Kernel>> job;
-  if (spnc::option::useMLIRToolchain.get(*config)) {
-    job = MLIRToolchain::constructJobFromString(jsonString, *config);
-  } else {
-    job = CPUToolchain::constructJobFromString(jsonString, *config);
-  }
+  job = CPUToolchain::constructJobFromString(jsonString, *config);
   auto& kernel = job->execute();
   SPDLOG_INFO("Generated Kernel in {}, kernel name '{}'", kernel.fileName(), kernel.kernelName());
   return kernel;
