@@ -10,9 +10,9 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 class SPN_NAry_Op<string mnemonic> : SPN_Op<mnemonic, [NoSideEffect, Commutative, SameOperandsAndResultType]> {
     /// Operands: Child nodes
     /// opcount: Number of child nodes
-    let arguments = (ins Variadic<F64>: $operands, UI32Attr: $opCount);
+    let arguments = (ins Variadic<SPNProbabilityType>: $operands, UI32Attr: $opCount);
 
-    let results = (outs F64);
+    let results = (outs SPNProbabilityType);
 
     let verifier = [{ return ::mlir::spn::verify(*this); }];
 
@@ -51,9 +51,9 @@ def WeightedSumOp : SPN_Op<"weighted_sum", [NoSideEffect, SameOperandsAndResultT
     /// operands: Child nodes
     /// weights: Weights associated with the cild nodes.
     /// opCount: Number of child nodes (and weights).
-    let arguments = (ins Variadic<F64>:$operands, F64ArrayAttr:$weights, UI32Attr:$opCount);
+    let arguments = (ins Variadic<SPNProbabilityType>:$operands, F64ArrayAttr:$weights, UI32Attr:$opCount);
 
-    let results = (outs F64);
+    let results = (outs SPNProbabilityType);
 
     let verifier = [{return ::mlir::spn::verify(*this); }];
 
@@ -91,7 +91,7 @@ def HistogramOp : SPN_Op<"histogram", [NoSideEffect]> {
 
     let arguments = (ins I32:$index, BucketListAttr:$buckets, UI32Attr:$bucketCount);
 
-    let results = (outs F64);
+    let results = (outs SPNProbabilityType);
 
     let verifier = [{ return ::mlir::spn::verify(*this); }];
 
@@ -110,7 +110,7 @@ def ReturnOp : SPN_Op<"return", [Terminator]> {
     Return from SPN function, potentially returning a result.
   }];
 
-  let arguments = (ins Variadic<F64>:$retValue);
+  let arguments = (ins Variadic<SPNProbabilityType>:$retValue);
 
   let extraClassDeclaration = [{
     bool hasOperand() { return getNumOperands() != 0; }
@@ -138,7 +138,7 @@ def ConstantOp : SPN_Op<"constant", [NoSideEffect]> {
   let arguments = (ins F64Attr:$value);
 
   // The constant operation returns a single floating-point value.
-  let results = (outs F64);
+  let results = (outs SPNProbabilityType);
 
   let builders = [
     // Build a constant with a given constant floating-point value.

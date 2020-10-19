@@ -4,6 +4,7 @@
 //
 
 #include "SPN/SPNOps.h"
+#include "SPN/SPNDialect.h"
 #include "SPN/SPNAttributes.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/Builders.h"

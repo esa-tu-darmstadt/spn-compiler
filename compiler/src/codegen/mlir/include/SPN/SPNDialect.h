@@ -8,6 +8,17 @@
 
 #include "mlir/IR/Dialect.h"
 
+namespace mlir {
+  namespace spn {
+
+    class ProbabilityType : public Type::TypeBase<ProbabilityType, Type, TypeStorage> {
+    public:
+      using Base::Base;
+    };
+
+  }
+}
+
 #include "SPN/SPNOpsDialect.h.inc"
 
 #endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_INCLUDE_SPN_SPNDIALECT_H

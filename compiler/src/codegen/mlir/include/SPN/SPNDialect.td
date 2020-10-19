@@ -21,4 +21,17 @@ def SPN_Dialect : Dialect {
 ///
 class SPN_Op<string mnemonic, list<OpTrait> traits = []> : Op<SPN_Dialect, mnemonic, traits>;
 
+///
+/// Dialect-specific type representing probability values.
+///
+def SPNProbabilityType : DialectType<SPN_Dialect,
+        CPred<"$_self.isa<::mlir::spn::ProbabilityType>()">, "probability type">,
+        BuildableType<"$_builder.getType<::mlir:spn::ProbabilityType>()"> {
+
+    let typeDescription = [{
+        `spn.probability_type` abstractly represents a probability type.
+    }];
+
+}
+
 #endif // SPN_DIALECT
