@@ -7,7 +7,7 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 find_package(MLIR REQUIRED CONFIG)
 message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
 
-#add_subdirectory(src/codegen/mlir/)
+add_subdirectory(src/codegen/mlir/)
 
 add_library(spnc SHARED
         src/driver/option/Options.cpp
@@ -51,6 +51,8 @@ target_include_directories(spnc
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${LLVM_INCLUDE_DIRS}
         ${CMAKE_CURRENT_BINARY_DIR})
+
+add_dependencies(spnc MLIRSPN)
 
 llvm_map_components_to_libnames(llvm_libs bitwriter native passes)
 target_link_libraries(spnc PRIVATE spnc-common ${llvm_libs} spdlog::spdlog)
