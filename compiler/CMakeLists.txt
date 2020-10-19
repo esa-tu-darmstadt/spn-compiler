@@ -7,7 +7,7 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 find_package(MLIR REQUIRED CONFIG)
 message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
 
-add_subdirectory(src/codegen/mlir/)
+add_subdirectory(src/codegen/mlir/dialects)
 
 add_library(spnc SHARED
         src/driver/option/Options.cpp
