@@ -7,7 +7,6 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 find_package(MLIR REQUIRED CONFIG)
 message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
 
-add_subdirectory(src/codegen/mlir/dialects)
 
 add_library(spnc SHARED
         src/driver/option/Options.cpp
@@ -50,12 +49,28 @@ target_include_directories(spnc
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${LLVM_INCLUDE_DIRS}
-        ${CMAKE_CURRENT_BINARY_DIR})
+        ${MLIR_INCLUDE_DIRS}
+        ${SPN_DIALECT_INCLUDE_DIRS})
 
-add_dependencies(spnc MLIRSPN)
+get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
+
+set(mlir_libs
+        ${dialect_libs}
+        ${conversion_libs}
+        MLIROptLib
+        MLIRSPN
+        MLIRIR
+        MLIRParser
+        MLIRPass
+        MLIRTranslation
+        MLIRSupport
+        )
 
 llvm_map_components_to_libnames(llvm_libs bitwriter native passes)
-target_link_libraries(spnc PRIVATE spnc-common ${llvm_libs} spdlog::spdlog)
+target_link_libraries(spnc PRIVATE spnc-common ${llvm_libs} ${mlir_libs} spdlog::spdlog)
+
+mlir_check_link_libraries(spnc)
 
 doxygen_doc(TARGET_NAME spnc
         SRC_DIRECTORIES

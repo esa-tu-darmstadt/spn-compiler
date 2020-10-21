@@ -4,7 +4,7 @@ add_mlir_dialect_library(MLIRSPN
         SPNAttributes.cpp
 
         ADDITIONAL_HEADER_DIRS
-        ../../include
+        ${PROJECT_SOURCE_DIR}/mlir-dialects/include
 
         DEPENDS
         MLIRSPNOpsIncGen

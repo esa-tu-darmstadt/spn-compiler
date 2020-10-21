@@ -14,6 +14,7 @@ add_subdirectory(common)
 # Ensure processing of ./execute before ./compiler
 # Reason: tests in ./compiler depend on CMake variables set in ./execute
 add_subdirectory(execute)
+add_subdirectory(mlir-dialects)
 add_subdirectory(compiler)
 add_subdirectory(compiler-rt)
 add_subdirectory(runtime)
