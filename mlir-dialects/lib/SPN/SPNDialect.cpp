@@ -5,6 +5,7 @@
 
 #include "SPN/SPNDialect.h"
 #include "SPN/SPNOps.h"
+#include "mlir/IR/DialectImplementation.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -14,4 +15,13 @@ void SPNDialect::initialize() {
 #define GET_OP_LIST
 #include "SPN/SPNOps.cpp.inc"
   >();
+}
+
+::mlir::Type SPNDialect::parseType(::mlir::DialectAsmParser& parser) const {
+  return ProbabilityType::get(getContext());
+}
+
+void SPNDialect::printType(::mlir::Type type, ::mlir::DialectAsmPrinter& os) const {
+  // Currently the only SPN type is the probability type.
+  os << "probability";
 }
