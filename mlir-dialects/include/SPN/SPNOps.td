@@ -118,8 +118,7 @@ def ReturnOp : SPN_Op<"return", [Terminator]> {
   }];
 
   let builders = [
-    OpBuilder<"Builder* b, OperationState& state, Value retValue">,
-    OpBuilder<"Builder* b, OperationState& state">
+    OpBuilder<"Value retValue">
   ];
 
 }
@@ -143,7 +142,7 @@ def ConstantOp : SPN_Op<"constant", [NoSideEffect]> {
 
   let builders = [
     // Build a constant with a given constant floating-point value.
-    OpBuilder<"Builder *builder, OperationState &state, double value">
+    OpBuilder<"double value">
   ];
 
 }
