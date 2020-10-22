@@ -5,6 +5,7 @@
 
 #include "SPN/SPNDialect.h"
 #include "SPN/SPNOps.h"
+#include "SPN/SPNAttributes.h"
 #include "mlir/IR/DialectImplementation.h"
 
 using namespace mlir;
@@ -15,6 +16,7 @@ void SPNDialect::initialize() {
 #define GET_OP_LIST
 #include "SPN/SPNOps.cpp.inc"
   >();
+  addTypes<ProbabilityType>();
 }
 
 ::mlir::Type SPNDialect::parseType(::mlir::DialectAsmParser& parser) const {
