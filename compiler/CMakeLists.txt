@@ -36,6 +36,9 @@ add_library(spnc SHARED
         src/codegen/llvm-ir/CPU/loop/CodeGenSerialLoop.cpp
         src/codegen/llvm-ir/pipeline/LLVMPipeline.cpp
         src/codegen/llvm-ir/transform/NumericalValueTracingPass.cpp
+        src/driver/toolchain/MLIRToolchain.cpp
+        src/codegen/mlir/codegen/MLIRCodeGen.cpp
+        src/codegen/mlir/codegen/MLIRGraphGen.cpp
         )
 
 target_include_directories(spnc
