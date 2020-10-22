@@ -105,6 +105,41 @@ namespace mlir {
   } // end of namespace spn
 } // end of namespace mlir
 
+void mlir::spn::WeightedSumOp::build(::mlir::OpBuilder& odsBuilder,
+                                     ::mlir::OperationState& odsState,
+                                     llvm::ArrayRef<Value> operands,
+                                     llvm::ArrayRef<double> weights) {
+  SmallVector<mlir::Attribute, 10> weightAttrs;
+  for (auto& w : weights) {
+    weightAttrs.push_back(odsBuilder.getF64FloatAttr(w));
+  }
+  assert(weightAttrs.size() == operands.size() && "Number of weights must match number of operands!");
+  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), ValueRange(operands),
+        ArrayAttr::get(weightAttrs, odsBuilder.getContext()), odsBuilder.getUI32IntegerAttr(operands.size()));
+}
+
+void mlir::spn::HistogramOp::build(::mlir::OpBuilder& odsBuilder,
+                                   ::mlir::OperationState& odsState,
+                                   Value indexVal,
+                                   llvm::ArrayRef<std::tuple<int, int, double>> buckets) {
+  SmallVector<mlir::Attribute, 256> bucketList;
+  // Create StructAttr for each bucket, comprising the inclusive lower bound,
+  // the exclusive lower bound and the probability value.
+  for (auto& bucket : buckets) {
+    auto bucketAttr = Bucket::get(odsBuilder.getI32IntegerAttr(std::get<0>(bucket)),
+                                  odsBuilder.getI32IntegerAttr(std::get<1>(bucket)),
+                                  odsBuilder.getF64FloatAttr(std::get<2>(bucket)), odsBuilder.getContext());
+    bucketList.push_back(bucketAttr);
+  }
+  auto arrAttr = odsBuilder.getArrayAttr(bucketList);
+  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), indexVal,
+        arrAttr, odsBuilder.getUI32IntegerAttr(bucketList.size()));
+}
+
+void mlir::spn::ReturnOp::build(::mlir::OpBuilder& odsBuilder, ::mlir::OperationState& odsState, Value retValue) {
+  build(odsBuilder, odsState, ValueRange{retValue});
+}
+
 #define GET_OP_CLASSES
 #include "SPN/SPNOps.cpp.inc"
 
