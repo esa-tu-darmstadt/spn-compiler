@@ -17,10 +17,6 @@ class SPN_NAry_Op<string mnemonic> : SPN_Op<mnemonic, [NoSideEffect, Commutative
 
     let verifier = [{ return ::mlir::spn::verify(*this); }];
 
-    let builders = [
-        OpBuilder<"llvm::ArrayRef<Value> operands">
-    ];
-
 }
 
 ///
