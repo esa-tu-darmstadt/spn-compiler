@@ -86,7 +86,7 @@ def HistogramOp : SPN_Op<"histogram", [NoSideEffect]> {
         represented by a histogram.
     }];
 
-    let arguments = (ins AnyType:$index, BucketListAttr:$buckets, UI32Attr:$bucketCount);
+    let arguments = (ins AnyUnsignedInteger:$index, BucketListAttr:$buckets, UI32Attr:$bucketCount);
 
     let results = (outs SPNProbabilityType);
 
