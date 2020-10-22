@@ -86,14 +86,14 @@ def HistogramOp : SPN_Op<"histogram", [NoSideEffect]> {
         represented by a histogram.
     }];
 
-    let arguments = (ins I32:$index, BucketListAttr:$buckets, UI32Attr:$bucketCount);
+    let arguments = (ins AnyType:$index, BucketListAttr:$buckets, UI32Attr:$bucketCount);
 
     let results = (outs SPNProbabilityType);
 
     let verifier = [{ return ::mlir::spn::verify(*this); }];
 
     let builders = [
-        OpBuilder<"llvm::ArrayRef<std::tuple<int, int, double>> buckets">
+        OpBuilder<"Value indexVal, llvm::ArrayRef<std::tuple<int, int, double>> buckets">
     ];
 }
 
