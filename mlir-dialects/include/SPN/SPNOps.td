@@ -17,6 +17,8 @@ class SPN_NAry_Op<string mnemonic> : SPN_Op<mnemonic, [NoSideEffect, Commutative
 
     let verifier = [{ return ::mlir::spn::verify(*this); }];
 
+    let hasCanonicalizer = 1;
+
 }
 
 ///
@@ -57,6 +59,8 @@ def WeightedSumOp : SPN_Op<"weighted_sum", [NoSideEffect, SameOperandsAndResultT
     let builders = [
         OpBuilder<"llvm::ArrayRef<Value> operands, llvm::ArrayRef<double> weights">
     ];
+
+    let hasCanonicalizer = 1;
 
 }
 

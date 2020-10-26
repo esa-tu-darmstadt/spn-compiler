@@ -9,6 +9,8 @@
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/StandardTypes.h"
+#include "mlir/IR/PatternMatch.h"
+#include "canonicalization/CanonicalizationPatterns.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -105,6 +107,30 @@ namespace mlir {
   } // end of namespace spn
 } // end of namespace mlir
 
+//===----------------------------------------------------------------------===//
+// ProductOp
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::ProductOp::getCanonicalizationPatterns(::mlir::OwningRewritePatternList& results,
+                                                       ::mlir::MLIRContext* context) {
+  results.insert<ReduceProductOp>(context);
+  results.insert<ConstantFoldProductOp>(context);
+}
+
+//===----------------------------------------------------------------------===//
+// SumOp
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::SumOp::getCanonicalizationPatterns(::mlir::OwningRewritePatternList& results,
+                                                   ::mlir::MLIRContext* context) {
+  results.insert<ReduceSumOp>(context);
+  results.insert<ConstantFoldSumOp>(context);
+}
+
+//===----------------------------------------------------------------------===//
+// WeightedSumOp
+//===----------------------------------------------------------------------===//
+
 void mlir::spn::WeightedSumOp::build(::mlir::OpBuilder& odsBuilder,
                                      ::mlir::OperationState& odsState,
                                      llvm::ArrayRef<Value> operands,
@@ -117,6 +143,16 @@ void mlir::spn::WeightedSumOp::build(::mlir::OpBuilder& odsBuilder,
   build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), ValueRange(operands),
         ArrayAttr::get(weightAttrs, odsBuilder.getContext()), odsBuilder.getUI32IntegerAttr(operands.size()));
 }
+
+void mlir::spn::WeightedSumOp::getCanonicalizationPatterns(::mlir::OwningRewritePatternList& results,
+                                                           ::mlir::MLIRContext* context) {
+  results.insert<ReduceWeightedSumOp>(context);
+  results.insert<ConstantFoldWeightedSumOp>(context);
+}
+
+//===----------------------------------------------------------------------===//
+// HistogramOp
+//===----------------------------------------------------------------------===//
 
 void mlir::spn::HistogramOp::build(::mlir::OpBuilder& odsBuilder,
                                    ::mlir::OperationState& odsState,
@@ -136,11 +172,22 @@ void mlir::spn::HistogramOp::build(::mlir::OpBuilder& odsBuilder,
         arrAttr, odsBuilder.getUI32IntegerAttr(bucketList.size()));
 }
 
+//===----------------------------------------------------------------------===//
+// ReturnOp
+//===----------------------------------------------------------------------===//
+
 void mlir::spn::ReturnOp::build(::mlir::OpBuilder& odsBuilder, ::mlir::OperationState& odsState, Value retValue) {
   build(odsBuilder, odsState, ValueRange{retValue});
 }
 
+//===----------------------------------------------------------------------===//
+// ConstantOp
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::ConstantOp::build(::mlir::OpBuilder& odsBuilder, ::mlir::OperationState& odsState, double value) {
+  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()),
+        odsBuilder.getFloatAttr(odsBuilder.getF64Type(), value));
+}
+
 #define GET_OP_CLASSES
 #include "SPN/SPNOps.cpp.inc"
-
-
