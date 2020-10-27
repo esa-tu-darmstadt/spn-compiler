@@ -9,11 +9,6 @@ using namespace mlir;
 using namespace mlir::spn;
 
 LogicalResult ReduceWeightedSumOp::matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const {
-  if (op.getNumOperands() == 0) {
-    // Replace with constant zero.
-    rewriter.replaceOpWithNewOp<ConstantOp>(op, 0);
-    return success();
-  }
 
   if (op.getNumOperands() == 1) {
     // In case of a single operand, we can replace the weighted sum with a simple
@@ -74,7 +69,7 @@ LogicalResult ConstantFoldWeightedSumOp::matchAndRewrite(WeightedSumOp op, Patte
 
 LogicalResult ConstantFoldSumOp::matchAndRewrite(SumOp op, PatternRewriter& rewriter) const {
   SmallVector<Value, 10> nonConstantOperands;
-  auto foldedConstant = detail::constantFoldOperands<SumOp, std::plus<double>>(op, nonConstantOperands, 0.0);
+  auto foldedConstant = constantFoldOperands<SumOp, std::plus<double>>(op, nonConstantOperands, 0.0);
   if (std::isnan(foldedConstant)) {
     // constantFoldOperands returns NaN if no folding appeared, signal failure.
     return failure();
@@ -89,7 +84,7 @@ LogicalResult ConstantFoldSumOp::matchAndRewrite(SumOp op, PatternRewriter& rewr
 
 LogicalResult ConstantFoldProductOp::matchAndRewrite(ProductOp op, PatternRewriter& rewriter) const {
   SmallVector<Value, 10> nonConstantOperands;
-  auto foldedConstant = detail::constantFoldOperands<ProductOp, std::multiplies<double>>(op, nonConstantOperands, 1.0);
+  auto foldedConstant = constantFoldOperands<ProductOp, std::multiplies<double>>(op, nonConstantOperands, 1.0);
   if (std::isnan(foldedConstant)) {
     // constantFoldOperands returns NaN if no folding appeared, signal failure.
     return failure();

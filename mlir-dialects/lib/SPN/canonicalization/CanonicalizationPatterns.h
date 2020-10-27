@@ -55,10 +55,6 @@ namespace mlir {
 
       LogicalResult matchAndRewrite(NAryOp op, PatternRewriter& rewriter) const override {
         if (op.getNumOperands() > 1) {
-          return failure();
-        }
-        if (op.getNumOperands() == 0) {
-          rewriter.replaceOpWithNewOp<ConstantOp>(op, 0);
           return success();
         }
 
@@ -96,7 +92,7 @@ namespace mlir {
 
     };
 
-    namespace detail {
+    namespace {
 
       /// Perform constant folding for n-ary operation.
       /// \tparam NAryOp Operation type.
