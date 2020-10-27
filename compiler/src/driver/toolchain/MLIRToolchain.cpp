@@ -9,6 +9,7 @@
 #include <frontend/json/Parser.h>
 #include <codegen/mlir/codegen/MLIRCodeGen.h>
 #include <SPN/SPNDialect.h>
+#include <codegen/mlir/pipeline/SPNDialectPipeline.h>
 #include "MLIRToolchain.h"
 #include "mlir/InitAllDialects.h"
 
@@ -44,7 +45,8 @@ std::unique_ptr<Job<ModuleOp>> MLIRToolchain::constructJob(std::unique_ptr<Actio
   for (auto d : ctx->getAvailableDialects()) {
     std::cout << d.str() << std::endl;
   }
-  auto& mlirCodeGen = job->insertFinalAction<MLIRCodeGen>(parser, kernelName, ctx);
+  auto& mlirCodeGen = job->insertAction<MLIRCodeGen>(parser, kernelName, ctx);
+  auto& spnDialectPipeline = job->insertFinalAction<SPNDialectPipeline>(mlirCodeGen, ctx);
 
   job->addAction(std::move(input));
   return std::move(job);

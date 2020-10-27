@@ -39,6 +39,7 @@ add_library(spnc SHARED
         src/driver/toolchain/MLIRToolchain.cpp
         src/codegen/mlir/codegen/MLIRCodeGen.cpp
         src/codegen/mlir/codegen/MLIRGraphGen.cpp
+        src/codegen/mlir/pipeline/SPNDialectPipeline.cpp
         )
 
 target_include_directories(spnc
