@@ -151,7 +151,7 @@ def ConstantOp : SPN_Op<"constant", [NoSideEffect]> {
 /// Single joint probability evaluation, holds the graph as region of this operation.
 ///
 def SingleJointQuery : SPN_Op<"single_joint",
-    [NoSideEffect, IsolatedFromAbove, DeclareOpInterfaceMethods<RegionKindInterface>]> {
+    [IsolatedFromAbove, DeclareOpInterfaceMethods<RegionKindInterface>]> {
 
     let summary = "Single joint probability computation";
 
