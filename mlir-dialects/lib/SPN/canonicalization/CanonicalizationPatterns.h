@@ -55,7 +55,7 @@ namespace mlir {
 
       LogicalResult matchAndRewrite(NAryOp op, PatternRewriter& rewriter) const override {
         if (op.getNumOperands() > 1) {
-          return success();
+          return failure();
         }
 
         assert(op.getNumOperands() == 1 && "Expecting only a single operand!");
@@ -100,11 +100,13 @@ namespace mlir {
       /// \param op Operation to perform operand constant folding on.
       /// \param operands List of non-constant operands, will be filled by this function.
       /// \param initialValue Initial (neutral) value of the constant accumulator.
-      /// \return NaN if no constant operands where found, the merged constant value otherwise.
+      /// \return Tuple with the number of folded constant values and the folded constant value.
       template<typename NAryOp, typename accFunc>
-      double constantFoldOperands(NAryOp op, SmallVectorImpl<Value>& operands, double initialValue) {
+      std::tuple<unsigned, double> constantFoldOperands(NAryOp op,
+                                                        SmallVectorImpl<Value>& operands,
+                                                        double initialValue) {
         auto acc = initialValue;
-        size_t constantOps = 0;
+        unsigned constantOps = 0;
         accFunc accOp;
         for (auto m : op.operands()) {
           if (auto constantOp = dyn_cast_or_null<ConstantOp>(m.getDefiningOp())) {
@@ -114,10 +116,7 @@ namespace mlir {
             operands.push_back(m);
           }
         }
-        if (constantOps == 0) {
-          return std::nan("");
-        }
-        return acc;
+        return {constantOps, acc};
       }
 
     } // end of namespace detail

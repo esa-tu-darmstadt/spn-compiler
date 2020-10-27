@@ -70,13 +70,13 @@ LogicalResult ConstantFoldWeightedSumOp::matchAndRewrite(WeightedSumOp op, Patte
 LogicalResult ConstantFoldSumOp::matchAndRewrite(SumOp op, PatternRewriter& rewriter) const {
   SmallVector<Value, 10> nonConstantOperands;
   auto foldedConstant = constantFoldOperands<SumOp, std::plus<double>>(op, nonConstantOperands, 0.0);
-  if (std::isnan(foldedConstant)) {
-    // constantFoldOperands returns NaN if no folding appeared, signal failure.
+  if (std::get<0>(foldedConstant) <= 1) {
+    // If no or only one constant was found, there's not point in replacing the operation.
     return failure();
   }
-  if (foldedConstant != 0.0) {
+  if (std::get<1>(foldedConstant) != 0.0) {
     // Constant folding appeared, crate new ConstantOp for the folded constant value.
-    nonConstantOperands.push_back(rewriter.create<ConstantOp>(op.getLoc(), foldedConstant));
+    nonConstantOperands.push_back(rewriter.create<ConstantOp>(op.getLoc(), std::get<1>(foldedConstant)));
   }
   rewriter.replaceOpWithNewOp<SumOp>(op, nonConstantOperands);
   return success();
@@ -85,16 +85,18 @@ LogicalResult ConstantFoldSumOp::matchAndRewrite(SumOp op, PatternRewriter& rewr
 LogicalResult ConstantFoldProductOp::matchAndRewrite(ProductOp op, PatternRewriter& rewriter) const {
   SmallVector<Value, 10> nonConstantOperands;
   auto foldedConstant = constantFoldOperands<ProductOp, std::multiplies<double>>(op, nonConstantOperands, 1.0);
-  if (std::isnan(foldedConstant)) {
-    // constantFoldOperands returns NaN if no folding appeared, signal failure.
+  if (std::get<1>(foldedConstant) == 0.0) {
+    // Special case, one constant zero operand will cause the whole product to become 0.0, replace by constant.
+    rewriter.replaceOpWithNewOp<ConstantOp>(op, 0.0);
+    return success();
+  }
+  if (std::get<0>(foldedConstant) <= 1) {
+    // If no or only one constant was found, there's not point in replacing the operation.
     return failure();
   }
-  if (foldedConstant == 0.0) {
-    rewriter.replaceOpWithNewOp<ConstantOp>(op, 0.0);
-  }
-  if (foldedConstant != 1.0) {
+  if (std::get<1>(foldedConstant) != 1.0) {
     // Constant folding appeared, crate new ConstantOp for the folded constant value.
-    nonConstantOperands.push_back(rewriter.create<ConstantOp>(op.getLoc(), foldedConstant));
+    nonConstantOperands.push_back(rewriter.create<ConstantOp>(op.getLoc(), std::get<1>(foldedConstant)));
   }
   rewriter.replaceOpWithNewOp<ProductOp>(op, nonConstantOperands);
   return success();
