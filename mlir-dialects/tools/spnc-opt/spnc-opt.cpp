@@ -65,9 +65,6 @@ int main(int argc, char** argv) {
   mlir::registerPass("spn-simplify", "simplify SPN-dialect operations", []() -> std::unique_ptr<mlir::Pass> {
     return mlir::spn::createSPNOpSimplifierPass();
   });
-  mlir::registerPass("spn-canonicalize", "canonicalize SPN-dialect operations", []() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createCanonicalizerPass();
-  });
 
   llvm::InitLLVM y(argc, argv);
 
