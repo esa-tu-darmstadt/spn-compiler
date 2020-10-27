@@ -10,6 +10,7 @@ add_mlir_dialect_library(MLIRSPN
         DEPENDS
         MLIRSPNOpsIncGen
         MLIRSPNAttributesIncGen
+        MLIRSPNInterfacesIncGen
 
         LINK_LIBS PUBLIC
         MLIRIR

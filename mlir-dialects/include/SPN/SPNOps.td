@@ -2,16 +2,18 @@
 #define SPN_OPS
 
 include "SPNDialect.td"
+include "SPNInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/RegionKindInterface.td"
 
 ///
 /// Abstract base class of n-ary arithmetic operations
 ///
-class SPN_NAry_Op<string mnemonic> : SPN_Op<mnemonic, [NoSideEffect, Commutative, SameOperandsAndResultType]> {
+class SPN_NAry_Op<string mnemonic> : SPN_Op<mnemonic,
+  [NoSideEffect, Commutative, SameOperandsAndResultType, DeclareOpInterfaceMethods<ArithmeticOpInterface>]> {
     /// Operands: Child nodes
     /// opcount: Number of child nodes
-    let arguments = (ins Variadic<SPNProbabilityType>: $operands, UI32Attr: $opCount);
+    let arguments = (ins Variadic<SPNProbabilityType>: $operands);
 
     let results = (outs SPNProbabilityType);
 
@@ -38,7 +40,8 @@ def SumOp : SPN_NAry_Op<"sum"> {
 ///
 /// Weighted N-ary sum operation.
 ///
-def WeightedSumOp : SPN_Op<"weighted_sum", [NoSideEffect, SameOperandsAndResultType]> {
+def WeightedSumOp : SPN_Op<"weighted_sum",
+  [NoSideEffect, SameOperandsAndResultType, DeclareOpInterfaceMethods<ArithmeticOpInterface>]> {
     let summary = "Weighted, N-ary Sum Operation";
 
     let description = [{
@@ -50,7 +53,7 @@ def WeightedSumOp : SPN_Op<"weighted_sum", [NoSideEffect, SameOperandsAndResultT
     /// operands: Child nodes
     /// weights: Weights associated with the cild nodes.
     /// opCount: Number of child nodes (and weights).
-    let arguments = (ins Variadic<SPNProbabilityType>:$operands, F64ArrayAttr:$weights, UI32Attr:$opCount);
+    let arguments = (ins Variadic<SPNProbabilityType>:$operands, F64ArrayAttr:$weights);
 
     let results = (outs SPNProbabilityType);
 

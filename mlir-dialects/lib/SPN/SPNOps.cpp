@@ -24,9 +24,6 @@ namespace mlir {
     template<typename NAryOp>
     static mlir::LogicalResult verify(NAryOp op) {
       auto numOperands = std::distance(op.operands().begin(), op.operands().end());
-      if (numOperands != op.opCount()) {
-        return op.emitOpError("Number of operands must match the specified operand count!");
-      }
       if (numOperands <= 0) {
         return op.emitOpError("Number of operands must be greater than zero!");
       }
@@ -52,12 +49,9 @@ namespace mlir {
 
     static mlir::LogicalResult verify(WeightedSumOp op) {
       auto numAddends = std::distance(op.operands().begin(), op.operands().end());
-      if (numAddends != op.opCount()) {
-        return op.emitOpError("Number of addends must match the specified operand count!");
-      }
       auto numWeights = op.weights().size();
-      if (numWeights != op.opCount()) {
-        return op.emitOpError("Number of weights must match the specified operand count!");
+      if (numWeights != numAddends) {
+        return op.emitOpError("Number of weights must match the number of addends!");
       }
       if (numAddends <= 0) {
         return op.emitOpError("Number of addends must be greater than zero!");
@@ -107,6 +101,15 @@ namespace mlir {
   } // end of namespace spn
 } // end of namespace mlir
 
+namespace {
+
+  template<typename NAryOp>
+  unsigned numOperands(NAryOp& op) {
+    return std::distance(op.operands().begin(), op.operands().end());
+  }
+
+}
+
 //===----------------------------------------------------------------------===//
 // ProductOp
 //===----------------------------------------------------------------------===//
@@ -117,6 +120,10 @@ void mlir::spn::ProductOp::getCanonicalizationPatterns(::mlir::OwningRewritePatt
   results.insert<ConstantFoldProductOp>(context);
 }
 
+unsigned int mlir::spn::ProductOp::getNumOperands() {
+  return numOperands<ProductOp>(*this);
+}
+
 //===----------------------------------------------------------------------===//
 // SumOp
 //===----------------------------------------------------------------------===//
@@ -125,6 +132,10 @@ void mlir::spn::SumOp::getCanonicalizationPatterns(::mlir::OwningRewritePatternL
                                                    ::mlir::MLIRContext* context) {
   results.insert<ReduceSumOp>(context);
   results.insert<ConstantFoldSumOp>(context);
+}
+
+unsigned int mlir::spn::SumOp::getNumOperands() {
+  return numOperands<SumOp>(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -141,13 +152,17 @@ void mlir::spn::WeightedSumOp::build(::mlir::OpBuilder& odsBuilder,
   }
   assert(weightAttrs.size() == operands.size() && "Number of weights must match number of operands!");
   build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), ValueRange(operands),
-        ArrayAttr::get(weightAttrs, odsBuilder.getContext()), odsBuilder.getUI32IntegerAttr(operands.size()));
+        ArrayAttr::get(weightAttrs, odsBuilder.getContext()));
 }
 
 void mlir::spn::WeightedSumOp::getCanonicalizationPatterns(::mlir::OwningRewritePatternList& results,
                                                            ::mlir::MLIRContext* context) {
   results.insert<ReduceWeightedSumOp>(context);
   results.insert<ConstantFoldWeightedSumOp>(context);
+}
+
+unsigned int mlir::spn::WeightedSumOp::getNumOperands() {
+  return numOperands<WeightedSumOp>(*this);
 }
 
 //===----------------------------------------------------------------------===//

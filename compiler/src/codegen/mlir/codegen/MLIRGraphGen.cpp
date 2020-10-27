@@ -19,8 +19,7 @@ void MLIRGraphGen::visitProduct(spnc::Product& n, spnc::arg_t arg) {
   for (auto& o : n.multiplicands()) {
     ops.push_back(getValueForNode(o, arg));
   }
-  auto product = builder.create<ProductOp>(builder.getUnknownLoc(), ops,
-                                           builder.getUI32IntegerAttr(n.multiplicands().size()));
+  auto product = builder.create<ProductOp>(builder.getUnknownLoc(), ops);
   node2value[n.id()] = product;
 }
 
@@ -29,8 +28,7 @@ void MLIRGraphGen::visitSum(spnc::Sum& n, spnc::arg_t arg) {
   for (auto& o : n.addends()) {
     ops.push_back(getValueForNode(o, arg));
   }
-  auto sum = builder.create<SumOp>(builder.getUnknownLoc(), ops,
-                                   builder.getUI32IntegerAttr(n.addends().size()));
+  auto sum = builder.create<SumOp>(builder.getUnknownLoc(), ops);
   node2value[n.id()] = sum;
 }
 

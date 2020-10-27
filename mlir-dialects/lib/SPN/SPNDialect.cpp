@@ -6,6 +6,7 @@
 #include "SPN/SPNDialect.h"
 #include "SPN/SPNOps.h"
 #include "SPN/SPNAttributes.h"
+#include "SPN/SPNInterfaces.h"
 #include "mlir/IR/DialectImplementation.h"
 
 using namespace mlir;
@@ -27,3 +28,6 @@ void SPNDialect::printType(::mlir::Type type, ::mlir::DialectAsmPrinter& os) con
   // Currently the only SPN type is the probability type.
   os << "probability";
 }
+
+// Add definitions/implementation of SPN dialect/operation interfaces.
+#include "SPN/SPNInterfaces.cpp.inc"
