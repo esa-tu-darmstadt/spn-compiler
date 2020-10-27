@@ -74,7 +74,7 @@ LogicalResult ConstantFoldSumOp::matchAndRewrite(SumOp op, PatternRewriter& rewr
     // If no or only one constant was found, there's not point in replacing the operation.
     return failure();
   }
-  if (std::get<1>(foldedConstant) != 0.0) {
+  if (std::get<1>(foldedConstant) != 0.0 || nonConstantOperands.empty()) {
     // Constant folding appeared, crate new ConstantOp for the folded constant value.
     nonConstantOperands.push_back(rewriter.create<ConstantOp>(op.getLoc(), std::get<1>(foldedConstant)));
   }
@@ -94,7 +94,7 @@ LogicalResult ConstantFoldProductOp::matchAndRewrite(ProductOp op, PatternRewrit
     // If no or only one constant was found, there's not point in replacing the operation.
     return failure();
   }
-  if (std::get<1>(foldedConstant) != 1.0) {
+  if (std::get<1>(foldedConstant) != 1.0 || nonConstantOperands.empty()) {
     // Constant folding appeared, crate new ConstantOp for the folded constant value.
     nonConstantOperands.push_back(rewriter.create<ConstantOp>(op.getLoc(), std::get<1>(foldedConstant)));
   }
