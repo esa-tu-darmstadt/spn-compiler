@@ -45,3 +45,4 @@ set(SPN_DIALECT_INCLUDE_DIRS
 add_subdirectory(include)
 add_subdirectory(lib)
 add_subdirectory(tools)
+add_subdirectory(test)
