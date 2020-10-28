@@ -32,14 +32,14 @@ include(HandleLLVMOptions)
 
 include_directories(${LLVM_INCLUDE_DIRS})
 include_directories(${MLIR_INCLUDE_DIRS})
-include_directories(include)
-include_directories(${PROJECT_BINARY_DIR}/mlir-dialects/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/Dialect)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/include/Dialect)
 link_directories(${LLVM_BUILD_LIBRARY_DIR})
 add_definitions(${LLVM_DEFINITIONS})
 
 set(SPN_DIALECT_INCLUDE_DIRS
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_CURRENT_BINARY_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/Dialect
+        ${CMAKE_CURRENT_BINARY_DIR}/include/Dialect
         PARENT_SCOPE)
 
 add_subdirectory(include)

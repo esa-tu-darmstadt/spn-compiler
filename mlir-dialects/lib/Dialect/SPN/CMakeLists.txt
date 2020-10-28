@@ -7,7 +7,7 @@ add_mlir_dialect_library(MLIRSPN
         passes/SPNOpSimplifier.cpp
 
         ADDITIONAL_HEADER_DIRS
-        ${PROJECT_SOURCE_DIR}/mlir-dialects/include
+        ${PROJECT_SOURCE_DIR}/mlir-dialects/include/Dialect
 
         DEPENDS
         MLIRSPNOpsIncGen
