@@ -6,8 +6,6 @@
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/Attributes.h"
-#include "SPN/SPNDialect.h"
-#include "SPN/SPNOps.h"
 #include "SPN/SPNPasses.h"
 #include "SPNPassDetails.h"
 #include "../type-analysis/TypePinningPatterns.h"
@@ -29,7 +27,6 @@ namespace {
       patterns.insert<TypePinHistogram, TypePinWeightedSum, TypePinProduct, TypePinSum>(context, pinnedType);
       auto op = getOperation();
       applyPatternsAndFoldGreedily(op.getBodyRegion(), patterns);
-      op.dump();
     }
 
   };

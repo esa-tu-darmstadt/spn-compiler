@@ -16,8 +16,8 @@ void mlir::spn::SPNtoStandardConversionPass::runOnOperation() {
 
   SPNtoStandardTypeConverter typeConverter;
 
-  target.addLegalDialect<SPNDialect>();
-  target.addIllegalOp<SingleJointQuery>();
+  target.addIllegalDialect<SPNDialect>();
+  target.addLegalOp<HistogramOp>();
 
   OwningRewritePatternList patterns;
   mlir::spn::populateSPNtoStandardConversionPatterns(patterns, &getContext(), typeConverter);

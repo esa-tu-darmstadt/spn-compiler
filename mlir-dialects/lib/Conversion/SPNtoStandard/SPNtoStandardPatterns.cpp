@@ -18,17 +18,18 @@ mlir::LogicalResult mlir::spn::ConstantOpLowering::matchAndRewrite(mlir::spn::Co
 mlir::LogicalResult mlir::spn::ReturnOpLowering::matchAndRewrite(mlir::spn::ReturnOp op,
                                                                  llvm::ArrayRef<mlir::Value> operands,
                                                                  mlir::ConversionPatternRewriter& rewriter) const {
-  assert(operands.size() == 1);
-  rewriter.replaceOp(op, operands[0]);
-  return success();
+  return failure();
 }
 
 mlir::LogicalResult mlir::spn::SingleJointLowering::matchAndRewrite(mlir::spn::SingleJointQuery op,
                                                                     llvm::ArrayRef<mlir::Value> operands,
                                                                     mlir::ConversionPatternRewriter& rewriter) const {
   auto inputType = MemRefType::get({op.numFeatures()}, op.inputType());
-  // TODO Currently simply assumes F64 type, add logic for different types as necessary.
-  auto resultType = MemRefType::get({1}, rewriter.getF64Type());
+  auto returnOp = op.graph().front().getTerminator();
+  auto graphResult = dyn_cast<mlir::spn::ReturnOp>(returnOp);
+  assert(graphResult);
+  graphResult.dump();
+  auto resultType = MemRefType::get({1}, graphResult.retValue().front().getType());
 
   auto replaceFunc = rewriter.create<FuncOp>(op.getLoc(), "single_joint",
                                              rewriter.getFunctionType({inputType, resultType}, llvm::None),
@@ -46,7 +47,13 @@ mlir::LogicalResult mlir::spn::SingleJointLowering::matchAndRewrite(mlir::spn::S
     blockArgsReplacement.push_back(load);
   }
   rewriter.mergeBlocks(&op.getRegion().front(), funcEntryBlock, blockArgsReplacement);
-
+  rewriter.setInsertionPointToEnd(funcEntryBlock);
+  SmallVector<Value, 1> indices;
+  indices.push_back(rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0)));
+  rewriter.create<mlir::StoreOp>(op.getLoc(), graphResult.retValue().front(),
+                                 replaceFunc.getArgument(1), indices);
+  rewriter.create<mlir::ReturnOp>(op.getLoc());
+  rewriter.eraseOp(graphResult);
   rewriter.eraseOp(op);
   return success();
 }
