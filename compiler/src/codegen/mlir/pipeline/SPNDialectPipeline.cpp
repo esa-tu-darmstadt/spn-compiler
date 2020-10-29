@@ -7,6 +7,7 @@
 #include "mlir/Transforms/Passes.h"
 #include "SPN/SPNPasses.h"
 #include "SPNtoStandard/SPNtoStandardConversionPass.h"
+#include "SPNtoLLVM/SPNtoLLVMConversionPass.h"
 #include <util/Logging.h>
 
 using namespace mlir;
@@ -20,6 +21,7 @@ SPNDialectPipeline::SPNDialectPipeline(ActionWithOutput<mlir::ModuleOp>& _input,
   pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::spn::createSPNTypePinningPass());
   pm.addPass(mlir::spn::createSPNtoStandardConversionPass());
+  pm.addPass(mlir::spn::createSPNtoLLVMConversionPass());
 }
 
 ModuleOp& SPNDialectPipeline::execute() {

@@ -65,6 +65,7 @@ set(mlir_libs
         MLIROptLib
         MLIRSPN
         MLIRSPNtoStandardTransforms
+        MLIRSPNtoLLVMTransforms
         MLIRIR
         MLIRParser
         MLIRPass

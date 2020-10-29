@@ -44,6 +44,7 @@ std::unique_ptr<Job<ModuleOp>> MLIRToolchain::constructJob(std::unique_ptr<Actio
   auto ctx = std::make_shared<MLIRContext>(true);
   ctx->loadDialect<mlir::spn::SPNDialect>();
   ctx->loadDialect<mlir::StandardOpsDialect>();
+  ctx->loadDialect<mlir::LLVM::LLVMDialect>();
   for (auto d : ctx->getAvailableDialects()) {
     std::cout << d.str() << std::endl;
   }
