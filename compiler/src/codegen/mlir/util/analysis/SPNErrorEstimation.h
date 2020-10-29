@@ -20,8 +20,8 @@ namespace mlir {
     enum class ERRORMODEL { EM_FIXED_POINT, EM_FLOATING_POINT };
 
     ///
-    /// Class to walk over a (sub-)graph, logging node-levels in the process.
-    /// The results may be collected via get-interfaces.
+    /// Class to walk over a (sub-)graph, estimating error margins in the process.
+    /// The user provides an error threshold and ... ToDo: Description
     class SPNErrorEstimation {
     public:
 
@@ -95,6 +95,7 @@ namespace mlir {
 
       const double BASE_TWO = 2.0;
       double EPS = 0.0;
+      double ERR_COEFFICIENT = 1.0;
 
       // ToDo: Better naming / other datatype.
       std::tuple<double,double> errors[5] = {
@@ -103,7 +104,7 @@ namespace mlir {
 
       // ToDo: Can we derive the global minimum from the leaves only? That could make the 'minimum-entry' obsolete.
 
-      /// For each operation store values: { accurate, error, max, min }
+      /// For each operation store values: { accurate, defective, max, min }
       std::map<Operation*, std::tuple<double,double,double,double>> spn_node_values;
 
       // The global extreme-values of the SPN are used when determining the needed I(nteger) / E(xponent) values
@@ -119,7 +120,7 @@ namespace mlir {
       // First: Mantissa / Second: Exponent
       // Formats? single, double, half, brainfloat16, quad
       std::tuple<int,int,std::string> Float_Formats[5] = {
-          {23, 8, "single"}, {52, 11, "double"}, {10, 5, "half"}, {1, 1, "brainfloat16"}, {112, 15, "quad"}
+          {10, 5, "half"}, {7, 8, "bfloat16"}, {23, 8, "single"}, {52, 11, "double"}, {112, 15, "quad"}
       };
 
     };
