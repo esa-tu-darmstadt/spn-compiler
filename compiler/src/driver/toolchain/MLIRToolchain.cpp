@@ -39,9 +39,11 @@ std::unique_ptr<Job<ModuleOp>> MLIRToolchain::constructJob(std::unique_ptr<Actio
   std::string kernelName = "spn_kernel";
   mlir::registerAllDialects();
   mlir::registerDialect<mlir::spn::SPNDialect>();
+  mlir::registerDialect<mlir::StandardOpsDialect>();
   // Register our Dialect with MLIR.
   auto ctx = std::make_shared<MLIRContext>(true);
   ctx->loadDialect<mlir::spn::SPNDialect>();
+  ctx->loadDialect<mlir::StandardOpsDialect>();
   for (auto d : ctx->getAvailableDialects()) {
     std::cout << d.str() << std::endl;
   }

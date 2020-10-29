@@ -32,6 +32,7 @@ ModuleOp& MLIRCodeGen::execute() {
 }
 
 void MLIRCodeGen::generateMLIR(IRGraph& graph) {
+  builder.setInsertionPointToStart(module->getBody());
   auto numInputsAttr = builder.getUI32IntegerAttr(graph.inputs().size());
   // TODO Retrieve information about input value type from compiler input.
   auto inputType = builder.getIntegerType(32, false);

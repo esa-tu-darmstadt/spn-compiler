@@ -6,6 +6,7 @@
 #include "SPNDialectPipeline.h"
 #include "mlir/Transforms/Passes.h"
 #include "SPN/SPNPasses.h"
+#include "SPNtoStandard/SPNtoStandardConversionPass.h"
 #include <util/Logging.h>
 
 using namespace mlir;
@@ -17,6 +18,7 @@ SPNDialectPipeline::SPNDialectPipeline(ActionWithOutput<mlir::ModuleOp>& _input,
       mlirContext{std::move(_mlirContext)}, pm{mlirContext.get()} {
   pm.addPass(mlir::spn::createSPNOpSimplifierPass());
   pm.addPass(mlir::createCanonicalizerPass());
+  pm.addPass(mlir::spn::createSPNtoStandardConversionPass());
 }
 
 ModuleOp& SPNDialectPipeline::execute() {
