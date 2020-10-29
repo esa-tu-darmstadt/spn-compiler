@@ -18,6 +18,7 @@ SPNDialectPipeline::SPNDialectPipeline(ActionWithOutput<mlir::ModuleOp>& _input,
       mlirContext{std::move(_mlirContext)}, pm{mlirContext.get()} {
   pm.addPass(mlir::spn::createSPNOpSimplifierPass());
   pm.addPass(mlir::createCanonicalizerPass());
+  pm.addPass(mlir::spn::createSPNTypePinningPass());
   pm.addPass(mlir::spn::createSPNtoStandardConversionPass());
 }
 

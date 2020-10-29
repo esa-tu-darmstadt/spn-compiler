@@ -47,7 +47,6 @@ void MLIRCodeGen::generateMLIR(IRGraph& graph) {
   graph.rootNode()->accept(graphGen, nullptr);
   auto resultValue = node2value[graph.rootNode()->id()];
   builder.create<mlir::spn::ReturnOp>(builder.getUnknownLoc(), resultValue);
-  module->push_back(query);
   module->dump();
   if (failed(::mlir::verify(module->getOperation()))) {
     SPNC_FATAL_ERROR("Verification of the generated MLIR module failed!");

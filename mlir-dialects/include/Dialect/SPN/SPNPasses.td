@@ -8,4 +8,9 @@ def SPNOpSimplifier : Pass<"spn-op-simplifier", "ModuleOp"> {
   let constructor = "mlir::spn::createSPNOpSimplifierPass()";
 }
 
+def SPNTypePinning : Pass<"spn-type-pinning", "ModuleOp"> {
+  let summary = "Pin actual type for probability values";
+  let constructor = "mlir::spn::createSPNTypePinningPass()";
+}
+
 #endif // MLIR_DIALECT_SPN_PASSES

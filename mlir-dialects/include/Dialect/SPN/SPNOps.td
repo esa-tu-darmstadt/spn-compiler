@@ -13,9 +13,9 @@ class SPN_NAry_Op<string mnemonic> : SPN_Op<mnemonic,
   [NoSideEffect, Commutative, SameOperandsAndResultType, DeclareOpInterfaceMethods<ArithmeticOpInterface>]> {
     /// Operands: Child nodes
     /// opcount: Number of child nodes
-    let arguments = (ins Variadic<SPNProbabilityType>: $operands);
+    let arguments = (ins Variadic<AnyProbabilityType>: $operands);
 
-    let results = (outs SPNProbabilityType);
+    let results = (outs AnyProbabilityType);
 
     let verifier = [{ return ::mlir::spn::verify(*this); }];
 
@@ -53,9 +53,9 @@ def WeightedSumOp : SPN_Op<"weighted_sum",
     /// operands: Child nodes
     /// weights: Weights associated with the cild nodes.
     /// opCount: Number of child nodes (and weights).
-    let arguments = (ins Variadic<SPNProbabilityType>:$operands, F64ArrayAttr:$weights);
+    let arguments = (ins Variadic<AnyProbabilityType>:$operands, F64ArrayAttr:$weights);
 
-    let results = (outs SPNProbabilityType);
+    let results = (outs AnyProbabilityType);
 
     let verifier = [{return ::mlir::spn::verify(*this); }];
 
@@ -95,7 +95,7 @@ def HistogramOp : SPN_Op<"histogram", [NoSideEffect]> {
 
     let arguments = (ins AnyUnsignedInteger:$index, BucketListAttr:$buckets, UI32Attr:$bucketCount);
 
-    let results = (outs SPNProbabilityType);
+    let results = (outs AnyProbabilityType);
 
     let verifier = [{ return ::mlir::spn::verify(*this); }];
 
@@ -114,7 +114,7 @@ def ReturnOp : SPN_Op<"return", [Terminator]> {
     Return from SPN function, potentially returning a result.
   }];
 
-  let arguments = (ins Variadic<SPNProbabilityType>:$retValue);
+  let arguments = (ins Variadic<AnyProbabilityType>:$retValue);
 
   let extraClassDeclaration = [{
     bool hasOperand() { return getNumOperands() != 0; }
@@ -141,7 +141,7 @@ def ConstantOp : SPN_Op<"constant", [NoSideEffect]> {
   let arguments = (ins F64Attr:$value);
 
   // The constant operation returns a single floating-point value.
-  let results = (outs SPNProbabilityType);
+  let results = (outs AnyProbabilityType);
 
   let builders = [
     // Build a constant with a given constant floating-point value.

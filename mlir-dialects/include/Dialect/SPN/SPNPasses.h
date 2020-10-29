@@ -11,6 +11,7 @@
 namespace mlir {
   namespace spn {
     std::unique_ptr<OperationPass<ModuleOp>> createSPNOpSimplifierPass();
+    std::unique_ptr<OperationPass<ModuleOp>> createSPNTypePinningPass();
 
 #define GEN_PASS_REGISTRATION
 #include "SPN/SPNPasses.h.inc"

@@ -1,0 +1,68 @@
+//
+// This file is part of the SPNC project.
+// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
+//
+
+#ifndef SPNC_MLIR_DIALECTS_LIB_DIALECT_SPN_TYPE_ANALYSIS_TYPEPINNINGPATTERNS_H
+#define SPNC_MLIR_DIALECTS_LIB_DIALECT_SPN_TYPE_ANALYSIS_TYPEPINNINGPATTERNS_H
+
+#include "mlir/IR/Matchers.h"
+#include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/Attributes.h"
+#include "SPN/SPNDialect.h"
+#include "SPN/SPNOps.h"
+
+namespace mlir {
+  namespace spn {
+
+    template<typename Op>
+    class TypePinningPattern : public mlir::OpRewritePattern<Op> {
+
+    public:
+
+      TypePinningPattern(MLIRContext* context, Type _newType) : OpRewritePattern<Op>(context, 1), newType{_newType} {}
+
+    protected:
+
+      Type newType;
+
+    };
+
+    struct TypePinConstant : public TypePinningPattern<ConstantOp> {
+      using TypePinningPattern<ConstantOp>::TypePinningPattern;
+
+      LogicalResult matchAndRewrite(ConstantOp op, PatternRewriter& rewriter) const override;
+    };
+
+    struct TypePinHistogram : public TypePinningPattern<HistogramOp> {
+      using TypePinningPattern<HistogramOp>::TypePinningPattern;
+
+      LogicalResult matchAndRewrite(HistogramOp op, PatternRewriter& rewriter) const override;
+    };
+
+    template<typename NAryOp>
+    struct TypePinNAry : public TypePinningPattern<NAryOp> {
+      using TypePinningPattern<NAryOp>::TypePinningPattern;
+
+      LogicalResult matchAndRewrite(NAryOp op, PatternRewriter& rewriter) const override {
+        if (!op.getResult().getType().template isa<ProbabilityType>()) {
+          return failure();
+        }
+        rewriter.replaceOpWithNewOp<NAryOp>(op, this->newType, op.operands());
+        return success();
+      }
+    };
+
+    using TypePinProduct = TypePinNAry<ProductOp>;
+    using TypePinSum = TypePinNAry<SumOp>;
+
+    struct TypePinWeightedSum : public TypePinningPattern<WeightedSumOp> {
+      using TypePinningPattern<WeightedSumOp>::TypePinningPattern;
+
+      LogicalResult matchAndRewrite(WeightedSumOp op, PatternRewriter& rewriter) const override;
+    };
+
+  }
+}
+
+#endif //SPNC_MLIR_DIALECTS_LIB_DIALECT_SPN_TYPE_ANALYSIS_TYPEPINNINGPATTERNS_H

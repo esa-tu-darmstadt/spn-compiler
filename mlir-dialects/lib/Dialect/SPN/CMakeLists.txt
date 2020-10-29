@@ -4,7 +4,9 @@ add_mlir_dialect_library(MLIRSPN
         SPNAttributes.cpp
         canonicalization/CanonicalizationPatterns.cpp
         simplification/SimplificationPatterns.cpp
+        type-analysis/TypePinningPatterns.cpp
         passes/SPNOpSimplifier.cpp
+        passes/SPNTypePinning.cpp
 
         ADDITIONAL_HEADER_DIRS
         ${PROJECT_SOURCE_DIR}/mlir-dialects/include/Dialect
