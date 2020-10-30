@@ -16,10 +16,9 @@ Kernel spn_compiler::parseJSON(const std::string& inputFile, const options_t& op
   SPDLOG_INFO("Welcome to the SPN compiler!");
   interface::Options::dump();
   auto config = interface::Options::parse(options);
-  std::unique_ptr<Job<ModuleOp>> job;
+  std::unique_ptr<Job<Kernel>> job;
   job = MLIRToolchain::constructJobFromFile(inputFile, *config);
-  auto& module = job->execute();
-  auto kernel = Kernel("foo", "bar");
+  auto kernel = job->execute();
   SPDLOG_INFO("Generated Kernel in {}, kernel name {}", kernel.fileName(), kernel.kernelName());
   return kernel;
 }
@@ -28,10 +27,9 @@ Kernel spn_compiler::parseJSONString(const std::string& jsonString, const option
   SPDLOG_INFO("Welcome to the SPN compiler!");
   interface::Options::dump();
   auto config = interface::Options::parse(options);
-  std::unique_ptr<Job<mlir::ModuleOp>> job;
+  std::unique_ptr<Job<Kernel>> job;
   job = MLIRToolchain::constructJobFromString(jsonString, *config);
-  auto& module = job->execute();
-  auto kernel = Kernel("foo", "bar");
+  auto kernel = job->execute();
   SPDLOG_INFO("Generated Kernel in {}, kernel name '{}'", kernel.fileName(), kernel.kernelName());
   return kernel;
 }

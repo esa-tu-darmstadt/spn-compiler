@@ -42,6 +42,7 @@ add_library(spnc SHARED
         src/codegen/mlir/pipeline/SPNDialectPipeline.cpp
         src/codegen/mlir/conversion/SPNtoStandardConversion.cpp
         src/codegen/mlir/conversion/SPNtoLLVMConversion.cpp
+        src/codegen/mlir/conversion/MLIRtoLLVMIRConversion.cpp
         )
 
 target_include_directories(spnc
@@ -73,6 +74,7 @@ set(mlir_libs
         MLIRPass
         MLIRTranslation
         MLIRSupport
+        MLIRExecutionEngine
         )
 
 llvm_map_components_to_libnames(llvm_libs bitwriter native passes)

@@ -24,19 +24,19 @@ namespace spnc {
     /// \param inputFile Input file.
     /// \param config Compilation option configuration.
     /// \return Job containing all necessary actions.
-    static std::unique_ptr<Job<ModuleOp>> constructJobFromFile(const std::string& inputFile,
-                                                               const Configuration& config);
+    static std::unique_ptr<Job<Kernel>> constructJobFromFile(const std::string& inputFile,
+                                                             const Configuration& config);
 
     /// Construct a job reading the SPN from an input string.
     /// \param inputString Input string.
     /// \param config Compilation option configuration.
     /// \return Job containing all necessary actions.
-    static std::unique_ptr<Job<ModuleOp>> constructJobFromString(const std::string& inputString,
-                                                                 const Configuration& config);
+    static std::unique_ptr<Job<Kernel>> constructJobFromString(const std::string& inputString,
+                                                               const Configuration& config);
 
   private:
-    static std::unique_ptr<Job<ModuleOp>> constructJob(std::unique_ptr<ActionWithOutput<std::string>> input,
-                                                       const Configuration& config);
+    static std::unique_ptr<Job<Kernel>> constructJob(std::unique_ptr<ActionWithOutput<std::string>> input,
+                                                     const Configuration& config);
 
   };
 
