@@ -62,7 +62,10 @@ mlir::LogicalResult mlir::spn::HistogramOpLowering::matchAndRewrite(mlir::spn::H
       valArray.push_back(rewriter.getFloatAttr(resultType, indexVal));
     }
   }
-  auto valArrayAttr = rewriter.getArrayAttr(valArray);
+
+  // The MLIR to LLVM bridge can only handle ElementsAttr for arrays, so construct one here
+  auto rankedType = RankedTensorType::get({values.size()}, resultType);
+  auto valArrayAttr = DenseElementsAttr::get(rankedType, valArray);
 
   // Create & insert a constant global array with the values from the histogram.
   auto elementType = typeConverter->convertType(resultType).dyn_cast<mlir::LLVM::LLVMType>();
