@@ -14,11 +14,15 @@
 
 namespace spnc {
 
+  ///
+  /// Base for pass pipelines operating on MLIR modules.
+  /// \tparam PassPipeline CRTP template parameter, inheriting classes need to
+  /// provide a method 'void initializePassPipeline(mlir::PassManager*, mlir::MLIRContext*)'.
   template<typename PassPipeline>
   struct MLIRPipelineBase : ActionSingleInput<mlir::ModuleOp, mlir::ModuleOp> {
 
   public:
-    MLIRPipelineBase(ActionWithOutput<mlir::ModuleOp>& _input,
+    MLIRPipelineBase(ActionWithOutput <mlir::ModuleOp>& _input,
                      std::shared_ptr<mlir::MLIRContext> ctx) : ActionSingleInput<mlir::ModuleOp, mlir::ModuleOp>{
         _input},
                                                                mlirContext{std::move(ctx)}, pm{mlirContext.get()} {

@@ -10,6 +10,8 @@
 #include <codegen/mlir/codegen/MLIRCodeGen.h>
 #include <SPN/SPNDialect.h>
 #include <codegen/mlir/pipeline/SPNDialectPipeline.h>
+#include "codegen/mlir/conversion/SPNtoStandardConversion.h"
+#include "codegen/mlir/conversion/SPNtoLLVMConversion.h"
 #include "MLIRToolchain.h"
 #include "mlir/InitAllDialects.h"
 
@@ -49,8 +51,9 @@ std::unique_ptr<Job<ModuleOp>> MLIRToolchain::constructJob(std::unique_ptr<Actio
     std::cout << d.str() << std::endl;
   }
   auto& mlirCodeGen = job->insertAction<MLIRCodeGen>(parser, kernelName, ctx);
-  auto& spnDialectPipeline = job->insertFinalAction<SPNDialectPipeline>(mlirCodeGen, ctx);
-
+  auto& spnDialectPipeline = job->insertAction<SPNDialectPipeline>(mlirCodeGen, ctx);
+  auto& spn2standard = job->insertAction<SPNtoStandardConversion>(spnDialectPipeline, ctx);
+  auto& spn2llvm = job->insertFinalAction<SPNtoLLVMConversion>(spn2standard, ctx);
   job->addAction(std::move(input));
   return std::move(job);
 }

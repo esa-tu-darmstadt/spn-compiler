@@ -12,9 +12,7 @@ namespace spnc {
 
   ///
   /// Action running a series of MLIR passes on the SPN dialect.
-  class SPNDialectPipeline : public MLIRPipelineBase<SPNDialectPipeline> {
-
-  public:
+  struct SPNDialectPipeline : public MLIRPipelineBase<SPNDialectPipeline> {
 
     using MLIRPipelineBase<SPNDialectPipeline>::MLIRPipelineBase;
 
