@@ -52,7 +52,7 @@ namespace mlir {
 
       /// Root node used for this analysis.
       /// \return Root node of the analyzed (sub-)graph.
-      Operation* getRootOperation() const;
+      const Operation* getRootNode() const;
 
     private:
 

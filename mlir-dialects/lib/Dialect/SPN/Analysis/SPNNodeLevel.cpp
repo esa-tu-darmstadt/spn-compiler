@@ -65,6 +65,7 @@ void SPNNodeLevel::traverseSubgraph(Operation* subgraphRoot, GraphLevelInfo info
     // Maintain a histogram of the levels of leaf nodes.
     // This will allows us to compute the average & median level later on.
     if (!leafLevels.count(level)) {
+      leafLevelHistogram.grow(level);
       leafLevelHistogram[level] = 1;
       leafLevels.insert(level);
     } else {
@@ -96,4 +97,4 @@ double SPNNodeLevel::getAverageDepth() const { return averageDepth; }
 
 const llvm::DenseMap<mlir::Operation*, int>& SPNNodeLevel::getFullResult() const { return opLevels; }
 
-mlir::Operation* SPNNodeLevel::getRootOperation() const { return rootNode; }
+const mlir::Operation* SPNNodeLevel::getRootNode() const { return rootNode; }
