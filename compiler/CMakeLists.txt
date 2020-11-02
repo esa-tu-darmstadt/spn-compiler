@@ -43,6 +43,7 @@ add_library(spnc SHARED
         src/codegen/mlir/conversion/SPNtoStandardConversion.cpp
         src/codegen/mlir/conversion/SPNtoLLVMConversion.cpp
         src/codegen/mlir/conversion/MLIRtoLLVMIRConversion.cpp
+        src/codegen/mlir/analysis/CollectGraphStatistics.cpp
         )
 
 target_include_directories(spnc

@@ -13,6 +13,7 @@
 #include "codegen/mlir/conversion/SPNtoStandardConversion.h"
 #include "codegen/mlir/conversion/SPNtoLLVMConversion.h"
 #include "codegen/mlir/conversion/MLIRtoLLVMIRConversion.h"
+#include "codegen/mlir/analysis/CollectGraphStatistics.h"
 #include <driver/action/LLVMWriteBitcode.h>
 #include <driver/action/LLVMStaticCompiler.h>
 #include <driver/action/ClangKernelLinking.h>
@@ -52,7 +53,19 @@ std::unique_ptr<Job<Kernel>> MLIRToolchain::constructJob(std::unique_ptr<ActionW
   ctx->loadDialect<mlir::LLVM::LLVMDialect>();
   auto& mlirCodeGen = job->insertAction<MLIRCodeGen>(parser, kernelName, ctx);
   auto& spnDialectPipeline = job->insertAction<SPNDialectPipeline>(mlirCodeGen, ctx);
-  auto& spn2standard = job->insertAction<SPNtoStandardConversion>(spnDialectPipeline, ctx);
+  ActionWithOutput<ModuleOp>* spnPipelineResult = &spnDialectPipeline;
+  // If requested via the configuration, collect graph statistics.
+  if (spnc::option::collectGraphStats.get(config)) {
+    auto deleteTmps = spnc::option::deleteTemporaryFiles.get(config);
+    // Collect graph statistics on transformed / canonicalized MLIR.
+    auto statsFile = StatsFile(spnc::option::graphStatsFile.get(config), deleteTmps);
+    auto& graphStats = job->insertAction<CollectGraphStatistics>(spnDialectPipeline, std::move(statsFile));
+    // Join the two actions happening on the transformed module (Graph-Stats & SPN-to-Standard-MLIR lowering).
+    auto& joinAction = job->insertAction<JoinAction<mlir::ModuleOp, StatsFile>>(spnDialectPipeline, graphStats);
+    spnPipelineResult = &joinAction;
+  }
+
+  auto& spn2standard = job->insertAction<SPNtoStandardConversion>(*spnPipelineResult, ctx);
   auto& spn2llvm = job->insertAction<SPNtoLLVMConversion>(spn2standard, ctx);
 
   // Convert the MLIR module to a LLVM-IR module.
