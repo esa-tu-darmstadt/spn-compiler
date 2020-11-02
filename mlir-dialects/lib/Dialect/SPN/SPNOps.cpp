@@ -187,6 +187,14 @@ void mlir::spn::HistogramOp::build(::mlir::OpBuilder& odsBuilder,
         arrAttr, odsBuilder.getUI32IntegerAttr(bucketList.size()));
 }
 
+unsigned int mlir::spn::HistogramOp::getFeatureIndex() {
+  if (auto blockArg = index().dyn_cast<BlockArgument>()) {
+    return blockArg.getArgNumber();
+  }
+  // Expecting the index to be a block argument.
+  assert(false);
+}
+
 //===----------------------------------------------------------------------===//
 // ReturnOp
 //===----------------------------------------------------------------------===//
@@ -202,6 +210,16 @@ void mlir::spn::ReturnOp::build(::mlir::OpBuilder& odsBuilder, ::mlir::Operation
 void mlir::spn::ConstantOp::build(::mlir::OpBuilder& odsBuilder, ::mlir::OperationState& odsState, double value) {
   build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()),
         odsBuilder.getFloatAttr(odsBuilder.getF64Type(), value));
+}
+
+//===----------------------------------------------------------------------===//
+// SingleJointQuery
+//===----------------------------------------------------------------------===//
+
+std::vector<Operation*> mlir::spn::SingleJointQuery::getRootNodes() {
+  // The graph (body region) has only a single block,
+  // its terminator is the rootNode (result) of the graph.
+  return {this->graph().front().getTerminator()};
 }
 
 #define GET_OP_CLASSES

@@ -8,6 +8,7 @@
 #include "SPN/SPNAttributes.h"
 #include "SPN/SPNInterfaces.h"
 #include "mlir/IR/DialectImplementation.h"
+#include <vector>
 
 using namespace mlir;
 using namespace mlir::spn;

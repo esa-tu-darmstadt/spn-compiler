@@ -13,4 +13,28 @@ def ArithmeticOpInterface : OpInterface<"ArithmeticOpInterface"> {
   ];
 }
 
+def LeafNodeInterface : OpInterface<"LeafNodeInterface"> {
+
+  let description = [{
+    Interface common to all SPN leaf nodes.
+  }];
+
+  let methods = [
+    InterfaceMethod<"Get the feature index.", "unsigned", "getFeatureIndex">,
+  ];
+
+}
+
+def QueryInterface : OpInterface<"QueryInterface"> {
+
+  let description = [{
+    Interface common to all SPN queries.
+  }];
+
+  let methods = [
+    InterfaceMethod<"Get the graph root nodes.", "std::vector<Operation*>", "getRootNodes">,
+  ];
+
+}
+
 #endif // MLIR_DIALECT_SPN_INTERFACES

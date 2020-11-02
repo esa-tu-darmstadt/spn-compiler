@@ -85,7 +85,8 @@ def BucketListAttr : TypedArrayAttrBase<HistBucketAttr, "histogram bucket list">
 ///
 /// Histogram as SPN leaf node.
 ///
-def HistogramOp : SPN_Op<"histogram", [NoSideEffect]> {
+def HistogramOp : SPN_Op<"histogram",
+  [NoSideEffect, DeclareOpInterfaceMethods<LeafNodeInterface>]> {
     let summary = "histogram";
 
     let description =  [{
@@ -154,7 +155,7 @@ def ConstantOp : SPN_Op<"constant", [NoSideEffect]> {
 /// Single joint probability evaluation, holds the graph as region of this operation.
 ///
 def SingleJointQuery : SPN_Op<"single_joint",
-    [IsolatedFromAbove, DeclareOpInterfaceMethods<RegionKindInterface>]> {
+    [IsolatedFromAbove, DeclareOpInterfaceMethods<RegionKindInterface>, DeclareOpInterfaceMethods<QueryInterface>]> {
 
     let summary = "Single joint probability computation";
 
