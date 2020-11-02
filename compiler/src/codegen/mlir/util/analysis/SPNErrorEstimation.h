@@ -102,10 +102,8 @@ namespace mlir {
           {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}
       };
 
-      // ToDo: Can we derive the global minimum from the leaves only? That could make the 'minimum-entry' obsolete.
-
-      /// For each operation store values: { accurate, defective, max, min }
-      std::map<Operation*, std::tuple<double,double,double,double>> spn_node_values;
+      /// For each operation store values: { accurate, defective, max, min, max_subtree_depth }
+      std::map<Operation*, std::tuple<double,double,double,double,int>> spn_node_values;
 
       // The global extreme-values of the SPN are used when determining the needed I(nteger) / E(xponent) values
       double spn_node_value_global_maximum = std::numeric_limits<double>::min();

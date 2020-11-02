@@ -75,8 +75,6 @@ void SPNErrorEstimation::visitNode(Operation* op, const arg_t& arg) {
 
 void SPNErrorEstimation::estimateErrorSum(SumOp op) {
   double value = 0.0, defect = 0.0, max = 0.0, min = 0.0;
-  // Tuple from "value map": { accurate, defective, max, min }
-  std::tuple<double,double,double,double> t1, t2;
 
   // Assumption: There are exactly & guaranteed(!) two operands
   auto operands = op.getOperands();
@@ -89,30 +87,33 @@ void SPNErrorEstimation::estimateErrorSum(SumOp op) {
   assert(it_v2 != spn_node_values.end());
 
   // Retrieve the corresponding tuples
-  t1 = it_v1->second;
-  t2 = it_v2->second;
+  std::tuple<double,double,double,double,int>& t1 = it_v1->second;
+  std::tuple<double,double,double,double,int>& t2 = it_v2->second;
 
   value = std::get<0>(t1) + std::get<0>(t2);
 
-  // This is already the defective value for fixed point
-  defect = std::get<1>(t1) + std::get<1>(t2);
+  int max_depth = std::max(std::get<4>(t1), std::get<4>(t2)) + 1;
 
-  if (error_model == ERRORMODEL::EM_FLOATING_POINT) {
-    defect *= ERR_COEFFICIENT;
+  switch (error_model) {
+    case ERRORMODEL::EM_FIXED_POINT:
+      defect = std::get<1>(t1) + std::get<1>(t2);
+      break;
+    case ERRORMODEL::EM_FLOATING_POINT:
+      defect = value * std::pow(ERR_COEFFICIENT, max_depth);
+      break;
   }
 
   // "max": values will be added
-  // "min": the higher value will be ignored entirely
+  // "min": the higher value will be ignored entirely (adder becomes min-selection)
   max = std::get<2>(t1) + std::get<2>(t2);
   min = std::min(std::get<3>(t1), std::get<3>(t2));
 
-  spn_node_values.emplace(op.getOperation(), std::make_tuple(value, defect, max, min));
+  spn_node_values.emplace(op.getOperation(), std::make_tuple(value, defect, max, min, max_depth));
 }
 
 void SPNErrorEstimation::estimateErrorProduct(ProductOp op) {
   double value = 0.0, defect = 0.0, max = 0.0, min = 0.0;
   // Tuple from "value map": { accurate, defective, max, min }
-  std::tuple<double,double,double,double> t1, t2;
 
   // Assumption: There are exactly & guaranteed(!) two operands
   auto operands = op.getOperands();
@@ -125,44 +126,60 @@ void SPNErrorEstimation::estimateErrorProduct(ProductOp op) {
   assert(it_v2 != spn_node_values.end());
 
   // Retrieve the corresponding tuples
-  t1 = it_v1->second;
-  t2 = it_v2->second;
+  std::tuple<double,double,double,double,int>& t1 = it_v1->second;
+  std::tuple<double,double,double,double,int>& t2 = it_v2->second;
 
   value = std::get<0>(t1) * std::get<0>(t2);
-  defect = std::get<1>(t1) * std::get<1>(t2);
+  defect = value;
+
+  int max_depth = std::max(std::get<4>(t1), std::get<4>(t2)) + 1;
+
+  // Moved declaration(s) out of switch-case to avoid errors / warnings.
+  double delta_t1, delta_t2;
+  int accumulated_depth;
 
   switch (error_model) {
     case ERRORMODEL::EM_FIXED_POINT:
-      defect += EPS;
+      // Calculate deltas of the given operators (see equation (5) of ProbLP paper)
+      delta_t1 = std::get<1>(t1) - std::get<0>(t1);
+      delta_t2 = std::get<1>(t2) - std::get<0>(t2);
+
+      // ToDo: Asserts should trivially be satisfied. Remove when confirmed.
+      assert(delta_t1 >= 0.0);
+      assert(delta_t2 >= 0.0);
+
+      // Add the corresponding total delta to the already calculated ("accurate") value
+      defect += (std::get<2>(t1) * delta_t2) + (std::get<2>(t2) * delta_t1) + (delta_t1 * delta_t2) + EPS;
       break;
     case ERRORMODEL::EM_FLOATING_POINT:
-      defect *= ERR_COEFFICIENT;
+      accumulated_depth = std::get<4>(t1) + std::get<4>(t2) + 1;
+      defect *= std::pow(ERR_COEFFICIENT, accumulated_depth);
       break;
   }
 
-  // "max": values will be added
-  // "min": the higher value will be ignored entirely
+  // "max": highest values will be multiplied
+  // "min": lowest values will be multiplied
   max = std::get<2>(t1) * std::get<2>(t2);
   min = std::get<3>(t1) * std::get<3>(t2);
 
-  spn_node_values.emplace(op.getOperation(), std::make_tuple(value, defect, max, min));
+  spn_node_values.emplace(op.getOperation(), std::make_tuple(value, defect, max, min, max_depth));
 }
 
 void SPNErrorEstimation::estimateErrorHistogram(HistogramOp op) {
   auto buckets = op.buckets();
-  auto it_mid = buckets.begin();
-  auto it_end = buckets.end();
 
-  // ToDo: Define correct value selection. (max-values: need to search through buckets!)
-  if (buckets.size() > 2) {
-    it_mid += (int) (buckets.size() - 1) / 2;
+  double value;
+  double max = std::numeric_limits<double>::min();
+  double min = std::numeric_limits<double>::max();
+  double defect;
+
+  for (auto b : buckets) {
+    max = std::max(max, std::get<2>(b.cast<bucket_t>()));
+    min = std::min(min, std::get<2>(b.cast<bucket_t>()));
   }
 
-  double value = std::get<2>(it_mid->cast<bucket_t>());
-  // Need to decrement the iterator: end() points behind the actual element
-  double max = std::get<2>((--it_end)->cast<bucket_t>());
-  double min = std::get<2>(op.buckets().begin()->cast<bucket_t>());
-  double defect = 0.0;
+  // Select maximum as "value"
+  value = max;
 
   switch (error_model) {
     case ERRORMODEL::EM_FIXED_POINT:
@@ -173,7 +190,12 @@ void SPNErrorEstimation::estimateErrorHistogram(HistogramOp op) {
       break;
   }
 
-  spn_node_values.emplace(op.getOperation(), std::make_tuple(value, defect, max, min));
+  // ToDo: Check if helpful / needed -- Check for changed values.
+  // ToDo: This could also signal that no buckets were encountered.
+  assert(max != std::numeric_limits<double>::min());
+  assert(min != std::numeric_limits<double>::max());
+
+  spn_node_values.emplace(op.getOperation(), std::make_tuple(value, defect, max, min, 1));
 }
 
 void SPNErrorEstimation::estimateErrorConstant(ConstantOp op) {
@@ -191,5 +213,5 @@ void SPNErrorEstimation::estimateErrorConstant(ConstantOp op) {
       break;
   }
 
-  spn_node_values.emplace(op.getOperation(), std::make_tuple(value, defect, max, min));
+  spn_node_values.emplace(op.getOperation(), std::make_tuple(value, defect, max, min, 1));
 }
