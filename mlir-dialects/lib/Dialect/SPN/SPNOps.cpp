@@ -222,5 +222,9 @@ std::vector<Operation*> mlir::spn::SingleJointQuery::getRootNodes() {
   return {this->graph().front().getTerminator()};
 }
 
+unsigned int mlir::spn::SingleJointQuery::getNumFeatures() {
+  return this->numFeatures();
+}
+
 #define GET_OP_CLASSES
 #include "SPN/SPNOps.cpp.inc"

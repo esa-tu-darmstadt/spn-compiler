@@ -33,6 +33,7 @@ def QueryInterface : OpInterface<"QueryInterface"> {
 
   let methods = [
     InterfaceMethod<"Get the graph root nodes.", "std::vector<Operation*>", "getRootNodes">,
+    InterfaceMethod<"Get the number of features.", "unsigned int", "getNumFeatures">,
   ];
 
 }
