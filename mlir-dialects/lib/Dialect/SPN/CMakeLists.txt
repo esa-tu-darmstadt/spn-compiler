@@ -2,11 +2,11 @@ add_mlir_dialect_library(MLIRSPN
         SPNDialect.cpp
         SPNOps.cpp
         SPNAttributes.cpp
-        canonicalization/CanonicalizationPatterns.cpp
-        simplification/SimplificationPatterns.cpp
-        type-analysis/TypePinningPatterns.cpp
-        passes/SPNOpSimplifier.cpp
-        passes/SPNTypePinning.cpp
+        Canonicalization/CanonicalizationPatterns.cpp
+        Simplification/SimplificationPatterns.cpp
+        TypeAnalysis/TypePinningPatterns.cpp
+        Passes/SPNOpSimplifier.cpp
+        Passes/SPNTypePinning.cpp
 
         ADDITIONAL_HEADER_DIRS
         ${PROJECT_SOURCE_DIR}/mlir-dialects/include/Dialect

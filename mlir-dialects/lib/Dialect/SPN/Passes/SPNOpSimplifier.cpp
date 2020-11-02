@@ -7,7 +7,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
-#include "../simplification/SimplificationPatterns.h"
+#include "../Simplification/SimplificationPatterns.h"
 #include "SPNPassDetails.h"
 #include "SPN/SPNPasses.h"
 

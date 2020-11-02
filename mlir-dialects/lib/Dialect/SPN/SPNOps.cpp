@@ -10,7 +10,7 @@
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/StandardTypes.h"
 #include "mlir/IR/PatternMatch.h"
-#include "canonicalization/CanonicalizationPatterns.h"
+#include "Canonicalization/CanonicalizationPatterns.h"
 
 using namespace mlir;
 using namespace mlir::spn;

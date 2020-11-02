@@ -8,7 +8,7 @@
 #include "mlir/IR/Attributes.h"
 #include "SPN/SPNPasses.h"
 #include "SPNPassDetails.h"
-#include "../type-analysis/TypePinningPatterns.h"
+#include "../TypeAnalysis/TypePinningPatterns.h"
 
 using namespace mlir;
 using namespace mlir::spn;
