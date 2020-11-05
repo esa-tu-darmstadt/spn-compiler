@@ -11,7 +11,7 @@ add_mlir_dialect_library(MLIRSPN
         Passes/SPNTypePinning.cpp
 
         ADDITIONAL_HEADER_DIRS
-        ${PROJECT_SOURCE_DIR}/mlir-dialects/include/Dialect
+        ${PROJECT_SOURCE_DIR}/mlir/include/Dialect
 
         DEPENDS
         MLIRSPNOpsIncGen
