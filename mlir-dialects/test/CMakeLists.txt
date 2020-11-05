@@ -22,7 +22,7 @@ endif()
 add_lit_testsuite(check-spnc-mlir-tests "Running spnc-mlir regression tests"
         ${CMAKE_CURRENT_BINARY_DIR}
         PARAMS spnc_site_config=${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg
-        DEPENDS spnc-opt
+        DEPENDS spnc-opt driver
         ARGS ${CHECK_SPNC_LIT_ARGS})
 set_target_properties(check-spnc-mlir-tests PROPERTIES FOLDER "Tests")
 
