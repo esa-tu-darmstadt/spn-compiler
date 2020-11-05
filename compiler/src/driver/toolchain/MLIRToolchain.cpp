@@ -44,10 +44,9 @@ std::unique_ptr<Job<Kernel>> MLIRToolchain::constructJob(std::unique_ptr<ActionW
   auto& parser = job->insertAction<Parser>(*input, graphIRContext);
   // Invoke MLIR code-generation on parsed tree.
   std::string kernelName = "spn_kernel";
-  mlir::registerAllDialects();
-  mlir::registerDialect<mlir::spn::SPNDialect>();
-  // Register our Dialect with MLIR.
-  auto ctx = std::make_shared<MLIRContext>(true);
+  auto ctx = std::make_shared<MLIRContext>();
+  mlir::registerAllDialects(ctx->getDialectRegistry());
+  ctx->getDialectRegistry().insert<mlir::spn::SPNDialect>();
   ctx->loadDialect<mlir::spn::SPNDialect>();
   ctx->loadDialect<mlir::StandardOpsDialect>();
   ctx->loadDialect<mlir::LLVM::LLVMDialect>();

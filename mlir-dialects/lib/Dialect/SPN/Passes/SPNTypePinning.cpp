@@ -5,6 +5,7 @@
 
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/IR/Attributes.h"
 #include "SPN/SPNPasses.h"
 #include "SPNPassDetails.h"
@@ -26,7 +27,8 @@ namespace {
       patterns.insert<TypePinConstant>(context, pinnedType);
       patterns.insert<TypePinHistogram, TypePinWeightedSum, TypePinProduct, TypePinSum>(context, pinnedType);
       auto op = getOperation();
-      applyPatternsAndFoldGreedily(op.getBodyRegion(), patterns);
+      FrozenRewritePatternList frozenPatterns(std::move(patterns));
+      applyPatternsAndFoldGreedily(op.getBodyRegion(), frozenPatterns);
     }
 
   };

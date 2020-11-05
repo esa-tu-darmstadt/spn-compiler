@@ -5,6 +5,7 @@
 
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
 #include "../Simplification/SimplificationPatterns.h"
@@ -29,7 +30,8 @@ namespace {
       patterns.insert<BinarizeSumOp>(context);
       patterns.insert<BinarizeProductOp>(context);
       Operation* op = getOperation();
-      applyPatternsAndFoldGreedily(op->getRegions(), patterns);
+      FrozenRewritePatternList frozenPatterns(std::move(patterns));
+      applyPatternsAndFoldGreedily(op->getRegions(), frozenPatterns);
     }
 
   };

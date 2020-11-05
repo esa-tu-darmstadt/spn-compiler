@@ -30,7 +30,8 @@ void mlir::spn::SPNtoLLVMConversionPass::runOnOperation() {
   patterns.insert<HistogramOpLowering>(typeConverter, &getContext());
 
   auto op = getOperation();
-  if (failed(applyPartialConversion(op, target, patterns))) {
+  FrozenRewritePatternList frozenPatterns(std::move(patterns));
+  if (failed(applyPartialConversion(op, target, frozenPatterns))) {
     signalPassFailure();
   }
 }

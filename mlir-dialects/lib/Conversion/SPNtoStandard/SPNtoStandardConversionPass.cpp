@@ -23,7 +23,8 @@ void mlir::spn::SPNtoStandardConversionPass::runOnOperation() {
   mlir::spn::populateSPNtoStandardConversionPatterns(patterns, &getContext(), typeConverter);
 
   auto op = getOperation();
-  if (failed(applyPartialConversion(op, target, patterns))) {
+  FrozenRewritePatternList frozenPatterns(std::move(patterns));
+  if (failed(applyPartialConversion(op, target, frozenPatterns))) {
     signalPassFailure();
   }
 

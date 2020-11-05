@@ -13,7 +13,6 @@
 #include "mlir/Support/MlirOptMain.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
-#include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/ToolOutputFile.h"
 
 #include "SPN/SPNDialect.h"
@@ -59,13 +58,10 @@ static llvm::cl::opt<bool>
 ///
 /// spnc-opt: Custom tool to run SPN-dialect specific and generic passes on MLIR files.
 int main(int argc, char** argv) {
-  mlir::registerAllDialects();
-  mlir::registerAllPasses();
 
   mlir::DialectRegistry registry;
+  mlir::registerAllDialects(registry);
   registry.insert<mlir::spn::SPNDialect>();
-  registry.insert<mlir::StandardOpsDialect>();
-  registry.insert<mlir::LLVM::LLVMDialect>();
 
   mlir::registerPass("spn-simplify", "simplify SPN-dialect operations", []() -> std::unique_ptr<mlir::Pass> {
     return mlir::spn::createSPNOpSimplifierPass();
@@ -87,6 +83,7 @@ int main(int argc, char** argv) {
 
   // Register any pass manager command line options.
   mlir::registerPassManagerCLOptions();
+  mlir::registerCanonicalizerPass();
   mlir::PassPipelineCLParser passPipeline("", "Compiler passes to run");
 
   // Parse pass names in main to ensure static initialization completed.
