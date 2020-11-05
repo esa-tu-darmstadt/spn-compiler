@@ -38,6 +38,7 @@
         <tab type="user" url="../../spnc-common/html/index.html" title="common"/>
         <tab type="user" url="../../spnc/html/index.html" title="compiler"/>
         <tab type="user" url="../../spnc-rt/html/index.html" title="runtime"/>
+        <tab type="user" url="../../mlir-doc/html/index.html" title="mlir"/>
     </navindex>
 
     <!-- Layout definition for a class page -->

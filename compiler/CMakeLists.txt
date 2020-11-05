@@ -88,7 +88,7 @@ doxygen_doc(TARGET_NAME spnc
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         DEPENDS
-        spnc-common
+        spnc-common mlir-doc
         EXCLUDES
         ${CMAKE_CURRENT_SOURCE_DIR}/src/frontend/json/json.hpp)
 
