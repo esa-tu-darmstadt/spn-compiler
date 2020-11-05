@@ -60,7 +60,7 @@ def WeightedSumOp : SPN_Op<"weighted_sum",
     let verifier = [{return ::mlir::spn::verify(*this); }];
 
     let builders = [
-        OpBuilder<"llvm::ArrayRef<Value> operands, llvm::ArrayRef<double> weights">
+        OpBuilderDAG<(ins "llvm::ArrayRef<Value>":$operands, "llvm::ArrayRef<double>":$weights)>
     ];
 
     let hasCanonicalizer = 1;
@@ -101,7 +101,7 @@ def HistogramOp : SPN_Op<"histogram",
     let verifier = [{ return ::mlir::spn::verify(*this); }];
 
     let builders = [
-        OpBuilder<"Value indexVal, llvm::ArrayRef<std::tuple<int, int, double>> buckets">
+        OpBuilderDAG<(ins "Value":$indexVal, "llvm::ArrayRef<std::tuple<int, int, double>>":$buckets)>
     ];
 }
 
@@ -122,7 +122,7 @@ def ReturnOp : SPN_Op<"return", [Terminator]> {
   }];
 
   let builders = [
-    OpBuilder<"Value retValue">
+    OpBuilderDAG<(ins "Value":$retValue)>
   ];
 
 }
@@ -146,7 +146,7 @@ def ConstantOp : SPN_Op<"constant", [NoSideEffect]> {
 
   let builders = [
     // Build a constant with a given constant floating-point value.
-    OpBuilder<"double value">
+    OpBuilderDAG<(ins "double":$value)>
   ];
 
 }
