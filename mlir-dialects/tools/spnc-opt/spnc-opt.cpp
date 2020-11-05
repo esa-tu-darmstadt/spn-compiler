@@ -18,6 +18,8 @@
 
 #include "SPN/SPNDialect.h"
 #include "SPN/SPNPasses.h"
+#include "SPNtoStandard/SPNtoStandardConversionPass.h"
+#include "SPNtoLLVM/SPNtoLLVMConversionPass.h"
 
 static llvm::cl::opt<std::string> inputFilename(llvm::cl::Positional,
                                                 llvm::cl::desc("<input file>"),
@@ -61,9 +63,22 @@ int main(int argc, char** argv) {
   mlir::DialectRegistry registry;
   registry.insert<mlir::spn::SPNDialect>();
   registry.insert<mlir::StandardOpsDialect>();
+  registry.insert<mlir::LLVM::LLVMDialect>();
 
   mlir::registerPass("spn-simplify", "simplify SPN-dialect operations", []() -> std::unique_ptr<mlir::Pass> {
     return mlir::spn::createSPNOpSimplifierPass();
+  });
+
+  mlir::registerPass("spn-type-pinning", "Pin types of SPN-dialect operations", []() -> std::unique_ptr<mlir::Pass> {
+    return mlir::spn::createSPNTypePinningPass();
+  });
+
+  mlir::registerPass("spn-to-standard", "Lower SPN to Standard dialect", []() -> std::unique_ptr<mlir::Pass> {
+    return mlir::spn::createSPNtoStandardConversionPass();
+  });
+
+  mlir::registerPass("spn-to-llvm", "Lower SPN to LLVM dialect", []() -> std::unique_ptr<mlir::Pass> {
+    return mlir::spn::createSPNtoLLVMConversionPass();
   });
 
   llvm::InitLLVM y(argc, argv);

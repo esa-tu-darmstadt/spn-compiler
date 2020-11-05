@@ -5,6 +5,14 @@ set(LIBS
         ${conversion_libs}
         MLIRSPN
         MLIROptLib
+        MLIRSPNtoStandardTransforms
+        MLIRSPNtoLLVMTransforms
+        MLIRIR
+        MLIRParser
+        MLIRPass
+        MLIRTranslation
+        MLIRSupport
+        MLIRExecutionEngine
         )
 
 add_llvm_executable(spnc-opt spnc-opt.cpp)
