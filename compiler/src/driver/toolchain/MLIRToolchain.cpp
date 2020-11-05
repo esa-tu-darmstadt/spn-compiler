@@ -38,7 +38,7 @@ std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromString(const std::s
 
 std::unique_ptr<Job<Kernel>> MLIRToolchain::constructJob(std::unique_ptr<ActionWithOutput<std::string>> input,
                                                          const Configuration& config) {
-  std::unique_ptr<Job<Kernel>> job{new Job<Kernel>()};
+  std::unique_ptr<Job<Kernel>> job = std::make_unique<Job<Kernel>>();
   // Construct parser to parse JSON from input.
   auto graphIRContext = std::make_shared<GraphIRContext>();
   auto& parser = job->insertAction<Parser>(*input, graphIRContext);

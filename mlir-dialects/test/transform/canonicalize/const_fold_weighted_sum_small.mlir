@@ -18,7 +18,7 @@ module {
       %13 = "spn.product"(%10, %11) : (!spn.probability, !spn.probability) -> !spn.probability
       %14 = "spn.weighted_sum"(%8, %12, %13) {weights = [1.250000e-01, 2.500000e-01, 5.000000e-01]} : (!spn.probability, !spn.probability, !spn.probability) -> !spn.probability
       "spn.return"(%14) : (!spn.probability) -> ()
-  }) {inputType = ui32, numFeatures = 2 : ui32} : () -> ()
+  }) {inputType = ui32, kernelName = "spn_kernel", numFeatures = 2 : ui32} : () -> ()
 
 }
 

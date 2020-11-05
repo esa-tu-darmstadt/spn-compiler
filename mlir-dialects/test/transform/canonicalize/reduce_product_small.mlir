@@ -15,7 +15,7 @@ module {
       %8 = "spn.product"(%4, %7) : (!spn.probability, !spn.probability) -> !spn.probability
       "spn.return"(%8) : (!spn.probability) -> ()
 
-  }) {inputType = ui32, numFeatures = 2 : ui32} : () -> ()
+  }) {inputType = ui32, kernelName = "spn_kernel", numFeatures = 2 : ui32} : () -> ()
 
 }
 

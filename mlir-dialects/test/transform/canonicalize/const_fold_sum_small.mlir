@@ -12,7 +12,7 @@ module {
       %5 = "spn.sum"(%3, %3) : (!spn.probability, !spn.probability) -> !spn.probability
       %6 = "spn.sum"(%4, %5) : (!spn.probability, !spn.probability) -> !spn.probability
       "spn.return"(%6) : (!spn.probability) -> ()
-  }) {inputType = ui32, numFeatures = 2 : ui32} : () -> ()
+  }) {inputType = ui32, kernelName = "spn_kernel", numFeatures = 2 : ui32} : () -> ()
 
 }
 

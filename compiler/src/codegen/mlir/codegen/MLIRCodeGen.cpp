@@ -37,7 +37,8 @@ void MLIRCodeGen::generateMLIR(IRGraph& graph) {
   // TODO Retrieve information about input value type from compiler input.
   auto inputType = builder.getIntegerType(32, false);
   auto inputTypeAttr = TypeAttr::get(inputType);
-  auto query = builder.create<SingleJointQuery>(builder.getUnknownLoc(), numInputsAttr, inputTypeAttr);
+  auto kernelNameAttr = builder.getStringAttr(kernelName);
+  auto query = builder.create<SingleJointQuery>(builder.getUnknownLoc(), numInputsAttr, inputTypeAttr, kernelNameAttr);
   auto block = builder.createBlock(&query.getRegion());
   for (auto* input : graph.inputs()) {
     node2value[input->id()] = query.getRegion().addArgument(inputType);

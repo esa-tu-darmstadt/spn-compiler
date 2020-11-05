@@ -10,14 +10,14 @@ module {
       %4 = "spn.histogram"(%arg4) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}]} : (ui32) -> !spn.probability
       %5 = "spn.sum"(%0, %1, %2, %3, %4) : (!spn.probability, !spn.probability, !spn.probability, !spn.probability, !spn.probability) -> !spn.probability
       "spn.return"(%5) : (!spn.probability) -> ()
-  }) {inputType = ui32, numFeatures = 5 : ui32} : () -> ()
+  }) {inputType = ui32, kernelName = "spn_kernel", numFeatures = 5 : ui32} : () -> ()
 }
 
 //  N-ary products will be converted & lowered into a tree of binary "mulf" insn.
 //  This test uses histograms as "non-const" f64 values. We make sure that each
 //  value / intermediate product is used and the last product is returned.
 
-// CHECK: func @single_joint
+// CHECK: func @spn_kernel
 // CHECK-SAME: %arg[[#ARG1:]]: memref<5xui32>
 // CHECK-SAME: %arg[[#ARG2:]]: memref<1xf64>
 

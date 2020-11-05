@@ -31,7 +31,7 @@ mlir::LogicalResult mlir::spn::SingleJointLowering::matchAndRewrite(mlir::spn::S
   graphResult.dump();
   auto resultType = MemRefType::get({1}, graphResult.retValue().front().getType());
 
-  auto replaceFunc = rewriter.create<FuncOp>(op.getLoc(), "single_joint",
+  auto replaceFunc = rewriter.create<FuncOp>(op.getLoc(), op.kernelName(),
                                              rewriter.getFunctionType({inputType, resultType}, llvm::None),
                                              llvm::None);
 

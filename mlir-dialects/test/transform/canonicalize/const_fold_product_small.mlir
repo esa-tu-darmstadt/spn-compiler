@@ -14,7 +14,7 @@ module {
       %8 = "spn.product"(%5, %6, %7) : (!spn.probability, !spn.probability, !spn.probability) -> !spn.probability
       %9 = "spn.product"(%4, %8) : (!spn.probability, !spn.probability) -> !spn.probability
       "spn.return"(%9) : (!spn.probability) -> ()
-  }) {inputType = ui32, numFeatures = 2 : ui32} : () -> ()
+  }) {inputType = ui32, kernelName = "spn_kernel", numFeatures = 2 : ui32} : () -> ()
 }
 
 //  This small test checks if a product is fold if there are constant operands.

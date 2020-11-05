@@ -11,7 +11,7 @@ module {
       %7 = "spn.product"(%5, %6) : (!spn.probability, !spn.probability) -> !spn.probability
       %8 = "spn.weighted_sum"(%4, %7) {weights = [3.000000e-01, 0.69999999999999996]} : (!spn.probability, !spn.probability) -> !spn.probability
       "spn.return"(%8) : (!spn.probability) -> ()
-  }) {inputType = ui32, numFeatures = 2 : ui32} : () -> ()
+  }) {inputType = ui32, kernelName = "spn_kernel", numFeatures = 2 : ui32} : () -> ()
 }
 
 //  This small test checks if a weighted sum is removed and replaced by pairs of

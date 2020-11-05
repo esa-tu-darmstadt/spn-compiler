@@ -165,7 +165,7 @@ def SingleJointQuery : SPN_Op<"single_joint",
         The single region associated with this operation represents the the SPN graph.
     }];
 
-    let arguments = (ins UI32Attr:$numFeatures, TypeAttr:$inputType);
+    let arguments = (ins UI32Attr:$numFeatures, TypeAttr:$inputType, SymbolNameAttr:$kernelName);
 
     let regions = (region SizedRegion<1>:$graph);
 

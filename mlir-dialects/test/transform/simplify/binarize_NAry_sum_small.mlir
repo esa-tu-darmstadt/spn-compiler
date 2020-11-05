@@ -20,7 +20,7 @@ module {
       %16 = "spn.product"(%14, %15) : (!spn.probability, !spn.probability) -> !spn.probability
       %17 = "spn.sum"(%4, %7, %10, %13, %16) : (!spn.probability, !spn.probability, !spn.probability, !spn.probability, !spn.probability) -> !spn.probability
       "spn.return"(%17) : (!spn.probability) -> ()
-  }) {inputType = ui32, numFeatures = 2 : ui32} : () -> ()
+  }) {inputType = ui32, kernelName = "spn_kernel", numFeatures = 2 : ui32} : () -> ()
 }
 
 //  This small test checks if a sum (with 5 operands) is binarized.

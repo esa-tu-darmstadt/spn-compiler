@@ -6,13 +6,13 @@ module {
      ^bb0(%arg0: ui32, %arg1: ui32): // no predecessors
       %0 = "spn.constant"() {value = 5.00000e-01 : f64} : () -> !spn.probability
       "spn.return"(%0) : (!spn.probability) -> ()
-  }) {inputType = ui32, numFeatures = 2 : ui32} : () -> ()
+  }) {inputType = ui32, kernelName = "spn_kernel", numFeatures = 2 : ui32} : () -> ()
 
 }
 
 // Basic lowering of a single joint query into a function reading the arguments and storing the return value.
 
-// CHECK: func @single_joint
+// CHECK: func @spn_kernel
 // CHECK-SAME: %arg[[#ARG1:]]: memref<2xui32>
 // CHECK-SAME: %arg[[#ARG2:]]: memref<1xf64>
 // CHECK-NEXT: %c[[#CONST0:]]
