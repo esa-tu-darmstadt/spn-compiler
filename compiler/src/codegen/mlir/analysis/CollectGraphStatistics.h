@@ -16,6 +16,8 @@
 
 namespace spnc {
 
+  ///
+  /// Action to collect static graph statistics on an SPN graph in an MLIR module.
   class CollectGraphStatistics : public ActionSingleInput<mlir::ModuleOp, StatsFile> {
 
   public:

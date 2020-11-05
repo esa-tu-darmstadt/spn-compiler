@@ -15,6 +15,8 @@
 namespace mlir {
   namespace spn {
 
+    /// Abstract template for TypePinningPatterns.
+    /// \tparam Op SPN dialect operation this pattern works on.
     template<typename Op>
     class TypePinningPattern : public mlir::OpRewritePattern<Op> {
 
@@ -28,18 +30,27 @@ namespace mlir {
 
     };
 
+    ///
+    /// Rewrite constant operation to use actual datatype instead of abstract
+    /// SPN probability value type.
     struct TypePinConstant : public TypePinningPattern<ConstantOp> {
       using TypePinningPattern<ConstantOp>::TypePinningPattern;
 
       LogicalResult matchAndRewrite(ConstantOp op, PatternRewriter& rewriter) const override;
     };
 
+    ///
+    /// Rewrite histogram operation to use actual datatype instead of abstract
+    /// SPN probability value type.
     struct TypePinHistogram : public TypePinningPattern<HistogramOp> {
       using TypePinningPattern<HistogramOp>::TypePinningPattern;
 
       LogicalResult matchAndRewrite(HistogramOp op, PatternRewriter& rewriter) const override;
     };
 
+    ///
+    /// Template to rewrite n-ary arithmetic operation to use actual datatype instead of abstract
+    /// SPN probability value type.
     template<typename NAryOp>
     struct TypePinNAry : public TypePinningPattern<NAryOp> {
       using TypePinningPattern<NAryOp>::TypePinningPattern;
@@ -56,6 +67,9 @@ namespace mlir {
     using TypePinProduct = TypePinNAry<ProductOp>;
     using TypePinSum = TypePinNAry<SumOp>;
 
+    ///
+    /// Rewrite weighted sum operation to use actual datatype instead of abstract
+    /// SPN probability value type.
     struct TypePinWeightedSum : public TypePinningPattern<WeightedSumOp> {
       using TypePinningPattern<WeightedSumOp>::TypePinningPattern;
 

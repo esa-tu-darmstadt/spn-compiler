@@ -56,6 +56,8 @@ static llvm::cl::opt<bool>
                  llvm::cl::desc("Print the list of registered dialects"),
                  llvm::cl::init(false));
 
+///
+/// spnc-opt: Custom tool to run SPN-dialect specific and generic passes on MLIR files.
 int main(int argc, char** argv) {
   mlir::registerAllDialects();
   mlir::registerAllPasses();

@@ -16,6 +16,9 @@ using namespace mlir;
 
 namespace spnc {
 
+  ///
+  /// Action performing MLIR codegen, i.e. translating the graph-IR
+  /// to an MLIR module.
   class MLIRCodeGen : public ActionSingleInput<IRGraph, ModuleOp> {
 
   public:

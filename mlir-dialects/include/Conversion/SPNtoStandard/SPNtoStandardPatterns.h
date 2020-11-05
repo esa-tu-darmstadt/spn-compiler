@@ -15,6 +15,8 @@
 namespace mlir {
   namespace spn {
 
+    ///
+    /// Pattern for lowering SPN constant op to Standard dialect.
     struct ConstantOpLowering : public OpConversionPattern<ConstantOp> {
 
       using OpConversionPattern<ConstantOp>::OpConversionPattern;
@@ -24,6 +26,8 @@ namespace mlir {
 
     };
 
+    ///
+    /// Pattern for lowering SPN return op to Standard dialect.
     struct ReturnOpLowering : public OpConversionPattern<ReturnOp> {
 
       using OpConversionPattern<ReturnOp>::OpConversionPattern;
@@ -33,6 +37,8 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
+    ///
+    /// Pattern for lowering SPN single joint query operation to Standard dialect.
     struct SingleJointLowering : public OpConversionPattern<SingleJointQuery> {
 
       using OpConversionPattern<SingleJointQuery>::OpConversionPattern;
@@ -42,6 +48,10 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
+    /// Template for patterns lowering SPN n-ary arithmetic operations to Standard dialect.
+    /// Will only work if the arithmetic is actually happening on floating-point data types.
+    /// \tparam SourceOp SPN dialect operation to lower.
+    /// \tparam TargetOp Standard dialect operation to lower to.
     template<typename SourceOp, typename TargetOp>
     class FloatArithmeticOpLowering : public OpConversionPattern<SourceOp> {
 
@@ -67,6 +77,10 @@ namespace mlir {
     using FloatProductLowering = FloatArithmeticOpLowering<ProductOp, mlir::MulFOp>;
     using FLoatSumLowering = FloatArithmeticOpLowering<SumOp, mlir::AddFOp>;
 
+    /// Populate list with all patterns required to lower SPN dialect operations to Standard dialect.
+    /// \param patterns Pattern list to fill.
+    /// \param context MLIR context.
+    /// \param typeConverter Type converter.
     static void populateSPNtoStandardConversionPatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                         TypeConverter& typeConverter) {
       patterns.insert<ReturnOpLowering, ConstantOpLowering, FloatProductLowering, FLoatSumLowering>(context);

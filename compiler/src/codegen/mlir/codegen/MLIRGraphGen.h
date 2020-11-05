@@ -16,6 +16,8 @@ namespace spnc {
 
   using bucket_t = std::tuple<int, int, double>;
 
+  ///
+  /// Translation between SPN nodes in the graph-IR and MLIR operations from the SPN dialect.
   class MLIRGraphGen : public BaseVisitor {
 
   public:

@@ -11,6 +11,10 @@
 namespace mlir {
   namespace spn {
 
+    ///
+    /// Abstract type representing probability values computed inside an SPN.
+    /// The actual datatype to use for computation will be determined through
+    /// floating point error analysis.
     class ProbabilityType : public Type::TypeBase<ProbabilityType, Type, TypeStorage> {
     public:
       using Base::Base;

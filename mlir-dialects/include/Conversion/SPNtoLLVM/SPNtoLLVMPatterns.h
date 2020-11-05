@@ -14,6 +14,8 @@
 namespace mlir {
   namespace spn {
 
+    ///
+    /// Pattern to lower SPN histogram op directly to LLVM dialect.
     struct HistogramOpLowering : public OpConversionPattern<HistogramOp> {
 
       using OpConversionPattern<HistogramOp>::OpConversionPattern;
@@ -24,6 +26,10 @@ namespace mlir {
 
     };
 
+    /// Populate list with all patterns required to lower remaining SPN dialect operations to LLVM dialect.
+    /// \param patterns Pattern list to fill.
+    /// \param context MLIR context.
+    /// \param typeConverter Type converter.
     static void populateSPNtoLLVMConversionPatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                     TypeConverter& typeConverter) {
       patterns.insert<HistogramOpLowering>(typeConverter, context);

@@ -10,7 +10,15 @@
 
 namespace mlir {
   namespace spn {
+
+    /// Instantiate the SPNOpSimplifierPass simplifying operations of
+    /// the SPN dialect.
+    /// \return Pass instance.
     std::unique_ptr<OperationPass<ModuleOp>> createSPNOpSimplifierPass();
+
+    /// Instantiate the SPNTypePinning pass determining which datatype will be used
+    /// to compute the SPN.
+    /// \return Pass instance.
     std::unique_ptr<OperationPass<ModuleOp>> createSPNTypePinningPass();
 
 #define GEN_PASS_REGISTRATION

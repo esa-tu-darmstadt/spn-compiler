@@ -11,14 +11,19 @@
 namespace mlir {
   namespace spn {
 
-    struct SPNtoStandardConversionPass : public PassWrapper<SPNtoStandardConversionPass, OperationPass<ModuleOp>> {
+    ///
+    /// Pass performing (partial)lowering from combination of SPN to Standard dialect.
+    struct SPNtoStandardConversionPass : public PassWrapper<SPNtoStandardConversionPass, OperationPass < ModuleOp>> {
     protected:
-      void runOnOperation() override;
-    };
+    void runOnOperation()
+    override;
+  };
 
-    std::unique_ptr<Pass> createSPNtoStandardConversionPass();
+  /// Instantiate the SPNtoStandardConversionPass.
+  /// \return Pass instance.
+  std::unique_ptr<Pass> createSPNtoStandardConversionPass();
 
-  }
+}
 }
 
 #endif //SPNC_MLIR_DIALECTS_INCLUDE_CONVERSION_SPNTOSTANDARD_SPNTOSTANDARDCONVERSIONPASS_H
