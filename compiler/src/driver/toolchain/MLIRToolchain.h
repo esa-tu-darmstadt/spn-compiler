@@ -11,6 +11,7 @@
 #include <driver/Options.h>
 
 using namespace spnc::interface;
+using namespace mlir;
 
 namespace spnc {
 

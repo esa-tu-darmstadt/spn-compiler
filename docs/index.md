@@ -17,3 +17,5 @@ Python, in particular SPFlow.
 
 * [runtime](../spnc-rt/html/index.html): Runtime to load and execute generated kernels for
 computation. 
+
+* [mlir](../mlir-doc/html/index.html): MLIR dialect and libraries used by the compiler.

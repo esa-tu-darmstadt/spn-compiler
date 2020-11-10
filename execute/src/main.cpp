@@ -20,16 +20,17 @@ int main(int argc, char* argv[]) {
 
   auto options = spnc::interface::Options::collectCLOptions(app);
   auto parseResult = spnc::spn_compiler::parseJSON(std::string(argv[1]), options);
-  std::cout << "Parsed JSON? " << parseResult.fileName() << std::endl;
+  std::cout << "Compiled kernel into file " << parseResult.fileName() << std::endl;
 
-  /*
-   * Comment-out since 'check-spnc-mlir' tests were failing because of this leading to a 'std::runtime_error'
-  Kernel kernel(std::string(TEST_KERNEL_DIR) + "/libdynamic-load-test.so", "foo");
-  int a[]{1, 2, 3, 4, 5};
-  double b[5];
-  spnc_rt::spn_runtime::instance().execute(kernel, 5, a, b);
-  for (auto d : b) {
-    std::cout << d << std::endl;
-  }
-  */
+  //
+  // Simple test to see if the compiled kernels are executable via the runtime.
+  // If the mini-example is fed to the compiler, the compiled kernel can be executed
+  // using the following lines of code.
+  // The expected results are 0.0625, 0.1875, 0.1875, 0.5625
+  /*int a[]{0, 0, 0, 1, 1, 0, 1,1};
+  for(int i = 0; i < 4; ++i){
+    double b[1];
+    spnc_rt::spn_runtime::instance().execute(parseResult, 5, &a[i*2], b);
+    std::cout << b[0] << std::endl;
+  }*/
 }

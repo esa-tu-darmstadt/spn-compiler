@@ -39,7 +39,8 @@ void Executable::execute(size_t num_elements, void* inputs, double* outputs) {
   if (!handle) {
     initialize();
   }
-  kernel_func(num_elements, inputs, outputs);
+  // TODO Replace num_elements with actual information and check for correct value of stride.
+  kernel_func(inputs, inputs, 0, num_elements, 0, outputs, outputs, 0, num_elements, 0);
 }
 
 void Executable::initialize() {
@@ -57,6 +58,6 @@ void Executable::initialize() {
   *(void**) (&kernel_func) = dlsym(handle, kernel->kernelName().c_str());
 
   if ((error = dlerror()) != nullptr) {
-    SPNC_FATAL_ERROR("Could not located Kernel function {} in {}: {}", kernel->kernelName(), kernel->fileName(), error);
+    SPNC_FATAL_ERROR("Could not locate Kernel function {} in {}: {}", kernel->kernelName(), kernel->fileName(), error);
   }
 }
