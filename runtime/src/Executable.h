@@ -13,7 +13,16 @@ using namespace spnc;
 
 namespace spnc_rt {
 
-  typedef void (* kernel_function_t)(size_t num_elements, void* inputs, double* output);
+  typedef void (* kernel_function_t)(void* input_ptr,
+                                     void* aligned_input_ptr,
+                                     int input_offset,
+                                     int input_size,
+                                     int input_stride,
+                                     double* output_ptr,
+                                     double* output_aligned_ptr,
+                                     int output_offset,
+                                     int output_size,
+                                     int output_stride);
 
   ///
   /// Manages a Kernel by loading it from the shared object using libelf.

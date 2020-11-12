@@ -46,7 +46,7 @@ static llvm::cl::opt<bool> verifyPasses(
     llvm::cl::init(true));
 
 static llvm::cl::opt<bool> allowUnregisteredDialects(
-    "allow-unregistered-dialect",
+    "allow-unregistered-dialects",
     llvm::cl::desc("Allow operation with no registered dialects"),
     llvm::cl::init(false));
 
@@ -60,18 +60,22 @@ int main(int argc, char** argv) {
   mlir::registerAllPasses();
 
   mlir::registerDialect<mlir::spn::SPNDialect>();
-  mlir::registerPass("spn-simplify", "simplify SPN-dialect operations", []() -> std::unique_ptr<mlir::Pass> {
+  mlir::registerPass("spn-simplify", "simplify SPN-dialects operations", []() -> std::unique_ptr<mlir::Pass> {
     return mlir::spn::createSPNSimplificationPass();
   });
-  mlir::registerPass("spn-canonicalize", "canonicalize SPN-dialect operations", []() -> std::unique_ptr<mlir::Pass> {
+  mlir::registerPass("spn-canonicalize", "canonicalize SPN-dialects operations", []() -> std::unique_ptr<mlir::Pass> {
     return mlir::spn::createSPNCanonicalizationPass();
   });
-  mlir::registerPass("spn-lowering-to-standard", "lower SPN-dialect to standard patterns", []() -> std::unique_ptr<mlir::Pass> {
-    return mlir::spn::createSPNtoStandardLoweringPass();
-  });
-  mlir::registerPass("spn-lowering-to-llvm", "lower SPN-dialect to LLVM patterns", []() -> std::unique_ptr<mlir::Pass> {
-    return mlir::spn::createSPNtoLLVMLoweringPass();
-  });
+  mlir::registerPass("spn-lowering-to-standard",
+                     "lower SPN-dialects to standard patterns",
+                     []() -> std::unique_ptr<mlir::Pass> {
+                       return mlir::spn::createSPNtoStandardLoweringPass();
+                     });
+  mlir::registerPass("spn-lowering-to-llvm",
+                     "lower SPN-dialects to LLVM patterns",
+                     []() -> std::unique_ptr<mlir::Pass> {
+                       return mlir::spn::createSPNtoLLVMLoweringPass();
+                     });
 
   llvm::InitLLVM y(argc, argv);
 
