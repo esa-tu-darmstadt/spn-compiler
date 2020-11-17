@@ -57,3 +57,29 @@ struct Node {
         categorical @6 : CategoricalLeaf;
     }
 }
+
+struct Model {
+    rootNode @0 : Int32;
+    featureType @1 : Text;
+    name @2 : Text;
+}
+
+struct JointProbability {
+    graph @0 : Model;
+    relativeError @1 : Float64;
+}
+
+struct Query {
+    batchSize @0 : Int32;
+
+    # TODO: Make this a union as soon as we support multiple queries here.
+    joint @1 : JointProbability;
+}
+
+struct Content {
+
+    union {
+        model @0 : Model;
+        query @1 : Query;
+    }
+}

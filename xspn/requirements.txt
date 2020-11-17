@@ -1,3 +1,4 @@
 spflow
 pycapnp
 pytest
+numpy

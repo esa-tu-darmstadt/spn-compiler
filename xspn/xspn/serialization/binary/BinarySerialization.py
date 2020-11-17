@@ -9,6 +9,9 @@ from spn.structure.StatisticalTypes import Type, MetaType
 from spn.structure.leaves.histogram.Histograms import Histogram
 from spn.structure.leaves.parametric.Parametric import Gaussian, Categorical
 
+from xspn.structure.Model import SPNModel
+from xspn.structure.Query import Query, JointProbability
+
 # Magic import making the schema defined in the schema language available
 from  xspn.serialization.binary.capnproto import spflow_capnp
 
@@ -46,25 +49,66 @@ class BinarySerializer:
             # Clear the content of the file if not instructed otherwise.
             open(fileName, "w").close()
 
-    def serialize_to_file(self, rootNode, *args):
+    def serialize_to_file(self, content):
+        content_msg = spflow_capnp.Content.new_message()
+        if isinstance(content, SPNModel):
+            content_msg.model = self._serialize_model(content)
+            models = [content]
+        elif isinstance(content, Query):
+            content_msg.query = self._serialize_query(content)
+            models = content.models()
+        else:
+            raise NotImplementedError(f"No serialization defined for content {content} of type {type(content)}")
+        with open(self.fileName, "a+b", buffering=self.bufferSize*(2**10)) as outFile:
+            content_msg.write(outFile)
+            rootNodes = [model.root for model in models]
+            self._serialize_graph(rootNodes, outFile)
+
+    def _serialize_query(self, query):
+        query_msg = spflow_capnp.Query.new_message()
+        query_msg.batchSize = query.batchSize
+        if isinstance(query, JointProbability):
+            query_msg.joint = self._serialize_joint(query)
+        else:
+            raise NotImplementedError(f"No serialization defined for query {query} of type {type(query)}")
+        return query_msg
+
+
+    def _serialize_joint(self, joint):
+        joint_msg = spflow_capnp.JointProbability.new_message()
+        joint_msg.graph = self._serialize_model(joint.graph)
+        joint_msg.relativeError = joint.rootError
+        return joint_msg
+
+
+    def _serialize_model(self, model):
+        msg = spflow_capnp.Model.new_message()
+        assert is_valid(model.root), "SPN invalid before serialization"
+        # Assign (new) IDs to the nodes
+        # Keep track of already assigned IDs, so the IDs are 
+        # unique for the whole file.
+        assign_ids(model.root, self.assignedIDs)
+        # Rebuild scopes bottom-up
+        rebuild_scopes_bottom_up(model.root)
+        msg.rootNode = model.root.id
+        msg.featureType = model.featureType
+        name = ""
+        if model.name is not None:
+            name = model.name
+        msg.name = name
+        return msg
+
+
+    def _serialize_graph(self, rootNodes, file):
         """Serialize SPN graphs to binary format. SPN graphs are given by their root node."""
         # Buffering write, buffer size was specified at initialization (defaults to 10 MiB).
         # The buffer size is specified in KiB during initialization, scale to bytes here.
-        with open(self.fileName, "a+b", buffering=self.bufferSize*(2**10)) as outFile:
-            numNodes = 0
-            rootNodes = [rootNode] + list(args)
-            for spn in rootNodes:
-                assert is_valid(spn), "SPN invalid before serialization"
-                # Assign (new) IDs to the nodes
-                # Keep track of already assigned IDs, so the IDs are 
-                # unique for the whole file.
-                assign_ids(spn, self.assignedIDs)
-                # Rebuild scopes bottom-up
-                rebuild_scopes_bottom_up(spn)
-                visited = set()
-                self._binary_serialize(spn, outFile, True, visited)
-                numNodes += len(visited)
-            print(f"Serialized {numNodes} nodes to {self.fileName}")
+        numNodes = 0
+        for spn in rootNodes:
+            visited = set()
+            self._binary_serialize(spn, file, True, visited)
+            numNodes += len(visited)
+        print(f"Serialized {numNodes} nodes to {self.fileName}")
 
     def _binary_serialize(self, node, file, is_rootNode, visited_nodes):
         if node.id not in visited_nodes:
@@ -191,14 +235,41 @@ class BinaryDeserializer:
     def deserialize_from_file(self):
         """Deserialize all SPN graphs from the file. Returns a list of SPN graph root nodes."""
         with open(self.fileName, "rb") as inFile:
-            rootNodes = self._binary_deserialize(inFile)
+            # Read header (Content) message first
+            content = spflow_capnp.Content.read(inFile)
+            # Read serialized SPN graph before reconstructing model & query.
+            rootNodes = self._binary_deserialize_graph(inFile)
             for root in rootNodes:
                 rebuild_scopes_bottom_up(root)
                 assert is_valid(root), "SPN invalid after deserialization"
-            return rootNodes
+
+            which = content.which()
+            if which == "model":
+                deserialized = self._deserialize_model(content.model, rootNodes)
+            elif which == "query":
+                deserialized = self._deserialize_query(content.query, rootNodes)
+            return deserialized
 
 
-    def _binary_deserialize(self, file):
+    def _deserialize_query(self, msg, rootNodes):
+        model = self._deserialize_model(msg.joint.graph, rootNodes)
+        relativeError = msg.joint.relativeError
+        batchSize = msg.batchSize
+        return JointProbability(model, batchSize, relativeError)
+
+    def _deserialize_model(self, msg, rootNodes):
+        rootID = msg.rootNode
+        featureType = msg.featureType
+        name = msg.name
+        if name == "":
+            name = None
+        rootNode = next((root for root in rootNodes if root.id == rootID), None)
+        if rootNode is None:
+            logger.error(f"Did not find serialized root node {rootID}")
+        return SPNModel(rootNode, featureType, name)
+
+
+    def _binary_deserialize_graph(self, file):
         node_map = {}
         nodes = []
         for node in spflow_capnp.Node.read_multiple(file):
