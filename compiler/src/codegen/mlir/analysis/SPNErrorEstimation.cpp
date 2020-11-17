@@ -5,43 +5,101 @@
 
 #include "SPNErrorEstimation.h"
 
-using namespace mlir;
+using namespace spnc;
 using namespace mlir::spn;
-// using namespace spnc;
 
-SPNErrorEstimation::SPNErrorEstimation() : root(nullptr), error_margin(0.0), relative_error(false) {}
-
-SPNErrorEstimation::SPNErrorEstimation(Operation* _root, double _error_margin, bool _relative_error, ERRORMODEL _em) :
-  root(_root), error_margin(std::abs(_error_margin)), relative_error(_relative_error), error_model(_em) {
-  // ToDo: Move and set correct number of bits for each calculation.
-  format_bits_significance = 10;
-  format_bits_magnitude = 5;
-  // ToDo: Move calculation.
-  EPS = std::pow(BASE_TWO, double(-(format_bits_significance + 1.0)));
-  ERR_COEFFICIENT = 1.0 + EPS;
-  update();
+SPNErrorEstimation::SPNErrorEstimation(Operation* root, ERRORMODEL err_model, bool err_relative, double err_margin) :
+    rootNode(root), error_model(err_model), relative_error(err_relative), error_margin(err_margin) {
+  assert(root);
+  analyzeGraph(root);
 }
 
-void SPNErrorEstimation::update() {
-  for (auto e : errors) {
-    e = { 0.0, 0.0 };
+void SPNErrorEstimation::analyzeGraph(Operation* graphRoot) {
+  assert(graphRoot);
+  iterationCount = 0;
+  while (!satisfiedRequirements && !abortAnalysis) {
+    format_bits_significance = (error_model == ERRORMODEL::EM_FIXED_POINT) ?
+        (2 + iterationCount) : std::get<0>(Float_Formats[iterationCount]);
+    EPS = std::pow(BASE_TWO, double(-(format_bits_significance + 1.0)));
+    ERR_COEFFICIENT = 1.0 + EPS;
+
+    traverseSubgraph(graphRoot);
+    estimateLeastMagnitudeBits();
+    satisfiedRequirements = checkRequirements();
+
+    ++iterationCount;
   }
-
-  std::shared_ptr<void> passed_arg(nullptr);
-  visitNode(root, passed_arg);
-
-  processResults();
+  selectOptimalType();
 }
 
-void SPNErrorEstimation::visitNode(Operation* op, const arg_t& arg) {
-  if (op == nullptr) {
-    // Encountered nullptr -- abort.
-    return;
+void SPNErrorEstimation::estimateLeastMagnitudeBits() {
+  // ToDo: This is executed once. Better way to realize?
+  if (!estimatedLeastMagnitudeBits) {
+    // Find global extreme values
+    for (auto e : spn_node_values) {
+      spn_node_value_global_maximum = std::max(spn_node_value_global_maximum, std::get<2>(e.second));
+      spn_node_value_global_minimum = std::min(spn_node_value_global_minimum, std::get<3>(e.second));
+    }
+
+    switch (error_model) {
+      case ERRORMODEL::EM_FLOATING_POINT:
+        // Overflow and underflow has to be taken into account -- Overflow is handled by fixed-pt: therefore, no break!
+        format_bits_magnitude = (int) std::ceil(std::log2(std::abs(std::log2(spn_node_value_global_minimum))));
+      case ERRORMODEL::EM_FIXED_POINT:
+        // Only overflow / maximum-value has to be taken into account
+        format_bits_magnitude =
+            std::max(format_bits_magnitude,
+                     (int) std::ceil(std::log2(std::abs(std::log2(spn_node_value_global_maximum)))));
+    }
+
+    estimatedLeastMagnitudeBits = true;
+  }
+}
+
+bool SPNErrorEstimation::checkRequirements() {
+  bool satisfied = true;
+  auto rootValues = spn_node_values[rootNode];
+  double value = std::get<0>(rootValues);
+  double defect = std::get<1>(rootValues);
+
+  // Floating-point: Check if currently selected format has enough magnitude bits
+  if (error_model == ERRORMODEL::EM_FLOATING_POINT) {
+    // If least amount of magnitude bits is greater than currently selected format's: Search for fitting format.
+    if (format_bits_magnitude > std::get<1>(Float_Formats[iterationCount])) {
+      for (int i = iterationCount + 1; i < NUM_FLOAT_FORMATS; ++i) {
+        if (format_bits_magnitude > std::get<1>(Float_Formats[i])) {
+          // Each time we check a NON-fitting format we can skip the corresponding iteration.
+          ++iterationCount;
+        } else {
+          // A fitting format was found, next iteration will start with a format that provides enough magnitude bits.
+          break;
+        }
+      }
+
+      // Requirements NOT met.
+      satisfied = false;
+    }
   }
 
-  // auto information = std::static_pointer_cast<SomeCrucialInfo>(arg)->info;
+  if (relative_error) {
+    satisfied &= (error_margin > std::abs((value / defect) - 1.0));
+  } else {
+    satisfied &= (error_margin > std::abs(value - defect));
+  }
 
-  auto operands = op->getOperands();
+  // No further floating point format available -- abort.
+  if (!satisfied && (error_model == ERRORMODEL::EM_FLOATING_POINT) && (iterationCount >= (NUM_FLOAT_FORMATS - 1))) {
+    abortAnalysis = true;
+    selectedType = std::get<2>(Float_Formats[NUM_FLOAT_FORMATS - 1]);
+    SPDLOG_WARN("Selected floating point format does not meet error requirements, but no further format is available.");
+  }
+
+  return satisfied;
+}
+
+void SPNErrorEstimation::traverseSubgraph(Operation* subgraphRoot) {
+  assert(subgraphRoot);
+  auto operands = subgraphRoot->getOperands();
 
   // Operations with more than one operand -- possible: inner node, e.g. sum or product.
   // Operations with one operand -- possible: leaf node.
@@ -51,23 +109,23 @@ void SPNErrorEstimation::visitNode(Operation* op, const arg_t& arg) {
 
     // First: Visit every child-node.
     for (auto child : operands) {
-      visitNode(child.getDefiningOp(), passed_arg);
+      traverseSubgraph(child.getDefiningOp());
     }
 
     // Second: Estimate errors of current operation.
-    if (auto sum = dyn_cast<SumOp>(op)) {
+    if (auto sum = dyn_cast<SumOp>(subgraphRoot)) {
       estimateErrorSum(sum);
-    } else if (auto product = dyn_cast<ProductOp>(op)) {
+    } else if (auto product = dyn_cast<ProductOp>(subgraphRoot)) {
       estimateErrorProduct(product);
     }
 
   } else if (operands.size() == 1) {
     // NOTE: ATM there is only one leaf type, others will have to be added with a dyn_cast<> as well.
-    if (auto histogram = dyn_cast<HistogramOp>(op)) {
+    if (auto histogram = dyn_cast<HistogramOp>(subgraphRoot)) {
       estimateErrorHistogram(histogram);
     }
   } else {
-    if (auto constant = dyn_cast<ConstantOp>(op)) {
+    if (auto constant = dyn_cast<ConstantOp>(subgraphRoot)) {
       estimateErrorConstant(constant);
     }
   }
@@ -216,6 +274,19 @@ void SPNErrorEstimation::estimateErrorConstant(ConstantOp op) {
   spn_node_values.emplace(op.getOperation(), std::make_tuple(value, defect, max, min, 1));
 }
 
-void SPNErrorEstimation::processResults() {
-  // ToDo: Process gathered information.
+void SPNErrorEstimation::selectOptimalType() {
+  if (!abortAnalysis) {
+    switch (error_model) {
+      case ERRORMODEL::EM_FIXED_POINT:
+        selectedType = IntegerType::get((format_bits_magnitude + format_bits_significance), rootNode->getContext());
+        break;
+      case ERRORMODEL::EM_FLOATING_POINT:
+        selectedType = std::get<2>(Float_Formats[iterationCount - 1]);
+        break;
+    }
+  }
+}
+
+mlir::Type SPNErrorEstimation::getOptimalType() {
+  return selectedType;
 }

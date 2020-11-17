@@ -43,6 +43,28 @@ namespace spnc {
     /// Flag to indicate whether the MLIR based toolchain should be used.
     extern Option<bool> useMLIRToolchain;
 
+    ///
+    /// Flag to indicate whether an optimal representation for SPN evaluation shall be determined.
+    extern Option<bool> determineOptimalRepresentation;
+
+    /// Available compilation targets.
+    enum RepresentationOption {
+      FLOATING_POINT,
+      FIXED_POINT,
+    };
+
+    ///
+    /// Available representation options.
+    extern EnumOpt representationFormat;
+
+    ///
+    /// Flag to indicate whether the optimal representation shall be determined using the absolute or relative error.
+    extern Option<bool> optimalRepresentationRelativeError;
+
+    ///
+    /// Option to set the error threshold w.r.t. the optimal representation.
+    extern Option<double> optimalRepresentationErrorThreshold;
+
   }
 }
 

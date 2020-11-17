@@ -22,3 +22,19 @@ EnumOpt spnc::option::compilationTarget{"target",
 Option<bool> spnc::option::deleteTemporaryFiles{"delete-temps", true};
 
 Option<bool> spnc::option::useMLIRToolchain{"use-mlir", true};
+
+Option<bool> spnc::option::determineOptimalRepresentation{"opt-repr", false};
+
+using spnc::option::RepresentationOption;
+EnumOpt spnc::option::representationFormat{"opt-repr-format",
+                                           {EnumVal(FLOATING_POINT, "floating point representation"),
+                                            EnumVal(FIXED_POINT, "fixed point representation")},
+                                           {depends(spnc::option::determineOptimalRepresentation, true)}};
+
+Option<bool> spnc::option::optimalRepresentationRelativeError{"opt-repr-relative-err",
+                                                              false,
+                                                              {depends(spnc::option::determineOptimalRepresentation, true)}};
+
+Option<double> spnc::option::optimalRepresentationErrorThreshold{"opt-repr-err-threshold",
+                                                                 0.1,
+                                                                 {depends(spnc::option::determineOptimalRepresentation, true)}};
