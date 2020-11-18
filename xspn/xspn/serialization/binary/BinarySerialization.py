@@ -4,7 +4,7 @@ import numpy as np
 import capnp
 
 from spn.algorithms.Validity import is_valid
-from spn.structure.Base import Product, Sum, rebuild_scopes_bottom_up, assign_ids
+from spn.structure.Base import Product, Sum, rebuild_scopes_bottom_up, assign_ids, get_number_of_nodes
 from spn.structure.StatisticalTypes import Type, MetaType
 from spn.structure.leaves.histogram.Histograms import Histogram
 from spn.structure.leaves.parametric.Parametric import Gaussian, Categorical
@@ -50,38 +50,37 @@ class BinarySerializer:
             open(fileName, "w").close()
 
     def serialize_to_file(self, content):
-        content_msg = spflow_capnp.Content.new_message()
-        if isinstance(content, SPNModel):
-            content_msg.model = self._serialize_model(content)
-            models = [content]
-        elif isinstance(content, Query):
-            content_msg.query = self._serialize_query(content)
-            models = content.models()
-        else:
-            raise NotImplementedError(f"No serialization defined for content {content} of type {type(content)}")
         with open(self.fileName, "a+b", buffering=self.bufferSize*(2**10)) as outFile:
-            content_msg.write(outFile)
-            rootNodes = [model.root for model in models]
-            self._serialize_graph(rootNodes, outFile)
+            header = spflow_capnp.Header.new_message()
+            if isinstance(content, SPNModel):
+                header.content = "model"
+                serializer = self._serialize_model
+            elif isinstance(content, Query):
+                header.content = "query"
+                serializer = self._serialize_query
+            else:
+                raise NotImplementedError(f"No serialization defined for content {content} of type {type(content)}")
+            header.write(outFile)
+            serializer(content, outFile)
 
-    def _serialize_query(self, query):
+    def _serialize_query(self, query, file):
         query_msg = spflow_capnp.Query.new_message()
         query_msg.batchSize = query.batchSize
         if isinstance(query, JointProbability):
             query_msg.joint = self._serialize_joint(query)
         else:
             raise NotImplementedError(f"No serialization defined for query {query} of type {type(query)}")
-        return query_msg
-
+        query_msg.write(file)
+        for model in query.models():
+            self._serialize_model(model, file)
 
     def _serialize_joint(self, joint):
         joint_msg = spflow_capnp.JointProbability.new_message()
-        joint_msg.graph = self._serialize_model(joint.graph)
         joint_msg.relativeError = joint.rootError
         return joint_msg
 
 
-    def _serialize_model(self, model):
+    def _serialize_model(self, model, file):
         msg = spflow_capnp.Model.new_message()
         assert is_valid(model.root), "SPN invalid before serialization"
         # Assign (new) IDs to the nodes
@@ -96,7 +95,9 @@ class BinarySerializer:
         if model.name is not None:
             name = model.name
         msg.name = name
-        return msg
+        msg.numNodes = get_number_of_nodes(model.root)
+        msg.write(file)
+        self._serialize_graph([model.root], file)
 
 
     def _serialize_graph(self, rootNodes, file):
@@ -235,44 +236,48 @@ class BinaryDeserializer:
     def deserialize_from_file(self):
         """Deserialize all SPN graphs from the file. Returns a list of SPN graph root nodes."""
         with open(self.fileName, "rb") as inFile:
-            # Read header (Content) message first
-            content = spflow_capnp.Content.read(inFile)
-            # Read serialized SPN graph before reconstructing model & query.
-            rootNodes = self._binary_deserialize_graph(inFile)
-            for root in rootNodes:
-                rebuild_scopes_bottom_up(root)
-                assert is_valid(root), "SPN invalid after deserialization"
+            # Read header message first
+            header = spflow_capnp.Header.read(inFile)
+            print(header.content)
+            if header.content == "query":
+                return self._deserialize_query(inFile)
+            elif header.content == "model":
+                return self._deserialize_model(inFile)
+            else:
+                raise NotImplementedError(f"No deserialization defined for {header.content}")
 
-            which = content.which()
-            if which == "model":
-                deserialized = self._deserialize_model(content.model, rootNodes)
-            elif which == "query":
-                deserialized = self._deserialize_query(content.query, rootNodes)
-            return deserialized
-
-
-    def _deserialize_query(self, msg, rootNodes):
-        model = self._deserialize_model(msg.joint.graph, rootNodes)
-        relativeError = msg.joint.relativeError
-        batchSize = msg.batchSize
+    def _deserialize_query(self, file):
+        query = spflow_capnp.Query.read(file)
+        relativeError = query.joint.relativeError
+        batchSize = query.batchSize
+        model = self._deserialize_model(file)
         return JointProbability(model, batchSize, relativeError)
 
-    def _deserialize_model(self, msg, rootNodes):
+    def _deserialize_model(self, file):
+        msg = spflow_capnp.Model.read(file)
         rootID = msg.rootNode
         featureType = msg.featureType
         name = msg.name
         if name == "":
             name = None
+
+        numNodes = msg.numNodes
+        rootNodes = self._binary_deserialize_graph(file, numNodes)
+        for root in rootNodes:
+            rebuild_scopes_bottom_up(root)
+            assert is_valid(root), "SPN invalid after deserialization"
+
         rootNode = next((root for root in rootNodes if root.id == rootID), None)
         if rootNode is None:
             logger.error(f"Did not find serialized root node {rootID}")
         return SPNModel(rootNode, featureType, name)
 
 
-    def _binary_deserialize_graph(self, file):
+    def _binary_deserialize_graph(self, file, numNodes):
         node_map = {}
         nodes = []
-        for node in spflow_capnp.Node.read_multiple(file):
+        for i in range(numNodes):
+            node = spflow_capnp.Node.read(file)
             which = node.which()
             deserialized = None
             if which == "product":

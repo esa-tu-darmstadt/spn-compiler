@@ -62,11 +62,11 @@ struct Model {
     rootNode @0 : Int32;
     featureType @1 : Text;
     name @2 : Text;
+    numNodes @3 : Int32;
 }
 
 struct JointProbability {
-    graph @0 : Model;
-    relativeError @1 : Float64;
+    relativeError @0 : Float64;
 }
 
 struct Query {
@@ -76,10 +76,11 @@ struct Query {
     joint @1 : JointProbability;
 }
 
-struct Content {
+enum Content {
+    query @0;
+    model @1;
+}
 
-    union {
-        model @0 : Model;
-        query @1 : Query;
-    }
+struct Header {
+    content @0 : Content;
 }
