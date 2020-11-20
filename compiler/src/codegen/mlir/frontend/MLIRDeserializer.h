@@ -14,6 +14,7 @@
 #include "llvm/ADT/IndexedMap.h"
 #include "SPN/SPNDialect.h"
 #include "SPN/SPNOps.h"
+#include "SPN/SPNEnums.h"
 
 namespace spnc {
 
@@ -31,7 +32,8 @@ namespace spnc {
 
     void deserializeQuery(Query::Reader&& query);
 
-    void deserializeJointQuery(JointProbability::Reader&& query, int batchSize);
+    void deserializeJointQuery(JointProbability::Reader&& query, int batchSize,
+                               ::error_model errorKind, double maxError);
 
     void deserializeModel(Model::Reader&& model);
 

@@ -151,6 +151,10 @@ def ConstantOp : SPN_Op<"constant", [NoSideEffect]> {
 
 }
 
+def AbsoluteErrorAttr : I32EnumAttrCase<"absolute_error", 1>;
+def RelativeErrorAttr : I32EnumAttrCase<"relative_error", 2>;
+def ErrorModelAttr : I32EnumAttr<"error_model", "Arithmetic error kind", [AbsoluteErrorAttr, RelativeErrorAttr]>;
+
 ///
 /// Single joint probability evaluation, holds the graph as region of this operation.
 ///
@@ -168,7 +172,10 @@ def JointQuery : SPN_Op<"joint_query",
     let arguments = (ins UI32Attr:$numFeatures,
                     TypeAttr:$inputType,
                     SymbolNameAttr:$kernelName,
-                    UI32Attr:$batchSize);
+                    UI32Attr:$batchSize,
+                    ErrorModelAttr:$errorModel,
+                    F64Attr:$maxError
+                    );
 
     let regions = (region SizedRegion<1>:$graph);
 

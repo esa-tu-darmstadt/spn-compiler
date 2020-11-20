@@ -60,10 +60,13 @@ void spnc::MLIRDeserializer::deserializeQuery(Query::Reader&& query) {
   if (!query.hasJoint()) {
     SPNC_FATAL_ERROR("Can only deserialize joint queries");
   }
-  deserializeJointQuery(query.getJoint(), batchSize);
+  auto errorKind =
+      (query.getErrorKind() == ErrorKind::ABSOLUTE) ? error_model::absolute_error : error_model::relative_error;
+  deserializeJointQuery(query.getJoint(), batchSize, errorKind, query.getMaxError());
 }
 
-void spnc::MLIRDeserializer::deserializeJointQuery(JointProbability::Reader&& query, int batchSize) {
+void spnc::MLIRDeserializer::deserializeJointQuery(JointProbability::Reader&& query, int batchSize,
+                                                   error_model errorKind, double maxError) {
   if (!query.hasModel()) {
     SPNC_FATAL_ERROR("No model attached to query");
   }
@@ -79,10 +82,13 @@ void spnc::MLIRDeserializer::deserializeJointQuery(JointProbability::Reader&& qu
   }
   auto kernelNameAttr = builder.getStringAttr(modelName);
   auto batchSizeAttr = builder.getUI32IntegerAttr(batchSize);
+
   // TODO Attach information about allowed relative error to query.
   auto queryOp =
       builder.create<JointQuery>(builder.getUnknownLoc(), numFeaturesAttr,
-                                 featureTypeAttr, kernelNameAttr, batchSizeAttr);
+                                 featureTypeAttr, kernelNameAttr, batchSizeAttr,
+                                 builder.getI32IntegerAttr(static_cast<int32_t>(errorKind)),
+                                 builder.getF64FloatAttr(maxError));
   auto block = builder.createBlock(&queryOp.getRegion());
   inputs.resize(numFeatures);
   for (int i = 0; i < numFeatures; ++i) {
