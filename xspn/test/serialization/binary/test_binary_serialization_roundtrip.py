@@ -1,5 +1,4 @@
 import os
-import numpy as np
 
 from spn.structure.Base import Product, Sum
 from spn.structure.leaves.histogram.Histograms import Histogram
@@ -14,15 +13,15 @@ def test_binary_serialization_roundtrip(tmpdir):
     a simple SPN through serialization and de-serialization and comparing
     the graph-structure before and after serialization & de-serialization."""
     h1 = Histogram([0., 1., 2.], [0.25, 0.75], [1, 1], scope=1)
-    h2 = Histogram([0., 1., 2.], [0.25, 0.75], [1, 1], scope=2)
-    h3 = Histogram([0., 1., 2.], [0.25, 0.75], [1, 1], scope=1)
-    h4 = Histogram([0., 1., 2.], [0.25, 0.75], [1, 1], scope=2)
+    h2 = Histogram([0., 1., 2.], [0.45, 0.55], [1, 1], scope=2)
+    h3 = Histogram([0., 1., 2.], [0.33, 0.67], [1, 1], scope=1)
+    h4 = Histogram([0., 1., 2.], [0.875, 0.125], [1, 1], scope=2)
 
     p0 = Product(children=[h1, h2])
     p1 = Product(children=[h3, h4])
     spn = Sum([0.3, 0.7], [p0, p1])
 
-    model = SPNModel(spn)
+    model = SPNModel(spn, featureValueType="uint32")
     query = JointProbability(model)
 
     binary_file = os.path.join(tmpdir, "test.bin")
@@ -71,4 +70,3 @@ def test_categorical_leaf_serialization(tmpdir):
     assert len(c.p) == len(deserialized.p)
     for i,p in enumerate(c.p):
         assert p == deserialized.p[i]
-    
