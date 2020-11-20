@@ -35,6 +35,8 @@ def QueryInterface : OpInterface<"QueryInterface"> {
     InterfaceMethod<"Get the graph root nodes.", "std::vector<Operation*>", "getRootNodes">,
     InterfaceMethod<"Get the number of features.", "unsigned int", "getNumFeatures">,
     InterfaceMethod<"Get the batch size to optimize for.", "unsigned int", "getBatchSize">,
+    InterfaceMethod<"Get the error model for arithmetic error analysis.", "mlir::spn::error_model", "getErrorModel">,
+    InterfaceMethod<"Get the maximum allowed arithmetic error.", "double", "getMaxError">,
   ];
 
 }

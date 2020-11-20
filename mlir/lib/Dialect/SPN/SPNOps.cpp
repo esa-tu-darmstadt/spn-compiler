@@ -230,5 +230,13 @@ unsigned int mlir::spn::JointQuery::getBatchSize() {
   return this->batchSize();
 }
 
+mlir::spn::error_model mlir::spn::JointQuery::getErrorModel() {
+  return this->errorModel();
+}
+
+double mlir::spn::JointQuery::getMaxError() {
+  return this->maxError().convertToDouble();
+}
+
 #define GET_OP_CLASSES
 #include "SPN/SPNOps.cpp.inc"
