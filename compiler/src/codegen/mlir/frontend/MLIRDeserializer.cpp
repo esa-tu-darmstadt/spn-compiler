@@ -61,12 +61,13 @@ void spnc::MLIRDeserializer::deserializeQuery(Query::Reader&& query) {
     SPNC_FATAL_ERROR("Can only deserialize joint queries");
   }
   auto errorKind =
-      (query.getErrorKind() == ErrorKind::ABSOLUTE) ? error_model::absolute_error : error_model::relative_error;
+      (query.getErrorKind() == ErrorKind::ABSOLUTE) ? mlir::spn::error_model::absolute_error
+                                                    : mlir::spn::error_model::relative_error;
   deserializeJointQuery(query.getJoint(), batchSize, errorKind, query.getMaxError());
 }
 
 void spnc::MLIRDeserializer::deserializeJointQuery(JointProbability::Reader&& query, int batchSize,
-                                                   error_model errorKind, double maxError) {
+                                                   mlir::spn::error_model errorKind, double maxError) {
   if (!query.hasModel()) {
     SPNC_FATAL_ERROR("No model attached to query");
   }

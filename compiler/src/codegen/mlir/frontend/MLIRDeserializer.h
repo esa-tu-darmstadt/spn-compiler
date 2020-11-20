@@ -33,7 +33,7 @@ namespace spnc {
     void deserializeQuery(Query::Reader&& query);
 
     void deserializeJointQuery(JointProbability::Reader&& query, int batchSize,
-                               ::error_model errorKind, double maxError);
+                               mlir::spn::error_model errorKind, double maxError);
 
     void deserializeModel(Model::Reader&& model);
 

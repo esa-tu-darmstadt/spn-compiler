@@ -153,7 +153,9 @@ def ConstantOp : SPN_Op<"constant", [NoSideEffect]> {
 
 def AbsoluteErrorAttr : I32EnumAttrCase<"absolute_error", 1>;
 def RelativeErrorAttr : I32EnumAttrCase<"relative_error", 2>;
-def ErrorModelAttr : I32EnumAttr<"error_model", "Arithmetic error kind", [AbsoluteErrorAttr, RelativeErrorAttr]>;
+def ErrorModelAttr : I32EnumAttr<"error_model", "Arithmetic error kind", [AbsoluteErrorAttr, RelativeErrorAttr]> {
+    let cppNamespace = "mlir::spn";
+}
 
 ///
 /// Single joint probability evaluation, holds the graph as region of this operation.
