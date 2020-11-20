@@ -32,7 +32,7 @@ def test_binary_serialization_roundtrip(tmpdir):
     deserialized = BinaryDeserializer(binary_file).deserialize_from_file()
 
     assert(isinstance(deserialized, JointProbability))
-    assert(deserialized.batchSize == -1)
+    assert(deserialized.batchSize == 1)
     assert(deserialized.rootError == 0.02)
     assert(deserialized.graph.featureType == model.featureType)
     assert(deserialized.graph.name == model.name)

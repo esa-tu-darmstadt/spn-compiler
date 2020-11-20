@@ -78,9 +78,11 @@ void spnc::MLIRDeserializer::deserializeJointQuery(JointProbability::Reader&& qu
     modelName = "spn_kernel";
   }
   auto kernelNameAttr = builder.getStringAttr(modelName);
+  auto batchSizeAttr = builder.getUI32IntegerAttr(batchSize);
   // TODO Attach information about allowed relative error to query.
   auto queryOp =
-      builder.create<SingleJointQuery>(builder.getUnknownLoc(), numFeaturesAttr, featureTypeAttr, kernelNameAttr);
+      builder.create<JointQuery>(builder.getUnknownLoc(), numFeaturesAttr,
+                                 featureTypeAttr, kernelNameAttr, batchSizeAttr);
   auto block = builder.createBlock(&queryOp.getRegion());
   inputs.resize(numFeatures);
   for (int i = 0; i < numFeatures; ++i) {

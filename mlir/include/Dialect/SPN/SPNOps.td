@@ -154,18 +154,21 @@ def ConstantOp : SPN_Op<"constant", [NoSideEffect]> {
 ///
 /// Single joint probability evaluation, holds the graph as region of this operation.
 ///
-def SingleJointQuery : SPN_Op<"single_joint",
+def JointQuery : SPN_Op<"joint_query",
     [IsolatedFromAbove, DeclareOpInterfaceMethods<RegionKindInterface>, DeclareOpInterfaceMethods<QueryInterface>]> {
 
-    let summary = "Single joint probability computation";
+    let summary = "Joint probability computation";
 
     let description = [{
-        Represents a single joint probability computation by bottom-up evaluation of the
+        Represents a joint probability computation by bottom-up evaluation of the
         SPN-graph.
         The single region associated with this operation represents the the SPN graph.
     }];
 
-    let arguments = (ins UI32Attr:$numFeatures, TypeAttr:$inputType, SymbolNameAttr:$kernelName);
+    let arguments = (ins UI32Attr:$numFeatures,
+                    TypeAttr:$inputType,
+                    SymbolNameAttr:$kernelName,
+                    UI32Attr:$batchSize);
 
     let regions = (region SizedRegion<1>:$graph);
 

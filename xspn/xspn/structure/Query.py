@@ -6,10 +6,10 @@ class Query:
     performed on an SPN. 
 
     Args:
-        batchSize (int): Batch size to optimize for, or -1 to optimize for single evaluation.
+        batchSize (int): Batch size to optimize for, or 1 to optimize for single evaluation.
 
     Attributes:
-        batchSize (int): Batch size to optimize for, or -1 to optimize for single evaluation.
+        batchSize (int): Batch size to optimize for, or 1 to optimize for single evaluation.
 
     """
 
@@ -23,7 +23,7 @@ class JointProbability(Query):
 
     Args: 
         model (SPNModel): Single SPN graph to run query on.
-        batchSize (int): Batch size to optimize for, or -1 to optimize for single evaluation.
+        batchSize (int): Batch size to optimize for, or 1 to optimize for single evaluation.
         rootNodeRelativeError (float): Maximum relative error allowed at the root node.
 
     Attributes: 
@@ -32,7 +32,7 @@ class JointProbability(Query):
 
     """
 
-    def __init__(self, model : SPNModel, batchSize = -1, rootNodeRelativeError = 0.02):
+    def __init__(self, model : SPNModel, batchSize = 1, rootNodeRelativeError = 0.02):
         Query.__init__(self, batchSize)
         self.graph = model
         self.rootError = rootNodeRelativeError
