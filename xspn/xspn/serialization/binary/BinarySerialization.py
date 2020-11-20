@@ -10,7 +10,7 @@ from spn.structure.leaves.histogram.Histograms import Histogram
 from spn.structure.leaves.parametric.Parametric import Gaussian, Categorical
 
 from xspn.structure.Model import SPNModel
-from xspn.structure.Query import Query, JointProbability
+from xspn.structure.Query import Query, JointProbability, ErrorModel, ErrorKind
 
 # Magic import making the schema defined in the schema language available
 from  xspn.serialization.binary.capnproto import spflow_capnp
@@ -76,6 +76,13 @@ class BinarySerializer:
     def _serialize_query(self, query):
         query_msg = spflow_capnp.Query.new_message()
         query_msg.batchSize = query.batchSize
+        if query.errorModel.kind is ErrorKind.ABSOLUTE:
+            query_msg.errorKind = "absolute"
+        elif query.errorModel.kind is ErrorKind.RELATIVE:
+            query_msg.errorKind = "relative"
+        else:
+            raise NotImplementedError(f"No serialization defined for error kind {query.errorModel.kind}")
+        query_msg.maxError = query.errorModel.error
         if isinstance(query, JointProbability):
             query_msg.joint = self._serialize_joint(query)
         else:
@@ -84,7 +91,6 @@ class BinarySerializer:
 
     def _serialize_joint(self, joint):
         joint_msg = spflow_capnp.JointProbability.new_message()
-        joint_msg.relativeError = joint.rootError
         joint_msg.model = self._serialize_model(joint.graph)
         return joint_msg
 
@@ -255,10 +261,17 @@ class BinaryDeserializer:
                 raise NotImplementedError(f"No deserialization defined for {header.content}")
 
     def _deserialize_query(self, query):
-        relativeError = query.joint.relativeError
         batchSize = query.batchSize
+        maxError = query.maxError
+        if query.errorKind == "absolute":
+            errorKind = ErrorKind.ABSOLUTE
+        elif query.errorKind == "relative":
+            errorKind = ErrorKind.RELATIVE
+        else:
+            raise NotImplementedError(f"Cannot deserialize error kind {query.errorKind}")
+        errorModel = ErrorModel(errorKind, maxError)
         model = self._deserialize_model(query.joint.model)
-        return JointProbability(model, batchSize, relativeError)
+        return JointProbability(model, batchSize, errorModel)
 
     def _deserialize_model(self, model):
         rootID = model.rootNode

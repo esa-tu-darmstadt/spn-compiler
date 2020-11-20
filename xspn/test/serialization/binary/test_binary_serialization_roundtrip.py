@@ -6,7 +6,7 @@ from spn.structure.leaves.parametric.Parametric import Categorical
 from spn.structure.Base import get_number_of_nodes,get_number_of_edges
 from xspn.serialization.binary.BinarySerialization import BinarySerializer, BinaryDeserializer
 from xspn.structure.Model import SPNModel
-from xspn.structure.Query import JointProbability
+from xspn.structure.Query import JointProbability, ErrorKind
 
 def test_binary_serialization_roundtrip(tmpdir):
     """Tests the binary serialization for SPFlow SPNs by round-tripping 
@@ -32,8 +32,9 @@ def test_binary_serialization_roundtrip(tmpdir):
     deserialized = BinaryDeserializer(binary_file).deserialize_from_file()
 
     assert(isinstance(deserialized, JointProbability))
-    assert(deserialized.batchSize == 1)
-    assert(deserialized.rootError == 0.02)
+    assert(deserialized.batchSize == query.batchSize)
+    assert(deserialized.errorModel.error == query.errorModel.error)
+    assert(deserialized.errorModel.kind == query.errorModel.kind)
     assert(deserialized.graph.featureType == model.featureType)
     assert(deserialized.graph.name == model.name)
 

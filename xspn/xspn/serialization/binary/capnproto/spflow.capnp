@@ -66,16 +66,22 @@ struct Model {
     nodes @4 : List(Node);
 }
 
+enum ErrorKind {
+    absolute @0;
+    relative @1;
+}
+
 struct JointProbability {
-    relativeError @0 : Float64;
-    model @1 : Model;
+    model @0 : Model;
 }
 
 struct Query {
     batchSize @0 : Int32;
+    errorKind @1 : ErrorKind;
+    maxError  @2 : Float64;
 
     # TODO: Make this a union as soon as we support multiple queries here.
-    joint @1 : JointProbability;
+    joint @3 : JointProbability;
 }
 
 struct Header {
