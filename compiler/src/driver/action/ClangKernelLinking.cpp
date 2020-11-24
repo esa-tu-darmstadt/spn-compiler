@@ -9,12 +9,10 @@
 using namespace spnc;
 
 ClangKernelLinking::ClangKernelLinking(ActionWithOutput<ObjectFile>& _input,
-                                       SharedObject outputFile, const std::string& kernelFunctionName)
-    : ActionSingleInput<ObjectFile, Kernel>(_input),
-      kernel{outputFile.fileName(), kernelFunctionName},
-      outFile{std::move(outputFile)}, kernelName{kernelFunctionName} {
-  kernel = Kernel{outFile.fileName(), kernelName};
-}
+                                       SharedObject outputFile, std::shared_ptr<KernelInfo> info)
+    : ActionSingleInput<ObjectFile, Kernel>(_input), outFile{std::move(outputFile)},
+      kernelInfo{std::move(info)},
+      kernel{outFile.fileName(), kernelInfo->kernelName, kernelInfo->queryType, kernelInfo->batchSize} {}
 
 Kernel& ClangKernelLinking::execute() {
   if (!cached) {

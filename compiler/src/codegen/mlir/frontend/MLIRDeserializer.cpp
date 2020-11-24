@@ -13,6 +13,7 @@
 #include <regex>
 #include <mlir/IR/Verifier.h>
 #include "mlir/IR/StandardTypes.h"
+#include "Kernel.h"
 
 using namespace capnp;
 using namespace mlir;
@@ -26,8 +27,10 @@ spnc::MLIRDeserializer::BinaryFileHandler::~BinaryFileHandler() noexcept {
   close(fd);
 }
 
-spnc::MLIRDeserializer::MLIRDeserializer(BinarySPN _inputFile, std::shared_ptr<::mlir::MLIRContext> _context) :
-    context{std::move(_context)}, builder{context.get()}, inputFile{std::move(_inputFile)} {
+spnc::MLIRDeserializer::MLIRDeserializer(BinarySPN _inputFile, std::shared_ptr<::mlir::MLIRContext> _context,
+                                         std::shared_ptr<KernelInfo> info) :
+    context{std::move(_context)}, builder{context.get()}, inputFile{std::move(_inputFile)},
+    kernelInfo{std::move(info)} {
   module = std::make_unique<mlir::ModuleOp>(mlir::ModuleOp::create(builder.getUnknownLoc()));
 }
 
@@ -83,6 +86,11 @@ void spnc::MLIRDeserializer::deserializeJointQuery(JointProbability::Reader&& qu
   }
   auto kernelNameAttr = builder.getStringAttr(modelName);
   auto batchSizeAttr = builder.getUI32IntegerAttr(batchSize);
+
+  // Store information about the kernel for use in later stages of the toolchain.
+  kernelInfo->kernelName = modelName;
+  kernelInfo->batchSize = batchSize;
+  kernelInfo->queryType = spnc::KernelQueryType::JOINT_QUERY;
 
   auto queryOp =
       builder.create<JointQuery>(builder.getUnknownLoc(), numFeaturesAttr,

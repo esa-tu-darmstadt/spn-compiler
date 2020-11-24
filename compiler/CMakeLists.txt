@@ -20,7 +20,6 @@ add_library(spnc SHARED
         src/Driver.cpp
         src/driver/util/Logging.cpp
         src/driver/option/GlobalOptions.cpp
-        src/driver/toolchain/CPUToolchain.cpp
         src/driver/action/LLVMWriteBitcode.cpp
         src/driver/action/LLVMStaticCompiler.cpp
         src/driver/action/LLVMLinker.cpp

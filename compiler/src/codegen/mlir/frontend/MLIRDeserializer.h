@@ -9,6 +9,7 @@
 #include <mlir/IR/Module.h>
 #include <util/FileSystem.h>
 #include <mlir/IR/Builders.h>
+#include <driver/Job.h>
 #include "driver/Actions.h"
 #include "xspn/xspn/serialization/binary/capnproto/spflow.capnp.h"
 #include "llvm/ADT/IndexedMap.h"
@@ -24,7 +25,8 @@ namespace spnc {
 
   public:
 
-    MLIRDeserializer(BinarySPN _inputFile, std::shared_ptr<::mlir::MLIRContext> _context);
+    MLIRDeserializer(BinarySPN _inputFile, std::shared_ptr<::mlir::MLIRContext> _context,
+                     std::shared_ptr<KernelInfo> info);
 
     mlir::ModuleOp& execute() override;
 
@@ -52,6 +54,8 @@ namespace spnc {
     mlir::Value getValueForNode(int id);
 
     mlir::Type translateTypeString(const std::string& text);
+
+    std::shared_ptr<KernelInfo> kernelInfo;
 
     std::shared_ptr<::mlir::MLIRContext> context;
 

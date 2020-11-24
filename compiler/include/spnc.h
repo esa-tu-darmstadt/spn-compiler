@@ -18,17 +18,11 @@ namespace spnc {
   /// Entry-point of the compiler.
   class spn_compiler {
   public:
-    /// Read & parse JSON from input file and execute the compiler.
+    /// Read & parse query from binary input file and execute the compiler.
     /// \param inputFile Path of the input file.
     /// \param options Configuration of the compiler execution.
     /// \return Generated Kernel.
-    static Kernel parseJSON(const std::string& inputFile, const options_t& options);
-
-    /// Parse JSON from input string and execute the compiler.
-    /// \param jsonString String containing the JSON serialization of the SPN.
-    /// \param options Configuration of the compiler execution.
-    /// \return Generated Kernel.
-    Kernel parseJSONString(const std::string& jsonString, const options_t& options);
+    static Kernel compileQuery(const std::string& inputFile, const options_t& options);
 
   };
 }
