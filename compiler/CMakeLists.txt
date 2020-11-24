@@ -25,26 +25,7 @@ add_library(spnc SHARED
         src/driver/action/LLVMLinker.cpp
         src/driver/action/DetectTracingLib.cpp
         src/driver/action/ClangKernelLinking.cpp
-        src/graph-ir/GraphIRNode.cpp
-        src/graph-ir/InputVar.cpp
-        src/graph-ir/Histogram.cpp
-        src/graph-ir/WeightedSum.cpp
-        src/graph-ir/Sum.cpp
-        src/graph-ir/Product.cpp
-        src/frontend/json/Parser.cpp
-        src/graph-ir/transform/BaseVisitor.cpp
-        src/graph-ir/transform/IRTransformationPass.cpp
-        src/graph-ir/util/DotVisitor.cpp
-        src/graph-ir/util/GraphStatVisitor.cpp
-        src/graph-ir/transform/BinaryTreeTransform.cpp
-        src/codegen/llvm-ir/CPU/LLVMCPUCodegen.cpp
-        src/codegen/llvm-ir/CPU/body/CodeGenScalarBody.cpp
-        src/codegen/llvm-ir/CPU/loop/CodeGenSerialLoop.cpp
-        src/codegen/llvm-ir/pipeline/LLVMPipeline.cpp
-        src/codegen/llvm-ir/transform/NumericalValueTracingPass.cpp
         src/driver/toolchain/MLIRToolchain.cpp
-        src/codegen/mlir/codegen/MLIRCodeGen.cpp
-        src/codegen/mlir/codegen/MLIRGraphGen.cpp
         src/codegen/mlir/pipeline/SPNDialectPipeline.cpp
         src/codegen/mlir/conversion/SPNtoStandardConversion.cpp
         src/codegen/mlir/conversion/SPNtoLLVMConversion.cpp
@@ -100,5 +81,5 @@ doxygen_doc(TARGET_NAME spnc
         DEPENDS
         spnc-common mlir-doc
         EXCLUDES
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/frontend/json/json.hpp)
+        ../common/include/util/json.hpp)
 

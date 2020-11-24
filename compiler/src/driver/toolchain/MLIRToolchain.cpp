@@ -6,8 +6,6 @@
 #include <util/FileSystem.h>
 #include <driver/BaseActions.h>
 #include <driver/GlobalOptions.h>
-#include <frontend/json/Parser.h>
-#include <codegen/mlir/codegen/MLIRCodeGen.h>
 #include <SPN/SPNDialect.h>
 #include <codegen/mlir/pipeline/SPNDialectPipeline.h>
 #include "codegen/mlir/conversion/SPNtoStandardConversion.h"

@@ -5,7 +5,7 @@
 
 #include "CollectGraphStatistics.h"
 #include "SPN/SPNOps.h"
-#include "frontend/json/json.hpp"
+#include "util/json.hpp"
 
 using namespace spnc;
 using namespace mlir;
