@@ -61,7 +61,7 @@ namespace spnc {
 
     llvm::DenseMap<int, mlir::Value> node2value;
 
-    llvm::IndexedMap<mlir::Value> inputs;
+    llvm::DenseMap<int, mlir::Value> inputs;
 
     BinarySPN inputFile;
 

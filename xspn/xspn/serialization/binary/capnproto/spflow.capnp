@@ -63,7 +63,8 @@ struct Model {
     name @1 : Text;
     featureType @2 : Text;
     numFeatures @3 : Int32;
-    nodes @4 : List(Node);
+    scope @4 : List(Int32);
+    nodes @5 : List(Node);
 }
 
 enum ErrorKind {

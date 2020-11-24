@@ -107,6 +107,9 @@ class BinarySerializer:
         msg.rootNode = model.root.id
         msg.numFeatures = len(model.root.scope)
         msg.featureType = model.featureType
+        scope = msg.init("scope", len(model.root.scope))
+        for i,v in enumerate(model.root.scope):
+            scope[i] = self._unwrap_value(v)
         name = ""
         if model.name is not None:
             name = model.name

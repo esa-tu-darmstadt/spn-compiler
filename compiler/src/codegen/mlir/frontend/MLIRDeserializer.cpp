@@ -84,16 +84,22 @@ void spnc::MLIRDeserializer::deserializeJointQuery(JointProbability::Reader&& qu
   auto kernelNameAttr = builder.getStringAttr(modelName);
   auto batchSizeAttr = builder.getUI32IntegerAttr(batchSize);
 
-  // TODO Attach information about allowed relative error to query.
   auto queryOp =
       builder.create<JointQuery>(builder.getUnknownLoc(), numFeaturesAttr,
                                  featureTypeAttr, kernelNameAttr, batchSizeAttr,
                                  builder.getI32IntegerAttr(static_cast<int32_t>(errorKind)),
                                  builder.getF64FloatAttr(maxError));
   auto block = builder.createBlock(&queryOp.getRegion());
-  inputs.resize(numFeatures);
-  for (int i = 0; i < numFeatures; ++i) {
-    inputs[i] = queryOp.getRegion().addArgument(featureType);
+
+  // Sort scope in ascending order and construct a block argument for each variable (element of the scope).
+  SmallVector<int, 10> scope;
+  for (auto s : query.getModel().getScope()) {
+    scope.push_back(s);
+  }
+  std::sort(scope.begin(), scope.end());
+  for (auto s : scope) {
+    // Add mapping from input (scope) to block argument.
+    inputs[s] = queryOp.getRegion().addArgument(featureType);
   }
   builder.setInsertionPointToEnd(block);
   deserializeModel(query.getModel());
@@ -145,10 +151,11 @@ mlir::spn::ProductOp spnc::MLIRDeserializer::deserializeProduct(ProductNode::Rea
 }
 
 mlir::spn::HistogramOp spnc::MLIRDeserializer::deserializeHistogram(HistogramLeaf::Reader&& histogram) {
-  if (!inputs.inBounds(histogram.getScope() - 1)) {
+  if (!inputs.count(histogram.getScope())) {
+    std::cout << (histogram.getScope() - 1) << std::endl;
     SPNC_FATAL_ERROR("Histograms references unknown feature!")
   }
-  auto indexVar = inputs[histogram.getScope() - 1];
+  auto indexVar = inputs[histogram.getScope()];
   auto breaks = histogram.getBreaks();
   auto densities = histogram.getDensities();
   SmallVector<bucket_t, 256> buckets;
