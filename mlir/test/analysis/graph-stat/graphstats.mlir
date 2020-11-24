@@ -1,7 +1,7 @@
-// RUN: %drvcall %datadir/NIPS5.json --target CPU --delete-temps no --collect-graph-stats yes --graph-stats-file %t_NIPS5.json
+// RUN: %drvcall %datadir/NIPS5.bin --target CPU --delete-temps no --collect-graph-stats yes --graph-stats-file %t_NIPS5.json
 // RUN: cat %t_NIPS5.json | FileCheck --check-prefix=NIPS5 %s
 
-// RUN: %drvcall %datadir/NIPS10.json --target CPU --delete-temps no --collect-graph-stats yes --graph-stats-file %t_NIPS10.json
+// RUN: %drvcall %datadir/NIPS10.bin --target CPU --delete-temps no --collect-graph-stats yes --graph-stats-file %t_NIPS10.json
 // RUN: cat %t_NIPS10.json | FileCheck --check-prefix=NIPS10 %s
 
 
