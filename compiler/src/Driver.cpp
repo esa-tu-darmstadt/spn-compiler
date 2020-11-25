@@ -4,7 +4,6 @@
 //
 
 #include <spnc.h>
-#include <driver/toolchain/CPUToolchain.h>
 #include <driver/toolchain/MLIRToolchain.h>
 #include <driver/Options.h>
 #include <driver/GlobalOptions.h>
@@ -12,7 +11,7 @@
 
 using namespace spnc;
 
-Kernel spn_compiler::parseJSON(const std::string& inputFile, const options_t& options) {
+Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t& options) {
   SPDLOG_INFO("Welcome to the SPN compiler!");
   interface::Options::dump();
   auto config = interface::Options::parse(options);
@@ -20,17 +19,6 @@ Kernel spn_compiler::parseJSON(const std::string& inputFile, const options_t& op
   job = MLIRToolchain::constructJobFromFile(inputFile, *config);
   auto kernel = job->execute();
   SPDLOG_INFO("Generated Kernel in {}, kernel name {}", kernel.fileName(), kernel.kernelName());
-  return kernel;
-}
-
-Kernel spn_compiler::parseJSONString(const std::string& jsonString, const options_t& options) {
-  SPDLOG_INFO("Welcome to the SPN compiler!");
-  interface::Options::dump();
-  auto config = interface::Options::parse(options);
-  std::unique_ptr<Job<Kernel>> job;
-  job = MLIRToolchain::constructJobFromString(jsonString, *config);
-  auto kernel = job->execute();
-  SPDLOG_INFO("Generated Kernel in {}, kernel name '{}'", kernel.fileName(), kernel.kernelName());
   return kernel;
 }
 

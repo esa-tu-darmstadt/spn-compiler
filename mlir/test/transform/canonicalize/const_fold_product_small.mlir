@@ -1,7 +1,7 @@
 // RUN: %optcall --canonicalize %s | FileCheck %s
 
 module {
-  "spn.single_joint"() ( {
+  "spn.joint_query"() ( {
     ^bb0(%arg0: ui32, %arg1: ui32): // no predecessors
       %0 = "spn.constant"() {value = 2.0 : f64} : () -> !spn.probability
       %1 = "spn.constant"() {value = 4.0 : f64} : () -> !spn.probability
@@ -14,7 +14,7 @@ module {
       %8 = "spn.product"(%5, %6, %7) : (!spn.probability, !spn.probability, !spn.probability) -> !spn.probability
       %9 = "spn.product"(%4, %8) : (!spn.probability, !spn.probability) -> !spn.probability
       "spn.return"(%9) : (!spn.probability) -> ()
-  }) {inputType = ui32, kernelName = "spn_kernel", numFeatures = 2 : ui32} : () -> ()
+  }) {batchSize = 1 : ui32, errorModel = 1 : i32, inputType = ui32, kernelName = "spn_kernel", maxError = 2.000000e-02 : f64, numFeatures = 2 : ui32} : () -> ()
 }
 
 //  This small test checks if a product is fold if there are constant operands.

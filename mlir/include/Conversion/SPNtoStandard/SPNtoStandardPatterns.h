@@ -38,12 +38,12 @@ namespace mlir {
     };
 
     ///
-    /// Pattern for lowering SPN single joint query operation to Standard dialect.
-    struct SingleJointLowering : public OpConversionPattern<SingleJointQuery> {
+    /// Pattern for lowering SPN joint query operation with batch size 1 to Standard dialect.
+    struct SingleJointLowering : public OpConversionPattern<JointQuery> {
 
-      using OpConversionPattern<SingleJointQuery>::OpConversionPattern;
+      using OpConversionPattern<JointQuery>::OpConversionPattern;
 
-      LogicalResult matchAndRewrite(SingleJointQuery op,
+      LogicalResult matchAndRewrite(JointQuery op,
                                     ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };

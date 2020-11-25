@@ -2,11 +2,11 @@
 
 module {
 
-  "spn.single_joint"() ( {
+  "spn.joint_query"() ( {
      ^bb0(%arg0: ui32): // no predecessors
       %0 = "spn.histogram"(%arg0) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}]} : (ui32) -> !spn.probability
       "spn.return"(%0) : (!spn.probability) -> ()
-  }) {inputType = ui32, kernelName = "spn_kernel", numFeatures = 1 : ui32} : () -> ()
+  }) {batchSize = 1 : ui32, errorModel = 1 : i32, inputType = ui32, kernelName = "spn_kernel", maxError = 2.000000e-02 : f64, numFeatures = 1 : ui32} : () -> ()
 
 }
 

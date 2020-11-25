@@ -21,9 +21,14 @@ mlir::LogicalResult mlir::spn::ReturnOpLowering::matchAndRewrite(mlir::spn::Retu
   return failure();
 }
 
-mlir::LogicalResult mlir::spn::SingleJointLowering::matchAndRewrite(mlir::spn::SingleJointQuery op,
+mlir::LogicalResult mlir::spn::SingleJointLowering::matchAndRewrite(mlir::spn::JointQuery op,
                                                                     llvm::ArrayRef<mlir::Value> operands,
                                                                     mlir::ConversionPatternRewriter& rewriter) const {
+  // This lowering is specialized for single evaluations, reject queries with batch size >1.
+  if (dyn_cast<QueryInterface>(op.getOperation()).getBatchSize() > 1) {
+    return failure();
+  }
+
   auto inputType = MemRefType::get({op.numFeatures()}, op.inputType());
   auto returnOp = op.graph().front().getTerminator();
   auto graphResult = dyn_cast<mlir::spn::ReturnOp>(returnOp);

@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
   CLI11_PARSE(app, argc, argv);
 
   auto options = spnc::interface::Options::collectCLOptions(app);
-  auto parseResult = spnc::spn_compiler::parseJSON(std::string(argv[1]), options);
+  auto parseResult = spnc::spn_compiler::compileQuery(std::string(argv[1]), options);
   std::cout << "Compiled kernel into file " << parseResult.fileName() << std::endl;
 
   //

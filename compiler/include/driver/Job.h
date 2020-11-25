@@ -10,6 +10,7 @@
 #include <memory>
 #include <type_traits>
 #include "Actions.h"
+#include "Kernel.h"
 
 namespace spnc {
 
@@ -81,9 +82,19 @@ namespace spnc {
 
     std::vector<std::unique_ptr<ActionBase>> actions;
 
-    ActionWithOutput <Output>* finalAction;
+    ActionWithOutput<Output>* finalAction;
 
   };
+
+  ///
+  /// Simple struct to carry information about the generated kernel between different
+  /// steps of the tool-chain.
+  struct KernelInfo {
+    spnc::KernelQueryType queryType;
+    unsigned batchSize;
+    std::string kernelName;
+  };
+
 }
 
 #endif //SPNC_JOB_H

@@ -39,12 +39,13 @@ namespace spnc {
 
   ///
   /// Enumeration of special file-types.
-  enum class FileType { SPN_JSON, LLVM_BC, OBJECT, SHARED_OBJECT, DOT, STAT_JSON };
+  enum class FileType { SPN_JSON, LLVM_BC, OBJECT, SHARED_OBJECT, DOT, STAT_JSON, SPN_BINARY };
 
   using LLVMBitcode = File<FileType::LLVM_BC>;
   using ObjectFile = File<FileType::OBJECT>;
   using SharedObject = File<FileType::SHARED_OBJECT>;
   using StatsFile = File<FileType::STAT_JSON>;
+  using BinarySPN = File<FileType::SPN_BINARY>;
 
   /// File on the file-system.
   /// \tparam Type Type of the file.

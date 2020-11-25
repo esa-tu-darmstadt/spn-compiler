@@ -1,7 +1,7 @@
 // RUN: %optcall --spn-simplify --canonicalize --spn-type-pinning --spn-to-standard %s | FileCheck %s
 
 module {
-  "spn.single_joint"() ( {
+  "spn.joint_query"() ( {
     ^bb0(%arg0: ui32, %arg1: ui32, %arg2 : ui32, %arg3 : ui32, %arg4 : ui32): // no predecessors
       %0 = "spn.histogram"(%arg0) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}]} : (ui32) -> !spn.probability
       %1 = "spn.histogram"(%arg1) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}]} : (ui32) -> !spn.probability
@@ -10,7 +10,7 @@ module {
       %4 = "spn.histogram"(%arg4) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}]} : (ui32) -> !spn.probability
       %5 = "spn.product"(%0, %1, %2, %3, %4) : (!spn.probability, !spn.probability, !spn.probability, !spn.probability, !spn.probability) -> !spn.probability
       "spn.return"(%5) : (!spn.probability) -> ()
-  }) {inputType = ui32, kernelName = "spn_kernel", numFeatures = 5 : ui32} : () -> ()
+  }) {batchSize = 1 : ui32, errorModel = 1 : i32, inputType = ui32, kernelName = "spn_kernel", maxError = 2.000000e-02 : f64, numFeatures = 5 : ui32} : () -> ()
 }
 
 //  N-ary products will be converted & lowered into a tree of binary "mulf" insn.
