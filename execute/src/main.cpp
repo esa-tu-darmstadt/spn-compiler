@@ -24,11 +24,24 @@ int main(int argc, char* argv[]) {
 
   //
   // Simple test to see if the compiled kernels are executable via the runtime.
-  // If the mini-example is fed to the compiler, the compiled kernel can be executed
+  // If the mini-example or the categorical-example is fed to the compiler, the compiled kernel can be executed
   // using the following lines of code.
-  // The expected results are 0.0625, 0.1875, 0.1875, 0.5625
-  /*int a[]{0, 0, 0, 1, 1, 0, 1,1};
-  for(int i = 0; i < 4; ++i){
+  // The expected results for mini-example are
+  // 0.235875
+  // 0.070125
+  // 0.511625
+  // 0.182375
+  // The expected results for categorical-example are
+  // 0.0875
+  // 0.21875
+  // 0.1375
+  // 0.34375
+  //
+  // Use the following input for mini-example:
+  // int a[]{0, 0, 0, 1, 1, 0, 1, 1};
+  // Use the following input for categorical-example:
+  //char a[]{0, 0, 0, 1, 1, 0, 1, 1};
+  /*for(int i = 0; i < 4; ++i){
     double b[1];
     spnc_rt::spn_runtime::instance().execute(parseResult, 5, &a[i*2], b);
     std::cout << b[0] << std::endl;

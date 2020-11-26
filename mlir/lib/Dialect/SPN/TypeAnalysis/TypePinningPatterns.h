@@ -48,6 +48,9 @@ namespace mlir {
       LogicalResult matchAndRewrite(HistogramOp op, PatternRewriter& rewriter) const override;
     };
 
+    ///
+    /// Rewrite Categorical leaf to use actual datatype instead of
+    /// abstract SPN probability value type.
     struct TypePinCategorical : public TypePinningPattern<CategoricalOp> {
       using TypePinningPattern<CategoricalOp>::TypePinningPattern;
 

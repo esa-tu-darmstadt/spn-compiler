@@ -27,7 +27,6 @@ void mlir::spn::SPNtoLLVMConversionPass::runOnOperation() {
   OwningRewritePatternList patterns;
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
   populateSPNtoLLVMConversionPatterns(patterns, &getContext(), typeConverter);
-  patterns.insert<HistogramOpLowering>(typeConverter, &getContext());
 
   auto op = getOperation();
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
