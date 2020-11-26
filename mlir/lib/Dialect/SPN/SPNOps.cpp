@@ -94,6 +94,10 @@ namespace mlir {
       return mlir::success();
     }
 
+    //===----------------------------------------------------------------------===//
+    // CategoricalOp
+    //===----------------------------------------------------------------------===//
+
     static mlir::LogicalResult verify(CategoricalOp op) {
       double sum = 0.0;
       for (auto p : op.probabilities().getAsRange<mlir::FloatAttr>()) {
@@ -219,6 +223,27 @@ void mlir::spn::CategoricalOp::build(::mlir::OpBuilder& odsBuilder,
 }
 
 unsigned int mlir::spn::CategoricalOp::getFeatureIndex() {
+  if (auto blockArg = index().dyn_cast<BlockArgument>()) {
+    return blockArg.getArgNumber();
+  }
+  // Expecting the index to be a block argument.
+  assert(false);
+}
+
+//===----------------------------------------------------------------------===//
+// GaussianOp
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::GaussianOp::build(::mlir::OpBuilder& odsBuilder,
+                                  ::mlir::OperationState& odsState,
+                                  Value indexVal,
+                                  double mean,
+                                  double stddev) {
+  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), indexVal,
+        odsBuilder.getF64FloatAttr(mean), odsBuilder.getF64FloatAttr(stddev));
+}
+
+unsigned int mlir::spn::GaussianOp::getFeatureIndex() {
   if (auto blockArg = index().dyn_cast<BlockArgument>()) {
     return blockArg.getArgNumber();
   }

@@ -129,6 +129,28 @@ def CategoricalOp : SPN_Op<"categorical",
 }
 
 ///
+/// Gaussian distribution as SPN leaf node.
+///
+def GaussianOp : SPN_Op<"gaussian",
+    [NoSideEffect, DeclareOpInterfaceMethods<LeafNodeInterface>]> {
+
+    let summary = "Gaussian leaf distribution";
+
+    let description = [{
+        Univariate Gaussian leaf distribution.
+    }];
+
+    let arguments = (ins AnyFloat:$index, F64Attr:$mean, F64Attr:$stddev);
+
+    let results = (outs AnyProbabilityType);
+
+    let builders = [
+        OpBuilderDAG<(ins "Value":$indexVal, "double":$mean, "double":$stddev)>
+    ];
+
+}
+
+///
 /// Return operation, returning 0 or 1 probability values.
 ///
 def ReturnOp : SPN_Op<"return", [Terminator]> {
