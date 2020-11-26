@@ -25,7 +25,7 @@ namespace {
       // TODO Currently just uses F64 type, choose actual best type based on error analysis.
       auto pinnedType = Float64Type::get(context);
       patterns.insert<TypePinConstant>(context, pinnedType);
-      patterns.insert<TypePinHistogram, TypePinCategorical>(context, pinnedType);
+      patterns.insert<TypePinHistogram, TypePinCategorical, TypePinGaussian>(context, pinnedType);
       patterns.insert<TypePinWeightedSum, TypePinProduct, TypePinSum>(context, pinnedType);
       auto op = getOperation();
       FrozenRewritePatternList frozenPatterns(std::move(patterns));
