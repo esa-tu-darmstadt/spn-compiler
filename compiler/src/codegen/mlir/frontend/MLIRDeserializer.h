@@ -49,9 +49,11 @@ namespace spnc {
 
     void deserializeGaussian(GaussianLeaf::Reader&& gaussian);
 
-    void deserializeCaterogical(CategoricalLeaf::Reader&& categorical);
+    mlir::spn::CategoricalOp deserializeCaterogical(CategoricalLeaf::Reader&& categorical);
 
     mlir::Value getValueForNode(int id);
+
+    mlir::Value getInputValueByIndex(int index);
 
     mlir::Type translateTypeString(const std::string& text);
 

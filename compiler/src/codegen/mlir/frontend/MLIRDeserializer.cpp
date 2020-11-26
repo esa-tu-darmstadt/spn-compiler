@@ -131,7 +131,8 @@ void spnc::MLIRDeserializer::deserializeNode(Node::Reader& node) {
     case Node::HIST: op = deserializeHistogram(node.getHist());
       break;
     case Node::GAUSSIAN: SPNC_FATAL_ERROR("Gaussian leaf nodes not yet supported");
-    case Node::CATEGORICAL: SPNC_FATAL_ERROR("Categorical leaf nodes not yet supported");
+    case Node::CATEGORICAL: op = deserializeCaterogical(node.getCategorical());
+      break;
     default: SPNC_FATAL_ERROR("Unsupported node type ", node.toString().flatten().cStr());
   }
   // Add mapping from unique node ID to operation/value.
@@ -159,11 +160,7 @@ mlir::spn::ProductOp spnc::MLIRDeserializer::deserializeProduct(ProductNode::Rea
 }
 
 mlir::spn::HistogramOp spnc::MLIRDeserializer::deserializeHistogram(HistogramLeaf::Reader&& histogram) {
-  if (!inputs.count(histogram.getScope())) {
-    std::cout << (histogram.getScope() - 1) << std::endl;
-    SPNC_FATAL_ERROR("Histograms references unknown feature!")
-  }
-  auto indexVar = inputs[histogram.getScope()];
+  auto indexVar = getInputValueByIndex(histogram.getScope());
   auto breaks = histogram.getBreaks();
   auto densities = histogram.getDensities();
   SmallVector<bucket_t, 256> buckets;
@@ -175,6 +172,22 @@ mlir::spn::HistogramOp spnc::MLIRDeserializer::deserializeHistogram(HistogramLea
     buckets.push_back(std::tie(lb, ub, d));
   }
   return builder.create<HistogramOp>(builder.getUnknownLoc(), indexVar, buckets);
+}
+
+mlir::spn::CategoricalOp spnc::MLIRDeserializer::deserializeCaterogical(CategoricalLeaf::Reader&& categorical) {
+  auto indexVar = getInputValueByIndex(categorical.getScope());
+  SmallVector<double, 10> probabilities;
+  for (auto p : categorical.getProbabilities()) {
+    probabilities.push_back(p);
+  }
+  return builder.create<CategoricalOp>(builder.getUnknownLoc(), indexVar, probabilities);
+}
+
+mlir::Value spnc::MLIRDeserializer::getInputValueByIndex(int index) {
+  if (!inputs.count(index)) {
+    SPNC_FATAL_ERROR("Leaf node references unknown feature!")
+  }
+  return inputs[index];
 }
 
 mlir::Value spnc::MLIRDeserializer::getValueForNode(int id) {
