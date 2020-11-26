@@ -47,27 +47,35 @@ def test_binary_serialization_roundtrip(tmpdir):
 
 
 def test_categorical_leaf_serialization(tmpdir):
-    """Tests the binary serialization of a single SPFlow Categorical leaf node
+    """Tests the binary serialization of two SPFlow Categorical leaf nodes
     by round-tripping and comparing the parameters before and after serialization
     & deserialization"""
-    c = Categorical(p=[0.35, 0.55, 0.1], scope=1)
+    c1 = Categorical(p=[0.35, 0.55, 0.1], scope=1)
+    c2 = Categorical(p=[0.25, 0.625, 0.125], scope=2)
+    p = Product(children=[c1, c2])
 
     binary_file = os.path.join(tmpdir, "test.bin")
     print(f"Test binary file: {binary_file}")
 
-    model = SPNModel(c, "int8", "test")
+    model = SPNModel(p, "uint8", "test")
+    query = JointProbability(model)
 
-    BinarySerializer(binary_file).serialize_to_file(model)
+    BinarySerializer(binary_file).serialize_to_file(query)
 
     deserialized = BinaryDeserializer(binary_file).deserialize_from_file()
     
-    assert(isinstance(deserialized, SPNModel))
-    assert(deserialized.featureType == model.featureType)
-    assert(deserialized.name == model.name)
+    assert(isinstance(deserialized, JointProbability))
+    assert(isinstance(deserialized.graph, SPNModel))
+    assert(deserialized.graph.featureType == model.featureType)
+    assert(deserialized.graph.name == model.name)
     
-    deserialized = deserialized.root
+    deserialized = deserialized.graph.root
 
-    assert isinstance(deserialized, Categorical)
-    assert len(c.p) == len(deserialized.p)
-    for i,p in enumerate(c.p):
-        assert p == deserialized.p[i]
+    assert isinstance(deserialized, Product)
+    assert(len(deserialized.children) == 2)
+    assert len(c1.p) == len(deserialized.children[0].p)
+    for i,p in enumerate(c1.p):
+        assert p == deserialized.children[0].p[i]
+    assert len(c2.p) == len(deserialized.children[1].p)
+    for i,p in enumerate(c2.p):
+        assert p == deserialized.children[1].p[i]
