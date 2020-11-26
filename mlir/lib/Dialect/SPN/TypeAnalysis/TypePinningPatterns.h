@@ -48,6 +48,12 @@ namespace mlir {
       LogicalResult matchAndRewrite(HistogramOp op, PatternRewriter& rewriter) const override;
     };
 
+    struct TypePinCategorical : public TypePinningPattern<CategoricalOp> {
+      using TypePinningPattern<CategoricalOp>::TypePinningPattern;
+
+      LogicalResult matchAndRewrite(CategoricalOp op, PatternRewriter& rewriter) const override;
+    };
+
     ///
     /// Template to rewrite n-ary arithmetic operation to use actual datatype instead of abstract
     /// SPN probability value type.
