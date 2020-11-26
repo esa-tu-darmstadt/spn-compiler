@@ -11,9 +11,6 @@
 mlir::LogicalResult mlir::spn::HistogramOpLowering::matchAndRewrite(mlir::spn::HistogramOp op,
                                                                     llvm::ArrayRef<mlir::Value> operands,
                                                                     mlir::ConversionPatternRewriter& rewriter) const {
-  // Simple count for unique naming of global arrays.
-  static int histCount = 0;
-
   // Check for single operand, i.e. the index value.
   assert(operands.size() == 1);
 
@@ -69,8 +66,6 @@ mlir::LogicalResult mlir::spn::HistogramOpLowering::matchAndRewrite(mlir::spn::H
 mlir::LogicalResult mlir::spn::CategoricalOpLowering::matchAndRewrite(mlir::spn::CategoricalOp op,
                                                                       llvm::ArrayRef<mlir::Value> operands,
                                                                       mlir::ConversionPatternRewriter& rewriter) const {
-  static int catCount = 0;
-
   // Check for single operand, i.e., the index value.
   assert(operands.size() == 1);
 
