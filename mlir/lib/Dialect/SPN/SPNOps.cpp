@@ -94,6 +94,17 @@ namespace mlir {
       return mlir::success();
     }
 
+    static mlir::LogicalResult verify(CategoricalOp op) {
+      double sum = 0.0;
+      for (auto p : op.probabilities().getAsRange<mlir::FloatAttr>()) {
+        sum += p.getValueAsDouble();
+      }
+      if (std::abs(sum - 1.0) > 1e-6) {
+        return op.emitOpError("Category probabilities should sum to 1.0");
+      }
+      return mlir::success();
+    }
+
     RegionKind mlir::spn::JointQuery::getRegionKind(unsigned int index) {
       return RegionKind::Graph;
     }
@@ -188,6 +199,26 @@ void mlir::spn::HistogramOp::build(::mlir::OpBuilder& odsBuilder,
 }
 
 unsigned int mlir::spn::HistogramOp::getFeatureIndex() {
+  if (auto blockArg = index().dyn_cast<BlockArgument>()) {
+    return blockArg.getArgNumber();
+  }
+  // Expecting the index to be a block argument.
+  assert(false);
+}
+
+//===----------------------------------------------------------------------===//
+// CategoricalOp
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::CategoricalOp::build(::mlir::OpBuilder& odsBuilder,
+                                     ::mlir::OperationState& odsState,
+                                     Value indexVal,
+                                     llvm::ArrayRef<double> probabilities) {
+  auto floatArrayAttr = odsBuilder.getF64ArrayAttr(probabilities);
+  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), indexVal, floatArrayAttr);
+}
+
+unsigned int mlir::spn::CategoricalOp::getFeatureIndex() {
   if (auto blockArg = index().dyn_cast<BlockArgument>()) {
     return blockArg.getArgNumber();
   }

@@ -106,6 +106,29 @@ def HistogramOp : SPN_Op<"histogram",
 }
 
 ///
+/// Categorical distribution as SPN leaf node.
+///
+def CategoricalOp : SPN_Op<"categorical",
+    [NoSideEffect, DeclareOpInterfaceMethods<LeafNodeInterface>]> {
+
+    let summary = "categorical leaf distribution";
+
+    let description = [{
+        Univariate categorical leaf distribution.
+    }];
+
+    let arguments = (ins AnyUnsignedInteger:$index, F64ArrayAttr:$probabilities);
+
+    let results = (outs AnyProbabilityType);
+
+    let verifier = [{ return ::mlir::spn::verify(*this); }];
+
+    let builders = [
+        OpBuilderDAG<(ins "Value":$indexVal, "llvm::ArrayRef<double>":$probabilities)>
+    ];
+}
+
+///
 /// Return operation, returning 0 or 1 probability values.
 ///
 def ReturnOp : SPN_Op<"return", [Terminator]> {
