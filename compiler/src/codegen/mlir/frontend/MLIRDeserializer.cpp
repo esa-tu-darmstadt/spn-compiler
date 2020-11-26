@@ -13,6 +13,7 @@
 #include <regex>
 #include <mlir/IR/Verifier.h>
 #include "mlir/IR/StandardTypes.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "Kernel.h"
 
 using namespace capnp;
@@ -161,7 +162,7 @@ mlir::spn::ProductOp spnc::MLIRDeserializer::deserializeProduct(ProductNode::Rea
 }
 
 mlir::spn::HistogramOp spnc::MLIRDeserializer::deserializeHistogram(HistogramLeaf::Reader&& histogram) {
-  auto indexVar = getInputValueByIndex(histogram.getScope());
+  Value indexVar = convertToSignlessInteger(getInputValueByIndex(histogram.getScope()));
   auto breaks = histogram.getBreaks();
   auto densities = histogram.getDensities();
   SmallVector<bucket_t, 256> buckets;
@@ -176,7 +177,7 @@ mlir::spn::HistogramOp spnc::MLIRDeserializer::deserializeHistogram(HistogramLea
 }
 
 mlir::spn::CategoricalOp spnc::MLIRDeserializer::deserializeCaterogical(CategoricalLeaf::Reader&& categorical) {
-  auto indexVar = getInputValueByIndex(categorical.getScope());
+  auto indexVar = convertToSignlessInteger(getInputValueByIndex(categorical.getScope()));
   SmallVector<double, 10> probabilities;
   for (auto p : categorical.getProbabilities()) {
     probabilities.push_back(p);
@@ -196,13 +197,23 @@ mlir::Value spnc::MLIRDeserializer::getInputValueByIndex(int index) {
   return inputs[index];
 }
 
+mlir::Value spnc::MLIRDeserializer::convertToSignlessInteger(mlir::Value value) {
+  if (value.getType().isSignlessInteger()) {
+    return value;
+  }
+  if (value.getType().isa<FloatType>()) {
+    return builder.create<mlir::FPToUIOp>(builder.getUnknownLoc(), value,
+                                          IntegerType::get(32, context.get()));
+  }
+  assert(false && "Expecting features to be either integer or floating-point type");
+}
+
 mlir::Value spnc::MLIRDeserializer::getValueForNode(int id) {
   if (!node2value.count(id)) {
     SPNC_FATAL_ERROR("No definition found for node with ID: ", id);
   }
   return node2value[id];
 }
-
 mlir::Type spnc::MLIRDeserializer::translateTypeString(const std::string& text) {
   std::smatch match;
   // Test for an integer type, given as [u]int(WIDTH).
@@ -212,7 +223,7 @@ mlir::Type spnc::MLIRDeserializer::translateTypeString(const std::string& text) 
     auto isUnsigned = match[1].length() != 0;
     // match[2] captures the width of the type.
     auto width = std::stoi(match[2]);
-    return builder.getIntegerType(width, !isUnsigned);
+    return IntegerType::get(width, context.get());
   }
   // Test for a floating-point type, given as float(WIDTH).
   std::regex floatRegex{R"(float([1-9]+))"};

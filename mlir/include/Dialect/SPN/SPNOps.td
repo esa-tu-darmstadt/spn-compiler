@@ -94,7 +94,7 @@ def HistogramOp : SPN_Op<"histogram",
         represented by a histogram.
     }];
 
-    let arguments = (ins AnyUnsignedInteger:$index, BucketListAttr:$buckets, UI32Attr:$bucketCount);
+    let arguments = (ins AnySignlessInteger:$index, BucketListAttr:$buckets, UI32Attr:$bucketCount);
 
     let results = (outs AnyProbabilityType);
 
@@ -117,7 +117,7 @@ def CategoricalOp : SPN_Op<"categorical",
         Univariate categorical leaf distribution.
     }];
 
-    let arguments = (ins AnyUnsignedInteger:$index, F64ArrayAttr:$probabilities);
+    let arguments = (ins AnySignlessInteger:$index, F64ArrayAttr:$probabilities);
 
     let results = (outs AnyProbabilityType);
 
