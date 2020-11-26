@@ -2,7 +2,7 @@ import os
 
 from spn.structure.Base import Product, Sum
 from spn.structure.leaves.histogram.Histograms import Histogram
-from spn.structure.leaves.parametric.Parametric import Categorical
+from spn.structure.leaves.parametric.Parametric import Categorical, Gaussian
 from spn.structure.Base import get_number_of_nodes,get_number_of_edges
 from xspn.serialization.binary.BinarySerialization import BinarySerializer, BinaryDeserializer
 from xspn.structure.Model import SPNModel
@@ -79,3 +79,39 @@ def test_categorical_leaf_serialization(tmpdir):
     assert len(c2.p) == len(deserialized.children[1].p)
     for i,p in enumerate(c2.p):
         assert p == deserialized.children[1].p[i]
+
+def test_gaussian_leaf_serialization(tmpdir):
+    """Tests the binary serialization of two SPFlow Gaussian leaf nodes
+    by round-tripping and comparing the parameters before and after serialization
+    & deserialization"""
+    g1 = Gaussian(mean=0.5, stdev=1, scope=0)
+    g2 = Gaussian(mean=0.125, stdev=0.25, scope=1)
+    p = Product(children=[g1, g2])
+
+    binary_file = os.path.join(tmpdir, "test.bin")
+    print(f"Test binary file: {binary_file}")
+
+    model = SPNModel(p, "float32", "test")
+    query = JointProbability(model)
+
+    BinarySerializer(binary_file).serialize_to_file(query)
+
+    deserialized = BinaryDeserializer(binary_file).deserialize_from_file()
+
+    assert(isinstance(deserialized, JointProbability))
+    assert(isinstance(deserialized.graph, SPNModel))
+    assert(deserialized.graph.featureType == model.featureType)
+    assert(deserialized.graph.name == model.name)
+
+    deserialized = deserialized.graph.root
+
+    assert isinstance(deserialized, Product)
+    assert(len(deserialized.children) == 2)
+    gaussian1 = deserialized.children[0]
+    gaussian2 = deserialized.children[1]
+    assert(g1.scope == gaussian1.scope)
+    assert(g1.mean == gaussian1.mean)
+    assert(g1.stdev == gaussian1.stdev)
+    assert(g2.scope == gaussian2.scope)
+    assert(g2.mean == gaussian2.mean)
+    assert(g2.stdev == gaussian2.stdev)
