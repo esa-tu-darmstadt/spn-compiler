@@ -35,7 +35,7 @@ namespace spnc {
 
     std::shared_ptr<KernelInfo> kernelInfo;
 
-    Kernel kernel;
+    std::unique_ptr<Kernel> kernel;
 
     bool cached = false;
 

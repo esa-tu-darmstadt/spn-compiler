@@ -10,9 +10,7 @@ using namespace spnc;
 
 ClangKernelLinking::ClangKernelLinking(ActionWithOutput<ObjectFile>& _input,
                                        SharedObject outputFile, std::shared_ptr<KernelInfo> info)
-    : ActionSingleInput<ObjectFile, Kernel>(_input), outFile{std::move(outputFile)},
-      kernelInfo{std::move(info)},
-      kernel{outFile.fileName(), kernelInfo->kernelName, kernelInfo->queryType, kernelInfo->batchSize} {}
+    : ActionSingleInput<ObjectFile, Kernel>(_input), outFile{std::move(outputFile)}, kernelInfo{std::move(info)} {}
 
 Kernel& ClangKernelLinking::execute() {
   if (!cached) {
@@ -26,8 +24,10 @@ Kernel& ClangKernelLinking::execute() {
     command.push_back(outFile.fileName());
     command.push_back(input.execute().fileName());
     Command::executeExternalCommand(command);
+    kernel = std::make_unique<Kernel>(outFile.fileName(), kernelInfo->kernelName,
+                                      kernelInfo->queryType, kernelInfo->batchSize);
     cached = true;
   }
-  return kernel;
+  return *kernel;
 }
 
