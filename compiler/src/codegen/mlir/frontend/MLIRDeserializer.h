@@ -47,7 +47,7 @@ namespace spnc {
 
     mlir::spn::HistogramOp deserializeHistogram(HistogramLeaf::Reader&& histogram);
 
-    void deserializeGaussian(GaussianLeaf::Reader&& gaussian);
+    mlir::spn::GaussianOp deserializeGaussian(GaussianLeaf::Reader&& gaussian);
 
     mlir::spn::CategoricalOp deserializeCaterogical(CategoricalLeaf::Reader&& categorical);
 

@@ -76,7 +76,6 @@ void spnc::MLIRDeserializer::deserializeJointQuery(JointProbability::Reader&& qu
   }
   builder.setInsertionPointToStart(module->getBody());
   auto numFeatures = query.getModel().getNumFeatures();
-  std::cout << "Number of features: " << numFeatures << std::endl;
   auto numFeaturesAttr = builder.getUI32IntegerAttr(numFeatures);
   auto featureType = translateTypeString(query.getModel().getFeatureType());
   auto featureTypeAttr = TypeAttr::get(featureType);
@@ -130,12 +129,14 @@ void spnc::MLIRDeserializer::deserializeNode(Node::Reader& node) {
       break;
     case Node::HIST: op = deserializeHistogram(node.getHist());
       break;
-    case Node::GAUSSIAN: SPNC_FATAL_ERROR("Gaussian leaf nodes not yet supported");
+    case Node::GAUSSIAN: op = deserializeGaussian(node.getGaussian());
+      break;
     case Node::CATEGORICAL: op = deserializeCaterogical(node.getCategorical());
       break;
     default: SPNC_FATAL_ERROR("Unsupported node type ", node.toString().flatten().cStr());
   }
   // Add mapping from unique node ID to operation/value.
+  assert(op);
   node2value[node.getId()] = op;
 }
 
@@ -181,6 +182,11 @@ mlir::spn::CategoricalOp spnc::MLIRDeserializer::deserializeCaterogical(Categori
     probabilities.push_back(p);
   }
   return builder.create<CategoricalOp>(builder.getUnknownLoc(), indexVar, probabilities);
+}
+
+mlir::spn::GaussianOp spnc::MLIRDeserializer::deserializeGaussian(GaussianLeaf::Reader&& gaussian) {
+  auto indexVar = getInputValueByIndex(gaussian.getScope());
+  return builder.create<GaussianOp>(builder.getUnknownLoc(), indexVar, gaussian.getMean(), gaussian.getStddev());
 }
 
 mlir::Value spnc::MLIRDeserializer::getInputValueByIndex(int index) {
