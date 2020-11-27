@@ -47,11 +47,15 @@ namespace spnc {
 
     mlir::spn::HistogramOp deserializeHistogram(HistogramLeaf::Reader&& histogram);
 
-    void deserializeGaussian(GaussianLeaf::Reader&& gaussian);
+    mlir::spn::GaussianOp deserializeGaussian(GaussianLeaf::Reader&& gaussian);
 
-    void deserializeCaterogical(CategoricalLeaf::Reader&& categorical);
+    mlir::spn::CategoricalOp deserializeCaterogical(CategoricalLeaf::Reader&& categorical);
 
     mlir::Value getValueForNode(int id);
+
+    mlir::Value getInputValueByIndex(int index);
+
+    mlir::Value convertToSignlessInteger(mlir::Value value);
 
     mlir::Type translateTypeString(const std::string& text);
 

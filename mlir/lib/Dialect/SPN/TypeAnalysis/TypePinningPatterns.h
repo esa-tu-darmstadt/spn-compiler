@@ -49,6 +49,24 @@ namespace mlir {
     };
 
     ///
+    /// Rewrite Categorical leaf to use actual datatype instead of
+    /// abstract SPN probability value type.
+    struct TypePinCategorical : public TypePinningPattern<CategoricalOp> {
+      using TypePinningPattern<CategoricalOp>::TypePinningPattern;
+
+      LogicalResult matchAndRewrite(CategoricalOp op, PatternRewriter& rewriter) const override;
+    };
+
+    ///
+    /// Rewrite Gaussian leaf to use actual datatype instead of
+    /// abstract SPN probability value type.
+    struct TypePinGaussian : public TypePinningPattern<GaussianOp> {
+      using TypePinningPattern<GaussianOp>::TypePinningPattern;
+
+      LogicalResult matchAndRewrite(GaussianOp op, PatternRewriter& rewriter) const override;
+    };
+
+    ///
     /// Template to rewrite n-ary arithmetic operation to use actual datatype instead of abstract
     /// SPN probability value type.
     template<typename NAryOp>

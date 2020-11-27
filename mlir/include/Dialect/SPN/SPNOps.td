@@ -94,7 +94,7 @@ def HistogramOp : SPN_Op<"histogram",
         represented by a histogram.
     }];
 
-    let arguments = (ins AnyUnsignedInteger:$index, BucketListAttr:$buckets, UI32Attr:$bucketCount);
+    let arguments = (ins AnySignlessInteger:$index, BucketListAttr:$buckets, UI32Attr:$bucketCount);
 
     let results = (outs AnyProbabilityType);
 
@@ -103,6 +103,51 @@ def HistogramOp : SPN_Op<"histogram",
     let builders = [
         OpBuilderDAG<(ins "Value":$indexVal, "llvm::ArrayRef<std::tuple<int, int, double>>":$buckets)>
     ];
+}
+
+///
+/// Categorical distribution as SPN leaf node.
+///
+def CategoricalOp : SPN_Op<"categorical",
+    [NoSideEffect, DeclareOpInterfaceMethods<LeafNodeInterface>]> {
+
+    let summary = "categorical leaf distribution";
+
+    let description = [{
+        Univariate categorical leaf distribution.
+    }];
+
+    let arguments = (ins AnySignlessInteger:$index, F64ArrayAttr:$probabilities);
+
+    let results = (outs AnyProbabilityType);
+
+    let verifier = [{ return ::mlir::spn::verify(*this); }];
+
+    let builders = [
+        OpBuilderDAG<(ins "Value":$indexVal, "llvm::ArrayRef<double>":$probabilities)>
+    ];
+}
+
+///
+/// Gaussian distribution as SPN leaf node.
+///
+def GaussianOp : SPN_Op<"gaussian",
+    [NoSideEffect, DeclareOpInterfaceMethods<LeafNodeInterface>]> {
+
+    let summary = "Gaussian leaf distribution";
+
+    let description = [{
+        Univariate Gaussian leaf distribution.
+    }];
+
+    let arguments = (ins AnyFloat:$index, F64Attr:$mean, F64Attr:$stddev);
+
+    let results = (outs AnyProbabilityType);
+
+    let builders = [
+        OpBuilderDAG<(ins "Value":$indexVal, "double":$mean, "double":$stddev)>
+    ];
+
 }
 
 ///

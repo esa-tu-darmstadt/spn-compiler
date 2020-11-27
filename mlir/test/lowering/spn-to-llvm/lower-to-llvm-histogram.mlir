@@ -3,10 +3,10 @@
 module {
 
   "spn.joint_query"() ( {
-     ^bb0(%arg0: ui32): // no predecessors
-      %0 = "spn.histogram"(%arg0) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}]} : (ui32) -> !spn.probability
+     ^bb0(%arg0: i32): // no predecessors
+      %0 = "spn.histogram"(%arg0) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}]} : (i32) -> !spn.probability
       "spn.return"(%0) : (!spn.probability) -> ()
-  }) {batchSize = 1 : ui32, errorModel = 1 : i32, inputType = ui32, kernelName = "spn_kernel", maxError = 2.000000e-02 : f64, numFeatures = 1 : ui32} : () -> ()
+  }) {batchSize = 1 : ui32, errorModel = 1 : i32, inputType = i32, kernelName = "spn_kernel", maxError = 2.000000e-02 : f64, numFeatures = 1 : ui32} : () -> ()
 
 }
 
@@ -26,5 +26,8 @@ module {
 // CHECK: %[[#GEP:]] = llvm.getelementptr %[[#ADDRESS]][%[[#CONST0]], %[[#INPUT]]]
 // CHECK-NEXT: %[[#HIST_VAL:]] = llvm.load %[[#GEP]]
 // CHECK-NOT: llvm.load
-// CHECK-DAG: llvm.store %[[#HIST_VAL]]
+// CHECK-NOT: llvm.store
+// CHECK-DAG: %[[#LOG_VAL:]] = "llvm.intr.log"(%[[#HIST_VAL]])
+// CHECK-NOT: llvm.store
+// CHECK-DAG: llvm.store %[[#LOG_VAL]]
 // CHECK-NEXT: llvm.return

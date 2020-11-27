@@ -11,9 +11,6 @@
 mlir::LogicalResult mlir::spn::HistogramOpLowering::matchAndRewrite(mlir::spn::HistogramOp op,
                                                                     llvm::ArrayRef<mlir::Value> operands,
                                                                     mlir::ConversionPatternRewriter& rewriter) const {
-  // Simple count for unique naming of global arrays.
-  static int histCount = 0;
-
   // Check for single operand, i.e. the index value.
   assert(operands.size() == 1);
 
@@ -63,31 +60,15 @@ mlir::LogicalResult mlir::spn::HistogramOpLowering::matchAndRewrite(mlir::spn::H
     }
   }
 
-  // The MLIR to LLVM bridge can only handle ElementsAttr for arrays, so construct one here
-  auto rankedType = RankedTensorType::get({values.size()}, resultType);
-  auto valArrayAttr = DenseElementsAttr::get(rankedType, valArray);
+  return replaceOpWithGlobalArrayLoad<HistogramOp>(op, rewriter, *typeConverter, operands[0], valArray);
+}
 
-  // Create & insert a constant global array with the values from the histogram.
-  auto elementType = typeConverter->convertType(resultType).dyn_cast<mlir::LLVM::LLVMType>();
-  assert(elementType);
-  auto arrType = LLVM::LLVMType::getArrayTy(elementType, maxUB);
-  auto module = op.getParentOfType<ModuleOp>();
-  auto restore = rewriter.saveInsertionPoint();
-  rewriter.setInsertionPointToStart(module.getBody());
-  auto globalConst = rewriter.create<LLVM::GlobalOp>(op.getLoc(),
-                                                     arrType,
-                                                     true,
-                                                     LLVM::Linkage::Internal,
-                                                     "hist_" + std::to_string(histCount++),
-                                                     valArrayAttr);
-  rewriter.restoreInsertionPoint(restore);
+mlir::LogicalResult mlir::spn::CategoricalOpLowering::matchAndRewrite(mlir::spn::CategoricalOp op,
+                                                                      llvm::ArrayRef<mlir::Value> operands,
+                                                                      mlir::ConversionPatternRewriter& rewriter) const {
+  // Check for single operand, i.e., the index value.
+  assert(operands.size() == 1);
 
-  // Load a value from the histogram using the index value to index into the histogram.
-  auto addressOf = rewriter.create<LLVM::AddressOfOp>(op.getLoc(), globalConst);
-  auto indexType = LLVM::LLVMType::getInt64Ty(rewriter.getContext());
-  auto constZeroIndex = rewriter.create<LLVM::ConstantOp>(op.getLoc(), indexType, rewriter.getI64IntegerAttr(0));
-  auto ptrType = elementType.getPointerTo();
-  auto gep = rewriter.create<LLVM::GEPOp>(op.getLoc(), ptrType, addressOf, ValueRange{constZeroIndex, operands[0]});
-  rewriter.replaceOpWithNewOp<LLVM::LoadOp>(op, gep);
-  return success();
+  return replaceOpWithGlobalArrayLoad<CategoricalOp>(op, rewriter, *typeConverter,
+                                                     operands[0], op.probabilitiesAttr().getValue());
 }

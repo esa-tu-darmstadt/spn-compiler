@@ -13,6 +13,7 @@
 #include <regex>
 #include <mlir/IR/Verifier.h>
 #include "mlir/IR/StandardTypes.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "Kernel.h"
 
 using namespace capnp;
@@ -76,7 +77,6 @@ void spnc::MLIRDeserializer::deserializeJointQuery(JointProbability::Reader&& qu
   }
   builder.setInsertionPointToStart(module->getBody());
   auto numFeatures = query.getModel().getNumFeatures();
-  std::cout << "Number of features: " << numFeatures << std::endl;
   auto numFeaturesAttr = builder.getUI32IntegerAttr(numFeatures);
   auto featureType = translateTypeString(query.getModel().getFeatureType());
   auto featureTypeAttr = TypeAttr::get(featureType);
@@ -130,11 +130,14 @@ void spnc::MLIRDeserializer::deserializeNode(Node::Reader& node) {
       break;
     case Node::HIST: op = deserializeHistogram(node.getHist());
       break;
-    case Node::GAUSSIAN: SPNC_FATAL_ERROR("Gaussian leaf nodes not yet supported");
-    case Node::CATEGORICAL: SPNC_FATAL_ERROR("Categorical leaf nodes not yet supported");
+    case Node::GAUSSIAN: op = deserializeGaussian(node.getGaussian());
+      break;
+    case Node::CATEGORICAL: op = deserializeCaterogical(node.getCategorical());
+      break;
     default: SPNC_FATAL_ERROR("Unsupported node type ", node.toString().flatten().cStr());
   }
   // Add mapping from unique node ID to operation/value.
+  assert(op);
   node2value[node.getId()] = op;
 }
 
@@ -159,11 +162,7 @@ mlir::spn::ProductOp spnc::MLIRDeserializer::deserializeProduct(ProductNode::Rea
 }
 
 mlir::spn::HistogramOp spnc::MLIRDeserializer::deserializeHistogram(HistogramLeaf::Reader&& histogram) {
-  if (!inputs.count(histogram.getScope())) {
-    std::cout << (histogram.getScope() - 1) << std::endl;
-    SPNC_FATAL_ERROR("Histograms references unknown feature!")
-  }
-  auto indexVar = inputs[histogram.getScope()];
+  Value indexVar = convertToSignlessInteger(getInputValueByIndex(histogram.getScope()));
   auto breaks = histogram.getBreaks();
   auto densities = histogram.getDensities();
   SmallVector<bucket_t, 256> buckets;
@@ -177,13 +176,44 @@ mlir::spn::HistogramOp spnc::MLIRDeserializer::deserializeHistogram(HistogramLea
   return builder.create<HistogramOp>(builder.getUnknownLoc(), indexVar, buckets);
 }
 
+mlir::spn::CategoricalOp spnc::MLIRDeserializer::deserializeCaterogical(CategoricalLeaf::Reader&& categorical) {
+  auto indexVar = convertToSignlessInteger(getInputValueByIndex(categorical.getScope()));
+  SmallVector<double, 10> probabilities;
+  for (auto p : categorical.getProbabilities()) {
+    probabilities.push_back(p);
+  }
+  return builder.create<CategoricalOp>(builder.getUnknownLoc(), indexVar, probabilities);
+}
+
+mlir::spn::GaussianOp spnc::MLIRDeserializer::deserializeGaussian(GaussianLeaf::Reader&& gaussian) {
+  auto indexVar = getInputValueByIndex(gaussian.getScope());
+  return builder.create<GaussianOp>(builder.getUnknownLoc(), indexVar, gaussian.getMean(), gaussian.getStddev());
+}
+
+mlir::Value spnc::MLIRDeserializer::getInputValueByIndex(int index) {
+  if (!inputs.count(index)) {
+    SPNC_FATAL_ERROR("Leaf node references unknown feature!")
+  }
+  return inputs[index];
+}
+
+mlir::Value spnc::MLIRDeserializer::convertToSignlessInteger(mlir::Value value) {
+  if (value.getType().isSignlessInteger()) {
+    return value;
+  }
+  if (value.getType().isa<FloatType>()) {
+    return builder.create<mlir::FPToUIOp>(builder.getUnknownLoc(), value,
+                                          IntegerType::get(32, context.get()));
+  }
+  assert(false && "Expecting features to be either integer or floating-point type");
+}
+
 mlir::Value spnc::MLIRDeserializer::getValueForNode(int id) {
   if (!node2value.count(id)) {
     SPNC_FATAL_ERROR("No definition found for node with ID: ", id);
   }
   return node2value[id];
 }
-
 mlir::Type spnc::MLIRDeserializer::translateTypeString(const std::string& text) {
   std::smatch match;
   // Test for an integer type, given as [u]int(WIDTH).
@@ -193,7 +223,7 @@ mlir::Type spnc::MLIRDeserializer::translateTypeString(const std::string& text) 
     auto isUnsigned = match[1].length() != 0;
     // match[2] captures the width of the type.
     auto width = std::stoi(match[2]);
-    return builder.getIntegerType(width, !isUnsigned);
+    return IntegerType::get(width, context.get());
   }
   // Test for a floating-point type, given as float(WIDTH).
   std::regex floatRegex{R"(float([1-9]+))"};

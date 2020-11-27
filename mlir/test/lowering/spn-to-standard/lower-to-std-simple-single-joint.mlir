@@ -23,8 +23,9 @@ module {
 // CHECK-NEXT: load %arg[[#ARG1]][%c[[#CONST1]]] : memref<2xui32>
 // CHECK-NEXT: %[[CONSTANT:[a-zA-Z_][a-zA-Z0-9_]*]]
 // CHECK-SAME: constant 5.000000e-01 : f64
+// CHECK-NEXT: %[[#LOG_VAL:]] = log %[[CONSTANT]]
 // CHECK-NEXT: %[[INDEX:[a-zA-Z_][a-zA-Z0-9_]*]]
 // CHECK-SAME: constant 0 : index
-// CHECK-NEXT: store %[[CONSTANT]], %arg[[#ARG2]][%[[INDEX]]] : memref<1xf64>
+// CHECK-NEXT: store %[[#LOG_VAL]], %arg[[#ARG2]][%[[INDEX]]] : memref<1xf64>
 
 
