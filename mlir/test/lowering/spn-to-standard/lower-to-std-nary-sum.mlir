@@ -48,7 +48,9 @@ module {
 // CHECK-DAG: [[SUM_2]]
 
 // CHECK-NOT: addf
-// CHECK-DAG: store [[SUM_FINAL]], %arg[[#ARG2]]
+// CHECK-DAG: %[[#LOG_VAL:]] = log [[SUM_FINAL]]
+// CHECK-NOT: store
+// CHECK-DAG: store %[[#LOG_VAL]], %arg[[#ARG2]]
 // CHECK-NEXT: return
 
 

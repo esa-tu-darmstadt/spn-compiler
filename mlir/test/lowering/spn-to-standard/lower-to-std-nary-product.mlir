@@ -48,7 +48,9 @@ module {
 // CHECK-DAG: [[PRODUCT_2]]
 
 // CHECK-NOT: mulf
-// CHECK-DAG: store [[PRODUCT_FINAL]], %arg[[#ARG2]]
+// CHECK-DAG: %[[#LOG_VAL:]] = log [[PRODUCT_FINAL]]
+// CHECK-NOT: store
+// CHECK-DAG: store %[[#LOG_VAL]], %arg[[#ARG2]]
 // CHECK-NEXT: return
 
 

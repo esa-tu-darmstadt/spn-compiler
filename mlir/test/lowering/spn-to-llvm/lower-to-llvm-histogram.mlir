@@ -26,5 +26,8 @@ module {
 // CHECK: %[[#GEP:]] = llvm.getelementptr %[[#ADDRESS]][%[[#CONST0]], %[[#INPUT]]]
 // CHECK-NEXT: %[[#HIST_VAL:]] = llvm.load %[[#GEP]]
 // CHECK-NOT: llvm.load
-// CHECK-DAG: llvm.store %[[#HIST_VAL]]
+// CHECK-NOT: llvm.store
+// CHECK-DAG: %[[#LOG_VAL:]] = "llvm.intr.log"(%[[#HIST_VAL]])
+// CHECK-NOT: llvm.store
+// CHECK-DAG: llvm.store %[[#LOG_VAL]]
 // CHECK-NEXT: llvm.return
