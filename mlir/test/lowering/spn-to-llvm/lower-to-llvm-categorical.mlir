@@ -8,6 +8,9 @@ module {
   }) {batchSize = 1 : ui32, errorModel = 1 : i32, inputType = i8, kernelName = "test", maxError = 2.000000e-02 : f64, numFeatures = 1 :ui32} : () -> ()
 }
 
+// Categorical distributions get lowered to a global constant array in LLVM dialect, from which values will be loaded,
+// using the input feature value as index.
+
 // CHECK-LABEL: llvm.mlir.global
 // CHECK-SAME: constant [[CATEGORICAL:@[a-zA-Z][a-zA-Z0-9_]*]]
 // CHECK-SAME: dense<[3.500000e-01, 5.500000e-01, 1.000000e-01]> : tensor<3xf64>
