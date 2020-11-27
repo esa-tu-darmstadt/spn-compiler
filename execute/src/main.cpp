@@ -27,21 +27,27 @@ int main(int argc, char* argv[]) {
   // If the mini-example or the categorical-example is fed to the compiler, the compiled kernel can be executed
   // using the following lines of code.
   // The expected results for mini-example are
-  // 0.235875
-  // 0.070125
-  // 0.511625
-  // 0.182375
+  // -1.44445
+  // -2.65748
+  // -0.670163
+  // -1.70169
   // The expected results for categorical-example are
-  // 0.0875
-  // 0.21875
-  // 0.1375
-  // 0.34375
-  //
+  // -2.43612
+  // -1.51983
+  // -1.98413
+  // -1.06784
+  // The expected results for gaussian-example are
+  // -0.451583
+  // -1.6469
+  // -0.607833
+  // -0.646895
   // Use the following input for mini-example:
   // int a[]{0, 0, 0, 1, 1, 0, 1, 1};
   // Use the following input for categorical-example:
-  //char a[]{0, 0, 0, 1, 1, 0, 1, 1};
-  /*for(int i = 0; i < 4; ++i){
+  // char a[]{0, 0, 0, 1, 1, 0, 1, 1};
+  // Use the following input for gaussian-example:
+  /*float a[]{0.5, 0.125, 0.125, 0.5, 0.25, 0.25, 0.325, 0.275};
+  for(int i = 0; i < 4; ++i){
     double b[1];
     spnc_rt::spn_runtime::instance().execute(parseResult, 5, &a[i*2], b);
     std::cout << b[0] << std::endl;

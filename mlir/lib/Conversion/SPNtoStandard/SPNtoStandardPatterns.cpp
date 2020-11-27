@@ -99,9 +99,12 @@ mlir::LogicalResult mlir::spn::SingleJointLowering::matchAndRewrite(mlir::spn::J
   }
   rewriter.mergeBlocks(&op.getRegion().front(), funcEntryBlock, blockArgsReplacement);
   rewriter.setInsertionPointToEnd(funcEntryBlock);
+  // Apply logarithm to result before storing it
+  auto logResult = rewriter.create<mlir::LogOp>(op.getLoc(), graphResult.retValue().front());
+  // Store the log-result to the output pointer.
   SmallVector<Value, 1> indices;
   indices.push_back(rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0)));
-  rewriter.create<mlir::StoreOp>(op.getLoc(), graphResult.retValue().front(),
+  rewriter.create<mlir::StoreOp>(op.getLoc(), logResult,
                                  replaceFunc.getArgument(1), indices);
   rewriter.create<mlir::ReturnOp>(op.getLoc());
   rewriter.eraseOp(graphResult);
