@@ -7,6 +7,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/IR/Attributes.h"
+#include "SPN/Analysis/SPNErrorEstimation.h"
 #include "SPN/SPNPasses.h"
 #include "SPNPassDetails.h"
 #include "../TypeAnalysis/TypePinningPatterns.h"
@@ -22,8 +23,11 @@ namespace {
     void runOnOperation() override {
       OwningRewritePatternList patterns;
       auto* context = &getContext();
-      // TODO Currently just uses F64 type, choose actual best type based on error analysis.
-      auto pinnedType = Float64Type::get(context);
+      // TODO Confirm that actual best type based on error analysis is chosen.
+      auto analysis = getAnalysis<SPNErrorEstimation>();
+      auto pinnedType = analysis.getOptimalType();
+      // ToDo: Remove debug dump
+      pinnedType.dump();
       patterns.insert<TypePinConstant>(context, pinnedType);
       patterns.insert<TypePinHistogram, TypePinWeightedSum, TypePinProduct, TypePinSum>(context, pinnedType);
       auto op = getOperation();

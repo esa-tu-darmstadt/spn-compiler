@@ -9,11 +9,9 @@
 #include <map>
 #include <memory>
 #include <tuple>
-#include <driver/Actions.h>
 #include <mlir/IR/Module.h>
 #include <mlir/IR/Types.h>
 #include <mlir/IR/StandardTypes.h>
-#include <util/Logging.h>
 #include "SPN/SPNOps.h"
 
 typedef std::shared_ptr<void> arg_t;
@@ -38,7 +36,7 @@ namespace mlir {
       /// \param err_relative Boolean which indicates if relative (true) or absolute (false) error will be considered.
       /// \param err_margin Double which will determine the maximum error-bound.
       explicit SPNErrorEstimation(Operation* root, ERRORMODEL err_model = ERRORMODEL::EM_FLOATING_POINT,
-                                  bool err_relative = false, double err_margin = std::numeric_limits<double>::min());
+                                  bool err_relative = false, double err_margin = 0.0625);
 
       /// Retrieve the smallest type of the corresponding error model which can represent the SPN result within the
       /// given error margin -OR- if not possible: the biggest type available (e.g. Float64Type).
@@ -55,7 +53,7 @@ namespace mlir {
       /// \param subgraphRoot Pointer to the defining operation, representing a SPN node.
       void traverseSubgraph(Operation* subgraphRoot);
 
-      /// Process minimum and maximum node values to estimate the least amount of magnitude bits.
+      /// Process minimum and maximum node values to estimate the least amount of magnitude (Integer / Exponent) bits.
       void estimateLeastMagnitudeBits();
 
       /// Check the error requirements .
@@ -130,15 +128,15 @@ namespace mlir {
       /// Calculation EPSILON.
       double EPS = 0.0;
 
-      /// Calculation error coefficient, based on EPS.
+      /// Calculation error coefficient: 1 + EPSILON.
       double ERR_COEFFICIENT = 1.0;
 
       /// For each operation store values: { accurate, defective, max, min, max_subtree_depth }
       std::map<mlir::Operation*, std::tuple<double, double, double, double, int>> spn_node_values;
 
       /// The global extreme-values of the SPN are used when determining the needed I(nteger) / E(xponent) values
-      double spn_node_value_global_maximum = std::numeric_limits<double>::min();
-      double spn_node_value_global_minimum = std::numeric_limits<double>::max();
+      double spn_node_value_global_maximum = std::numeric_limits<float>::min();
+      double spn_node_value_global_minimum = std::numeric_limits<float>::max();
 
       /// Current format information: "Fraction / Mantissa"
       int format_bits_significance = std::numeric_limits<int>::min();
@@ -149,11 +147,11 @@ namespace mlir {
       /// 0: Significance / "Fraction / Mantissa"
       /// 1: Magnitude / "Integer / Exponent"
       /// 2: mlir::Type
-      std::tuple<int, int, Type> Float_Formats[NUM_FLOAT_FORMATS] = {
-          {10, 5, Float16Type()},
-          {7, 8, BFloat16Type()},
-          {23, 8, Float32Type()},
-          {52, 11, Float64Type()}
+      std::tuple<int, int, std::function<Type(MLIRContext*)>> Float_Formats[NUM_FLOAT_FORMATS] = {
+          {10, 5, Float16Type::get},
+          {7, 8, BFloat16Type::get},
+          {23, 8, Float32Type::get},
+          {52, 11, Float64Type::get}
       };
 
     };
