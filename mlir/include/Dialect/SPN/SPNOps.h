@@ -11,6 +11,7 @@
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/IR/RegionKindInterface.h"
 #include "SPN/SPNInterfaces.h"
+#include "SPN/SPNEnums.h"
 
 #define GET_OP_CLASSES
 #include "SPN/SPNOps.h.inc"

@@ -94,7 +94,7 @@ def HistogramOp : SPN_Op<"histogram",
         represented by a histogram.
     }];
 
-    let arguments = (ins AnyUnsignedInteger:$index, BucketListAttr:$buckets, UI32Attr:$bucketCount);
+    let arguments = (ins AnySignlessInteger:$index, BucketListAttr:$buckets, UI32Attr:$bucketCount);
 
     let results = (outs AnyProbabilityType);
 
@@ -103,6 +103,51 @@ def HistogramOp : SPN_Op<"histogram",
     let builders = [
         OpBuilderDAG<(ins "Value":$indexVal, "llvm::ArrayRef<std::tuple<int, int, double>>":$buckets)>
     ];
+}
+
+///
+/// Categorical distribution as SPN leaf node.
+///
+def CategoricalOp : SPN_Op<"categorical",
+    [NoSideEffect, DeclareOpInterfaceMethods<LeafNodeInterface>]> {
+
+    let summary = "categorical leaf distribution";
+
+    let description = [{
+        Univariate categorical leaf distribution.
+    }];
+
+    let arguments = (ins AnySignlessInteger:$index, F64ArrayAttr:$probabilities);
+
+    let results = (outs AnyProbabilityType);
+
+    let verifier = [{ return ::mlir::spn::verify(*this); }];
+
+    let builders = [
+        OpBuilderDAG<(ins "Value":$indexVal, "llvm::ArrayRef<double>":$probabilities)>
+    ];
+}
+
+///
+/// Gaussian distribution as SPN leaf node.
+///
+def GaussianOp : SPN_Op<"gaussian",
+    [NoSideEffect, DeclareOpInterfaceMethods<LeafNodeInterface>]> {
+
+    let summary = "Gaussian leaf distribution";
+
+    let description = [{
+        Univariate Gaussian leaf distribution.
+    }];
+
+    let arguments = (ins AnyFloat:$index, F64Attr:$mean, F64Attr:$stddev);
+
+    let results = (outs AnyProbabilityType);
+
+    let builders = [
+        OpBuilderDAG<(ins "Value":$indexVal, "double":$mean, "double":$stddev)>
+    ];
+
 }
 
 ///
@@ -151,21 +196,33 @@ def ConstantOp : SPN_Op<"constant", [NoSideEffect]> {
 
 }
 
+def AbsoluteErrorAttr : I32EnumAttrCase<"absolute_error", 1>;
+def RelativeErrorAttr : I32EnumAttrCase<"relative_error", 2>;
+def ErrorModelAttr : I32EnumAttr<"error_model", "Arithmetic error kind", [AbsoluteErrorAttr, RelativeErrorAttr]> {
+    let cppNamespace = "mlir::spn";
+}
+
 ///
 /// Single joint probability evaluation, holds the graph as region of this operation.
 ///
-def SingleJointQuery : SPN_Op<"single_joint",
+def JointQuery : SPN_Op<"joint_query",
     [IsolatedFromAbove, DeclareOpInterfaceMethods<RegionKindInterface>, DeclareOpInterfaceMethods<QueryInterface>]> {
 
-    let summary = "Single joint probability computation";
+    let summary = "Joint probability computation";
 
     let description = [{
-        Represents a single joint probability computation by bottom-up evaluation of the
+        Represents a joint probability computation by bottom-up evaluation of the
         SPN-graph.
         The single region associated with this operation represents the the SPN graph.
     }];
 
-    let arguments = (ins UI32Attr:$numFeatures, TypeAttr:$inputType, SymbolNameAttr:$kernelName);
+    let arguments = (ins UI32Attr:$numFeatures,
+                    TypeAttr:$inputType,
+                    SymbolNameAttr:$kernelName,
+                    UI32Attr:$batchSize,
+                    ErrorModelAttr:$errorModel,
+                    F64Attr:$maxError
+                    );
 
     let regions = (region SizedRegion<1>:$graph);
 

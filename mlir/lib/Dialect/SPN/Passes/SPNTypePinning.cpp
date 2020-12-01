@@ -29,7 +29,8 @@ namespace {
       // ToDo: Remove debug dump
       pinnedType.dump();
       patterns.insert<TypePinConstant>(context, pinnedType);
-      patterns.insert<TypePinHistogram, TypePinWeightedSum, TypePinProduct, TypePinSum>(context, pinnedType);
+      patterns.insert<TypePinHistogram, TypePinCategorical, TypePinGaussian>(context, pinnedType);
+      patterns.insert<TypePinWeightedSum, TypePinProduct, TypePinSum>(context, pinnedType);
       auto op = getOperation();
       FrozenRewritePatternList frozenPatterns(std::move(patterns));
       applyPatternsAndFoldGreedily(op.getBodyRegion(), frozenPatterns);

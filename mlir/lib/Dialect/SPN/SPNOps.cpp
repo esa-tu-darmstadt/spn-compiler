@@ -94,7 +94,22 @@ namespace mlir {
       return mlir::success();
     }
 
-    RegionKind mlir::spn::SingleJointQuery::getRegionKind(unsigned int index) {
+    //===----------------------------------------------------------------------===//
+    // CategoricalOp
+    //===----------------------------------------------------------------------===//
+
+    static mlir::LogicalResult verify(CategoricalOp op) {
+      double sum = 0.0;
+      for (auto p : op.probabilities().getAsRange<mlir::FloatAttr>()) {
+        sum += p.getValueAsDouble();
+      }
+      if (std::abs(sum - 1.0) > 1e-6) {
+        return op.emitOpError("Category probabilities should sum to 1.0");
+      }
+      return mlir::success();
+    }
+
+    RegionKind mlir::spn::JointQuery::getRegionKind(unsigned int index) {
       return RegionKind::Graph;
     }
 
@@ -196,6 +211,47 @@ unsigned int mlir::spn::HistogramOp::getFeatureIndex() {
 }
 
 //===----------------------------------------------------------------------===//
+// CategoricalOp
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::CategoricalOp::build(::mlir::OpBuilder& odsBuilder,
+                                     ::mlir::OperationState& odsState,
+                                     Value indexVal,
+                                     llvm::ArrayRef<double> probabilities) {
+  auto floatArrayAttr = odsBuilder.getF64ArrayAttr(probabilities);
+  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), indexVal, floatArrayAttr);
+}
+
+unsigned int mlir::spn::CategoricalOp::getFeatureIndex() {
+  if (auto blockArg = index().dyn_cast<BlockArgument>()) {
+    return blockArg.getArgNumber();
+  }
+  // Expecting the index to be a block argument.
+  assert(false);
+}
+
+//===----------------------------------------------------------------------===//
+// GaussianOp
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::GaussianOp::build(::mlir::OpBuilder& odsBuilder,
+                                  ::mlir::OperationState& odsState,
+                                  Value indexVal,
+                                  double mean,
+                                  double stddev) {
+  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), indexVal,
+        odsBuilder.getF64FloatAttr(mean), odsBuilder.getF64FloatAttr(stddev));
+}
+
+unsigned int mlir::spn::GaussianOp::getFeatureIndex() {
+  if (auto blockArg = index().dyn_cast<BlockArgument>()) {
+    return blockArg.getArgNumber();
+  }
+  // Expecting the index to be a block argument.
+  assert(false);
+}
+
+//===----------------------------------------------------------------------===//
 // ReturnOp
 //===----------------------------------------------------------------------===//
 
@@ -216,14 +272,26 @@ void mlir::spn::ConstantOp::build(::mlir::OpBuilder& odsBuilder, ::mlir::Operati
 // SingleJointQuery
 //===----------------------------------------------------------------------===//
 
-std::vector<Operation*> mlir::spn::SingleJointQuery::getRootNodes() {
+std::vector<Operation*> mlir::spn::JointQuery::getRootNodes() {
   // The graph (body region) has only a single block,
   // its terminator is the rootNode (result) of the graph.
   return {this->graph().front().getTerminator()};
 }
 
-unsigned int mlir::spn::SingleJointQuery::getNumFeatures() {
+unsigned int mlir::spn::JointQuery::getNumFeatures() {
   return this->numFeatures();
+}
+
+unsigned int mlir::spn::JointQuery::getBatchSize() {
+  return this->batchSize();
+}
+
+mlir::spn::error_model mlir::spn::JointQuery::getErrorModel() {
+  return this->errorModel();
+}
+
+double mlir::spn::JointQuery::getMaxError() {
+  return this->maxError().convertToDouble();
 }
 
 #define GET_OP_CLASSES

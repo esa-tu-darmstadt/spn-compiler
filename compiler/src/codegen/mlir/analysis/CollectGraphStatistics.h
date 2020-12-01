@@ -8,7 +8,7 @@
 
 #include <driver/Actions.h>
 #include <driver/BaseActions.h>
-#include <frontend/json/json.hpp>
+#include <util/json.hpp>
 #include <mlir/IR/Module.h>
 #include <util/Logging.h>
 #include <SPN/Analysis/SPNGraphStatistics.h>

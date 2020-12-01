@@ -2,6 +2,7 @@ add_mlir_dialect_library(MLIRSPN
         SPNDialect.cpp
         SPNOps.cpp
         SPNAttributes.cpp
+        SPNEnums.cpp
         Analysis/SPNErrorEstimation.cpp
         Analysis/SPNNodeLevel.cpp
         Analysis/SPNGraphStatistics.cpp
@@ -18,6 +19,7 @@ add_mlir_dialect_library(MLIRSPN
         MLIRSPNOpsIncGen
         MLIRSPNAttributesIncGen
         MLIRSPNInterfacesIncGen
+        MLIRSPNEnumsIncGen
 
         LINK_LIBS PUBLIC
         MLIRIR

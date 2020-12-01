@@ -16,7 +16,7 @@ namespace py = pybind11;
 PYBIND11_MODULE(spncpy, m) {
 
   py::class_<Kernel>(m, "Kernel")
-      .def(py::init<const std::string&, const std::string&>())
+      .def(py::init<const std::string&, const std::string&, unsigned, unsigned>())
       .def("fileName", &Kernel::fileName)
       .def("kernelName", &Kernel::kernelName)
       .def("execute",
@@ -40,6 +40,6 @@ PYBIND11_MODULE(spncpy, m) {
 
   py::class_<spn_compiler>(m, "SPNCompiler")
       .def(py::init())
-      .def("parseJSONString", &spn_compiler::parseJSONString);
+      .def("compileQuery", &spn_compiler::compileQuery);
 
 }

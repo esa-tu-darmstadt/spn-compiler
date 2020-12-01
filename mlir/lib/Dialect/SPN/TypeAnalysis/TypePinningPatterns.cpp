@@ -22,6 +22,25 @@ mlir::LogicalResult mlir::spn::TypePinHistogram::matchAndRewrite(mlir::spn::Hist
   rewriter.replaceOpWithNewOp<HistogramOp>(op, newType, op.index(), op.bucketsAttr(), op.bucketCountAttr());
   return success();
 }
+
+mlir::LogicalResult mlir::spn::TypePinCategorical::matchAndRewrite(mlir::spn::CategoricalOp op,
+                                                                   mlir::PatternRewriter& rewriter) const {
+  if (!op.getResult().getType().isa<ProbabilityType>()) {
+    return failure();
+  }
+  rewriter.replaceOpWithNewOp<CategoricalOp>(op, newType, op.index(), op.probabilitiesAttr());
+  return success();
+}
+
+mlir::LogicalResult mlir::spn::TypePinGaussian::matchAndRewrite(mlir::spn::GaussianOp op,
+                                                                mlir::PatternRewriter& rewriter) const {
+  if (!op.getResult().getType().isa<ProbabilityType>()) {
+    return failure();
+  }
+  rewriter.replaceOpWithNewOp<GaussianOp>(op, newType, op.index(), op.mean(), op.stddev());
+  return success();
+}
+
 mlir::LogicalResult mlir::spn::TypePinWeightedSum::matchAndRewrite(mlir::spn::WeightedSumOp op,
                                                                    mlir::PatternRewriter& rewriter) const {
   if (!op.getResult().getType().isa<ProbabilityType>()) {

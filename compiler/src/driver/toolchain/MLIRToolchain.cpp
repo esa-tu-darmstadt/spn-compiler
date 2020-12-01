@@ -6,8 +6,6 @@
 #include <util/FileSystem.h>
 #include <driver/BaseActions.h>
 #include <driver/GlobalOptions.h>
-#include <frontend/json/Parser.h>
-#include <codegen/mlir/codegen/MLIRCodeGen.h>
 #include <SPN/SPNDialect.h>
 #include <codegen/mlir/pipeline/SPNDialectPipeline.h>
 #include "codegen/mlir/conversion/SPNtoStandardConversion.h"
@@ -17,6 +15,7 @@
 #include <driver/action/LLVMWriteBitcode.h>
 #include <driver/action/LLVMStaticCompiler.h>
 #include <driver/action/ClangKernelLinking.h>
+#include <codegen/mlir/frontend/MLIRDeserializer.h>
 #include "MLIRToolchain.h"
 #include "mlir/InitAllDialects.h"
 
@@ -24,34 +23,18 @@ using namespace spnc;
 
 std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::string& inputFile,
                                                                   const Configuration& config) {
-  // Construct file input action.
-  auto fileInput = std::make_unique<FileInputAction>(inputFile);
-  return constructJob(std::move(fileInput), config);
-}
-
-std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromString(const std::string& inputString,
-                                                                    const Configuration& config) {
-  // Construct string input action.
-  auto stringInput = std::make_unique<StringInputAction>(inputString);
-  return constructJob(std::move(stringInput), config);
-}
-
-std::unique_ptr<Job<Kernel>> MLIRToolchain::constructJob(std::unique_ptr<ActionWithOutput<std::string>> input,
-                                                         const Configuration& config) {
   std::unique_ptr<Job<Kernel>> job = std::make_unique<Job<Kernel>>();
-  // Construct parser to parse JSON from input.
-  auto graphIRContext = std::make_shared<GraphIRContext>();
-  auto& parser = job->insertAction<Parser>(*input, graphIRContext);
   // Invoke MLIR code-generation on parsed tree.
-  std::string kernelName = "spn_kernel";
   auto ctx = std::make_shared<MLIRContext>();
+  auto kernelInfo = std::make_shared<KernelInfo>();
   mlir::registerAllDialects(ctx->getDialectRegistry());
   ctx->getDialectRegistry().insert<mlir::spn::SPNDialect>();
   ctx->loadDialect<mlir::spn::SPNDialect>();
   ctx->loadDialect<mlir::StandardOpsDialect>();
   ctx->loadDialect<mlir::LLVM::LLVMDialect>();
-  auto& mlirCodeGen = job->insertAction<MLIRCodeGen>(parser, kernelName, ctx);
-  auto& spnDialectPipeline = job->insertAction<SPNDialectPipeline>(mlirCodeGen, ctx);
+  BinarySPN binarySPNFile{inputFile, false};
+  auto& deserialized = job->insertAction<MLIRDeserializer>(std::move(binarySPNFile), ctx, kernelInfo);
+  auto& spnDialectPipeline = job->insertAction<SPNDialectPipeline>(deserialized, ctx);
   ActionWithOutput<ModuleOp>* spnPipelineResult = &spnDialectPipeline;
   // If requested via the configuration, collect graph statistics.
   if (spnc::option::collectGraphStats.get(config)) {
@@ -80,7 +63,7 @@ std::unique_ptr<Job<Kernel>> MLIRToolchain::constructJob(std::unique_ptr<ActionW
   auto sharedObject = FileSystem::createTempFile<FileType::SHARED_OBJECT>(false);
   SPDLOG_INFO("Compiling to shared object file {}", sharedObject.fileName());
   auto& linkSharedObject =
-      job->insertFinalAction<ClangKernelLinking>(compileObject, std::move(sharedObject), kernelName);
-  job->addAction(std::move(input));
+      job->insertFinalAction<ClangKernelLinking>(compileObject, std::move(sharedObject), kernelInfo);
+  //job->addAction(std::move(input));
   return std::move(job);
 }

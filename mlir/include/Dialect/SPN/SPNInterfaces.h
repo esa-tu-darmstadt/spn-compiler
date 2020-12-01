@@ -6,6 +6,8 @@
 #ifndef SPNC_MLIR_DIALECTS_INCLUDE_SPN_SPNINTERFACES_H
 #define SPNC_MLIR_DIALECTS_INCLUDE_SPN_SPNINTERFACES_H
 
+#include "SPNEnums.h"
+
 namespace mlir {
   namespace spn {
 #include "SPN/SPNInterfaces.h.inc"

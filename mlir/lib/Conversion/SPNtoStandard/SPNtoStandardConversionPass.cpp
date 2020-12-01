@@ -18,6 +18,7 @@ void mlir::spn::SPNtoStandardConversionPass::runOnOperation() {
 
   target.addIllegalDialect<SPNDialect>();
   target.addLegalOp<HistogramOp>();
+  target.addLegalOp<CategoricalOp>();
 
   OwningRewritePatternList patterns;
   mlir::spn::populateSPNtoStandardConversionPatterns(patterns, &getContext(), typeConverter);

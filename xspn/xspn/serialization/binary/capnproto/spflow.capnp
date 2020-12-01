@@ -57,3 +57,37 @@ struct Node {
         categorical @6 : CategoricalLeaf;
     }
 }
+
+struct Model {
+    rootNode @0 : Int32;
+    name @1 : Text;
+    featureType @2 : Text;
+    numFeatures @3 : Int32;
+    scope @4 : List(Int32);
+    nodes @5 : List(Node);
+}
+
+enum ErrorKind {
+    absolute @0;
+    relative @1;
+}
+
+struct JointProbability {
+    model @0 : Model;
+}
+
+struct Query {
+    batchSize @0 : Int32;
+    errorKind @1 : ErrorKind;
+    maxError  @2 : Float64;
+
+    # TODO: Make this a union as soon as we support multiple queries here.
+    joint @3 : JointProbability;
+}
+
+struct Header {
+    union {
+        model @0 : Model;
+        query @1 : Query;
+    }
+}

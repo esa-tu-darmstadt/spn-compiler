@@ -4,10 +4,13 @@ import numpy as np
 import capnp
 
 from spn.algorithms.Validity import is_valid
-from spn.structure.Base import Product, Sum, rebuild_scopes_bottom_up, assign_ids
+from spn.structure.Base import Product, Sum, rebuild_scopes_bottom_up, assign_ids, get_number_of_nodes
 from spn.structure.StatisticalTypes import Type, MetaType
 from spn.structure.leaves.histogram.Histograms import Histogram
 from spn.structure.leaves.parametric.Parametric import Gaussian, Categorical
+
+from xspn.structure.Model import SPNModel
+from xspn.structure.Query import Query, JointProbability, ErrorModel, ErrorKind
 
 # Magic import making the schema defined in the schema language available
 from  xspn.serialization.binary.capnproto import spflow_capnp
@@ -28,6 +31,18 @@ type2Enum = {Type.REAL : "real",
 
 enum2Type = {v : k for k, v in type2Enum.items()}
 
+class ListHandler:
+
+    def __init__(self, list):
+        self._list = list
+        self._index = 0
+
+    def getElement(self):
+        element = self._list[self._index]
+        print(f"Filling list element {self._index}")
+        self._index = self._index + 1
+        return element
+
 class BinarySerializer:
     """Interface to serialize SPNs from SPFlow into an efficient binary format."""
 
@@ -46,62 +61,113 @@ class BinarySerializer:
             # Clear the content of the file if not instructed otherwise.
             open(fileName, "w").close()
 
-    def serialize_to_file(self, rootNode, *args):
+    def serialize_to_file(self, content):
+        with open(self.fileName, "a+b", buffering=self.bufferSize*(2**10)) as outFile:
+            header = spflow_capnp.Header.new_message()
+            if isinstance(content, SPNModel):
+                header.model = self._serialize_model(content)
+            elif isinstance(content, Query):
+                header.query = self._serialize_query(content)
+                serializer = self._serialize_query
+            else:
+                raise NotImplementedError(f"No serialization defined for content {content} of type {type(content)}")
+            header.write(outFile)
+
+    def _serialize_query(self, query):
+        query_msg = spflow_capnp.Query.new_message()
+        query_msg.batchSize = query.batchSize
+        if query.errorModel.kind is ErrorKind.ABSOLUTE:
+            query_msg.errorKind = "absolute"
+        elif query.errorModel.kind is ErrorKind.RELATIVE:
+            query_msg.errorKind = "relative"
+        else:
+            raise NotImplementedError(f"No serialization defined for error kind {query.errorModel.kind}")
+        query_msg.maxError = query.errorModel.error
+        if isinstance(query, JointProbability):
+            query_msg.joint = self._serialize_joint(query)
+        else:
+            raise NotImplementedError(f"No serialization defined for query {query} of type {type(query)}")
+        return query_msg
+
+    def _serialize_joint(self, joint):
+        joint_msg = spflow_capnp.JointProbability.new_message()
+        joint_msg.model = self._serialize_model(joint.graph)
+        return joint_msg
+
+
+    def _serialize_model(self, model):
+        msg = spflow_capnp.Model.new_message()
+        assert is_valid(model.root), "SPN invalid before serialization"
+        # Assign (new) IDs to the nodes
+        # Keep track of already assigned IDs, so the IDs are 
+        # unique for the whole file.
+        assign_ids(model.root, self.assignedIDs)
+        # Rebuild scopes bottom-up
+        rebuild_scopes_bottom_up(model.root)
+        msg.rootNode = model.root.id
+        msg.numFeatures = len(model.root.scope)
+        msg.featureType = model.featureType
+        scope = msg.init("scope", len(model.root.scope))
+        for i,v in enumerate(model.root.scope):
+            scope[i] = self._unwrap_value(v)
+        name = ""
+        if model.name is not None:
+            name = model.name
+        msg.name = name
+        numNodes = get_number_of_nodes(model.root)
+        nodes = msg.init("nodes", numNodes)
+        nodeList = ListHandler(nodes)
+        self._serialize_graph([model.root], nodeList)
+        return msg
+
+
+    def _serialize_graph(self, rootNodes, nodeList):
         """Serialize SPN graphs to binary format. SPN graphs are given by their root node."""
         # Buffering write, buffer size was specified at initialization (defaults to 10 MiB).
         # The buffer size is specified in KiB during initialization, scale to bytes here.
-        with open(self.fileName, "a+b", buffering=self.bufferSize*(2**10)) as outFile:
-            numNodes = 0
-            rootNodes = [rootNode] + list(args)
-            for spn in rootNodes:
-                assert is_valid(spn), "SPN invalid before serialization"
-                # Assign (new) IDs to the nodes
-                # Keep track of already assigned IDs, so the IDs are 
-                # unique for the whole file.
-                assign_ids(spn, self.assignedIDs)
-                # Rebuild scopes bottom-up
-                rebuild_scopes_bottom_up(spn)
-                visited = set()
-                self._binary_serialize(spn, outFile, True, visited)
-                numNodes += len(visited)
-            print(f"Serialized {numNodes} nodes to {self.fileName}")
+        numNodes = 0
+        for spn in rootNodes:
+            visited = set()
+            self._binary_serialize(spn, True, visited, nodeList)
+            numNodes += len(visited)
+        print(f"Serialized {numNodes} nodes to {self.fileName}")
 
-    def _binary_serialize(self, node, file, is_rootNode, visited_nodes):
+    def _binary_serialize(self, node, is_rootNode, visited_nodes, nodeList):
         if node.id not in visited_nodes:
             if isinstance(node, Product):
-                self._serialize_product(node, file, is_rootNode, visited_nodes)
+                nodeList = self._serialize_product(node, is_rootNode, visited_nodes, nodeList)
             elif isinstance(node, Sum):
-                self._serialize_sum(node, file, is_rootNode, visited_nodes)
+                nodeList = self._serialize_sum(node, is_rootNode, visited_nodes, nodeList)
             elif isinstance(node, Histogram):
-                self._serialize_histogram(node, file, is_rootNode, visited_nodes)
+                nodeList = self._serialize_histogram(node, is_rootNode, visited_nodes, nodeList)
             elif isinstance(node,Gaussian):
-                self._serialize_gaussian(node, file, is_rootNode, visited_nodes)
+                nodeList = self._serialize_gaussian(node, is_rootNode, visited_nodes, nodeList)
             elif isinstance(node, Categorical):
-                self._serialize_categorical(node, file, is_rootNode, visited_nodes)
+                nodeList = self._serialize_categorical(node, is_rootNode, visited_nodes, nodeList)
             else:
                 raise NotImplementedError(f"No serialization defined for node {node} of type {type(node)}")
             visited_nodes.add(node.id)
+            return nodeList
 
-    def _serialize_product(self, product, file, is_rootNode, visited_nodes):
+    def _serialize_product(self, product, is_rootNode, visited_nodes, nodeList):
         # Serialize child nodes before node itself
         for c in product.children:
-            self._binary_serialize(c, file, False, visited_nodes)
+            self._binary_serialize(c, False, visited_nodes, nodeList)
         # Construct inner product node message.
         prod_msg = spflow_capnp.ProductNode.new_message()
         children = prod_msg.init("children", len(product.children))
         for i, child in enumerate(product.children):
             children[i] = child.id
         # Construct surrounding node message
-        node = spflow_capnp.Node.new_message()
+        node = nodeList.getElement()
         node.id = product.id
         node.product = prod_msg
         node.rootNode = is_rootNode
-        node.write(file)
 
-    def _serialize_sum(self, sum, file, is_rootNode, visited_nodes):
+    def _serialize_sum(self, sum, is_rootNode, visited_nodes, nodeList):
         # Serialize child nodes before node itself
         for c in sum.children:
-            self._binary_serialize(c, file, False, visited_nodes)
+            self._binary_serialize(c, False, visited_nodes, nodeList)
         # Construct innner sum node message
         sum_msg = spflow_capnp.SumNode.new_message()
         children = sum_msg.init("children", len(sum.children))
@@ -111,13 +177,12 @@ class BinarySerializer:
         for i, w in enumerate(sum.weights):
             weights[i] = BinarySerializer._unwrap_value(w)
         # Construct surrounding node message
-        node = spflow_capnp.Node.new_message()
+        node = nodeList.getElement()
         node.id = sum.id
         node.sum = sum_msg
         node.rootNode = is_rootNode
-        node.write(file)
 
-    def _serialize_histogram(self, hist, file, is_rootNode, visited_nodes):
+    def _serialize_histogram(self, hist, is_rootNode, visited_nodes, nodeList):
         # Construct inner histogram leaf message.
         hist_msg = spflow_capnp.HistogramLeaf.new_message()
         breaks = hist_msg.init("breaks", len(hist.breaks))
@@ -135,13 +200,12 @@ class BinarySerializer:
         assert len(hist.scope) == 1, "Expecting Histogram to be univariate"
         hist_msg.scope = BinarySerializer._unwrap_value(hist.scope[0])
         # Construct surrounding node message.
-        node = spflow_capnp.Node.new_message()
+        node = nodeList.getElement()
         node.hist = hist_msg
         node.rootNode = is_rootNode
         node.id = hist.id
-        node.write(file)
 
-    def _serialize_gaussian(self, gauss, file, is_rootNode, visited_nodes):
+    def _serialize_gaussian(self, gauss, is_rootNode, visited_nodes, nodeList):
         # Construct inner Gaussian leaf message
         gauss_msg = spflow_capnp.GaussianLeaf.new_message()
         gauss_msg.mean = BinarySerializer._unwrap_value(gauss.mean)
@@ -150,13 +214,12 @@ class BinarySerializer:
         assert len(gauss.scope) == 1, "Expecting Gauss to be univariate"
         gauss_msg.scope = BinarySerializer._unwrap_value(gauss.scope[0])
         # Construct surrounding node message.
-        node = spflow_capnp.Node.new_message()
+        node = nodeList.getElement()
         node.gaussian = gauss_msg
         node.rootNode = is_rootNode
         node.id = gauss.id
-        node.write(file)
 
-    def _serialize_categorical(self, categorical, file, is_rootNode, visited_nodes):
+    def _serialize_categorical(self, categorical, is_rootNode, visited_nodes, nodeList):
         # Construct inner categorical leaf message.
         cat_msg = spflow_capnp.CategoricalLeaf.new_message()
         probabilities = cat_msg.init("probabilities", len(categorical.p))
@@ -165,11 +228,10 @@ class BinarySerializer:
         # Check that the scope is defined over a single variable
         assert len(categorical.scope) == 1, "Expecting Categorical leaf to be univariate"
         cat_msg.scope = BinarySerializer._unwrap_value(categorical.scope[0])
-        node = spflow_capnp.Node.new_message()
+        node = nodeList.getElement()
         node.categorical = cat_msg
         node.rootNode = is_rootNode
         node.id = categorical.id
-        node.write(file)
     
     @staticmethod
     def _unwrap_value(value):
@@ -191,17 +253,50 @@ class BinaryDeserializer:
     def deserialize_from_file(self):
         """Deserialize all SPN graphs from the file. Returns a list of SPN graph root nodes."""
         with open(self.fileName, "rb") as inFile:
-            rootNodes = self._binary_deserialize(inFile)
-            for root in rootNodes:
-                rebuild_scopes_bottom_up(root)
-                assert is_valid(root), "SPN invalid after deserialization"
-            return rootNodes
+            # Read header message first
+            header = spflow_capnp.Header.read(inFile)
+            print(header.which())
+            if header.which() == "query":
+                return self._deserialize_query(header.query)
+            elif header.which() == "model":
+                return self._deserialize_model(header.model)
+            else:
+                raise NotImplementedError(f"No deserialization defined for {header.content}")
+
+    def _deserialize_query(self, query):
+        batchSize = query.batchSize
+        maxError = query.maxError
+        if query.errorKind == "absolute":
+            errorKind = ErrorKind.ABSOLUTE
+        elif query.errorKind == "relative":
+            errorKind = ErrorKind.RELATIVE
+        else:
+            raise NotImplementedError(f"Cannot deserialize error kind {query.errorKind}")
+        errorModel = ErrorModel(errorKind, maxError)
+        model = self._deserialize_model(query.joint.model)
+        return JointProbability(model, batchSize, errorModel)
+
+    def _deserialize_model(self, model):
+        rootID = model.rootNode
+        featureType = model.featureType
+        name = model.name
+        if name == "":
+            name = None
+        rootNodes = self._binary_deserialize_graph(model.nodes)
+        for root in rootNodes:
+            rebuild_scopes_bottom_up(root)
+            assert is_valid(root), "SPN invalid after deserialization"
+
+        rootNode = next((root for root in rootNodes if root.id == rootID), None)
+        if rootNode is None:
+            logger.error(f"Did not find serialized root node {rootID}")
+        return SPNModel(rootNode, featureType, name)
 
 
-    def _binary_deserialize(self, file):
+    def _binary_deserialize_graph(self, nodeList):
         node_map = {}
         nodes = []
-        for node in spflow_capnp.Node.read_multiple(file):
+        for node in nodeList:
             which = node.which()
             deserialized = None
             if which == "product":
@@ -219,7 +314,7 @@ class BinaryDeserializer:
             node_map[node.id] = deserialized
             if node.rootNode:
                 nodes.append(deserialized)
-        print(f"Deserialized {len(node_map)} from {file.name}")
+        print(f"Deserialized {len(node_map)} nodes")
         return nodes
 
     def _deserialize_product(self, node, node_map):

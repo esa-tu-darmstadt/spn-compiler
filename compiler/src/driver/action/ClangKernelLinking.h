@@ -8,6 +8,7 @@
 
 #include <driver/Actions.h>
 #include <util/FileSystem.h>
+#include <driver/Job.h>
 #include "../../../../common/include/Kernel.h"
 
 namespace spnc {
@@ -24,7 +25,7 @@ namespace spnc {
     /// \param outputFile File to write resulting kernel (shared object) to.
     /// \param kernelFunctionName Name of the top-level SPN function inside the object file.
     ClangKernelLinking(ActionWithOutput<ObjectFile>& _input, SharedObject outputFile,
-                       const std::string& kernelFunctionName);
+                       std::shared_ptr<KernelInfo> info);
 
     Kernel& execute() override;
 
@@ -32,9 +33,9 @@ namespace spnc {
 
     SharedObject outFile;
 
-    std::string kernelName;
+    std::shared_ptr<KernelInfo> kernelInfo;
 
-    Kernel kernel;
+    std::unique_ptr<Kernel> kernel;
 
     bool cached = false;
 
