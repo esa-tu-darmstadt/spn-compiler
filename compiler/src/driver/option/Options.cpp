@@ -59,6 +59,8 @@ bool spnc::interface::detail::OptionParsers::parse(const std::string& value) {
 }
 
 void Options::registerCLOptions(CLI::App& app) {
+  // Add positional, 'unnamed' spn file option
+  app.add_option("spn")->check(CLI::ExistingFile);
   for (auto& o : options) {
     std::string opt_name;
     // Adding the same option name prefixed with "--" will result in the option being NON-positional and having a lname.
@@ -72,7 +74,7 @@ std::map<std::string, std::string> Options::collectCLOptions(CLI::App& app) {
 
   for (auto& o : app.get_options()) {
     // Only provided options will be returned
-    if (o->count() > 0) {
+    if (!o->get_lnames().empty() && !o->results().empty()) {
       opts.emplace(*o->get_lnames().begin(), *o->results().begin());
     }
   }
