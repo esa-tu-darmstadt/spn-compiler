@@ -35,8 +35,7 @@ namespace mlir {
       /// \param err_model ERRORMODEL which will determine the considered error model.
       /// \param err_relative Boolean which indicates if relative (true) or absolute (false) error will be considered.
       /// \param err_margin Double which will determine the maximum error-bound.
-      explicit SPNErrorEstimation(Operation* root, ERRORMODEL err_model = ERRORMODEL::EM_FLOATING_POINT,
-                                  bool err_relative = false, double err_margin = 0.0625);
+      explicit SPNErrorEstimation(Operation* root);
 
       /// Retrieve the smallest type of the corresponding error model which can represent the SPN result within the
       /// given error margin -OR- if not possible: the biggest type available (e.g. Float64Type).
@@ -99,7 +98,7 @@ namespace mlir {
       ERRORMODEL error_model;
 
       /// User-requested error calculation (true relative error / false: absolute error).
-      bool relative_error;
+      enum error_model relative_error;
 
       /// User-requested maximum error margin.
       double error_margin;
@@ -143,10 +142,13 @@ namespace mlir {
       /// Current format information: "Integer / Exponent"
       int format_bits_magnitude = std::numeric_limits<int>::min();
 
+      llvm::SmallVector<Operation*, 5> queries;
+      llvm::SmallVector<Operation*, 5> roots;
+
       /// Tuples which model different floating point formats, like e.g. fp32 / single precision
       /// 0: Significance / "Fraction / Mantissa"
       /// 1: Magnitude / "Integer / Exponent"
-      /// 2: mlir::Type
+      /// 2: function returning mlir::Type, providing an MLIRContext*
       std::tuple<int, int, std::function<Type(MLIRContext*)>> Float_Formats[NUM_FLOAT_FORMATS] = {
           {10, 5, Float16Type::get},
           {7, 8, BFloat16Type::get},

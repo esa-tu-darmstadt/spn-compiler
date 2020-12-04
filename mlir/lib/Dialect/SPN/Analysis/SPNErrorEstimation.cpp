@@ -4,25 +4,89 @@
 //
 
 #include <iostream>
+#include <SPN/SPNAttributes.h>
 #include "SPN/Analysis/SPNErrorEstimation.h"
 
 using namespace mlir::spn;
 
-SPNErrorEstimation::SPNErrorEstimation(Operation* root, ERRORMODEL err_model, bool err_relative, double err_margin) :
-    rootNode(root), error_model(err_model), relative_error(err_relative), error_margin(err_margin) {
-  std::cout << "SPNErrorEstimation ctor entry" << std::endl;
+SPNErrorEstimation::SPNErrorEstimation(Operation* root) {
+  // std::cerr << "SPNErrorEstimation ctor entry" << std::endl;
   assert(root);
+
+  if (auto module = dyn_cast<mlir::ModuleOp>(root)) {
+    module.walk([this](Operation* op){
+      if (auto query = dyn_cast<QueryInterface>(op)) {
+        queries.push_back(op);
+        for (auto r : query.getRootNodes()) {
+          roots.push_back(r->getOperand(0).getDefiningOp());
+        }
+      }
+    });
+  } else {
+    std::cerr << "SPNErrorEstimation ctor expected: mlir::ModuleOp" << std::endl;
+    return;
+  }
+
+  if (queries.empty()) {
+    std::cerr << "Did not find any queries to analyze!" << std::endl;
+    return;
+  }
+
+  if (queries.size() > 1) {
+    std::cerr << "Found more than one query, will only analyze the first query!" << std::endl;
+  }
+
+  auto query = dyn_cast<QueryInterface>(queries.front());
+
+  rootNode = roots.front();
+  error_model = ERRORMODEL::EM_FLOATING_POINT;
+  relative_error = query.getErrorModel();
+  error_margin = query.getMaxError();
+
+  // ToDo: Set iterationCount to zero.
   iterationCount = 0;
   while (!satisfiedRequirements && !abortAnalysis) {
-    analyzeGraph(root);
+    analyzeGraph(rootNode);
     ++iterationCount;
   }
   selectOptimalType();
-  std::cout << "SPNErrorEstimation ctor exit" << std::endl;
+
+  auto rootValues = spn_node_values[rootNode];
+  double value = std::get<0>(rootValues);
+  double defect = std::get<1>(rootValues);
+
+  double err_rel = std::abs((value / defect) - 1.0);
+  double err_abs = std::abs(value - defect);
+  double err_log_abs = std::log((1 + std::abs((value / defect) - 1.0)));
+
+  std::cerr << "===================== SPNErrorEstimation =====================" << std::endl;
+  std::cerr << "|| abortAnalysis:            " << abortAnalysis << std::endl;
+  std::cerr << "|| satisfiedRequirements:    " << satisfiedRequirements << std::endl;
+  std::cerr << "|| iterationCount:           " << iterationCount << std::endl;
+  std::cerr << "|| format_bits_magnitude:    " << format_bits_magnitude << std::endl;
+  std::cerr << "|| format_bits_significance: " << format_bits_significance << std::endl;
+  std::cerr << "|| EPS:                      " << EPS << std::endl;
+  std::cerr << "|| ERR_COEFFICIENT:          " << ERR_COEFFICIENT << std::endl;
+  std::cerr << "|| err_margin:               " << error_margin << std::endl;
+  std::cerr << "|| spn_node_global_maximum:  " << spn_node_value_global_maximum << std::endl;
+  std::cerr << "|| spn_node_global_minimum:  " << spn_node_value_global_minimum << std::endl;
+  std::cerr << "|| spn_root_value:           " << std::get<0>(rootValues) << std::endl;
+  std::cerr << "|| spn_root_defect:          " << std::get<1>(rootValues) << std::endl;
+  std::cerr << "|| spn_root_maximum:         " << std::get<2>(rootValues) << std::endl;
+  std::cerr << "|| spn_root_minimum:         " << std::get<3>(rootValues) << std::endl;
+  std::cerr << "|| spn_root_subtree_depth:   " << std::get<4>(rootValues) << std::endl;
+  std::cerr << "|| err_rel:                  " << err_rel << std::endl;
+  std::cerr << "|| err_abs:                  " << err_abs << std::endl;
+  std::cerr << "|| err_log_abs:              " << err_log_abs << std::endl;
+  std::cerr << "|| optimal representation:   "; selectedType.dump(); std::cerr << std::endl;
+  std::cerr << "==============================================================" << std::endl;
+
+  // std::cerr << "SPNErrorEstimation ctor exit" << std::endl;
 }
 
 void SPNErrorEstimation::analyzeGraph(Operation* graphRoot) {
   assert(graphRoot);
+  spn_node_values.clear();
   // Either select next floating-point format or increase number of Integer-bits
   format_bits_significance = (error_model == ERRORMODEL::EM_FLOATING_POINT) ?
       std::get<0>(Float_Formats[iterationCount]) : (2 + iterationCount);
@@ -60,12 +124,6 @@ void SPNErrorEstimation::estimateLeastMagnitudeBits() {
       break;
   }
 
-  std::cerr << "--------------------------------------------------" << std::endl;
-  std::cerr << "(" << iterationCount << ".E) format_bits_magnitude: " << format_bits_magnitude << std::endl;
-  std::cerr << "(" << iterationCount << ".E) spn_node_value_global_minimumX: " << spn_node_value_global_minimum << std::endl;
-  std::cerr << "(" << iterationCount << ".E) spn_node_value_global_maximumX: " << spn_node_value_global_maximum << std::endl;
-  std::cerr << "==================================================" << std::endl;
-
   estimatedLeastMagnitudeBits = true;
 }
 
@@ -75,14 +133,6 @@ bool SPNErrorEstimation::checkRequirements() {
   double value = std::get<0>(rootValues);
   double defect = std::get<1>(rootValues);
 
-  /*
-  std::cerr << "--------------------------------------------------" << std::endl;
-  std::cerr << "(" << iterationCount << ".4) format_bits_magnitude: " << format_bits_magnitude << std::endl;
-  std::cerr << "(" << iterationCount << ".4) spn_node_value_global_minimum: " << spn_node_value_global_minimum << std::endl;
-  std::cerr << "(" << iterationCount << ".4) spn_node_value_global_maximum: " << spn_node_value_global_maximum << std::endl;
-  std::cerr << "==================================================" << std::endl;
-   */
-
   // Floating-point: Check if currently selected format has enough magnitude bits
   if (error_model == ERRORMODEL::EM_FLOATING_POINT) {
     // If least amount of magnitude bits is greater than currently selected format's: Search for fitting format.
@@ -90,6 +140,7 @@ bool SPNErrorEstimation::checkRequirements() {
       for (int i = iterationCount + 1; i < NUM_FLOAT_FORMATS; ++i) {
         if (format_bits_magnitude > std::get<1>(Float_Formats[i])) {
           // Each time we check a NON-fitting format we can skip the corresponding iteration.
+          std::cerr << "|| skip_" << iterationCount << std::endl;
           ++iterationCount;
         } else {
           // A fitting format was found, next iteration will start with a format that provides enough magnitude bits.
@@ -97,33 +148,28 @@ bool SPNErrorEstimation::checkRequirements() {
         }
       }
 
+      std::cerr << "|| skip?!_" << iterationCount << std::endl;
+
       // Requirements NOT met.
       satisfied = false;
     }
   }
 
-  if (relative_error) {
+  if (relative_error == error_model::relative_error) {
     satisfied &= (error_margin > std::abs((value / defect) - 1.0));
+    std::cerr << "|| err_rel_" << iterationCount << ":                "<< std::abs((value / defect) - 1.0) << std::endl;
   } else {
     satisfied &= (error_margin > std::abs(value - defect));
+    std::cerr << "|| err_abs_" << iterationCount << ":                "<< std::abs(value - defect) << std::endl;
   }
 
-  /*
-  std::cerr << "--------------------------------------------------" << std::endl;
-  std::cerr << "(" << iterationCount << ") satisfied:             " << satisfied << std::endl;
-  std::cerr << "(" << iterationCount << ") format_bits_magnitude: " << format_bits_magnitude << std::endl;
-  std::cerr << "(" << iterationCount << ") relative_error?        " << relative_error << std::endl;
-  std::cerr << "(" << iterationCount << ") ERR-margin:            " << error_margin << std::endl;
-  std::cerr << "(" << iterationCount << ") ERR-rel:               " << std::abs((value / defect) - 1.0) << std::endl;
-  std::cerr << "(" << iterationCount << ") ERR-abs:               " << std::abs(value - defect) << std::endl;
-  std::cerr << "==================================================" << std::endl;
-   */
+  std::cerr << "|| error_margin_" << iterationCount << ":           "<< error_margin << std::endl;
+  std::cerr << "|| satisfied_" << iterationCount << ":              "<< satisfied << std::endl;
 
   // No further floating point format available -- abort.
   if (!satisfied && (error_model == ERRORMODEL::EM_FLOATING_POINT) && (iterationCount >= (NUM_FLOAT_FORMATS - 1))) {
     abortAnalysis = true;
     selectedType = std::get<2>(Float_Formats[NUM_FLOAT_FORMATS - 1])(rootNode->getContext());
-    // SPDLOG_WARN("Selected floating point format does not meet error requirements, but no further format is available.");
   }
 
   return satisfied;
@@ -133,13 +179,11 @@ void SPNErrorEstimation::traverseSubgraph(Operation* subgraphRoot) {
   assert(subgraphRoot);
   auto operands = subgraphRoot->getOperands();
 
-  std::cerr << "traverseSubgraph of ";
+  /*
+  std::cerr << " > traverseSubgraph of"  << std::endl;
   subgraphRoot->dump();
-  std::cerr << std::endl;
-
-  if (auto query = dyn_cast<mlir::spn::QueryInterface>(subgraphRoot)) {
-    std::cerr << "QueryInterface!" << std::endl;
-  }
+  std::cerr << std::endl << " < traverseSubgraph" << std::endl << std::endl;
+   */
 
   // Operations with more than one operand -- possible: inner node, e.g. sum or product.
   // Operations with one operand -- possible: leaf node.
@@ -172,7 +216,7 @@ void SPNErrorEstimation::traverseSubgraph(Operation* subgraphRoot) {
 }
 
 void SPNErrorEstimation::estimateErrorSum(SumOp op) {
-  std::cout << "estimateErrorSum entry" << std::endl;
+  // std::cerr << "estimateErrorSum entry" << std::endl;
   double value = 0.0, defect = 0.0, max = 0.0, min = 0.0;
 
   // Assumption: There are exactly & guaranteed(!) two operands
@@ -207,12 +251,19 @@ void SPNErrorEstimation::estimateErrorSum(SumOp op) {
   max = std::get<2>(t1) + std::get<2>(t2);
   min = std::min(std::get<3>(t1), std::get<3>(t2));
 
+  /*
+  std::cerr << "s-value:  " << value << std::endl;
+  std::cerr << "s-defect: " << defect << std::endl;
+  std::cerr << "s-max:    " << max << std::endl;
+  std::cerr << "s-min:    " << min << std::endl;
+   */
+
   spn_node_values.emplace(op.getOperation(), std::make_tuple(value, defect, max, min, max_depth));
-  std::cout << "estimateErrorSum exit" << std::endl;
+  // std::cerr << "estimateErrorSum exit" << std::endl;
 }
 
 void SPNErrorEstimation::estimateErrorProduct(ProductOp op) {
-  std::cout << "estimateErrorProduct entry" << std::endl;
+  // std::cerr << "estimateErrorProduct entry" << std::endl;
   double value = 0.0, defect = 0.0, max = 0.0, min = 0.0;
   // Tuple from "value map": { accurate, defective, max, min }
 
@@ -263,12 +314,19 @@ void SPNErrorEstimation::estimateErrorProduct(ProductOp op) {
   max = std::get<2>(t1) * std::get<2>(t2);
   min = std::get<3>(t1) * std::get<3>(t2);
 
+  /*
+  std::cerr << "p-value:  " << value << std::endl;
+  std::cerr << "p-defect: " << defect << std::endl;
+  std::cerr << "p-max:    " << max << std::endl;
+  std::cerr << "p-min:    " << min << std::endl;
+   */
+
   spn_node_values.emplace(op.getOperation(), std::make_tuple(value, defect, max, min, max_depth));
-  std::cout << "estimateErrorProduct exit" << std::endl;
+  // std::cerr << "estimateErrorProduct exit" << std::endl;
 }
 
 void SPNErrorEstimation::estimateErrorHistogram(HistogramOp op) {
-  std::cout << "estimateErrorHistogram entry" << std::endl;
+  // std::cerr << "estimateErrorHistogram entry" << std::endl;
   auto buckets = op.buckets().getValue();
 
   double value;
@@ -276,17 +334,12 @@ void SPNErrorEstimation::estimateErrorHistogram(HistogramOp op) {
   double min = std::numeric_limits<double>::max();
   double defect;
 
-  op.dump();
+  // op.dump();
 
-  for (auto b : op.buckets().getValue()) {
-    b.dump();
-
-    /*
-    auto bucket = dyn_cast<bucket_t>(b);
-    // auto bucket = dyn_cast<bucket_t>(b);
-    max = std::max(max, std::get<2>(bucket));
-    min = std::min(min, std::get<2>(bucket));
-    */
+  for (auto& b : op.bucketsAttr()) {
+    auto val = b.cast<Bucket>().val().getValueAsDouble();;
+    max = std::max(max, val);
+    min = std::min(min, val);
   }
 
   // Select maximum as "value"
@@ -306,12 +359,19 @@ void SPNErrorEstimation::estimateErrorHistogram(HistogramOp op) {
   assert(max != std::numeric_limits<double>::min());
   assert(min != std::numeric_limits<double>::max());
 
+  /*
+  std::cerr << "h-value:  " << value << std::endl;
+  std::cerr << "h-defect: " << defect << std::endl;
+  std::cerr << "h-max:    " << max << std::endl;
+  std::cerr << "h-min:    " << min << std::endl;
+   */
+
   spn_node_values.emplace(op.getOperation(), std::make_tuple(value, defect, max, min, 1));
-  std::cout << "estimateErrorHistogram exit" << std::endl;
+  // std::cerr << "estimateErrorHistogram exit" << std::endl;
 }
 
 void SPNErrorEstimation::estimateErrorConstant(ConstantOp op) {
-  std::cout << "estimateErrorConstant entry" << std::endl;
+  //std::cerr << "estimateErrorConstant entry" << std::endl;
   double value = op.value().convertToDouble();
   double max = value;
   double min = value;
@@ -326,16 +386,18 @@ void SPNErrorEstimation::estimateErrorConstant(ConstantOp op) {
       break;
   }
 
+  /*
+  std::cerr << "c-value:  " << value << std::endl;
+  std::cerr << "c-defect: " << defect << std::endl;
+  std::cerr << "c-max:    " << max << std::endl;
+  std::cerr << "c-min:    " << min << std::endl;
+   */
+
   spn_node_values.emplace(op.getOperation(), std::make_tuple(value, defect, max, min, 1));
-  std::cout << "estimateErrorConstant exit" << std::endl;
+  //std::cerr << "estimateErrorConstant exit" << std::endl;
 }
 
 void SPNErrorEstimation::selectOptimalType() {
-  std::cout << "abortAnalysis: " << abortAnalysis << std::endl;
-  std::cout << "iterationCount: " << iterationCount << std::endl;
-  std::cout << "format_bits_magnitude: " << format_bits_magnitude << std::endl;
-  std::cout << "format_bits_significance: " << format_bits_significance << std::endl;
-
   if (!abortAnalysis) {
     switch (error_model) {
       case ERRORMODEL::EM_FIXED_POINT:
