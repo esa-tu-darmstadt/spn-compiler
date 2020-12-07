@@ -60,6 +60,19 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
+    ///
+    /// Pattern for lowering SPN joint query operation with batch size >1 to a combination
+    /// of Standard and SCF (structured control flow) dialect.
+    struct BatchJointLowering : public OpConversionPattern<JointQuery> {
+
+      using OpConversionPattern<JointQuery>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(JointQuery op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+
+    };
+
     /// Template for patterns lowering SPN n-ary arithmetic operations to Standard dialect.
     /// Will only work if the arithmetic is actually happening on floating-point data types.
     /// \tparam SourceOp SPN dialect operation to lower.
@@ -98,6 +111,7 @@ namespace mlir {
       patterns.insert<ReturnOpLowering, ConstantOpLowering, FloatProductLowering, FLoatSumLowering>(context);
       patterns.insert<GaussionOpLowering>(context);
       patterns.insert<SingleJointLowering>(typeConverter, context);
+      patterns.insert<BatchJointLowering>(typeConverter, context);
     }
 
   }

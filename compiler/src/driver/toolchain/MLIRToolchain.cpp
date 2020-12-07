@@ -31,6 +31,7 @@ std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::str
   ctx->getDialectRegistry().insert<mlir::spn::SPNDialect>();
   ctx->loadDialect<mlir::spn::SPNDialect>();
   ctx->loadDialect<mlir::StandardOpsDialect>();
+  ctx->loadDialect<mlir::scf::SCFDialect>();
   ctx->loadDialect<mlir::LLVM::LLVMDialect>();
   BinarySPN binarySPNFile{inputFile, false};
   auto& deserialized = job->insertAction<MLIRDeserializer>(std::move(binarySPNFile), ctx, kernelInfo);

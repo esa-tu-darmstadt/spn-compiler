@@ -7,6 +7,7 @@
 #include "mlir/IR/Module.h"
 #include "SPNtoStandard/SPNtoStandardPatterns.h"
 #include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/Dialect/SCF/SCF.h"
 
 // Should not be necessary on modern platforms,
 // but still defined for compatibility.
@@ -79,7 +80,6 @@ mlir::LogicalResult mlir::spn::SingleJointLowering::matchAndRewrite(mlir::spn::J
   auto returnOp = op.graph().front().getTerminator();
   auto graphResult = dyn_cast<mlir::spn::ReturnOp>(returnOp);
   assert(graphResult);
-  graphResult.dump();
   auto resultType = MemRefType::get({1}, graphResult.retValue().front().getType());
 
   auto replaceFunc = rewriter.create<FuncOp>(op.getLoc(), op.kernelName(),
@@ -107,6 +107,75 @@ mlir::LogicalResult mlir::spn::SingleJointLowering::matchAndRewrite(mlir::spn::J
   rewriter.create<mlir::StoreOp>(op.getLoc(), logResult,
                                  replaceFunc.getArgument(1), indices);
   rewriter.create<mlir::ReturnOp>(op.getLoc());
+  rewriter.eraseOp(graphResult);
+  rewriter.eraseOp(op);
+  return success();
+}
+
+mlir::LogicalResult mlir::spn::BatchJointLowering::matchAndRewrite(mlir::spn::JointQuery op,
+                                                                   llvm::ArrayRef<mlir::Value> operands,
+                                                                   mlir::ConversionPatternRewriter& rewriter) const {
+  // This lowering is specialized for batch evaluation, reject queries with batch size <= 1.
+  unsigned batchSize = dyn_cast<QueryInterface>(op.getOperation()).getBatchSize();
+  if (batchSize <= 1) {
+    return failure();
+  }
+
+  // Create function with three inputs:
+  //   * Number of elements to process (might be lower than the batch size).
+  //   * Pointer to the input data.
+  //   * Pointer to the output data.
+  auto numSamplesType = rewriter.getI64Type();
+  auto inputType = MemRefType::get({batchSize, op.numFeatures()}, op.inputType());
+  auto returnOp = op.graph().front().getTerminator();
+  auto graphResult = dyn_cast<mlir::spn::ReturnOp>(returnOp);
+  assert(graphResult);
+  auto resultType = MemRefType::get({batchSize}, graphResult.retValue().front().getType());
+
+  auto replaceFunc = rewriter.create<FuncOp>(op.getLoc(), op.kernelName(),
+                                             rewriter.getFunctionType(
+                                                 {numSamplesType, inputType, resultType}, llvm::None),
+                                             llvm::None);
+
+  auto funcEntryBlock = replaceFunc.addEntryBlock();
+  rewriter.setInsertionPointToStart(funcEntryBlock);
+  auto numSamplesArg = replaceFunc.getArgument(0);
+  auto inputArg = replaceFunc.getArgument(1);
+  assert(inputArg.getType().isa<MemRefType>());
+
+  // Construct a for-loop iterating over the samples. Upper bound on the number of iterations is the
+  // numSamples argument to the function, assuming that this argument is set to batchSize except when
+  // processing the remainders of the data-set (i.e. less than batchSize samples).
+  auto lb = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
+  auto ub = rewriter.create<mlir::IndexCastOp>(op.getLoc(), numSamplesArg, rewriter.getIndexType());
+  auto step = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
+  auto forLoop = rewriter.create<mlir::scf::ForOp>(op.getLoc(), lb, ub, step);
+  auto& loopBody = forLoop.getLoopBody().front();
+
+  // Load input values in the loop body
+  rewriter.setInsertionPointToStart(&loopBody);
+  SmallVector<Value, 10> blockArgsReplacement;
+  for (size_t i = 0; i < op.numFeatures(); ++i) {
+    SmallVector<Value, 2> indices;
+    indices.push_back(forLoop.getInductionVar());
+    indices.push_back(rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(i)));
+    auto load = rewriter.create<mlir::LoadOp>(op.getLoc(), inputArg, indices);
+    blockArgsReplacement.push_back(load);
+  }
+  // Transfer SPN graph from JointQuery to for-loop body.
+  rewriter.mergeBlockBefore(&op.getRegion().front(), loopBody.getTerminator(), blockArgsReplacement);
+  // Apply logarithm to result before storing it
+  rewriter.setInsertionPoint(loopBody.getTerminator());
+  auto logResult = rewriter.create<mlir::LogOp>(op.getLoc(), graphResult.retValue().front());
+  // Store the log-result to the output pointer.
+  SmallVector<Value, 1> indices;
+  indices.push_back(forLoop.getInductionVar());
+  rewriter.create<mlir::StoreOp>(op.getLoc(), logResult,
+                                 replaceFunc.getArgument(2), indices);
+  // Insert a return as terminator into the function's block.
+  rewriter.setInsertionPointToEnd(funcEntryBlock);
+  rewriter.create<mlir::ReturnOp>(op.getLoc());
+  // Remove the old return from the SPN dialect and the query operation (JointQuery) itself.
   rewriter.eraseOp(graphResult);
   rewriter.eraseOp(op);
   return success();
