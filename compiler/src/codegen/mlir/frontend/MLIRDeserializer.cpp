@@ -91,6 +91,8 @@ void spnc::MLIRDeserializer::deserializeJointQuery(JointProbability::Reader&& qu
   kernelInfo->kernelName = modelName;
   kernelInfo->batchSize = batchSize;
   kernelInfo->queryType = spnc::KernelQueryType::JOINT_QUERY;
+  kernelInfo->numFeatures = numFeatures;
+  kernelInfo->bytesPerFeature = sizeInByte(featureType);
 
   auto queryOp =
       builder.create<JointQuery>(builder.getUnknownLoc(), numFeaturesAttr,
@@ -214,6 +216,7 @@ mlir::Value spnc::MLIRDeserializer::getValueForNode(int id) {
   }
   return node2value[id];
 }
+
 mlir::Type spnc::MLIRDeserializer::translateTypeString(const std::string& text) {
   std::smatch match;
   // Test for an integer type, given as [u]int(WIDTH).
@@ -238,4 +241,14 @@ mlir::Type spnc::MLIRDeserializer::translateTypeString(const std::string& text) 
     }
   }
   SPNC_FATAL_ERROR("Unsupported feature data type ", text);
+}
+
+unsigned spnc::MLIRDeserializer::sizeInByte(mlir::Type type) {
+  if (auto intType = type.dyn_cast<IntegerType>()) {
+    return intType.getWidth() >> 3;
+  }
+  if (auto floatType = type.dyn_cast<FloatType>()) {
+    return floatType.getWidth() >> 3;
+  }
+  SPNC_FATAL_ERROR("Unsupported feature data type");
 }

@@ -25,7 +25,8 @@ Kernel& ClangKernelLinking::execute() {
     command.push_back(input.execute().fileName());
     Command::executeExternalCommand(command);
     kernel = std::make_unique<Kernel>(outFile.fileName(), kernelInfo->kernelName,
-                                      kernelInfo->queryType, kernelInfo->batchSize);
+                                      kernelInfo->queryType, kernelInfo->batchSize,
+                                      kernelInfo->numFeatures, kernelInfo->bytesPerFeature);
     cached = true;
   }
   return *kernel;

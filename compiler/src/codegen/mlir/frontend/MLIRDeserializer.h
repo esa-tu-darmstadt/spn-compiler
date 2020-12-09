@@ -59,6 +59,8 @@ namespace spnc {
 
     mlir::Type translateTypeString(const std::string& text);
 
+    unsigned sizeInByte(mlir::Type type);
+
     std::shared_ptr<KernelInfo> kernelInfo;
 
     std::shared_ptr<::mlir::MLIRContext> context;
