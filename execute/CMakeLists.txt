@@ -5,6 +5,4 @@ target_link_libraries(driver spnc spnc-rt dl spdlog::spdlog)
 add_dependencies(driver compiler-rt)
 add_compile_definitions(TEST_KERNEL_DIR="${CMAKE_CURRENT_BINARY_DIR}")
 
-add_library(dynamic-load-test SHARED examples/dynamic-load.cpp)
-
 set(SPNC_DRIVER_BINARY_PATH "${CMAKE_CURRENT_BINARY_DIR}/driver" CACHE INTERNAL "")
