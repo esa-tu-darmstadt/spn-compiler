@@ -13,16 +13,34 @@ using namespace spnc;
 
 namespace spnc_rt {
 
-  typedef void (* kernel_function_t)(void* input_ptr,
-                                     void* aligned_input_ptr,
-                                     int input_offset,
-                                     int input_size,
-                                     int input_stride,
-                                     double* output_ptr,
-                                     double* output_aligned_ptr,
-                                     int output_offset,
-                                     int output_size,
-                                     int output_stride);
+  typedef void (* single_kernel)(void* input_ptr,
+                                 void* aligned_input_ptr,
+                                 int input_offset,
+                                 int input_size,
+                                 int input_stride,
+                                 double* output_ptr,
+                                 double* output_aligned_ptr,
+                                 int output_offset,
+                                 int output_size,
+                                 int output_stride);
+
+  typedef void (* batch_kernel)(int numSamples, void* input_ptr,
+                                void* aligned_input_ptr,
+                                int input_offset,
+                                int input_size_dim1,
+                                int input_stride_dim1,
+                                int input_size_dim2,
+                                int input_stride_dim2,
+                                double* output_ptr,
+                                double* output_aligned_ptr,
+                                int output_offset,
+                                int output_size,
+                                int output_stride);
+
+  union kernel_function {
+    single_kernel single;
+    batch_kernel batch;
+  };
 
   ///
   /// Manages a Kernel by loading it from the shared object using libelf.
@@ -60,9 +78,13 @@ namespace spnc_rt {
 
     void* handle;
 
-    kernel_function_t kernel_func;
+    kernel_function kernel_func;
 
     void initialize();
+
+    void executeSingle(size_t num_samples, void* inputs, double* outputs);
+
+    void executeBatch(size_t num_samples, void* inputs, double* outputs);
 
   };
 
