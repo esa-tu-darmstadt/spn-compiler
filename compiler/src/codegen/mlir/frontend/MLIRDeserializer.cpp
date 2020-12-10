@@ -98,7 +98,8 @@ void spnc::MLIRDeserializer::deserializeJointQuery(JointProbability::Reader&& qu
       builder.create<JointQuery>(builder.getUnknownLoc(), numFeaturesAttr,
                                  featureTypeAttr, kernelNameAttr, batchSizeAttr,
                                  builder.getI32IntegerAttr(static_cast<int32_t>(errorKind)),
-                                 builder.getF64FloatAttr(maxError));
+                                 builder.getF64FloatAttr(maxError),
+                                 builder.getBoolAttr(false));
   auto block = builder.createBlock(&queryOp.getRegion());
 
   // Sort scope in ascending order and construct a block argument for each variable (element of the scope).
