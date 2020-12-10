@@ -34,7 +34,9 @@ def SPNProbabilityType : DialectType<SPN_Dialect,
 
 }
 
-def AnyProbabilityType : AnyTypeOf<[AnyInteger, AnyFloat, SPNProbabilityType],
-    "Any type that can be used to represent probabilities of varying precision">;
+def AnyProbabilityType : DialectType<SPN_Dialect,
+                        Or<[SPNProbabilityType.predicate, AnyFloat.predicate,
+                          VectorOf<[AnyFloat]>.predicate, AnyInteger.predicate, VectorOf<[AnyInteger]>.predicate]>,
+                        "Any type that can be used to represent probabilities of varying precision">;
 
 #endif // SPN_DIALECT
