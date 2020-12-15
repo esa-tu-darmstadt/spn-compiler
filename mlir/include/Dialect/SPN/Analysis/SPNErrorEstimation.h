@@ -62,31 +62,33 @@ namespace mlir {
 
       /// Estimate the error introduced by the given addition operation w.r.t. the current format.
       /// Since the error-estimation needs the "real" value (i.e. exact / accurate), it has to be determined, too.
-      // Note: This function will also populate the 'spn_node_maximum' and 'spn_node_minimum'.
       /// \param op Pointer to the defining operation, representing a SPN node.
-      /// \return 2-Tuple consisting of (0): the real value and (1): the absolute delta / error.
       void estimateErrorSum(SumOp op);
 
       /// Estimate the error introduced by the given multiplication operation w.r.t. the current format.
       /// Since the error-estimation needs the "real" value (i.e. exact / accurate), it has to be determined, too.
-      // Note: This function will also populate the 'spn_node_maximum' and 'spn_node_minimum'.
       /// \param op Pointer to the defining operation, representing a SPN node.
-      /// \return 2-Tuple consisting of (0): the real value and (1): the absolute delta / error.
       void estimateErrorProduct(ProductOp op);
 
-      /// Estimate the error introduced by the given leaf w.r.t. the current format.
+      /// Estimate the error introduced by the given categrical node w.r.t. the current format.
       /// Since the error-estimation needs the "real" value (i.e. exact / accurate), it has to be determined, too.
-      /// Note: This function will also populate the 'spn_node_maximum' and 'spn_node_minimum'.
       /// \param op Pointer to the defining operation, representing a SPN node.
-      /// \return 2-Tuple consisting of (0): the real value and (1): the absolute delta / error.
-      void estimateErrorHistogram(HistogramOp op);
+      void estimateErrorCategorical(CategoricalOp op);
 
       /// Estimate the error introduced by the given constant w.r.t. the current format.
       /// Since the error-estimation needs the "real" value (i.e. exact / accurate), it has to be determined, too.
-      // Note: This function will also populate the 'spn_node_maximum' and 'spn_node_minimum'.
       /// \param op Pointer to the defining operation, representing a SPN node.
-      /// \return 2-Tuple consisting of (0): the real value and (1): the absolute delta / error.
       void estimateErrorConstant(ConstantOp op);
+
+      /// Estimate the error introduced by the given gaussian node w.r.t. the current format.
+      /// Since the error-estimation needs the "real" value (i.e. exact / accurate), it has to be determined, too.
+      /// \param op Pointer to the defining operation, representing a SPN node.
+      void estimateErrorGaussian(GaussianOp op);
+
+      /// Estimate the error introduced by the given leaf w.r.t. the current format.
+      /// Since the error-estimation needs the "real" value (i.e. exact / accurate), it has to be determined, too.
+      /// \param op Pointer to the defining operation, representing a SPN node.
+      void estimateErrorHistogram(HistogramOp op);
 
       /// Select the "optimal" type, using the current state of the analysis.
       void selectOptimalType();
@@ -119,7 +121,7 @@ namespace mlir {
       Type selectedType;
 
       /// Number of available floating point formats.
-      static const int NUM_FLOAT_FORMATS = 4;
+      static const int NUM_FLOAT_FORMATS = 48;
 
       /// Calculation constant "two".
       const double BASE_TWO = 2.0;
@@ -130,30 +132,84 @@ namespace mlir {
       /// Calculation error coefficient: 1 + EPSILON.
       double ERR_COEFFICIENT = 1.0;
 
+      /// Calculation of Gaussian minimum probability value outside of 99% := exp(-0.5 * std::pow(2.575829303549,2.0)).
+      const double GAUSS_99 = 0.036245200715160;
+
       /// For each operation store values: { accurate, defective, max, min, max_subtree_depth }
       std::map<mlir::Operation*, std::tuple<double, double, double, double, int>> spn_node_values;
 
       /// The global extreme-values of the SPN are used when determining the needed I(nteger) / E(xponent) values
-      double spn_node_value_global_maximum = std::numeric_limits<float>::min();
-      double spn_node_value_global_minimum = std::numeric_limits<float>::max();
+      double spn_node_value_global_maximum = std::numeric_limits<double>::min();
+      double spn_node_value_global_minimum = std::numeric_limits<double>::max();
 
       /// Current format information: "Fraction / Mantissa"
       int format_bits_significance = std::numeric_limits<int>::min();
       /// Current format information: "Integer / Exponent"
       int format_bits_magnitude = std::numeric_limits<int>::min();
 
-      llvm::SmallVector<Operation*, 5> queries;
-      llvm::SmallVector<Operation*, 5> roots;
-
       /// Tuples which model different floating point formats, like e.g. fp32 / single precision
       /// 0: Significance / "Fraction / Mantissa"
       /// 1: Magnitude / "Integer / Exponent"
       /// 2: function returning mlir::Type, providing an MLIRContext*
+      /*
       std::tuple<int, int, std::function<Type(MLIRContext*)>> Float_Formats[NUM_FLOAT_FORMATS] = {
           {10, 5, Float16Type::get},
           {7, 8, BFloat16Type::get},
           {23, 8, Float32Type::get},
           {52, 11, Float64Type::get}
+      };
+       */
+
+      // ToDo: This is used to compare the ErrorEstimation with the FCCM paper (2020).
+      std::tuple<int, int, std::function<Type(MLIRContext*)>> Float_Formats[NUM_FLOAT_FORMATS] = {
+          {23, 6, Float64Type::get},
+          {24, 6, Float64Type::get},
+          {25, 6, Float64Type::get},
+          {26, 6, Float64Type::get},
+          {27, 6, Float64Type::get},
+          {28, 6, Float64Type::get},
+          {29, 6, Float64Type::get},
+          {30, 6, Float64Type::get},
+          {23, 7, Float64Type::get},
+          {24, 7, Float64Type::get},
+          {25, 7, Float64Type::get},
+          {26, 7, Float64Type::get},
+          {27, 7, Float64Type::get},
+          {28, 7, Float64Type::get},
+          {29, 7, Float64Type::get},
+          {30, 7, Float64Type::get},
+          {23, 8, Float64Type::get},
+          {24, 8, Float64Type::get},
+          {25, 8, Float64Type::get},
+          {26, 8, Float64Type::get},
+          {27, 8, Float64Type::get},
+          {28, 8, Float64Type::get},
+          {29, 8, Float64Type::get},
+          {30, 8, Float64Type::get},
+          {23, 9, Float64Type::get},
+          {24, 9, Float64Type::get},
+          {25, 9, Float64Type::get},
+          {26, 9, Float64Type::get},
+          {27, 9, Float64Type::get},
+          {28, 9, Float64Type::get},
+          {29, 9, Float64Type::get},
+          {30, 9, Float64Type::get},
+          {23, 10, Float64Type::get},
+          {24, 10, Float64Type::get},
+          {25, 10, Float64Type::get},
+          {26, 10, Float64Type::get},
+          {27, 10, Float64Type::get},
+          {28, 10, Float64Type::get},
+          {29, 10, Float64Type::get},
+          {30, 10, Float64Type::get},
+          {23, 11, Float64Type::get},
+          {24, 11, Float64Type::get},
+          {25, 11, Float64Type::get},
+          {26, 11, Float64Type::get},
+          {27, 11, Float64Type::get},
+          {28, 11, Float64Type::get},
+          {29, 11, Float64Type::get},
+          {30, 11, Float64Type::get}
       };
 
     };
