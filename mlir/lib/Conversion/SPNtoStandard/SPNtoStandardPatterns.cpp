@@ -31,11 +31,11 @@ mlir::LogicalResult mlir::spn::GaussionOpLowering::matchAndRewrite(mlir::spn::Ga
                                                                    llvm::ArrayRef<mlir::Value> operands,
                                                                    mlir::ConversionPatternRewriter& rewriter) const {
   assert(operands.size() == 1);
-  if (!op.getResult().getType().isa<FloatType>()) {
-    // Can only compute floating-point results.
+  Value index = operands[0];
+  if (!op.getResult().getType().isa<FloatType>() || index.getType().isa<VectorType>()) {
+    // Can only compute scalar floating-point results.
     return failure();
   }
-  Value index = operands[0];
   auto indexType = index.getType().dyn_cast<FloatType>();
   assert(indexType && "Expecting index to have floating-point type");
   auto resultType = op.getResult().getType().dyn_cast<FloatType>();

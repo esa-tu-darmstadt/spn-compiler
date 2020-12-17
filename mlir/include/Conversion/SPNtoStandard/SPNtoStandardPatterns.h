@@ -73,16 +73,6 @@ namespace mlir {
 
     };
 
-    struct BatchVectorizeJointLowering : public OpConversionPattern<JointQuery> {
-
-      using OpConversionPattern<JointQuery>::OpConversionPattern;
-
-      LogicalResult matchAndRewrite(JointQuery op,
-                                    ArrayRef<Value> operands,
-                                    ConversionPatternRewriter& rewriter) const override;
-
-    };
-
     /// Template for patterns lowering SPN n-ary arithmetic operations to Standard dialect.
     /// Will only work if the arithmetic is actually happening on floating-point data types.
     /// \tparam SourceOp SPN dialect operation to lower.
@@ -94,14 +84,20 @@ namespace mlir {
 
       LogicalResult matchAndRewrite(SourceOp op, ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override {
-        auto opType = operands[0].getType();
-        if (!opType.isIntOrFloat() || opType.isIntOrIndex()) {
-          // Translate only arithmetic operations operating on floating-point data types.
+        if (op.getNumOperands() > 2 || operands.size() != op.getNumOperands()) {
           return failure();
         }
 
-        if (op.getNumOperands() > 2 || operands.size() != op.getNumOperands()) {
-          return failure();
+        for (auto operand : operands) {
+          auto opType = operand.getType();
+          auto isFloat = opType.template isa<FloatType>();
+          auto isVectorOfFloat = opType.template isa<VectorType>()
+              && opType.template dyn_cast<VectorType>().getElementType().template isa<FloatType>();
+          if (!(isFloat || isVectorOfFloat)) {
+            // Translate only arithmetic operations operating on floating-point data types
+            // or vectors of float.
+            return failure();
+          }
         }
 
         rewriter.replaceOpWithNewOp<TargetOp>(op, operands[0], operands[1]);
@@ -122,7 +118,6 @@ namespace mlir {
       patterns.insert<GaussionOpLowering>(context);
       patterns.insert<SingleJointLowering>(typeConverter, context);
       patterns.insert<BatchJointLowering>(typeConverter, context);
-      patterns.insert<BatchVectorizeJointLowering>(typeConverter, context, 5);
     }
 
   }

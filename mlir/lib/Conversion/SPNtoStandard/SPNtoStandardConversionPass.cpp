@@ -4,6 +4,7 @@
 //
 
 #include "SPNtoStandard/SPNtoStandardPatterns.h"
+#include "SPNtoStandard/Vectorization/BatchVectorizationPatterns.h"
 #include "SPNtoStandard/SPNtoStandardConversionPass.h"
 #include "SPNtoStandard/SPNtoStandardTypeConverter.h"
 #include "mlir/Dialect/SCF/SCF.h"
@@ -26,6 +27,7 @@ void mlir::spn::SPNtoStandardConversionPass::runOnOperation() {
 
   OwningRewritePatternList patterns;
   mlir::spn::populateSPNtoStandardConversionPatterns(patterns, &getContext(), typeConverter);
+  mlir::spn::populateSPNBatchVectorizePatterns(patterns, &getContext(), typeConverter);
 
   auto op = getOperation();
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
