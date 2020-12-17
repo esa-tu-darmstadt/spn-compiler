@@ -8,6 +8,8 @@
 #include "SPNtoLLVM/SPNtoLLVMConversionPass.h"
 #include <mlir/Transforms/DialectConversion.h>
 #include <mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h>
+#include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
+#include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 
@@ -27,6 +29,8 @@ void mlir::spn::SPNtoLLVMConversionPass::runOnOperation() {
   // Create and populate list of pattern used for conversion.
   OwningRewritePatternList patterns;
   populateLoopToStdConversionPatterns(patterns, &getContext());
+  populateVectorToLLVMConversionPatterns(typeConverter, patterns);
+  populateVectorToSCFConversionPatterns(patterns, &getContext());
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
   populateSPNtoLLVMConversionPatterns(patterns, &getContext(), typeConverter);
 
