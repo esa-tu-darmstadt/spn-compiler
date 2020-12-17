@@ -7,12 +7,14 @@
 #include "SPNtoStandard/SPNtoStandardConversionPass.h"
 #include "SPNtoStandard/SPNtoStandardTypeConverter.h"
 #include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/Vector/VectorOps.h"
 
 void mlir::spn::SPNtoStandardConversionPass::runOnOperation() {
   ConversionTarget target(getContext());
 
   target.addLegalDialect<StandardOpsDialect>();
   target.addLegalDialect<mlir::scf::SCFDialect>();
+  target.addLegalDialect<mlir::vector::VectorDialect>();
   target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
   target.addLegalOp<FuncOp>();
 

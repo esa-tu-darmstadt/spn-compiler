@@ -73,6 +73,16 @@ namespace mlir {
 
     };
 
+    struct BatchVectorizeJointLowering : public OpConversionPattern<JointQuery> {
+
+      using OpConversionPattern<JointQuery>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(JointQuery op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+
+    };
+
     /// Template for patterns lowering SPN n-ary arithmetic operations to Standard dialect.
     /// Will only work if the arithmetic is actually happening on floating-point data types.
     /// \tparam SourceOp SPN dialect operation to lower.
@@ -112,6 +122,7 @@ namespace mlir {
       patterns.insert<GaussionOpLowering>(context);
       patterns.insert<SingleJointLowering>(typeConverter, context);
       patterns.insert<BatchJointLowering>(typeConverter, context);
+      patterns.insert<BatchVectorizeJointLowering>(typeConverter, context, 5);
     }
 
   }
