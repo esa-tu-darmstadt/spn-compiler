@@ -13,7 +13,6 @@
 #include "mlir/Rewrite/PatternApplicator.h"
 #include "SPNtoStandard/Vectorization/BatchVectorizationPatterns.h"
 #include <cmath>
-#include <mlir/Transforms/GreedyPatternRewriteDriver.h>
 
 /*
  * Bunch of helper functions declared in an anonymous namespace.
@@ -200,7 +199,7 @@ mlir::LogicalResult mlir::spn::BatchVectorizeJointLowering::matchAndRewrite(mlir
     for (unsigned k = 0; k < hwVectorWidth; ++k) {
       auto sampleIndex = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(k));
       auto loadIndex = rewriter.create<mlir::AddIOp>(op.getLoc(), vectorizedLoop.getInductionVar(), sampleIndex);
-      auto loadScalar = rewriter.create<mlir::LoadOp>(op.getLoc(), inputArg, ValueRange{sampleIndex, featureIndex});
+      auto loadScalar = rewriter.create<mlir::LoadOp>(op.getLoc(), inputArg, ValueRange{loadIndex, featureIndex});
       vector = rewriter.create<mlir::vector::InsertOp>(op.getLoc(), loadScalar, vector, ArrayRef<int64_t>{k});
     }
     replaceArgs.push_back(vector);
@@ -227,18 +226,40 @@ mlir::LogicalResult mlir::spn::BatchVectorizeJointLowering::matchAndRewrite(mlir
   //rewriter.eraseOp(vectorLoopBody.getTerminator());
   //rewriter.create<mlir::scf::YieldOp>(op.getLoc());
   rewriter.restoreInsertionPoint(restore);
-  rewriter.create<mlir::ReturnOp>(op.getLoc());
 
-  /*
   // Create the scalar epilog loop, iterating from ubVectorized to numSamples, in steps of 1.
   auto lbScalar = rewriter.create<mlir::IndexCastOp>(op.getLoc(), ubVectorized, rewriter.getIndexType());
   auto ubScalar = rewriter.create<mlir::IndexCastOp>(op.getLoc(), numSamplesArg, rewriter.getIndexType());
   auto stepScalar = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
   auto scalarLoop = rewriter.create<mlir::scf::ForOp>(op.getLoc(), lbScalar, ubScalar, stepScalar);
   auto& scalarLoopBody = scalarLoop.getLoopBody().front();
-  */
-  //rewriter.eraseOp(graphResult);
+
+  restore = rewriter.saveInsertionPoint();
+
+  rewriter.setInsertionPointToStart(&scalarLoopBody);
+  SmallVector<Value, 10> blockArgsReplacement;
+  for (unsigned i = 0; i < op.getNumFeatures(); ++i) {
+    SmallVector<Value, 2> indices;
+    indices.push_back(scalarLoop.getInductionVar());
+    indices.push_back(rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(i)));
+    auto load = rewriter.create<mlir::LoadOp>(op.getLoc(), inputArg, indices);
+    blockArgsReplacement.push_back(load);
+  }
+  // Transfer SPN graph from JointQuery to for-loop body.
+  rewriter.mergeBlockBefore(&op.getRegion().front(), scalarLoopBody.getTerminator(), blockArgsReplacement);
+  // Apply logarithm to result before storing it
+  rewriter.setInsertionPoint(scalarLoopBody.getTerminator());
+  auto logResult = rewriter.create<mlir::LogOp>(op.getLoc(), graphResult.retValue().front());
+  // Store the log-result to the output pointer.
+  SmallVector<Value, 1> indices;
+  indices.push_back(scalarLoop.getInductionVar());
+  rewriter.create<mlir::StoreOp>(op.getLoc(), logResult,
+                                 storeArg, indices);
+
+  rewriter.restoreInsertionPoint(restore);
+  rewriter.create<mlir::ReturnOp>(op.getLoc());
   replaceFunc.dump();
+  rewriter.eraseOp(graphResult);
   rewriter.eraseOp(op);
   return success();
 
