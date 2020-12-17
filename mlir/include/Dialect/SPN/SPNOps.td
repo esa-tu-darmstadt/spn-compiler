@@ -221,8 +221,7 @@ def JointQuery : SPN_Op<"joint_query",
                     SymbolNameAttr:$kernelName,
                     UI32Attr:$batchSize,
                     ErrorModelAttr:$errorModel,
-                    F64Attr:$maxError,
-                    DefaultValuedAttr<BoolAttr, "false">:$vectorized
+                    F64Attr:$maxError
                     );
 
     let regions = (region SizedRegion<1>:$graph);

@@ -282,6 +282,16 @@ unsigned int mlir::spn::JointQuery::getNumFeatures() {
   return this->numFeatures();
 }
 
+mlir::Type mlir::spn::JointQuery::getFeatureDataType() {
+  return this->inputType();
+}
+
+mlir::Type mlir::spn::JointQuery::getComputationDataType() {
+  auto retOp = dyn_cast<mlir::spn::ReturnOp>(getRootNodes().front());
+  assert(retOp);
+  return retOp.retValue().front().getType();
+}
+
 unsigned int mlir::spn::JointQuery::getBatchSize() {
   return this->batchSize();
 }
@@ -292,6 +302,10 @@ mlir::spn::error_model mlir::spn::JointQuery::getErrorModel() {
 
 double mlir::spn::JointQuery::getMaxError() {
   return this->maxError().convertToDouble();
+}
+
+llvm::StringRef mlir::spn::JointQuery::getQueryName() {
+  return this->kernelName();
 }
 
 #define GET_OP_CLASSES
