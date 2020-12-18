@@ -214,8 +214,8 @@ mlir::LogicalResult mlir::spn::BatchVectorizeJointLowering::matchAndRewrite(mlir
     if (auto retOp = dyn_cast<mlir::spn::ReturnOp>(o)) {
       result = rewriter.create<mlir::LogOp>(op.getLoc(), vectorType, argMapper.lookup(retOp.retValue().front()));
       // TODO Store the result.
-      //rewriter.create<mlir::vector::TransferWriteOp>(op.getLoc(), result, (Value) storeArg,
-      //                                               ValueRange{vectorizedLoop.getInductionVar()});
+      rewriter.create<mlir::vector::TransferWriteOp>(op.getLoc(), result, (Value) storeArg,
+                                                     ValueRange{vectorizedLoop.getInductionVar()});
       //rewriter.create<mlir::StoreOp>(op.getLoc(), result, storeView, ValueRange{vectorizedLoop.getInductionVar()});
     } else {
       rewriter.clone(o, argMapper);
