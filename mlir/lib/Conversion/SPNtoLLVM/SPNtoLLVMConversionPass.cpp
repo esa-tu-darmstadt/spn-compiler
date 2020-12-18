@@ -28,9 +28,9 @@ void mlir::spn::SPNtoLLVMConversionPass::runOnOperation() {
 
   // Create and populate list of pattern used for conversion.
   OwningRewritePatternList patterns;
+  populateVectorToSCFConversionPatterns(patterns, &getContext());
   populateLoopToStdConversionPatterns(patterns, &getContext());
   populateVectorToLLVMConversionPatterns(typeConverter, patterns);
-  populateVectorToSCFConversionPatterns(patterns, &getContext());
   populateStdToLLVMConversionPatterns(typeConverter, patterns);
   populateSPNtoLLVMConversionPatterns(patterns, &getContext(), typeConverter);
 
