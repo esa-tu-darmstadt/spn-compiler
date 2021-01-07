@@ -18,6 +18,12 @@
 #include <codegen/mlir/frontend/MLIRDeserializer.h>
 #include "MLIRToolchain.h"
 #include "mlir/InitAllDialects.h"
+#include <llvm/ADT/StringMap.h>
+#include <llvm/MC/SubtargetFeature.h>
+#include <llvm/Support/TargetSelect.h>
+#include <driver/action/EmitObjectCode.h>
+#include "llvm/Support/Host.h"
+#include "llvm/Support/TargetRegistry.h"
 
 using namespace spnc;
 
@@ -26,14 +32,9 @@ std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::str
   std::unique_ptr<Job<Kernel>> job = std::make_unique<Job<Kernel>>();
   // Invoke MLIR code-generation on parsed tree.
   auto ctx = std::make_shared<MLIRContext>();
+  initializeMLIRContext(*ctx);
+  auto targetMachine = createTargetMachine();
   auto kernelInfo = std::make_shared<KernelInfo>();
-  mlir::registerAllDialects(ctx->getDialectRegistry());
-  ctx->getDialectRegistry().insert<mlir::spn::SPNDialect>();
-  ctx->loadDialect<mlir::spn::SPNDialect>();
-  ctx->loadDialect<mlir::StandardOpsDialect>();
-  ctx->loadDialect<mlir::scf::SCFDialect>();
-  ctx->loadDialect<mlir::LLVM::LLVMDialect>();
-  ctx->loadDialect<mlir::vector::VectorDialect>();
   BinarySPN binarySPNFile{inputFile, false};
   auto& deserialized = job->insertAction<MLIRDeserializer>(std::move(binarySPNFile), ctx, kernelInfo);
   auto& spnDialectPipeline = job->insertAction<SPNDialectPipeline>(deserialized, ctx);
@@ -53,19 +54,56 @@ std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::str
   auto& spn2llvm = job->insertAction<SPNtoLLVMConversion>(spn2standard, ctx);
 
   // Convert the MLIR module to a LLVM-IR module.
-  auto& llvmConversion = job->insertAction<MLIRtoLLVMIRConversion>(spn2llvm, ctx);
+  auto& llvmConversion = job->insertAction<MLIRtoLLVMIRConversion>(spn2llvm, ctx, targetMachine);
 
-  // Write generated LLVM module to bitcode-file.
-  auto bitCodeFile = FileSystem::createTempFile<FileType::LLVM_BC>();
-  auto& writeBitcode = job->insertAction<LLVMWriteBitcode>(llvmConversion, std::move(bitCodeFile));
-  // Compile generated bitcode-file to object file.
-  auto objectFile = FileSystem::createTempFile<FileType::OBJECT>();
-  auto& compileObject = job->insertAction<LLVMStaticCompiler>(writeBitcode, std::move(objectFile));
+  // Translate the generated LLVM IR module to object code and write it to an object file.
+  auto objectFile = FileSystem::createTempFile<FileType::OBJECT>(false);
+  SPDLOG_INFO("Generating object file {}", objectFile.fileName());
+  auto& emitObjectCode = job->insertAction<EmitObjectCode>(llvmConversion, std::move(objectFile), targetMachine);
+
   // Link generated object file into shared object.
   auto sharedObject = FileSystem::createTempFile<FileType::SHARED_OBJECT>(false);
   SPDLOG_INFO("Compiling to shared object file {}", sharedObject.fileName());
   auto& linkSharedObject =
-      job->insertFinalAction<ClangKernelLinking>(compileObject, std::move(sharedObject), kernelInfo);
-  //job->addAction(std::move(input));
+      job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo);
   return std::move(job);
+}
+
+void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext& ctx) {
+  mlir::registerAllDialects(ctx.getDialectRegistry());
+  ctx.getDialectRegistry().insert<mlir::spn::SPNDialect>();
+  ctx.loadDialect<mlir::spn::SPNDialect>();
+  ctx.loadDialect<mlir::StandardOpsDialect>();
+  ctx.loadDialect<mlir::scf::SCFDialect>();
+  ctx.loadDialect<mlir::LLVM::LLVMDialect>();
+  ctx.loadDialect<mlir::vector::VectorDialect>();
+}
+
+std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine() {
+  // NOTE: If we wanted to support cross-compilation, we could hook in here to use a different target machine.
+
+  llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmParser();
+  llvm::InitializeNativeTargetAsmPrinter();
+
+  auto targetTriple = llvm::sys::getDefaultTargetTriple();
+  std::string errorMessage;
+  auto target = llvm::TargetRegistry::lookupTarget(targetTriple, errorMessage);
+  if (!target) {
+    SPNC_FATAL_ERROR("No target for target triple {}: {}", targetTriple, errorMessage);
+  }
+  std::string cpu{llvm::sys::getHostCPUName()};
+  llvm::SubtargetFeatures features;
+  llvm::StringMap<bool> hostFeatures;
+  if (llvm::sys::getHostCPUFeatures(hostFeatures)) {
+    for (auto& f : hostFeatures) {
+      features.AddFeature(f.first(), f.second);
+    }
+  }
+  SPDLOG_INFO("Target machine CPU name: {}", cpu);
+  SPDLOG_INFO("Target machine features: {}", features.getString());
+
+  std::shared_ptr<llvm::TargetMachine> machine{target->createTargetMachine(targetTriple,
+                                                                           cpu, features.getString(), {}, {})};
+  return std::move(machine);
 }

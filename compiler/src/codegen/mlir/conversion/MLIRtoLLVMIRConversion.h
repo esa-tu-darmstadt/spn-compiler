@@ -9,6 +9,7 @@
 #include <driver/Actions.h>
 #include <mlir/IR/Module.h>
 #include <llvm/IR/Module.h>
+#include <llvm/Target/TargetMachine.h>
 
 namespace spnc {
 
@@ -24,7 +25,9 @@ namespace spnc {
     /// \param optimizeOutput Flag indicating whether the generated LLVM IR module should be optimized
     /// after conversion.
     explicit MLIRtoLLVMIRConversion(ActionWithOutput<mlir::ModuleOp>& _input,
-                                    std::shared_ptr<mlir::MLIRContext> context, bool optimizeOutput = true);
+                                    std::shared_ptr<mlir::MLIRContext> context,
+                                    std::shared_ptr<llvm::TargetMachine> targetMachine,
+                                    bool optimizeOutput = true);
 
     llvm::Module& execute() override;
 
@@ -71,6 +74,8 @@ namespace spnc {
     bool optimize;
 
     std::shared_ptr<mlir::MLIRContext> ctx;
+
+    std::shared_ptr<llvm::TargetMachine> machine;
 
     llvm::LLVMContext llvmCtx;
 

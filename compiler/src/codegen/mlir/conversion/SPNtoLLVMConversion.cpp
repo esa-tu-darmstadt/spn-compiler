@@ -11,7 +11,6 @@
 
 void spnc::SPNtoLLVMConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   //pm->addPass(mlir::spn::createSPNtoLLVMConversionPass());
-  //pm->addPass(mlir::createConvertVectorToSCFPass());
   pm->nest<mlir::FuncOp>().addPass(mlir::createConvertVectorToSCFPass());
   pm->addPass(mlir::createLowerToCFGPass());
   pm->addPass(mlir::createConvertVectorToLLVMPass());
