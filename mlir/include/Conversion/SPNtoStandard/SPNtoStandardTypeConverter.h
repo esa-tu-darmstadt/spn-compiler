@@ -7,7 +7,7 @@
 #define SPNC_MLIR_DIALECTS_INCLUDE_CONVERSION_SPNTOSTANDARD_SPNTOSTANDARDTYPECONVERTER_H
 
 #include <mlir/Transforms/DialectConversion.h>
-#include "mlir/IR/StandardTypes.h"
+#include "mlir/IR/BuiltinTypes.h"
 
 namespace mlir {
   namespace spn {

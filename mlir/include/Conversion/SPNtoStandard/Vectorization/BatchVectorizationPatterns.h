@@ -7,7 +7,7 @@
 #define SPNC_MLIR_LIB_DIALECT_SPN_BATCHVECTORIZATION_BATCHVECTORIZATIONPATTERNS_H
 
 #include "mlir/Transforms/DialectConversion.h"
-#include "mlir/IR/StandardTypes.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "SPN/SPNOps.h"
 #include "SPN/SPNDialect.h"

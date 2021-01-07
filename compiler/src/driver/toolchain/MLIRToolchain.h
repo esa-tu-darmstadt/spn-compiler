@@ -6,7 +6,7 @@
 #ifndef SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_MLIRTOOLCHAIN_H
 #define SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_MLIRTOOLCHAIN_H
 
-#include <mlir/IR/Module.h>
+#include "mlir/IR/BuiltinOps.h"
 #include <driver/Job.h>
 #include <driver/Options.h>
 #include <llvm/Target/TargetMachine.h>

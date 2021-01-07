@@ -9,7 +9,7 @@
 #include <driver/Actions.h>
 #include <driver/BaseActions.h>
 #include <util/json.hpp>
-#include <mlir/IR/Module.h>
+#include "mlir/IR/BuiltinOps.h"
 #include <util/Logging.h>
 #include <SPN/Analysis/SPNGraphStatistics.h>
 #include <SPN/Analysis/SPNNodeLevel.h>

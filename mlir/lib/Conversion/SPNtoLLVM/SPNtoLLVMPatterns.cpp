@@ -3,7 +3,7 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#include <mlir/IR/Module.h>
+#include "mlir/IR/BuiltinOps.h"
 #include "SPNtoLLVM/SPNtoLLVMPatterns.h"
 #include "SPN/SPNAttributes.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"

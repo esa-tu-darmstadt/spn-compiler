@@ -7,7 +7,7 @@
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_MLIRPASSPIPELINE_H
 
 #include <driver/Actions.h>
-#include <mlir/IR/Module.h>
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "util/Logging.h"

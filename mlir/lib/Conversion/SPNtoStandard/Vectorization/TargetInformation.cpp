@@ -11,7 +11,7 @@
 #include <sstream>
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_os_ostream.h"
-#include "mlir/IR/StandardTypes.h"
+#include "mlir/IR/BuiltinTypes.h"
 
 mlir::spn::TargetInformation::TargetInformation() {
   llvm::dbgs() << "Host CPU name:" << llvm::sys::getHostCPUName().str() << "\n";

@@ -12,7 +12,7 @@
 #include <string>
 #include <regex>
 #include <mlir/IR/Verifier.h>
-#include "mlir/IR/StandardTypes.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "Kernel.h"
 
@@ -205,7 +205,7 @@ mlir::Value spnc::MLIRDeserializer::convertToSignlessInteger(mlir::Value value) 
   }
   if (value.getType().isa<FloatType>()) {
     return builder.create<mlir::FPToUIOp>(builder.getUnknownLoc(), value,
-                                          IntegerType::get(32, context.get()));
+                                          IntegerType::get(context.get(), 32));
   }
   assert(false && "Expecting features to be either integer or floating-point type");
 }
@@ -226,7 +226,7 @@ mlir::Type spnc::MLIRDeserializer::translateTypeString(const std::string& text) 
     auto isUnsigned = match[1].length() != 0;
     // match[2] captures the width of the type.
     auto width = std::stoi(match[2]);
-    return IntegerType::get(width, context.get());
+    return IntegerType::get(context.get(), width);
   }
   // Test for a floating-point type, given as float(WIDTH).
   std::regex floatRegex{R"(float([1-9]+))"};

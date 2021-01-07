@@ -7,7 +7,7 @@
 #define SPNC_MLIR_DIALECTS_INCLUDE_CONVERSION_SPNTOLLVM_SPNTOLLVMPATTERNS_H
 
 #include "mlir/Transforms/DialectConversion.h"
-#include "mlir/IR/StandardTypes.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "SPN/SPNOps.h"
 #include "SPN/SPNDialect.h"
 #include <mlir/Dialect/LLVMIR/LLVMDialect.h>
@@ -64,10 +64,10 @@ namespace mlir {
       auto valArrayAttr = DenseElementsAttr::get(rankedType, arrayValues);
 
       // Create & insert a constant global array with the values from the histogram.
-      auto elementType = typeConverter.convertType(resultType).template dyn_cast<mlir::LLVM::LLVMType>();
+      auto elementType = typeConverter.convertType(resultType);
       assert(elementType);
-      auto arrType = LLVM::LLVMType::getArrayTy(elementType, arrayValues.size());
-      auto module = op.template getParentOfType<ModuleOp>();
+      auto arrType = LLVM::LLVMArrayType::get(elementType, arrayValues.size());
+      auto module = op->template getParentOfType<ModuleOp>();
       auto restore = rewriter.saveInsertionPoint();
       rewriter.setInsertionPointToStart(module.getBody());
       auto globalConst = rewriter.create<LLVM::GlobalOp>(op.getLoc(),
@@ -80,11 +80,11 @@ namespace mlir {
 
       // Load a value from the histogram using the index value to index into the histogram.
       auto addressOf = rewriter.create<LLVM::AddressOfOp>(op.getLoc(), globalConst);
-      auto indexType = LLVM::LLVMType::getInt64Ty(rewriter.getContext());
+      auto indexType = LLVM::LLVMIntegerType::get(rewriter.getContext(), 64);
       auto constZeroIndex = rewriter.create<LLVM::ConstantOp>(op.getLoc(), indexType, rewriter.getI64IntegerAttr(0));
-      auto ptrType = elementType.getPointerTo();
-      auto
-          gep = rewriter.create<LLVM::GEPOp>(op.getLoc(), ptrType, addressOf, ValueRange{constZeroIndex, indexOperand});
+      auto ptrType = LLVM::LLVMPointerType::get(elementType);
+      auto gep = rewriter.create<LLVM::GEPOp>(op.getLoc(), ptrType,
+                                              addressOf, ValueRange{constZeroIndex, indexOperand});
       rewriter.replaceOpWithNewOp<LLVM::LoadOp>(op, gep);
       return success();
     }

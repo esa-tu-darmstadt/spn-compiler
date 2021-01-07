@@ -6,7 +6,7 @@
 #ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_FRONTEND_MLIRDESERIALIZER_H
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_FRONTEND_MLIRDESERIALIZER_H
 
-#include <mlir/IR/Module.h>
+#include "mlir/IR/BuiltinOps.h"
 #include <util/FileSystem.h>
 #include <mlir/IR/Builders.h>
 #include <driver/Job.h>

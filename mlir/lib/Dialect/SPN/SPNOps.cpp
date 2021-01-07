@@ -8,7 +8,7 @@
 #include "SPN/SPNAttributes.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/Builders.h"
-#include "mlir/IR/StandardTypes.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "Canonicalization/CanonicalizationPatterns.h"
 

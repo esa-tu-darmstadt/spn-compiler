@@ -25,14 +25,9 @@ class SPN_Op<string mnemonic, list<OpTrait> traits = []> : Op<SPN_Dialect, mnemo
 /// Dialect-specific type representing probability values.
 ///
 def SPNProbabilityType : DialectType<SPN_Dialect,
-        CPred<"$_self.isa<::mlir::spn::ProbabilityType>()">, "probability type">,
-        BuildableType<"$_builder.getType<::mlir:spn::ProbabilityType>()"> {
-
-    let typeDescription = [{
-        `spn.probability_type` abstractly represents a probability type.
-    }];
-
-}
+        CPred<"$_self.isa<::mlir::spn::ProbabilityType>()">,
+        "`spn.probability_type` abstractly represents a probability type.">,
+        BuildableType<"$_builder.getType<::mlir:spn::ProbabilityType>()">;
 
 def AnyProbabilityType : DialectType<SPN_Dialect,
                         Or<[SPNProbabilityType.predicate, AnyFloat.predicate,

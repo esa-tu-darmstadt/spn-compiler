@@ -3,8 +3,7 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#include <mlir/IR/Function.h>
-#include "mlir/IR/Module.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "SPNtoStandard/SPNtoStandardPatterns.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/Dialect/SCF/SCF.h"

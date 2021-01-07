@@ -7,7 +7,7 @@
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_MLIRTOLLVMIRCONVERSION_H
 
 #include <driver/Actions.h>
-#include <mlir/IR/Module.h>
+#include "mlir/IR/BuiltinOps.h"
 #include <llvm/IR/Module.h>
 #include <llvm/Target/TargetMachine.h>
 
