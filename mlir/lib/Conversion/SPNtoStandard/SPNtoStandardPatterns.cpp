@@ -7,6 +7,7 @@
 #include "SPNtoStandard/SPNtoStandardPatterns.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/Dialect/SCF/SCF.h"
+#include "SPN/SPNAttributes.h"
 
 // Should not be necessary on modern platforms,
 // but still defined for compatibility.
@@ -24,6 +25,114 @@ mlir::LogicalResult mlir::spn::ReturnOpLowering::matchAndRewrite(mlir::spn::Retu
                                                                  llvm::ArrayRef<mlir::Value> operands,
                                                                  mlir::ConversionPatternRewriter& rewriter) const {
   return failure();
+}
+
+// Anonymous namespace holding helper functions.
+namespace {
+
+  template<typename SourceOp>
+  mlir::LogicalResult replaceOpWithGlobalMemref(SourceOp op, mlir::ConversionPatternRewriter& rewriter,
+                                                mlir::Value indexOperand, llvm::ArrayRef<mlir::Attribute> arrayValues) {
+    static int tableCount = 0;
+    auto resultType = op.getResult().getType();
+    if (!resultType.isIntOrFloat()) {
+      // Currently only handling Int and Float result types.
+      return mlir::failure();
+    }
+
+    // Construct a DenseElementsAttr to hold the array values.
+    auto rankedType = mlir::RankedTensorType::get({(long) arrayValues.size()}, resultType);
+    auto valArrayAttr = mlir::DenseElementsAttr::get(rankedType, arrayValues);
+
+    // Set the insertion point to the body of the module (outside the function/kernel).
+    auto module = op->template getParentOfType<mlir::ModuleOp>();
+    auto restore = rewriter.saveInsertionPoint();
+    rewriter.setInsertionPointToStart(module.getBody());
+
+    // Construct a global, constant Memref with private visibility, holding the values of the array.
+    auto symbolName = "table_" + std::to_string(tableCount++);
+    auto visibility = rewriter.getStringAttr("private");
+    auto memrefType = mlir::MemRefType::get({(long) arrayValues.size()}, resultType);
+    auto globalMemref = rewriter.create<mlir::GlobalMemrefOp>(op.getLoc(), symbolName, visibility,
+                                                              mlir::TypeAttr::get(memrefType), valArrayAttr, true);
+    // Restore insertion point
+    rewriter.restoreInsertionPoint(restore);
+
+    // Use GetGlobalMemref operation to access the global created above.
+    auto addressOf = rewriter.template create<mlir::GetGlobalMemrefOp>(op.getLoc(), memrefType, symbolName);
+    // Cast input value to index.
+    auto indexVal = rewriter.template create<mlir::IndexCastOp>(op.getLoc(), rewriter.getIndexType(), indexOperand);
+    // Replace the source operation with a load from the global memref,
+    // using the source operation's input value as index.
+    rewriter.template replaceOpWithNewOp<mlir::LoadOp>(op, addressOf, mlir::ValueRange{indexVal});
+    return mlir::success();
+  }
+
+}
+
+mlir::LogicalResult mlir::spn::HistogramOpLowering::matchAndRewrite(mlir::spn::HistogramOp op,
+                                                                    llvm::ArrayRef<mlir::Value> operands,
+                                                                    mlir::ConversionPatternRewriter& rewriter) const {
+  // Check for single operand, i.e. the index value.
+  assert(operands.size() == 1);
+
+  // Collect all mappings from input var value to probability value in a map
+  // and compute the minimum lower bound & maximum upper bound.
+  llvm::DenseMap<int, double> values;
+  int minLB = std::numeric_limits<int>::max();
+  int maxUB = std::numeric_limits<int>::min();
+  for (auto& b : op.bucketsAttr()) {
+    auto bucket = b.cast<Bucket>();
+    auto lb = bucket.lb().getInt();
+    auto ub = bucket.ub().getInt();
+    auto val = bucket.val().getValueAsDouble();
+    for (int i = lb; i < ub; ++i) {
+      values[i] = val;
+    }
+    minLB = std::min<int>(minLB, lb);
+    maxUB = std::max<int>(maxUB, ub);
+  }
+
+  // Currently, we assume that all input vars take no values <0.
+  if (minLB < 0) {
+    return failure();
+  }
+
+  auto resultType = op.getResult().getType();
+  if (!resultType.isIntOrFloat()) {
+    // Currently only handling Int and Float result types.
+    return failure();
+  }
+
+  // Flatten the map into an array by filling up empty indices with 0 values.
+  SmallVector<Attribute, 256> valArray;
+  for (int i = 0; i < maxUB; ++i) {
+    double indexVal;
+    if (values.count(i)) {
+      indexVal = values[i];
+    } else {
+      // Fill up with 0 if no value was defined by the histogram.
+      indexVal = 0;
+    }
+    // Construct attribute with constant value. Need to distinguish cases here due to different builder methods.
+    if (resultType.isIntOrIndex()) {
+      valArray.push_back(rewriter.getIntegerAttr(resultType, (int) indexVal));
+    } else {
+      valArray.push_back(rewriter.getFloatAttr(resultType, indexVal));
+    }
+  }
+
+  return replaceOpWithGlobalMemref<HistogramOp>(op, rewriter, operands[0], valArray);
+}
+
+mlir::LogicalResult mlir::spn::CategoricalOpLowering::matchAndRewrite(mlir::spn::CategoricalOp op,
+                                                                      llvm::ArrayRef<mlir::Value> operands,
+                                                                      mlir::ConversionPatternRewriter& rewriter) const {
+  // Check for single operand, i.e., the index value.
+  assert(operands.size() == 1);
+
+  return replaceOpWithGlobalMemref<CategoricalOp>(op, rewriter, operands[0],
+                                                  op.probabilitiesAttr().getValue());
 }
 
 mlir::LogicalResult mlir::spn::GaussionOpLowering::matchAndRewrite(mlir::spn::GaussianOp op,

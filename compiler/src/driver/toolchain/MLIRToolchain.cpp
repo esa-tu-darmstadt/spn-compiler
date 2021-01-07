@@ -104,6 +104,7 @@ std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine() 
   SPDLOG_INFO("Target machine features: {}", features.getString());
 
   std::shared_ptr<llvm::TargetMachine> machine{target->createTargetMachine(targetTriple,
-                                                                           cpu, features.getString(), {}, {})};
+                                                                           cpu, features.getString(), {},
+                                                                           llvm::Reloc::PIC_)};
   return std::move(machine);
 }

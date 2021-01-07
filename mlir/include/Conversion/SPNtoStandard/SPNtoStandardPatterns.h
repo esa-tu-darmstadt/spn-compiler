@@ -38,6 +38,32 @@ namespace mlir {
     };
 
     ///
+    /// Pattern for lowering SPN histogram leaf nodes to the Standard dialect.
+    /// This conversion lowers to a global, constant memref representing the histogram values.
+    struct HistogramOpLowering : public OpConversionPattern<HistogramOp> {
+
+      using OpConversionPattern<HistogramOp>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(HistogramOp op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+
+    };
+
+    ///
+    /// Pattern for lowering SPN categorical leaf nodes to the Standard dialect.
+    /// This conversion lowers to a global, constant memref representing the category probabilities.
+    struct CategoricalOpLowering : public OpConversionPattern<CategoricalOp> {
+
+      using OpConversionPattern<CategoricalOp>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(CategoricalOp op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+
+    };
+
+    ///
     /// Pattern for lowering SPN Gaussian leaf to actual computation of
     /// Gaussian distribution in the Standard dialect.
     struct GaussionOpLowering : public OpConversionPattern<GaussianOp> {
@@ -115,7 +141,7 @@ namespace mlir {
     static void populateSPNtoStandardConversionPatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                         TypeConverter& typeConverter) {
       patterns.insert<ReturnOpLowering, ConstantOpLowering, FloatProductLowering, FLoatSumLowering>(context);
-      patterns.insert<GaussionOpLowering>(context);
+      patterns.insert<HistogramOpLowering, CategoricalOpLowering, GaussionOpLowering>(context);
       patterns.insert<SingleJointLowering>(typeConverter, context);
       patterns.insert<BatchJointLowering>(typeConverter, context);
     }

@@ -21,9 +21,8 @@ void mlir::spn::SPNtoStandardConversionPass::runOnOperation() {
 
   SPNtoStandardTypeConverter typeConverter;
 
+  // Mark the SPN dialect illegal to trigger conversion of all operations from the dialect.
   target.addIllegalDialect<SPNDialect>();
-  target.addLegalOp<HistogramOp>();
-  target.addLegalOp<CategoricalOp>();
 
   OwningRewritePatternList patterns;
   mlir::spn::populateSPNtoStandardConversionPatterns(patterns, &getContext(), typeConverter);
@@ -31,7 +30,7 @@ void mlir::spn::SPNtoStandardConversionPass::runOnOperation() {
 
   auto op = getOperation();
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
-  if (failed(applyPartialConversion(op, target, frozenPatterns))) {
+  if (failed(applyFullConversion(op, target, frozenPatterns))) {
     signalPassFailure();
   }
 
