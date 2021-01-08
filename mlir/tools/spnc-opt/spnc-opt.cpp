@@ -71,6 +71,10 @@ int main(int argc, char** argv) {
     return mlir::spn::createSPNTypePinningPass();
   });
 
+  mlir::registerPass("spn-vectorize", "Vectorize the SPN execution", []() -> std::unique_ptr<mlir::Pass> {
+    return mlir::spn::createSPNVectorizationPass();
+  });
+
   mlir::registerPass("spn-to-standard", "Lower SPN to Standard dialect", []() -> std::unique_ptr<mlir::Pass> {
     return mlir::spn::createSPNtoStandardConversionPass();
   });

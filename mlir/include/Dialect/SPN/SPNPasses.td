@@ -13,4 +13,9 @@ def SPNTypePinning : Pass<"spn-type-pinning", "ModuleOp"> {
   let constructor = "mlir::spn::createSPNTypePinningPass()";
 }
 
+def SPNVectorization : Pass<"spn-vectorization", "ModuleOp"> {
+  let summary = "Vectorize SPN execution";
+  let constructor = "mlir::spn::createSPNVectorizationPass()";
+}
+
 #endif // MLIR_DIALECT_SPN_PASSES
