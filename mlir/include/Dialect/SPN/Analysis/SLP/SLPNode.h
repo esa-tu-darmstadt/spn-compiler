@@ -22,6 +22,8 @@ namespace mlir {
 
         explicit SLPNode(std::vector<Operation*> const& values);
 
+        SLPNode& addOperands(std::vector<Operation*> const& values);
+
       private:
 
         size_t const width;

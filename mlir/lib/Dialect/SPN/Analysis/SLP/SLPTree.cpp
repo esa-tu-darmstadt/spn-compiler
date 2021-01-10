@@ -13,14 +13,14 @@ using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::slp;
 
-SLPTree::SLPTree(Operation* root) {
+SLPTree::SLPTree(Operation* root, size_t width) : graph{width} {
   assert(root);
   llvm::StringMap<std::vector<Operation*>> operationsByOpCode;
   for (auto& op : root->getBlock()->getOperations()) {
     operationsByOpCode[op.getName().getStringRef().str()].emplace_back(&op);
   }
   for (auto const& entry : operationsByOpCode) {
-    buildGraph(entry.getValue());
+    buildGraph(entry.getValue(), graph);
   }
 
 }
@@ -44,7 +44,7 @@ void SLPTree::traverseSubgraph(Operation* root) {
 }*/
 
 
-void SLPTree::buildGraph(std::vector<Operation*> const& values) {
+void SLPTree::buildGraph(std::vector<Operation*> const& values, SLPNode& parentNode) {
   for (auto const& op : values) {
     std::cout << op->getName().getStringRef().str() << std::endl;
   }
@@ -53,25 +53,25 @@ void SLPTree::buildGraph(std::vector<Operation*> const& values) {
     return;
   }
   // Create new node for values and add to graph
-  graph.emplace_back(values);
+  SLPNode currentNode = parentNode.addOperands(values);
   // Recursion call to grow graph further
   // 1. Commutative
   if (commutative(values)) {
     // A. Coarsening Mode
+    std::vector<Operation*> operands;
     for (auto const& operation : values) {
-      if (attachableOperands(operation)) {
-        std::vector<Operation*> operands;
-        for (auto operand : operation->getOperands()) {
-          operands.emplace_back(operand.getDefiningOp());
-        }
-        buildGraph(operands);
-      } else {
-
+      for (auto operand : operation->getOperands()) {
+        operands.emplace_back(operand.getDefiningOp());
       }
-
+    }
+    if (attachableOperands(values.front()->getName(), operands)) {
+      currentNode.addOperands(operands);
+    } else {
+      buildGraph(operands, currentNode);
     }
 
   }
+
 }
 
 bool SLPTree::vectorizable(std::vector<Operation*> const& values) const {
@@ -84,10 +84,10 @@ bool SLPTree::commutative(std::vector<Operation*> const& values) const {
   return true;
 }
 
-bool SLPTree::attachableOperands(Operation* operation) const {
+bool SLPTree::attachableOperands(OperationName const& currentOperation, std::vector<Operation*> const& operands) const {
   // TODO operands escape multi-node?
-  for (auto const& operand : operation->getOperands()) {
-    if (operand.getDefiningOp()->getName() != operation->getName()) {
+  for (auto const& operand : operands) {
+    if (operand->getName() != currentOperation) {
       return false;
     }
   }

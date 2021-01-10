@@ -17,4 +17,7 @@ SLPNode::SLPNode(size_t const& width) : width{width}, operations{}, operands{} {
 SLPNode::SLPNode(std::vector<Operation*> const& values) : width{values.size()}, operations{values}, operands{} {
 }
 
-
+SLPNode& SLPNode::addOperands(std::vector<Operation*> const& values) {
+  operands.emplace_back(SLPNode{values});
+  return operands.back();
+}

@@ -27,15 +27,16 @@ namespace mlir {
 
         /// Constructor, initialize analysis.
         /// \param root Root node of a (sub-)graph or query operation.
-        explicit SLPTree(Operation* op);
+        /// \param width The target width of the SLP vectors.
+        explicit SLPTree(Operation* op, size_t width);
 
       private:
 
-        void buildGraph(std::vector<Operation*> const& values);
+        void buildGraph(std::vector<Operation*> const& values, SLPNode& parentNode);
 
         bool vectorizable(std::vector<Operation*> const& values) const;
         bool commutative(std::vector<Operation*> const& values) const;
-        bool attachableOperands(Operation* operation) const;
+        bool attachableOperands(OperationName const& currentOperation, std::vector<Operation*> const& operands) const;
 
         SLPNode graph;
 
