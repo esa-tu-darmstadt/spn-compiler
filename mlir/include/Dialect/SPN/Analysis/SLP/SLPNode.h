@@ -14,14 +14,10 @@ namespace mlir {
   namespace spn {
     namespace slp {
 
-      ///
-      /// Stores vectorizable instructions.
       class SLPNode {
 
       public:
 
-        /// Constructor, initialize empty SLP node.
-        /// \param width The width of the operations vector.
         explicit SLPNode(size_t const& width);
 
         explicit SLPNode(std::vector<Operation*> const& values);
@@ -29,7 +25,10 @@ namespace mlir {
       private:
 
         size_t const width;
+
+        /// List of operations that can be executed in any order/in parallel when width > 1.
         std::vector<Operation*> operations;
+        std::vector<SLPNode> operands;
 
       };
     }

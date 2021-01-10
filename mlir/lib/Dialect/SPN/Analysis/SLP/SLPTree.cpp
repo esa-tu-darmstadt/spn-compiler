@@ -50,45 +50,46 @@ void SLPTree::buildGraph(std::vector<Operation*> const& values) {
   }
   // Stop growing graph
   if (!vectorizable(values)) {
-    // Create new node for values and add to graph
-    graph.emplace_back(values);
-    // Recursion call to grow graph further
-    // 1. Commutative
-    if (commutative(values)) {
-      // A. Coarsening Mode
-      for (auto const& operation : values) {
-        auto const& valueOpCode = values.front()->getName();
-        bool sameOpCode = true;
-        for (auto const& operand : operation->getOperands()) {
-          if (operand.getDefiningOp()->getName() != valueOpCode) {
-            sameOpCode = false;
-            break;
-          }
+    return;
+  }
+  // Create new node for values and add to graph
+  graph.emplace_back(values);
+  // Recursion call to grow graph further
+  // 1. Commutative
+  if (commutative(values)) {
+    // A. Coarsening Mode
+    for (auto const& operation : values) {
+      if (attachableOperands(operation)) {
+        std::vector<Operation*> operands;
+        for (auto operand : operation->getOperands()) {
+          operands.emplace_back(operand.getDefiningOp());
         }
-
-        if (!sameOpCode) {
-
-        }
+        buildGraph(operands);
+      } else {
 
       }
+
     }
+
   }
 }
 
 bool SLPTree::vectorizable(std::vector<Operation*> const& values) const {
   // TODO
-  assert(false);
-  return false;
+  return true;
 }
 
 bool SLPTree::commutative(std::vector<Operation*> const& values) const {
   // TODO
-  assert(false);
-  return false;
+  return true;
 }
 
-std::vector<Operation*> SLPTree::getOperands(std::vector<Operation*> const& values) const {
-  // TODO
-  assert(false);
-  return {};
+bool SLPTree::attachableOperands(Operation* operation) const {
+  // TODO operands escape multi-node?
+  for (auto const& operand : operation->getOperands()) {
+    if (operand.getDefiningOp()->getName() != operation->getName()) {
+      return false;
+    }
+  }
+  return true;
 }

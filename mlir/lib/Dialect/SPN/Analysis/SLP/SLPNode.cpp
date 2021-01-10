@@ -11,10 +11,10 @@ using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::slp;
 
-SLPNode::SLPNode(size_t const& width) : width{width}, operations{} {
+SLPNode::SLPNode(size_t const& width) : width{width}, operations{}, operands{} {
 }
 
-SLPNode::SLPNode(std::vector<Operation*> const& values) : width{values.size()}, operations{values} {
+SLPNode::SLPNode(std::vector<Operation*> const& values) : width{values.size()}, operations{values}, operands{} {
 }
 
 
