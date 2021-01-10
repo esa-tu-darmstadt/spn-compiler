@@ -9,7 +9,7 @@
 #include "SPNPassDetails.h"
 #include <iostream>
 #include <SPN/SPNInterfaces.h>
-#include "SPN/Analysis/SLP/SLPGraph.h"
+#include "SPN/Analysis/SLP/SLPTree.h"
 using namespace mlir;
 using namespace mlir::spn;
 
@@ -19,18 +19,16 @@ namespace {
 
   protected:
     void runOnOperation() override {
-      // TODO
       std::cout << "Starting SPN vectorization..." << std::endl;
-      auto module = getOperation();
-      llvm::SmallVector<Operation*, 5> queries;
-      module.walk([&queries](Operation* op) {
+      auto func = getOperation();
+
+      func.walk([](Operation* op) {
         if (auto query = dyn_cast<QueryInterface>(op)) {
-          queries.push_back(op);
+          for (auto r : query.getRootNodes()) {
+            slp::SLPTree graph(r);
+          }
         }
       });
-      slp::SLPGraph graph(queries.front());
-      std::cout << queries.front()->getName().getStringRef().str() << std::endl;
-
     }
   };
 

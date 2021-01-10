@@ -10,6 +10,10 @@
 #include "mlir/IR/OpDefinition.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringMap.h"
+#include "SLPNode.h"
+
+#include <vector>
+#include <set>
 
 namespace mlir {
   namespace spn {
@@ -17,24 +21,24 @@ namespace mlir {
 
       ///
       /// Graph class storing Use-Def chains of an SPN.
-      class SLPGraph {
+      class SLPTree {
 
       public:
 
         /// Constructor, initialize analysis.
         /// \param root Root node of a (sub-)graph or query operation.
-        explicit SLPGraph(Operation* root);
-
-        ///
-        /// \return All seed operations.
-        const SmallPtrSet<Operation, 16>& getSeeds() const;
+        explicit SLPTree(Operation* op);
 
       private:
 
-        void analyzeGraph(Operation* root);
-        void traverseSubgraph(Operation* root);
+        void buildGraph(std::vector<Operation*> const& values);
 
-        SmallPtrSet<Operation, 16> seeds;
+        bool vectorizable(std::vector<Operation*> const& values) const;
+        bool commutative(std::vector<Operation*> const& values) const;
+
+        std::vector<Operation*> getOperands(std::vector<Operation*> const& values) const;
+
+        std::vector<SLPNode> graph;
 
       };
     }
