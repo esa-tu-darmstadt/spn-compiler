@@ -213,7 +213,7 @@ def JointQuery : SPN_Op<"joint_query",
     let description = [{
         Represents a joint probability computation by bottom-up evaluation of the
         SPN-graph.
-        The single region associated with this operation represents the the SPN graph.
+        The single region associated with this operation represents the SPN graph.
     }];
 
     let arguments = (ins UI32Attr:$numFeatures,

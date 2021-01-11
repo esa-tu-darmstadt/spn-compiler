@@ -7,6 +7,7 @@
 #include "SPN/SPNInterfaces.h"
 
 #include <iostream>
+#include <algorithm>
 #include "llvm/ADT/StringMap.h"
 
 using namespace mlir;
@@ -58,18 +59,18 @@ void SLPTree::buildGraph(std::vector<Operation*> const& values, SLPNode& parentN
   // 1. Commutative
   if (commutative(values)) {
     // A. Coarsening Mode
-    std::vector<Operation*> operands;
     for (auto const& operation : values) {
-      for (auto operand : operation->getOperands()) {
-        operands.emplace_back(operand.getDefiningOp());
-      }
+      buildGraph(getOperands(operation), currentNode);
     }
-    if (attachableOperands(values.front()->getName(), operands)) {
-      currentNode.addOperands(operands);
-    } else {
-      buildGraph(operands, currentNode);
+    // B. Normal Mode: Finished building multi-node
+    if (currentNode.isMultiNode()) {
+      reorderOperands(currentNode);
+      // TODO buildGraph() needed for operands? Currently don't think so because of smarter node.addOperands() handling.
     }
-
+  }
+    // 2. Non-Commutative
+  else {
+    buildGraph(getOperands(values), currentNode);
   }
 
 }
@@ -80,16 +81,34 @@ bool SLPTree::vectorizable(std::vector<Operation*> const& values) const {
 }
 
 bool SLPTree::commutative(std::vector<Operation*> const& values) const {
-  // TODO
-  return true;
+  return values.front()->hasTrait<OpTrait::IsCommutative>();
 }
 
-bool SLPTree::attachableOperands(OperationName const& currentOperation, std::vector<Operation*> const& operands) const {
+bool SLPTree::attachableOperands(OperationName const& currentOperation, OperandRange operands) const {
   // TODO operands escape multi-node?
-  for (auto const& operand : operands) {
-    if (operand->getName() != currentOperation) {
-      return false;
+  return std::all_of(std::begin(operands),
+                     std::end(operands),
+                     [&](auto const& operand) { return operand.getDefiningOp()->getName() == currentOperation; });
+}
+
+std::vector<Operation*> SLPTree::getOperands(std::vector<Operation*> const& values) const {
+  std::vector<Operation*> operands;
+  for (auto const& operation : values) {
+    for (auto operand : operation->getOperands()) {
+      operands.emplace_back(operand.getDefiningOp());
     }
   }
-  return true;
+  return operands;
+}
+
+std::vector<Operation*> SLPTree::getOperands(Operation* operation) const {
+  std::vector<Operation*> operands;
+  for (auto operand : operation->getOperands()) {
+    operands.emplace_back(operand.getDefiningOp());
+  }
+  return operands;
+}
+
+void SLPTree::reorderOperands(SLPNode& node) {
+  // TODO
 }

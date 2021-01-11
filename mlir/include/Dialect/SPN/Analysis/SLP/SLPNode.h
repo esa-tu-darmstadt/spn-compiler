@@ -24,6 +24,12 @@ namespace mlir {
 
         SLPNode& addOperands(std::vector<Operation*> const& values);
 
+        std::vector<Operation*> const& getOperations();
+        OperationName operationName();
+
+        bool isMultiNode() const;
+        bool attachable(std::vector<Operation*> const& otherOperations);
+
       private:
 
         size_t const width;

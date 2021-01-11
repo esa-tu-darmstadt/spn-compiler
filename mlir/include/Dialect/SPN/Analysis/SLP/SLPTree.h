@@ -36,7 +36,11 @@ namespace mlir {
 
         bool vectorizable(std::vector<Operation*> const& values) const;
         bool commutative(std::vector<Operation*> const& values) const;
-        bool attachableOperands(OperationName const& currentOperation, std::vector<Operation*> const& operands) const;
+        std::vector<Operation*> getOperands(std::vector<Operation*> const& values) const;
+        std::vector<Operation*> getOperands(Operation* value) const;
+        bool attachableOperands(OperationName const& currentOperation, OperandRange operands) const;
+
+        void reorderOperands(SLPNode& node);
 
         SLPNode graph;
 

@@ -18,6 +18,34 @@ SLPNode::SLPNode(std::vector<Operation*> const& values) : width{values.size()}, 
 }
 
 SLPNode& SLPNode::addOperands(std::vector<Operation*> const& values) {
+  //assert(values.size() == width);
+  if (attachable(values)) {
+    operations.insert(std::end(operations), std::begin(values), std::end(values));
+    return *this;
+  }
   operands.emplace_back(SLPNode{values});
   return operands.back();
+
+}
+
+std::vector<Operation*> const& SLPNode::getOperations() {
+  return operations;
+}
+
+OperationName SLPNode::operationName() {
+  return operations.front()->getName();
+}
+
+bool SLPNode::isMultiNode() const {
+  return (operations.size() / width) > 1;
+}
+
+bool SLPNode::attachable(std::vector<Operation*> const& otherOperations) {
+  // TODO operands escape multi-node?
+  if (operations.empty()) {
+    return true;
+  }
+  return std::all_of(std::begin(otherOperations),
+                     std::end(otherOperations),
+                     [&](auto const& operation) { return operation->getName() == operationName(); });
 }
