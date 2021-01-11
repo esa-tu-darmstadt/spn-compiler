@@ -4,11 +4,10 @@
 //
 
 #include "SPN/Analysis/SLP/SLPTree.h"
-#include "SPN/SPNInterfaces.h"
+#include "SPN/SPNOpTraits.h"
 
 #include <iostream>
 #include <algorithm>
-#include "llvm/ADT/StringMap.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -20,6 +19,7 @@ SLPTree::SLPTree(Operation* root, size_t width) : graph{width} {
   for (auto& op : root->getBlock()->getOperations()) {
     operationsByOpCode[op.getName().getStringRef().str()].emplace_back(&op);
   }
+  // TODO compute seeds in a proper fashion
   for (auto const& entry : operationsByOpCode) {
     buildGraph(entry.getValue(), graph);
   }
@@ -76,19 +76,15 @@ void SLPTree::buildGraph(std::vector<Operation*> const& values, SLPNode& parentN
 }
 
 bool SLPTree::vectorizable(std::vector<Operation*> const& values) const {
-  // TODO
-  return true;
+  return std::all_of(std::begin(values), std::end(values), [&](Operation* operation) {
+    return operation->hasTrait<OpTrait::spn::Vectorizable>();
+  });
 }
 
 bool SLPTree::commutative(std::vector<Operation*> const& values) const {
-  return values.front()->hasTrait<OpTrait::IsCommutative>();
-}
-
-bool SLPTree::attachableOperands(OperationName const& currentOperation, OperandRange operands) const {
-  // TODO operands escape multi-node?
-  return std::all_of(std::begin(operands),
-                     std::end(operands),
-                     [&](auto const& operand) { return operand.getDefiningOp()->getName() == currentOperation; });
+  return std::all_of(std::begin(values), std::end(values), [&](Operation* operation) {
+    return operation->hasTrait<OpTrait::IsCommutative>();
+  });
 }
 
 std::vector<Operation*> SLPTree::getOperands(std::vector<Operation*> const& values) const {

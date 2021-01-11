@@ -3,19 +3,15 @@
 
 include "SPNDialect.td"
 include "SPNInterfaces.td"
+include "SPNOpTraits.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/RegionKindInterface.td"
-
-///
-/// Trait which can be attached to operations to mark them as vectorizable (such as sums or products).
-///
-//def Vectorizable : NativeOpTrait<"Vectorizable">;
 
 ///
 /// Abstract base class of n-ary arithmetic operations
 ///
 class SPN_NAry_Op<string mnemonic> : SPN_Op<mnemonic,
-  [NoSideEffect, Commutative, SameOperandsAndResultType, DeclareOpInterfaceMethods<ArithmeticOpInterface>]> {
+  [NoSideEffect, Commutative, Vectorizable, SameOperandsAndResultType, DeclareOpInterfaceMethods<ArithmeticOpInterface>]> {
     /// Operands: Child nodes
     /// opcount: Number of child nodes
     let arguments = (ins Variadic<AnyProbabilityType>: $operands);
