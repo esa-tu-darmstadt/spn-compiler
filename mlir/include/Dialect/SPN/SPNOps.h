@@ -13,6 +13,15 @@
 #include "SPN/SPNInterfaces.h"
 #include "SPN/SPNEnums.h"
 
+namespace mlir {
+  namespace spn {
+/*
+    template<typename ConcreteType>
+    class Vectorizable : public OpTrait::TraitBase<ConcreteType, Vectorizable> {
+    };*/
+  }
+}
+
 #define GET_OP_CLASSES
 #include "SPN/SPNOps.h.inc"
 

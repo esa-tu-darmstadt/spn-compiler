@@ -7,6 +7,11 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/RegionKindInterface.td"
 
 ///
+/// Trait which can be attached to operations to mark them as vectorizable (such as sums or products).
+///
+//def Vectorizable : NativeOpTrait<"Vectorizable">;
+
+///
 /// Abstract base class of n-ary arithmetic operations
 ///
 class SPN_NAry_Op<string mnemonic> : SPN_Op<mnemonic,
