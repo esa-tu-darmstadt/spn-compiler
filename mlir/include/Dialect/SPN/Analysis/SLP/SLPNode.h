@@ -18,14 +18,15 @@ namespace mlir {
 
       public:
 
-        explicit SLPNode(size_t const& width);
-
         explicit SLPNode(std::vector<Operation*> const& values);
 
         SLPNode& addOperands(std::vector<Operation*> const& values);
+        std::vector<SLPNode>& getOperands();
+        SLPNode& getOperand(size_t index);
 
-        std::vector<Operation*> const& getOperations();
-        OperationName operationName();
+        std::vector<Operation*> getLane(size_t index);
+        Operation* getOperation(size_t lane, size_t index);
+        OperationName const& name();
 
         bool isMultiNode() const;
         bool attachable(std::vector<Operation*> const& otherOperations);
@@ -33,9 +34,10 @@ namespace mlir {
       private:
 
         size_t const width;
+        OperationName const operationName;
 
         /// List of operations that can be executed in any order/in parallel when width > 1.
-        std::vector<Operation*> operations;
+        std::vector<std::vector<Operation*>> lanes;
         std::vector<SLPNode> operands;
 
       };

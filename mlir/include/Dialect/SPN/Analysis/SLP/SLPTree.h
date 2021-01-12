@@ -40,9 +40,15 @@ namespace mlir {
         std::vector<Operation*> getOperands(Operation* value) const;
         bool attachableOperands(OperationName const& currentOperation, OperandRange operands) const;
 
+        enum MODE {
+          CONST, LOAD, OPCODE
+        };
+
+        SLPTree::MODE modeFromOperation(Operation const* operation) const;
+
         void reorderOperands(SLPNode& node);
 
-        SLPNode graph;
+        std::vector<SLPNode> graphs;
 
       };
     }

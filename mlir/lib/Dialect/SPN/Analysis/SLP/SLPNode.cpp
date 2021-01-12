@@ -11,16 +11,18 @@ using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::slp;
 
-SLPNode::SLPNode(size_t const& width) : width{width}, operations{}, operands{} {
-}
-
-SLPNode::SLPNode(std::vector<Operation*> const& values) : width{values.size()}, operations{values}, operands{} {
+SLPNode::SLPNode(std::vector<Operation*> const& values) : width{values.size()},
+                                                          operationName{values.front()->getName()}, lanes{},
+                                                          operands{} {
+  lanes.emplace_back(values);
 }
 
 SLPNode& SLPNode::addOperands(std::vector<Operation*> const& values) {
-  //assert(values.size() == width);
+  // If the operations are attachable (i.e. same opcode), insert them into this node (forming a multinode).
   if (attachable(values)) {
-    operations.insert(std::end(operations), std::begin(values), std::end(values));
+    for (size_t lane = 0; lane < values.size(); ++lane) {
+      lanes.at(lane).emplace_back(values.at(lane));
+    }
     return *this;
   }
   operands.emplace_back(SLPNode{values});
@@ -28,24 +30,38 @@ SLPNode& SLPNode::addOperands(std::vector<Operation*> const& values) {
 
 }
 
-std::vector<Operation*> const& SLPNode::getOperations() {
-  return operations;
+std::vector<SLPNode>& SLPNode::getOperands() {
+  return operands;
 }
 
-OperationName SLPNode::operationName() {
-  return operations.front()->getName();
+SLPNode& SLPNode::getOperand(size_t index) {
+  return operands.at(index);
+}
+
+std::vector<Operation*> SLPNode::getLane(size_t index) {
+  std::vector<Operation*> lane;
+  for (auto const& operations : lanes) {
+    lane.emplace_back(operations.at(index));
+  }
+  return lane;
+}
+
+Operation* SLPNode::getOperation(size_t lane, size_t index) {
+  return lanes.at(lane).at(index);
+}
+
+OperationName const& SLPNode::name() {
+  return operationName;
 }
 
 bool SLPNode::isMultiNode() const {
-  return (operations.size() / width) > 1;
+  return lanes.front().size() > 1;
 }
 
 bool SLPNode::attachable(std::vector<Operation*> const& otherOperations) {
   // TODO operands escape multi-node?
-  if (operations.empty()) {
-    return true;
-  }
+  assert(lanes.size() == otherOperations.size());
   return std::all_of(std::begin(otherOperations),
                      std::end(otherOperations),
-                     [&](auto const& operation) { return operation->getName() == operationName(); });
+                     [&](auto const& operation) { return operation->getName() == operationName; });
 }

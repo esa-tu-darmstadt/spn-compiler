@@ -4,6 +4,7 @@
 //
 
 #include "SPN/Analysis/SLP/SLPTree.h"
+#include "SPN/SPNOps.h"
 #include "SPN/SPNOpTraits.h"
 
 #include <iostream>
@@ -13,7 +14,7 @@ using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::slp;
 
-SLPTree::SLPTree(Operation* root, size_t width) : graph{width} {
+SLPTree::SLPTree(Operation* root, size_t width) : graphs{} {
   assert(root);
   llvm::StringMap<std::vector<Operation*>> operationsByOpCode;
   for (auto& op : root->getBlock()->getOperations()) {
@@ -21,7 +22,8 @@ SLPTree::SLPTree(Operation* root, size_t width) : graph{width} {
   }
   // TODO compute seeds in a proper fashion
   for (auto const& entry : operationsByOpCode) {
-    buildGraph(entry.getValue(), graph);
+    SLPNode rootNode{entry.getValue()};
+    buildGraph(entry.getValue(), rootNode);
   }
 
 }
@@ -105,6 +107,22 @@ std::vector<Operation*> SLPTree::getOperands(Operation* operation) const {
   return operands;
 }
 
+SLPTree::MODE SLPTree::modeFromOperation(Operation const* operation) const {
+  if (dyn_cast<ConstantOp>(operation)) {
+    return MODE::CONST;
+  } else if (dyn_cast<HistogramOp>(operation) || dyn_cast<GaussianOp>(operation)) {
+    return MODE::LOAD;
+  }
+  return MODE::OPCODE;
+}
+
 void SLPTree::reorderOperands(SLPNode& node) {
-  // TODO
+  std::vector<SLPNode> finalOrder;
+  std::vector<MODE> mode;
+  // 1. Strip first lane
+  for (size_t i = 0; i < node.getOperands().size(); ++i) {
+    auto& operand = node.getOperand(i);
+    finalOrder.emplace_back(operand);
+    //mode.emplace_back(modeFromOperation(node.getOperation(i)));
+  }
 }
