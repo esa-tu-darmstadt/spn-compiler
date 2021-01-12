@@ -33,7 +33,9 @@ std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::str
   // Invoke MLIR code-generation on parsed tree.
   auto ctx = std::make_shared<MLIRContext>();
   initializeMLIRContext(*ctx);
-  auto targetMachine = createTargetMachine();
+  auto cpuVectorize = spnc::option::cpuVectorize.get(config);
+  SPDLOG_INFO("CPU Vectorization enabled: {}", cpuVectorize);
+  auto targetMachine = createTargetMachine(cpuVectorize);
   auto kernelInfo = std::make_shared<KernelInfo>();
   BinarySPN binarySPNFile{inputFile, false};
   auto& deserialized = job->insertAction<MLIRDeserializer>(std::move(binarySPNFile), ctx, kernelInfo);
@@ -49,8 +51,7 @@ std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::str
     auto& joinAction = job->insertAction<JoinAction<mlir::ModuleOp, StatsFile>>(spnDialectPipeline, graphStats);
     spnPipelineResult = &joinAction;
   }
-
-  auto& spn2standard = job->insertAction<SPNtoStandardConversion>(*spnPipelineResult, ctx);
+  auto& spn2standard = job->insertAction<SPNtoStandardConversion>(*spnPipelineResult, ctx, cpuVectorize);
   auto& spn2llvm = job->insertAction<SPNtoLLVMConversion>(spn2standard, ctx);
 
   // Convert the MLIR module to a LLVM-IR module.
@@ -79,7 +80,7 @@ void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext& ctx) {
   ctx.loadDialect<mlir::vector::VectorDialect>();
 }
 
-std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine() {
+std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(bool cpuVectorize) {
   // NOTE: If we wanted to support cross-compilation, we could hook in here to use a different target machine.
 
   llvm::InitializeNativeTarget();
@@ -97,7 +98,14 @@ std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine() 
   llvm::StringMap<bool> hostFeatures;
   if (llvm::sys::getHostCPUFeatures(hostFeatures)) {
     for (auto& f : hostFeatures) {
-      features.AddFeature(f.first(), f.second);
+      // Temporary hack: If no vectorization was requested by the user, disable
+      // AVX* target features to avoid the LLVM auto-vectorizer to kick in.
+      // TODO: Replace with a cleaner solution.
+      if (!cpuVectorize && f.first().startswith("avx")) {
+        features.AddFeature(f.first(), false);
+      } else {
+        features.AddFeature(f.first(), f.second);
+      }
     }
   }
   SPDLOG_INFO("Target machine CPU name: {}", cpu);

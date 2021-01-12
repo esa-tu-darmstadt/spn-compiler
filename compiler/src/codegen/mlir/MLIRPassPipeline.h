@@ -26,11 +26,11 @@ namespace spnc {
                      std::shared_ptr<mlir::MLIRContext> ctx) : ActionSingleInput<mlir::ModuleOp, mlir::ModuleOp>{
         _input},
                                                                mlirContext{std::move(ctx)}, pm{mlirContext.get()} {
-      static_cast<PassPipeline*>(this)->initializePassPipeline(&pm, mlirContext.get());
     }
 
     mlir::ModuleOp& execute() override {
       if (!cached) {
+        static_cast<PassPipeline*>(this)->initializePassPipeline(&pm, mlirContext.get());
         auto inputModule = input.execute();
         // Clone the module to keep the original module available
         // for actions using the same input module.

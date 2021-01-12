@@ -7,6 +7,7 @@
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_SPNTOSTANDARDCONVERSION_H
 
 #include "../MLIRPassPipeline.h"
+#include <driver/GlobalOptions.h>
 
 namespace spnc {
 
@@ -14,9 +15,16 @@ namespace spnc {
   /// Action performing a (partial) conversion from SPN MLIR dialect to Standard dialect.
   struct SPNtoStandardConversion : public MLIRPipelineBase<SPNtoStandardConversion> {
 
-    using MLIRPipelineBase<SPNtoStandardConversion>::MLIRPipelineBase;
+  public:
+
+    SPNtoStandardConversion(ActionWithOutput<mlir::ModuleOp>& input, std::shared_ptr<mlir::MLIRContext> ctx,
+                            bool cpuVectorize);
 
     void initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx);
+
+  private:
+
+    bool vectorize;
 
   };
 }

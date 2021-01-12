@@ -10,6 +10,8 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 
+mlir::spn::SPNtoStandardConversionPass::SPNtoStandardConversionPass(bool cpuVectorize) : vectorize{cpuVectorize} {}
+
 void mlir::spn::SPNtoStandardConversionPass::runOnOperation() {
   ConversionTarget target(getContext());
 
@@ -26,7 +28,9 @@ void mlir::spn::SPNtoStandardConversionPass::runOnOperation() {
 
   OwningRewritePatternList patterns;
   mlir::spn::populateSPNtoStandardConversionPatterns(patterns, &getContext(), typeConverter);
-  mlir::spn::populateSPNBatchVectorizePatterns(patterns, &getContext(), typeConverter);
+  if (vectorize) {
+    mlir::spn::populateSPNBatchVectorizePatterns(patterns, &getContext(), typeConverter);
+  }
 
   auto op = getOperation();
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
@@ -36,6 +40,6 @@ void mlir::spn::SPNtoStandardConversionPass::runOnOperation() {
 
 }
 
-std::unique_ptr<mlir::Pass> mlir::spn::createSPNtoStandardConversionPass() {
-  return std::make_unique<SPNtoStandardConversionPass>();
+std::unique_ptr<mlir::Pass> mlir::spn::createSPNtoStandardConversionPass(bool cpuVectorize) {
+  return std::make_unique<SPNtoStandardConversionPass>(cpuVectorize);
 }
