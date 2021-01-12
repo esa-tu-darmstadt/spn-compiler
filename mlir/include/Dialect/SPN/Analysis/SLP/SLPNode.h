@@ -32,6 +32,15 @@ namespace mlir {
         size_t numLanes() const;
         bool attachable(std::vector<Operation*> const& otherOperations);
 
+        friend bool operator==(SLPNode const& lhs, SLPNode const& rhs) {
+          return std::tie(lhs.width, lhs.operationName, lhs.lanes, lhs.operands)
+              == std::tie(rhs.width, rhs.operationName, rhs.lanes, rhs.operands);
+        }
+
+        friend bool operator!=(SLPNode const& lhs, SLPNode const& rhs) {
+          return !(lhs == rhs);
+        }
+
       private:
 
         size_t const width;

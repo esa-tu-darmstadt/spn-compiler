@@ -45,7 +45,7 @@ namespace mlir {
 
         SLPTree::MODE modeFromOperation(Operation const* operation) const;
 
-        void reorderOperands(SLPNode& multinode);
+        std::vector<SLPNode> reorderOperands(SLPNode& multinode);
 
         std::vector<SLPNode> graphs;
 

@@ -116,7 +116,7 @@ SLPTree::MODE SLPTree::modeFromOperation(Operation const* operation) const {
   return MODE::OPCODE;
 }
 
-void SLPTree::reorderOperands(SLPNode& multinode) {
+std::vector<SLPNode> SLPTree::reorderOperands(SLPNode& multinode) {
   assert(multinode.isMultiNode());
   std::vector<SLPNode> finalOrder;
   std::vector<MODE> mode;
@@ -138,12 +138,24 @@ void SLPTree::reorderOperands(SLPNode& multinode) {
       }
       auto const& last = finalOrder.at(i);
       auto const& bestResult = getBest(mode.at(i), last, candidates);
+
+      // Update output
+      // TODO: funky two dimensional stuff
+      finalOrder.emplace_back(bestResult.first);
+
+      // Detect SPLAT mode
+      if (i == 1 && bestResult.first == last) {
+        mode.at(i) = MODE::SPLAT;
+      }
+
     }
   }
+  return finalOrder;
 }
 
 std::pair<SLPNode, SLPTree::MODE> SLPTree::getBest(SLPTree::MODE const& mode,
                                                    SLPNode const& last,
                                                    std::vector<Operation*> const& candidates) const {
+  // TODO
   return {last, mode};
 }
