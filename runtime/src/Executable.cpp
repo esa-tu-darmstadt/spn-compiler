@@ -62,8 +62,9 @@ void Executable::executeBatch(size_t num_samples, void* inputs, double* outputs)
   size_t batchSize = kernel->batchSize();
   for (size_t i = 0; i < num_samples; i += batchSize) {
     // Calculate the number of remaining samples, can be < batchSize for the last batch.
-    size_t remainingSamples = num_samples - (i * batchSize);
+    size_t remainingSamples = num_samples - i;
     size_t samples = std::min(batchSize, remainingSamples);
+    std::cout << "Remaining samples: " << remainingSamples << " now computing: " << samples << std::endl;
     // Calculate pointer to first input of this batch, using information about the
     // number of features and number of bytes used to encode the feature.
     char* offset_ptr = &(input_ptr[i * kernel->numFeatures() * kernel->bytesPerFeature()]);
