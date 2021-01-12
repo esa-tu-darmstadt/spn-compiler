@@ -38,18 +38,20 @@ namespace mlir {
         bool commutative(std::vector<Operation*> const& values) const;
         std::vector<Operation*> getOperands(std::vector<Operation*> const& values) const;
         std::vector<Operation*> getOperands(Operation* value) const;
-        bool attachableOperands(OperationName const& currentOperation, OperandRange operands) const;
 
         enum MODE {
-          CONST, LOAD, OPCODE
+          CONST, LOAD, OPCODE, FAILED, SPLAT
         };
 
         SLPTree::MODE modeFromOperation(Operation const* operation) const;
 
-        void reorderOperands(SLPNode& node);
+        void reorderOperands(SLPNode& multinode);
 
         std::vector<SLPNode> graphs;
 
+        std::pair<SLPNode, SLPTree::MODE> getBest(SLPTree::MODE const& mode,
+                                                  SLPNode const& last,
+                                                  std::vector<Operation*> const& candidates) const;
       };
     }
   }

@@ -38,10 +38,10 @@ SLPNode& SLPNode::getOperand(size_t index) {
   return operands.at(index);
 }
 
-std::vector<Operation*> SLPNode::getLane(size_t index) {
+std::vector<Operation*> SLPNode::getLane(size_t laneIndex) {
   std::vector<Operation*> lane;
   for (auto const& operations : lanes) {
-    lane.emplace_back(operations.at(index));
+    lane.emplace_back(operations.at(laneIndex));
   }
   return lane;
 }
@@ -56,6 +56,10 @@ OperationName const& SLPNode::name() {
 
 bool SLPNode::isMultiNode() const {
   return lanes.front().size() > 1;
+}
+
+size_t SLPNode::numLanes() const {
+  return width;
 }
 
 bool SLPNode::attachable(std::vector<Operation*> const& otherOperations) {

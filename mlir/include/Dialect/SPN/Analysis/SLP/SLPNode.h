@@ -29,6 +29,7 @@ namespace mlir {
         OperationName const& name();
 
         bool isMultiNode() const;
+        size_t numLanes() const;
         bool attachable(std::vector<Operation*> const& otherOperations);
 
       private:
@@ -36,7 +37,7 @@ namespace mlir {
         size_t const width;
         OperationName const operationName;
 
-        /// List of operations that can be executed in any order/in parallel when width > 1.
+        /// Stores lists of operations for each lane for multinode use cases.
         std::vector<std::vector<Operation*>> lanes;
         std::vector<SLPNode> operands;
 

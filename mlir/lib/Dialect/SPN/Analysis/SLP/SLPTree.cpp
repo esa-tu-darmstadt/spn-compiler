@@ -116,13 +116,34 @@ SLPTree::MODE SLPTree::modeFromOperation(Operation const* operation) const {
   return MODE::OPCODE;
 }
 
-void SLPTree::reorderOperands(SLPNode& node) {
+void SLPTree::reorderOperands(SLPNode& multinode) {
+  assert(multinode.isMultiNode());
   std::vector<SLPNode> finalOrder;
   std::vector<MODE> mode;
   // 1. Strip first lane
-  for (size_t i = 0; i < node.getOperands().size(); ++i) {
-    auto& operand = node.getOperand(i);
+  for (size_t i = 0; i < multinode.getOperands().size(); ++i) {
+    auto& operand = multinode.getOperand(i);
     finalOrder.emplace_back(operand);
-    //mode.emplace_back(modeFromOperation(node.getOperation(i)));
+    mode.emplace_back(modeFromOperation(multinode.getOperation(0, i)));
   }
+
+  // 2. For all other lanes, find best candidate
+  for (size_t lane = 1; lane < multinode.numLanes(); ++lane) {
+    std::vector<Operation*> candidates = multinode.getLane(lane);
+    // Look for a matching candidate
+    for (size_t i = 0; i < multinode.getOperands().size(); ++i) {
+      // Skip if we can't vectorize
+      if (mode.at(i) == MODE::FAILED) {
+        continue;
+      }
+      auto const& last = finalOrder.at(i);
+      auto const& bestResult = getBest(mode.at(i), last, candidates);
+    }
+  }
+}
+
+std::pair<SLPNode, SLPTree::MODE> SLPTree::getBest(SLPTree::MODE const& mode,
+                                                   SLPNode const& last,
+                                                   std::vector<Operation*> const& candidates) const {
+  return {last, mode};
 }
