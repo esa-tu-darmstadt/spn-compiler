@@ -40,7 +40,16 @@ namespace mlir {
         std::vector<Operation*> getOperands(Operation* value) const;
 
         enum MODE {
-          CONST, LOAD, OPCODE, FAILED, SPLAT
+          // look for a constant
+          CONST,
+          // look for a consecutive load to that in the previous lane
+          LOAD,
+          // look for an operation of the same opcode
+          OPCODE,
+          // look for the exact same operation
+          SPLAT,
+          // vectorization has failed, give higher priority to others
+          FAILED
         };
 
         SLPTree::MODE modeFromOperation(Operation const* operation) const;
