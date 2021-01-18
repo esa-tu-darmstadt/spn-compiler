@@ -111,11 +111,28 @@ mlir::LogicalResult mlir::spn::BatchVectorizeJointLowering::matchAndRewrite(mlir
 
   auto compType = query.getComputationDataType();
   auto hwVectorWidth = TargetInformation::nativeCPUTarget().getHWVectorEntries(compType);
-  llvm::errs() << "Hardware vector width for type " << query.getComputationDataType() << ": " << hwVectorWidth << "\n";
+  // Check if the hwVectorWidth is greater than one and fail otherwise.
+  if (hwVectorWidth == 1) {
+    op.emitWarning() << "No vectorization possible for data-type "
+                     << query.getComputationDataType() << " on the requested target";
+    return failure();
+  }
+  // Let the user know which vector width will be used.
+  op->emitRemark() << "Attempting to vectorize with vector width " << hwVectorWidth
+                   << " for data-type " << query.getComputationDataType();
 
-  // TODO Check for vector width > 1.
-  // TODO Check for remainder-free division of batchSize & vector width. Emit warning if necessary.
-  // TODO Check for necessary data-type conversions, that cannot be performed in vectorized mode. Emit warning or fail?
+  // Emit a warning if the target vector width does not divide the requested batch size.
+  // This will cause a part of each batch (batchSize % vectorWidth elements) to be processed
+  // by the scalar epilog loop instead of the vectorized loop.
+  if ((batchSize % hwVectorWidth) != 0) {
+    op.emitWarning() << "The target vector width " << hwVectorWidth
+                     << " does not divide the requested batch size " << batchSize
+                     << "; This can result in degraded performance. Choose the batch size as a multiple of the vector width "
+                     << hwVectorWidth;
+  }
+  // Note: The vectorized lowerings for the different leaf nodes automatically check for data-type conversions
+  // that cannot be performed in vectorized mode and will warn about this and abort the vectorization by
+  // by failing the lowering pattern.
 
   // Create function with three inputs:
   //   * Number of elements to process (might be lower than the batch size).

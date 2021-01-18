@@ -62,7 +62,9 @@ mlir::LogicalResult mlir::spn::BatchVectorizeGaussian::matchAndRewrite(mlir::spn
   // Vectorization of a Gaussian must fail if its involves changing the width of
   // the floating type between input (feature) and result.
   if (featureType.getWidth() != floatResultType.getWidth()) {
-    llvm::dbgs() << "WARNING: Cannot vectorize Gaussian due to non-matching floating-point types!\n";
+    op.emitWarning() << "Aborting vectorization: Cannot vectorize Gaussian leaf as the requested input type"
+                     << featureType << " cannot be converted to the data-type for computation " << floatResultType
+                     << " in vectorized mode";
     return failure();
   }
 
