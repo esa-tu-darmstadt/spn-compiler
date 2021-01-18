@@ -140,6 +140,7 @@ mlir::LogicalResult mlir::spn::BatchVectorizeJointLowering::matchAndRewrite(mlir
   auto storeArg = replaceFunc.getArgument(2);
   assert(inputArg.getType().isa<MemRefType>());
 
+  auto vectorInputType = VectorType::get({hwVectorWidth}, op.inputType());
   auto vectorType = VectorType::get({hwVectorWidth}, compType);
 
   auto vectorWidthConst = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getI64IntegerAttr(hwVectorWidth));
@@ -174,7 +175,7 @@ mlir::LogicalResult mlir::spn::BatchVectorizeJointLowering::matchAndRewrite(mlir
     for (unsigned k = 0; k < hwVectorWidth; ++k) {
       auto sampleIndex = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(k));
       auto loadIndex = rewriter.create<mlir::AddIOp>(op.getLoc(), vectorizedLoop.getInductionVar(), sampleIndex);
-      auto kVector = rewriter.create<mlir::vector::TransferReadOp>(op.getLoc(), vectorType,
+      auto kVector = rewriter.create<mlir::vector::TransferReadOp>(op.getLoc(), vectorInputType,
                                                                    (Value) inputArg,
                                                                    ValueRange{loadIndex, vectorIndex});
       vectors.push_back(kVector);
@@ -190,7 +191,7 @@ mlir::LogicalResult mlir::spn::BatchVectorizeJointLowering::matchAndRewrite(mlir
    */
   unsigned startIndex = vectorLoadElements;
   for (unsigned i = 0; i < (query.getNumFeatures() % hwVectorWidth); ++i) {
-    auto alloca = rewriter.create<mlir::AllocaOp>(op.getLoc(), MemRefType::get({1}, vectorType));
+    auto alloca = rewriter.create<mlir::AllocaOp>(op.getLoc(), MemRefType::get({1}, vectorInputType));
     auto constant1 = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
     auto loadInitial = rewriter.create<mlir::LoadOp>(op.getLoc(), alloca, ValueRange{constant1});
     Value vector = loadInitial;
