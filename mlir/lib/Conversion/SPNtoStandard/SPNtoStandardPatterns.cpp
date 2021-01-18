@@ -60,11 +60,22 @@ namespace {
 
     // Use GetGlobalMemref operation to access the global created above.
     auto addressOf = rewriter.template create<mlir::GetGlobalMemrefOp>(op.getLoc(), memrefType, symbolName);
-    // Cast input value to index.
-    auto indexVal = rewriter.template create<mlir::IndexCastOp>(op.getLoc(), rewriter.getIndexType(), indexOperand);
+    // Convert input value from float to integer if necessary.
+    mlir::Value index = indexOperand;
+    if (!index.getType().isIntOrIndex()) {
+      // If the input type is not an integer, but also not a float, we cannot convert it and this pattern fails.
+      if (!index.getType().isIntOrFloat()) {
+        return mlir::failure();
+      }
+      index = rewriter.template create<mlir::FPToUIOp>(op.getLoc(), index, rewriter.getI64Type());
+    }
+    // Cast input value to index if necessary.
+    if (!index.getType().isIndex()) {
+      index = rewriter.template create<mlir::IndexCastOp>(op.getLoc(), rewriter.getIndexType(), index);
+    }
     // Replace the source operation with a load from the global memref,
     // using the source operation's input value as index.
-    rewriter.template replaceOpWithNewOp<mlir::LoadOp>(op, addressOf, mlir::ValueRange{indexVal});
+    rewriter.template replaceOpWithNewOp<mlir::LoadOp>(op, addressOf, mlir::ValueRange{index});
     return mlir::success();
   }
 
@@ -144,14 +155,23 @@ mlir::LogicalResult mlir::spn::GaussionOpLowering::matchAndRewrite(mlir::spn::Ga
     // Can only compute scalar floating-point results.
     return failure();
   }
-  auto indexType = index.getType().dyn_cast<FloatType>();
-  assert(indexType && "Expecting index to have floating-point type");
   auto resultType = op.getResult().getType().dyn_cast<FloatType>();
-  // Widen or narrow the index floating-point type to the result floating-point type.
-  if (indexType.getWidth() < resultType.getWidth()) {
-    index = rewriter.create<mlir::FPExtOp>(op.getLoc(), index, resultType);
-  } else if (indexType.getWidth() > resultType.getWidth()) {
-    index = rewriter.create<mlir::FPTruncOp>(op.getLoc(), index, resultType);
+
+  Type indexType = index.getType();
+  if (indexType.isIntOrIndex()) {
+    // Convert to floating point
+    index = rewriter.create<UIToFPOp>(op.getLoc(), index, resultType);
+  } else if (indexType.isa<FloatType>()) {
+    auto fInType = indexType.dyn_cast<FloatType>();
+    // Widen or narrow the index floating-point type to the result floating-point type.
+    if (fInType.getWidth() < resultType.getWidth()) {
+      index = rewriter.create<mlir::FPExtOp>(op.getLoc(), index, resultType);
+    } else if (fInType.getWidth() > resultType.getWidth()) {
+      index = rewriter.create<mlir::FPTruncOp>(op.getLoc(), index, resultType);
+    }
+  } else {
+    // The input type is neither float nor integer, fail this pattern because no conversion possible.
+    return failure();
   }
   // Calculate Gaussian distribution using e^(-(x - mean)^2/2*variance))/sqrt(2*PI*variance)
   // Variance from standard deviation.

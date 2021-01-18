@@ -55,8 +55,6 @@ namespace spnc {
 
     mlir::Value getInputValueByIndex(int index);
 
-    mlir::Value convertToSignlessInteger(mlir::Value value);
-
     mlir::Type translateTypeString(const std::string& text);
 
     unsigned sizeInByte(mlir::Type type);

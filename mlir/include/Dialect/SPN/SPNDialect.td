@@ -29,9 +29,20 @@ def SPNProbabilityType : DialectType<SPN_Dialect,
         "`spn.probability_type` abstractly represents a probability type.">,
         BuildableType<"$_builder.getType<::mlir:spn::ProbabilityType>()">;
 
+///
+/// Type representing any type that can be used to compute probability values.
+/// This includes the abstract SPNProbabilityType, any float and integer type and vectors of float/integer.
+///
 def AnyProbabilityType : DialectType<SPN_Dialect,
                         Or<[SPNProbabilityType.predicate, AnyFloat.predicate,
                           VectorOf<[AnyFloat]>.predicate, AnyInteger.predicate, VectorOf<[AnyInteger]>.predicate]>,
                         "Any type that can be used to represent probabilities of varying precision">;
+
+///
+/// Type representing possible input types to the SPN.
+/// Currently allows any float or signless integer type.
+/// Type conversion are implicit in the leaf nodes, if necessary.
+///
+def SPNInputType : AnyTypeOf<[AnyFloat, AnySignlessInteger]>;
 
 #endif // SPN_DIALECT
