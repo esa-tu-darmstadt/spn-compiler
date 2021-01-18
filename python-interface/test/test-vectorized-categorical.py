@@ -13,17 +13,13 @@ from xspn.structure.Query import JointProbability, ErrorKind
 import spncpy as spnc
 
 # Construct a minimal SPN using two Gaussian leaves.
-g1 = Gaussian(mean=0.5, stdev=1, scope=0)
-g2 = Gaussian(mean=0.125, stdev=0.25, scope=1)
-g3 = Gaussian(mean=0.345, stdev=0.24, scope=2)
-g4 = Gaussian(mean=0.456, stdev=0.1, scope=3)
-g5 = Gaussian(mean=0.94, stdev=0.48, scope=4)
-g6 = Gaussian(mean=0.56, stdev=0.42, scope=5)
-g7 = Gaussian(mean=0.76, stdev=0.14, scope=6)
-g8 = Gaussian(mean=0.32, stdev=0.8, scope=7)
-g9 = Gaussian(mean=0.58, stdev=0.9, scope=8)
-g10 = Gaussian(mean=0.14, stdev=0.2, scope=9)
-p = Product(children=[g1, g2, g3, g4, g5, g6, g7, g8, g9, g10])
+c1 = Categorical(p=[0.35, 0.55, 0.1], scope=0)
+c2 = Categorical(p=[0.25, 0.625, 0.125], scope=1)
+c3 = Categorical(p=[0.5, 0.2, 0.3], scope=2)
+c4 = Categorical(p=[0.6, 0.15, 0.25], scope=3)
+c5 = Categorical(p=[0.7, 0.11, 0.19], scope=4)
+c6 = Categorical(p=[0.8, 0.14, 0.06], scope=5)
+p = Product(children=[c1, c2, c3, c4, c5, c6])
 
 # Wrap the SPN in a model and query.
 model = SPNModel(p, "float64", "spn_vector")
@@ -52,16 +48,14 @@ if not os.path.isfile(k.fileName()):
     raise RuntimeError("Compilation failed, not Kernel produced")
 
 # Randomly sample input values from the two Gaussian (normal) distributions.
-inputs = np.column_stack((np.random.normal(0.5, 1, 30),
-                          np.random.normal(0.125, 0.25, 30),
-                          np.random.normal(0.345, 0.24, 30),
-                          np.random.normal(0.456, 0.1, 30),
-                          np.random.normal(0.94, 0.48, 30),
-                          np.random.normal(0.56, 0.42, 30),
-                          np.random.normal(0.76, 0.14, 30),
-                          np.random.normal(0.32, 0.8, 30),
-                          np.random.normal(0.58, 0.9, 30),
-                          np.random.normal(0.14, 0.2, 30)))
+inputs = np.column_stack((
+    np.random.randint(3, size=30),
+    np.random.randint(3, size=30),
+    np.random.randint(3, size=30),
+    np.random.randint(3, size=30),
+    np.random.randint(3, size=30),
+    np.random.randint(3, size=30),
+)).astype("float64")
 
 # Execute the compiled Kernel.
 results = k.execute(30, inputs)

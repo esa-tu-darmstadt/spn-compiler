@@ -35,6 +35,26 @@ namespace mlir {
 
     };
 
+    struct BatchVectorizeCategorical : public OpConversionPattern<CategoricalOp> {
+
+      using OpConversionPattern<CategoricalOp>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(CategoricalOp op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+
+    };
+
+    struct BatchVectorizeHistogram : public OpConversionPattern<HistogramOp> {
+
+      using OpConversionPattern<HistogramOp>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(HistogramOp op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+
+    };
+
     /// Populate list with all patterns required to batch vectorize SPN dialect operations, lowering
     /// to a combination of Standard and Vector dialect.
     /// \param patterns Pattern list to fill.
@@ -43,6 +63,7 @@ namespace mlir {
     static void populateSPNBatchVectorizePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                   TypeConverter& typeConverter) {
       patterns.insert<BatchVectorizeGaussian>(typeConverter, context, 2);
+      patterns.insert<BatchVectorizeCategorical, BatchVectorizeHistogram>(typeConverter, context, 2);
       patterns.insert<BatchVectorizeJointLowering>(typeConverter, context, 5);
     }
 
