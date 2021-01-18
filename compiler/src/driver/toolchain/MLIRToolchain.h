@@ -34,6 +34,8 @@ namespace spnc {
 
     static void initializeMLIRContext(mlir::MLIRContext& ctx);
 
+    static std::shared_ptr<mlir::ScopedDiagnosticHandler> setupDiagnosticHandler(mlir::MLIRContext* ctx);
+
     static std::shared_ptr<llvm::TargetMachine> createTargetMachine(bool cpuVectorize);
 
   };

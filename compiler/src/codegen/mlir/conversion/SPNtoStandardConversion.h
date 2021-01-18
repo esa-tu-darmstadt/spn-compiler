@@ -18,7 +18,7 @@ namespace spnc {
   public:
 
     SPNtoStandardConversion(ActionWithOutput<mlir::ModuleOp>& input, std::shared_ptr<mlir::MLIRContext> ctx,
-                            bool cpuVectorize);
+                            std::shared_ptr<mlir::ScopedDiagnosticHandler> handler, bool cpuVectorize);
 
     void initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx);
 

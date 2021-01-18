@@ -23,10 +23,9 @@ namespace spnc {
 
   public:
     MLIRPipelineBase(ActionWithOutput <mlir::ModuleOp>& _input,
-                     std::shared_ptr<mlir::MLIRContext> ctx) : ActionSingleInput<mlir::ModuleOp, mlir::ModuleOp>{
-        _input},
-                                                               mlirContext{std::move(ctx)}, pm{mlirContext.get()} {
-    }
+                     std::shared_ptr<mlir::MLIRContext> ctx, std::shared_ptr<mlir::ScopedDiagnosticHandler> handler)
+        : ActionSingleInput<mlir::ModuleOp, mlir::ModuleOp>{_input}, mlirContext{std::move(ctx)},
+          diagnostics{std::move(handler)}, pm{mlirContext.get()} {}
 
     mlir::ModuleOp& execute() override {
       if (!cached) {
@@ -48,6 +47,8 @@ namespace spnc {
   private:
 
     std::shared_ptr<mlir::MLIRContext> mlirContext;
+
+    std::shared_ptr<mlir::ScopedDiagnosticHandler> diagnostics;
 
     bool cached = false;
 

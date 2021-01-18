@@ -12,7 +12,6 @@
 #include "codegen/mlir/conversion/SPNtoLLVMConversion.h"
 #include "codegen/mlir/conversion/MLIRtoLLVMIRConversion.h"
 #include "codegen/mlir/analysis/CollectGraphStatistics.h"
-#include <driver/action/LLVMWriteBitcode.h>
 #include <driver/action/LLVMStaticCompiler.h>
 #include <driver/action/ClangKernelLinking.h>
 #include <codegen/mlir/frontend/MLIRDeserializer.h>
@@ -29,17 +28,21 @@ using namespace spnc;
 
 std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::string& inputFile,
                                                                   const Configuration& config) {
+  // Uncomment the following two lines to get detailed output during MLIR dialect conversion;
+  //llvm::DebugFlag = true;
+  //llvm::setCurrentDebugType("dialect-conversion");
   std::unique_ptr<Job<Kernel>> job = std::make_unique<Job<Kernel>>();
   // Invoke MLIR code-generation on parsed tree.
   auto ctx = std::make_shared<MLIRContext>();
   initializeMLIRContext(*ctx);
+  auto diagHandler = setupDiagnosticHandler(ctx.get());
   auto cpuVectorize = spnc::option::cpuVectorize.get(config);
   SPDLOG_INFO("CPU Vectorization enabled: {}", cpuVectorize);
   auto targetMachine = createTargetMachine(cpuVectorize);
   auto kernelInfo = std::make_shared<KernelInfo>();
   BinarySPN binarySPNFile{inputFile, false};
   auto& deserialized = job->insertAction<MLIRDeserializer>(std::move(binarySPNFile), ctx, kernelInfo);
-  auto& spnDialectPipeline = job->insertAction<SPNDialectPipeline>(deserialized, ctx);
+  auto& spnDialectPipeline = job->insertAction<SPNDialectPipeline>(deserialized, ctx, diagHandler);
   ActionWithOutput<ModuleOp>* spnPipelineResult = &spnDialectPipeline;
   // If requested via the configuration, collect graph statistics.
   if (spnc::option::collectGraphStats.get(config)) {
@@ -51,8 +54,8 @@ std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::str
     auto& joinAction = job->insertAction<JoinAction<mlir::ModuleOp, StatsFile>>(spnDialectPipeline, graphStats);
     spnPipelineResult = &joinAction;
   }
-  auto& spn2standard = job->insertAction<SPNtoStandardConversion>(*spnPipelineResult, ctx, cpuVectorize);
-  auto& spn2llvm = job->insertAction<SPNtoLLVMConversion>(spn2standard, ctx);
+  auto& spn2standard = job->insertAction<SPNtoStandardConversion>(*spnPipelineResult, ctx, diagHandler, cpuVectorize);
+  auto& spn2llvm = job->insertAction<SPNtoLLVMConversion>(spn2standard, ctx, diagHandler);
 
   // Convert the MLIR module to a LLVM-IR module.
   auto& llvmConversion = job->insertAction<MLIRtoLLVMIRConversion>(spn2llvm, ctx, targetMachine);
@@ -78,6 +81,37 @@ void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext& ctx) {
   ctx.loadDialect<mlir::scf::SCFDialect>();
   ctx.loadDialect<mlir::LLVM::LLVMDialect>();
   ctx.loadDialect<mlir::vector::VectorDialect>();
+}
+
+std::shared_ptr<mlir::ScopedDiagnosticHandler> spnc::MLIRToolchain::setupDiagnosticHandler(mlir::MLIRContext* ctx) {
+  // Create a simple diagnostic handler that will forward the diagnostic information to the SPDLOG instance
+  // used by the compiler/toolchain.
+  return std::make_shared<mlir::ScopedDiagnosticHandler>(ctx, [](Diagnostic& diag) {
+    auto logger = spdlog::default_logger_raw();
+    spdlog::level::level_enum level;
+    std::string levelTxt;
+    // Translate from MLIR severity to SPDLOG log-level.
+    switch (diag.getSeverity()) {
+      case DiagnosticSeverity::Note: level = spdlog::level::level_enum::debug;
+        levelTxt = "NOTE";
+        break;
+      case DiagnosticSeverity::Remark: level = spdlog::level::level_enum::info;
+        levelTxt = "REMARK";
+        break;
+      case DiagnosticSeverity::Warning: level = spdlog::level::level_enum::warn;
+        levelTxt = "WARNING";
+        break;
+      case DiagnosticSeverity::Error: level = spdlog::level::level_enum::err;
+        levelTxt = "ERROR";
+        break;
+    }
+    // Also emit all notes with log-level "trace", as they can be very verbose.
+    logger->log(level, "MLIR {}: {}", levelTxt, diag.str());
+    for (auto& n : diag.getNotes()) {
+      logger->log(spdlog::level::level_enum::trace, n.str());
+    }
+    return success();
+  });
 }
 
 std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(bool cpuVectorize) {
