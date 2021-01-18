@@ -268,6 +268,11 @@ void mlir::spn::ConstantOp::build(::mlir::OpBuilder& odsBuilder, ::mlir::Operati
         odsBuilder.getFloatAttr(odsBuilder.getF64Type(), value));
 }
 
+::mlir::OpFoldResult mlir::spn::ConstantOp::fold(::llvm::ArrayRef<::mlir::Attribute> operands) {
+  assert(operands.empty() && "SPN ConstantOp has no operands");
+  return valueAttr();
+}
+
 //===----------------------------------------------------------------------===//
 // SingleJointQuery
 //===----------------------------------------------------------------------===//

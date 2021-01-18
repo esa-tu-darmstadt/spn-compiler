@@ -175,7 +175,7 @@ def ReturnOp : SPN_Op<"return", [Terminator]> {
 ///
 /// Constant operation.
 ///
-def ConstantOp : SPN_Op<"constant", [NoSideEffect]> {
+def ConstantOp : SPN_Op<"constant", [NoSideEffect, ConstantLike]> {
 
   let summary = "constant";
 
@@ -193,6 +193,8 @@ def ConstantOp : SPN_Op<"constant", [NoSideEffect]> {
     // Build a constant with a given constant floating-point value.
     OpBuilderDAG<(ins "double":$value)>
   ];
+
+  let hasFolder = 1;
 
 }
 
