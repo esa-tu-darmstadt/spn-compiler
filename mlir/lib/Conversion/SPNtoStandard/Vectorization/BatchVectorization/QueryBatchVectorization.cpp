@@ -211,19 +211,15 @@ mlir::LogicalResult mlir::spn::BatchVectorizeJointLowering::matchAndRewrite(mlir
   Value result;
   for (auto& o : op.getRegion().front().getOperations()) {
     if (auto retOp = dyn_cast<mlir::spn::ReturnOp>(o)) {
+      // Do not copy over the SPN ReturnOp, but replace it with log + transfer write (store).
       result = rewriter.create<mlir::LogOp>(op.getLoc(), vectorType, argMapper.lookup(retOp.retValue().front()));
-      // TODO Store the result.
       rewriter.create<mlir::vector::TransferWriteOp>(op.getLoc(), result, (Value) storeArg,
                                                      ValueRange{vectorizedLoop.getInductionVar()});
-      //rewriter.create<mlir::StoreOp>(op.getLoc(), result, storeView, ValueRange{vectorizedLoop.getInductionVar()});
     } else {
       rewriter.clone(o, argMapper);
     }
   }
 
-
-  //rewriter.eraseOp(vectorLoopBody.getTerminator());
-  //rewriter.create<mlir::scf::YieldOp>(op.getLoc());
   rewriter.restoreInsertionPoint(restore);
 
   // Create the scalar epilog loop, iterating from ubVectorized to numSamples, in steps of 1.

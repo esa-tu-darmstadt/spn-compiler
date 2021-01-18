@@ -11,6 +11,8 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "SPN/SPNOps.h"
 #include "SPN/SPNDialect.h"
+#include "mlir/Dialect/Vector/VectorOps.h"
+#include "llvm/Support/Debug.h"
 
 namespace mlir {
   namespace spn {
@@ -114,19 +116,53 @@ namespace mlir {
           return failure();
         }
 
-        for (auto operand : operands) {
-          auto opType = operand.getType();
-          auto isFloat = opType.template isa<FloatType>();
-          auto isVectorOfFloat = opType.template isa<VectorType>()
-              && opType.template dyn_cast<VectorType>().getElementType().template isa<FloatType>();
-          if (!(isFloat || isVectorOfFloat)) {
-            // Translate only arithmetic operations operating on floating-point data types
-            // or vectors of float.
-            return failure();
+        Value firstOperand = operands[0];
+        auto firstOperandType = firstOperand.getType();
+        auto firstScalarFloat = firstOperandType.template isa<FloatType>();
+        auto firstVectorFloat = firstOperandType.template isa<VectorType>() &&
+            firstOperandType.template dyn_cast<VectorType>().getElementType().template isa<FloatType>();
+        if (!(firstScalarFloat || firstVectorFloat)) {
+          // Translate only arithmetic operations operating on floating-point data types
+          // or vectors of float.
+          return failure();
+        }
+
+        Value secondOperand = operands[1];
+        auto secondOperandType = secondOperand.getType();
+        auto secondScalarFloat = secondOperandType.template isa<FloatType>();
+        auto secondVectorFloat = secondOperandType.template isa<VectorType>() &&
+            secondOperandType.template dyn_cast<VectorType>().getElementType().template isa<FloatType>();
+        if (!(secondScalarFloat || secondVectorFloat)) {
+          // Translate only arithmetic operations operating on floating-point data types
+          // or vectors of float.
+          return failure();
+        }
+
+        if (firstVectorFloat && !secondVectorFloat) {
+          // The first operand was vectorized, the second not.
+          if (secondOperand.getDefiningOp()->template hasTrait<mlir::OpTrait::ConstantLike>()) {
+            // The second operand is constant, so we can broadcast it to match the requested vectorization
+            // for the first operand.
+            secondOperand = rewriter.template create<mlir::vector::BroadcastOp>(op.getLoc(), firstOperandType,
+                                                                                secondOperand);
+          } else {
+            // The first operand was vectorized, the second not and and it is not a constant.
+            return mlir::failure();
+          }
+        } else if (secondVectorFloat && !firstVectorFloat) {
+          // The second operand was vectorized, the first not.
+          if (firstOperand.getDefiningOp()->template hasTrait<mlir::OpTrait::ConstantLike>()) {
+            // The first operand is constant, so we can broadcast it to match the requested vectorization
+            // for the second operand.
+            firstOperand = rewriter.template create<mlir::vector::BroadcastOp>(op.getLoc(), secondOperandType,
+                                                                               firstOperand);
+          } else {
+            // The second operand was vectorized, the first not and and it is not a constant.
+            return mlir::failure();
           }
         }
 
-        rewriter.replaceOpWithNewOp<TargetOp>(op, operands[0], operands[1]);
+        rewriter.replaceOpWithNewOp<TargetOp>(op, firstOperand, secondOperand);
         return success();
       }
     };
