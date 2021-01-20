@@ -11,39 +11,46 @@ using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::slp;
 
-SLPNode::SLPNode(std::vector<Operation*> const& values) : width{values.size()},
-                                                          operationName{values.front()->getName()}, lanes{},
-                                                          operands{} {
-  lanes.emplace_back(values);
+SLPNode::SLPNode(std::vector<Operation*> const& operations) : operationName{operations.front()->getName()},
+                                                              lanes{operations.size()},
+                                                              operands{operations.size()} {
+  for (size_t i = 0; i < operations.size(); ++i) {
+    lanes.at(i).emplace_back(operations.at(i));
+  }
 }
 
-SLPNode& SLPNode::addOperands(std::vector<Operation*> const& values) {
+void SLPNode::addOperands(std::vector<std::vector<Operation*>> const& operandsPerLane) {
+  assert(operandsPerLane.size() == numLanes());
   // If the operations are attachable (i.e. same opcode), insert them into this node (forming a multinode).
-  if (attachable(values)) {
-    for (size_t lane = 0; lane < values.size(); ++lane) {
-      lanes.at(lane).emplace_back(values.at(lane));
+  if (attachable(operandsPerLane)) {
+    for (size_t lane = 0; lane < numLanes(); ++lane) {
+      lanes.at(lane).insert(std::end(lanes.at(lane)),
+                            std::begin(operandsPerLane.at(lane)),
+                            std::end(operandsPerLane.at(lane)));
     }
-    return *this;
   }
-  operands.emplace_back(SLPNode{values});
-  return operands.back();
-
-}
-
-std::vector<SLPNode>& SLPNode::getOperands() {
-  return operands;
-}
-
-SLPNode& SLPNode::getOperand(size_t index) {
-  return operands.at(index);
-}
-
-std::vector<Operation*> SLPNode::getLane(size_t laneIndex) {
-  std::vector<Operation*> lane;
-  for (auto const& operations : lanes) {
-    lane.emplace_back(operations.at(laneIndex));
+    // Otherwise, add don't modify this node's operations and add the operands as true operands.
+  else {
+    for (size_t lane = 0; lane < numLanes(); ++lane) {
+      addOperands(operandsPerLane.at(lane), lane);
+    }
   }
-  return lane;
+
+}
+
+void SLPNode::addOperands(std::vector<Operation*> const& operations, size_t const& lane) {
+  assert(operations.size() == lanes.at(lane).back()->getNumOperands());
+  for (auto const& operand : operations) {
+    operands.at(lane).emplace_back(SLPNode{{operand}});
+  }
+}
+
+std::vector<SLPNode>& SLPNode::getOperands(size_t lane) {
+  return operands.at(lane);
+}
+
+std::vector<Operation*>& SLPNode::getLane(size_t lane) {
+  return lanes.at(lane);
 }
 
 Operation* SLPNode::getOperation(size_t lane, size_t index) {
@@ -59,13 +66,17 @@ bool SLPNode::isMultiNode() const {
 }
 
 size_t SLPNode::numLanes() const {
-  return width;
+  return lanes.size();
 }
 
-bool SLPNode::attachable(std::vector<Operation*> const& otherOperations) {
+bool SLPNode::attachable(std::vector<std::vector<Operation*>> const& operations) {
   // TODO operands escape multi-node?
-  assert(lanes.size() == otherOperations.size());
-  return std::all_of(std::begin(otherOperations),
-                     std::end(otherOperations),
-                     [&](auto const& operation) { return operation->getName() == operationName; });
+  for (auto const& laneOperands : operations) {
+    if (std::any_of(std::begin(laneOperands),
+                    std::end(laneOperands),
+                    [&](auto const& operandOperation) { return operandOperation->getName() != operationName; })) {
+      return false;
+    }
+  }
+  return true;
 }

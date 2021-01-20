@@ -32,10 +32,10 @@ namespace mlir {
 
       private:
 
-        void buildGraph(std::vector<Operation*> const& values, SLPNode& parentNode);
+        void buildGraph(std::vector<Operation*> const& operations, SLPNode& parentNode);
 
-        bool vectorizable(std::vector<Operation*> const& values) const;
-        bool commutative(std::vector<Operation*> const& values) const;
+        bool vectorizable(std::vector<Operation*> const& operations) const;
+        bool commutative(std::vector<Operation*> const& operations) const;
         std::vector<Operation*> getOperands(std::vector<Operation*> const& values) const;
         std::vector<Operation*> getOperands(Operation* value) const;
 
@@ -60,7 +60,7 @@ namespace mlir {
 
         std::pair<SLPNode, SLPTree::MODE> getBest(SLPTree::MODE const& mode,
                                                   SLPNode const& last,
-                                                  std::vector<Operation*> const& candidates) const;
+                                                  std::vector<SLPNode*> const& candidates) const;
       };
     }
   }

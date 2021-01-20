@@ -20,21 +20,21 @@ namespace mlir {
 
         explicit SLPNode(std::vector<Operation*> const& values);
 
-        SLPNode& addOperands(std::vector<Operation*> const& values);
-        std::vector<SLPNode>& getOperands();
-        SLPNode& getOperand(size_t index);
+        void addOperands(std::vector<std::vector<Operation*>> const& operandsPerLane);
+        void addOperands(std::vector<Operation*> const& operations, size_t const& lane);
+        std::vector<SLPNode>& getOperands(size_t lane);
 
-        std::vector<Operation*> getLane(size_t index);
+        std::vector<Operation*>& getLane(size_t lane);
         Operation* getOperation(size_t lane, size_t index);
         OperationName const& name();
 
         bool isMultiNode() const;
         size_t numLanes() const;
-        bool attachable(std::vector<Operation*> const& otherOperations);
+        bool attachable(std::vector<std::vector<Operation*>> const& operations);
 
         friend bool operator==(SLPNode const& lhs, SLPNode const& rhs) {
-          return std::tie(lhs.width, lhs.operationName, lhs.lanes, lhs.operands)
-              == std::tie(rhs.width, rhs.operationName, rhs.lanes, rhs.operands);
+          return std::tie(lhs.operationName, lhs.lanes, lhs.operands)
+              == std::tie(rhs.operationName, rhs.lanes, rhs.operands);
         }
 
         friend bool operator!=(SLPNode const& lhs, SLPNode const& rhs) {
@@ -43,12 +43,14 @@ namespace mlir {
 
       private:
 
-        size_t const width;
         OperationName const operationName;
 
-        /// Stores lists of operations for each lane for multinode use cases.
+        /// Stores lanes as lists of operations. An inner vector (i.e. a lane) only contains more than one operation
+        /// if this node is a multinode.
         std::vector<std::vector<Operation*>> lanes;
-        std::vector<SLPNode> operands;
+
+        /// A list of operands for each lane.
+        std::vector<std::vector<SLPNode>> operands;
 
       };
     }
