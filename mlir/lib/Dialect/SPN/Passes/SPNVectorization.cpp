@@ -25,7 +25,7 @@ namespace {
       func.walk([](Operation* op) {
         if (auto query = dyn_cast<QueryInterface>(op)) {
           for (auto r : query.getRootNodes()) {
-            slp::SLPTree graph(r, 4);
+            slp::SLPTree graph(r, 4, 3);
           }
         }
       });

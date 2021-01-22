@@ -14,15 +14,15 @@ using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::slp;
 
-SLPTree::SLPTree(Operation* root, size_t width) : graphs{} {
+SLPTree::SLPTree(Operation* root, size_t width, size_t maxLookAhead) : graphs{}, maxLookAhead{maxLookAhead} {
   assert(root);
   llvm::StringMap<std::vector<Operation*>> operationsByOpCode;
   std::set<Operation*> operations;
   for (auto& op : root->getBlock()->getOperations()) {
     operationsByOpCode[op.getName().getStringRef().str()].emplace_back(&op);
     operations.insert(&op);
-    for(auto const& operand : op.getOperands()) {
-      if(operations.find(operand.getDefiningOp()) != std::end(operations)) {
+    for (auto const& operand : op.getOperands()) {
+      if (operations.find(operand.getDefiningOp()) != std::end(operations)) {
         std::cout << "it's not a tree!" << std::endl;
         return;
       }
@@ -170,21 +170,82 @@ std::vector<SLPNode> SLPTree::reorderOperands(SLPNode& multinode) {
   return finalOrder;
 }
 
-std::pair<SLPNode, SLPTree::MODE> SLPTree::getBest(SLPTree::MODE const& mode,
-                                                   SLPNode const& last,
-                                                   std::vector<SLPNode*> const& candidates) const {
-  Operation* best;
-
+std::pair<SLPNode*, SLPTree::MODE> SLPTree::getBest(SLPTree::MODE& mode,
+                                                    SLPNode& last,
+                                                    std::vector<SLPNode*>& candidates) const {
+  SLPNode* best = nullptr;
+  std::vector<SLPNode*> bestCandidates;
   if (mode == MODE::FAILED) {
     // Don't select now, let others choose first
-    // ...
+    best = nullptr;
   } else if (mode == MODE::SPLAT) {
     // Look for other splat candidates
     for (auto const& value : candidates) {
       if (*value == last) {
+        best = value;
+        break;
+      }
+    }
+  } else {
+    // Default value
+    best = candidates.front();
+    for (auto const& candidate : candidates) {
+      // We don't have consecutive memory accesses, therefore we're only interested in opcode comparisons.
+      if (candidate->name() == last.name()) {
+        bestCandidates.emplace_back(candidate);
+      }
+    }
+    // 1. If we have a trivial solution, use it
+    if (bestCandidates.empty()) {
+      mode = MODE::FAILED;
+    }
+      // Single match
+    else if (bestCandidates.size() == 1) {
+      best = bestCandidates.front();
+    }
+      // 2. Look-ahead to choose from best candidates
+    else {
+      if (mode == MODE::OPCODE) {
+        // Look-ahead on various levels
+        for (size_t level = 1; level <= maxLookAhead; ++level) {
+          // Best is the candidate with max score
+          int bestScore = 0;
+          std::set<int> scores;
+          for (auto const& candidate : bestCandidates) {
+            // Get the look-ahead score
+            auto const& score = getLookAheadScore(last, *candidate, level);
+            if (scores.empty() || score > bestScore) {
+              best = candidate;
+              bestScore = score;
+              scores.insert(score);
+            }
+          }
+          // If found best at level don't go deeper
+          if (best != nullptr && scores.size() > 1) {
+            break;
+          }
+        }
+      }
+    }
 
+  }
+  // Remove best from candidates
+  if (best != nullptr) {
+    candidates.erase(std::remove(std::begin(candidates), std::end(candidates), best), std::end(candidates));
+  }
+  return {best, mode};
+}
+int SLPTree::getLookAheadScore(SLPNode& last, SLPNode& candidate, size_t const& maxLevel) const {
+  if (maxLevel == 0 || last.name() != candidate.name()) {
+    return 0;
+  }
+  auto scoreSum = 0;
+  for (size_t lane = 0; lane < last.numLanes(); ++lane) {
+    for (auto& lastOperand : last.getOperands(lane)) {
+      for (auto& candidateOperand : candidate.getOperands(lane)) {
+        scoreSum += getLookAheadScore(lastOperand, candidateOperand, maxLevel - 1);
       }
     }
   }
-  return {last, mode};
+  return scoreSum;
 }

@@ -28,7 +28,7 @@ namespace mlir {
         /// Constructor, initialize analysis.
         /// \param root Root node of a (sub-)graph or query operation.
         /// \param width The target width of the SLP vectors.
-        explicit SLPTree(Operation* op, size_t width);
+        explicit SLPTree(Operation* op, size_t width, size_t maxLookAhead);
 
       private:
 
@@ -58,9 +58,12 @@ namespace mlir {
 
         std::vector<SLPNode> graphs;
 
-        std::pair<SLPNode, SLPTree::MODE> getBest(SLPTree::MODE const& mode,
-                                                  SLPNode const& last,
-                                                  std::vector<SLPNode*> const& candidates) const;
+        size_t const maxLookAhead;
+
+        std::pair<SLPNode*, SLPTree::MODE> getBest(SLPTree::MODE& mode,
+                                                   SLPNode& last,
+                                                   std::vector<SLPNode*>& candidates) const;
+        int getLookAheadScore(SLPNode& last, SLPNode& candidate, size_t const& maxLevel) const;
       };
     }
   }

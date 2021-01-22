@@ -29,16 +29,16 @@ void SLPNode::addOperands(std::vector<std::vector<Operation*>> const& operandsPe
                             std::end(operandsPerLane.at(lane)));
     }
   }
-    // Otherwise, add don't modify this node's operations and add the operands as true operands.
+    // Otherwise, don't modify this node's operations and add the operands as true operands.
   else {
     for (size_t lane = 0; lane < numLanes(); ++lane) {
-      addOperands(operandsPerLane.at(lane), lane);
+      addOperandsToLane(operandsPerLane.at(lane), lane);
     }
   }
 
 }
 
-void SLPNode::addOperands(std::vector<Operation*> const& operations, size_t const& lane) {
+void SLPNode::addOperandsToLane(std::vector<Operation*> const& operations, size_t const& lane) {
   assert(operations.size() == lanes.at(lane).back()->getNumOperands());
   for (auto const& operand : operations) {
     operands.at(lane).emplace_back(SLPNode{{operand}});

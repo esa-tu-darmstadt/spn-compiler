@@ -21,7 +21,7 @@ namespace mlir {
         explicit SLPNode(std::vector<Operation*> const& values);
 
         void addOperands(std::vector<std::vector<Operation*>> const& operandsPerLane);
-        void addOperands(std::vector<Operation*> const& operations, size_t const& lane);
+        void addOperandsToLane(std::vector<Operation*> const& operations, size_t const& lane);
         std::vector<SLPNode>& getOperands(size_t lane);
 
         std::vector<Operation*>& getLane(size_t lane);
