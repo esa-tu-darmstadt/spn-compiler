@@ -14,10 +14,12 @@ namespace mlir {
         // look for a constant
         CONST,
         // look for a consecutive load to that in the previous lane
+        // TODO: do we have load operations? or something that can be treated equivalently?
         LOAD,
         // look for an operation of the same opcode
         OPCODE,
         // look for the exact same operation
+        // TODO: determine whether SPLAT mode is actually relevant (are the same operands used in more than one lane?)
         SPLAT,
         // vectorization has failed, give higher priority to others
         FAILED

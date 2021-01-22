@@ -160,7 +160,6 @@ std::vector<std::vector<SLPNode>> SLPTree::reorderOperands(SLPNode& multinode) {
       finalOrder.at(lane).emplace_back(bestResult.first.getValue());
 
       // Detect SPLAT mode
-      // TODO: determine whether SPLAT mode is actually relevant (are the same operands used in more than one lane?)
       if (i == 1 && bestResult.first == last) {
         mode.at(i) = SPLAT;
       } else {
