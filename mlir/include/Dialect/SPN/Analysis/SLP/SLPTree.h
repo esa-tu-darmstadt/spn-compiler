@@ -48,7 +48,7 @@ namespace mlir {
 
         size_t const maxLookAhead;
 
-        std::pair<Optional<SLPNode>, MODE> getBest(MODE& mode,
+        std::pair<Optional<SLPNode>, MODE> getBest(MODE const& mode,
                                                    SLPNode const& last,
                                                    std::vector<SLPNode>& candidates) const;
         int getLookAheadScore(SLPNode const& last, SLPNode const& candidate, size_t const& maxLevel) const;

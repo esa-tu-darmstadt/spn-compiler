@@ -126,13 +126,10 @@ std::vector<Operation*> SLPTree::getOperands(Operation* operation) const {
 
 MODE SLPTree::modeFromOperation(Operation const* operation) const {
   if (dyn_cast<ConstantOp>(operation)) {
-    return MODE::CONST;
+    return CONST;
   }
-    // TODO: can this really be considered a load? I doubt it...
-  else if (dyn_cast<HistogramOp>(operation) || dyn_cast<GaussianOp>(operation)) {
-    return MODE::LOAD;
-  }
-  return MODE::OPCODE;
+  // We don't have LOADs. Therefore just return OPCODE.
+  return OPCODE;
 }
 
 std::vector<std::vector<SLPNode>> SLPTree::reorderOperands(SLPNode& multinode) {
@@ -153,19 +150,21 @@ std::vector<std::vector<SLPNode>> SLPTree::reorderOperands(SLPNode& multinode) {
     // Look for a matching candidate
     for (size_t i = 0; i < numOperands; ++i) {
       // Skip if we can't vectorize
-      if (mode.at(i) == MODE::FAILED) {
+      if (mode.at(i) == FAILED) {
         continue;
       }
       auto const& last = finalOrder.at(lane - 1).at(i);
       auto const& bestResult = getBest(mode.at(i), last, candidates);
 
       // Update output
-      // TODO: funky two dimensional stuff
       finalOrder.at(lane).emplace_back(bestResult.first.getValue());
 
       // Detect SPLAT mode
+      // TODO: determine whether SPLAT mode is actually relevant (are the same operands used in more than one lane?)
       if (i == 1 && bestResult.first == last) {
-        mode.at(i) = MODE::SPLAT;
+        mode.at(i) = SPLAT;
+      } else {
+        mode.at(i) = bestResult.second;
       }
 
     }
@@ -173,15 +172,17 @@ std::vector<std::vector<SLPNode>> SLPTree::reorderOperands(SLPNode& multinode) {
   return finalOrder;
 }
 
-std::pair<Optional<SLPNode>, MODE> SLPTree::getBest(MODE& mode,
+std::pair<Optional<SLPNode>, MODE> SLPTree::getBest(MODE const& mode,
                                                     SLPNode const& last,
                                                     std::vector<SLPNode>& candidates) const {
   Optional<SLPNode> best;
+  MODE resultMode = mode;
   std::vector<SLPNode> bestCandidates;
-  if (mode == MODE::FAILED) {
+
+  if (mode == FAILED) {
     // Don't select now, let others choose first
     best.reset();
-  } else if (mode == MODE::SPLAT) {
+  } else if (mode == SPLAT) {
     // Look for other splat candidates
     for (auto& operand : candidates) {
       if (operand == last) {
@@ -199,8 +200,9 @@ std::pair<Optional<SLPNode>, MODE> SLPTree::getBest(MODE& mode,
       }
     }
     // 1. If we have a trivial solution, use it
+    // No matches
     if (bestCandidates.empty()) {
-      mode = MODE::FAILED;
+      resultMode = FAILED;
     }
       // Single match
     else if (bestCandidates.size() == 1) {
@@ -208,11 +210,11 @@ std::pair<Optional<SLPNode>, MODE> SLPTree::getBest(MODE& mode,
     }
       // 2. Look-ahead to choose from best candidates
     else {
-      if (mode == MODE::OPCODE) {
+      if (mode == OPCODE) {
         // Look-ahead on various levels
         for (size_t level = 1; level <= maxLookAhead; ++level) {
           // Best is the candidate with max score
-          int bestScore = 0;
+          auto bestScore = 0;
           std::set<int> scores;
           for (auto const& candidate : bestCandidates) {
             // Get the look-ahead score
@@ -236,11 +238,12 @@ std::pair<Optional<SLPNode>, MODE> SLPTree::getBest(MODE& mode,
   if (best.hasValue()) {
     candidates.erase(std::remove(std::begin(candidates), std::end(candidates), best), std::end(candidates));
   }
-  return {best, mode};
+  return {best, resultMode};
 }
 int SLPTree::getLookAheadScore(SLPNode const& last, SLPNode const& candidate, size_t const& maxLevel) const {
-  if (maxLevel == 0 || last.name() != candidate.name()) {
-    return 0;
+  if (maxLevel == 0) {
+    // No consecutive loads to check, only opcodes.
+    return last.name() == candidate.name() ? 1 : 0;
   }
   auto scoreSum = 0;
   for (size_t lane = 0; lane < last.numLanes(); ++lane) {

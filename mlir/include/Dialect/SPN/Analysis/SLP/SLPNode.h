@@ -44,7 +44,7 @@ namespace mlir {
 
       private:
 
-        OperationName const operationName;
+        OperationName operationName;
 
         /// Stores lanes as lists of operations. An inner vector (i.e. a lane) only contains more than one operation
         /// if this node is a multinode.
