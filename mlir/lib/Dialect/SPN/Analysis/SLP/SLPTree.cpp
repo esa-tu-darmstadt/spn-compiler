@@ -124,41 +124,44 @@ std::vector<Operation*> SLPTree::getOperands(Operation* operation) const {
   return operands;
 }
 
-SLPTree::MODE SLPTree::modeFromOperation(Operation const* operation) const {
+MODE SLPTree::modeFromOperation(Operation const* operation) const {
   if (dyn_cast<ConstantOp>(operation)) {
     return MODE::CONST;
-  } else if (dyn_cast<HistogramOp>(operation) || dyn_cast<GaussianOp>(operation)) {
+  }
+    // TODO: can this really be considered a load? I doubt it...
+  else if (dyn_cast<HistogramOp>(operation) || dyn_cast<GaussianOp>(operation)) {
     return MODE::LOAD;
   }
   return MODE::OPCODE;
 }
 
-std::vector<SLPNode> SLPTree::reorderOperands(SLPNode& multinode) {
+std::vector<std::vector<SLPNode>> SLPTree::reorderOperands(SLPNode& multinode) {
   assert(multinode.isMultiNode());
-  std::vector<SLPNode> finalOrder;
-  /*std::vector<MODE> mode;
+  std::vector<std::vector<SLPNode>> finalOrder{multinode.numLanes()};
+  std::vector<MODE> mode;
+  auto const& numOperands = multinode.getOperands(0).size();
   // 1. Strip first lane
-  for (size_t i = 0; i < multinode.getOperands().size(); ++i) {
-    auto& operand = multinode.getOperand(i);
-    finalOrder.emplace_back(operand);
-    mode.emplace_back(modeFromOperation(multinode.getOperation(0, i)));
+  for (size_t i = 0; i < numOperands; ++i) {
+    auto operand = multinode.getOperand(0, i);
+    finalOrder.at(0).emplace_back(operand);
+    mode.emplace_back(modeFromOperation(operand.getOperation(0, 0)));
   }
 
   // 2. For all other lanes, find best candidate
   for (size_t lane = 1; lane < multinode.numLanes(); ++lane) {
-    std::vector<SLPNode*> candidates = multinode.getLane(lane);
+    std::vector<SLPNode> candidates{multinode.getOperands(lane)};
     // Look for a matching candidate
-    for (size_t i = 0; i < multinode.getOperands().size(); ++i) {
+    for (size_t i = 0; i < numOperands; ++i) {
       // Skip if we can't vectorize
       if (mode.at(i) == MODE::FAILED) {
         continue;
       }
-      auto const& last = finalOrder.at(i);
+      auto const& last = finalOrder.at(lane - 1).at(i);
       auto const& bestResult = getBest(mode.at(i), last, candidates);
 
       // Update output
       // TODO: funky two dimensional stuff
-      finalOrder.emplace_back(bestResult.first);
+      finalOrder.at(lane).emplace_back(bestResult.first.getValue());
 
       // Detect SPLAT mode
       if (i == 1 && bestResult.first == last) {
@@ -166,32 +169,32 @@ std::vector<SLPNode> SLPTree::reorderOperands(SLPNode& multinode) {
       }
 
     }
-  }*/
+  }
   return finalOrder;
 }
 
-std::pair<SLPNode*, SLPTree::MODE> SLPTree::getBest(SLPTree::MODE& mode,
-                                                    SLPNode& last,
-                                                    std::vector<SLPNode*>& candidates) const {
-  SLPNode* best = nullptr;
-  std::vector<SLPNode*> bestCandidates;
+std::pair<Optional<SLPNode>, MODE> SLPTree::getBest(MODE& mode,
+                                                    SLPNode const& last,
+                                                    std::vector<SLPNode>& candidates) const {
+  Optional<SLPNode> best;
+  std::vector<SLPNode> bestCandidates;
   if (mode == MODE::FAILED) {
     // Don't select now, let others choose first
-    best = nullptr;
+    best.reset();
   } else if (mode == MODE::SPLAT) {
     // Look for other splat candidates
-    for (auto const& value : candidates) {
-      if (*value == last) {
-        best = value;
+    for (auto& operand : candidates) {
+      if (operand == last) {
+        best = operand;
         break;
       }
     }
   } else {
     // Default value
     best = candidates.front();
-    for (auto const& candidate : candidates) {
+    for (auto& candidate : candidates) {
       // We don't have consecutive memory accesses, therefore we're only interested in opcode comparisons.
-      if (candidate->name() == last.name()) {
+      if (candidate.name() == last.name()) {
         bestCandidates.emplace_back(candidate);
       }
     }
@@ -213,7 +216,7 @@ std::pair<SLPNode*, SLPTree::MODE> SLPTree::getBest(SLPTree::MODE& mode,
           std::set<int> scores;
           for (auto const& candidate : bestCandidates) {
             // Get the look-ahead score
-            auto const& score = getLookAheadScore(last, *candidate, level);
+            auto const& score = getLookAheadScore(last, candidate, level);
             if (scores.empty() || score > bestScore) {
               best = candidate;
               bestScore = score;
@@ -221,7 +224,7 @@ std::pair<SLPNode*, SLPTree::MODE> SLPTree::getBest(SLPTree::MODE& mode,
             }
           }
           // If found best at level don't go deeper
-          if (best != nullptr && scores.size() > 1) {
+          if (best.hasValue() && scores.size() > 1) {
             break;
           }
         }
@@ -230,19 +233,19 @@ std::pair<SLPNode*, SLPTree::MODE> SLPTree::getBest(SLPTree::MODE& mode,
 
   }
   // Remove best from candidates
-  if (best != nullptr) {
+  if (best.hasValue()) {
     candidates.erase(std::remove(std::begin(candidates), std::end(candidates), best), std::end(candidates));
   }
   return {best, mode};
 }
-int SLPTree::getLookAheadScore(SLPNode& last, SLPNode& candidate, size_t const& maxLevel) const {
+int SLPTree::getLookAheadScore(SLPNode const& last, SLPNode const& candidate, size_t const& maxLevel) const {
   if (maxLevel == 0 || last.name() != candidate.name()) {
     return 0;
   }
   auto scoreSum = 0;
   for (size_t lane = 0; lane < last.numLanes(); ++lane) {
-    for (auto& lastOperand : last.getOperands(lane)) {
-      for (auto& candidateOperand : candidate.getOperands(lane)) {
+    for (auto const& lastOperand : last.getOperands(lane)) {
+      for (auto const& candidateOperand : candidate.getOperands(lane)) {
         scoreSum += getLookAheadScore(lastOperand, candidateOperand, maxLevel - 1);
       }
     }

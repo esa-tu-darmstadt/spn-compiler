@@ -11,6 +11,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringMap.h"
 #include "SLPNode.h"
+#include "SLPMode.h"
 
 #include <vector>
 #include <set>
@@ -39,31 +40,18 @@ namespace mlir {
         std::vector<Operation*> getOperands(std::vector<Operation*> const& values) const;
         std::vector<Operation*> getOperands(Operation* value) const;
 
-        enum MODE {
-          // look for a constant
-          CONST,
-          // look for a consecutive load to that in the previous lane
-          LOAD,
-          // look for an operation of the same opcode
-          OPCODE,
-          // look for the exact same operation
-          SPLAT,
-          // vectorization has failed, give higher priority to others
-          FAILED
-        };
+        MODE modeFromOperation(Operation const* operation) const;
 
-        SLPTree::MODE modeFromOperation(Operation const* operation) const;
-
-        std::vector<SLPNode> reorderOperands(SLPNode& multinode);
+        std::vector<std::vector<SLPNode>> reorderOperands(SLPNode& multinode);
 
         std::vector<SLPNode> graphs;
 
         size_t const maxLookAhead;
 
-        std::pair<SLPNode*, SLPTree::MODE> getBest(SLPTree::MODE& mode,
-                                                   SLPNode& last,
-                                                   std::vector<SLPNode*>& candidates) const;
-        int getLookAheadScore(SLPNode& last, SLPNode& candidate, size_t const& maxLevel) const;
+        std::pair<Optional<SLPNode>, MODE> getBest(MODE& mode,
+                                                   SLPNode const& last,
+                                                   std::vector<SLPNode>& candidates) const;
+        int getLookAheadScore(SLPNode const& last, SLPNode const& candidate, size_t const& maxLevel) const;
       };
     }
   }

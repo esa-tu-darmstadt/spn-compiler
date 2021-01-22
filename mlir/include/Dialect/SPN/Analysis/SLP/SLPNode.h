@@ -18,15 +18,16 @@ namespace mlir {
 
       public:
 
-        explicit SLPNode(std::vector<Operation*> const& values);
+        explicit SLPNode(std::vector<Operation*> const& operations);
+        explicit SLPNode(Operation* operation);
 
         void addOperands(std::vector<std::vector<Operation*>> const& operandsPerLane);
         void addOperandsToLane(std::vector<Operation*> const& operations, size_t const& lane);
-        std::vector<SLPNode>& getOperands(size_t lane);
+        std::vector<SLPNode> const& getOperands(size_t const& lane) const;
+        SLPNode const& getOperand(size_t const& lane, size_t const& index) const;
 
-        std::vector<Operation*>& getLane(size_t lane);
         Operation* getOperation(size_t lane, size_t index);
-        OperationName const& name();
+        OperationName const& name() const;
 
         bool isMultiNode() const;
         size_t numLanes() const;

@@ -15,9 +15,14 @@ SLPNode::SLPNode(std::vector<Operation*> const& operations) : operationName{oper
                                                               lanes{operations.size()},
                                                               operands{operations.size()} {
   for (size_t i = 0; i < operations.size(); ++i) {
+    assert(i == 0 || operations.at(i)->getName() == operationName);
     lanes.at(i).emplace_back(operations.at(i));
   }
 }
+
+SLPNode::SLPNode(Operation* operation) : operationName{operation->getName()},
+                                         lanes{},
+                                         operands{} {}
 
 void SLPNode::addOperands(std::vector<std::vector<Operation*>> const& operandsPerLane) {
   assert(operandsPerLane.size() == numLanes());
@@ -41,23 +46,23 @@ void SLPNode::addOperands(std::vector<std::vector<Operation*>> const& operandsPe
 void SLPNode::addOperandsToLane(std::vector<Operation*> const& operations, size_t const& lane) {
   assert(operations.size() == lanes.at(lane).back()->getNumOperands());
   for (auto const& operand : operations) {
-    operands.at(lane).emplace_back(SLPNode{{operand}});
+    operands.at(lane).emplace_back(operand);
   }
 }
 
-std::vector<SLPNode>& SLPNode::getOperands(size_t lane) {
+std::vector<SLPNode> const& SLPNode::getOperands(size_t const& lane) const {
   return operands.at(lane);
 }
 
-std::vector<Operation*>& SLPNode::getLane(size_t lane) {
-  return lanes.at(lane);
+SLPNode const& SLPNode::getOperand(size_t const& lane, size_t const& index) const {
+  return operands.at(lane).at(index);
 }
 
 Operation* SLPNode::getOperation(size_t lane, size_t index) {
   return lanes.at(lane).at(index);
 }
 
-OperationName const& SLPNode::name() {
+OperationName const& SLPNode::name() const {
   return operationName;
 }
 
