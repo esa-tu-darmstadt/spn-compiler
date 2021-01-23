@@ -8,4 +8,9 @@ include "SPNDialect.td"
 ///
 def Vectorizable : NativeOpTrait<"spn::Vectorizable">;
 
+///
+/// Trait which can be attached to operations to mark them as binarizable (such as weighted sums or products).
+///
+def Binarizable : NativeOpTrait<"spn::Binarizable">;
+
 #endif // SPNOpTraits

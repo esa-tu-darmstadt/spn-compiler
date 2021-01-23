@@ -4,6 +4,7 @@
 //
 
 #include "SPN/Analysis/SLP/SLPTree.h"
+#include "SPN/Analysis/SLP/SLPSeeding.h"
 
 #include <iostream>
 #include <algorithm>
@@ -24,6 +25,7 @@ SLPTree::SLPTree(Operation* root, size_t width, size_t maxLookAhead) : graphs{},
   }
 
   // TODO compute seeds in a proper fashion
+  auto const& seeds = seeding::getSeeds(root);
   for (auto const& entry : operationsByOpCode) {
     SLPNode rootNode{entry.getValue()};
     buildGraph(entry.getValue(), rootNode);

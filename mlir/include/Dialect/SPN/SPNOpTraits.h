@@ -14,6 +14,9 @@ namespace mlir {
 
       template<typename ConcreteType>
       class Vectorizable : public TraitBase<ConcreteType, Vectorizable> {};
+
+      template<typename ConcreteType>
+      class Binarizable : public TraitBase<ConcreteType, Binarizable> {};
     }
   }
 }

@@ -42,7 +42,7 @@ def SumOp : SPN_NAry_Op<"sum"> {
 /// Weighted N-ary sum operation.
 ///
 def WeightedSumOp : SPN_Op<"weighted_sum",
-  [NoSideEffect, SameOperandsAndResultType, DeclareOpInterfaceMethods<ArithmeticOpInterface>]> {
+  [NoSideEffect, Binarizable, SameOperandsAndResultType, DeclareOpInterfaceMethods<ArithmeticOpInterface>]> {
     let summary = "Weighted, N-ary Sum Operation";
 
     let description = [{
