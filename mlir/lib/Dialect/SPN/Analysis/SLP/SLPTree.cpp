@@ -15,15 +15,11 @@ using namespace mlir::spn::slp;
 SLPTree::SLPTree(Operation* root, size_t width, size_t maxLookAhead) : graphs{}, maxLookAhead{maxLookAhead} {
   assert(root);
   llvm::StringMap<std::vector<Operation*>> operationsByOpCode;
-  std::set<Operation*> operations;
   for (auto& op : root->getBlock()->getOperations()) {
     operationsByOpCode[op.getName().getStringRef().str()].emplace_back(&op);
-    operations.insert(&op);
-    for (auto const& operand : op.getOperands()) {
-      if (operations.find(operand.getDefiningOp()) != std::end(operations)) {
-        std::cout << "it's not a tree!" << std::endl;
-        return;
-      }
+    auto const& uses = std::distance(op.getUses().begin(), op.getUses().end());
+    if (uses > 1) {
+      std::cerr << "SPN is not a tree!" << std::endl;
     }
   }
 
@@ -63,23 +59,23 @@ void SLPTree::buildGraph(std::vector<Operation*> const& operations, SLPNode& par
     return;
   }
   // Create new node for values and add to graph
-  SLPNode* currentNode = &parentNode;
+  SLPNode& currentNode = parentNode;
   // Recursion call to grow graph further
   // 1. Commutative
   if (commutative(operations)) {
     // A. Coarsening Mode
     for (auto const& operation : operations) {
-      buildGraph(getOperands(operation), *currentNode);
+      buildGraph(getOperands(operation), currentNode);
     }
     // B. Normal Mode: Finished building multi-node
-    if (currentNode->isMultiNode()) {
-      reorderOperands(*currentNode);
+    if (currentNode.isMultiNode()) {
+      reorderOperands(currentNode);
       // TODO buildGraph()
     }
   }
     // 2. Non-Commutative
   else {
-    buildGraph(getOperands(operations), *currentNode);
+    buildGraph(getOperands(operations), currentNode);
   }
 
 }
