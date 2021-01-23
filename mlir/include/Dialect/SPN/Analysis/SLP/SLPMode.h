@@ -6,6 +6,8 @@
 #ifndef SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_SPN_ANALYSIS_SLP_SLPMODE_H
 #define SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_SPN_ANALYSIS_SLP_SLPMODE_H
 
+#include "SPN/SPNOps.h"
+
 namespace mlir {
   namespace spn {
     namespace slp {
@@ -24,6 +26,14 @@ namespace mlir {
         // vectorization has failed, give higher priority to others
         FAILED
       };
+
+      static MODE modeFromOperation(Operation const* operation) {
+        if (dyn_cast<ConstantOp>(operation)) {
+          return CONST;
+        }
+        // We don't have LOADs. Therefore just return OPCODE.
+        return OPCODE;
+      }
 
     }
   }

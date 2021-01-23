@@ -4,8 +4,6 @@
 //
 
 #include "SPN/Analysis/SLP/SLPTree.h"
-#include "SPN/SPNOps.h"
-#include "SPN/SPNOpTraits.h"
 
 #include <iostream>
 #include <algorithm>
@@ -84,52 +82,6 @@ void SLPTree::buildGraph(std::vector<Operation*> const& operations, SLPNode& par
     buildGraph(getOperands(operations), *currentNode);
   }
 
-}
-
-/// Checks if the given operations are vectorizable. Operations are vectorizable iff the SPN dialect says they're
-/// vectorizable and they all share the same opcode.
-/// \param operations The potentially vectorizable operations.
-/// \return True if the operations can be vectorized, otherwise false.
-bool SLPTree::vectorizable(std::vector<Operation*> const& operations) const {
-  for (size_t i = 0; i < operations.size(); ++i) {
-    if (!operations.at(i)->hasTrait<OpTrait::spn::Vectorizable>()
-        || (i > 0 && operations.at(i)->getName() != operations.front()->getName())) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool SLPTree::commutative(std::vector<Operation*> const& operations) const {
-  return std::all_of(std::begin(operations), std::end(operations), [&](Operation* operation) {
-    return operation->hasTrait<OpTrait::IsCommutative>();
-  });
-}
-
-std::vector<Operation*> SLPTree::getOperands(std::vector<Operation*> const& values) const {
-  std::vector<Operation*> operands;
-  for (auto const& operation : values) {
-    for (auto operand : operation->getOperands()) {
-      operands.emplace_back(operand.getDefiningOp());
-    }
-  }
-  return operands;
-}
-
-std::vector<Operation*> SLPTree::getOperands(Operation* operation) const {
-  std::vector<Operation*> operands;
-  for (auto operand : operation->getOperands()) {
-    operands.emplace_back(operand.getDefiningOp());
-  }
-  return operands;
-}
-
-MODE SLPTree::modeFromOperation(Operation const* operation) const {
-  if (dyn_cast<ConstantOp>(operation)) {
-    return CONST;
-  }
-  // We don't have LOADs. Therefore just return OPCODE.
-  return OPCODE;
 }
 
 std::vector<std::vector<SLPNode>> SLPTree::reorderOperands(SLPNode& multinode) {

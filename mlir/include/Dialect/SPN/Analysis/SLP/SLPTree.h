@@ -10,6 +10,7 @@
 #include "mlir/IR/OpDefinition.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringMap.h"
+#include "SPN/SPNOpTraits.h"
 #include "SLPNode.h"
 #include "SLPMode.h"
 
@@ -35,12 +36,43 @@ namespace mlir {
 
         void buildGraph(std::vector<Operation*> const& operations, SLPNode& parentNode);
 
-        bool vectorizable(std::vector<Operation*> const& operations) const;
-        bool commutative(std::vector<Operation*> const& operations) const;
-        std::vector<Operation*> getOperands(std::vector<Operation*> const& values) const;
-        std::vector<Operation*> getOperands(Operation* value) const;
+        /// Checks if the given operations are vectorizable. Operations are vectorizable iff the SPN dialect says they're
+        /// vectorizable and they all share the same opcode.
+        /// \param operations The potentially vectorizable operations.
+        /// \return True if the operations can be vectorized, otherwise false.
+        static bool vectorizable(std::vector<Operation*> const& operations) {
+          for (size_t i = 0; i < operations.size(); ++i) {
+            if (!operations.at(i)->hasTrait<OpTrait::spn::Vectorizable>()
+                || (i > 0 && operations.at(i)->getName() != operations.front()->getName())) {
+              return false;
+            }
+          }
+          return true;
+        }
 
-        MODE modeFromOperation(Operation const* operation) const;
+        static bool commutative(std::vector<Operation*> const& operations) {
+          return std::all_of(std::begin(operations), std::end(operations), [&](Operation* operation) {
+            return operation->hasTrait<OpTrait::IsCommutative>();
+          });
+        }
+
+        static std::vector<Operation*> getOperands(std::vector<Operation*> const& values) {
+          std::vector<Operation*> operands;
+          for (auto const& operation : values) {
+            for (auto operand : operation->getOperands()) {
+              operands.emplace_back(operand.getDefiningOp());
+            }
+          }
+          return operands;
+        }
+
+        static std::vector<Operation*> getOperands(Operation* operation) {
+          std::vector<Operation*> operands;
+          for (auto operand : operation->getOperands()) {
+            operands.emplace_back(operand.getDefiningOp());
+          }
+          return operands;
+        }
 
         std::vector<std::vector<SLPNode>> reorderOperands(SLPNode& multinode);
 
