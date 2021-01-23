@@ -83,6 +83,10 @@ int main(int argc, char** argv) {
     return mlir::spn::createSPNtoLLVMConversionPass();
   });
 
+  mlir::registerPass("spn-to-dot", "Prints the SPN to a dot file", []() -> std::unique_ptr<mlir::Pass> {
+    return mlir::createPrintOpGraphPass(llvm::errs(), false, llvm::Twine("test.dot"));
+  });
+
   llvm::InitLLVM y(argc, argv);
 
   // Register any pass manager command line options.
