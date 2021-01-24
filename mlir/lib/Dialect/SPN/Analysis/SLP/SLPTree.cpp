@@ -24,38 +24,20 @@ SLPTree::SLPTree(Operation* root, size_t width, size_t maxLookAhead) : graphs{},
     }
   }
 
-  // TODO compute seeds in a proper fashion
   auto const& seeds = seeding::getSeeds(root, 4);
-  for (auto const& entry : operationsByOpCode) {
-    SLPNode rootNode{entry.getValue()};
-    buildGraph(entry.getValue(), rootNode);
+  for (auto const& seed : seeds) {
+    SLPNode rootNode{seed};
+    buildGraph(seed, rootNode);
   }
+  std::cout << "seeds computed" << std::endl;
 
 }
-
-/*
-void SLPTree::analyzeGraph(Operation* root) {
-  traverseSubgraph(root);
-}
-
-void SLPTree::traverseSubgraph(Operation* root) {
-  std::cout << root->getName().getStringRef().str() << std::endl;
-  if (auto leaf = dyn_cast<LeafNodeInterface>(root)) {
-    std::cout << "\tis a leaf." << std::endl;
-  } else {
-    std::cout << "\tis an inner node." << std::endl;
-    for (auto op : root->getOperands()) {
-      traverseSubgraph(op.getDefiningOp());
-    }
-  }
-
-}*/
-
 
 void SLPTree::buildGraph(std::vector<Operation*> const& operations, SLPNode& parentNode) {
   for (auto const& op : operations) {
-    std::cout << op->getName().getStringRef().str() << std::endl;
+    op->dump();
   }
+  // TODO: handle binarizable > multinode conversion: if binarizable node, binarize it before going through here
   // Stop growing graph
   if (!vectorizable(operations)) {
     return;
