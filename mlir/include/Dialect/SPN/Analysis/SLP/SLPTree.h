@@ -11,8 +11,8 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringMap.h"
 #include "SPN/SPNOpTraits.h"
-#include "SLPNode.h"
 #include "SLPMode.h"
+#include "SLPNode.h"
 
 #include <vector>
 #include <set>
@@ -80,7 +80,7 @@ namespace mlir {
 
         size_t const maxLookAhead;
 
-        std::pair<Optional<SLPNode>, MODE> getBest(MODE const& mode,
+        std::pair<Optional<SLPNode>, Mode> getBest(Mode const& mode,
                                                    SLPNode const& last,
                                                    std::vector<SLPNode>& candidates) const;
         int getLookAheadScore(SLPNode const& last, SLPNode const& candidate, size_t const& maxLevel) const;

@@ -11,7 +11,7 @@ include "mlir/IR/RegionKindInterface.td"
 /// Abstract base class of n-ary arithmetic operations
 ///
 class SPN_NAry_Op<string mnemonic> : SPN_Op<mnemonic,
-  [NoSideEffect, Commutative, Vectorizable, SameOperandsAndResultType, DeclareOpInterfaceMethods<ArithmeticOpInterface>]> {
+  [NoSideEffect, Commutative, Binarizable, Vectorizable, SameOperandsAndResultType, DeclareOpInterfaceMethods<ArithmeticOpInterface>]> {
     /// Operands: Child nodes
     /// opcount: Number of child nodes
     let arguments = (ins Variadic<AnyProbabilityType>: $operands);

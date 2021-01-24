@@ -12,7 +12,7 @@ namespace mlir {
   namespace spn {
     namespace slp {
 
-      enum MODE {
+      enum Mode {
         // look for a constant
         CONST,
         // look for a consecutive load to that in the previous lane
@@ -27,13 +27,7 @@ namespace mlir {
         FAILED
       };
 
-      static MODE modeFromOperation(Operation const* operation) {
-        if (dyn_cast<ConstantOp>(operation)) {
-          return CONST;
-        }
-        // We don't have LOADs. Therefore just return OPCODE.
-        return OPCODE;
-      }
+      Mode modeFromOperation(Operation const* operation);
 
     }
   }

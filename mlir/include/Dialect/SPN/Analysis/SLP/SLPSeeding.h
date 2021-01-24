@@ -17,23 +17,35 @@ namespace mlir {
 
         typedef llvm::SmallVector<Operation*, 4> seed;
 
-        static std::vector<seed> getSeeds(Operation* root) {
-          llvm::StringMap<std::vector<Operation*>> operationsByName;
+        enum Mode {
+          // Look for disjoint subgraphs in the operation tree.
+          DISJOINT,
+          // Look for the largest possible subgraph.
+          SIZE,
+          // Stop looking for subgraphs.
+          FAILED
+        };
 
+        static std::vector<seed> getSeeds(Operation* root, size_t const& width) {
+
+          llvm::StringMap<std::vector<Operation*>> operationsByName;
           for (auto& op : root->getBlock()->getOperations()) {
             if (op.hasTrait<OpTrait::spn::Vectorizable>() || op.hasTrait<OpTrait::spn::Binarizable>()) {
               operationsByName[op.getName().getStringRef()].emplace_back(&op);
             }
           }
 
-          // Sort operations by their number of operands in descending order to maximize vectorization tree sizes.
+          std::vector<seed> seeds;
           for (auto& entry : operationsByName) {
+            // Sort operations by their number of operands in descending order to maximize vectorization tree sizes.
             std::sort(std::begin(entry.second), std::end(entry.second), [&](Operation* a, Operation* b) {
               return a->getNumOperands() > b->getNumOperands();
             });
+            Mode searchMode = DISJOINT;
+
           }
 
-          return {};
+          return seeds;
         }
       }
     }

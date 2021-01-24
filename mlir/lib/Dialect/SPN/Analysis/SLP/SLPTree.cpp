@@ -25,7 +25,7 @@ SLPTree::SLPTree(Operation* root, size_t width, size_t maxLookAhead) : graphs{},
   }
 
   // TODO compute seeds in a proper fashion
-  auto const& seeds = seeding::getSeeds(root);
+  auto const& seeds = seeding::getSeeds(root, 4);
   for (auto const& entry : operationsByOpCode) {
     SLPNode rootNode{entry.getValue()};
     buildGraph(entry.getValue(), rootNode);
@@ -85,7 +85,7 @@ void SLPTree::buildGraph(std::vector<Operation*> const& operations, SLPNode& par
 std::vector<std::vector<SLPNode>> SLPTree::reorderOperands(SLPNode& multinode) {
   assert(multinode.isMultiNode());
   std::vector<std::vector<SLPNode>> finalOrder{multinode.numLanes()};
-  std::vector<MODE> mode;
+  std::vector<Mode> mode;
   auto const& numOperands = multinode.getOperands(0).size();
   // 1. Strip first lane
   for (size_t i = 0; i < numOperands; ++i) {
@@ -121,11 +121,11 @@ std::vector<std::vector<SLPNode>> SLPTree::reorderOperands(SLPNode& multinode) {
   return finalOrder;
 }
 
-std::pair<Optional<SLPNode>, MODE> SLPTree::getBest(MODE const& mode,
+std::pair<Optional<SLPNode>, Mode> SLPTree::getBest(Mode const& mode,
                                                     SLPNode const& last,
                                                     std::vector<SLPNode>& candidates) const {
   Optional<SLPNode> best;
-  MODE resultMode = mode;
+  Mode resultMode = mode;
   std::vector<SLPNode> bestCandidates;
 
   if (mode == FAILED) {
