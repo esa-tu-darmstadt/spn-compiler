@@ -23,14 +23,14 @@ SLPTree::SLPTree(Operation* root, size_t width, size_t maxLookAhead) : graphs{},
       std::cerr << "SPN is not a tree!" << std::endl;
     }
   }
-
+/*
   auto const& seeds = seeding::getSeeds(root, 4);
   for (auto const& seed : seeds) {
     SLPNode rootNode{seed};
     buildGraph(seed, rootNode);
   }
   std::cout << "seeds computed" << std::endl;
-
+*/
 }
 
 void SLPTree::buildGraph(std::vector<Operation*> const& operations, SLPNode& parentNode) {

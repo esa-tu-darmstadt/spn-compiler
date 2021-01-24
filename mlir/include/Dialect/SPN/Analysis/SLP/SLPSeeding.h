@@ -7,25 +7,36 @@
 #define SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_SPN_ANALYSIS_SLP_SLPSEEDING_H
 
 #include "SPN/SPNOps.h"
+#include "llvm/ADT/StringMap.h"
 
 namespace mlir {
   namespace spn {
     namespace slp {
-      namespace seeding {
 
-        typedef std::vector<Operation*> seed_t;
+      typedef std::vector<Operation*> seed_t;
+
+      class SeedAnalysis {
+
+      public:
+
+        explicit SeedAnalysis(Operation* module);
+
+        std::vector<seed_t> getSeeds(size_t const& width) const;
+
+      private:
 
         enum SearchMode {
           /// Look for disjoint subgraphs in the operation tree.
           DISJOINT,
           /// Look for the largest possible subgraph.
-          SIZE,
+          GREEDY,
           /// Stop looking for subgraphs.
           FAILED
         };
 
-        std::vector<seed_t> getSeeds(Operation* root, size_t const& width);
-      }
+        llvm::StringMap<std::vector<Operation*>> operationsByName;
+
+      };
     }
   }
 }

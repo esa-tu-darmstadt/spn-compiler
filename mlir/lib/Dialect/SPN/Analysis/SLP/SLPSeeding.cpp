@@ -4,30 +4,38 @@
 //
 
 #include "SPN/Analysis/SLP/SLPSeeding.h"
-#include "llvm/ADT/StringMap.h"
+#include <iostream>
 
 using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::slp;
-using namespace mlir::spn::slp::seeding;
 
-std::vector<seed_t> seeding::getSeeds(Operation* root, size_t const& width) {
+SeedAnalysis::SeedAnalysis(Operation* module) : operationsByName{} {
 
-  llvm::StringMap<std::vector<Operation*>> operationsByName;
-  for (auto& op : root->getBlock()->getOperations()) {
-    if (op.hasTrait<OpTrait::spn::Vectorizable>() || op.hasTrait<OpTrait::spn::Binarizable>()) {
-      operationsByName[op.getName().getStringRef()].emplace_back(&op);
+  module->walk([&](Operation* op) {
+    if (op->hasTrait<OpTrait::spn::Vectorizable>() || op->hasTrait<OpTrait::spn::Binarizable>()) {
+      operationsByName[op->getName().getStringRef()].emplace_back(op);
     }
-  }
+  });
 
-  std::vector<seed_t> seeds;
+  // Sort operations by their number of operands in descending order to maximize vectorization tree sizes.
   for (auto& entry : operationsByName) {
-    auto& operations = entry.second;
-    // Sort operations by their number of operands in descending order to maximize vectorization tree sizes.
-    std::sort(std::begin(operations), std::end(operations), [&](Operation* a, Operation* b) {
+    std::sort(std::begin(entry.second), std::end(entry.second), [&](Operation* a, Operation* b) {
       return a->getNumOperands() > b->getNumOperands();
     });
-    SearchMode searchMode = SIZE;
+  }
+}
+
+std::vector<seed_t> SeedAnalysis::getSeeds(size_t const& width) const {
+
+  std::cout << "Starting seed computation!" << std::endl;
+
+  std::vector<seed_t> seeds;
+
+  for (auto& entry : operationsByName) {
+
+    auto& operations = entry.second;
+    SearchMode searchMode = GREEDY;
     std::vector<bool> assignedOps(operations.size());
     for (size_t i = 0; i < operations.size() - width; ++i) {
 
@@ -49,7 +57,7 @@ std::vector<seed_t> seeding::getSeeds(Operation* root, size_t const& width) {
 
         auto& nextOp = operations.at(j);
         // When in SIZE mode, simply add the next biggest operation to the seed.
-        if (searchMode == SIZE) {
+        if (searchMode == GREEDY) {
           seed.emplace_back(nextOp);
           assignedOps.at(j) = true;
         }
