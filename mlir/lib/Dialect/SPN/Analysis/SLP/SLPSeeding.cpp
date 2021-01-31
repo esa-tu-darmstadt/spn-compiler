@@ -20,6 +20,7 @@ std::vector<seed_t> SeedAnalysis::getSeeds(size_t const& width, SPNNodeLevel con
   llvm::StringMap<std::vector<seed_t>> seedsByOpName;
 
   module->walk([&](Operation* op) {
+    op->getLoc().dump();
     auto depth = nodeLevels.getOperationDepth(op);
     if (!op->hasTrait<OpTrait::spn::Vectorizable>() || depth < log2(width)) {
       return;

@@ -3,13 +3,9 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#include "mlir/IR/Matchers.h"
-#include "mlir/IR/PatternMatch.h"
 #include "SPN/SPNPasses.h"
 #include "SPNPassDetails.h"
 #include <iostream>
-#include <SPN/SPNInterfaces.h>
-#include <mlir/Pass/PassManager.h>
 #include "SPN/Analysis/SLP/SLPTree.h"
 #include "SPN/Analysis/SLP/SLPSeeding.h"
 #include "SPN/Analysis/SPNNodeLevel.h"
@@ -60,7 +56,7 @@ namespace {
 
 }
 
-std::unique_ptr<OperationPass<ModuleOp>> mlir::spn::createSPNVectorizationPass() {
+std::unique_ptr<OperationPass<JointQuery>> mlir::spn::createSPNVectorizationPass() {
   return std::make_unique<SPNVectorization>();
 }
 

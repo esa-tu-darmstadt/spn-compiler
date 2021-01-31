@@ -2,6 +2,7 @@
 #define MLIR_DIALECT_SPN_PASSES
 
 include "mlir/Pass/PassBase.td"
+include "SPNOps.td"
 
 def SPNOpSimplifier : Pass<"spn-op-simplifier", "ModuleOp"> {
   let summary = "Simplify SPN operations";
@@ -13,7 +14,7 @@ def SPNTypePinning : Pass<"spn-type-pinning", "ModuleOp"> {
   let constructor = "mlir::spn::createSPNTypePinningPass()";
 }
 
-def SPNVectorization : Pass<"spn-vectorization", "ModuleOp"> {
+def SPNVectorization : Pass<"spn-vectorization", "JointQuery"> {
   let summary = "Vectorize SPN execution";
   let constructor = "mlir::spn::createSPNVectorizationPass()";
 }
