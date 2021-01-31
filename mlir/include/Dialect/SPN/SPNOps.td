@@ -133,7 +133,7 @@ def CategoricalOp : SPN_Op<"categorical",
 /// Gaussian distribution as SPN leaf node.
 ///
 def GaussianOp : SPN_Op<"gaussian",
-    [NoSideEffect, DeclareOpInterfaceMethods<LeafNodeInterface>]> {
+    [NoSideEffect, Vectorizable, DeclareOpInterfaceMethods<LeafNodeInterface>]> {
 
     let summary = "Gaussian leaf distribution";
 
