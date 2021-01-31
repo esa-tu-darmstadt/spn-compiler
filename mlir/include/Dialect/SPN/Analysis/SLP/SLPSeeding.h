@@ -6,8 +6,8 @@
 #ifndef SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_SPN_ANALYSIS_SLP_SLPSEEDING_H
 #define SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_SPN_ANALYSIS_SLP_SLPSEEDING_H
 
+#include <SPN/Analysis/SPNNodeLevel.h>
 #include "SPN/SPNOps.h"
-#include "llvm/ADT/StringMap.h"
 
 namespace mlir {
   namespace spn {
@@ -21,7 +21,7 @@ namespace mlir {
 
         explicit SeedAnalysis(Operation* module);
 
-        std::vector<seed_t> getSeeds(size_t const& width) const;
+        std::vector<seed_t> getSeeds(size_t const& op, SPNNodeLevel const& nodeLevels) const;
 
       private:
 
@@ -34,7 +34,7 @@ namespace mlir {
           FAILED
         };
 
-        llvm::StringMap<std::vector<Operation*>> operationsByName;
+        Operation* module;
 
       };
     }

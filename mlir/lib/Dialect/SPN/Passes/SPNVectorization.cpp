@@ -12,6 +12,7 @@
 #include <mlir/Pass/PassManager.h>
 #include "SPN/Analysis/SLP/SLPTree.h"
 #include "SPN/Analysis/SLP/SLPSeeding.h"
+#include "SPN/Analysis/SPNNodeLevel.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -23,9 +24,18 @@ namespace {
   protected:
     void runOnOperation() override {
       std::cout << "Starting SPN vectorization..." << std::endl;
-      auto func = getOperation();
+      auto module = getOperation();
 
-      func.walk([&](Operation* topLevelOp) {
+      auto& depthAnalysis = getAnalysis<SPNNodeLevel>();
+      auto& seedAnalysis = getAnalysis<slp::SeedAnalysis>();
+      auto seeds = seedAnalysis.getSeeds(4, depthAnalysis);
+      std::cout << "seeds computed" << std::endl;
+
+      if (!seeds.empty()) {
+        std::cout << "binarized spn!" << std::endl;
+      }
+
+      module.walk([&](Operation* topLevelOp) {
         if (auto query = dyn_cast<QueryInterface>(topLevelOp)) {
           for (auto root : query.getRootNodes()) {
 
@@ -40,25 +50,12 @@ namespace {
             }
             // ====================================
 
-            auto& seedAnalysis = getAnalysis<slp::SeedAnalysis>();
-
-            auto const& seeds = seedAnalysis.getSeeds(4);
-
-            if (!seeds.empty()) {
-              // Run simplification on seeds to binarize them into trees.
-              OpPassManager binarizer("operation", mlir::OpPassManager::Nesting::Explicit);
-              binarizer.addPass(createSPNOpSimplifierPass());
-              runPipeline(binarizer, seeds.front().front());
-              std::cout << "binarized a seed!" << std::endl;
-            }
-
-            std::cout << "seeds computed" << std::endl;
-
             slp::SLPTree graph(root, 4, 3);
           }
         }
       });
     }
+
   };
 
 }

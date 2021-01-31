@@ -11,7 +11,7 @@ include "mlir/IR/RegionKindInterface.td"
 /// Abstract base class of n-ary arithmetic operations
 ///
 class SPN_NAry_Op<string mnemonic> : SPN_Op<mnemonic,
-  [NoSideEffect, Commutative, Binarizable, Vectorizable, SameOperandsAndResultType, DeclareOpInterfaceMethods<ArithmeticOpInterface>]> {
+  [NoSideEffect, Commutative, Vectorizable, SameOperandsAndResultType, DeclareOpInterfaceMethods<ArithmeticOpInterface>]> {
     /// Operands: Child nodes
     /// opcount: Number of child nodes
     let arguments = (ins Variadic<AnyProbabilityType>: $operands);
@@ -42,7 +42,7 @@ def SumOp : SPN_NAry_Op<"sum"> {
 /// Weighted N-ary sum operation.
 ///
 def WeightedSumOp : SPN_Op<"weighted_sum",
-  [NoSideEffect, Binarizable, SameOperandsAndResultType, DeclareOpInterfaceMethods<ArithmeticOpInterface>]> {
+  [NoSideEffect, SameOperandsAndResultType, DeclareOpInterfaceMethods<ArithmeticOpInterface>]> {
     let summary = "Weighted, N-ary Sum Operation";
 
     let description = [{
