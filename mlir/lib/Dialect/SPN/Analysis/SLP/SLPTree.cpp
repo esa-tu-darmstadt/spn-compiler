@@ -20,6 +20,7 @@ SLPTree::SLPTree(seed_t const& seed, size_t maxLookAhead) : graphs{}, maxLookAhe
 void SLPTree::buildGraph(std::vector<Operation*> const& operations, SLPNode& parentNode) {
   for (auto const& op : operations) {
     op->dump();
+    op->getLoc()->dump();
   }
   // Stop growing graph
   if (!vectorizable(operations)) {

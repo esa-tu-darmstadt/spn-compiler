@@ -17,6 +17,8 @@
 
 #include <vector>
 #include <set>
+#include <queue>
+#include <stack>
 
 namespace mlir {
   namespace spn {
@@ -79,7 +81,47 @@ namespace mlir {
         std::pair<Optional<SLPNode>, Mode> getBest(Mode const& mode,
                                                    SLPNode const& last,
                                                    std::vector<SLPNode>& candidates) const;
+
         int getLookAheadScore(SLPNode const& last, SLPNode const& candidate, size_t const& maxLevel) const;
+
+        /// For debugging purposes.
+        static void printSubgraph(std::vector<Operation*> const& operations) {
+          std::set<Operation*> nodes;
+          std::vector<std::pair<Operation*, Operation*>> edges;
+
+          std::stack<Operation*> worklist;
+          for (auto& op : operations) {
+            worklist.push(op);
+          }
+
+          while (!worklist.empty()) {
+
+            auto op = worklist.top();
+            worklist.pop();
+
+            if (nodes.find(op) == nodes.end()) {
+              nodes.insert(op);
+              for (auto operand : op->getOperands()) {
+                if (operand.getDefiningOp() != nullptr) {
+                  edges.emplace_back(std::make_pair(op, operand.getDefiningOp()));
+                  worklist.push(operand.getDefiningOp());
+                }
+              }
+            }
+          }
+
+          llvm::errs() << "digraph debug_graph {\n";
+          llvm::errs() << "rankdir = BT;\n";
+          llvm::errs() << "node[shape=box];\n";
+          for (auto& op : nodes) {
+            llvm::errs() << "node_" << op << "[label=\"" << op->getName().getStringRef() << "\\n" << op << "\"];\n";
+          }
+          for (auto& edge : edges) {
+            llvm::errs() << "node_" << edge.first << " -> node_" << edge.second << ";\n";
+          }
+          llvm::errs() << "}\n";
+        }
+
       };
     }
   }
