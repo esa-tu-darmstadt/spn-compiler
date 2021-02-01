@@ -23,11 +23,8 @@ namespace {
     void runOnOperation() override {
       OwningRewritePatternList patterns;
       auto* context = &getContext();
-      // ToDo: Confirm that actual best type based on error analysis is chosen.
       auto analysis = getAnalysis<SPNErrorEstimation>();
       auto pinnedType = analysis.getOptimalType();
-      // ToDo: Remove when rewriting of constants is successful
-      pinnedType = Float64Type::get(context);
       patterns.insert<TypePinConstant>(context, pinnedType);
       patterns.insert<TypePinHistogram, TypePinCategorical, TypePinGaussian>(context, pinnedType);
       patterns.insert<TypePinWeightedSum, TypePinProduct, TypePinSum>(context, pinnedType);

@@ -44,7 +44,6 @@ SPNErrorEstimation::SPNErrorEstimation(Operation* root) {
   relative_error = query.getErrorModel();
   error_margin = query.getMaxError();
 
-  // ToDo: Set iterationCount to zero.
   iterationCount = 0;
   while (!satisfiedRequirements && !abortAnalysis) {
     analyzeGraph(rootNode);
@@ -94,8 +93,6 @@ void SPNErrorEstimation::analyzeGraph(Operation* graphRoot) {
   EPS = std::pow(BASE_TWO, double(-(format_bits_significance + 1.0)));
   ERR_COEFFICIENT = 1.0 + EPS;
 
-  std::cerr << "|| EPS_" << iterationCount << ":                    " << EPS << std::endl;
-
   traverseSubgraph(graphRoot);
 
   if (!estimatedLeastMagnitudeBits) {
@@ -112,7 +109,8 @@ void SPNErrorEstimation::estimateLeastMagnitudeBits() {
     spn_node_value_global_minimum = std::min(spn_node_value_global_minimum, std::get<3>(entry.second));
   }
 
-  // ToDo: CONFIRM -- More corner cases? spn_node_value_global_minimum = 1.0 / spn_node_value_global_maximum = 0.0.
+  // ToDo: CONFIRM -- More corner cases?
+  // Values like spn_node_value_global_minimum = 1.0 / spn_node_value_global_maximum = 0.0 *might* pose a problem.
   // Corner case #1: spn_node_value_global_maximum == 1
   if (spn_node_value_global_maximum == 1.0) {
     spn_node_value_global_maximum -= EPS;
@@ -128,23 +126,21 @@ void SPNErrorEstimation::estimateLeastMagnitudeBits() {
   switch (error_model) {
     case ERRORMODEL::EM_FLOATING_POINT:
       // Overflow and underflow has to be taken into account.
-      // ToDo: CONFIRM -- Since 2's complement is used: calculation of bias.
-      // Calculate bias for 2's complement
+      // Calculate bias for 2's complement to determine the number of exponent bits.
       bias = std::ceil(std::abs(std::log2(std::ceil(std::abs(std::log2(spn_node_value_global_minimum))))));
-      bias =
-          std::max(bias, std::ceil(std::abs(std::log2(std::ceil(std::abs(std::log2(spn_node_value_global_maximum)))))));
+      bias = std::max(bias, std::abs(std::log2(std::ceil(std::ceil(std::abs(std::log2(spn_node_value_global_maximum)))))));
+      // Calculate actual bias value; to account for special, "unusable" exponent values we do NOT subtract 1.
+      bias = std::pow(2.0, bias);
       format_bits_magnitude = (int) std::ceil(std::log2(std::abs(std::log2(spn_node_value_global_minimum)) + bias));
       format_bits_magnitude =
           std::max(format_bits_magnitude,
-                   (int) std::ceil(std::log2(std::abs(std::log2(spn_node_value_global_maximum)) + bias)));
+                   (int) std::ceil(std::log2(std::ceil(std::abs(std::log2(spn_node_value_global_maximum))) + bias)));
       break;
     case ERRORMODEL::EM_FIXED_POINT:
-      // Only overflow / maximum-value has to be taken into account for integer bits
+      // Only overflow / maximum-value has to be taken into account for integer bits.
       format_bits_magnitude = (int) std::ceil(std::log2(spn_node_value_global_maximum));
       break;
   }
-
-  std::cerr << "|| estimateLeastMagnitudeBits: " << format_bits_magnitude << std::endl;
 
   estimatedLeastMagnitudeBits = true;
 }
@@ -159,43 +155,29 @@ bool SPNErrorEstimation::checkRequirements() {
   if (error_model == ERRORMODEL::EM_FLOATING_POINT) {
     // If least amount of magnitude bits is greater than currently selected format's: Search for fitting format.
     if (format_bits_magnitude > std::get<1>(Float_Formats[iterationCount])) {
+      // Requirements NOT met.
+      satisfied = false;
+
       for (int i = iterationCount + 1; i < NUM_FLOAT_FORMATS; ++i) {
         if (format_bits_magnitude > std::get<1>(Float_Formats[i])) {
           // Each time we check a NON-fitting format we can skip the corresponding iteration.
-          std::cerr << "|| skip_" << iterationCount << std::endl;
           ++iterationCount;
         } else {
           // A fitting format was found, next iteration will start with a format that provides enough magnitude bits.
           break;
         }
       }
-
-      std::cerr << "|| skip_last_" << iterationCount << std::endl;
-
-      // Requirements NOT met.
-      satisfied = false;
     }
   }
 
   if (relative_error == error_model::relative_error) {
     double err_relative = std::abs((value / defect) - 1.0);
-    double err_absolute_log_1 = std::log(err_relative + 1.0);
-    double err_absolute_log_2 = std::abs(std::log(value) - std::log(defect));
-    // satisfied &= (error_margin > std::abs((value / defect) - 1.0));
-    satisfied &= (error_margin > err_absolute_log_1);
-    std::cerr << "|| value_" << iterationCount << ":                  " << value << std::endl;
-    std::cerr << "|| defect_" << iterationCount << ":                 " << defect << std::endl;
-    std::cerr << "|| err_rel_" << iterationCount << ":                " << std::abs((value / defect) - 1.0)
-              << std::endl;
-    std::cerr << "|| err_abs_log_1_" << iterationCount << ":          " << (double) err_absolute_log_1 << std::endl;
-    std::cerr << "|| err_abs_log_2_" << iterationCount << ":          " << (double) err_absolute_log_2 << std::endl;
+    // ToDo: Remove absolute log-error if it is not needed / required.
+    double err_absolute_log = std::log(err_relative + 1.0);
+    satisfied &= (error_margin > err_absolute_log);
   } else {
     satisfied &= (error_margin > std::abs(value - defect));
-    std::cerr << "|| err_abs_" << iterationCount << ":                " << std::abs(value - defect) << std::endl;
   }
-
-  std::cerr << "|| error_margin_" << iterationCount << ":           " << error_margin << std::endl;
-  std::cerr << "|| satisfied_" << iterationCount << ":              " << satisfied << std::endl;
 
   // No further floating point format available -- abort.
   if (!satisfied && (error_model == ERRORMODEL::EM_FLOATING_POINT) && (iterationCount >= (NUM_FLOAT_FORMATS - 1))) {
@@ -316,10 +298,6 @@ void SPNErrorEstimation::estimateErrorProduct(ProductOp op) {
       delta_t1 = std::get<1>(t1) - std::get<0>(t1);
       delta_t2 = std::get<1>(t2) - std::get<0>(t2);
 
-      // ToDo: Asserts should trivially be satisfied. Remove when confirmed.
-      assert(delta_t1 >= 0.0);
-      assert(delta_t2 >= 0.0);
-
       // Add the corresponding total delta to the already calculated ("accurate") value
       defect += (std::get<2>(t1) * delta_t2) + (std::get<2>(t2) * delta_t1) + (delta_t1 * delta_t2) + EPS;
       break;
@@ -425,8 +403,7 @@ void SPNErrorEstimation::estimateErrorHistogram(HistogramOp op) {
       break;
   }
 
-  // ToDo: Check if helpful / needed -- Check for changed values.
-  // ToDo: This could also signal that no buckets were encountered.
+  // Check for changed values.
   assert(max != std::numeric_limits<double>::min());
   assert(min != std::numeric_limits<double>::max());
 

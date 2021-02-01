@@ -151,65 +151,11 @@ namespace mlir {
       /// 0: Significance / "Fraction / Mantissa"
       /// 1: Magnitude / "Integer / Exponent"
       /// 2: function returning mlir::Type, providing an MLIRContext*
-      /*
       std::tuple<int, int, std::function<Type(MLIRContext*)>> Float_Formats[NUM_FLOAT_FORMATS] = {
           {10, 5, Float16Type::get},
           {7, 8, BFloat16Type::get},
           {23, 8, Float32Type::get},
           {52, 11, Float64Type::get}
-      };
-       */
-
-      // ToDo: This is used to compare the ErrorEstimation with the FCCM paper (2020).
-      std::tuple<int, int, std::function<Type(MLIRContext*)>> Float_Formats[NUM_FLOAT_FORMATS] = {
-          {23, 6, Float64Type::get},
-          {24, 6, Float64Type::get},
-          {25, 6, Float64Type::get},
-          {26, 6, Float64Type::get},
-          {27, 6, Float64Type::get},
-          {28, 6, Float64Type::get},
-          {29, 6, Float64Type::get},
-          {30, 6, Float64Type::get},
-          {23, 7, Float64Type::get},
-          {24, 7, Float64Type::get},
-          {25, 7, Float64Type::get},
-          {26, 7, Float64Type::get},
-          {27, 7, Float64Type::get},
-          {28, 7, Float64Type::get},
-          {29, 7, Float64Type::get},
-          {30, 7, Float64Type::get},
-          {23, 8, Float64Type::get},
-          {24, 8, Float64Type::get},
-          {25, 8, Float64Type::get},
-          {26, 8, Float64Type::get},
-          {27, 8, Float64Type::get},
-          {28, 8, Float64Type::get},
-          {29, 8, Float64Type::get},
-          {30, 8, Float64Type::get},
-          {23, 9, Float64Type::get},
-          {24, 9, Float64Type::get},
-          {25, 9, Float64Type::get},
-          {26, 9, Float64Type::get},
-          {27, 9, Float64Type::get},
-          {28, 9, Float64Type::get},
-          {29, 9, Float64Type::get},
-          {30, 9, Float64Type::get},
-          {23, 10, Float64Type::get},
-          {24, 10, Float64Type::get},
-          {25, 10, Float64Type::get},
-          {26, 10, Float64Type::get},
-          {27, 10, Float64Type::get},
-          {28, 10, Float64Type::get},
-          {29, 10, Float64Type::get},
-          {30, 10, Float64Type::get},
-          {23, 11, Float64Type::get},
-          {24, 11, Float64Type::get},
-          {25, 11, Float64Type::get},
-          {26, 11, Float64Type::get},
-          {27, 11, Float64Type::get},
-          {28, 11, Float64Type::get},
-          {29, 11, Float64Type::get},
-          {30, 11, Float64Type::get}
       };
 
     };
