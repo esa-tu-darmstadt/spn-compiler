@@ -4,25 +4,21 @@
 //
 
 #include "SPN/Analysis/SLP/SLPSeeding.h"
-#include <iostream>
 #include <llvm/ADT/StringMap.h>
 
 using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::slp;
 
-SeedAnalysis::SeedAnalysis(Operation* module) : module{module} {}
+SeedAnalysis::SeedAnalysis(Operation* jointQuery) : jointQuery{jointQuery} {}
 
 std::vector<seed_t> SeedAnalysis::getSeeds(size_t const& width,
                                            SPNNodeLevel const& nodeLevels,
                                            SearchMode const& mode) const {
 
-  std::cout << "Starting seed computation!" << std::endl;
-
   llvm::StringMap<std::vector<seed_t>> seedsByOpName;
 
-  module->walk([&](Operation* op) {
-    op->getLoc().dump();
+  jointQuery->walk([&](Operation* op) {
     auto depth = nodeLevels.getOperationDepth(op);
     if (!op->hasTrait<OpTrait::spn::Vectorizable>() || depth < log2(width)) {
       return;

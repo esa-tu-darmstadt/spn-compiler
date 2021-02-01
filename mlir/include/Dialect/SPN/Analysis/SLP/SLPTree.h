@@ -13,6 +13,7 @@
 #include "SPN/SPNOpTraits.h"
 #include "SLPMode.h"
 #include "SLPNode.h"
+#include "SLPSeeding.h"
 
 #include <vector>
 #include <set>
@@ -21,16 +22,11 @@ namespace mlir {
   namespace spn {
     namespace slp {
 
-      ///
-      /// Graph class storing Use-Def chains of an SPN.
       class SLPTree {
 
       public:
 
-        /// Constructor, initialize analysis.
-        /// \param root Root node of a (sub-)graph or query operation.
-        /// \param width The target width of the SLP vectors.
-        explicit SLPTree(Operation* op, size_t width, size_t maxLookAhead);
+        explicit SLPTree(seed_t const& seed, size_t maxLookAhead);
 
       private:
 

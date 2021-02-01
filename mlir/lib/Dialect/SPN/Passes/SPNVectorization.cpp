@@ -19,37 +19,37 @@ namespace {
 
   protected:
     void runOnOperation() override {
+
       std::cout << "Starting SPN vectorization..." << std::endl;
-      auto module = getOperation();
+      auto query = getOperation();
 
-      auto& depthAnalysis = getAnalysis<SPNNodeLevel>();
-      auto& seedAnalysis = getAnalysis<slp::SeedAnalysis>();
-      auto seeds = seedAnalysis.getSeeds(4, depthAnalysis);
-      std::cout << "seeds computed" << std::endl;
+      // ============ TREE CHECK ============ //
+      query.walk([&](Operation* topLevelOp) {
+        for (auto root : query.getRootNodes()) {
 
-      if (!seeds.empty()) {
-        std::cout << "binarized spn!" << std::endl;
-      }
-
-      module.walk([&](Operation* topLevelOp) {
-        if (auto query = dyn_cast<QueryInterface>(topLevelOp)) {
-          for (auto root : query.getRootNodes()) {
-
-            // ============ TREE CHECK ============
-            llvm::StringMap<std::vector<Operation*>> operationsByOpCode;
-            for (auto& op : root->getBlock()->getOperations()) {
-              operationsByOpCode[op.getName().getStringRef().str()].emplace_back(&op);
-              auto const& uses = std::distance(op.getUses().begin(), op.getUses().end());
-              if (uses > 1) {
-                std::cerr << "SPN is not a tree!" << std::endl;
-              }
+          llvm::StringMap<std::vector<Operation*>> operationsByOpCode;
+          for (auto& op : root->getBlock()->getOperations()) {
+            operationsByOpCode[op.getName().getStringRef().str()].emplace_back(&op);
+            auto const& uses = std::distance(op.getUses().begin(), op.getUses().end());
+            if (uses > 1) {
+              std::cerr << "SPN is not a tree!" << std::endl;
+              // TODO: how to handle such cases? and is special handling required at all?
+              assert(false);
             }
-            // ====================================
-
-            slp::SLPTree graph(root, 4, 3);
           }
         }
       });
+      // ==================================== //
+
+      auto& depthAnalysis = getAnalysis<SPNNodeLevel>();
+      auto& seedAnalysis = getAnalysis<slp::SeedAnalysis>();
+      std::cout << "Starting seed computation!" << std::endl;
+      auto seeds = seedAnalysis.getSeeds(4, depthAnalysis);
+      std::cout << "Seeds computed" << std::endl;
+
+      if (!seeds.empty()) {
+        slp::SLPTree graph(seeds.front(), 3);
+      }
     }
 
   };

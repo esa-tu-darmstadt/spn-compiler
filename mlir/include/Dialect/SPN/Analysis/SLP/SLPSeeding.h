@@ -28,7 +28,7 @@ namespace mlir {
 
       public:
 
-        explicit SeedAnalysis(Operation* module);
+        explicit SeedAnalysis(Operation* jointQuery);
 
         std::vector<seed_t> getSeeds(size_t const& op,
                                      SPNNodeLevel const& nodeLevels,
@@ -36,7 +36,7 @@ namespace mlir {
 
       private:
 
-        Operation* module;
+        Operation* jointQuery;
 
       };
     }

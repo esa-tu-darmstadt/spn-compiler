@@ -4,7 +4,6 @@
 //
 
 #include "SPN/Analysis/SLP/SLPTree.h"
-#include "SPN/Analysis/SLP/SLPSeeding.h"
 
 #include <iostream>
 #include <algorithm>
@@ -13,31 +12,15 @@ using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::slp;
 
-SLPTree::SLPTree(Operation* root, size_t width, size_t maxLookAhead) : graphs{}, maxLookAhead{maxLookAhead} {
-  assert(root);
-  llvm::StringMap<std::vector<Operation*>> operationsByOpCode;
-  for (auto& op : root->getBlock()->getOperations()) {
-    operationsByOpCode[op.getName().getStringRef().str()].emplace_back(&op);
-    auto const& uses = std::distance(op.getUses().begin(), op.getUses().end());
-    if (uses > 1) {
-      std::cerr << "SPN is not a tree!" << std::endl;
-    }
-  }
-/*
-  auto const& seeds = seeding::getSeeds(root, 4);
-  for (auto const& seed : seeds) {
-    SLPNode rootNode{seed};
-    buildGraph(seed, rootNode);
-  }
-  std::cout << "seeds computed" << std::endl;
-*/
+SLPTree::SLPTree(seed_t const& seed, size_t maxLookAhead) : graphs{}, maxLookAhead{maxLookAhead} {
+  SLPNode rootNode{seed};
+  buildGraph(seed, rootNode);
 }
 
 void SLPTree::buildGraph(std::vector<Operation*> const& operations, SLPNode& parentNode) {
   for (auto const& op : operations) {
     op->dump();
   }
-  // TODO: handle binarizable > multinode conversion: if binarizable node, binarize it before going through here
   // Stop growing graph
   if (!vectorizable(operations)) {
     return;
