@@ -13,7 +13,9 @@ using namespace mlir::spn::slp;
 
 SeedAnalysis::SeedAnalysis(Operation* module) : module{module} {}
 
-std::vector<seed_t> SeedAnalysis::getSeeds(size_t const& width, SPNNodeLevel const& nodeLevels) const {
+std::vector<seed_t> SeedAnalysis::getSeeds(size_t const& width,
+                                           SPNNodeLevel const& nodeLevels,
+                                           SearchMode const& mode) const {
 
   std::cout << "Starting seed computation!" << std::endl;
 
@@ -27,7 +29,7 @@ std::vector<seed_t> SeedAnalysis::getSeeds(size_t const& width, SPNNodeLevel con
     }
     bool needsNewSeed = true;
     for (auto& seed : seedsByOpName[op->getName().getStringRef()]) {
-      if (seed.size() < width) {
+      if (seed.size() < width && nodeLevels.getOperationDepth(seed.front()) == depth) {
         seed.emplace_back(op);
         needsNewSeed = false;
         break;
@@ -37,7 +39,6 @@ std::vector<seed_t> SeedAnalysis::getSeeds(size_t const& width, SPNNodeLevel con
       seed_t seed{op};
       seedsByOpName[op->getName().getStringRef()].emplace_back(seed);
     }
-
   });
 
   std::vector<seed_t> seeds;
@@ -50,6 +51,18 @@ std::vector<seed_t> SeedAnalysis::getSeeds(size_t const& width, SPNNodeLevel con
       seeds.emplace_back(seed);
     }
   }
+  // Sort the seeds such that either the seeds closest to the root come first (RootToLeaf),
+  // or those closest to the leaves (LeafToRoot).
+  std::sort(seeds.begin(), seeds.end(), [&](seed_t const& seed1, seed_t const& seed2) {
+    if (mode == RootToLeaf) {
+      return nodeLevels.getOperationDepth(seed1.front()) < nodeLevels.getOperationDepth(seed2.front());
+    } else if (mode == LeafToRoot) {
+      return nodeLevels.getOperationDepth(seed1.front()) > nodeLevels.getOperationDepth(seed2.front());
+    } else {
+      // Unused so far.
+      assert(false);
+    }
+  });
   return seeds;
 
 }

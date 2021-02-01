@@ -15,24 +15,26 @@ namespace mlir {
 
       typedef std::vector<Operation*> seed_t;
 
+      enum SearchMode {
+        ///
+        RootToLeaf,
+        ///
+        LeafToRoot,
+        /// TODO?
+        Chain
+      };
+
       class SeedAnalysis {
 
       public:
 
         explicit SeedAnalysis(Operation* module);
 
-        std::vector<seed_t> getSeeds(size_t const& op, SPNNodeLevel const& nodeLevels) const;
+        std::vector<seed_t> getSeeds(size_t const& op,
+                                     SPNNodeLevel const& nodeLevels,
+                                     SearchMode const& mode = RootToLeaf) const;
 
       private:
-
-        enum SearchMode {
-          /// Look for disjoint subgraphs in the operation tree.
-          DISJOINT,
-          /// Look for the largest possible subgraph.
-          GREEDY,
-          /// Stop looking for subgraphs.
-          FAILED
-        };
 
         Operation* module;
 
