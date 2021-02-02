@@ -49,12 +49,15 @@ void SLPTree::buildGraph(std::vector<Operation*> const& operations, node_t const
         for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
           operandOperations.emplace_back(allOperands.at(lane).at(i));
         }
+        for (auto const& tmp : operandOperations) {
+          tmp->dump();
+        }
         operandsOf[currentNode].emplace_back(std::make_shared<SLPNode>(operandOperations));
       }
     }
 
     // B. Normal Mode: Finished building multi-node
-    if (currentNode->isMultiNode()) {
+    if (currentNode->isMultiNode() && currentNode->areRootOfNode(operations)) {
       reorderOperands(currentNode);
       for (auto& operandNode : operandsOf.at(currentNode)) {
         buildGraph(operandNode->getLastOperations(), currentNode);
@@ -73,7 +76,7 @@ void SLPTree::buildGraph(std::vector<Operation*> const& operations, node_t const
 
 }
 
-std::vector<std::vector<node_t>> SLPTree::reorderOperands(node_t const& multinode) {
+std::vector<std::vector<SLPTree::node_t>> SLPTree::reorderOperands(node_t const& multinode) {
   assert(multinode->isMultiNode());
   std::vector<std::vector<node_t>> finalOrder{multinode->numLanes()};
   std::vector<Mode> mode;
@@ -112,9 +115,9 @@ std::vector<std::vector<node_t>> SLPTree::reorderOperands(node_t const& multinod
   return finalOrder;
 }
 
-std::pair<Optional<node_t>, Mode> SLPTree::getBest(Mode const& mode,
-                                                   node_t const& last,
-                                                   std::vector<node_t>& candidates) const {
+std::pair<Optional<SLPTree::node_t>, Mode> SLPTree::getBest(Mode const& mode,
+                                                            node_t const& last,
+                                                            std::vector<node_t>& candidates) const {
   Optional<node_t> best;
   Mode resultMode = mode;
   std::vector<node_t> bestCandidates;

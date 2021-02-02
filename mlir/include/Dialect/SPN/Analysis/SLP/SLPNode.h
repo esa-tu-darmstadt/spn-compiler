@@ -25,11 +25,12 @@ namespace mlir {
         Operation* getOperation(size_t lane, size_t index);
 
         bool isMultiNode() const;
+        bool areRootOfNode(std::vector<Operation*> const& operations) const;
         size_t numLanes() const;
 
         friend bool operator==(SLPNode const& lhs, SLPNode const& rhs) {
-          return std::tie(lhs.lanes, lhs.operands)
-              == std::tie(rhs.lanes, rhs.operands);
+          return std::tie(lhs.lanes)
+              == std::tie(rhs.lanes);
         }
 
         friend bool operator!=(SLPNode const& lhs, SLPNode const& rhs) {
@@ -41,9 +42,6 @@ namespace mlir {
         /// Stores lanes as lists of operations. An inner vector (i.e. a lane) only contains more than one operation
         /// if this node is a multinode.
         std::vector<std::vector<Operation*>> lanes;
-
-        /// A list of operands in the form of other SLPNodes.
-        std::vector<SLPNode*> operands;
 
       };
 

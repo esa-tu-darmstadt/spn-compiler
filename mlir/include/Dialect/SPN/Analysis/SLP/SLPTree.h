@@ -18,9 +18,9 @@ namespace mlir {
   namespace spn {
     namespace slp {
 
-      typedef std::shared_ptr<SLPNode> node_t;
-
       class SLPTree {
+
+        typedef std::shared_ptr<SLPNode> node_t;
 
       public:
 

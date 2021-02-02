@@ -11,8 +11,7 @@ using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::slp;
 
-SLPNode::SLPNode(std::vector<Operation*> const& operations) : lanes{operations.size()},
-                                                              operands{operations.size()} {
+SLPNode::SLPNode(std::vector<Operation*> const& operations) : lanes{operations.size()} {
   for (size_t i = 0; i < operations.size(); ++i) {
     lanes.at(i).emplace_back(operations.at(i));
   }
@@ -36,6 +35,15 @@ Operation* SLPNode::getOperation(size_t lane, size_t index) {
 
 bool SLPNode::isMultiNode() const {
   return lanes.front().size() > 1;
+}
+
+bool SLPNode::areRootOfNode(std::vector<Operation*> const& operations) const {
+  for (size_t lane = 0; lane < numLanes(); ++lane) {
+    if (operations.at(lane) != lanes.at(lane).front()) {
+      return false;
+    }
+  }
+  return true;
 }
 
 size_t SLPNode::numLanes() const {
