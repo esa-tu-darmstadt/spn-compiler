@@ -37,16 +37,19 @@ void SLPTree::buildGraph(std::vector<Operation*> const& operations, node_t const
       sortByOpcode(operands, currentOpCode);
     }
     for (size_t i = 0; i < operations.front()->getNumOperands(); ++i) {
-      auto const& operand = allOperands.at(i);
-      if (std::all_of(std::begin(operand), std::end(operand), [&](auto* operation) {
-        return operation->getName() == currentOpCode && !escapesMultinode(operation);
+      if (std::all_of(std::begin(allOperands), std::end(allOperands), [&](auto const& operandOperations) {
+        return operandOperations.at(i)->getName() == currentOpCode && !escapesMultinode(operandOperations.at(i));
       })) {
         for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
-          currentNode->addOperationToLane(operand.at(lane), lane);
+          currentNode->addOperationToLane(allOperands.at(lane).at(i), lane);
         }
         buildGraph(currentNode->getLastOperations(), currentNode);
       } else {
-        operandsOf[currentNode].emplace_back(std::make_shared<SLPNode>(operand));
+        std::vector<Operation*> operandOperations;
+        for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
+          operandOperations.emplace_back(allOperands.at(lane).at(i));
+        }
+        operandsOf[currentNode].emplace_back(std::make_shared<SLPNode>(operandOperations));
       }
     }
 
