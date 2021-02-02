@@ -7,32 +7,36 @@
 #define SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_SPN_ANALYSIS_SLP_SLPGRAPH_H
 
 #include "mlir/IR/Operation.h"
-#include "mlir/IR/OpDefinition.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/StringMap.h"
 #include "SPN/SPNOpTraits.h"
 #include "SLPMode.h"
 #include "SLPNode.h"
 #include "SLPSeeding.h"
 
-#include <vector>
-#include <set>
-#include <queue>
 #include <stack>
 
 namespace mlir {
   namespace spn {
     namespace slp {
 
+      typedef std::shared_ptr<SLPNode> node_t;
+
       class SLPTree {
 
       public:
 
-        explicit SLPTree(seed_t const& seed, size_t maxLookAhead);
+        SLPTree(seed_t const& seed, size_t const& maxLookAhead);
 
       private:
 
-        void buildGraph(std::vector<Operation*> const& operations, SLPNode& parentNode);
+        void buildGraph(std::vector<Operation*> const& operations, node_t const& currentNode);
+
+        std::vector<std::vector<node_t>> reorderOperands(node_t const& multinode);
+
+        std::pair<Optional<node_t>, Mode> getBest(Mode const& mode,
+                                                  node_t const& last,
+                                                  std::vector<node_t>& candidates) const;
+
+        int getLookAheadScore(node_t const& last, node_t const& candidate, size_t const& maxLevel) const;
 
         /// Checks if the given operations are vectorizable. Operations are vectorizable iff the SPN dialect says they're
         /// vectorizable and they all share the same opcode.
@@ -54,35 +58,50 @@ namespace mlir {
           });
         }
 
-        static std::vector<Operation*> getOperands(std::vector<Operation*> const& values) {
-          std::vector<Operation*> operands;
-          for (auto const& operation : values) {
+        static bool escapesMultinode(Operation* operation) {
+          // TODO: check if some intermediate, temporary value of a multinode is used outside of it
+          return false;
+        }
+
+        static std::vector<std::vector<Operation*>> getOperands(std::vector<Operation*> const& operations) {
+          std::vector<std::vector<Operation*>> allOperands;
+          for (auto* operation : operations) {
+            std::vector<Operation*> operands;
+            operands.reserve(operation->getNumOperands());
             for (auto operand : operation->getOperands()) {
               operands.emplace_back(operand.getDefiningOp());
             }
+            allOperands.emplace_back(operands);
           }
-          return operands;
+          return allOperands;
         }
 
-        static std::vector<Operation*> getOperands(Operation* operation) {
-          std::vector<Operation*> operands;
-          for (auto operand : operation->getOperands()) {
-            operands.emplace_back(operand.getDefiningOp());
+        static std::vector<std::vector<Operation*>> getOperandsTransposed(std::vector<Operation*> const& operations) {
+          std::vector<std::vector<Operation*>> allOperands;
+          for (size_t i = 0; i < operations.front()->getNumOperands(); ++i) {
+            std::vector<Operation*> operand;
+            operand.reserve(operations.size());
+            for (auto* operation : operations) {
+              operand.emplace_back(operation->getOperand(i).getDefiningOp());
+            }
+            allOperands.emplace_back(operand);
           }
-          return operands;
+          return allOperands;
         }
 
-        std::vector<std::vector<SLPNode>> reorderOperands(SLPNode& multinode);
-
-        std::vector<SLPNode> graphs;
-
-        size_t const maxLookAhead;
-
-        std::pair<Optional<SLPNode>, Mode> getBest(Mode const& mode,
-                                                   SLPNode const& last,
-                                                   std::vector<SLPNode>& candidates) const;
-
-        int getLookAheadScore(SLPNode const& last, SLPNode const& candidate, size_t const& maxLevel) const;
+        static void sortByOpcode(std::vector<Operation*>& operations,
+                                 Optional<OperationName> const& smallestOpcode) {
+          std::sort(std::begin(operations), std::end(operations), [&](Operation* lhs, Operation* rhs) {
+            if (smallestOpcode.hasValue()) {
+              if (lhs->getName() == *smallestOpcode) {
+                return rhs->getName() != *smallestOpcode;
+              } else if (rhs->getName() == *smallestOpcode) {
+                return false;
+              }
+            }
+            return lhs->getName().getStringRef() < rhs->getName().getStringRef();
+          });
+        }
 
         /// For debugging purposes.
         static void printSubgraph(std::vector<Operation*> const& operations) {
@@ -121,6 +140,10 @@ namespace mlir {
           }
           llvm::errs() << "}\n";
         }
+
+        std::map<node_t, std::vector<node_t>> operandsOf;
+
+        size_t const maxLookAhead;
 
       };
     }
