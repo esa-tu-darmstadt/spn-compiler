@@ -12,7 +12,7 @@
 #include <string>
 #include <regex>
 #include <mlir/IR/Verifier.h>
-#include "mlir/IR/StandardTypes.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "Kernel.h"
 
@@ -91,6 +91,8 @@ void spnc::MLIRDeserializer::deserializeJointQuery(JointProbability::Reader&& qu
   kernelInfo->kernelName = modelName;
   kernelInfo->batchSize = batchSize;
   kernelInfo->queryType = spnc::KernelQueryType::JOINT_QUERY;
+  kernelInfo->numFeatures = numFeatures;
+  kernelInfo->bytesPerFeature = sizeInByte(featureType);
 
   auto queryOp =
       builder.create<JointQuery>(builder.getUnknownLoc(), numFeaturesAttr,
@@ -162,7 +164,7 @@ mlir::spn::ProductOp spnc::MLIRDeserializer::deserializeProduct(ProductNode::Rea
 }
 
 mlir::spn::HistogramOp spnc::MLIRDeserializer::deserializeHistogram(HistogramLeaf::Reader&& histogram) {
-  Value indexVar = convertToSignlessInteger(getInputValueByIndex(histogram.getScope()));
+  Value indexVar = getInputValueByIndex(histogram.getScope());
   auto breaks = histogram.getBreaks();
   auto densities = histogram.getDensities();
   SmallVector<bucket_t, 256> buckets;
@@ -177,7 +179,7 @@ mlir::spn::HistogramOp spnc::MLIRDeserializer::deserializeHistogram(HistogramLea
 }
 
 mlir::spn::CategoricalOp spnc::MLIRDeserializer::deserializeCaterogical(CategoricalLeaf::Reader&& categorical) {
-  auto indexVar = convertToSignlessInteger(getInputValueByIndex(categorical.getScope()));
+  auto indexVar = getInputValueByIndex(categorical.getScope());
   SmallVector<double, 10> probabilities;
   for (auto p : categorical.getProbabilities()) {
     probabilities.push_back(p);
@@ -197,23 +199,13 @@ mlir::Value spnc::MLIRDeserializer::getInputValueByIndex(int index) {
   return inputs[index];
 }
 
-mlir::Value spnc::MLIRDeserializer::convertToSignlessInteger(mlir::Value value) {
-  if (value.getType().isSignlessInteger()) {
-    return value;
-  }
-  if (value.getType().isa<FloatType>()) {
-    return builder.create<mlir::FPToUIOp>(builder.getUnknownLoc(), value,
-                                          IntegerType::get(32, context.get()));
-  }
-  assert(false && "Expecting features to be either integer or floating-point type");
-}
-
 mlir::Value spnc::MLIRDeserializer::getValueForNode(int id) {
   if (!node2value.count(id)) {
     SPNC_FATAL_ERROR("No definition found for node with ID: ", id);
   }
   return node2value[id];
 }
+
 mlir::Type spnc::MLIRDeserializer::translateTypeString(const std::string& text) {
   std::smatch match;
   // Test for an integer type, given as [u]int(WIDTH).
@@ -223,7 +215,7 @@ mlir::Type spnc::MLIRDeserializer::translateTypeString(const std::string& text) 
     auto isUnsigned = match[1].length() != 0;
     // match[2] captures the width of the type.
     auto width = std::stoi(match[2]);
-    return IntegerType::get(width, context.get());
+    return IntegerType::get(context.get(), width);
   }
   // Test for a floating-point type, given as float(WIDTH).
   std::regex floatRegex{R"(float([1-9]+))"};
@@ -238,4 +230,14 @@ mlir::Type spnc::MLIRDeserializer::translateTypeString(const std::string& text) 
     }
   }
   SPNC_FATAL_ERROR("Unsupported feature data type ", text);
+}
+
+unsigned spnc::MLIRDeserializer::sizeInByte(mlir::Type type) {
+  if (auto intType = type.dyn_cast<IntegerType>()) {
+    return intType.getWidth() >> 3;
+  }
+  if (auto floatType = type.dyn_cast<FloatType>()) {
+    return floatType.getWidth() >> 3;
+  }
+  SPNC_FATAL_ERROR("Unsupported feature data type");
 }

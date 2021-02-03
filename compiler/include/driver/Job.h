@@ -92,6 +92,8 @@ namespace spnc {
   struct KernelInfo {
     spnc::KernelQueryType queryType;
     unsigned batchSize;
+    unsigned numFeatures;
+    unsigned bytesPerFeature;
     std::string kernelName;
   };
 

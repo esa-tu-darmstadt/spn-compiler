@@ -46,8 +46,8 @@ int main(int argc, char* argv[]) {
   // Use the following input for categorical-example:
   // char a[]{0, 0, 0, 1, 1, 0, 1, 1};
   // Use the following input for gaussian-example:
-  /*float a[]{0.5, 0.125, 0.125, 0.5, 0.25, 0.25, 0.325, 0.275};
-  for(int i = 0; i < 4; ++i){
+  //float a[]{0.5, 0.125, 0.125, 0.5, 0.25, 0.25, 0.325, 0.275};
+  /*for(int i = 0; i < 4; ++i){
     double b[1];
     spnc_rt::spn_runtime::instance().execute(parseResult, 5, &a[i*2], b);
     std::cout << b[0] << std::endl;

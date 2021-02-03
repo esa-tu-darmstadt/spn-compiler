@@ -18,7 +18,6 @@
 #include "SPN/SPNDialect.h"
 #include "SPN/SPNPasses.h"
 #include "SPNtoStandard/SPNtoStandardConversionPass.h"
-#include "SPNtoLLVM/SPNtoLLVMConversionPass.h"
 
 static llvm::cl::opt<std::string> inputFilename(llvm::cl::Positional,
                                                 llvm::cl::desc("<input file>"),
@@ -55,6 +54,10 @@ static llvm::cl::opt<bool>
                  llvm::cl::desc("Print the list of registered dialects"),
                  llvm::cl::init(false));
 
+static llvm::cl::opt<bool> cpuVectorize("cpu-vectorize",
+                                        llvm::cl::desc("Vectorize code generated for CPU targets"),
+                                        llvm::cl::init(false));
+
 ///
 /// spnc-opt: Custom tool to run SPN-dialect specific and generic passes on MLIR files.
 int main(int argc, char** argv) {
@@ -72,11 +75,7 @@ int main(int argc, char** argv) {
   });
 
   mlir::registerPass("spn-to-standard", "Lower SPN to Standard dialect", []() -> std::unique_ptr<mlir::Pass> {
-    return mlir::spn::createSPNtoStandardConversionPass();
-  });
-
-  mlir::registerPass("spn-to-llvm", "Lower SPN to LLVM dialect", []() -> std::unique_ptr<mlir::Pass> {
-    return mlir::spn::createSPNtoLLVMConversionPass();
+    return mlir::spn::createSPNtoStandardConversionPass(cpuVectorize);
   });
 
   llvm::InitLLVM y(argc, argv);

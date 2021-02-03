@@ -7,7 +7,7 @@
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_MLIRPASSPIPELINE_H
 
 #include <driver/Actions.h>
-#include <mlir/IR/Module.h>
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "util/Logging.h"
@@ -23,14 +23,13 @@ namespace spnc {
 
   public:
     MLIRPipelineBase(ActionWithOutput <mlir::ModuleOp>& _input,
-                     std::shared_ptr<mlir::MLIRContext> ctx) : ActionSingleInput<mlir::ModuleOp, mlir::ModuleOp>{
-        _input},
-                                                               mlirContext{std::move(ctx)}, pm{mlirContext.get()} {
-      static_cast<PassPipeline*>(this)->initializePassPipeline(&pm, mlirContext.get());
-    }
+                     std::shared_ptr<mlir::MLIRContext> ctx, std::shared_ptr<mlir::ScopedDiagnosticHandler> handler)
+        : ActionSingleInput<mlir::ModuleOp, mlir::ModuleOp>{_input}, mlirContext{std::move(ctx)},
+          diagnostics{std::move(handler)}, pm{mlirContext.get()} {}
 
     mlir::ModuleOp& execute() override {
       if (!cached) {
+        static_cast<PassPipeline*>(this)->initializePassPipeline(&pm, mlirContext.get());
         auto inputModule = input.execute();
         // Clone the module to keep the original module available
         // for actions using the same input module.
@@ -48,6 +47,8 @@ namespace spnc {
   private:
 
     std::shared_ptr<mlir::MLIRContext> mlirContext;
+
+    std::shared_ptr<mlir::ScopedDiagnosticHandler> diagnostics;
 
     bool cached = false;
 

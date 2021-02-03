@@ -31,11 +31,14 @@ namespace spnc {
     /// \param kN The full name of the toplevel SPN function to be called by the runtime.
     /// \param query_type Type of the query compiled into the kernel.
     /// \param _batchSize Batch size the kernel was optimized for.
-    Kernel(const std::string& fN, const std::string& kN, unsigned query_type, unsigned _batchSize) : _fileName{fN},
-                                                                                                     _kernelName{kN},
-                                                                                                     query{query_type},
-                                                                                                     batch_size{
-                                                                                                         _batchSize} {
+    Kernel(const std::string& fN, const std::string& kN, unsigned query_type,
+           unsigned _batchSize, unsigned _numFeatures, unsigned _bytesPerFeatures) : _fileName{fN},
+                                                                                     _kernelName{kN},
+                                                                                     query{query_type},
+                                                                                     batch_size{_batchSize},
+                                                                                     num_features{_numFeatures},
+                                                                                     bytes_per_feature{
+                                                                                         _bytesPerFeatures} {
       _unique_id = std::hash<std::string>{}(fN + kN);
     }
 
@@ -58,6 +61,15 @@ namespace spnc {
     /// Get the batch size this kernel was optimized for.
     /// \return Optimized batch size, 1 if the kernel was optimized for single execution.
     unsigned batchSize() const { return batch_size; }
+
+    /// Get the number of features of the SPN compiled into this kernel.
+    /// \return Number of input features of the SPN.
+    unsigned numFeatures() const { return num_features; }
+
+    /// Get the number of bytes used to encode a single input feature value.
+    /// \return Number of bytes used to encode each SPN input.
+    unsigned bytesPerFeature() const { return bytes_per_feature; }
+
   private:
 
     std::string _fileName;
@@ -69,6 +81,10 @@ namespace spnc {
     unsigned query;
 
     unsigned batch_size;
+
+    unsigned num_features;
+
+    unsigned bytes_per_feature;
 
   };
 
