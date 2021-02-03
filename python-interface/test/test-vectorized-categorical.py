@@ -2,14 +2,12 @@ import numpy as np
 import tempfile
 from datetime import datetime
 import os
-from spn.structure.Base import Product, Sum
-from spn.structure.leaves.histogram.Histograms import Histogram
-from spn.structure.leaves.parametric.Parametric import Categorical, Gaussian
-from spn.structure.Base import get_number_of_nodes, get_number_of_edges
+from spn.structure.Base import Product
+from spn.structure.leaves.parametric.Parametric import Categorical
 from spn.algorithms.Inference import log_likelihood
-from xspn.serialization.binary.BinarySerialization import BinarySerializer, BinaryDeserializer
+from xspn.serialization.binary.BinarySerialization import BinarySerializer
 from xspn.structure.Model import SPNModel
-from xspn.structure.Query import JointProbability, ErrorKind
+from xspn.structure.Query import JointProbability
 import spncpy as spnc
 
 # Construct a minimal SPN using two Gaussian leaves.
