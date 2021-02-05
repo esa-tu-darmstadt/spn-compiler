@@ -36,7 +36,7 @@ namespace mlir {
       }
 
       //===----------------------------------------------------------------------===//
-      // WeightedSumNode
+      // SumNode
       //===----------------------------------------------------------------------===//
 
       static mlir::LogicalResult verify(SumNode op) {
@@ -115,6 +115,123 @@ namespace mlir {
     } // end of namespace high
   } // end of namespace spn
 } // end of namespace mlir
+
+//===----------------------------------------------------------------------===//
+// WeightedSumOp
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::high::SumNode::build(::mlir::OpBuilder& odsBuilder,
+                                     ::mlir::OperationState& odsState,
+                                     llvm::ArrayRef<Value> operands,
+                                     llvm::ArrayRef<double> weights) {
+  SmallVector<mlir::Attribute, 10> weightAttrs;
+  for (auto& w : weights) {
+    weightAttrs.push_back(odsBuilder.getF64FloatAttr(w));
+  }
+  assert(weightAttrs.size() == operands.size() && "Number of weights must match number of operands!");
+  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), ValueRange(operands),
+        ArrayAttr::get(weightAttrs, odsBuilder.getContext()));
+}
+
+
+//===----------------------------------------------------------------------===//
+// HistogramOp
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::high::HistogramNode::build(::mlir::OpBuilder& odsBuilder,
+                                           ::mlir::OperationState& odsState,
+                                           Value indexVal,
+                                           llvm::ArrayRef<std::tuple<int, int, double>> buckets) {
+  SmallVector<mlir::Attribute, 256> bucketList;
+  // Create StructAttr for each bucket, comprising the inclusive lower bound,
+  // the exclusive lower bound and the probability value.
+  for (auto& bucket : buckets) {
+    auto bucketAttr = Bucket::get(odsBuilder.getI32IntegerAttr(std::get<0>(bucket)),
+                                  odsBuilder.getI32IntegerAttr(std::get<1>(bucket)),
+                                  odsBuilder.getF64FloatAttr(std::get<2>(bucket)), odsBuilder.getContext());
+    bucketList.push_back(bucketAttr);
+  }
+  auto arrAttr = odsBuilder.getArrayAttr(bucketList);
+  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), indexVal,
+        arrAttr, odsBuilder.getUI32IntegerAttr(bucketList.size()));
+}
+
+unsigned int mlir::spn::high::HistogramNode::getFeatureIndex() {
+  if (auto blockArg = index().dyn_cast<BlockArgument>()) {
+    return blockArg.getArgNumber();
+  }
+  // Expecting the index to be a block argument.
+  assert(false);
+}
+
+//===----------------------------------------------------------------------===//
+// CategoricalOp
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::high::CategoricalNode::build(::mlir::OpBuilder& odsBuilder,
+                                             ::mlir::OperationState& odsState,
+                                             Value indexVal,
+                                             llvm::ArrayRef<double> probabilities) {
+  auto floatArrayAttr = odsBuilder.getF64ArrayAttr(probabilities);
+  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), indexVal, floatArrayAttr);
+}
+
+unsigned int mlir::spn::high::CategoricalNode::getFeatureIndex() {
+  if (auto blockArg = index().dyn_cast<BlockArgument>()) {
+    return blockArg.getArgNumber();
+  }
+  // Expecting the index to be a block argument.
+  assert(false);
+}
+
+//===----------------------------------------------------------------------===//
+// GaussianOp
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::high::GaussianNode::build(::mlir::OpBuilder& odsBuilder,
+                                          ::mlir::OperationState& odsState,
+                                          Value indexVal,
+                                          double mean,
+                                          double stddev) {
+  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), indexVal,
+        odsBuilder.getF64FloatAttr(mean), odsBuilder.getF64FloatAttr(stddev));
+}
+
+unsigned int mlir::spn::high::GaussianNode::getFeatureIndex() {
+  if (auto blockArg = index().dyn_cast<BlockArgument>()) {
+    return blockArg.getArgNumber();
+  }
+  // Expecting the index to be a block argument.
+  assert(false);
+}
+
+//===----------------------------------------------------------------------===//
+// SingleJointQuery
+//===----------------------------------------------------------------------===//
+
+unsigned int mlir::spn::high::JointQuery::getNumFeatures() {
+  return this->numFeatures();
+}
+
+mlir::Type mlir::spn::high::JointQuery::getFeatureDataType() {
+  return this->inputType();
+}
+
+unsigned int mlir::spn::high::JointQuery::getBatchSize() {
+  return this->batchSize();
+}
+
+mlir::spn::high::error_model mlir::spn::high::JointQuery::getErrorModel() {
+  return this->errorModel();
+}
+
+double mlir::spn::high::JointQuery::getMaxError() {
+  return this->maxError().convertToDouble();
+}
+
+llvm::StringRef mlir::spn::high::JointQuery::getQueryName() {
+  return this->kernelName();
+}
 
 #define GET_OP_CLASSES
 #include "HiSPN/HiSPNOps.cpp.inc"

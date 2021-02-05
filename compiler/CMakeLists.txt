@@ -54,7 +54,7 @@ set(mlir_libs
         ${dialect_libs}
         ${conversion_libs}
         MLIROptLib
-        MLIRSPN
+        MLIRHiSPN
         MLIRSPNtoStandardTransforms
         MLIRIR
         MLIRParser

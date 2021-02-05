@@ -99,8 +99,6 @@ def ProductNode : HiSPNGraphOp<"product", [NoSideEffect, SameOperandsAndResultTy
 
     let verifier = [{return ::mlir::spn::high::verify(*this); }];
 
-    let hasCanonicalizer = 1;
-
 }
 
 ///
@@ -125,7 +123,6 @@ def SumNode : HiSPNGraphOp<"sum", [NoSideEffect, SameOperandsAndResultType]> {
         OpBuilderDAG<(ins "llvm::ArrayRef<Value>":$operands, "llvm::ArrayRef<double>":$weights)>
     ];
 
-    let hasCanonicalizer = 1;
 }
 
 /// Named attribute for the inclusive lower bound of a histogram bucket.

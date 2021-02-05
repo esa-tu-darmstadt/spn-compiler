@@ -14,7 +14,7 @@ using namespace mlir::spn::high;
 
 void HiSPNDialect::initialize() {
   addOperations<
-#define GET_OP_LIST \
+#define GET_OP_LIST
 #include "HiSPN/HiSPNOps.cpp.inc"
   >();
   addTypes<ProbabilityType>();

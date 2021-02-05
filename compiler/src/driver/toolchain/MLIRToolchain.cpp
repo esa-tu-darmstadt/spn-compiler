@@ -7,6 +7,7 @@
 #include <driver/BaseActions.h>
 #include <driver/GlobalOptions.h>
 #include <SPN/SPNDialect.h>
+#include <HiSPN/HiSPNDialect.h>
 #include <codegen/mlir/pipeline/SPNDialectPipeline.h>
 #include "codegen/mlir/conversion/SPNtoStandardConversion.h"
 #include "codegen/mlir/conversion/SPNtoLLVMConversion.h"
@@ -75,12 +76,15 @@ std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::str
 
 void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext& ctx) {
   mlir::registerAllDialects(ctx.getDialectRegistry());
-  ctx.getDialectRegistry().insert<mlir::spn::SPNDialect>();
-  ctx.loadDialect<mlir::spn::SPNDialect>();
+  ctx.getDialectRegistry().insert<mlir::spn::high::HiSPNDialect>();
+  ctx.loadDialect<mlir::spn::high::HiSPNDialect>();
   ctx.loadDialect<mlir::StandardOpsDialect>();
   ctx.loadDialect<mlir::scf::SCFDialect>();
   ctx.loadDialect<mlir::LLVM::LLVMDialect>();
   ctx.loadDialect<mlir::vector::VectorDialect>();
+  for (auto* D : ctx.getLoadedDialects()) {
+    SPDLOG_INFO("Loaded dialect: {}", D->getNamespace().str());
+  }
 }
 
 std::shared_ptr<mlir::ScopedDiagnosticHandler> spnc::MLIRToolchain::setupDiagnosticHandler(mlir::MLIRContext* ctx) {
