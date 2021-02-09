@@ -45,6 +45,7 @@ void SLPTree::buildGraph(std::vector<Operation*> const& operations, node_t const
         }
         buildGraph(currentNode->getLastOperations(), currentNode);
       } else {
+        // TODO: here might be a good place to implement variable vector width
         std::vector<Operation*> operandOperations;
         for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
           operandOperations.emplace_back(allOperands.at(lane).at(i));
@@ -58,7 +59,8 @@ void SLPTree::buildGraph(std::vector<Operation*> const& operations, node_t const
 
     // B. Normal Mode: Finished building multi-node
     if (currentNode->isMultiNode() && currentNode->areRootOfNode(operations)) {
-      reorderOperands(currentNode);
+      auto const& order = reorderOperands(currentNode);
+      // TODO: reorder based on reordering results
       for (auto& operandNode : operandsOf.at(currentNode)) {
         buildGraph(operandNode->getLastOperations(), currentNode);
       }
@@ -76,38 +78,41 @@ void SLPTree::buildGraph(std::vector<Operation*> const& operations, node_t const
 
 }
 
-std::vector<std::vector<SLPTree::node_t>> SLPTree::reorderOperands(node_t const& multinode) {
+std::vector<std::vector<Operation*>> SLPTree::reorderOperands(node_t const& multinode) {
   assert(multinode->isMultiNode());
-  std::vector<std::vector<node_t>> finalOrder{multinode->numLanes()};
-  std::vector<Mode> mode;
   auto const& numOperands = operandsOf.at(multinode).size();
+  std::vector<std::vector<Operation*>> finalOrder{multinode->numLanes()};
+  std::vector<std::vector<Mode>> mode{multinode->numLanes()};
   // 1. Strip first lane
   for (size_t i = 0; i < numOperands; ++i) {
-    auto operand = operandsOf.at(multinode).at(i);
-    finalOrder.at(0).emplace_back(operand);
-    mode.emplace_back(modeFromOperation(operand->getOperation(0, 0)));
+    auto operation = operandsOf.at(multinode).at(i)->getOperation(0, 0);
+    finalOrder.at(0).emplace_back(operation);
+    mode.at(0).emplace_back(modeFromOperation(operation));
   }
 
   // 2. For all other lanes, find best candidate
   for (size_t lane = 1; lane < multinode->numLanes(); ++lane) {
-    std::vector<node_t> candidates{operandsOf.at(multinode)};
+    std::vector<Operation*> candidates;
+    for (auto const& operand : operandsOf.at(multinode)) {
+      candidates.emplace_back(operand->getOperation(lane, 0));
+    }
     // Look for a matching candidate
     for (size_t i = 0; i < numOperands; ++i) {
       // Skip if we can't vectorize
-      if (mode.at(i) == FAILED) {
+      if (mode.at(lane - 1).at(i) == FAILED) {
         continue;
       }
-      auto const& last = finalOrder.at(lane - 1).at(i);
-      auto const& bestResult = getBest(mode.at(i), last, candidates);
+      auto* last = finalOrder.at(lane - 1).at(i);
+      auto const& bestResult = getBest(mode.at(lane - 1).at(i), last, candidates);
 
       // Update output
-      finalOrder.at(lane).emplace_back(bestResult.first.getValue());
+      finalOrder.at(lane).emplace_back(bestResult.first);
 
       // Detect SPLAT mode
       if (i == 1 && bestResult.first == last) {
-        mode.at(i) = SPLAT;
+        mode.at(lane).at(i) = SPLAT;
       } else {
-        mode.at(i) = bestResult.second;
+        mode.at(lane).at(i) = bestResult.second;
       }
 
     }
@@ -115,16 +120,16 @@ std::vector<std::vector<SLPTree::node_t>> SLPTree::reorderOperands(node_t const&
   return finalOrder;
 }
 
-std::pair<Optional<SLPTree::node_t>, Mode> SLPTree::getBest(Mode const& mode,
-                                                            node_t const& last,
-                                                            std::vector<node_t>& candidates) const {
-  Optional<node_t> best;
+std::pair<Operation*, Mode> SLPTree::getBest(Mode const& mode,
+                                             Operation* last,
+                                             std::vector<Operation*>& candidates) const {
+  Operation* best = nullptr;
   Mode resultMode = mode;
-  std::vector<node_t> bestCandidates;
+  std::vector<Operation*> bestCandidates;
 
   if (mode == FAILED) {
     // Don't select now, let others choose first
-    best.reset();
+    best = nullptr;
   } else if (mode == SPLAT) {
     // Look for other splat candidates
     for (auto& operand : candidates) {
@@ -138,9 +143,9 @@ std::pair<Optional<SLPTree::node_t>, Mode> SLPTree::getBest(Mode const& mode,
     best = candidates.front();
     for (auto& candidate : candidates) {
       // We don't have consecutive memory accesses, therefore we're only interested in opcode comparisons.
-      //if (candidate.name() == last.name()) {
-      bestCandidates.emplace_back(candidate);
-      //}
+      if (candidate->getName() == last->getName()) {
+        bestCandidates.emplace_back(candidate);
+      }
     }
     // 1. If we have a trivial solution, use it
     // No matches
@@ -169,7 +174,7 @@ std::pair<Optional<SLPTree::node_t>, Mode> SLPTree::getBest(Mode const& mode,
             }
           }
           // If found best at level don't go deeper
-          if (best.hasValue() && scores.size() > 1) {
+          if (best != nullptr && scores.size() > 1) {
             break;
           }
         }
@@ -178,23 +183,23 @@ std::pair<Optional<SLPTree::node_t>, Mode> SLPTree::getBest(Mode const& mode,
 
   }
   // Remove best from candidates
-  if (best.hasValue()) {
+  if (best != nullptr) {
     candidates.erase(std::remove(std::begin(candidates), std::end(candidates), best), std::end(candidates));
   }
   return {best, resultMode};
 }
 
-int SLPTree::getLookAheadScore(node_t const& last, node_t const& candidate, size_t const& maxLevel) const {
+int SLPTree::getLookAheadScore(Operation* last, Operation* candidate, size_t const& maxLevel) const {
   if (maxLevel == 0) {
     // No consecutive loads to check, only opcodes.
-    return /*last.name() == candidate.name() ? 1 :*/ 0;
+    return last->getName() == candidate->getName() ? 1 : 0;
   }
   auto scoreSum = 0;
-  for (size_t lane = 0; lane < last->numLanes(); ++lane) {
-    for (auto const& lastOperand : operandsOf.at(last)) {
-      for (auto const& candidateOperand : operandsOf.at(candidate)) {
-        scoreSum += getLookAheadScore(lastOperand, candidateOperand, maxLevel - 1);
-      }
+  for (auto const& lastOperand : getOperands(last)) {
+    for (auto const& candidateOperand : getOperands(candidate)) {
+      // TODO: if operands are commutative, sort operands
+      scoreSum += getLookAheadScore(lastOperand, candidateOperand, maxLevel - 1);
+
     }
   }
   return scoreSum;

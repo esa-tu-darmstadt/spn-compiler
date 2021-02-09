@@ -30,13 +30,13 @@ namespace mlir {
 
         void buildGraph(std::vector<Operation*> const& operations, node_t const& currentNode);
 
-        std::vector<std::vector<node_t>> reorderOperands(node_t const& multinode);
+        std::vector<std::vector<Operation*>> reorderOperands(node_t const& multinode);
 
-        std::pair<Optional<node_t>, Mode> getBest(Mode const& mode,
-                                                  node_t const& last,
-                                                  std::vector<node_t>& candidates) const;
+        std::pair<Operation*, Mode> getBest(Mode const& mode,
+                                            Operation* last,
+                                            std::vector<Operation*>& candidates) const;
 
-        int getLookAheadScore(node_t const& last, node_t const& candidate, size_t const& maxLevel) const;
+        int getLookAheadScore(Operation* last, Operation* candidate, size_t const& maxLevel) const;
 
         /// Checks if the given operations are vectorizable. Operations are vectorizable iff the SPN dialect says they're
         /// vectorizable and they all share the same opcode.
@@ -60,18 +60,24 @@ namespace mlir {
 
         static bool escapesMultinode(Operation* operation) {
           // TODO: check if some intermediate, temporary value of a multinode is used outside of it
+          assert(operation);
           return false;
+        }
+
+        static std::vector<Operation*> getOperands(Operation* operation) {
+          std::vector<Operation*> operands;
+          operands.reserve(operation->getNumOperands());
+          for (auto operand : operation->getOperands()) {
+            operands.emplace_back(operand.getDefiningOp());
+          }
+          return operands;
         }
 
         static std::vector<std::vector<Operation*>> getOperands(std::vector<Operation*> const& operations) {
           std::vector<std::vector<Operation*>> allOperands;
+          allOperands.reserve(operations.size());
           for (auto* operation : operations) {
-            std::vector<Operation*> operands;
-            operands.reserve(operation->getNumOperands());
-            for (auto operand : operation->getOperands()) {
-              operands.emplace_back(operand.getDefiningOp());
-            }
-            allOperands.emplace_back(operands);
+            allOperands.emplace_back(getOperands(operation));
           }
           return allOperands;
         }
@@ -93,9 +99,9 @@ namespace mlir {
                                  Optional<OperationName> const& smallestOpcode) {
           std::sort(std::begin(operations), std::end(operations), [&](Operation* lhs, Operation* rhs) {
             if (smallestOpcode.hasValue()) {
-              if (lhs->getName() == *smallestOpcode) {
-                return rhs->getName() != *smallestOpcode;
-              } else if (rhs->getName() == *smallestOpcode) {
+              if (lhs->getName() == smallestOpcode.getValue()) {
+                return rhs->getName() != smallestOpcode.getValue();
+              } else if (rhs->getName() == smallestOpcode.getValue()) {
                 return false;
               }
             }
