@@ -150,7 +150,7 @@ namespace {
                                         rewriter, op->getLoc());
     // Replace the source operation with a gather load from the global memref.
     rewriter.template replaceOpWithNewOp<mlir::vector::GatherOp>(op, vectorType, addressOf,
-                                                                 index, mask, mlir::ValueRange{passThru});
+                                                                 index, mask, passThru);
     return mlir::success();
   }
 
