@@ -23,6 +23,10 @@ def SPNKernel : LoSPN_Op<"kernel", [FunctionLike, Symbol, IsolatedFromAbove]> {
 
     let regions = (region AnyRegion:$body);
 
+    let builders = [
+        OpBuilderDAG<(ins "StringRef":$name, "FunctionType":$type)>
+    ];
+
     let extraClassDeclaration = [{
       private:
         // This trait needs access to the hooks defined below.
@@ -118,6 +122,8 @@ def SPNConstant : LoSPNBodyOp<"constant", [ConstantLike, NoSideEffect]> {
     let arguments = (ins TypeAttr:$type, F64Attr:$value);
 
     let results = (outs LoSPNComputeType:$result);
+
+    let hasFolder = 1;
 }
 
 def SPNMul : LoSPNBodyOp<"mul", [NoSideEffect, Commutative, SameOperandsAndResultType]> {

@@ -1,5 +1,6 @@
 add_mlir_conversion_library(MLIRHiSPNtoLoSPNTransforms
         NodePatterns.cpp
+        QueryPatterns.cpp
         HiSPNtoLoSPNConversionPasses.cpp
 
         ADDITIONAL_HEADER_DIRS

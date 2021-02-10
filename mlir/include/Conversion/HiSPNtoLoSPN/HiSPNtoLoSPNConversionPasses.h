@@ -22,6 +22,17 @@ namespace mlir {
 
     std::unique_ptr<Pass> createHiSPNtoLoSPNNodeConversionPass();
 
+    struct HiSPNtoLoSPNQueryConversionPass :
+        public PassWrapper<HiSPNtoLoSPNQueryConversionPass, OperationPass<ModuleOp>> {
+
+    protected:
+
+      void runOnOperation() override;
+
+    };
+
+    std::unique_ptr<Pass> createHiSPNtoLoSPNQueryConversionPass();
+
   }
 }
 
