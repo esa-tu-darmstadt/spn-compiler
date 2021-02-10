@@ -100,6 +100,7 @@ std::vector<std::vector<Operation*>> SLPTree::reorderOperands(node_t const& mult
     for (size_t i = 0; i < numOperands; ++i) {
       // Skip if we can't vectorize
       if (mode.at(lane - 1).at(i) == FAILED) {
+        mode.at(lane).emplace_back(FAILED);
         continue;
       }
       auto* last = finalOrder.at(lane - 1).at(i);
@@ -112,7 +113,7 @@ std::vector<std::vector<Operation*>> SLPTree::reorderOperands(node_t const& mult
       if (i == 1 && bestResult.first == last) {
         mode.at(lane).at(i) = SPLAT;
       } else {
-        mode.at(lane).at(i) = bestResult.second;
+        mode.at(lane).emplace_back(bestResult.second);
       }
 
     }
@@ -160,6 +161,7 @@ std::pair<Operation*, Mode> SLPTree::getBest(Mode const& mode,
     else {
       if (mode == OPCODE) {
         // Look-ahead on various levels
+        // TODO: when the level is increased, we recompute everything from the level before. change that maybe?
         for (size_t level = 1; level <= maxLookAhead; ++level) {
           // Best is the candidate with max score
           auto bestScore = 0;
@@ -195,9 +197,9 @@ int SLPTree::getLookAheadScore(Operation* last, Operation* candidate, size_t con
     return last->getName() == candidate->getName() ? 1 : 0;
   }
   auto scoreSum = 0;
+  // TODO: if operands are commutative, sort operands to speed up lookahead?
   for (auto const& lastOperand : getOperands(last)) {
     for (auto const& candidateOperand : getOperands(candidate)) {
-      // TODO: if operands are commutative, sort operands
       scoreSum += getLookAheadScore(lastOperand, candidateOperand, maxLevel - 1);
 
     }
