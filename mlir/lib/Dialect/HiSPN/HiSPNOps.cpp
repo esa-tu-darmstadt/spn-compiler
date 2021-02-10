@@ -116,8 +116,27 @@ namespace mlir {
   } // end of namespace spn
 } // end of namespace mlir
 
+namespace {
+  template<typename SourceOp>
+  mlir::Operation* getParentQuery(SourceOp op) {
+    // Parent should always be a Graph and the Graph's parent should always be
+    // a Query, due to the HasParent-relationships defined in the operations.
+    assert(op.getOperation()->template getParentOfType<mlir::spn::high::Graph>()
+               && "Expecting the parent to be a Graph");
+    return op.getOperation()->template getParentOfType<mlir::spn::high::Graph>()->getParentOp();
+  }
+}
+
 //===----------------------------------------------------------------------===//
-// WeightedSumOp
+// ProductOp
+//===----------------------------------------------------------------------===//
+
+mlir::Operation* mlir::spn::high::ProductNode::getEnclosingQuery() {
+  return getParentQuery(*this);
+}
+
+//===----------------------------------------------------------------------===//
+// SumOp
 //===----------------------------------------------------------------------===//
 
 void mlir::spn::high::SumNode::build(::mlir::OpBuilder& odsBuilder,
@@ -131,6 +150,10 @@ void mlir::spn::high::SumNode::build(::mlir::OpBuilder& odsBuilder,
   assert(weightAttrs.size() == operands.size() && "Number of weights must match number of operands!");
   build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), ValueRange(operands),
         ArrayAttr::get(odsBuilder.getContext(), weightAttrs));
+}
+
+mlir::Operation* mlir::spn::high::SumNode::getEnclosingQuery() {
+  return getParentQuery(*this);
 }
 
 
@@ -164,6 +187,10 @@ unsigned int mlir::spn::high::HistogramNode::getFeatureIndex() {
   assert(false);
 }
 
+mlir::Operation* mlir::spn::high::HistogramNode::getEnclosingQuery() {
+  return getParentQuery(*this);
+}
+
 //===----------------------------------------------------------------------===//
 // CategoricalOp
 //===----------------------------------------------------------------------===//
@@ -182,6 +209,10 @@ unsigned int mlir::spn::high::CategoricalNode::getFeatureIndex() {
   }
   // Expecting the index to be a block argument.
   assert(false);
+}
+
+mlir::Operation* mlir::spn::high::CategoricalNode::getEnclosingQuery() {
+  return getParentQuery(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -203,6 +234,18 @@ unsigned int mlir::spn::high::GaussianNode::getFeatureIndex() {
   }
   // Expecting the index to be a block argument.
   assert(false);
+}
+
+mlir::Operation* mlir::spn::high::GaussianNode::getEnclosingQuery() {
+  return getParentQuery(*this);
+}
+
+//===----------------------------------------------------------------------===//
+// RootNode
+//===----------------------------------------------------------------------===//
+
+mlir::Operation* mlir::spn::high::RootNode::getEnclosingQuery() {
+  return getParentQuery(*this);
 }
 
 //===----------------------------------------------------------------------===//

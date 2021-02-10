@@ -1,1 +1,2 @@
 add_subdirectory(SPNtoStandard)
+add_subdirectory(HiSPNtoLoSPN)

@@ -32,4 +32,16 @@ def QueryInterface : OpInterface<"QueryInterface"> {
 
 }
 
+def GraphNodeInterface : OpInterface<"GraphNodeInterface"> {
+
+    let description = [{
+        Interface common to all nodes inside the SPN DAG.
+    }];
+
+    let methods = [
+        InterfaceMethod<"Get the enclosing query.", "mlir::Operation*", "getEnclosingQuery">,
+    ];
+
+}
+
 #endif // HiSPN_INTERFACES

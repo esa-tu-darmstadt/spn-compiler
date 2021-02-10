@@ -8,8 +8,10 @@
 #include <driver/GlobalOptions.h>
 #include <SPN/SPNDialect.h>
 #include <HiSPN/HiSPNDialect.h>
+#include <LoSPN/LoSPNDialect.h>
 #include <codegen/mlir/pipeline/SPNDialectPipeline.h>
 #include "codegen/mlir/conversion/SPNtoStandardConversion.h"
+#include "codegen/mlir/conversion/HiSPNtoLoSPNConversion.h"
 #include "codegen/mlir/conversion/SPNtoLLVMConversion.h"
 #include "codegen/mlir/conversion/MLIRtoLLVMIRConversion.h"
 #include "codegen/mlir/analysis/CollectGraphStatistics.h"
@@ -55,8 +57,8 @@ std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::str
     auto& joinAction = job->insertAction<JoinAction<mlir::ModuleOp, StatsFile>>(spnDialectPipeline, graphStats);
     spnPipelineResult = &joinAction;
   }
-  auto& spn2standard = job->insertAction<SPNtoStandardConversion>(*spnPipelineResult, ctx, diagHandler, cpuVectorize);
-  auto& spn2llvm = job->insertAction<SPNtoLLVMConversion>(spn2standard, ctx, diagHandler);
+  auto& hispn2lospn = job->insertAction<HiSPNtoLoSPNConversion>(*spnPipelineResult, ctx, diagHandler);
+  auto& spn2llvm = job->insertAction<SPNtoLLVMConversion>(hispn2lospn, ctx, diagHandler);
 
   // Convert the MLIR module to a LLVM-IR module.
   auto& llvmConversion = job->insertAction<MLIRtoLLVMIRConversion>(spn2llvm, ctx, targetMachine);
@@ -77,7 +79,9 @@ std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::str
 void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext& ctx) {
   mlir::registerAllDialects(ctx.getDialectRegistry());
   ctx.getDialectRegistry().insert<mlir::spn::high::HiSPNDialect>();
+  ctx.getDialectRegistry().insert<mlir::spn::low::LoSPNDialect>();
   ctx.loadDialect<mlir::spn::high::HiSPNDialect>();
+  ctx.loadDialect<mlir::spn::low::LoSPNDialect>();
   ctx.loadDialect<mlir::StandardOpsDialect>();
   ctx.loadDialect<mlir::scf::SCFDialect>();
   ctx.loadDialect<mlir::LLVM::LLVMDialect>();

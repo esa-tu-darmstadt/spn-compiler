@@ -1,0 +1,12 @@
+//
+// This file is part of the SPNC project.
+// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
+//
+
+#include "HiSPNtoLoSPNConversion.h"
+#include "HiSPNtoLoSPN/HiSPNtoLoSPNConversionPasses.h"
+
+void spnc::HiSPNtoLoSPNConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
+  pm->enableVerifier(false);
+  pm->addPass(mlir::spn::createHiSPNtoLoSPNNodeConversionPass());
+}

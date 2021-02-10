@@ -70,7 +70,7 @@ def Graph : HiSPN_Op<"graph",
 /// Abstract base class of all operations that can be part of the SPN DAG.
 ///
 class HiSPNGraphOp<string mnemonic, list<OpTrait> traits = []> : HiSPN_Op<mnemonic,
-    !listconcat(traits, [HasParent<"Graph">])>;
+    !listconcat(traits, [HasParent<"Graph">, DeclareOpInterfaceMethods<GraphNodeInterface>])>;
 
 ///
 /// Terminates the DAG, represents the root node of the SPN.
