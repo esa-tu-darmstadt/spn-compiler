@@ -43,8 +43,8 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
   SmallVector<Value> inputValues;
   SmallVector<Type> inputTypes;
   for (unsigned i = 0; i < op.numFeatures(); ++i) {
-    auto arg = rewriter.create<low::SPNBatchIndexRead>(op.getLoc(), op.getFeatureDataType(),
-                                                       inputArg, i);
+    auto arg = rewriter.create<low::SPNBatchExtract>(op.getLoc(), op.getFeatureDataType(),
+                                                     inputArg, i);
     inputValues.push_back(arg);
     inputTypes.push_back(arg.getType());
   }
@@ -61,8 +61,8 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
   rewriter.mergeBlocks(&spnDAG.graph().front(), bodyBlock, bodyBlock->getArguments());
   rewriter.restoreInsertionPoint(restoreTask);
   // Create a SPNBatchWrite for the result produced by the body.
-  auto output = rewriter.create<low::SPNBatchWrite>(op.getLoc(), resultType, ValueRange{body.getResult(0)});
-  // Insert SPNReturns as terminators in the Taks and Kernel.
+  auto output = rewriter.create<low::SPNBatchCollect>(op.getLoc(), resultType, ValueRange{body.getResult(0)});
+  // Insert SPNReturns as terminators in the Tasks and Kernel.
   rewriter.create<low::SPNReturn>(op->getLoc(), ValueRange{output});
   rewriter.restoreInsertionPoint(restoreKernel);
   rewriter.create<low::SPNReturn>(op.getLoc(), task.getResult(0));
