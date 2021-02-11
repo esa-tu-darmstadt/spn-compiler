@@ -5,8 +5,6 @@
 
 #include "SPN/Analysis/SLP/SLPTree.h"
 
-#include <algorithm>
-
 using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::slp;
@@ -66,7 +64,7 @@ void SLPTree::buildGraph(std::vector<Operation*> const& operations, node_t const
         }
       }
       for (auto& operandNode : operandsOf.at(currentNode)) {
-        buildGraph(operandNode->getLastOperations(), currentNode);
+        buildGraph(operandNode->getLastOperations(), operandNode);
       }
     }
   }

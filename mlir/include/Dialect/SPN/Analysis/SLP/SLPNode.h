@@ -41,7 +41,8 @@ namespace mlir {
       private:
 
         /// Stores lanes as lists of operations. An inner vector (i.e. a lane) only contains more than one operation
-        /// if this node is a multinode.
+        /// if this node is a multinode. Operations with smaller indices inside a lane are executed "after" the higher
+        /// ones in the source code.
         std::vector<std::vector<Operation*>> lanes;
 
       };

@@ -5,8 +5,6 @@
 
 #include "SPN/Analysis/SLP/SLPNode.h"
 
-#include <iostream>
-
 using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::slp;

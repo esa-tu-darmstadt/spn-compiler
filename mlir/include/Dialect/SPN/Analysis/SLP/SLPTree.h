@@ -112,7 +112,7 @@ namespace mlir {
         /// For debugging purposes.
         static void printSubgraph(std::vector<Operation*> const& operations) {
           std::set<Operation*> nodes;
-          std::vector<std::pair<Operation*, Operation*>> edges;
+          std::vector<std::tuple<Operation*, Operation*, size_t>> edges;
 
           std::stack<Operation*> worklist;
           for (auto& op : operations) {
@@ -126,9 +126,10 @@ namespace mlir {
 
             if (nodes.find(op) == nodes.end()) {
               nodes.insert(op);
-              for (auto operand : op->getOperands()) {
+              for (size_t i = 0; i < op->getNumOperands(); ++i) {
+                auto const& operand = op->getOperand(i);
                 if (operand.getDefiningOp() != nullptr) {
-                  edges.emplace_back(std::make_pair(op, operand.getDefiningOp()));
+                  edges.emplace_back(std::make_tuple(op, operand.getDefiningOp(), i));
                   worklist.push(operand.getDefiningOp());
                 }
               }
@@ -142,7 +143,8 @@ namespace mlir {
             llvm::errs() << "node_" << op << "[label=\"" << op->getName().getStringRef() << "\\n" << op << "\"];\n";
           }
           for (auto& edge : edges) {
-            llvm::errs() << "node_" << edge.first << " -> node_" << edge.second << ";\n";
+            llvm::errs() << "node_" << std::get<0>(edge) << " -> node_" << std::get<1>(edge) << "[label=\""
+                         << std::get<2>(edge) << "\"];\n";
           }
           llvm::errs() << "}\n";
         }
