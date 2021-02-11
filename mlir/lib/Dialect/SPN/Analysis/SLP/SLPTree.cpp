@@ -99,7 +99,9 @@ std::vector<std::vector<Operation*>> SLPTree::reorderOperands(node_t const& mult
     // Look for a matching candidate
     for (size_t i = 0; i < numOperands; ++i) {
       // Skip if we can't vectorize
+      // TODO: here might also be a good place to start looking for variable-width
       if (mode.at(lane - 1).at(i) == FAILED) {
+        finalOrder.at(lane).emplace_back(nullptr);
         mode.at(lane).emplace_back(FAILED);
         continue;
       }
@@ -116,6 +118,15 @@ std::vector<std::vector<Operation*>> SLPTree::reorderOperands(node_t const& mult
         mode.at(lane).emplace_back(bestResult.second);
       }
 
+    }
+    // Distribute remaining candidates in case we encountered a FAILED.
+    for (auto* candidate : candidates) {
+      for (size_t i = 0; i < numOperands; ++i) {
+        if (finalOrder.at(lane).at(i) == nullptr) {
+          finalOrder.at(lane).at(i) = candidate;
+          break;
+        }
+      }
     }
   }
   return finalOrder;
