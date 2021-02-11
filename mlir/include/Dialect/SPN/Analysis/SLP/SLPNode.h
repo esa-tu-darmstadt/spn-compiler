@@ -22,7 +22,8 @@ namespace mlir {
 
         void addOperationToLane(Operation* operation, size_t const& lane);
         std::vector<Operation*> getLastOperations() const;
-        Operation* getOperation(size_t lane, size_t index);
+        Operation* getOperation(size_t lane, size_t index) const;
+        void setOperation(size_t lane, size_t index, Operation* operation);
 
         bool isMultiNode() const;
         bool areRootOfNode(std::vector<Operation*> const& operations) const;

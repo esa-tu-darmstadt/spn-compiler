@@ -29,8 +29,12 @@ std::vector<Operation*> SLPNode::getLastOperations() const {
   return lastOperations;
 }
 
-Operation* SLPNode::getOperation(size_t lane, size_t index) {
+Operation* SLPNode::getOperation(size_t lane, size_t index) const {
   return lanes.at(lane).at(index);
+}
+
+void SLPNode::setOperation(size_t lane, size_t index, Operation* operation) {
+  lanes.at(lane).at(index) = operation;
 }
 
 bool SLPNode::isMultiNode() const {

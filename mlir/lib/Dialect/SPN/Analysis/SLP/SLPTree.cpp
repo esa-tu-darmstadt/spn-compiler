@@ -60,7 +60,11 @@ void SLPTree::buildGraph(std::vector<Operation*> const& operations, node_t const
     // B. Normal Mode: Finished building multi-node
     if (currentNode->isMultiNode() && currentNode->areRootOfNode(operations)) {
       auto const& order = reorderOperands(currentNode);
-      // TODO: reorder based on reordering results
+      for (size_t operandIndex = 0; operandIndex < operandsOf.at(currentNode).size(); ++operandIndex) {
+        for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
+          operandsOf.at(currentNode).at(operandIndex)->setOperation(lane, 0, order.at(lane).at(operandIndex));
+        }
+      }
       for (auto& operandNode : operandsOf.at(currentNode)) {
         buildGraph(operandNode->getLastOperations(), currentNode);
       }
