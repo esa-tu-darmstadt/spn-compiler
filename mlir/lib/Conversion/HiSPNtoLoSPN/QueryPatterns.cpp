@@ -16,13 +16,14 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
   // the second dimension equal to the number of features inside a single sample.
   // It produces a single 1D tensor with batchSize (dynamic for size > 1) many elements.
   //
-  auto compType = typeConverter->convertType(high::ProbabilityType::get(rewriter.getContext()));
+  // The result of a JointQuery is converted to log before returning. Currently, F64 is always used to
+  // represent the log-result.
+  auto compType = rewriter.getF64Type();
   auto dynamicBatchSize = (op.getBatchSize() == 1) ? 1 : -1;
   // 1 x numFeatures x inputType for batchSize == 1, ? x numFeatures x inputType else.
   auto inputType = RankedTensorType::get({dynamicBatchSize, op.getNumFeatures()}, op.getFeatureDataType());
   // 1 x compType for batchSize == 1, ? x compType else.
-  auto resultType = RankedTensorType::get({dynamicBatchSize},
-                                          compType);
+  auto resultType = RankedTensorType::get({dynamicBatchSize}, compType);
   // Create the function type of the kernel.
   auto kernelType = FunctionType::get(rewriter.getContext(), TypeRange{inputType}, TypeRange{resultType});
   auto kernel = rewriter.create<FuncOp>(op.getLoc(), op.kernelName(), kernelType);

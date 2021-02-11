@@ -115,9 +115,25 @@ LogicalResult GaussianNodeLowering::matchAndRewriteChecked(high::GaussianNode op
   return success();
 }
 
+namespace {
+
+  bool isLogType(Type type) {
+    // TODO: Perform an actual check as soon as we support a type representing computation in log-space.
+    return false;
+  }
+
+}
+
 LogicalResult RootNodeLowering::matchAndRewriteChecked(high::RootNode op,
                                                        ArrayRef<Value> operands,
                                                        ConversionPatternRewriter& rewriter) const {
-  rewriter.replaceOpWithNewOp<low::SPNResult>(op, operands);
+  assert(operands.size() == 1 && "Expecting only a single result for a JointQuery");
+  Value result = operands[0];
+  if (!isLogType(result.getType())) {
+    // Insert a conversion to log before returning the result.
+    // Currently always uses F64 type to represent log results.
+    result = rewriter.create<low::SPNLog>(op->getLoc(), rewriter.getF64Type(), result);
+  }
+  rewriter.replaceOpWithNewOp<low::SPNResult>(op, result);
   return success();
 }

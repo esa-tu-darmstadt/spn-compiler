@@ -92,6 +92,16 @@ def SPNConstant : LoSPNBodyOp<"constant", [ConstantLike, NoSideEffect]> {
     let hasFolder = 1;
 }
 
+def SPNLog : LoSPNBodyOp<"log", [NoSideEffect]> {
+
+    let summary = "Convert the result of the computation to log";
+
+    let arguments = (ins LoSPNComputeType:$input);
+
+    let results = (outs F64:$logResult);
+
+}
+
 def SPNMul : LoSPNBodyOp<"mul", [NoSideEffect, Commutative, SameOperandsAndResultType]> {
 
     let summary = "Multiplication of two values";
