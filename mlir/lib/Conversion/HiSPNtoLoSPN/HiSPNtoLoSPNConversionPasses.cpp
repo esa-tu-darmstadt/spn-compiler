@@ -45,6 +45,7 @@ void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
 
   target.addLegalDialect<low::LoSPNDialect>();
   target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
+  target.addLegalOp<FuncOp>();
 
   target.addIllegalDialect<high::HiSPNDialect>();
 

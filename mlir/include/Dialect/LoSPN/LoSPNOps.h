@@ -13,6 +13,7 @@
 #include "LoSPN/LoSPNInterfaces.h"
 #include "mlir/IR/FunctionSupport.h"
 #include "mlir/IR/SymbolTable.h"
+#include "mlir/IR/BuiltinOps.h"
 
 #define GET_OP_CLASSES
 #include "LoSPN/LoSPNOps.h.inc"

@@ -25,7 +25,7 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
                                           compType);
   // Create the function type of the kernel.
   auto kernelType = FunctionType::get(rewriter.getContext(), TypeRange{inputType}, TypeRange{resultType});
-  auto kernel = rewriter.create<low::SPNKernel>(op.getLoc(), op.kernelName(), kernelType);
+  auto kernel = rewriter.create<FuncOp>(op.getLoc(), op.kernelName(), kernelType);
   auto kernelBlock = kernel.addEntryBlock();
   rewriter.setInsertionPointToStart(kernelBlock);
   // Create a single task inside the kernel, taking the same arguments and producing the same
