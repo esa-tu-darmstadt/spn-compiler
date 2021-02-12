@@ -11,3 +11,7 @@ set(LLVM_TARGET_DEFINITIONS LoSPNInterfaces.td)
 mlir_tablegen(LoSPNInterfaces.h.inc -gen-op-interface-decls -name LoSPN)
 mlir_tablegen(LoSPNInterfaces.cpp.inc -gen-op-interface-defs -name LoSPN)
 add_public_tablegen_target(MLIRLoSPNInterfacesIncGen)
+
+set(LLVM_TARGET_DEFINITIONS LoSPNPasses.td)
+mlir_tablegen(LoSPNPasses.h.inc -gen-pass-decls -name LoSPN)
+add_public_tablegen_target(MLIRLoSPNPassesIncGen)

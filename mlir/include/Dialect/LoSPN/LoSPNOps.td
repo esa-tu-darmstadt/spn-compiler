@@ -17,7 +17,8 @@ def SPNTask : LoSPN_Op<"task", [HasParent<"FuncOp">]> {
         the Task represents what is necessary to compute the result for all samples in the input tensor.
     }];
 
-    let arguments = (ins Variadic<RankedTensorOf<[LoSPNInputType, LoSPNComputeType]>>:$inputs,
+    let arguments = (ins Variadic<AnyTypeOf<[RankedTensorOf<[LoSPNInputType, LoSPNComputeType]>,
+                                                MemRefOf<[LoSPNInputType, LoSPNComputeType]>]>>:$inputs,
                         UI32Attr:$batchSize);
 
     let results = (outs Variadic<RankedTensorOf<[LoSPNComputeType]>>:$results);
@@ -57,7 +58,7 @@ def SPNBatchRead : LoSPN_Op<"batch_read", [HasParent<"SPNTask">]> {
 
     let summary = "Read a particular index from each sample in a batch represented by  a memref";
 
-    let arguments = (ins StaticShapeMemRefOf<[LoSPNInputType, LoSPNComputeType]>:$batchMem,
+    let arguments = (ins MemRefOf<[LoSPNInputType, LoSPNComputeType]>:$batchMem,
                         UI32Attr:$sampleIndex);
 
     let results = (outs AnyTypeOf<[LoSPNInputType, LoSPNComputeType]>:$result);
@@ -70,7 +71,7 @@ def SPNBatchCollect : LoSPN_Op<"batch_collect", [HasParent<"SPNTask">, Terminato
 
     let arguments = (ins Variadic<LoSPNComputeType>:$results);
 
-    let results = (outs RankedTensorOf<[LoSPNComputeType]>:$tensor);
+    let results = (outs Variadic<RankedTensorOf<[LoSPNComputeType]>>:$tensors);
 
 }
 
@@ -79,7 +80,7 @@ def SPNBatchWrite : LoSPN_Op<"batch_write", [HasParent<"SPNTask">]> {
     let summary = "Write one or multiple results for each sample in a batch";
 
     let arguments = (ins Variadic<LoSPNComputeType>:$results,
-                        StaticShapeMemRefOf<[LoSPNComputeType]>:$batchMem);
+                        MemRefOf<[LoSPNComputeType]>:$batchMem);
 }
 
 def SPNReturn : LoSPN_Op<"return", [Terminator]> {
