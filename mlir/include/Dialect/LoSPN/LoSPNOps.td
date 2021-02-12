@@ -64,7 +64,7 @@ def SPNBatchRead : LoSPN_Op<"batch_read", [HasParent<"SPNTask">]> {
 
 }
 
-def SPNBatchCollect : LoSPN_Op<"batch_collect", [HasParent<"SPNTask">]> {
+def SPNBatchCollect : LoSPN_Op<"batch_collect", [HasParent<"SPNTask">, Terminator]> {
 
     let summary = "Collect one or multiple results for each sample in a batch";
 
@@ -92,7 +92,7 @@ def SPNReturn : LoSPN_Op<"return", [Terminator]> {
 class LoSPNBodyOp<string mnemonic, list<OpTrait> traits = []> : LoSPN_Op<mnemonic,
     !listconcat(traits, [HasParent<"SPNBody">])>;
 
-def SPNResult : LoSPNBodyOp<"result", [Terminator]> {
+def SPNYield : LoSPNBodyOp<"yield", [Terminator]> {
 
     let summary = "Holds the result computed by the Body";
 

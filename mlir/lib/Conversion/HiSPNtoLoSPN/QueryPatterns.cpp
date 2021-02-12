@@ -60,10 +60,8 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
   assert(spnDAG && "Expecting the first operation to be the SPN DAG");
   rewriter.mergeBlocks(&spnDAG.graph().front(), bodyBlock, bodyBlock->getArguments());
   rewriter.restoreInsertionPoint(restoreTask);
-  // Create a SPNBatchWrite for the result produced by the body.
+  // Create a SPNBatchCollect for the result produced by the body, terminating the task.
   auto output = rewriter.create<low::SPNBatchCollect>(op.getLoc(), resultType, ValueRange{body.getResult(0)});
-  // Insert SPNReturns as terminators in the Tasks and Kernel.
-  rewriter.create<low::SPNReturn>(op->getLoc(), ValueRange{output});
   rewriter.restoreInsertionPoint(restoreKernel);
   rewriter.create<low::SPNReturn>(op.getLoc(), task.getResult(0));
   // Erase the original JointQuery that is now represented by the SPNKernel.
