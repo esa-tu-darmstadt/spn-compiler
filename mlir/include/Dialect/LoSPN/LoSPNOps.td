@@ -7,7 +7,41 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "mlir/IR/RegionKindInterface.td"
 
-def SPNTask : LoSPN_Op<"task", [HasParent<"FuncOp">]> {
+def SPNKernel : LoSPN_Op<"kernel", [FunctionLike, Symbol, IsolatedFromAbove]> {
+
+    let summary = "The Kernel holds the tasks necessary to process an SPN query.";
+
+    let description = [{
+        Represents the whole of the computations that need to happen to realize a query.
+        The computation itself is represented by one or multiple Tasks associated with the Kernel.
+    }];
+
+    // TODO: Rename kernelType to type?
+    let arguments = (ins TypeAttr:$kernelType, StrAttr:$kernelName);
+
+    let results = (outs);
+
+    let regions = (region AnyRegion:$body);
+
+    let builders = [
+        OpBuilderDAG<(ins "StringRef":$name, "FunctionType":$type)>
+    ];
+
+    let extraClassDeclaration = [{
+      private:
+        // This trait needs access to the hooks defined below.
+        friend class OpTrait::FunctionLike<SPNKernel>;
+
+        /// Returns the number of arguments. Hook for OpTrait::FunctionLike.
+        unsigned getNumFuncArguments() { return getType().getNumInputs(); }
+
+        /// Returns the number of results. Hook for OpTrait::FunctionLike.
+        unsigned getNumFuncResults() { return getType().getNumResults(); }
+
+    }];
+}
+
+def SPNTask : LoSPN_Op<"task", [HasParent<"SPNKernel">]> {
 
     let summary = "The task holds (part of) the computation necessary for SPN query processing";
 

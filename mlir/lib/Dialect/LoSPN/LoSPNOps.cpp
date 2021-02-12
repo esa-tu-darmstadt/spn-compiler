@@ -12,6 +12,23 @@
 #include "mlir/IR/PatternMatch.h"
 
 //===----------------------------------------------------------------------===//
+// SPNKernel
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::low::SPNKernel::build(::mlir::OpBuilder& odsBuilder,
+                                      ::mlir::OperationState& odsState,
+                                      StringRef name,
+                                      FunctionType type) {
+  auto nameAttr = odsBuilder.getStringAttr(name);
+  auto typeAttr = TypeAttr::get(type);
+  odsState.addAttribute(SymbolTable::getSymbolAttrName(), nameAttr);
+  odsState.addAttribute(getTypeAttrName(), typeAttr);
+  odsState.addAttribute("kernelType", typeAttr);
+  odsState.addAttribute("kernelName", nameAttr);
+  odsState.addRegion();
+}
+
+//===----------------------------------------------------------------------===//
 // SPNConstant
 //===----------------------------------------------------------------------===//
 
