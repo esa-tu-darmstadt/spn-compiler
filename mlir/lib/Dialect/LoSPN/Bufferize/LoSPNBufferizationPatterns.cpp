@@ -81,3 +81,68 @@ mlir::LogicalResult mlir::spn::low::BatchExtractBufferize::matchAndRewrite(mlir:
   rewriter.replaceOpWithNewOp<low::SPNBatchRead>(op, op.getType(), operands[0], op.sampleIndex());
   return success();
 }
+
+mlir::LogicalResult mlir::spn::low::KernelBufferize::matchAndRewrite(mlir::spn::low::SPNKernel op,
+                                                                     llvm::ArrayRef<mlir::Value> operands,
+                                                                     mlir::ConversionPatternRewriter& rewriter) const {
+  //
+  // Bufferize an SPNKernel. The bufferization does not only convert the
+  // types of the inputs & outputs, but also transforms all outputs into
+  // out-args, i.e., the caller needs to pass in a buffer and the SPNKernel
+  // and its respective sub-tasks store the result into these buffers.
+  assert(operands.empty() && "SPNKernel should not receive any operands");
+  SmallVector<Type> newInputTypes;
+  unsigned numInputs = 0;
+  // Convert the input and output types.
+  for (auto inTy : op.getType().getInputs()) {
+    newInputTypes.push_back(typeConverter->convertType(inTy));
+    ++numInputs;
+  }
+  for (auto outTy : op.getType().getResults()) {
+    newInputTypes.push_back(typeConverter->convertType(outTy));
+  }
+  // Construct a new kernel with a fucntion type that does produce any results, but
+  // has the same inputs and additional out-args for all results.
+  auto newKernelType = FunctionType::get(rewriter.getContext(), newInputTypes, TypeRange{});
+  auto newKernel = rewriter.create<low::SPNKernel>(op->getLoc(), op.kernelName(), newKernelType);
+  auto newKernelBlock = newKernel.addEntryBlock();
+  rewriter.setInsertionPointToStart(newKernelBlock);
+  SmallVector<Value, 5> inArgs;
+  SmallVector<Value, 5> outArgs;
+  unsigned count = 0;
+  // Distinguish between the original input arguments and the
+  // newly introduced out-args.
+  for (auto arg : newKernelBlock->getArguments()) {
+    if (count < numInputs) {
+      inArgs.push_back(arg);
+    } else {
+      outArgs.push_back(arg);
+    }
+    ++count;
+  }
+  // Merge the block of the original Kernel into the new one's body.
+  rewriter.mergeBlocks(&op.body().front(), newKernelBlock, inArgs);
+  // Walk the returns of the new body and insert copy from the result value
+  // to the newly created out-args.
+  newKernelBlock->walk([&](SPNReturn ret) {
+    SmallVector<Value, 2> scalarReturns;
+    unsigned count = 0;
+    for (auto retVal : ret->getOperands()) {
+      if (!typeConverter->isLegal(retVal.getType())) {
+        retVal = typeConverter->materializeTargetConversion(rewriter, ret.getLoc(),
+                                                            typeConverter->convertType(retVal.getType()),
+                                                            retVal);
+      }
+      if (retVal.getType().isa<MemRefType>()) {
+        rewriter.create<low::SPNCopy>(ret.getLoc(), retVal, outArgs[count++]);
+      } else {
+        scalarReturns.push_back(retVal);
+      }
+    }
+    rewriter.create<low::SPNReturn>(op->getLoc(), scalarReturns);
+    rewriter.eraseOp(ret);
+  });
+  // Delete the old SPNKernel.
+  rewriter.eraseOp(op);
+  return success();
+}

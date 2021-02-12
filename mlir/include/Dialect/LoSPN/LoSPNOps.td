@@ -117,6 +117,17 @@ def SPNBatchWrite : LoSPN_Op<"batch_write", [HasParent<"SPNTask">]> {
                         MemRefOf<[LoSPNComputeType]>:$batchMem);
 }
 
+def SPNCopy : LoSPN_Op<"copy", []> {
+
+    let summary = "Copy content of one memref to another memref";
+
+    /// TODO Detailed description
+
+    let arguments = (ins MemRefOf<[LoSPNComputeType]>:$source,
+                        MemRefOf<[LoSPNComputeType]>:$target);
+
+}
+
 def SPNReturn : LoSPN_Op<"return", [Terminator]> {
 
     let summary = "Return one or multiple results from a Task or Kernel";

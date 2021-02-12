@@ -15,6 +15,15 @@ namespace mlir {
   namespace spn {
     namespace low {
 
+      struct KernelBufferize : OpConversionPattern<SPNKernel> {
+
+        using OpConversionPattern<SPNKernel>::OpConversionPattern;
+
+        LogicalResult matchAndRewrite(SPNKernel op,
+                                      ArrayRef<Value> operands,
+                                      ConversionPatternRewriter& rewriter) const override;
+      };
+
       struct TaskBufferize : OpConversionPattern<SPNTask> {
 
         using OpConversionPattern<SPNTask>::OpConversionPattern;
@@ -36,7 +45,7 @@ namespace mlir {
 
       static void populateLoSPNBufferizationPatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                      TypeConverter& typeConverter) {
-        patterns.insert<TaskBufferize>(typeConverter, context);
+        patterns.insert<KernelBufferize, TaskBufferize>(typeConverter, context);
         patterns.insert<BatchExtractBufferize>(typeConverter, context);
       }
 

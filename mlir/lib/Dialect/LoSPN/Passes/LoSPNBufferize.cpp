@@ -31,19 +31,26 @@ namespace {
       target.addLegalOp<ModuleOp, ModuleTerminatorOp, FuncOp>();
 
       target.addIllegalOp<SPNBatchExtract, SPNBatchCollect>();
-      target.addDynamicallyLegalOp<SPNTask>([](SPNTask op) {
+      BufferizeTypeConverter typeConverter;
+      target.addDynamicallyLegalOp<SPNTask>([&](SPNTask op) {
         if (!op.results().empty()) {
           return false;
         }
         for (auto in : op.inputs()) {
-          if (!in.getType().isa<MemRefType>()) {
+          if (!typeConverter.isLegal(in.getType())) {
             return false;
           }
         }
         return true;
       });
-
-      BufferizeTypeConverter typeConverter;
+      target.addDynamicallyLegalOp<SPNKernel>([&](SPNKernel op) {
+        return typeConverter.isSignatureLegal(op.getType());
+      });
+      target.addDynamicallyLegalOp<SPNReturn>([&](SPNReturn op) {
+        return std::all_of(op->result_begin(), op->result_end(), [&](OpResult res) {
+          return typeConverter.isLegal(res.getType()) && !res.getType().isa<MemRefType>();
+        });
+      });
 
       OwningRewritePatternList patterns;
       mlir::spn::low::populateLoSPNBufferizationPatterns(patterns, &getContext(), typeConverter);
@@ -58,6 +65,6 @@ namespace {
 
 }
 
-std::unique_ptr<OperationPass<FuncOp>> mlir::spn::low::createLoSPNBufferizePass() {
+std::unique_ptr<OperationPass<ModuleOp>> mlir::spn::low::createLoSPNBufferizePass() {
   return std::make_unique<LoSPNBufferize>();
 }

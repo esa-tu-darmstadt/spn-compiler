@@ -12,7 +12,7 @@ namespace mlir {
   namespace spn {
     namespace low {
 
-      std::unique_ptr<OperationPass<FuncOp>> createLoSPNBufferizePass();
+      std::unique_ptr<OperationPass<ModuleOp>> createLoSPNBufferizePass();
 
 #define GEN_PASS_REGISTRATION
 #include "LoSPN/LoSPNPasses.h.inc"
