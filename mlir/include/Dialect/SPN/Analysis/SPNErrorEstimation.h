@@ -21,20 +21,20 @@ using bucket_t = std::tuple<int, int, double>;
 namespace mlir {
   namespace spn {
 
-    enum class ERRORMODEL { EM_FIXED_POINT, EM_FLOATING_POINT };
+    enum class data_representation { EM_FIXED_POINT, EM_FLOATING_POINT };
 
     ///
-    /// Class to walk over a (sub-)graph, estimating error margins in the process.
-    /// The user provides an error threshold and ... ToDo: Description
+    /// Class to walk over a (sub-)graph, estimating error margins in the process and yielding a suitable data type.
+    /// The needed parameters (error margin, error model, data representation) will be extracted from the SPN query.
+    /// This allows this class to be constructed with only a single parameter, the corresponding operation pointer.
+    /// Hence, it can be used as an analysis.
+    /// Note: Currently, the data representation is fixed to: floating point.
     class SPNErrorEstimation {
 
     public:
 
-      /// Constructor.
+      /// Constructor. Note that this will be primarily used as an analysis.
       /// \param root Operation pointer which will be treated as SPN-graph root.
-      /// \param err_model ERRORMODEL which will determine the considered error model.
-      /// \param err_relative Boolean which indicates if relative (true) or absolute (false) error will be considered.
-      /// \param err_margin Double which will determine the maximum error-bound.
       explicit SPNErrorEstimation(Operation* root);
 
       /// Retrieve the smallest type of the corresponding error model which can represent the SPN result within the
@@ -97,10 +97,10 @@ namespace mlir {
       Operation* rootNode;
 
       /// User-requested error model.
-      ERRORMODEL error_model;
+      enum data_representation est_data_representation;
 
-      /// User-requested error calculation (true relative error / false: absolute error).
-      enum error_model relative_error;
+      /// User-requested error model / calculation.
+      enum error_model est_error_model;
 
       /// User-requested maximum error margin.
       double error_margin;
