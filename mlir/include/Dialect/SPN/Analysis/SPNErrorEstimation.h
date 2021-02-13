@@ -3,8 +3,8 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_ANALYSIS_SPNERRORESTIMATION_H
-#define SPNC_COMPILER_SRC_CODEGEN_MLIR_ANALYSIS_SPNERRORESTIMATION_H
+#ifndef SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_SPN_ANALYSIS_SPNERRORESTIMATION_H
+#define SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_SPN_ANALYSIS_SPNERRORESTIMATION_H
 
 #include <map>
 #include <memory>
@@ -16,14 +16,11 @@
 
 typedef std::shared_ptr<void> arg_t;
 
-using bucket_t = std::tuple<int, int, double>;
-
 namespace mlir {
   namespace spn {
 
     enum class data_representation { EM_FIXED_POINT, EM_FLOATING_POINT };
 
-    ///
     /// Class to walk over a (sub-)graph, estimating error margins in the process and yielding a suitable data type.
     /// The needed parameters (error margin, error model, data representation) will be extracted from the SPN query.
     /// This allows this class to be constructed with only a single parameter, the corresponding operation pointer.
@@ -164,4 +161,4 @@ namespace mlir {
 
 }
 
-#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_ANALYSIS_SPNERRORESTIMATION_H
+#endif //SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_SPN_ANALYSIS_SPNERRORESTIMATION_H
