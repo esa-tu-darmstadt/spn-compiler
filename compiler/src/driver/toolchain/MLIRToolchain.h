@@ -6,9 +6,10 @@
 #ifndef SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_MLIRTOOLCHAIN_H
 #define SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_MLIRTOOLCHAIN_H
 
-#include <mlir/IR/Module.h>
+#include "mlir/IR/BuiltinOps.h"
 #include <driver/Job.h>
 #include <driver/Options.h>
+#include <llvm/Target/TargetMachine.h>
 
 using namespace spnc::interface;
 using namespace mlir;
@@ -24,8 +25,18 @@ namespace spnc {
     /// \param inputFile Input file.
     /// \param config Compilation option configuration.
     /// \return Job containing all necessary actions.
-    static std::unique_ptr<Job<Kernel>> constructJobFromFile(const std::string& inputFile,
-                                                             const Configuration& config);
+    static std::unique_ptr<Job < Kernel>> constructJobFromFile(
+    const std::string& inputFile,
+    const Configuration& config
+    );
+
+  private:
+
+    static void initializeMLIRContext(mlir::MLIRContext& ctx);
+
+    static std::shared_ptr<mlir::ScopedDiagnosticHandler> setupDiagnosticHandler(mlir::MLIRContext* ctx);
+
+    static std::shared_ptr<llvm::TargetMachine> createTargetMachine(bool cpuVectorize);
 
   };
 

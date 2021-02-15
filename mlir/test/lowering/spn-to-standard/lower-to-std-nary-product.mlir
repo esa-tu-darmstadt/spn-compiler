@@ -27,11 +27,17 @@ module {
 // CHECK-DAG: %[[#INPUT4:]] = load %arg[[#ARG1]]
 // CHECK-DAG: %[[#INPUT5:]] = load %arg[[#ARG1]]
 
-// CHECK-DAG: [[HIST1:%[0-9]+]] = "spn.histogram"(%[[#INPUT1]])
-// CHECK-DAG: [[HIST2:%[0-9]+]] = "spn.histogram"(%[[#INPUT2]])
-// CHECK-DAG: [[HIST3:%[0-9]+]] = "spn.histogram"(%[[#INPUT3]])
-// CHECK-DAG: [[HIST4:%[0-9]+]] = "spn.histogram"(%[[#INPUT4]])
-// CHECK-DAG: [[HIST5:%[0-9]+]] = "spn.histogram"(%[[#INPUT5]])
+// CHECK-DAG: %[[#CAST1:]] = index_cast %[[#INPUT1]] : i32 to index
+// CHECK-DAG: %[[#CAST2:]] = index_cast %[[#INPUT2]] : i32 to index
+// CHECK-DAG: %[[#CAST3:]] = index_cast %[[#INPUT3]] : i32 to index
+// CHECK-DAG: %[[#CAST4:]] = index_cast %[[#INPUT4]] : i32 to index
+// CHECK-DAG: %[[#CAST5:]] = index_cast %[[#INPUT5]] : i32 to index
+
+// CHECK-DAG: [[HIST1:%[0-9]+]] = load %{{[0-9]+}}[%[[#CAST1]]]
+// CHECK-DAG: [[HIST2:%[0-9]+]] = load %{{[0-9]+}}[%[[#CAST2]]]
+// CHECK-DAG: [[HIST3:%[0-9]+]] = load %{{[0-9]+}}[%[[#CAST3]]]
+// CHECK-DAG: [[HIST4:%[0-9]+]] = load %{{[0-9]+}}[%[[#CAST4]]]
+// CHECK-DAG: [[HIST5:%[0-9]+]] = load %{{[0-9]+}}[%[[#CAST5]]]
 
 // CHECK-DAG: [[PRODUCT_0:%[0-9]+]] = mulf
 // CHECK-DAG: [[PRODUCT_1:%[0-9]+]] = mulf

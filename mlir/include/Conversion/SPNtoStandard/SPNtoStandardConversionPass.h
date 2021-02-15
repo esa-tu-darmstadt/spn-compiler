@@ -13,15 +13,23 @@ namespace mlir {
 
     ///
     /// Pass performing (partial)lowering from combination of SPN to Standard dialect.
-    struct SPNtoStandardConversionPass : public PassWrapper<SPNtoStandardConversionPass, OperationPass < ModuleOp>> {
-    protected:
-    void runOnOperation()
-    override;
-  };
+    struct SPNtoStandardConversionPass : public PassWrapper<SPNtoStandardConversionPass, OperationPass<ModuleOp>> {
 
-  /// Instantiate the SPNtoStandardConversionPass.
-  /// \return Pass instance.
-  std::unique_ptr<Pass> createSPNtoStandardConversionPass();
+    public:
+
+      explicit SPNtoStandardConversionPass(bool cpuVectorize);
+
+    protected:
+      void runOnOperation() override;
+
+    private:
+
+      bool vectorize;
+    };
+
+    /// Instantiate the SPNtoStandardConversionPass.
+    /// \return Pass instance.
+    std::unique_ptr<Pass> createSPNtoStandardConversionPass(bool cpuVectorize);
 
 }
 }

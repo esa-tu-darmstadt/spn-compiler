@@ -6,7 +6,6 @@ set(LIBS
         MLIRSPN
         MLIROptLib
         MLIRSPNtoStandardTransforms
-        MLIRSPNtoLLVMTransforms
         MLIRIR
         MLIRParser
         MLIRPass

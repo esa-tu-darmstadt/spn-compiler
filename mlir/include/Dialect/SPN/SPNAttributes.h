@@ -9,7 +9,8 @@
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/AttributeSupport.h"
 #include "mlir/IR/Identifier.h"
-#include "mlir/IR/StandardTypes.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "SPN/SPNAttributes.h.inc"
 
 #endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_INCLUDE_SPN_SPNATTRIBUTES_H
