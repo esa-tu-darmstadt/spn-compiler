@@ -8,6 +8,7 @@
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/Math/IR/Math.h"
 #include "../TargetInformation.h"
 #include "mlir/Rewrite/PatternApplicator.h"
 #include "SPNtoStandard/Vectorization/BatchVectorizationPatterns.h"
@@ -230,7 +231,7 @@ mlir::LogicalResult mlir::spn::BatchVectorizeJointLowering::matchAndRewrite(mlir
   for (auto& o : op.getRegion().front().getOperations()) {
     if (auto retOp = dyn_cast<mlir::spn::ReturnOp>(o)) {
       // Do not copy over the SPN ReturnOp, but replace it with log + transfer write (store).
-      result = rewriter.create<mlir::LogOp>(op.getLoc(), vectorType, argMapper.lookup(retOp.retValue().front()));
+      result = rewriter.create<mlir::math::LogOp>(op.getLoc(), vectorType, argMapper.lookup(retOp.retValue().front()));
       rewriter.create<mlir::vector::TransferWriteOp>(op.getLoc(), result, (Value) storeArg,
                                                      ValueRange{vectorizedLoop.getInductionVar()});
     } else {
@@ -262,7 +263,7 @@ mlir::LogicalResult mlir::spn::BatchVectorizeJointLowering::matchAndRewrite(mlir
   rewriter.mergeBlockBefore(&op.getRegion().front(), scalarLoopBody.getTerminator(), blockArgsReplacement);
   // Apply logarithm to result before storing it
   rewriter.setInsertionPoint(scalarLoopBody.getTerminator());
-  auto logResult = rewriter.create<mlir::LogOp>(op.getLoc(), graphResult.retValue().front());
+  auto logResult = rewriter.create<mlir::math::LogOp>(op.getLoc(), graphResult.retValue().front());
   // Store the log-result to the output pointer.
   SmallVector<Value, 1> indices;
   indices.push_back(scalarLoop.getInductionVar());

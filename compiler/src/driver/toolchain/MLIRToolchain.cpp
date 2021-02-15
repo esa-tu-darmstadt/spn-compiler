@@ -77,15 +77,17 @@ std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::str
 }
 
 void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext& ctx) {
-  mlir::registerAllDialects(ctx.getDialectRegistry());
-  ctx.getDialectRegistry().insert<mlir::spn::high::HiSPNDialect>();
-  ctx.getDialectRegistry().insert<mlir::spn::low::LoSPNDialect>();
+  DialectRegistry registry;
+  mlir::registerAllDialects(registry);
+  registry.insert<mlir::spn::high::HiSPNDialect>();
+  registry.insert<mlir::spn::low::LoSPNDialect>();
   ctx.loadDialect<mlir::spn::high::HiSPNDialect>();
   ctx.loadDialect<mlir::spn::low::LoSPNDialect>();
   ctx.loadDialect<mlir::StandardOpsDialect>();
   ctx.loadDialect<mlir::scf::SCFDialect>();
   ctx.loadDialect<mlir::LLVM::LLVMDialect>();
   ctx.loadDialect<mlir::vector::VectorDialect>();
+  ctx.appendDialectRegistry(registry);
   for (auto* D : ctx.getLoadedDialects()) {
     SPDLOG_INFO("Loaded dialect: {}", D->getNamespace().str());
   }
