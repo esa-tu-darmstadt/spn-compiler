@@ -42,6 +42,9 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
   auto newTaskBlock = rewriter.createBlock(&newTask.body());
   SmallVector<Value, 2> inArgs;
   SmallVector<Value, 2> outArgs;
+  // Insert a first block argument corresponding to the batch index.
+  auto batchIndex = newTaskBlock->addArgument(rewriter.getIndexType());
+  inArgs.push_back(batchIndex);
   for (auto arg : llvm::enumerate(inputs)) {
     auto blockArg = newTaskBlock->addArgument(arg.value().getType());
     if (arg.index() < operands.size()) {
@@ -63,7 +66,7 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
       auto convertedType = typeConverter->convertType(std::get<1>(retVal).getType());
       auto memRef = std::get<2>(retVal);
       assert(convertedType == memRef.getType());
-      rewriter.create<low::SPNBatchWrite>(collect.getLoc(), scalarResult, memRef);
+      rewriter.create<low::SPNBatchWrite>(collect.getLoc(), scalarResult, memRef, batchIndex);
     }
     rewriter.create<low::SPNReturn>(collect->getLoc(), ValueRange{});
     rewriter.eraseOp(collect);
@@ -78,7 +81,9 @@ mlir::LogicalResult mlir::spn::low::BatchExtractBufferize::matchAndRewrite(mlir:
                                                                            llvm::ArrayRef<mlir::Value> operands,
                                                                            mlir::ConversionPatternRewriter& rewriter) const {
   assert(operands[0].getType().isa<MemRefType>());
-  rewriter.replaceOpWithNewOp<low::SPNBatchRead>(op, op.getType(), operands[0], op.sampleIndex());
+  assert(operands[1].getType().isa<IndexType>());
+  rewriter.replaceOpWithNewOp<low::SPNBatchRead>(op, op.getType(), operands[0],
+                                                 operands[1], op.sampleIndex());
   return success();
 }
 

@@ -35,16 +35,19 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
                                             kernelBlock->getArgument(0),
                                             op.getBatchSize());
   auto restoreKernel = rewriter.saveInsertionPoint();
-  auto taskBlock = rewriter.createBlock(&task.getRegion(), {}, TypeRange{inputType});
+  // The block of the task has another argument for the batch index as first argument.
+  auto taskBlock = rewriter.createBlock(&task.getRegion(), {},
+                                        TypeRange{rewriter.getIndexType(), inputType});
   rewriter.setInsertionPointToStart(taskBlock);
   //
   // Generate a SPNBatchIndexRead for every feature of the input sample.
-  auto inputArg = taskBlock->getArgument(0);
+  auto batchIndex = taskBlock->getArgument(0);
+  auto inputArg = taskBlock->getArgument(1);
   SmallVector<Value> inputValues;
   SmallVector<Type> inputTypes;
   for (unsigned i = 0; i < op.numFeatures(); ++i) {
     auto arg = rewriter.create<low::SPNBatchExtract>(op.getLoc(), op.getFeatureDataType(),
-                                                     inputArg, i);
+                                                     inputArg, batchIndex, i);
     inputValues.push_back(arg);
     inputTypes.push_back(arg.getType());
   }
@@ -61,7 +64,9 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
   rewriter.mergeBlocks(&spnDAG.graph().front(), bodyBlock, bodyBlock->getArguments());
   rewriter.restoreInsertionPoint(restoreTask);
   // Create a SPNBatchCollect for the result produced by the body, terminating the task.
-  auto output = rewriter.create<low::SPNBatchCollect>(op.getLoc(), resultType, ValueRange{body.getResult(0)});
+  auto output = rewriter.create<low::SPNBatchCollect>(op.getLoc(), resultType,
+                                                      ValueRange{body.getResult(0)},
+                                                      batchIndex);
   rewriter.restoreInsertionPoint(restoreKernel);
   rewriter.create<low::SPNReturn>(op.getLoc(), task.getResult(0));
   // Erase the original JointQuery that is now represented by the SPNKernel.
