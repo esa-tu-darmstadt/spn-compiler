@@ -44,58 +44,31 @@ mlir::LogicalResult mlir::spn::BatchTaskLowering::matchAndRewrite(mlir::spn::low
   auto loop = rewriter.create<scf::ForOp>(op.getLoc(), const0, ub, step);
   rewriter.create<ReturnOp>(op->getLoc());
   // Fill the loop
-  auto loopBlock = rewriter.createBlock(&loop.getLoopBody());
-  rewriter.setInsertionPointToStart(loopBlock);
-  BlockAndValueMapping batchRead;
-  op.body().front().walk([&](low::SPNBatchRead read) {
-    auto constIndex = rewriter.create<ConstantOp>(op->getLoc(), rewriter.getIndexAttr(read.sampleIndex()));
-    auto load = rewriter.create<LoadOp>(op.getLoc(), read.batchMem(),
-                                        ValueRange{loop.getInductionVar(), constIndex});
-    batchRead.map(read, load);
+  llvm::dbgs() << "Number of blocks in the loop body: " << loop.getLoopBody().getBlocks().size() << "\n";
+  //auto loopBlock = rewriter.createBlock(&loop.getLoopBody());
+  auto& loopBlock = loop.getLoopBody().front();
+  rewriter.setInsertionPointToStart(&loopBlock);
+  // Collect the values replacing the block values of old block inside the task.
+  // The first argument is the batch index, i.e., the loop induction var.
+  // The other arguments are the arguments of the entry block of this function.
+  SmallVector<Value, 5> blockReplacementArgs;
+  blockReplacementArgs.push_back(loop.getInductionVar());
+  for (auto bArg : taskBlock->getArguments()) {
+    blockReplacementArgs.push_back(bArg);
+  }
+  rewriter.mergeBlockBefore(&op.body().front(), loopBlock.getTerminator(), blockReplacementArgs);
+  loopBlock.walk([&rewriter](low::SPNReturn ret) {
+    assert(ret.returnValues().empty() && "Task return should be empty");
+    rewriter.eraseOp(ret);
   });
-  BlockAndValueMapping results;
-  op.body().front().walk([&](low::SPNBody body) {
-    assert(body->getOperands().size() == body.body().front().getNumArguments());
-    BlockAndValueMapping bodyArgs;
-    for (auto opArg : llvm::zip(body.getOperands(), body.body().front().getArguments())) {
-      bodyArgs.map(std::get<1>(opArg), batchRead.lookup(std::get<0>(opArg)));
-    }
-    for (auto& operation : body.body().front()) {
-      if (auto yield = dyn_cast<low::SPNYield>(operation)) {
-        for (auto resVal : llvm::zip(body.getResults(), yield.getOperands())) {
-          std::get<1>(resVal).dump();
-          bodyArgs.lookup(std::get<1>(resVal)).dump();
-          results.map(std::get<0>(resVal),
-                      bodyArgs.lookup(std::get<1>(resVal)));
-        }
-        continue;
-      }
-      rewriter.clone(operation, bodyArgs);
-    }
-    rewriter.eraseOp(body);
-  });
-  op.body().front().walk([&](low::SPNBatchWrite write) {
-    // TODO Handle case of multiple results written to same memref.
-    auto resVal = results.lookup(write.results().front());
-    resVal.getDefiningOp()->dump();
-    rewriter.create<StoreOp>(op.getLoc(), resVal, write.batchMem(), loop.getInductionVar());
-    rewriter.eraseOp(write);
-  });
+  rewriter.create<scf::YieldOp>(op->getLoc());
   // Insert a call to the newly created task function.
   rewriter.restoreInsertionPoint(restore);
   rewriter.replaceOpWithNewOp<mlir::CallOp>(op, taskFunc, operands);
   op->getParentOfType<ModuleOp>().dump();
-  llvm::dbgs() << "Uses empty? " << op->getUses().empty() << "\n";
-  for (auto& operation : op.body().front()) {
-    llvm::dbgs() << "Uses empty? " << operation.getName() << ": " << operation.getUses().empty() << "\n";
-    if (!operation.getUses().empty()) {
-      for (auto U : operation.getUsers()) {
-        llvm::dbgs() << U->getName() << "\n";
-      }
-    }
-  }
   return success();
 }
+
 mlir::LogicalResult mlir::spn::BodyLowering::matchAndRewrite(mlir::spn::low::SPNBody op,
                                                              llvm::ArrayRef<mlir::Value> operands,
                                                              mlir::ConversionPatternRewriter& rewriter) const {
@@ -112,9 +85,5 @@ mlir::LogicalResult mlir::spn::BodyLowering::matchAndRewrite(mlir::spn::low::SPN
   rewriter.mergeBlockBefore(&op.body().front(), op, operands);
   rewriter.replaceOp(op, resultValues);
   op->getParentOfType<ModuleOp>().dump();
-  llvm::dbgs() << "Uses empty? " << op->getUses().empty() << "\n";
-  for (auto U : op->getUsers()) {
-    U->dump();
-  }
   return success();
 }
