@@ -12,6 +12,7 @@
 #include <codegen/mlir/pipeline/SPNDialectPipeline.h>
 #include "codegen/mlir/conversion/SPNtoStandardConversion.h"
 #include "codegen/mlir/conversion/HiSPNtoLoSPNConversion.h"
+#include "codegen/mlir/conversion/LoSPNtoCPUConversion.h"
 #include "codegen/mlir/conversion/SPNtoLLVMConversion.h"
 #include "codegen/mlir/conversion/MLIRtoLLVMIRConversion.h"
 #include "codegen/mlir/analysis/CollectGraphStatistics.h"
@@ -58,7 +59,8 @@ std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::str
     spnPipelineResult = &joinAction;
   }
   auto& hispn2lospn = job->insertAction<HiSPNtoLoSPNConversion>(*spnPipelineResult, ctx, diagHandler);
-  auto& spn2llvm = job->insertAction<SPNtoLLVMConversion>(hispn2lospn, ctx, diagHandler);
+  auto& lospn2cpu = job->insertAction<LoSPNtoCPUConversion>(hispn2lospn, ctx, diagHandler);
+  auto& spn2llvm = job->insertAction<SPNtoLLVMConversion>(lospn2cpu, ctx, diagHandler);
 
   // Convert the MLIR module to a LLVM-IR module.
   auto& llvmConversion = job->insertAction<MLIRtoLLVMIRConversion>(spn2llvm, ctx, targetMachine);

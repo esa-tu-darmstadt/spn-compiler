@@ -24,6 +24,7 @@ add_library(spnc SHARED
         src/driver/toolchain/MLIRToolchain.cpp
         src/codegen/mlir/pipeline/SPNDialectPipeline.cpp
         src/codegen/mlir/conversion/HiSPNtoLoSPNConversion.cpp
+        src/codegen/mlir/conversion/LoSPNtoCPUConversion.cpp
         src/codegen/mlir/conversion/SPNtoStandardConversion.cpp
         src/codegen/mlir/conversion/SPNtoLLVMConversion.cpp
         src/codegen/mlir/conversion/MLIRtoLLVMIRConversion.cpp
@@ -58,6 +59,7 @@ set(mlir_libs
         MLIRHiSPN
         MLIRLoSPN
         MLIRHiSPNtoLoSPNTransforms
+        MLIRLoSPNtoCPUTransforms
         MLIRSPNtoStandardTransforms
         MLIRIR
         MLIRParser
