@@ -61,11 +61,9 @@ mlir::LogicalResult mlir::spn::BatchTaskLowering::matchAndRewrite(mlir::spn::low
     assert(ret.returnValues().empty() && "Task return should be empty");
     rewriter.eraseOp(ret);
   });
-  rewriter.create<scf::YieldOp>(op->getLoc());
   // Insert a call to the newly created task function.
   rewriter.restoreInsertionPoint(restore);
   rewriter.replaceOpWithNewOp<mlir::CallOp>(op, taskFunc, operands);
-  op->getParentOfType<ModuleOp>().dump();
   return success();
 }
 
@@ -84,6 +82,5 @@ mlir::LogicalResult mlir::spn::BodyLowering::matchAndRewrite(mlir::spn::low::SPN
   });
   rewriter.mergeBlockBefore(&op.body().front(), op, operands);
   rewriter.replaceOp(op, resultValues);
-  op->getParentOfType<ModuleOp>().dump();
   return success();
 }

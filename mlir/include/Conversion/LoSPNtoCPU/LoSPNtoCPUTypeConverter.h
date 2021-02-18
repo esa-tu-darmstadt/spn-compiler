@@ -27,6 +27,10 @@ namespace mlir {
           // MemRefType are unconditionally legal.
           return memRefType;
         });
+        addConversion([](IndexType indexType) -> Optional<Type> {
+          // IndexType is unconditionally legal.
+          return indexType;
+        });
         // TODO Extend for VectorType and add target materialization
         // from scalar to vector for vectorization.
       }

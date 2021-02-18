@@ -9,4 +9,5 @@
 void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   pm->enableVerifier(false);
   pm->addPass(mlir::spn::createLoSPNtoCPUStructureConversionPass());
+  pm->addPass(mlir::spn::createLoSPNtoCPUNodeConversionPass());
 }

@@ -1,5 +1,6 @@
 add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
         StructurePatterns.cpp
+        NodePatterns.cpp
         LoSPNtoCPUConversionPasses.cpp
 
         ADDITIONAL_HEADER_DIRS
@@ -12,4 +13,6 @@ add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
         MLIRStandard
         MLIRSupport
         MLIRTransforms
+        MLIRMath
+        MLIRLinalg
         )

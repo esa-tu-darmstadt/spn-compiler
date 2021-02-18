@@ -21,6 +21,16 @@ namespace mlir {
 
     std::unique_ptr<Pass> createLoSPNtoCPUStructureConversionPass();
 
+    struct LoSPNtoCPUNodeConversionPass :
+        public PassWrapper<LoSPNtoCPUNodeConversionPass, OperationPass<ModuleOp>> {
+
+    protected:
+      void runOnOperation() override;
+
+    };
+
+    std::unique_ptr<Pass> createLoSPNtoCPUNodeConversionPass();
+
   }
 }
 
