@@ -7,9 +7,12 @@
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
+#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
 
 void spnc::SPNtoLLVMConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   pm->nest<mlir::FuncOp>().addPass(mlir::createConvertVectorToSCFPass());
   pm->addPass(mlir::createLowerToCFGPass());
   pm->addPass(mlir::createConvertVectorToLLVMPass());
+  pm->addPass(mlir::createLowerToLLVMPass());
+
 }

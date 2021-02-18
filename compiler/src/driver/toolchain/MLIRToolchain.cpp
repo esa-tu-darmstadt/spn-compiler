@@ -92,6 +92,7 @@ void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext& ctx) {
   ctx.loadDialect<mlir::math::MathDialect>();
   ctx.loadDialect<mlir::linalg::LinalgDialect>();
   ctx.appendDialectRegistry(registry);
+  mlir::registerLLVMDialectTranslation(ctx);
   for (auto* D : ctx.getLoadedDialects()) {
     SPDLOG_INFO("Loaded dialect: {}", D->getNamespace().str());
   }
