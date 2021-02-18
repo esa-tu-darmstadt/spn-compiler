@@ -24,7 +24,7 @@ namespace spnc_rt {
                                  int output_size,
                                  int output_stride);
 
-  typedef void (* batch_kernel)(int numSamples, void* input_ptr,
+  typedef void (* batch_kernel)(void* input_ptr,
                                 void* aligned_input_ptr,
                                 int input_offset,
                                 int input_size_dim1,

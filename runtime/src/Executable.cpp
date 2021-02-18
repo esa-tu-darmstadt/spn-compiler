@@ -70,7 +70,7 @@ void Executable::executeBatch(size_t num_samples, void* inputs, double* outputs)
     char* offset_ptr = &(input_ptr[i * kernel->numFeatures() * kernel->bytesPerFeature()]);
     // Calculate pointer to first output for this batch.
     double* output_ptr = &outputs[i];
-    kernel_func.batch(samples, offset_ptr, offset_ptr, 0, samples, 1, kernel->numFeatures(), 1,
+    kernel_func.batch(offset_ptr, offset_ptr, 0, samples, 1, kernel->numFeatures(), 1,
                       output_ptr, output_ptr, 0, samples, 1);
   }
 }
