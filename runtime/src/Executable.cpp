@@ -52,7 +52,7 @@ void Executable::executeSingle(size_t num_samples, void* inputs, double* outputs
     SPDLOG_WARN("Executing a kernel optimized for single evaluation, computing only the first sample!");
   }
   assert(kernel_func.single);
-  kernel_func.single(inputs, inputs, 0, kernel->numFeatures(), 1, outputs, outputs, 0, 1, 1);
+  kernel_func.single(inputs, inputs, 0, 1, 1, kernel->numFeatures(), 1, outputs, outputs, 0, 1, 1);
 }
 
 void Executable::executeBatch(size_t num_samples, void* inputs, double* outputs) {
