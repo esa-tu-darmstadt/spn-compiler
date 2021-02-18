@@ -29,17 +29,11 @@ namespace mlir {
           return tensorType;
         });
         addConversion([](FloatType floatType) -> Optional<Type> {
-          // TODO Allow other bit-widths.
-          if (floatType.getWidth() != 64) {
-            return llvm::None;
-          }
+          // Allow all floating-point bit-widths.
           return floatType;
         });
         addConversion([](IntegerType intType) -> Optional<Type> {
-          // TODO Allow other bit-widths.
-          if (intType.getWidth() != 32) {
-            return llvm::None;
-          }
+          // Allow all integer bit-widths.
           return intType;
         });
         addConversion([spnComputeType](mlir::spn::high::ProbabilityType probType) -> Optional<Type> {

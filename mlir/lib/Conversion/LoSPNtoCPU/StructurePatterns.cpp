@@ -23,6 +23,10 @@ mlir::LogicalResult mlir::spn::KernelLowering::matchAndRewrite(mlir::spn::low::S
 mlir::LogicalResult mlir::spn::BatchTaskLowering::matchAndRewrite(mlir::spn::low::SPNTask op,
                                                                   llvm::ArrayRef<mlir::Value> operands,
                                                                   mlir::ConversionPatternRewriter& rewriter) const {
+  //
+  // Lower a task with batchSize > 1. The task is lowered to a function, containing a scalar loop iterating over the
+  // samples in the batch. The content of the Task is merged into the newly created loop's body, the loop induction
+  // variable replaces the batchIndex argument of the Task.
   static int taskCount = 0;
   if (op.batchSize() == 1) {
     return rewriter.notifyMatchFailure(op, "Match only batched (batchSize > 1) execution");
@@ -45,7 +49,6 @@ mlir::LogicalResult mlir::spn::BatchTaskLowering::matchAndRewrite(mlir::spn::low
   rewriter.create<ReturnOp>(op->getLoc());
   // Fill the loop
   llvm::dbgs() << "Number of blocks in the loop body: " << loop.getLoopBody().getBlocks().size() << "\n";
-  //auto loopBlock = rewriter.createBlock(&loop.getLoopBody());
   auto& loopBlock = loop.getLoopBody().front();
   rewriter.setInsertionPointToStart(&loopBlock);
   // Collect the values replacing the block values of old block inside the task.
@@ -61,6 +64,46 @@ mlir::LogicalResult mlir::spn::BatchTaskLowering::matchAndRewrite(mlir::spn::low
     assert(ret.returnValues().empty() && "Task return should be empty");
     rewriter.eraseOp(ret);
   });
+  // Insert a call to the newly created task function.
+  rewriter.restoreInsertionPoint(restore);
+  rewriter.replaceOpWithNewOp<mlir::CallOp>(op, taskFunc, operands);
+  return success();
+}
+
+mlir::LogicalResult mlir::spn::SingleTaskLowering::matchAndRewrite(mlir::spn::low::SPNTask op,
+                                                                   llvm::ArrayRef<mlir::Value> operands,
+                                                                   mlir::ConversionPatternRewriter& rewriter) const {
+  //
+  // Lower a task with batchSize == 1. The task is lowered to a function, the content of the Task is merged into the
+  // newly created function. As only a single execution is required, the batchIndex argument of the body can
+  // be replaced with a constant zero.
+  static int taskCount = 0;
+  if (op.batchSize() != 1) {
+    return rewriter.notifyMatchFailure(op, "Match only single (batchSize == 1) execution");
+  }
+  auto restore = rewriter.saveInsertionPoint();
+  rewriter.setInsertionPointToStart(op->getParentOfType<mlir::ModuleOp>().getBody());
+  SmallVector<Type, 5> inputTypes;
+  for (auto operand : operands) {
+    inputTypes.push_back(operand.getType());
+  }
+  auto funcType = FunctionType::get(rewriter.getContext(), inputTypes, {});
+  auto taskFunc = rewriter.create<FuncOp>(op->getLoc(), Twine("task_", std::to_string(taskCount++)).str(),
+                                          funcType);
+  auto taskBlock = taskFunc.addEntryBlock();
+  rewriter.setInsertionPointToStart(taskBlock);
+
+  // Collect the values replacing the block values of old block inside the task.
+  // The first argument is the batch index, in this case (for a single execution),
+  // we can simply set it to constant zero.
+  // The other arguments are the arguments of the entry block of this function.
+  SmallVector<Value, 5> blockReplacementArgs;
+  blockReplacementArgs.push_back(rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0)));
+  for (auto bArg : taskBlock->getArguments()) {
+    blockReplacementArgs.push_back(bArg);
+  }
+  // Inline the content of the Task into the function.
+  rewriter.mergeBlocks(&op.body().front(), taskBlock, blockReplacementArgs);
   // Insert a call to the newly created task function.
   rewriter.restoreInsertionPoint(restore);
   rewriter.replaceOpWithNewOp<mlir::CallOp>(op, taskFunc, operands);
