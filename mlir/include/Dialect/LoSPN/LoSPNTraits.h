@@ -7,6 +7,8 @@
 #define SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNTRAITS_H
 
 #include "mlir/IR/OpDefinition.h"
+#include "llvm/Support/Debug.h"
+#include "mlir/IR/BuiltinTypes.h"
 
 namespace mlir {
   namespace OpTrait {
@@ -18,17 +20,35 @@ namespace mlir {
 
         public:
 
-          bool isVectorized() { return VF != 0; }
+          static StringRef getVectorWidthAttrName() { return "vector_width"; }
 
-          unsigned vectorFactor() { return VF; }
-
-          void vectorFactor(unsigned _vectorFactor) {
-            VF = _vectorFactor;
+          bool isVectorized() {
+            if (!this->getOperation()->hasAttr(getVectorWidthAttrName())) {
+              return false;
+            }
+            auto VF = this->getOperation()->template getAttrOfType<IntegerAttr>(getVectorWidthAttrName()).getInt();
+            return VF != 0;
           }
 
-        private:
+          unsigned vectorFactor() {
+            if (!this->getOperation()->hasAttr(getVectorWidthAttrName())) {
+              return 0;
+            }
+            return this->getOperation()->template getAttrOfType<IntegerAttr>(getVectorWidthAttrName()).getInt();
+          }
 
-          unsigned VF = 0;
+          void vectorFactor(unsigned _vectorFactor) {
+            if (_vectorFactor == 0) {
+              if (this->getOperation()->hasAttr(getVectorWidthAttrName())) {
+                this->getOperation()->removeAttr(getVectorWidthAttrName());
+              }
+              return;
+            }
+            auto VFAttr = IntegerAttr::get(IntegerType::get(this->getOperation()->getContext(), 32),
+                                           _vectorFactor);
+            this->getOperation()->setAttr(getVectorWidthAttrName(), VFAttr);
+          }
+
 
         };
 

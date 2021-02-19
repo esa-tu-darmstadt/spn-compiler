@@ -10,7 +10,7 @@
 mlir::LogicalResult mlir::spn::BatchReadLowering::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
                                                                   llvm::ArrayRef<mlir::Value> operands,
                                                                   mlir::ConversionPatternRewriter& rewriter) const {
-  if (op.vectorFactor() > 1) {
+  if (op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
   }
   // Replace the BatchRead with a scalar load from the input memref,
@@ -26,7 +26,7 @@ mlir::LogicalResult mlir::spn::BatchReadLowering::matchAndRewrite(mlir::spn::low
 mlir::LogicalResult mlir::spn::BatchWriteLowering::matchAndRewrite(mlir::spn::low::SPNBatchWrite op,
                                                                    llvm::ArrayRef<mlir::Value> operands,
                                                                    mlir::ConversionPatternRewriter& rewriter) const {
-  if (op.vectorFactor() > 1) {
+  if (op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
   }
   // Replace the BatchWrite with a store to the input memref,
@@ -54,6 +54,9 @@ mlir::LogicalResult mlir::spn::CopyLowering::matchAndRewrite(mlir::spn::low::SPN
 mlir::LogicalResult mlir::spn::ConstantLowering::matchAndRewrite(mlir::spn::low::SPNConstant op,
                                                                  llvm::ArrayRef<mlir::Value> operands,
                                                                  mlir::ConversionPatternRewriter& rewriter) const {
+  if (op.checkVectorized()) {
+    return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
+  }
   assert(operands.empty() && "Expecting no operands for Constant");
   rewriter.replaceOpWithNewOp<ConstantOp>(op, op.valueAttr());
   return success();
@@ -76,6 +79,9 @@ mlir::LogicalResult mlir::spn::ReturnLowering::matchAndRewrite(mlir::spn::low::S
 mlir::LogicalResult mlir::spn::LogLowering::matchAndRewrite(mlir::spn::low::SPNLog op,
                                                             llvm::ArrayRef<mlir::Value> operands,
                                                             mlir::ConversionPatternRewriter& rewriter) const {
+  if (op.checkVectorized()) {
+    return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
+  }
   assert(operands.size() == 1 && "Expecting one operand for Log");
   rewriter.replaceOpWithNewOp<math::LogOp>(op, operands[0]);
   return success();
@@ -84,6 +90,9 @@ mlir::LogicalResult mlir::spn::LogLowering::matchAndRewrite(mlir::spn::low::SPNL
 mlir::LogicalResult mlir::spn::MulLowering::matchAndRewrite(mlir::spn::low::SPNMul op,
                                                             llvm::ArrayRef<mlir::Value> operands,
                                                             mlir::ConversionPatternRewriter& rewriter) const {
+  if (op.checkVectorized()) {
+    return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
+  }
   assert(operands.size() == 2 && "Expecting two operands for Mul");
   if (!operands[0].getType().isa<FloatType>()) {
     return rewriter.notifyMatchFailure(op, "Currently only matches floating-point multiplications");
@@ -95,6 +104,9 @@ mlir::LogicalResult mlir::spn::MulLowering::matchAndRewrite(mlir::spn::low::SPNM
 mlir::LogicalResult mlir::spn::AddLowering::matchAndRewrite(mlir::spn::low::SPNAdd op,
                                                             llvm::ArrayRef<mlir::Value> operands,
                                                             mlir::ConversionPatternRewriter& rewriter) const {
+  if (op.checkVectorized()) {
+    return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
+  }
   assert(operands.size() == 2 && "Expecting two operands for Add");
   if (!operands[0].getType().isa<FloatType>()) {
     return rewriter.notifyMatchFailure(op, "Currently only matches floating-point additions");
@@ -106,6 +118,9 @@ mlir::LogicalResult mlir::spn::AddLowering::matchAndRewrite(mlir::spn::low::SPNA
 mlir::LogicalResult mlir::spn::GaussianLowering::matchAndRewrite(mlir::spn::low::SPNGaussianLeaf op,
                                                                  llvm::ArrayRef<mlir::Value> operands,
                                                                  mlir::ConversionPatternRewriter& rewriter) const {
+  if (op.checkVectorized()) {
+    return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
+  }
   assert(operands.size() == 1 && "Expecting a single operands for Gaussian");
   if (!operands.front().getType().isIntOrFloat()) {
     return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
@@ -211,6 +226,9 @@ namespace {
 mlir::LogicalResult mlir::spn::HistogramLowering::matchAndRewrite(mlir::spn::low::SPNHistogramLeaf op,
                                                                   llvm::ArrayRef<mlir::Value> operands,
                                                                   mlir::ConversionPatternRewriter& rewriter) const {
+  if (op.checkVectorized()) {
+    return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
+  }
   // Check for single operand, i.e. the index value.
   assert(operands.size() == 1);
 
@@ -265,6 +283,9 @@ mlir::LogicalResult mlir::spn::HistogramLowering::matchAndRewrite(mlir::spn::low
 mlir::LogicalResult mlir::spn::CategoricalLowering::matchAndRewrite(mlir::spn::low::SPNCategoricalLeaf op,
                                                                     llvm::ArrayRef<mlir::Value> operands,
                                                                     mlir::ConversionPatternRewriter& rewriter) const {
+  if (op.checkVectorized()) {
+    return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
+  }
   // Check for single operand, i.e., the index value.
   assert(operands.size() == 1);
 
