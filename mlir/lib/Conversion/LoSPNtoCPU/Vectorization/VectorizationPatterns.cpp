@@ -90,11 +90,7 @@ mlir::LogicalResult mlir::spn::VectorizeBatchTask::matchAndRewrite(mlir::spn::lo
       continue;
     }
     auto copy = rewriter.clone(node, mapVectorTaskArgs);
-    if (auto batchRead = dyn_cast<low::SPNBatchRead>(copy)) {
-      batchRead.vectorFactorAttr(rewriter.getI32IntegerAttr(hwVectorWidth));
-    } else if (auto batchWrite = dyn_cast<low::SPNBatchWrite>(copy)) {
-      batchWrite.vectorFactorAttr(rewriter.getI32IntegerAttr(hwVectorWidth));
-    }
+    // TODO Mark all operations contained in the loop as vectorized.
   }
 
   rewriter.restoreInsertionPoint(restoreTask);
@@ -227,7 +223,6 @@ mlir::LogicalResult mlir::spn::VectorizeGaussian::matchAndRewrite(mlir::spn::low
                                                                   llvm::ArrayRef<mlir::Value> operands,
                                                                   mlir::ConversionPatternRewriter& rewriter) const {
   assert(operands.size() == 1 && "Expecting only a single operand for Gaussian leaf");
-
   auto feature = operands.front();
   operands.front().getDefiningOp()->dump();
   rewriter.getRemappedValue(operands.front()).dump();

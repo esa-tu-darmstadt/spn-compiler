@@ -3,6 +3,7 @@
 
 include "LoSPNDialect.td"
 include "LoSPNInterfaces.td"
+include "LoSPNTraits.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "mlir/IR/RegionKindInterface.td"
@@ -89,14 +90,16 @@ def SPNBatchExtract : LoSPN_Op<"batch_extract", [HasParent<"SPNTask">]> {
 
 }
 
-def SPNBatchRead : LoSPN_Op<"batch_read", [HasParent<"SPNTask">]> {
+def SPNBatchRead : LoSPN_Op<"batch_read", [
+                              HasParent<"SPNTask">,
+                              VectorizableOp,
+                              DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "Read a particular index from each sample in a batch represented by  a memref";
 
     let arguments = (ins MemRefOf<[LoSPNInputType, LoSPNComputeType]>:$batchMem,
                         Index:$batchIndex,
-                        UI32Attr:$sampleIndex,
-                        DefaultValuedAttr<SI32Attr, "-1">:$vectorFactor);
+                        UI32Attr:$sampleIndex);
 
     let results = (outs AnyTypeOf<[LoSPNInputType, LoSPNComputeType]>:$result);
 
@@ -113,14 +116,16 @@ def SPNBatchCollect : LoSPN_Op<"batch_collect", [HasParent<"SPNTask">, Terminato
 
 }
 
-def SPNBatchWrite : LoSPN_Op<"batch_write", [HasParent<"SPNTask">]> {
+def SPNBatchWrite : LoSPN_Op<"batch_write", [
+                                HasParent<"SPNTask">,
+                                VectorizableOp,
+                                DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "Write one or multiple results for each sample in a batch";
 
     let arguments = (ins Variadic<LoSPNComputeType>:$results,
                         MemRefOf<[LoSPNComputeType]>:$batchMem,
-                        Index:$batchIndex,
-                        DefaultValuedAttr<SI32Attr, "-1">:$vectorFactor);
+                        Index:$batchIndex);
 }
 
 def SPNCopy : LoSPN_Op<"copy", []> {
@@ -157,7 +162,7 @@ def SPNReturn : LoSPN_Op<"return", [Terminator]> {
 }
 
 class LoSPNBodyOp<string mnemonic, list<OpTrait> traits = []> : LoSPN_Op<mnemonic,
-    !listconcat(traits, [HasParent<"SPNBody">])>;
+    !listconcat(traits, [HasParent<"SPNBody">, VectorizableOp, DeclareOpInterfaceMethods<LoSPNVectorizable>])>;
 
 def SPNYield : LoSPNBodyOp<"yield", [Terminator]> {
 

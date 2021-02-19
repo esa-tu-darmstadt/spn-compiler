@@ -11,6 +11,7 @@
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/IR/RegionKindInterface.h"
 #include "LoSPN/LoSPNInterfaces.h"
+#include "LoSPN/LoSPNTraits.h"
 #include "mlir/IR/FunctionSupport.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/IR/BuiltinOps.h"

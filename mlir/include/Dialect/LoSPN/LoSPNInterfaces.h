@@ -6,9 +6,11 @@
 #ifndef SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNINTERFACES_H
 #define SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNINTERFACES_H
 
+#include "LoSPN/LoSPNTraits.h"
+
 namespace mlir {
   namespace spn {
-    namespace high {
+    namespace low {
 #include "LoSPN/LoSPNInterfaces.h.inc"
 }
 }
