@@ -8,6 +8,7 @@
 
 #include <mlir/Transforms/DialectConversion.h>
 #include "mlir/IR/BuiltinTypes.h"
+#include "LoSPN/LoSPNOps.h"
 
 namespace mlir {
   namespace spn {
@@ -33,6 +34,23 @@ namespace mlir {
         });
         // TODO Extend for VectorType and add target materialization
         // from scalar to vector for vectorization.
+        addConversion([](VectorType vectorType) -> Optional<Type> {
+          // VectorType is unconditionally legal.
+          return vectorType;
+        });
+        addTargetMaterialization([](OpBuilder& builder, VectorType type,
+                                    ValueRange inputs, Location loc) -> Optional<Value> {
+          if (inputs.size() != 1) {
+            return llvm::None;
+          }
+          return builder.create<low::SPNConvertToVector>(loc, type, inputs.front()).getResult();
+        });
+        addSourceMaterialization([](OpBuilder& builder, FloatType type,
+                                    ValueRange inputs, Location loc) -> Optional<Value> {
+          llvm::dbgs() << "REQUESTED SOURCE MATERIALIZATION\n";
+          inputs.front().dump();
+          return llvm::None;
+        });
       }
     };
 

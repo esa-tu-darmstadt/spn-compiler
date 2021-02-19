@@ -7,6 +7,7 @@
 #include "LoSPNtoCPU/LoSPNtoCPUTypeConverter.h"
 #include "LoSPNtoCPU/StructurePatterns.h"
 #include "LoSPNtoCPU/NodePatterns.h"
+#include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
@@ -29,6 +30,8 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   target.addIllegalOp<mlir::spn::low::SPNTask, mlir::spn::low::SPNBody>();
 
   OwningRewritePatternList patterns;
+  // TODO Make this depend on a flag
+  mlir::spn::populateLoSPNCPUVectorizationStructurePatterns(patterns, &getContext(), typeConverter);
   mlir::spn::populateLoSPNtoCPUStructurePatterns(patterns, &getContext(), typeConverter);
 
   auto op = getOperation();
@@ -52,6 +55,7 @@ void mlir::spn::LoSPNtoCPUNodeConversionPass::runOnOperation() {
   // Linalg is required here, because we lower spn.copy to linalg.copy
   // as the Standard dialect currently does not have a copy operation.
   target.addLegalDialect<mlir::linalg::LinalgDialect>();
+  target.addLegalDialect<mlir::vector::VectorDialect>();
   target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
   target.addLegalOp<FuncOp>();
 
@@ -60,6 +64,8 @@ void mlir::spn::LoSPNtoCPUNodeConversionPass::runOnOperation() {
   target.addIllegalDialect<mlir::spn::low::LoSPNDialect>();
 
   OwningRewritePatternList patterns;
+  // TODO Make this depend on a flag.
+  mlir::spn::populateLoSPNCPUVectorizationNodePatterns(patterns, &getContext(), typeConverter);
   mlir::spn::populateLoSPNtoCPUNodePatterns(patterns, &getContext(), typeConverter);
 
   auto op = getOperation();

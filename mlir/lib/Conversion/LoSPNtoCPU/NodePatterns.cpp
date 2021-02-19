@@ -10,6 +10,9 @@
 mlir::LogicalResult mlir::spn::BatchReadLowering::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
                                                                   llvm::ArrayRef<mlir::Value> operands,
                                                                   mlir::ConversionPatternRewriter& rewriter) const {
+  if (op.vectorFactor() > 1) {
+    return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
+  }
   // Replace the BatchRead with a scalar load from the input memref,
   // using the batchIndex and the constant sample index.
   assert(operands.size() == 2 && "Expecting two operands for BatchRead");
@@ -23,6 +26,9 @@ mlir::LogicalResult mlir::spn::BatchReadLowering::matchAndRewrite(mlir::spn::low
 mlir::LogicalResult mlir::spn::BatchWriteLowering::matchAndRewrite(mlir::spn::low::SPNBatchWrite op,
                                                                    llvm::ArrayRef<mlir::Value> operands,
                                                                    mlir::ConversionPatternRewriter& rewriter) const {
+  if (op.vectorFactor() > 1) {
+    return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
+  }
   // Replace the BatchWrite with a store to the input memref,
   // using the batchIndex.
   assert(operands.size() == 3 && "Expecting three operands for BatchWrite");
@@ -101,6 +107,9 @@ mlir::LogicalResult mlir::spn::GaussianLowering::matchAndRewrite(mlir::spn::low:
                                                                  llvm::ArrayRef<mlir::Value> operands,
                                                                  mlir::ConversionPatternRewriter& rewriter) const {
   assert(operands.size() == 1 && "Expecting a single operands for Gaussian");
+  if (!operands.front().getType().isIntOrFloat()) {
+    return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
+  }
   if (!op.getResult().getType().isa<FloatType>()) {
     return rewriter.notifyMatchFailure(op, "Cannot match Gaussian computing non-float result");
   }

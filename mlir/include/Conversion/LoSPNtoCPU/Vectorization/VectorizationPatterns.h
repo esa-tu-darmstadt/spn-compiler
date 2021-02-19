@@ -1,0 +1,114 @@
+//
+// This file is part of the SPNC project.
+// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
+//
+
+#ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_VECTORIZATIONPATTERNS_H
+#define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_VECTORIZATIONPATTERNS_H
+
+#include "mlir/Transforms/DialectConversion.h"
+#include "LoSPN/LoSPNDialect.h"
+#include "LoSPN/LoSPNOps.h"
+#include "llvm/Support/Debug.h"
+
+namespace mlir {
+  namespace spn {
+
+    struct VectorizeBatchTask : OpConversionPattern<low::SPNTask> {
+
+      using OpConversionPattern<low::SPNTask>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNTask op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
+    static void populateLoSPNCPUVectorizationStructurePatterns(OwningRewritePatternList& patterns,
+                                                               MLIRContext* context,
+                                                               TypeConverter& typeConverter) {
+      patterns.insert<VectorizeBatchTask>(typeConverter, context, 5);
+    }
+
+    struct VectorizeBatchRead : public OpConversionPattern<low::SPNBatchRead> {
+
+      using OpConversionPattern<low::SPNBatchRead>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNBatchRead op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
+    struct VectorizeBatchWrite : public OpConversionPattern<low::SPNBatchWrite> {
+
+      using OpConversionPattern<low::SPNBatchWrite>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNBatchWrite op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
+    struct VectorizeMul : public OpConversionPattern<low::SPNMul> {
+
+      using OpConversionPattern<low::SPNMul>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNMul op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
+    struct VectorizeAdd : public OpConversionPattern<low::SPNAdd> {
+
+      using OpConversionPattern<low::SPNAdd>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNAdd op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
+    struct VectorizeGaussian : public OpConversionPattern<low::SPNGaussianLeaf> {
+
+      using OpConversionPattern<low::SPNGaussianLeaf>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNGaussianLeaf op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
+    struct VectorizeCategorical : public OpConversionPattern<low::SPNCategoricalLeaf> {
+
+      using OpConversionPattern<low::SPNCategoricalLeaf>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNCategoricalLeaf op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
+    struct VectorizeHistogram : public OpConversionPattern<low::SPNHistogramLeaf> {
+
+      using OpConversionPattern<low::SPNHistogramLeaf>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNHistogramLeaf op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
+    struct ResolveConvertToVector : public OpConversionPattern<low::SPNConvertToVector> {
+
+      using OpConversionPattern<low::SPNConvertToVector>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNConvertToVector op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
+    static void populateLoSPNCPUVectorizationNodePatterns(OwningRewritePatternList& patterns,
+                                                          MLIRContext* context,
+                                                          TypeConverter& typeConverter) {
+      patterns.insert<VectorizeBatchRead, VectorizeBatchWrite>(typeConverter, context, 2);
+      patterns.insert<VectorizeGaussian>(typeConverter, context, 2);
+    }
+
+  }
+}
+
+#endif //SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_VECTORIZATIONPATTERNS_H

@@ -95,7 +95,8 @@ def SPNBatchRead : LoSPN_Op<"batch_read", [HasParent<"SPNTask">]> {
 
     let arguments = (ins MemRefOf<[LoSPNInputType, LoSPNComputeType]>:$batchMem,
                         Index:$batchIndex,
-                        UI32Attr:$sampleIndex);
+                        UI32Attr:$sampleIndex,
+                        DefaultValuedAttr<SI32Attr, "-1">:$vectorFactor);
 
     let results = (outs AnyTypeOf<[LoSPNInputType, LoSPNComputeType]>:$result);
 
@@ -118,7 +119,8 @@ def SPNBatchWrite : LoSPN_Op<"batch_write", [HasParent<"SPNTask">]> {
 
     let arguments = (ins Variadic<LoSPNComputeType>:$results,
                         MemRefOf<[LoSPNComputeType]>:$batchMem,
-                        Index:$batchIndex);
+                        Index:$batchIndex,
+                        DefaultValuedAttr<SI32Attr, "-1">:$vectorFactor);
 }
 
 def SPNCopy : LoSPN_Op<"copy", []> {
@@ -129,6 +131,21 @@ def SPNCopy : LoSPN_Op<"copy", []> {
 
     let arguments = (ins MemRefOf<[LoSPNComputeType]>:$source,
                         MemRefOf<[LoSPNComputeType]>:$target);
+
+}
+
+def SPNConvertToVector : LoSPN_Op<"to_vector", []> {
+    let summary = "Convert scalar input to vector";
+
+    let description = [{
+        Converts from a single scalar value a vector.
+        This operation is only used as a materialization during type conversion
+        and does not generate actual code to convert the value to a vector.
+    }];
+
+    let arguments = (ins LoSPNComputeType:$input);
+
+    let results = (outs VectorOf<[LoSPNComputeType]>:$vector);
 
 }
 

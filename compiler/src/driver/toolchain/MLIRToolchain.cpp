@@ -27,6 +27,7 @@
 #include <driver/action/EmitObjectCode.h>
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "mlir/Target/LLVMIR.h"
 
 using namespace spnc;
 
