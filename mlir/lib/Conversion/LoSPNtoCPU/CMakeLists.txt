@@ -1,7 +1,8 @@
 add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
         StructurePatterns.cpp
         NodePatterns.cpp
-        Vectorization/VectorizationPatterns.cpp
+        Vectorization/VectorizeStructurePatterns.cpp
+        Vectorization/VectorizeNodePatterns.cpp
         Vectorization/TargetInformation.cpp
         LoSPNtoCPUConversionPasses.cpp
 

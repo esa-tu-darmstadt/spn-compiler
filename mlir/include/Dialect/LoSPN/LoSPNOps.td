@@ -162,9 +162,9 @@ def SPNReturn : LoSPN_Op<"return", [Terminator]> {
 }
 
 class LoSPNBodyOp<string mnemonic, list<OpTrait> traits = []> : LoSPN_Op<mnemonic,
-    !listconcat(traits, [HasParent<"SPNBody">, VectorizableOp, DeclareOpInterfaceMethods<LoSPNVectorizable>])>;
+    !listconcat(traits, [HasParent<"SPNBody">, VectorizableOp])>;
 
-def SPNYield : LoSPNBodyOp<"yield", [Terminator]> {
+def SPNYield : LoSPNBodyOp<"yield", [Terminator, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "Holds the result computed by the Body";
 
@@ -172,7 +172,7 @@ def SPNYield : LoSPNBodyOp<"yield", [Terminator]> {
 
 }
 
-def SPNConstant : LoSPNBodyOp<"constant", [ConstantLike, NoSideEffect]> {
+def SPNConstant : LoSPNBodyOp<"constant", [ConstantLike, NoSideEffect, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "Represents a simple constant value";
 
@@ -183,7 +183,7 @@ def SPNConstant : LoSPNBodyOp<"constant", [ConstantLike, NoSideEffect]> {
     let hasFolder = 1;
 }
 
-def SPNLog : LoSPNBodyOp<"log", [NoSideEffect]> {
+def SPNLog : LoSPNBodyOp<"log", [NoSideEffect, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "Convert the result of the computation to log";
 
@@ -193,7 +193,8 @@ def SPNLog : LoSPNBodyOp<"log", [NoSideEffect]> {
 
 }
 
-def SPNMul : LoSPNBodyOp<"mul", [NoSideEffect, Commutative, SameOperandsAndResultType]> {
+def SPNMul : LoSPNBodyOp<"mul", [NoSideEffect, Commutative, SameOperandsAndResultType,
+                                    DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "Multiplication of two values";
 
@@ -203,7 +204,8 @@ def SPNMul : LoSPNBodyOp<"mul", [NoSideEffect, Commutative, SameOperandsAndResul
 
 }
 
-def SPNAdd : LoSPNBodyOp<"add", [NoSideEffect, Commutative, SameOperandsAndResultType]> {
+def SPNAdd : LoSPNBodyOp<"add", [NoSideEffect, Commutative, SameOperandsAndResultType,
+                                    DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "Addition of two values";
 
@@ -231,7 +233,7 @@ def BucketListAttr : TypedArrayAttrBase<HistBucketAttr, "histogram bucket list">
 ///
 /// Histogram as SPN leaf node.
 ///
-def SPNHistogramLeaf : LoSPNBodyOp<"histogram", [NoSideEffect]> {
+def SPNHistogramLeaf : LoSPNBodyOp<"histogram", [NoSideEffect, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
     let summary = "histogram";
 
     let description =  [{
@@ -249,7 +251,7 @@ def SPNHistogramLeaf : LoSPNBodyOp<"histogram", [NoSideEffect]> {
 ///
 /// Categorical distribution as SPN leaf node.
 ///
-def SPNCategoricalLeaf : LoSPNBodyOp<"categorical", [NoSideEffect]> {
+def SPNCategoricalLeaf : LoSPNBodyOp<"categorical", [NoSideEffect, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "categorical leaf distribution";
 
@@ -265,7 +267,8 @@ def SPNCategoricalLeaf : LoSPNBodyOp<"categorical", [NoSideEffect]> {
 ///
 /// Gaussian distribution as SPN leaf node.
 ///
-def SPNGaussianLeaf : LoSPNBodyOp<"gaussian", [NoSideEffect]> {
+def SPNGaussianLeaf : LoSPNBodyOp<"gaussian", [NoSideEffect,
+                                DeclareOpInterfaceMethods<LoSPNVectorizable, ["isVectorizable"]>]> {
 
     let summary = "Gaussian leaf distribution";
 

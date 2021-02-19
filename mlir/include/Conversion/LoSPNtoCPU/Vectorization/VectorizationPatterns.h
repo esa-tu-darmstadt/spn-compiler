@@ -3,8 +3,8 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_VECTORIZATIONPATTERNS_H
-#define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_VECTORIZATIONPATTERNS_H
+#ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_VECTORIZESTRUCTUREPATTERNS_H
+#define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_VECTORIZESTRUCTUREPATTERNS_H
 
 #include "mlir/Transforms/DialectConversion.h"
 #include "LoSPN/LoSPNDialect.h"
@@ -61,7 +61,16 @@ namespace mlir {
       using OpConversionPattern<low::SPNAdd>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNAdd op,
-                                    ArrayRef<Value> operands,
+                                    ArrayRef <Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
+    struct VectorizeLog : public OpConversionPattern<low::SPNLog> {
+
+      using OpConversionPattern<low::SPNLog>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNLog op,
+                                    ArrayRef <Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -70,7 +79,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNGaussianLeaf>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNGaussianLeaf op,
-                                    ArrayRef<Value> operands,
+                                    ArrayRef <Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -97,7 +106,16 @@ namespace mlir {
       using OpConversionPattern<low::SPNConvertToVector>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNConvertToVector op,
-                                    ArrayRef<Value> operands,
+                                    ArrayRef <Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
+    struct VectorizeConstant : public OpConversionPattern<low::SPNConstant> {
+
+      using OpConversionPattern<low::SPNConstant>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNConstant op,
+                                    ArrayRef <Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -105,10 +123,12 @@ namespace mlir {
                                                           MLIRContext* context,
                                                           TypeConverter& typeConverter) {
       patterns.insert<VectorizeBatchRead, VectorizeBatchWrite>(typeConverter, context, 2);
-      patterns.insert<VectorizeGaussian>(typeConverter, context, 2);
+      patterns.insert<VectorizeGaussian, VectorizeCategorical, VectorizeHistogram>(typeConverter, context, 2);
+      patterns.insert<VectorizeAdd, VectorizeMul, VectorizeLog>(typeConverter, context, 2);
+      patterns.insert<VectorizeConstant, ResolveConvertToVector>(typeConverter, context, 2);
     }
 
   }
 }
 
-#endif //SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_VECTORIZATIONPATTERNS_H
+#endif //SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_VECTORIZESTRUCTUREPATTERNS_H
