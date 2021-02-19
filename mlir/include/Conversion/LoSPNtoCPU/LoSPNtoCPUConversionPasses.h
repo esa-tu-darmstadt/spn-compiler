@@ -31,6 +31,15 @@ namespace mlir {
 
     std::unique_ptr<Pass> createLoSPNtoCPUNodeConversionPass();
 
+    struct LoSPNNodeVectorizationPass : public PassWrapper<LoSPNNodeVectorizationPass, OperationPass<ModuleOp>> {
+
+    protected:
+      void runOnOperation() override;
+
+    };
+
+    std::unique_ptr<Pass> createLoSPNNodeVectorizationPass();
+
   }
 }
 
