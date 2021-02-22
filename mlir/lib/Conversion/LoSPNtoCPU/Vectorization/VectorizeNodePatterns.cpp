@@ -60,15 +60,32 @@ mlir::LogicalResult mlir::spn::VectorizeBatchRead::matchAndRewrite(mlir::spn::lo
   }
   auto constAttr = mlir::DenseElementsAttr::get(vectorOfIndex, (llvm::ArrayRef<unsigned long>) offsets);
   auto constOffset = rewriter.create<ConstantOp>(op.getLoc(), constAttr);
+  // Multiply the batchIndex with the number of features for the base address.
+  auto elements = broadcastVectorConstant(batchIndex.getVectorType(), numFeatures, rewriter, op->getLoc());
+  auto baseAddress = rewriter.create<MulIOp>(op->getLoc(), batchIndex, elements);
   // Add the offsets to the base index from the batchIndex.
-  auto addresses = rewriter.create<AddIOp>(op.getLoc(), batchIndex, constOffset);
+  auto addresses = rewriter.create<AddIOp>(op.getLoc(), baseAddress, constOffset);
   // Create constant passThru.
   auto passThru = broadcastVectorConstant(vectorType, 0.0,
                                           rewriter, op->getLoc());
   // Construct the constant mask.
   auto mask = broadcastVectorConstant(mlir::VectorType::get(op.vectorFactor(), rewriter.getI1Type()), true,
                                       rewriter, op->getLoc());
-  rewriter.replaceOpWithNewOp<vector::GatherOp>(op, vectorType, operands[0], addresses, mask, passThru);
+  // Re-interpret the MemRef to a single dimension for use with the gather-instruction.
+  auto numSamples = rewriter.create<DimOp>(op.getLoc(), operands[0], 0);
+  auto constNumFeatures = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(numFeatures));
+  auto size = rewriter.create<MulIOp>(op->getLoc(), numSamples, constNumFeatures);
+  auto staticOffset = rewriter.getI32IntegerAttr(0);
+  auto staticStride = rewriter.getI32IntegerAttr(1);
+  SmallVector<OpFoldResult, 1> dynamicSizes;
+  dynamicSizes.push_back(size.result());
+  SmallVector<OpFoldResult, 1> staticStrides;
+  staticStrides.push_back(staticStride);
+  auto reinterpret = rewriter.create<MemRefReinterpretCastOp>(op.getLoc(),
+                                                              MemRefType::get({-1}, memRef.getElementType()),
+                                                              operands[0], staticOffset,
+                                                              dynamicSizes, staticStrides);
+  rewriter.replaceOpWithNewOp<vector::GatherOp>(op, vectorType, reinterpret, addresses, mask, passThru);
   return success();
 }
 

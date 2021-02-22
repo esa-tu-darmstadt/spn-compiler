@@ -38,6 +38,10 @@ namespace spnc {
         if (failed(result)) {
           SPNC_FATAL_ERROR("Running the MLIR pass pipeline failed!");
         }
+        auto verificationResult = module->verify();
+        if (failed(verificationResult)) {
+          SPNC_FATAL_ERROR("Transformed module failed verification");
+        }
         cached = true;
       }
       module->dump();
