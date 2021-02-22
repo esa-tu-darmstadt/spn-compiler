@@ -60,7 +60,8 @@ std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::str
     spnPipelineResult = &joinAction;
   }
   auto& hispn2lospn = job->insertAction<HiSPNtoLoSPNConversion>(*spnPipelineResult, ctx, diagHandler);
-  auto& lospn2cpu = job->insertAction<LoSPNtoCPUConversion>(hispn2lospn, ctx, diagHandler);
+  auto& lospn2cpu = job->insertAction<LoSPNtoCPUConversion>(hispn2lospn, ctx, diagHandler,
+                                                            spnc::option::cpuVectorize.get(config));
   auto& spn2llvm = job->insertAction<SPNtoLLVMConversion>(lospn2cpu, ctx, diagHandler);
 
   // Convert the MLIR module to a LLVM-IR module.

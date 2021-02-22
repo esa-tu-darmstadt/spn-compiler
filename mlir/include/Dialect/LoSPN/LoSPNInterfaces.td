@@ -42,6 +42,17 @@ def LoSPNVectorizable : OpInterface<"LoSPNVectorizable"> {
                 return $_op.isVectorized();
             }]
         >,
+        InterfaceMethod<
+            /*desc*/"Get the vector width with which the operation should be vectorized",
+            /*retTy=*/"unsigned",
+            /*methodName=*/"getVectorWidth",
+            /*args=*/(ins),
+            /*methodBody=*/[{
+                assert($_op->template hasTrait<OpTrait::spn::low::VectorizableOp>());
+                return $_op.vectorFactor();
+            }],
+            /*defaultImplementation=*/""
+        >,
     ];
 
 }

@@ -14,12 +14,20 @@ namespace mlir {
     struct LoSPNtoCPUStructureConversionPass :
         public PassWrapper<LoSPNtoCPUStructureConversionPass, OperationPass<ModuleOp>> {
 
+    public:
+
+      explicit LoSPNtoCPUStructureConversionPass(bool enableVectorization) : vectorize{enableVectorization} {}
+
     protected:
       void runOnOperation() override;
 
+    private:
+
+      bool vectorize;
+
     };
 
-    std::unique_ptr<Pass> createLoSPNtoCPUStructureConversionPass();
+    std::unique_ptr<Pass> createLoSPNtoCPUStructureConversionPass(bool enableVectorization);
 
     struct LoSPNtoCPUNodeConversionPass :
         public PassWrapper<LoSPNtoCPUNodeConversionPass, OperationPass<ModuleOp>> {

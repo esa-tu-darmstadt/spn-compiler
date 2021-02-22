@@ -8,12 +8,22 @@
 #include "mlir/Transforms/Passes.h"
 #include "mlir/Dialect/Tensor/Transforms/Passes.h"
 
+spnc::LoSPNtoCPUConversion::LoSPNtoCPUConversion(ActionWithOutput<mlir::ModuleOp>& _input,
+                                                 std::shared_ptr<mlir::MLIRContext> ctx,
+                                                 std::shared_ptr<mlir::ScopedDiagnosticHandler> handler,
+                                                 bool enableVectorization) :
+    MLIRPipelineBase<LoSPNtoCPUConversion>(_input,
+                                           std::move(ctx),
+                                           std::move(handler)),
+    vectorize{enableVectorization} {}
+
 void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   pm->enableVerifier(false);
   pm->enableIRPrinting();
-  pm->addPass(mlir::spn::createLoSPNtoCPUStructureConversionPass());
-  // TODO Make this depend on a flag
-  pm->addPass(mlir::spn::createLoSPNNodeVectorizationPass());
+  pm->addPass(mlir::spn::createLoSPNtoCPUStructureConversionPass(vectorize));
+  if (vectorize) {
+    pm->addPass(mlir::spn::createLoSPNNodeVectorizationPass());
+  }
   pm->addPass(mlir::spn::createLoSPNtoCPUNodeConversionPass());
   // The remaining bufferization, buffer deallocation and copy removal passes
   // currently need to be placed at this point in the pipeline, as they operate

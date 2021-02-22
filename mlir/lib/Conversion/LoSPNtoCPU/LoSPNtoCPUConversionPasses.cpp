@@ -32,8 +32,10 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   target.addIllegalOp<mlir::spn::low::SPNTask, mlir::spn::low::SPNBody>();
 
   OwningRewritePatternList patterns;
-  // TODO Make this depend on a flag
-  mlir::spn::populateLoSPNCPUVectorizationStructurePatterns(patterns, &getContext(), typeConverter);
+  if (vectorize) {
+    // Try to vectorize tasks if vectorization was requested.
+    mlir::spn::populateLoSPNCPUVectorizationStructurePatterns(patterns, &getContext(), typeConverter);
+  }
   mlir::spn::populateLoSPNtoCPUStructurePatterns(patterns, &getContext(), typeConverter);
 
   auto op = getOperation();
@@ -44,8 +46,8 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
 
 }
 
-std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoCPUStructureConversionPass() {
-  return std::make_unique<LoSPNtoCPUStructureConversionPass>();
+std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoCPUStructureConversionPass(bool enableVectorization) {
+  return std::make_unique<LoSPNtoCPUStructureConversionPass>(enableVectorization);
 }
 
 void mlir::spn::LoSPNtoCPUNodeConversionPass::runOnOperation() {
@@ -92,10 +94,21 @@ void mlir::spn::LoSPNNodeVectorizationPass::runOnOperation() {
   target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
   target.addLegalOp<FuncOp>();
 
+  // Walk the operation to find out which vector width to use for the type-converter.
+  unsigned VF = 0;
+  getOperation()->walk([&VF](low::LoSPNVectorizable vOp) {
+    auto opVF = vOp.getVectorWidth();
+    if (!VF && opVF) {
+      VF = opVF;
+    } else {
+      if (opVF && VF != opVF) {
+        vOp.getOperation()->emitOpError("Multiple vectorizations with differing vector width found");
+      }
+    }
+  });
   // Use a special type converter converting all integer and floating-point types
   // to vectors of the type.
-  // TODO Get the vector width from an analysis.
-  LoSPNVectorizationTypeConverter typeConverter(4);
+  LoSPNVectorizationTypeConverter typeConverter(VF);
 
   target.addDynamicallyLegalDialect<mlir::spn::low::LoSPNDialect>([](Operation* op) {
     if (auto vOp = dyn_cast<mlir::spn::low::LoSPNVectorizable>(op)) {
