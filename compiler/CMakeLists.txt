@@ -27,7 +27,6 @@ add_library(spnc SHARED
         src/codegen/mlir/conversion/SPNtoLLVMConversion.cpp
         src/codegen/mlir/conversion/MLIRtoLLVMIRConversion.cpp
         src/codegen/mlir/analysis/CollectGraphStatistics.cpp
-        ../mlir/lib/Dialect/SPN/Analysis/SPNErrorEstimation.cpp
         src/codegen/mlir/frontend/MLIRDeserializer.cpp
         ${CAPNP_SRCS}
         )

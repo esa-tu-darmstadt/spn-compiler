@@ -7,11 +7,8 @@
 #define SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_SPN_ANALYSIS_SPNERRORESTIMATION_H
 
 #include <map>
-#include <memory>
-#include <tuple>
-#include <mlir/IR/Module.h>
+#include <mlir/IR/BuiltinOps.h>
 #include <mlir/IR/Types.h>
-#include <mlir/IR/StandardTypes.h>
 #include "SPN/SPNOps.h"
 
 typedef std::shared_ptr<void> arg_t;
@@ -40,6 +37,30 @@ namespace mlir {
       Type getOptimalType();
 
     private:
+
+      /// This struct allows to store different value characteristics: accurate-, defective-, max-, min-value and depth.
+      struct ErrorEstimationValue {
+        /// Accurate value.
+        double accurate;
+        /// Defective value. (Accurate + delta)
+        double defective;
+        /// Maximum value.
+        double max;
+        /// Minimum value.
+        double min;
+        /// Maximum sub-tree depth of the corresponding (SPN-)value.
+        int depth;
+      };
+
+      /// Struct which models different data formats, like e.g. fp32 / single precision: {8, 23, Float32Type::get}
+      struct ValueFormat {
+        /// Number of magnitude bits, i.e. "Integer / Exponent"
+        int magnitudeBits;
+        /// 1: Number of significance bits, i.e. "Fraction / Mantissa"
+        int significanceBits;
+        /// 2: Function returning mlir::Type, requiring an MLIRContext*
+        std::function<Type(MLIRContext*)> getType;
+      };
 
       /// Process provided pointer to a SPN node and update internal counts / results.
       /// \param graphRoot Pointer to the defining operation, representing a SPN node.
@@ -117,11 +138,8 @@ namespace mlir {
       /// This is the selected "optimal" mlir::Type.
       Type selectedType;
 
-      /// Number of available floating point formats.
-      static const int NUM_FLOAT_FORMATS = 48;
-
       /// Calculation constant "two".
-      const double BASE_TWO = 2.0;
+      static constexpr double BASE_TWO = 2.0;
 
       /// Calculation EPSILON.
       double EPS = 0.0;
@@ -130,10 +148,10 @@ namespace mlir {
       double ERR_COEFFICIENT = 1.0;
 
       /// Calculation of Gaussian minimum probability value outside of 99% := exp(-0.5 * std::pow(2.575829303549,2.0)).
-      const double GAUSS_99 = 0.036245200715160;
+      static constexpr double GAUSS_99 = 0.036245200715160;
 
-      /// For each operation store values: { accurate, defective, max, min, max_subtree_depth }
-      std::map<mlir::Operation*, std::tuple<double, double, double, double, int>> spn_node_values;
+      /// For each operation store value's characteristics: accurate, defective, max, min, maximum depth within the SPN.
+      std::map<mlir::Operation*, ErrorEstimationValue> spn_node_values;
 
       /// The global extreme-values of the SPN are used when determining the needed I(nteger) / E(xponent) values
       double spn_node_value_global_maximum = std::numeric_limits<double>::min();
@@ -145,14 +163,11 @@ namespace mlir {
       int format_bits_magnitude = std::numeric_limits<int>::min();
 
       /// Tuples which model different floating point formats, like e.g. fp32 / single precision
-      /// 0: Significance / "Fraction / Mantissa"
-      /// 1: Magnitude / "Integer / Exponent"
-      /// 2: function returning mlir::Type, providing an MLIRContext*
-      std::tuple<int, int, std::function<Type(MLIRContext*)>> Float_Formats[NUM_FLOAT_FORMATS] = {
-          {10, 5, Float16Type::get},
-          {7, 8, BFloat16Type::get},
-          {23, 8, Float32Type::get},
-          {52, 11, Float64Type::get}
+      const std::vector<ValueFormat> Float_Formats {
+        ValueFormat{5, 10, Float16Type::get},
+        ValueFormat{8, 7, BFloat16Type::get},
+        ValueFormat{8, 23, Float32Type::get},
+        ValueFormat{11, 52, Float64Type::get}
       };
 
     };

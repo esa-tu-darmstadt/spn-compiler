@@ -33,9 +33,12 @@ EnumOpt spnc::option::representationFormat{"opt-repr-format",
                                             EnumVal(FIXED_POINT, "fixed point representation")},
                                            {depends(spnc::option::determineOptimalRepresentation, true)}};
 
-Option<bool> spnc::option::optimalRepresentationRelativeError{"opt-repr-relative-err",
-                                                              false,
-                                                              {depends(spnc::option::determineOptimalRepresentation, true)}};
+using spnc::option::RepresentationErrorKind;
+EnumOpt spnc::option::optimalRepresentationErrorKind{"opt-repr-err-kind",
+                                                     {EnumVal(ERR_ABSOLUTE, "absolute error"),
+                                                      EnumVal(ERR_RELATIVE, "relative error"),
+                                                      EnumVal(ERR_ABS_LOG, "absolute logarithmic error")},
+                                                      {depends(spnc::option::determineOptimalRepresentation, true)}};
 
 Option<double> spnc::option::optimalRepresentationErrorThreshold{"opt-repr-err-threshold",
                                                                  0.1,
