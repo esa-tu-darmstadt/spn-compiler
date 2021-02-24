@@ -13,7 +13,7 @@ mlir::LogicalResult mlir::spn::KernelLowering::matchAndRewrite(mlir::spn::low::S
                                                                llvm::ArrayRef<mlir::Value> operands,
                                                                mlir::ConversionPatternRewriter& rewriter) const {
   assert(operands.empty() && "Kernel should not take any operands");
-  auto replaceFunc = rewriter.create<mlir::FuncOp>(op.getLoc(), op.kernelName(), op.getType());
+  auto replaceFunc = rewriter.create<mlir::FuncOp>(op.getLoc(), op.getName(), op.getType());
   auto funcBlock = replaceFunc.addEntryBlock();
   rewriter.mergeBlocks(&op.body().front(), funcBlock, funcBlock->getArguments());
   rewriter.eraseOp(op);

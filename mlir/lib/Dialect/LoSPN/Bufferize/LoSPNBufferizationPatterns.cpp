@@ -109,7 +109,7 @@ mlir::LogicalResult mlir::spn::low::KernelBufferize::matchAndRewrite(mlir::spn::
   // Construct a new kernel with a fucntion type that does produce any results, but
   // has the same inputs and additional out-args for all results.
   auto newKernelType = FunctionType::get(rewriter.getContext(), newInputTypes, TypeRange{});
-  auto newKernel = rewriter.create<low::SPNKernel>(op->getLoc(), op.kernelName(), newKernelType);
+  auto newKernel = rewriter.create<low::SPNKernel>(op->getLoc(), op.getName(), newKernelType);
   auto newKernelBlock = newKernel.addEntryBlock();
   rewriter.setInsertionPointToStart(newKernelBlock);
   SmallVector<Value, 5> inArgs;

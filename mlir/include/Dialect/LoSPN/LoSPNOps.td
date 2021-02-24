@@ -17,9 +17,6 @@ def SPNKernel : LoSPN_Op<"kernel", [FunctionLike, Symbol, IsolatedFromAbove]> {
         The computation itself is represented by one or multiple Tasks associated with the Kernel.
     }];
 
-    // TODO: Rename kernelType to type?
-    let arguments = (ins TypeAttr:$kernelType, StrAttr:$kernelName);
-
     let results = (outs);
 
     let regions = (region AnyRegion:$body);
@@ -40,6 +37,8 @@ def SPNKernel : LoSPN_Op<"kernel", [FunctionLike, Symbol, IsolatedFromAbove]> {
         unsigned getNumFuncResults() { return getType().getNumResults(); }
 
     }];
+
+    let verifier = [{ return mlir::spn::low::verifyKernel(*this); }];
 }
 
 def SPNTask : LoSPN_Op<"task", [HasParent<"SPNKernel">]> {

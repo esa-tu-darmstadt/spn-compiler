@@ -12,6 +12,48 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
 
+namespace mlir {
+  namespace spn {
+    namespace low {
+
+      static mlir::LogicalResult verifyKernel(SPNKernel kernel) {
+        // Check that for each input of the SPNKernel the entry block of the Kernel has
+        // a block argument with identical type.
+        if (kernel.body().front().getNumArguments() != kernel.getType().getNumInputs()) {
+          return kernel.emitOpError() << "Number of entry block arguments does not match number of Kernel inputs";
+        }
+        for (auto inputAndBlockArg : llvm::zip(kernel.getType().getInputs(), kernel.body().front().getArguments())) {
+          if (std::get<0>(inputAndBlockArg) != std::get<1>(inputAndBlockArg).getType()) {
+            return kernel.emitOpError() << "Kernel input type " << std::get<0>(inputAndBlockArg)
+                                        << " and block argument type " << std::get<1>(inputAndBlockArg).getType()
+                                        << " did not match";
+          }
+        }
+
+        // Check that the values returned by each return found directly inside the Kernel
+        // match the output type of the Kernel.
+        if (!kernel.getType().getResults().empty()) {
+          for (auto ret : kernel.body().getOps<SPNReturn>()) {
+            if (ret.returnValues().size() != kernel.getType().getNumResults()) {
+              return kernel.emitOpError() << "Number of return values does not match Kernel result type";
+            }
+            for (auto typeAndValue : llvm::zip(kernel.getType().getResults(), ret.returnValues())) {
+              auto retTy = std::get<0>(typeAndValue);
+              auto valTy = std::get<1>(typeAndValue).getType();
+              if (retTy != valTy) {
+                return kernel.emitOpError() << "Kernel result type " << retTy
+                                            << " did not match return value type " << valTy;
+              }
+            }
+          }
+        }
+        return mlir::success();
+      }
+
+    }
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // SPNKernel
 //===----------------------------------------------------------------------===//
@@ -24,8 +66,6 @@ void mlir::spn::low::SPNKernel::build(::mlir::OpBuilder& odsBuilder,
   auto typeAttr = TypeAttr::get(type);
   odsState.addAttribute(SymbolTable::getSymbolAttrName(), nameAttr);
   odsState.addAttribute(getTypeAttrName(), typeAttr);
-  odsState.addAttribute("kernelType", typeAttr);
-  odsState.addAttribute("kernelName", nameAttr);
   odsState.addRegion();
 }
 
