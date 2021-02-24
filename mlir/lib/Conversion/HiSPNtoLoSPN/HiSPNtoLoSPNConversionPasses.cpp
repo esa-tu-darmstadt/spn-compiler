@@ -4,6 +4,7 @@
 //
 
 #include <HiSPNtoLoSPN/QueryPatterns.h>
+#include "HiSPNtoLoSPN/ArithmeticPrecisionAnalysis.h"
 #include "HiSPNtoLoSPN/HiSPNtoLoSPNConversionPasses.h"
 #include "HiSPNtoLoSPN/NodePatterns.h"
 #include "LoSPN/LoSPNDialect.h"
@@ -23,8 +24,11 @@ void HiSPNtoLoSPNNodeConversionPass::runOnOperation() {
                       high::CategoricalNode, high::GaussianNode,
                       high::RootNode>();
 
-  // TODO Use type analysis here.
-  HiSPNTypeConverter typeConverter(mlir::Float64Type::get(&getContext()));
+  // Use type analysis to determine data type for actual computation.
+  // The concrete type determined by the analysis replaces the abstract
+  // probability type used by the HiSPN dialect.
+  auto& arithmeticAnalysis = getAnalysis<mlir::spn::ArithmeticPrecisionAnalysis>();
+  HiSPNTypeConverter typeConverter(arithmeticAnalysis.getComputationType());
 
   OwningRewritePatternList patterns;
   mlir::spn::populateHiSPNtoLoSPNNodePatterns(patterns, &getContext(), typeConverter);
@@ -34,6 +38,10 @@ void HiSPNtoLoSPNNodeConversionPass::runOnOperation() {
   if (failed(applyPartialConversion(op, target, frozenPatterns))) {
     signalPassFailure();
   }
+  // Explicitly mark the ArithmeticPrecisionAnalysis as preserved, so the
+  // QueryConversionPass can use the information, even though the Graph's
+  // nodes have already been converted.
+  markAnalysesPreserved<ArithmeticPrecisionAnalysis>();
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createHiSPNtoLoSPNNodeConversionPass() {
@@ -49,8 +57,12 @@ void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
 
   target.addIllegalDialect<high::HiSPNDialect>();
 
-  // TODO Use type analysis here.
-  HiSPNTypeConverter typeConverter(mlir::Float64Type::get(&getContext()));
+  // Use type analysis to determine data type for actual computation.
+  // The concrete type determined by the analysis replaces the abstract
+  // probability type used by the HiSPN dialect.
+  auto arithmeticAnalysis = getCachedAnalysis<ArithmeticPrecisionAnalysis>();
+  assert(arithmeticAnalysis && "The arithmetic analysis needs to be preserved after node conversion");
+  HiSPNTypeConverter typeConverter(arithmeticAnalysis->get().getComputationType());
 
   OwningRewritePatternList patterns;
   mlir::spn::populateHiSPNtoLoSPNQueryPatterns(patterns, &getContext(), typeConverter);
