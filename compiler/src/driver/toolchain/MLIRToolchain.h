@@ -27,7 +27,8 @@ namespace spnc {
     /// \return Job containing all necessary actions.
     static std::unique_ptr<Job < Kernel>> constructJobFromFile(
     const std::string& inputFile,
-    const Configuration& config
+        std::shared_ptr<Configuration>
+    config
     );
 
   private:

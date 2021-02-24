@@ -32,16 +32,16 @@
 using namespace spnc;
 
 std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::string& inputFile,
-                                                                  const Configuration& config) {
+                                                                  std::shared_ptr<Configuration> config) {
   // Uncomment the following two lines to get detailed output during MLIR dialect conversion;
   //llvm::DebugFlag = true;
   //llvm::setCurrentDebugType("dialect-conversion");
-  std::unique_ptr<Job<Kernel>> job = std::make_unique<Job<Kernel>>();
+  std::unique_ptr<Job<Kernel>> job = std::make_unique<Job<Kernel>>(config);
   // Invoke MLIR code-generation on parsed tree.
   auto ctx = std::make_shared<MLIRContext>();
   initializeMLIRContext(*ctx);
   auto diagHandler = setupDiagnosticHandler(ctx.get());
-  auto cpuVectorize = spnc::option::cpuVectorize.get(config);
+  auto cpuVectorize = spnc::option::cpuVectorize.get(*config);
   SPDLOG_INFO("CPU Vectorization enabled: {}", cpuVectorize);
   auto targetMachine = createTargetMachine(cpuVectorize);
   auto kernelInfo = std::make_shared<KernelInfo>();
@@ -50,10 +50,12 @@ std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::str
   auto& spnDialectPipeline = job->insertAction<SPNDialectPipeline>(deserialized, ctx, diagHandler);
   ActionWithOutput<ModuleOp>* spnPipelineResult = &spnDialectPipeline;
   // If requested via the configuration, collect graph statistics.
-  if (spnc::option::collectGraphStats.get(config)) {
-    auto deleteTmps = spnc::option::deleteTemporaryFiles.get(config);
+  // TODO: Graph statistics collection is currently disabled, as it does not yet work
+  // with the LoSPN dialect.
+  if (false && spnc::option::collectGraphStats.get(*config)) {
+    auto deleteTmps = spnc::option::deleteTemporaryFiles.get(*config);
     // Collect graph statistics on transformed / canonicalized MLIR.
-    auto statsFile = StatsFile(spnc::option::graphStatsFile.get(config), deleteTmps);
+    auto statsFile = StatsFile(spnc::option::graphStatsFile.get(*config), deleteTmps);
     auto& graphStats = job->insertAction<CollectGraphStatistics>(spnDialectPipeline, std::move(statsFile));
     // Join the two actions happening on the transformed module (Graph-Stats & SPN-to-Standard-MLIR lowering).
     auto& joinAction = job->insertAction<JoinAction<mlir::ModuleOp, StatsFile>>(spnDialectPipeline, graphStats);
