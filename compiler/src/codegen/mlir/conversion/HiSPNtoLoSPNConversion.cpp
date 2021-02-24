@@ -5,15 +5,12 @@
 
 #include "HiSPNtoLoSPNConversion.h"
 #include "HiSPNtoLoSPN/HiSPNtoLoSPNConversionPasses.h"
-#include "LoSPN/LoSPNPasses.h"
 #include "LoSPN/LoSPNOps.h"
 #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
 
 
 void spnc::HiSPNtoLoSPNConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   pm->enableVerifier(false);
-  pm->enableIRPrinting();
   pm->addPass(mlir::spn::createHiSPNtoLoSPNNodeConversionPass());
   pm->addPass(mlir::spn::createHiSPNtoLoSPNQueryConversionPass());
-  pm->addPass(mlir::spn::low::createLoSPNBufferizePass());
 }

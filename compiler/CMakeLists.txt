@@ -26,9 +26,10 @@ add_library(spnc SHARED
         src/codegen/mlir/conversion/HiSPNtoLoSPNConversion.cpp
         src/codegen/mlir/conversion/LoSPNtoCPUConversion.cpp
         src/codegen/mlir/conversion/SPNtoStandardConversion.cpp
-        src/codegen/mlir/conversion/SPNtoLLVMConversion.cpp
+        src/codegen/mlir/conversion/CPUtoLLVMConversion.cpp
         src/codegen/mlir/conversion/MLIRtoLLVMIRConversion.cpp
         src/codegen/mlir/analysis/CollectGraphStatistics.cpp
+        src/codegen/mlir/transformation/LoSPNTransformations.cpp
         src/codegen/mlir/frontend/MLIRDeserializer.cpp
         ${CAPNP_SRCS}
         )
