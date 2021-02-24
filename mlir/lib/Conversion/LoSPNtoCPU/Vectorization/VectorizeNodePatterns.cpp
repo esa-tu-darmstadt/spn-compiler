@@ -66,7 +66,6 @@ mlir::LogicalResult mlir::spn::VectorizeBatchRead::matchAndRewrite(mlir::spn::lo
   // Add the offsets to the base index from the batchIndex.
   auto addresses = rewriter.create<AddIOp>(op.getLoc(), baseAddress, constOffset);
   // Create constant passThru.
-  vectorType.dump();
   Value passThru;
   if (vectorType.getElementType().isIntOrIndex()) {
     passThru = broadcastVectorConstant(vectorType, 0, rewriter, op->getLoc());

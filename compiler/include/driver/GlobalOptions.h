@@ -44,8 +44,9 @@ namespace spnc {
     extern Option<bool> deleteTemporaryFiles;
 
     ///
-    /// Flag to indicate whether the MLIR based toolchain should be used.
-    extern Option<bool> useMLIRToolchain;
+    /// Flag to enable printing of IR after the individual steps and
+    /// passes in the toolchain.
+    extern Option<bool> dumpIR;
 
   }
 }

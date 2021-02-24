@@ -7,19 +7,11 @@
 #include "LoSPNtoCPU/LoSPNtoCPUConversionPasses.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/Dialect/Tensor/Transforms/Passes.h"
-
-spnc::LoSPNtoCPUConversion::LoSPNtoCPUConversion(ActionWithOutput<mlir::ModuleOp>& _input,
-                                                 std::shared_ptr<mlir::MLIRContext> ctx,
-                                                 std::shared_ptr<mlir::ScopedDiagnosticHandler> handler,
-                                                 bool enableVectorization) :
-    MLIRPipelineBase<LoSPNtoCPUConversion>(_input,
-                                           std::move(ctx),
-                                           std::move(handler)),
-    vectorize{enableVectorization} {}
+#include <driver/GlobalOptions.h>
 
 void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   pm->enableVerifier(false);
-  pm->enableIRPrinting();
+  bool vectorize = spnc::option::cpuVectorize.get(*this->config);
   pm->addPass(mlir::spn::createLoSPNtoCPUStructureConversionPass(vectorize));
   if (vectorize) {
     pm->addPass(mlir::spn::createLoSPNNodeVectorizationPass());

@@ -40,6 +40,11 @@ std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::str
   // Invoke MLIR code-generation on parsed tree.
   auto ctx = std::make_shared<MLIRContext>();
   initializeMLIRContext(*ctx);
+  // If IR should be dumped between steps/passes, we need to disable
+  // multi-threading in MLIR
+  if (spnc::option::dumpIR.get(*config)) {
+    ctx->enableMultithreading(false);
+  }
   auto diagHandler = setupDiagnosticHandler(ctx.get());
   auto cpuVectorize = spnc::option::cpuVectorize.get(*config);
   SPDLOG_INFO("CPU Vectorization enabled: {}", cpuVectorize);
@@ -62,8 +67,7 @@ std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::str
     spnPipelineResult = &joinAction;
   }
   auto& hispn2lospn = job->insertAction<HiSPNtoLoSPNConversion>(*spnPipelineResult, ctx, diagHandler);
-  auto& lospn2cpu = job->insertAction<LoSPNtoCPUConversion>(hispn2lospn, ctx, diagHandler,
-                                                            spnc::option::cpuVectorize.get(config));
+  auto& lospn2cpu = job->insertAction<LoSPNtoCPUConversion>(hispn2lospn, ctx, diagHandler);
   auto& spn2llvm = job->insertAction<SPNtoLLVMConversion>(lospn2cpu, ctx, diagHandler);
 
   // Convert the MLIR module to a LLVM-IR module.

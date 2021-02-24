@@ -9,6 +9,7 @@
 #include <mlir/ExecutionEngine/ExecutionEngine.h>
 #include <mlir/ExecutionEngine/OptUtils.h>
 #include <util/Logging.h>
+#include <driver/GlobalOptions.h>
 
 using namespace spnc;
 
@@ -22,8 +23,11 @@ MLIRtoLLVMIRConversion::MLIRtoLLVMIRConversion(spnc::ActionWithOutput<mlir::Modu
 llvm::Module& spnc::MLIRtoLLVMIRConversion::execute() {
   if (!cached) {
     auto inputModule = input.execute();
-    inputModule.dump();
     module = mlir::translateModuleToLLVMIR(inputModule, llvmCtx);
+    if (spnc::option::dumpIR.get(*this->config)) {
+      llvm::dbgs() << "\n// *** IR after conversion to LLVM IR ***\n";
+      module->dump();
+    }
     if (!module) {
       SPNC_FATAL_ERROR("Conversion to LLVM IR failed");
     }
@@ -38,7 +42,10 @@ llvm::Module& spnc::MLIRtoLLVMIRConversion::execute() {
     if (auto err = optPipeline(module.get())) {
       SPNC_FATAL_ERROR("Optimization of converted LLVM IR failed");
     }
-    module->dump();
+    if (optimize && spnc::option::dumpIR.get(*this->config)) {
+      llvm::dbgs() << "\n// *** IR after optimization of LLVM IR ***\n";
+      module->dump();
+    }
     cached = true;
   }
   return *module;

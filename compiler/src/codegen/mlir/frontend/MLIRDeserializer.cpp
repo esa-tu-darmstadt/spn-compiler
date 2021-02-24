@@ -14,7 +14,9 @@
 #include <mlir/IR/Verifier.h>
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "llvm/Support/Debug.h"
 #include "Kernel.h"
+#include <driver/GlobalOptions.h>
 
 using namespace capnp;
 using namespace mlir;
@@ -48,7 +50,10 @@ mlir::ModuleOp& spnc::MLIRDeserializer::execute() {
 
     deserializeQuery(header.getQuery());
 
-    module->dump();
+    if (spnc::option::dumpIR.get(*this->config)) {
+      llvm::dbgs() << "\n// *** IR after deserialization ***\n";
+      module->dump();
+    }
     if (failed(::mlir::verify(module->getOperation()))) {
       SPNC_FATAL_ERROR("Verification of the generated MLIR module failed!");
     }
