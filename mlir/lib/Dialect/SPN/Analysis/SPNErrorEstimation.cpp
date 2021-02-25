@@ -51,38 +51,44 @@ SPNErrorEstimation::SPNErrorEstimation(Operation* root) {
     ++iterationCount;
   }
   selectOptimalType();
+  emitDiagnosticInfo();
+}
 
+void SPNErrorEstimation::emitDiagnosticInfo() {
   auto rootValues = spn_node_values[rootNode];
   double value = rootValues.accurate;
   double defect = rootValues.defective;
 
   double err_rel = std::abs((value / defect) - 1.0);
   double err_abs = std::abs(value - defect);
-  double err_abs_log = std::log((1.0 + std::abs((value / defect) - 1.0)));
+  double err_abs_log = std::abs(std::log(value / defect));
 
-  llvm::dbgs() << "===================== SPNErrorEstimation =====================\n";
-  llvm::dbgs() << "|| abortAnalysis:            " << abortAnalysis << "\n";
-  llvm::dbgs() << "|| satisfiedRequirements:    " << satisfiedRequirements << "\n";
-  llvm::dbgs() << "|| iterationCount:           " << iterationCount << "\n";
-  llvm::dbgs() << "|| format_bits_magnitude:    " << format_bits_magnitude << "\n";
-  llvm::dbgs() << "|| format_bits_significance: " << format_bits_significance << "\n";
-  llvm::dbgs() << "|| EPS:                      " << EPS << "\n";
-  llvm::dbgs() << "|| ERR_COEFFICIENT:          " << ERR_COEFFICIENT << "\n";
-  llvm::dbgs() << "|| err_margin:               " << error_margin << "\n";
-  llvm::dbgs() << "|| spn_node_global_maximum:  " << spn_node_value_global_maximum << "\n";
-  llvm::dbgs() << "|| spn_node_global_minimum:  " << spn_node_value_global_minimum << "\n";
-  llvm::dbgs() << "|| spn_root_value:           " << rootValues.accurate << "\n";
-  llvm::dbgs() << "|| spn_root_defect:          " << rootValues.defective << "\n";
-  llvm::dbgs() << "|| spn_root_maximum:         " << rootValues.max << "\n";
-  llvm::dbgs() << "|| spn_root_minimum:         " << rootValues.min << "\n";
-  llvm::dbgs() << "|| spn_root_subtree_depth:   " << rootValues.depth << "\n";
-  llvm::dbgs() << "|| err_rel:                  " << err_rel << "\n";
-  llvm::dbgs() << "|| err_abs:                  " << err_abs << "\n";
-  llvm::dbgs() << "|| err_log_abs:              " << err_abs_log << "\n";
-  llvm::dbgs() << "|| optimal representation:   ";
-  selectedType.dump();
-  llvm::dbgs() << "\n";
-  llvm::dbgs() << "==============================================================\n";
+  std::string emitHeader = "===================== SPNErrorEstimation =====================\n";
+  llvm::raw_string_ostream rso{emitHeader};
+  rso << "|| abortAnalysis:            " << abortAnalysis << "\n";
+  rso << "|| satisfiedRequirements:    " << satisfiedRequirements << "\n";
+  rso << "|| iterationCount:           " << iterationCount << "\n";
+  rso << "|| format_bits_magnitude:    " << format_bits_magnitude << "\n";
+  rso << "|| format_bits_significance: " << format_bits_significance << "\n";
+  rso << "|| EPS:                      " << calc->getEpsilon() << "\n";
+  rso << "|| ERR_COEFFICIENT:          " << calc->getErrorCoefficient() << "\n";
+  rso << "|| err_margin:               " << error_margin << "\n";
+  rso << "|| spn_node_global_maximum:  " << spn_node_value_global_maximum << "\n";
+  rso << "|| spn_node_global_minimum:  " << spn_node_value_global_minimum << "\n";
+  rso << "|| spn_root_value:           " << rootValues.accurate << "\n";
+  rso << "|| spn_root_defect:          " << rootValues.defective << "\n";
+  rso << "|| spn_root_maximum:         " << rootValues.max << "\n";
+  rso << "|| spn_root_minimum:         " << rootValues.min << "\n";
+  rso << "|| spn_root_subtree_depth:   " << rootValues.depth << "\n";
+  rso << "|| err_rel:                  " << err_rel << "\n";
+  rso << "|| err_abs:                  " << err_abs << "\n";
+  rso << "|| err_log_abs:              " << err_abs_log << "\n";
+  rso << "|| optimal representation:   ";
+  selectedType.print(rso);
+  rso << "\n";
+  rso << "==============================================================\n";
+
+  rootNode->emitRemark("Error Estimation done.").attachNote(rootNode->getLoc()) << rso.str();
 }
 
 void SPNErrorEstimation::analyzeGraph(Operation* graphRoot) {
@@ -91,15 +97,24 @@ void SPNErrorEstimation::analyzeGraph(Operation* graphRoot) {
   // Either select next floating-point format or increase number of Integer-bits
   format_bits_significance = (est_data_representation == data_representation::EM_FLOATING_POINT) ?
                              Float_Formats[iterationCount].significanceBits : (2 + iterationCount);
-  EPS = std::pow(BASE_TWO, double(-(format_bits_significance + 1.0)));
-  ERR_COEFFICIENT = 1.0 + EPS;
+
+  double epsilon = std::pow(BASE_TWO, double(-(format_bits_significance + 1.0)));
+
+  switch (est_data_representation) {
+    case data_representation::EM_FLOATING_POINT:
+      // Make floating-point calculator.
+      calc = std::shared_ptr<ErrorEstimationCalculator>(new FloatingPointCalculator(epsilon));
+      break;
+    case data_representation::EM_FIXED_POINT:
+      // Make fixed-point calculator.
+      calc = std::shared_ptr<ErrorEstimationCalculator>(new FixedPointCalculator(epsilon));
+      break;
+  }
 
   traverseSubgraph(graphRoot);
-
   if (!estimatedLeastMagnitudeBits) {
     estimateLeastMagnitudeBits();
   }
-
   satisfiedRequirements = checkRequirements();
 }
 
@@ -118,31 +133,7 @@ void SPNErrorEstimation::estimateLeastMagnitudeBits() {
     }
   }
 
-  double bias;
-
-  switch (est_data_representation) {
-    case data_representation::EM_FLOATING_POINT:
-      // Overflow and underflow has to be taken into account.
-      // Calculate minimum number of bits (then bias) for 2's complement to determine the number of exponent bits.
-      bias = std::ceil(std::abs(std::log2(
-          std::ceil(std::abs(std::log2(spn_node_value_global_minimum))))));
-      bias = std::max(bias, std::ceil(std::abs(std::log2(
-          std::ceil(std::abs(std::log2(spn_node_value_global_maximum)))))));
-      // Calculate actual bias value; to account for special, "unusable" exponent values we do NOT subtract 1.
-      bias = std::pow(2.0, bias);
-      format_bits_magnitude = (int) std::ceil(std::log2(std::ceil(
-          std::abs(std::log2(spn_node_value_global_minimum))) + bias));
-      format_bits_magnitude =
-          std::max(format_bits_magnitude,
-                   (int) std::ceil(std::log2(std::ceil(
-                       std::abs(std::log2(spn_node_value_global_maximum))) + bias)));
-      break;
-    case data_representation::EM_FIXED_POINT:
-      // Only overflow / maximum-value has to be taken into account for integer bits.
-      format_bits_magnitude = (int) std::ceil(std::log2(spn_node_value_global_maximum));
-      break;
-  }
-
+  format_bits_magnitude = calc->calculateMagnitudeBits(spn_node_value_global_maximum, spn_node_value_global_minimum);
   estimatedLeastMagnitudeBits = true;
 }
 
@@ -203,19 +194,20 @@ void SPNErrorEstimation::traverseSubgraph(Operation* subgraphRoot) {
     // Handle leaf node.
     if (auto categorical = dyn_cast<CategoricalOp>(subgraphRoot)) {
       estimateErrorCategorical(categorical);
-    } else if (auto constant = dyn_cast<ConstantOp>(subgraphRoot)) {
-      estimateErrorConstant(constant);
     } else if (auto gaussian = dyn_cast<GaussianOp>(subgraphRoot)) {
       estimateErrorGaussian(gaussian);
     } else if (auto histogram = dyn_cast<HistogramOp>(subgraphRoot)) {
       estimateErrorHistogram(histogram);
     } else {
       // Unhandled leaf-node-type: Abort.
-      llvm::dbgs() << "Encountered unhandled leaf-node-type: ";
-      subgraphRoot->dump();
+      llvm::dbgs() << "Encountered unhandled leaf-node-type, operation was: ";
+      subgraphRoot->print(llvm::dbgs());
       llvm::dbgs() << "\n";
       assert(false);
     }
+  } else if (auto constant = dyn_cast<ConstantOp>(subgraphRoot)) {
+    // Handle constant node.
+    estimateErrorConstant(constant);
   } else {
     // Handle inner node.
     arg_t passed_arg(nullptr);
@@ -249,25 +241,18 @@ void SPNErrorEstimation::estimateErrorSum(SumOp op) {
   assert(it_v1 != spn_node_values.end());
   assert(it_v2 != spn_node_values.end());
 
-  // Retrieve the corresponding tuples
-  ErrorEstimationValue& t1 = it_v1->second;
-  ErrorEstimationValue& t2 = it_v2->second;
+  // Retrieve the corresponding data
+  ErrorEstimationValue& v1 = it_v1->second;
+  ErrorEstimationValue& v2 = it_v2->second;
 
-  value = t1.accurate + t2.accurate;
-
-  max_depth = std::max(t1.depth, t2.depth) + 1;
-
-  switch (est_data_representation) {
-    case data_representation::EM_FIXED_POINT:defect = t1.defective + t2.defective;
-      break;
-    case data_representation::EM_FLOATING_POINT:defect = value * std::pow(ERR_COEFFICIENT, max_depth);
-      break;
-  }
+  value = v1.accurate + v2.accurate;
+  max_depth = std::max(v1.depth, v2.depth) + 1;
+  defect = calc->calculateDefectiveSum(v1, v2);
 
   // "max": values will be added
   // "min": the higher value will be ignored entirely (adder becomes min-selection)
-  max = t1.max + t2.max;
-  min = std::min(t1.min, t2.min);
+  max = v1.max + v2.max;
+  min = std::min(v1.min, v2.min);
 
   spn_node_values.emplace(op.getOperation(), ErrorEstimationValue{value, defect, max, min, max_depth});
 }
@@ -286,37 +271,18 @@ void SPNErrorEstimation::estimateErrorProduct(ProductOp op) {
   assert(it_v1 != spn_node_values.end());
   assert(it_v2 != spn_node_values.end());
 
-  // Retrieve the corresponding tuples
-  ErrorEstimationValue& t1 = it_v1->second;
-  ErrorEstimationValue& t2 = it_v2->second;
+  // Retrieve the corresponding data
+  ErrorEstimationValue& v1 = it_v1->second;
+  ErrorEstimationValue& v2 = it_v2->second;
 
-  value = t1.accurate * t2.accurate;
-  defect = value;
-
-  max_depth = std::max(t1.depth, t2.depth) + 1;
-
-  // Moved declaration(s) out of switch-case to avoid errors / warnings.
-  double delta_t1, delta_t2;
-  int accumulated_depth;
-
-  switch (est_data_representation) {
-    case data_representation::EM_FIXED_POINT:
-      // Calculate deltas of the given operators (see equation (5) of ProbLP paper)
-      delta_t1 = t1.defective - t1.accurate;
-      delta_t2 = t2.defective - t2.accurate;
-
-      // Add the corresponding total delta to the already calculated ("accurate") value
-      defect += (t1.max * delta_t2) + (t2.max * delta_t1) + (delta_t1 * delta_t2) + EPS;
-      break;
-    case data_representation::EM_FLOATING_POINT:accumulated_depth = t1.depth + t2.depth + 1;
-      defect *= std::pow(ERR_COEFFICIENT, accumulated_depth);
-      break;
-  }
+  value = v1.accurate * v2.accurate;
+  max_depth = std::max(v1.depth, v2.depth) + 1;
+  defect = calc->calculateDefectiveProduct(v1, v2);
 
   // "max": highest values will be multiplied
   // "min": lowest values will be multiplied
-  max = t1.max * t2.max;
-  min = t1.min * t2.min;
+  max = v1.max * v2.max;
+  min = v1.min * v2.min;
 
   spn_node_values.emplace(op.getOperation(), ErrorEstimationValue{value, defect, max, min, max_depth});
 }
@@ -332,13 +298,7 @@ void SPNErrorEstimation::estimateErrorCategorical(CategoricalOp op) {
 
   // Use the maximum value
   value = max;
-
-  switch (est_data_representation) {
-    case data_representation::EM_FIXED_POINT:defect = value + EPS;
-      break;
-    case data_representation::EM_FLOATING_POINT:defect = value * ERR_COEFFICIENT;
-      break;
-  }
+  defect = calc->calculateDefectiveLeaf(value);
 
   spn_node_values.emplace(op.getOperation(), ErrorEstimationValue{value, defect, max, min, 1});
 }
@@ -347,14 +307,7 @@ void SPNErrorEstimation::estimateErrorConstant(ConstantOp op) {
   double value = op.value().convertToDouble();
   double max = value;
   double min = value;
-  double defect = 0.0;
-
-  switch (est_data_representation) {
-    case data_representation::EM_FIXED_POINT:defect = value + EPS;
-      break;
-    case data_representation::EM_FLOATING_POINT:defect = value * ERR_COEFFICIENT;
-      break;
-  }
+  double defect = calc->calculateDefectiveLeaf(value);
 
   spn_node_values.emplace(op.getOperation(), ErrorEstimationValue{value, defect, max, min, 1});
 }
@@ -370,20 +323,13 @@ void SPNErrorEstimation::estimateErrorGaussian(GaussianOp op) {
   // value := PDF(mean) = c * EXP(0) = c
   double value = c;
   double max = value;
+  double defect = calc->calculateDefectiveLeaf(value);
 
   // Consider 99%, i.e. x := mean +/- (2.576 * stddev)
   // Note 1: mean will be subtracted upon calculating the PDF; hence omit it in the first place: x := 2.576 * stddev
   // Note 2: x will be divided by stddev leaving only constant ~ 2.576.
   // No skew -> PDF is symmetric w.r.t. to PDF(mean), so PDF(mean + delta) = PDF(mean - delta)
   double min = c * GAUSS_99;
-  double defect;
-
-  switch (est_data_representation) {
-    case data_representation::EM_FIXED_POINT:defect = value + EPS;
-      break;
-    case data_representation::EM_FLOATING_POINT:defect = value * ERR_COEFFICIENT;
-      break;
-  }
 
   spn_node_values.emplace(op.getOperation(), ErrorEstimationValue{value, defect, max, min, 1});
 }
@@ -402,13 +348,7 @@ void SPNErrorEstimation::estimateErrorHistogram(HistogramOp op) {
 
   // Select maximum as "value"
   value = max;
-
-  switch (est_data_representation) {
-    case data_representation::EM_FIXED_POINT:defect = value + EPS;
-      break;
-    case data_representation::EM_FLOATING_POINT:defect = value * ERR_COEFFICIENT;
-      break;
-  }
+  defect = calc->calculateDefectiveLeaf(value);
 
   // Check for changed values.
   assert(max != std::numeric_limits<double>::min());
@@ -434,4 +374,62 @@ void SPNErrorEstimation::selectOptimalType() {
 
 mlir::Type SPNErrorEstimation::getOptimalType() {
   return selectedType;
+}
+
+inline double SPNErrorEstimation::FixedPointCalculator::calculateDefectiveLeaf(double value) {
+  return (value + EPS);
+}
+
+inline double SPNErrorEstimation::FloatingPointCalculator::calculateDefectiveLeaf(double value) {
+  return (value * ERR_COEFFICIENT);
+}
+
+inline double SPNErrorEstimation::FixedPointCalculator::calculateDefectiveProduct(ErrorEstimationValue& v1,
+                                                                                  ErrorEstimationValue& v2) {
+  // Calculate accurate value
+  double defect = v1.accurate * v2.accurate;
+  // Calculate deltas of the given operators (see equation (5) of ProbLP paper)
+  double delta_t1 = v1.defective - v1.accurate;
+  double delta_t2 = v2.defective - v2.accurate;
+  // Add the corresponding total delta to the already calculated ("accurate") value
+  defect += (v1.max * delta_t2) + (v2.max * delta_t1) + (delta_t1 * delta_t2) + EPS;
+  return defect;
+}
+
+inline double SPNErrorEstimation::FloatingPointCalculator::calculateDefectiveProduct(ErrorEstimationValue& v1,
+                                                                                     ErrorEstimationValue& v2) {
+  // Calculate accurate value
+  double defect = v1.accurate * v2.accurate;
+  // Apply error coefficient for each past conversion step.
+  defect *= std::pow(ERR_COEFFICIENT, (v1.depth + v2.depth + 1));
+  return defect;
+}
+
+inline double SPNErrorEstimation::FixedPointCalculator::calculateDefectiveSum(ErrorEstimationValue& v1,
+                                                                              ErrorEstimationValue& v2) {
+  // Calculate defective value directly
+  return (v1.defective + v2.defective);
+}
+
+inline double SPNErrorEstimation::FloatingPointCalculator::calculateDefectiveSum(ErrorEstimationValue& v1,
+                                                                                 ErrorEstimationValue& v2) {
+  int max_depth = std::max(v1.depth, v2.depth) + 1;
+  // Apply error coefficient for the longest conversion chain.
+  return ((v1.accurate + v2.accurate) * std::pow(ERR_COEFFICIENT, max_depth));
+}
+
+inline int SPNErrorEstimation::FixedPointCalculator::calculateMagnitudeBits(double max, double min) {
+  return ((int) std::ceil(std::log2(max)));
+}
+
+inline int SPNErrorEstimation::FloatingPointCalculator::calculateMagnitudeBits(double max, double min) {
+  // Overflow and underflow has to be taken into account.
+  // Calculate minimum number of bits (then bias) for 2's complement to determine the number of exponent bits.
+  double bias = std::ceil(std::abs(std::log2(std::ceil(std::abs(std::log2(min))))));
+  bias = std::max(bias, std::ceil(std::abs(std::log2(std::ceil(std::abs(std::log2(max)))))));
+  // Calculate actual bias value; to account for special, "unusable" exponent values we do NOT subtract 1.
+  bias = std::pow(2.0, bias);
+  int magnitudeBits = (int) std::ceil(std::log2(std::ceil(std::abs(std::log2(min))) + bias));
+  magnitudeBits = std::max(magnitudeBits, (int) std::ceil(std::log2(std::ceil(std::abs(std::log2(max))) + bias)));
+  return magnitudeBits;
 }

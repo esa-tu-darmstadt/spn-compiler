@@ -27,6 +27,10 @@ namespace mlir {
 
     public:
 
+      SPNErrorEstimation()
+          : est_data_representation(data_representation::EM_FLOATING_POINT),
+            est_error_model(error_model::absolute_error), calc(nullptr) {}
+
       /// Constructor. Note that this will be primarily used as an analysis.
       /// \param root Operation pointer which will be treated as SPN-graph root.
       explicit SPNErrorEstimation(Operation* root);
@@ -56,10 +60,48 @@ namespace mlir {
       struct ValueFormat {
         /// Number of magnitude bits, i.e. "Integer / Exponent"
         int magnitudeBits;
-        /// 1: Number of significance bits, i.e. "Fraction / Mantissa"
+        /// Number of significance bits, i.e. "Fraction / Mantissa"
         int significanceBits;
-        /// 2: Function returning mlir::Type, requiring an MLIRContext*
+        /// Function returning mlir::Type, requiring an MLIRContext*
         std::function<Type(MLIRContext*)> getType;
+      };
+
+      /// Class which acts as Strategy (GoF pattern) super-class for the error calculation of different data formats.
+      class ErrorEstimationCalculator {
+      public:
+        explicit ErrorEstimationCalculator(double epsilon = 0.0) : EPS(epsilon), ERR_COEFFICIENT(1.0 + epsilon) {}
+        virtual int calculateMagnitudeBits(double max, double min) = 0;
+        virtual double calculateDefectiveLeaf(double value) = 0;
+        virtual double calculateDefectiveProduct(ErrorEstimationValue& v1, ErrorEstimationValue& v2) = 0;
+        virtual double calculateDefectiveSum(ErrorEstimationValue& v1, ErrorEstimationValue& v2) = 0;
+        virtual ~ErrorEstimationCalculator() = default;
+        double getEpsilon() const { return EPS; }
+        double getErrorCoefficient() const { return ERR_COEFFICIENT; }
+      protected:
+        /// Calculation EPSILON.
+        double EPS;
+        /// Calculation error coefficient: 1 + EPSILON.
+        double ERR_COEFFICIENT;
+      };
+
+      /// Class implementing the actual error calculations (defective values) regarding the fixed point format.
+      class FixedPointCalculator : public ErrorEstimationCalculator {
+      public:
+        explicit FixedPointCalculator(double _eps) : ErrorEstimationCalculator(_eps) {}
+        double calculateDefectiveLeaf(double value) override;
+        double calculateDefectiveProduct(ErrorEstimationValue& v1, ErrorEstimationValue& v2) override;
+        double calculateDefectiveSum(ErrorEstimationValue& v1, ErrorEstimationValue& v2) override;
+        int calculateMagnitudeBits(double max, double min) override;
+      };
+
+      /// Class implementing the actual error calculations (defective values) regarding the floating point format.
+      class FloatingPointCalculator : public ErrorEstimationCalculator {
+      public:
+        explicit FloatingPointCalculator(double _eps) : ErrorEstimationCalculator(_eps) {}
+        double calculateDefectiveLeaf(double value) override;
+        double calculateDefectiveProduct(ErrorEstimationValue& v1, ErrorEstimationValue& v2) override;
+        double calculateDefectiveSum(ErrorEstimationValue& v1, ErrorEstimationValue& v2) override;
+        int calculateMagnitudeBits(double max, double min) override;
       };
 
       /// Process provided pointer to a SPN node and update internal counts / results.
@@ -108,20 +150,23 @@ namespace mlir {
       /// \param op Pointer to the defining operation, representing a SPN node.
       void estimateErrorHistogram(HistogramOp op);
 
+      /// Emit diagnostic data / information on the results of this analysis.
+      void emitDiagnosticInfo();
+
       /// Select the "optimal" type, using the current state of the analysis.
       void selectOptimalType();
 
       /// SPN root-node.
-      Operation* rootNode;
+      Operation* rootNode{};
 
-      /// User-requested error model.
+      /// User-requested data representation (e.g. fixed / floating point).
       enum data_representation est_data_representation;
 
-      /// User-requested error model / calculation.
+      /// User-requested error model / calculation, also: 'error kind' (e.g. absolute / relative / absolute log).
       enum error_model est_error_model;
 
       /// User-requested maximum error margin.
-      double error_margin;
+      double error_margin{};
 
       /// Indicate if min-max information was processed.
       int iterationCount = 0;
@@ -141,11 +186,8 @@ namespace mlir {
       /// Calculation constant "two".
       static constexpr double BASE_TWO = 2.0;
 
-      /// Calculation EPSILON.
-      double EPS = 0.0;
-
-      /// Calculation error coefficient: 1 + EPSILON.
-      double ERR_COEFFICIENT = 1.0;
+      /// Pointer to this analysis' data representation dependant (error) calculator.
+      std::shared_ptr<ErrorEstimationCalculator> calc = nullptr;
 
       /// Calculation of Gaussian minimum probability value outside of 99% := exp(-0.5 * std::pow(2.575829303549,2.0)).
       static constexpr double GAUSS_99 = 0.036245200715160;
@@ -163,11 +205,11 @@ namespace mlir {
       int format_bits_magnitude = std::numeric_limits<int>::min();
 
       /// Tuples which model different floating point formats, like e.g. fp32 / single precision
-      const std::vector<ValueFormat> Float_Formats {
-        ValueFormat{5, 10, Float16Type::get},
-        ValueFormat{8, 7, BFloat16Type::get},
-        ValueFormat{8, 23, Float32Type::get},
-        ValueFormat{11, 52, Float64Type::get}
+      const std::vector<ValueFormat> Float_Formats{
+          ValueFormat{5, 10, Float16Type::get},
+          ValueFormat{8, 7, BFloat16Type::get},
+          ValueFormat{8, 23, Float32Type::get},
+          ValueFormat{11, 52, Float64Type::get}
       };
 
     };
