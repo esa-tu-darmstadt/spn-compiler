@@ -39,18 +39,18 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
   // Create a new SPNTask, with the original inputs + the allocated memories as input.
   auto newTask = rewriter.create<mlir::spn::low::SPNTask>(op->getLoc(), TypeRange{}, inputs, op.batchSize());
   // Create a block with block arguments.
-  auto newTaskBlock = rewriter.createBlock(&newTask.body());
+  auto newTaskBlock = newTask.addEntryBlock();
+  rewriter.setInsertionPointToStart(newTaskBlock);
   SmallVector<Value, 2> inArgs;
   SmallVector<Value, 2> outArgs;
   // Insert a first block argument corresponding to the batch index.
-  auto batchIndex = newTaskBlock->addArgument(rewriter.getIndexType());
+  auto batchIndex = newTask.getBatchIndex();
   inArgs.push_back(batchIndex);
-  for (auto arg : llvm::enumerate(inputs)) {
-    auto blockArg = newTaskBlock->addArgument(arg.value().getType());
-    if (arg.index() < operands.size()) {
-      inArgs.push_back(blockArg);
+  for (unsigned i = 0; i < inputs.size(); ++i) {
+    if (i < operands.size()) {
+      inArgs.push_back(newTaskBlock->getArgument(i + 1));
     } else {
-      outArgs.push_back(blockArg);
+      outArgs.push_back(newTaskBlock->getArgument(i + 1));
     }
   }
   // Merge the body of the original SPNTask into the new Task.
@@ -59,6 +59,7 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
   // by a SPNBatchCollect. Create a SPNBatchWrite for each result in the SPNBatchCollect
   // (assumes a 1:1 mapping between scalar operand of SPNBatchCollect and Tensor result).
   // Insert a SPNReturn (with no return values) as new terminator for the new task.
+  rewriter.setInsertionPoint(newTaskBlock->getTerminator());
   newTaskBlock->walk([&](low::SPNBatchCollect collect) {
     SmallVector<Value, 2> scalarReturnValues;
     for (auto retVal : llvm::zip(collect.results(), collect.tensors(), outArgs)) {
@@ -68,9 +69,15 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
       assert(convertedType == memRef.getType());
       rewriter.create<low::SPNBatchWrite>(collect.getLoc(), scalarResult, memRef, batchIndex);
     }
-    rewriter.create<low::SPNReturn>(collect->getLoc(), ValueRange{});
     rewriter.eraseOp(collect);
   });
+  // Erase the old return and replace it with an empty return,
+  // as all results are now 'returned' via write to the out-args.
+  newTaskBlock->dump();
+  auto ret = dyn_cast<SPNReturn>(newTaskBlock->getTerminator());
+  assert(ret);
+  rewriter.eraseOp(ret);
+  rewriter.create<low::SPNReturn>(op->getLoc(), ValueRange{});
   // The results computed by the new task are stored in the allocated MemRefs,
   // so users of the original Task should use those after bufferization.
   rewriter.replaceOp(op, allocations);
@@ -129,24 +136,24 @@ mlir::LogicalResult mlir::spn::low::KernelBufferize::matchAndRewrite(mlir::spn::
   rewriter.mergeBlocks(&op.body().front(), newKernelBlock, inArgs);
   // Walk the returns of the new body and insert copy from the result value
   // to the newly created out-args.
-  newKernelBlock->walk([&](SPNReturn ret) {
-    SmallVector<Value, 2> scalarReturns;
-    unsigned count = 0;
-    for (auto retVal : ret->getOperands()) {
-      if (!typeConverter->isLegal(retVal.getType())) {
-        retVal = typeConverter->materializeTargetConversion(rewriter, ret.getLoc(),
-                                                            typeConverter->convertType(retVal.getType()),
-                                                            retVal);
-      }
-      if (retVal.getType().isa<MemRefType>()) {
-        rewriter.create<low::SPNCopy>(ret.getLoc(), retVal, outArgs[count++]);
-      } else {
-        scalarReturns.push_back(retVal);
-      }
+  auto ret = dyn_cast<SPNReturn>(newKernelBlock->getTerminator());
+  assert(ret);
+  SmallVector<Value, 2> scalarReturns;
+  unsigned outCount = 0;
+  for (auto retVal : ret->getOperands()) {
+    if (!typeConverter->isLegal(retVal.getType())) {
+      retVal = typeConverter->materializeTargetConversion(rewriter, ret.getLoc(),
+                                                          typeConverter->convertType(retVal.getType()),
+                                                          retVal);
     }
-    rewriter.create<low::SPNReturn>(op->getLoc(), scalarReturns);
-    rewriter.eraseOp(ret);
-  });
+    if (retVal.getType().isa<MemRefType>()) {
+      rewriter.create<low::SPNCopy>(ret.getLoc(), retVal, outArgs[outCount++]);
+    } else {
+      scalarReturns.push_back(retVal);
+    }
+  }
+  rewriter.create<low::SPNReturn>(op->getLoc(), scalarReturns);
+  rewriter.eraseOp(ret);
   // Delete the old SPNKernel.
   rewriter.eraseOp(op);
   return success();

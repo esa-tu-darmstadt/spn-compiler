@@ -50,6 +50,40 @@ namespace mlir {
         return mlir::success();
       }
 
+      static mlir::LogicalResult verifyTask(SPNTask task) {
+        // Check that the first argument of the entry block
+        // has IndexType (corresponds to the batch index) and
+        // the remaining arguments match the types of the
+        // Tasks' operands.
+        if (task.body().front().getNumArguments() != task.getNumOperands() + 1) {
+          return task->emitOpError() << "Incorrect number of block arguments for entry block of Task";
+        }
+        for (auto blockArg : llvm::enumerate(task.body().front().getArguments())) {
+          if (blockArg.index() == 0) {
+            if (!blockArg.value().getType().isIndex()) {
+              return task.emitOpError() << "First argument of Task block must be an index";
+            }
+          } else {
+            if (blockArg.value().getType() != task->getOperand(blockArg.index() - 1).getType()) {
+              return task.emitOpError() << "Task block argument type does not match Task operand type";
+            }
+          }
+        }
+        // Check that the task is terminated by a SPNReturn with the correct number of return values
+        // and types.
+        auto ret = dyn_cast<SPNReturn>(task.body().front().getTerminator());
+        assert(ret);
+        if (ret.returnValues().size() != task.results().size()) {
+          return task.emitOpError() << "Task does not return the correct number of values";
+        }
+        for (auto retVal : llvm::zip(ret.returnValues(), task.results())) {
+          if (std::get<0>(retVal).getType() != std::get<1>(retVal).getType()) {
+            return task->emitOpError() << "Returned value type does not match Task result type";
+          }
+        }
+        return mlir::success();
+      }
+
     }
   }
 }
@@ -67,6 +101,25 @@ void mlir::spn::low::SPNKernel::build(::mlir::OpBuilder& odsBuilder,
   odsState.addAttribute(SymbolTable::getSymbolAttrName(), nameAttr);
   odsState.addAttribute(getTypeAttrName(), typeAttr);
   odsState.addRegion();
+}
+
+//===----------------------------------------------------------------------===//
+// SPNTask
+//===----------------------------------------------------------------------===//
+
+mlir::Block* mlir::spn::low::SPNTask::addEntryBlock() {
+  assert(body().empty() && "Task already has a block");
+  auto* entry = new Block();
+  body().push_back(entry);
+  entry->addArgument(IndexType::get(this->getContext()));
+  entry->addArguments(this->inputs().getType());
+  return entry;
+}
+
+mlir::Value mlir::spn::low::SPNTask::getBatchIndex() {
+  assert(!body().empty() && "Task has no block");
+  assert(body().front().getNumArguments() >= 1 && "Task block has no argument");
+  return body().front().getArgument(0);
 }
 
 //===----------------------------------------------------------------------===//

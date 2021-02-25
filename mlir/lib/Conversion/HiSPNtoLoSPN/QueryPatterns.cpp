@@ -36,12 +36,11 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
                                             op.getBatchSize());
   auto restoreKernel = rewriter.saveInsertionPoint();
   // The block of the task has another argument for the batch index as first argument.
-  auto taskBlock = rewriter.createBlock(&task.getRegion(), {},
-                                        TypeRange{rewriter.getIndexType(), inputType});
+  auto taskBlock = task.addEntryBlock();
   rewriter.setInsertionPointToStart(taskBlock);
   //
   // Generate a SPNBatchIndexRead for every feature of the input sample.
-  auto batchIndex = taskBlock->getArgument(0);
+  auto batchIndex = task.getBatchIndex();
   auto inputArg = taskBlock->getArgument(1);
   SmallVector<Value> inputValues;
   SmallVector<Type> inputTypes;
@@ -67,6 +66,7 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
   auto output = rewriter.create<low::SPNBatchCollect>(op.getLoc(), resultType,
                                                       ValueRange{body.getResult(0)},
                                                       batchIndex);
+  rewriter.create<low::SPNReturn>(op.getLoc(), output.tensors());
   rewriter.restoreInsertionPoint(restoreKernel);
   rewriter.create<low::SPNReturn>(op.getLoc(), task.getResult(0));
   // Erase the original JointQuery that is now represented by the SPNKernel.

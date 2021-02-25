@@ -10,7 +10,6 @@
 #include <driver/GlobalOptions.h>
 
 void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
-  pm->enableVerifier(false);
   bool vectorize = spnc::option::cpuVectorize.get(*this->config);
   pm->addPass(mlir::spn::createLoSPNtoCPUStructureConversionPass(vectorize));
   if (vectorize) {

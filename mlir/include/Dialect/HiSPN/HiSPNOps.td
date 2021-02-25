@@ -49,7 +49,6 @@ def Graph : HiSPN_Op<"graph",
     [DeclareOpInterfaceMethods<RegionKindInterface>, IsolatedFromAbove,
     // TODO Use ParentOneOf<list<string> opList> as soon as we have multiple queries
     HasParent<"JointQuery">,
-    SingleBlockImplicitTerminator<"RootNode">,
     // The graph must be a terminator himself to live in the query's region.
     Terminator]> {
 

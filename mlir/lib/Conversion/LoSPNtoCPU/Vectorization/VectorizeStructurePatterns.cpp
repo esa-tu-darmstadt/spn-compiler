@@ -78,9 +78,8 @@ mlir::LogicalResult mlir::spn::VectorizeBatchTask::matchAndRewrite(mlir::spn::lo
 
   // Create the vectorized loop, iterating from 0 to ubVectorized, in steps of hwVectorWidth.
   auto lbVectorized = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
-  auto ubVectorCast = rewriter.create<mlir::IndexCastOp>(op.getLoc(), ubVectorized, rewriter.getIndexType());
   auto stepVectorized = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(hwVectorWidth));
-  auto vectorizedLoop = rewriter.create<mlir::scf::ForOp>(op.getLoc(), lbVectorized, ubVectorCast, stepVectorized);
+  auto vectorizedLoop = rewriter.create<mlir::scf::ForOp>(op.getLoc(), lbVectorized, ubVectorized, stepVectorized);
   auto& vectorLoopBody = vectorizedLoop.getLoopBody().front();
 
   auto restoreTask = rewriter.saveInsertionPoint();
@@ -109,10 +108,8 @@ mlir::LogicalResult mlir::spn::VectorizeBatchTask::matchAndRewrite(mlir::spn::lo
   rewriter.restoreInsertionPoint(restoreTask);
 
   // Create the scalar epilog loop, iterating from ubVectorized to numSamples, in steps of 1.
-  auto lbScalar = rewriter.create<mlir::IndexCastOp>(op.getLoc(), ubVectorized, rewriter.getIndexType());
-  auto ubScalar = rewriter.create<mlir::IndexCastOp>(op.getLoc(), numSamples, rewriter.getIndexType());
   auto stepScalar = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
-  auto scalarLoop = rewriter.create<mlir::scf::ForOp>(op.getLoc(), lbScalar, ubScalar, stepScalar);
+  auto scalarLoop = rewriter.create<mlir::scf::ForOp>(op.getLoc(), ubVectorized, numSamples, stepScalar);
   auto& scalarLoopBody = scalarLoop.getLoopBody().front();
 
   restoreTask = rewriter.saveInsertionPoint();

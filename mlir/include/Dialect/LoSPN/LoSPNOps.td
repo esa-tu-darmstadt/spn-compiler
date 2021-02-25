@@ -41,7 +41,7 @@ def SPNKernel : LoSPN_Op<"kernel", [FunctionLike, Symbol, IsolatedFromAbove]> {
     let verifier = [{ return mlir::spn::low::verifyKernel(*this); }];
 }
 
-def SPNTask : LoSPN_Op<"task", [HasParent<"SPNKernel">]> {
+def SPNTask : LoSPN_Op<"task", [HasParent<"SPNKernel">, SingleBlockImplicitTerminator<"SPNReturn">]> {
 
     let summary = "The task holds (part of) the computation necessary for SPN query processing";
 
@@ -58,6 +58,18 @@ def SPNTask : LoSPN_Op<"task", [HasParent<"SPNKernel">]> {
     let results = (outs Variadic<RankedTensorOf<[LoSPNComputeType]>>:$results);
 
     let regions = (region SizedRegion<1>:$body);
+
+    let extraClassDeclaration = [{
+        public:
+            /// Add an entry block to the task. The corresponding block arguments
+            /// are automatically added to the block.
+            Block* addEntryBlock();
+
+            /// Get the block argument corresponding to the batch index.
+            Value getBatchIndex();
+    }];
+
+    let verifier = [{ return mlir::spn::low::verifyTask(*this); }];
 
 }
 
@@ -90,7 +102,6 @@ def SPNBatchExtract : LoSPN_Op<"batch_extract", [HasParent<"SPNTask">]> {
 }
 
 def SPNBatchRead : LoSPN_Op<"batch_read", [
-                              HasParent<"SPNTask">,
                               VectorizableOp,
                               DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
@@ -104,7 +115,7 @@ def SPNBatchRead : LoSPN_Op<"batch_read", [
 
 }
 
-def SPNBatchCollect : LoSPN_Op<"batch_collect", [HasParent<"SPNTask">, Terminator]> {
+def SPNBatchCollect : LoSPN_Op<"batch_collect", [HasParent<"SPNTask">]> {
 
     let summary = "Collect one or multiple results for each sample in a batch";
 
@@ -116,7 +127,6 @@ def SPNBatchCollect : LoSPN_Op<"batch_collect", [HasParent<"SPNTask">, Terminato
 }
 
 def SPNBatchWrite : LoSPN_Op<"batch_write", [
-                                HasParent<"SPNTask">,
                                 VectorizableOp,
                                 DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
@@ -161,7 +171,7 @@ def SPNReturn : LoSPN_Op<"return", [Terminator]> {
 }
 
 class LoSPNBodyOp<string mnemonic, list<OpTrait> traits = []> : LoSPN_Op<mnemonic,
-    !listconcat(traits, [HasParent<"SPNBody">, VectorizableOp])>;
+    !listconcat(traits, [VectorizableOp])>;
 
 def SPNYield : LoSPNBodyOp<"yield", [Terminator, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 

@@ -10,7 +10,6 @@
 
 
 void spnc::HiSPNtoLoSPNConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
-  pm->enableVerifier(false);
   pm->addPass(mlir::spn::createHiSPNtoLoSPNNodeConversionPass());
   pm->addPass(mlir::spn::createHiSPNtoLoSPNQueryConversionPass());
 }

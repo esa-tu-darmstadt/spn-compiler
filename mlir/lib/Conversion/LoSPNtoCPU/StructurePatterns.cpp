@@ -48,7 +48,6 @@ mlir::LogicalResult mlir::spn::BatchTaskLowering::matchAndRewrite(mlir::spn::low
   auto loop = rewriter.create<scf::ForOp>(op.getLoc(), const0, ub, step);
   rewriter.create<ReturnOp>(op->getLoc());
   // Fill the loop
-  llvm::dbgs() << "Number of blocks in the loop body: " << loop.getLoopBody().getBlocks().size() << "\n";
   auto& loopBlock = loop.getLoopBody().front();
   rewriter.setInsertionPointToStart(&loopBlock);
   // Collect the values replacing the block values of old block inside the task.
