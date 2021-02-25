@@ -73,7 +73,7 @@ def SPNTask : LoSPN_Op<"task", [HasParent<"SPNKernel">, SingleBlockImplicitTermi
 
 }
 
-def SPNBody : LoSPN_Op<"body", [HasParent<"SPNTask">]> {
+def SPNBody : LoSPN_Op<"body", [HasParent<"SPNTask">, SingleBlockImplicitTerminator<"SPNYield">]> {
 
     let summary = "The body holds the the actual computational operations";
 
@@ -86,6 +86,15 @@ def SPNBody : LoSPN_Op<"body", [HasParent<"SPNTask">]> {
     let results = (outs Variadic<LoSPNComputeType>:$outputs);
 
     let regions = (region SizedRegion<1>:$body);
+
+    let extraClassDeclaration = [{
+        public:
+            /// Add an entry block to the body, the corresponding block
+            /// arguments are automatically added to the block.
+            Block* addEntryBlock();
+    }];
+
+    let verifier = [{ return mlir::spn::low::verifyBody(*this); }];
 
 }
 

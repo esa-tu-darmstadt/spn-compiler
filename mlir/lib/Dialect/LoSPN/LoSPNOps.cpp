@@ -84,6 +84,31 @@ namespace mlir {
         return mlir::success();
       }
 
+      static mlir::LogicalResult verifyBody(SPNBody body) {
+        // Check that the number and type of the entry block arguments match
+        // the operands of the Body.
+        if (body.body().front().getNumArguments() != body->getNumOperands()) {
+          return body.emitOpError() << "Incorrect number of block arguments for entry block of Body";
+        }
+        for (auto argInput : llvm::zip(body.body().front().getArguments(), body.inputs())) {
+          if (std::get<0>(argInput).getType() != std::get<1>(argInput).getType()) {
+            return body.emitOpError() << "Body block argument type does not match Body operand type";
+          }
+        }
+        // Check that the Body is terminated by a SPNYield with the correct number of return values and types.
+        auto yield = dyn_cast<SPNYield>(body.body().front().getTerminator());
+        assert(yield);
+        if (yield.resultValues().size() != body.getNumResults()) {
+          return body.emitOpError() << "Body does not return the correct number of values";
+        }
+        for (auto retVal : llvm::zip(yield.resultValues(), body->getResults())) {
+          if (std::get<0>(retVal).getType() != std::get<1>(retVal).getType()) {
+            return body.emitOpError() << "Returned value type does not match Body result type";
+          }
+        }
+        return mlir::success();
+      }
+
     }
   }
 }
@@ -120,6 +145,18 @@ mlir::Value mlir::spn::low::SPNTask::getBatchIndex() {
   assert(!body().empty() && "Task has no block");
   assert(body().front().getNumArguments() >= 1 && "Task block has no argument");
   return body().front().getArgument(0);
+}
+
+//===----------------------------------------------------------------------===//
+// SPNTask
+//===----------------------------------------------------------------------===//
+
+mlir::Block* mlir::spn::low::SPNBody::addEntryBlock() {
+  assert(body().empty() && "Body already has a block");
+  auto* entry = new Block();
+  body().push_back(entry);
+  entry->addArguments(this->inputs().getType());
+  return entry;
 }
 
 //===----------------------------------------------------------------------===//

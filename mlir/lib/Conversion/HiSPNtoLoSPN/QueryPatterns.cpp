@@ -54,7 +54,8 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
   auto body = rewriter.create<low::SPNBody>(op.getLoc(), TypeRange{compType},
                                             inputValues);
   auto restoreTask = rewriter.saveInsertionPoint();
-  auto bodyBlock = rewriter.createBlock(&body.getRegion(), {}, inputTypes);
+  auto bodyBlock = body.addEntryBlock();
+  rewriter.setInsertionPointToStart(bodyBlock);
   //
   // Merge the content of the DAG (which has been lowered to LoSPN in a previous step) to
   // the body of the task.
