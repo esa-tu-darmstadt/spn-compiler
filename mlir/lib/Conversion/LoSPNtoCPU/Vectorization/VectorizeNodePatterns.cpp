@@ -264,7 +264,8 @@ namespace {
   mlir::LogicalResult replaceOpWithGatherFromGlobalMemref(SourceOp op,
                                                           mlir::ConversionPatternRewriter& rewriter,
                                                           mlir::Value indexOperand,
-                                                          llvm::ArrayRef<mlir::Attribute> arrayValues) {
+                                                          llvm::ArrayRef<mlir::Attribute> arrayValues,
+                                                          const std::string& tablePrefix) {
     static int tableCount = 0;
     auto resultType = op.getResult().getType();
     auto inputType = indexOperand.getType();
@@ -284,7 +285,7 @@ namespace {
     rewriter.setInsertionPointToStart(module.getBody());
 
     // Construct a global, constant Memref with private visibility, holding the values of the array.
-    auto symbolName = "vec_table_" + std::to_string(tableCount++);
+    auto symbolName = tablePrefix + std::to_string(tableCount++);
     auto visibility = rewriter.getStringAttr("private");
     auto memrefType = mlir::MemRefType::get({(long) arrayValues.size()}, resultType);
     auto globalMemref = rewriter.create<mlir::GlobalMemrefOp>(op.getLoc(), symbolName, visibility,
@@ -332,7 +333,8 @@ mlir::LogicalResult mlir::spn::VectorizeCategorical::matchAndRewrite(mlir::spn::
   assert(operands.size() == 1);
 
   return replaceOpWithGatherFromGlobalMemref<low::SPNCategoricalLeaf>(op, rewriter, operands[0],
-                                                                      op.probabilitiesAttr().getValue());
+                                                                      op.probabilitiesAttr().getValue(),
+                                                                      "categorical_vec_");
 }
 
 mlir::LogicalResult mlir::spn::VectorizeHistogram::matchAndRewrite(mlir::spn::low::SPNHistogramLeaf op,
@@ -390,5 +392,6 @@ mlir::LogicalResult mlir::spn::VectorizeHistogram::matchAndRewrite(mlir::spn::lo
     }
 
   }
-  return replaceOpWithGatherFromGlobalMemref<low::SPNHistogramLeaf>(op, rewriter, operands[0], valArray);
+  return replaceOpWithGatherFromGlobalMemref<low::SPNHistogramLeaf>(op, rewriter, operands[0], valArray,
+                                                                    "histogram_vec_");
 }

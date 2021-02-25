@@ -174,7 +174,8 @@ namespace {
 
   template<typename SourceOp>
   mlir::LogicalResult replaceOpWithGlobalMemref(SourceOp op, mlir::ConversionPatternRewriter& rewriter,
-                                                mlir::Value indexOperand, llvm::ArrayRef<mlir::Attribute> arrayValues) {
+                                                mlir::Value indexOperand, llvm::ArrayRef<mlir::Attribute> arrayValues,
+                                                const std::string& tablePrefix) {
     static int tableCount = 0;
     auto resultType = op.getResult().getType();
     if (!resultType.isIntOrFloat()) {
@@ -192,7 +193,7 @@ namespace {
     rewriter.setInsertionPointToStart(module.getBody());
 
     // Construct a global, constant Memref with private visibility, holding the values of the array.
-    auto symbolName = "table_" + std::to_string(tableCount++);
+    auto symbolName = tablePrefix + std::to_string(tableCount++);
     auto visibility = rewriter.getStringAttr("private");
     auto memrefType = mlir::MemRefType::get({(long) arrayValues.size()}, resultType);
     auto globalMemref = rewriter.create<mlir::GlobalMemrefOp>(op.getLoc(), symbolName, visibility,
@@ -278,7 +279,8 @@ mlir::LogicalResult mlir::spn::HistogramLowering::matchAndRewrite(mlir::spn::low
     }
   }
 
-  return replaceOpWithGlobalMemref<low::SPNHistogramLeaf>(op, rewriter, operands[0], valArray);
+  return replaceOpWithGlobalMemref<low::SPNHistogramLeaf>(op, rewriter, operands[0], valArray,
+                                                          "histogram_");
 }
 mlir::LogicalResult mlir::spn::CategoricalLowering::matchAndRewrite(mlir::spn::low::SPNCategoricalLeaf op,
                                                                     llvm::ArrayRef<mlir::Value> operands,
@@ -290,5 +292,6 @@ mlir::LogicalResult mlir::spn::CategoricalLowering::matchAndRewrite(mlir::spn::l
   assert(operands.size() == 1);
 
   return replaceOpWithGlobalMemref<low::SPNCategoricalLeaf>(op, rewriter, operands[0],
-                                                            op.probabilitiesAttr().getValue());
+                                                            op.probabilitiesAttr().getValue(),
+                                                            "categorical_");
 }
