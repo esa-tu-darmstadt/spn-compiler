@@ -73,7 +73,6 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
   });
   // Erase the old return and replace it with an empty return,
   // as all results are now 'returned' via write to the out-args.
-  newTaskBlock->dump();
   auto ret = dyn_cast<SPNReturn>(newTaskBlock->getTerminator());
   assert(ret);
   rewriter.eraseOp(ret);

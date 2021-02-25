@@ -228,6 +228,89 @@ mlir::Block* mlir::spn::low::SPNBody::addEntryBlock() {
 }
 
 //===----------------------------------------------------------------------===//
+// SPNLog
+//===----------------------------------------------------------------------===//
+
+::mlir::OpFoldResult mlir::spn::low::SPNLog::fold(::llvm::ArrayRef<::mlir::Attribute> operands) {
+  assert(operands.size() == 1 && "lospn.fold takes exactly one operand");
+  if (operands[0]) {
+    if (auto constOp = operands[0].dyn_cast<FloatAttr>()) {
+      // If the input to the log is constant, we can replace the log with the
+      // constant logarithm of the constant input.
+      return FloatAttr::get(FloatType::getF64(this->getContext()),
+                            std::log(constOp.getValueAsDouble()));
+    }
+  }
+  // The single operand is not constant, return nullptr to signal that the operation
+  // has not been touched.
+  return nullptr;
+}
+
+//===----------------------------------------------------------------------===//
+// SPNMul
+//===----------------------------------------------------------------------===//
+
+::mlir::OpFoldResult mlir::spn::low::SPNMul::fold(::llvm::ArrayRef<::mlir::Attribute> operands) {
+  assert(operands.size() == 2 && "lospn.mul takes exactly two operands");
+  if (operands[0] && operands[1]) {
+    // Both operands are constant.
+    auto lhs = operands[0].dyn_cast<FloatAttr>();
+    auto rhs = operands[1].dyn_cast<FloatAttr>();
+    // TODO If we want to support integer/fixed-point arithmetic, we also need to handle IntegerAttr.
+    assert(lhs && rhs);
+    return FloatAttr::get(lhs.getType(), lhs.getValueAsDouble() * rhs.getValueAsDouble());
+  }
+  // Constant operands of commutative operations are always moved to the right side of
+  // the operation (see https://mlir.llvm.org/docs/Canonicalization/#globally-applied-rules),
+  // so a check for a constant value on the right-hand side is sufficient.
+  if (operands[1]) {
+    auto rhs = operands[1].dyn_cast<FloatAttr>();
+    // TODO If we want to support integer/fixed-point arithmetic, we also need to handle IntegerAttr.
+    assert(rhs);
+    // x * 0 == 0
+    if (rhs.getValueAsDouble() == 0.0) {
+      return FloatAttr::get(rhs.getType(), 0.0);
+    }
+    // x * 1 == x
+    if (rhs.getValueAsDouble() == 1.0) {
+      return operands[0];
+    }
+  }
+  // None of the operands was constant, return nullptr to signal that the operations has not been touched.
+  return nullptr;
+}
+
+//===----------------------------------------------------------------------===//
+// SPNAdd
+//===----------------------------------------------------------------------===//
+
+::mlir::OpFoldResult mlir::spn::low::SPNAdd::fold(::llvm::ArrayRef<::mlir::Attribute> operands) {
+  assert(operands.size() == 2 && "lospn.add takes exactly two operands");
+  if (operands[0] && operands[1]) {
+    // Both operands are constant.
+    auto lhs = operands[0].dyn_cast<FloatAttr>();
+    auto rhs = operands[1].dyn_cast<FloatAttr>();
+    // TODO If we want to support integer/fixed-point arithmetic, we also need to handle IntegerAttr.
+    assert(lhs && rhs);
+    return FloatAttr::get(lhs.getType(), lhs.getValueAsDouble() + rhs.getValueAsDouble());
+  }
+  // Constant operands of commutative operations are always moved to the right side of
+  // the operation (see https://mlir.llvm.org/docs/Canonicalization/#globally-applied-rules),
+  // so a check for a constant value on the right-hand side is sufficient.
+  if (operands[1]) {
+    auto rhs = operands[1].dyn_cast<FloatAttr>();
+    // TODO If we want to support integer/fixed-point arithmetic, we also need to handle IntegerAttr.
+    assert(rhs);
+    // x + 0 == x
+    if (rhs.getValueAsDouble() == 0.0) {
+      return operands[0];
+    }
+  }
+  // None of the operands was constant, return nullptr to signal that the operations has not been touched.
+  return nullptr;
+}
+
+//===----------------------------------------------------------------------===//
 // SPNGaussianLeaf
 //===----------------------------------------------------------------------===//
 

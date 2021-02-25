@@ -220,6 +220,8 @@ def SPNLog : LoSPNBodyOp<"log", [NoSideEffect, DeclareOpInterfaceMethods<LoSPNVe
 
     let results = (outs F64:$logResult);
 
+    let hasFolder = 1;
+
 }
 
 def SPNMul : LoSPNBodyOp<"mul", [NoSideEffect, Commutative, SameOperandsAndResultType,
@@ -231,6 +233,8 @@ def SPNMul : LoSPNBodyOp<"mul", [NoSideEffect, Commutative, SameOperandsAndResul
 
     let results = (outs LoSPNComputeType:$result);
 
+    let hasFolder = 1;
+
 }
 
 def SPNAdd : LoSPNBodyOp<"add", [NoSideEffect, Commutative, SameOperandsAndResultType,
@@ -241,6 +245,8 @@ def SPNAdd : LoSPNBodyOp<"add", [NoSideEffect, Commutative, SameOperandsAndResul
     let arguments = (ins LoSPNComputeType:$left, LoSPNComputeType:$right);
 
     let results = (outs LoSPNComputeType:$result);
+
+    let hasFolder = 1;
 
 }
 
