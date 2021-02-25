@@ -108,6 +108,7 @@ def SPNBatchExtract : LoSPN_Op<"batch_extract", [HasParent<"SPNTask">]> {
 
     let results = (outs AnyTypeOf<[LoSPNInputType, LoSPNComputeType]>:$result);
 
+    let verifier = [{ return mlir::spn::low::verifyBatchExtract(*this); }];
 }
 
 def SPNBatchRead : LoSPN_Op<"batch_read", [
@@ -122,17 +123,19 @@ def SPNBatchRead : LoSPN_Op<"batch_read", [
 
     let results = (outs AnyTypeOf<[LoSPNInputType, LoSPNComputeType]>:$result);
 
+    let verifier = [{ return mlir::spn::low::verifyBatchRead(*this); }];
 }
 
 def SPNBatchCollect : LoSPN_Op<"batch_collect", [HasParent<"SPNTask">]> {
 
     let summary = "Collect one or multiple results for each sample in a batch";
 
-    let arguments = (ins Variadic<LoSPNComputeType>:$results,
+    let arguments = (ins Variadic<LoSPNComputeType>:$resultValues,
                             Index:$batchIndex);
 
     let results = (outs Variadic<RankedTensorOf<[LoSPNComputeType]>>:$tensors);
 
+    let verifier = [{ return mlir::spn::low::verifyBatchCollect(*this); }];
 }
 
 def SPNBatchWrite : LoSPN_Op<"batch_write", [
@@ -141,16 +144,24 @@ def SPNBatchWrite : LoSPN_Op<"batch_write", [
 
     let summary = "Write one or multiple results for each sample in a batch";
 
-    let arguments = (ins Variadic<LoSPNComputeType>:$results,
+    let arguments = (ins LoSPNComputeType:$resultValue,
                         MemRefOf<[LoSPNComputeType]>:$batchMem,
                         Index:$batchIndex);
+
+    let verifier = [{ return mlir::spn::low::verifyBatchWrite(*this); }];
 }
 
-def SPNCopy : LoSPN_Op<"copy", []> {
+def SPNCopy : LoSPN_Op<"copy", [SameOperandsShape]> {
 
     let summary = "Copy content of one memref to another memref";
 
-    /// TODO Detailed description
+    let description = [{
+        Copies the content of one memref to another memref.
+        This operation is used as part of the bufferization
+        process for the LoSPN dialect, where Tasks write
+        their results to previously allocated MemRefs instead
+        of returning Tensors.
+    }];
 
     let arguments = (ins MemRefOf<[LoSPNComputeType]>:$source,
                         MemRefOf<[LoSPNComputeType]>:$target);

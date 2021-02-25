@@ -109,6 +109,65 @@ namespace mlir {
         return mlir::success();
       }
 
+      static mlir::LogicalResult verifyBatchExtract(SPNBatchExtract extract) {
+        auto tensor = extract.input().getType().dyn_cast<TensorType>();
+        assert(tensor);
+        if (!tensor.hasRank() || tensor.getRank() != 2) {
+          return extract->emitOpError() << "Input tensor should be ranked with two dimensions";
+        }
+        if (tensor.isDynamicDim(1)) {
+          return extract->emitOpError() << "Second dimension of input tensor should be static";
+        }
+        if (extract.sampleIndex() >= tensor.getDimSize(1)) {
+          return extract.emitOpError() << "Sample index out-of-bounds for input tensor";
+        }
+        if (tensor.getElementType() != extract.result().getType()) {
+          return extract.emitOpError() << "Input tensor element type does not match output type";
+        }
+        return mlir::success();
+      }
+
+      static mlir::LogicalResult verifyBatchRead(SPNBatchRead read) {
+        auto memref = read.batchMem().getType().dyn_cast<MemRefType>();
+        assert(memref);
+        if (!memref.hasRank() || memref.getRank() != 2) {
+          return read->emitOpError() << "Input memref should be ranked with two dimensions";
+        }
+        if (memref.isDynamicDim(1)) {
+          return read->emitOpError() << "Second dimension of input memref should be static";
+        }
+        if (read.sampleIndex() >= memref.getDimSize(1)) {
+          return read.emitOpError() << "Sample index out-of-bounds for input memref";
+        }
+        if (memref.getElementType() != read.result().getType()) {
+          return read.emitOpError() << "Input memref element type does not match output type";
+        }
+        return mlir::success();
+      }
+
+      static mlir::LogicalResult verifyBatchCollect(SPNBatchCollect collect) {
+        if (collect.resultValues().size() != collect->getNumResults()) {
+          return collect.emitOpError() << "Number of scalar result values must match the number of returned tensors";
+        }
+        for (auto scalarAndTensor : llvm::zip(collect.resultValues(), collect.tensors())) {
+          auto tensorTy = std::get<1>(scalarAndTensor).getType().dyn_cast<TensorType>();
+          assert(tensorTy);
+          if (std::get<0>(scalarAndTensor).getType() != tensorTy.getElementType()) {
+            return collect.emitOpError() << "Scalar type and element type of tensor must match";
+          }
+        }
+        return mlir::success();
+      }
+
+      static mlir::LogicalResult verifyBatchWrite(SPNBatchWrite write) {
+        auto memRefTy = write.batchMem().getType().dyn_cast<MemRefType>();
+        assert(memRefTy);
+        if (write.resultValue().getType() != memRefTy.getElementType()) {
+          return write.emitOpError() << "Scalar type and element type of result memory must match";
+        }
+        return mlir::success();
+      }
+
     }
   }
 }

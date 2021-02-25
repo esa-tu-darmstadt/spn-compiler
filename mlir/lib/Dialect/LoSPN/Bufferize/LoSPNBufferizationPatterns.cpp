@@ -62,7 +62,7 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
   rewriter.setInsertionPoint(newTaskBlock->getTerminator());
   newTaskBlock->walk([&](low::SPNBatchCollect collect) {
     SmallVector<Value, 2> scalarReturnValues;
-    for (auto retVal : llvm::zip(collect.results(), collect.tensors(), outArgs)) {
+    for (auto retVal : llvm::zip(collect.resultValues(), collect.tensors(), outArgs)) {
       Value scalarResult = std::get<0>(retVal);
       auto convertedType = typeConverter->convertType(std::get<1>(retVal).getType());
       auto memRef = std::get<2>(retVal);
