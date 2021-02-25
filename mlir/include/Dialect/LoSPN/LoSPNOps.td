@@ -42,7 +42,7 @@ def SPNKernel : LoSPN_Op<"kernel", [FunctionLike, Symbol, IsolatedFromAbove]> {
 }
 
 def SPNTask : LoSPN_Op<"task", [HasParent<"SPNKernel">, SingleBlockImplicitTerminator<"SPNReturn">,
-                                RecursiveSideEffects]> {
+                                RecursiveSideEffects, IsolatedFromAbove]> {
 
     let summary = "The task holds (part of) the computation necessary for SPN query processing";
 

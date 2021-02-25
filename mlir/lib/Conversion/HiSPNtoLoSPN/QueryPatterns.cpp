@@ -19,7 +19,7 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
   // The result of a JointQuery is converted to log before returning. Currently, F64 is always used to
   // represent the log-result.
   auto compType = rewriter.getF64Type();
-  auto dynamicBatchSize = (op.getBatchSize() == 1) ? 1 : -1;
+  auto dynamicBatchSize = -1;
   // 1 x numFeatures x inputType for batchSize == 1, ? x numFeatures x inputType else.
   auto inputType = RankedTensorType::get({dynamicBatchSize, op.getNumFeatures()}, op.getFeatureDataType());
   // 1 x compType for batchSize == 1, ? x compType else.
