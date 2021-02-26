@@ -273,7 +273,7 @@ mlir::Block* mlir::spn::low::SPNBody::addEntryBlock() {
     }
     // x * 1 == x
     if (rhs.getValueAsDouble() == 1.0) {
-      return operands[0];
+      return this->left();
     }
   }
   // None of the operands was constant, return nullptr to signal that the operations has not been touched.
@@ -303,7 +303,7 @@ mlir::Block* mlir::spn::low::SPNBody::addEntryBlock() {
     assert(rhs);
     // x + 0 == x
     if (rhs.getValueAsDouble() == 0.0) {
-      return operands[0];
+      return this->left();
     }
   }
   // None of the operands was constant, return nullptr to signal that the operations has not been touched.
