@@ -16,7 +16,7 @@ Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t&
   interface::Options::dump();
   auto config = interface::Options::parse(options);
   std::unique_ptr<Job<Kernel>> job;
-  job = MLIRToolchain::constructJobFromFile(inputFile, *config);
+  job = MLIRToolchain::constructJobFromFile(inputFile, config);
   auto kernel = job->execute();
   SPDLOG_INFO("Generated Kernel in {}, kernel name {}", kernel.fileName(), kernel.kernelName());
   return kernel;

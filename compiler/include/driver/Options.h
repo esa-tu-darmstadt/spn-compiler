@@ -209,8 +209,8 @@ namespace spnc {
       /// Parse a Configuration from the option identifiers and values given.
       /// \param input Mapping from option identifier to option value.
       /// \return Configuration.
-      static std::unique_ptr<Configuration> parse(const std::map<std::string, std::string>& input) {
-        auto config = std::make_unique<Configuration>();
+      static std::shared_ptr<Configuration> parse(const std::map<std::string, std::string>& input) {
+        auto config = std::make_shared<Configuration>();
         for (auto& o : input) {
           auto key = o.first;
           auto value = o.second;
@@ -235,7 +235,7 @@ namespace spnc {
         if (!verified) {
           SPNC_FATAL_ERROR("Could not verify configuration constraints!");
         }
-        return config;
+        return std::move(config);
       }
 
       /// Register a new modifier instance in this container, assumes ownership of the modifier.

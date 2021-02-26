@@ -38,7 +38,7 @@ cd llvm
 git clone https://github.com/llvm/llvm-project.git llvm-src
 cd llvm-src
 # Check out specific commit. Other versions of LLVM/MLIR might work, but the following commit ID has been tested
-git checkout b6fb0209b6d4e93126f613eca335db84886bf939
+git checkout f8d3f47e1fd09392aa30df83849b25acd8c59a25
 cd ..
 mkdir llvm-bin
 cd llvm-bin

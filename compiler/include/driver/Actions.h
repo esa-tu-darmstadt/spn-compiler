@@ -6,6 +6,8 @@
 #ifndef SPNC_ACTIONS_H
 #define SPNC_ACTIONS_H
 
+#include <driver/Options.h>
+
 namespace spnc {
 
   ///
@@ -14,6 +16,14 @@ namespace spnc {
   class ActionBase {
   public:
     virtual ~ActionBase() = default;
+
+    void setConfiguration(std::shared_ptr<interface::Configuration> configuration) {
+      config = std::move(configuration);
+    }
+
+  protected:
+
+    std::shared_ptr<interface::Configuration> config;
   };
 
   ///

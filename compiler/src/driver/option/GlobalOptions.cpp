@@ -23,4 +23,5 @@ Option<bool> spnc::option::cpuVectorize{"cpu-vectorize", false};
 
 Option<bool> spnc::option::deleteTemporaryFiles{"delete-temps", true};
 
-Option<bool> spnc::option::useMLIRToolchain{"use-mlir", true};
+// TODO: Switch the default to false when we leave development mode.
+Option<bool> spnc::option::dumpIR{"dump-ir", true};

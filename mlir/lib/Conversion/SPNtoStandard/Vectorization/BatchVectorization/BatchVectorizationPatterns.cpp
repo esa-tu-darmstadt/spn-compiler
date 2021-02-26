@@ -5,6 +5,7 @@
 
 #include "SPNtoStandard/Vectorization/BatchVectorizationPatterns.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/Math/IR/Math.h"
 #include "llvm/Support/Debug.h"
 #include "SPN/SPNAttributes.h"
 
@@ -85,7 +86,7 @@ mlir::LogicalResult mlir::spn::BatchVectorizeGaussian::matchAndRewrite(mlir::spn
   // -(x-mean)^2 / 2*variance
   auto fraction = rewriter.create<mlir::MulFOp>(op.getLoc(), numerator, denominatorConst);
   // e^(-(x-mean)^2 / 2*variance)
-  auto exp = rewriter.create<mlir::ExpOp>(op.getLoc(), fraction);
+  auto exp = rewriter.create<mlir::math::ExpOp>(op.getLoc(), fraction);
   // e^(-(x - mean)^2/2*variance)) * 1/sqrt(2*PI*variance)
   rewriter.replaceOpWithNewOp<mlir::MulFOp>(op, coefficientConst, exp);
   return success();
@@ -150,7 +151,7 @@ namespace {
                                         rewriter, op->getLoc());
     // Replace the source operation with a gather load from the global memref.
     rewriter.template replaceOpWithNewOp<mlir::vector::GatherOp>(op, vectorType, addressOf,
-                                                                 index, mask, mlir::ValueRange{passThru});
+                                                                 index, mask, passThru);
     return mlir::success();
   }
 

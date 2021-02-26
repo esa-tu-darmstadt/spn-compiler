@@ -4,6 +4,7 @@
 //
 
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/Dialect/Math/IR/Math.h"
 #include "SPNtoStandard/SPNtoStandardPatterns.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/Dialect/SCF/SCF.h"
@@ -190,7 +191,7 @@ mlir::LogicalResult mlir::spn::GaussionOpLowering::matchAndRewrite(mlir::spn::Ga
   // -(x-mean)^2 / 2*variance
   auto fraction = rewriter.create<mlir::MulFOp>(op.getLoc(), numerator, denominatorConst);
   // e^(-(x-mean)^2 / 2*variance)
-  auto exp = rewriter.create<mlir::ExpOp>(op.getLoc(), fraction);
+  auto exp = rewriter.create<mlir::math::ExpOp>(op.getLoc(), fraction);
   // e^(-(x - mean)^2/2*variance)) * 1/sqrt(2*PI*variance)
   rewriter.replaceOpWithNewOp<mlir::MulFOp>(op, coefficientConst, exp);
   return success();
@@ -228,7 +229,7 @@ mlir::LogicalResult mlir::spn::SingleJointLowering::matchAndRewrite(mlir::spn::J
   rewriter.mergeBlocks(&op.getRegion().front(), funcEntryBlock, blockArgsReplacement);
   rewriter.setInsertionPointToEnd(funcEntryBlock);
   // Apply logarithm to result before storing it
-  auto logResult = rewriter.create<mlir::LogOp>(op.getLoc(), graphResult.retValue().front());
+  auto logResult = rewriter.create<mlir::math::LogOp>(op.getLoc(), graphResult.retValue().front());
   // Store the log-result to the output pointer.
   SmallVector<Value, 1> indices;
   indices.push_back(rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0)));
@@ -294,7 +295,7 @@ mlir::LogicalResult mlir::spn::BatchJointLowering::matchAndRewrite(mlir::spn::Jo
   rewriter.mergeBlockBefore(&op.getRegion().front(), loopBody.getTerminator(), blockArgsReplacement);
   // Apply logarithm to result before storing it
   rewriter.setInsertionPoint(loopBody.getTerminator());
-  auto logResult = rewriter.create<mlir::LogOp>(op.getLoc(), graphResult.retValue().front());
+  auto logResult = rewriter.create<mlir::math::LogOp>(op.getLoc(), graphResult.retValue().front());
   // Store the log-result to the output pointer.
   SmallVector<Value, 1> indices;
   indices.push_back(forLoop.getInductionVar());
