@@ -118,7 +118,10 @@ void mlir::spn::LoSPNNodeVectorizationPass::runOnOperation() {
     }
     return true;
   });
-  target.addIllegalOp<mlir::spn::low::SPNConvertToVector>();
+  // Mark ConvertToVector as legal. We will try to replace them during the conversion of
+  // the remaining (scalar) nodes, as we need the scalar type to be legal, otherwise
+  // the operand of ConvertToVector is converted to a vector before invoking the pattern.
+  target.addLegalOp<mlir::spn::low::SPNConvertToVector>();
 
   OwningRewritePatternList patterns;
   mlir::spn::populateLoSPNCPUVectorizationNodePatterns(patterns, &getContext(), typeConverter);

@@ -295,3 +295,41 @@ mlir::LogicalResult mlir::spn::CategoricalLowering::matchAndRewrite(mlir::spn::l
                                                             op.probabilitiesAttr().getValue(),
                                                             "categorical_");
 }
+
+mlir::LogicalResult mlir::spn::ResolveConvertToVector::matchAndRewrite(mlir::spn::low::SPNConvertToVector op,
+                                                                       llvm::ArrayRef<mlir::Value> operands,
+                                                                       mlir::ConversionPatternRewriter& rewriter) const {
+  assert(operands.size() == 1);
+  if (operands[0].getType() == op.getResult().getType()) {
+    // This handles the case the ConvertToVector was inserted as a materialization, but the input value
+    // has been vectorized in the meantime, so the conversion can be trivially resolved.
+    rewriter.replaceOp(op, operands);
+    return success();
+  }
+  if (operands[0].getDefiningOp()->hasTrait<mlir::OpTrait::ConstantLike>()) {
+    // This handles the case that the ConvertToVector was inserted between a
+    // constant operation (typically from the Standard dialect, which cannot be marked as vectorized)
+    // and its user. In this case, we can replace the ConverToVector by a vector constant,
+    // using the constant value of the operand for all vector lanes.
+    SmallVector<OpFoldResult, 1> foldResults;
+    auto foldReturn = operands[0].getDefiningOp()->fold({}, foldResults);
+    if (failed(foldReturn)) {
+      return rewriter.notifyMatchFailure(op, "Failed to fold constant operand");
+    }
+    if (auto constAttr = foldResults.front().dyn_cast<Attribute>()) {
+      auto vectorType = op.getResult().getType().dyn_cast<VectorType>();
+      assert(vectorType);
+      assert(vectorType.getRank() == 1 && "Expecting only 1D vectors");
+      auto vectorWidth = vectorType.getDimSize(0);
+      SmallVector<Attribute, 4> constantValues;
+      for (int i = 0; i < vectorWidth; ++i) {
+        constantValues.push_back(constAttr);
+      }
+      auto constVectorAttr = DenseElementsAttr::get(vectorType, constantValues);
+      rewriter.replaceOpWithNewOp<ConstantOp>(op, constVectorAttr);
+      return success();
+    }
+    return rewriter.notifyMatchFailure(op, "Constant folding did not yield a constant attribute");
+  }
+  return rewriter.notifyMatchFailure(op, "Conversion to vector cannot be resolved trivially");
+}

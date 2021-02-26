@@ -116,12 +116,22 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
+    struct ResolveConvertToVector : public OpConversionPattern<low::SPNConvertToVector> {
+
+      using OpConversionPattern<low::SPNConvertToVector>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNConvertToVector op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
     static void populateLoSPNtoCPUNodePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                TypeConverter& typeConverter) {
       patterns.insert<BatchReadLowering, BatchWriteLowering, CopyLowering>(typeConverter, context);
       patterns.insert<LogLowering, ReturnLowering, ConstantLowering>(typeConverter, context);
       patterns.insert<MulLowering, AddLowering>(typeConverter, context);
       patterns.insert<GaussianLowering, CategoricalLowering, HistogramLowering>(typeConverter, context);
+      patterns.insert<ResolveConvertToVector>(typeConverter, context);
     }
   }
 }

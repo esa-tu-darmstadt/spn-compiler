@@ -101,15 +101,6 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
-    struct ResolveConvertToVector : public OpConversionPattern<low::SPNConvertToVector> {
-
-      using OpConversionPattern<low::SPNConvertToVector>::OpConversionPattern;
-
-      LogicalResult matchAndRewrite(low::SPNConvertToVector op,
-                                    ArrayRef <Value> operands,
-                                    ConversionPatternRewriter& rewriter) const override;
-    };
-
     struct VectorizeConstant : public OpConversionPattern<low::SPNConstant> {
 
       using OpConversionPattern<low::SPNConstant>::OpConversionPattern;
@@ -125,7 +116,7 @@ namespace mlir {
       patterns.insert<VectorizeBatchRead, VectorizeBatchWrite>(typeConverter, context, 2);
       patterns.insert<VectorizeGaussian, VectorizeCategorical, VectorizeHistogram>(typeConverter, context, 2);
       patterns.insert<VectorizeAdd, VectorizeMul, VectorizeLog>(typeConverter, context, 2);
-      patterns.insert<VectorizeConstant, ResolveConvertToVector>(typeConverter, context, 2);
+      patterns.insert<VectorizeConstant>(typeConverter, context, 2);
     }
 
   }

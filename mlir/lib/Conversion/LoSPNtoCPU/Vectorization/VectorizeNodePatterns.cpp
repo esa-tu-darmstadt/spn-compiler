@@ -174,19 +174,6 @@ mlir::LogicalResult mlir::spn::VectorizeConstant::matchAndRewrite(mlir::spn::low
   return success();
 }
 
-mlir::LogicalResult mlir::spn::ResolveConvertToVector::matchAndRewrite(mlir::spn::low::SPNConvertToVector op,
-                                                                       llvm::ArrayRef<mlir::Value> operands,
-                                                                       mlir::ConversionPatternRewriter& rewriter) const {
-  assert(operands.size() == 1);
-  if (operands[0].getType() != op.getResult().getType()) {
-    return rewriter.notifyMatchFailure(op, "Conversion to vector cannot be resolved trivially");
-  }
-  // This handles the case the ConvertToVector was inserted as a materialization, but the input value
-  // has been vectorized in the meantime, so the conversion can be trivially resolved.
-  rewriter.replaceOp(op, operands);
-  return success();
-}
-
 mlir::LogicalResult mlir::spn::VectorizeGaussian::matchAndRewrite(mlir::spn::low::SPNGaussianLeaf op,
                                                                   llvm::ArrayRef<mlir::Value> operands,
                                                                   mlir::ConversionPatternRewriter& rewriter) const {

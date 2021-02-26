@@ -75,7 +75,7 @@ def SPNTask : LoSPN_Op<"task", [HasParent<"SPNKernel">, SingleBlockImplicitTermi
 }
 
 def SPNBody : LoSPN_Op<"body", [HasParent<"SPNTask">, SingleBlockImplicitTerminator<"SPNYield">,
-                                NoSideEffect]> {
+                                NoSideEffect, IsolatedFromAbove]> {
 
     let summary = "The body holds the the actual computational operations";
 
