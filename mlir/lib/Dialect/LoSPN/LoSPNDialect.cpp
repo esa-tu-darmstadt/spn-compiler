@@ -17,6 +17,42 @@ void LoSPNDialect::initialize() {
 #define GET_OP_LIST
 #include "LoSPN/LoSPNOps.cpp.inc"
   >();
+  addTypes<LogType>();
+}
+
+::mlir::Type LoSPNDialect::parseType(::mlir::DialectAsmParser& parser) const {
+  // Currently only handles the LogType, as no other dialect types are defined for LoSPN.
+
+  // LogType is printed as "log<$baseType>"
+  if (parser.parseKeyword("log") || parser.parseLess()) {
+    // Failed to parse "log" or "<"
+    return Type();
+  }
+  mlir::Type baseType;
+  llvm::SMLoc typeLoc = parser.getCurrentLocation();
+  if (parser.parseType(baseType)) {
+    // Failed to parse the base type.
+    return Type();
+  }
+  if (!baseType.isa<FloatType>()) {
+    parser.emitError(typeLoc, "Base type must be a float type");
+    return Type();
+  }
+
+  if (parser.parseGreater()) {
+    // Failed to parse closing ">"
+    return Type();
+  }
+
+  return LogType::get(baseType);
+}
+
+void LoSPNDialect::printType(::mlir::Type type, ::mlir::DialectAsmPrinter& os) const {
+  // Currently only handles the LogType, as no other dialect types are defined for LoSPN.
+  LogType logType = type.cast<LogType>();
+
+  // LogType is printed as "log<$baseType>"
+  os << "log<" << logType.getBaseType() << ">";
 }
 
 // Add definitions/implementation of SPN dialect/operation interfaces.

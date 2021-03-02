@@ -7,6 +7,7 @@
 #define SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNDIALECT_H
 
 #include "mlir/IR/Dialect.h"
+#include "LoSPNTypes.h"
 
 #include "LoSPN/LoSPNOpsDialect.h.inc"
 
