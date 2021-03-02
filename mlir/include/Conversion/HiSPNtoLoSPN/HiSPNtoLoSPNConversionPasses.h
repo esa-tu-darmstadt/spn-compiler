@@ -14,24 +14,38 @@ namespace mlir {
     struct HiSPNtoLoSPNNodeConversionPass :
         public PassWrapper<HiSPNtoLoSPNNodeConversionPass, OperationPass<ModuleOp>> {
 
+    public:
+      HiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation) : computeLogSpace{useLogSpaceComputation} {}
+
     protected:
 
       void runOnOperation() override;
 
+    private:
+
+      bool computeLogSpace;
+
     };
 
-    std::unique_ptr<Pass> createHiSPNtoLoSPNNodeConversionPass();
+    std::unique_ptr<Pass> createHiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation);
 
     struct HiSPNtoLoSPNQueryConversionPass :
         public PassWrapper<HiSPNtoLoSPNQueryConversionPass, OperationPass<ModuleOp>> {
 
+    public:
+      HiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation) : computeLogSpace{useLogSpaceComputation} {}
+
     protected:
 
       void runOnOperation() override;
 
+    private:
+
+      bool computeLogSpace;
+
     };
 
-    std::unique_ptr<Pass> createHiSPNtoLoSPNQueryConversionPass();
+    std::unique_ptr<Pass> createHiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation);
 
   }
 }
