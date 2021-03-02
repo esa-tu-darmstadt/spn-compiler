@@ -16,9 +16,16 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
   // the second dimension equal to the number of features inside a single sample.
   // It produces a single 1D tensor with batchSize (dynamic for size > 1) many elements.
   //
-  // The result of a JointQuery is converted to log before returning. Currently, F64 is always used to
-  // represent the log-result.
-  auto compType = rewriter.getF64Type();
+  Type compType = typeConverter->convertType(high::ProbabilityType::get(rewriter.getContext()));
+  if (auto logType = compType.dyn_cast<low::LogType>()) {
+    // If the computation is performed in log-space, the LogType wraps the type
+    // that is actually used to perform arithmetic to flag log-computation.
+    // Outside of the body itself, we still use the base-type, as the LogType
+    // is not a legal element type of MemRef, causing problem in bufferization.
+    // The return of the body is the place where the "conversion" will take place,
+    // but no actual conversion is required.
+    compType = logType.getBaseType();
+  }
   auto dynamicBatchSize = -1;
   // 1 x numFeatures x inputType for batchSize == 1, ? x numFeatures x inputType else.
   auto inputType = RankedTensorType::get({dynamicBatchSize, op.getNumFeatures()}, op.getFeatureDataType());
