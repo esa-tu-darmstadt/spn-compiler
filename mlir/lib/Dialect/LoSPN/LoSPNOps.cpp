@@ -346,6 +346,13 @@ bool mlir::spn::low::SPNGaussianLeaf::isVectorizable(unsigned vectorFactor) {
         return false;
       }
     }
+    if (auto outputLogType = this->getResult().getType().dyn_cast<low::LogType>()) {
+      if (auto logFloatType = outputLogType.getBaseType().dyn_cast<FloatType>()) {
+        if (inputFloatType.getWidth() != logFloatType.getWidth()) {
+          return false;
+        }
+      }
+    }
   }
   return true;
 }
