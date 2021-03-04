@@ -35,7 +35,7 @@ Executable::~Executable() {
   }
 }
 
-void Executable::execute(size_t num_elements, void* inputs, double* outputs) {
+void Executable::execute(size_t num_elements, void* inputs, void* outputs) {
   if (!handle) {
     initialize();
   }
@@ -47,7 +47,7 @@ void Executable::execute(size_t num_elements, void* inputs, double* outputs) {
 
 }
 
-void Executable::executeSingle(size_t num_samples, void* inputs, double* outputs) {
+void Executable::executeSingle(size_t num_samples, void* inputs, void* outputs) {
   if (num_samples > 1) {
     SPDLOG_WARN("Executing a kernel optimized for single evaluation, computing only the first sample!");
   }
@@ -55,10 +55,11 @@ void Executable::executeSingle(size_t num_samples, void* inputs, double* outputs
   kernel_func.single(inputs, inputs, 0, 1, 1, kernel->numFeatures(), 1, outputs, outputs, 0, 1, 1);
 }
 
-void Executable::executeBatch(size_t num_samples, void* inputs, double* outputs) {
+void Executable::executeBatch(size_t num_samples, void* inputs, void* outputs) {
   assert(kernel_func.batch);
   // Cast to char (i.e. byte) pointer to perform pointer arithmetic.
   char* input_ptr = reinterpret_cast<char*>(inputs);
+  char* output_ptr = reinterpret_cast<char*>(outputs);
   size_t batchSize = kernel->batchSize();
   for (size_t i = 0; i < num_samples; i += batchSize) {
     // Calculate the number of remaining samples, can be < batchSize for the last batch.
@@ -67,11 +68,12 @@ void Executable::executeBatch(size_t num_samples, void* inputs, double* outputs)
     std::cout << "Remaining samples: " << remainingSamples << " now computing: " << samples << std::endl;
     // Calculate pointer to first input of this batch, using information about the
     // number of features and number of bytes used to encode the feature.
-    char* offset_ptr = &(input_ptr[i * kernel->numFeatures() * kernel->bytesPerFeature()]);
-    // Calculate pointer to first output for this batch.
-    double* output_ptr = &outputs[i];
-    kernel_func.batch(offset_ptr, offset_ptr, 0, samples, 1, kernel->numFeatures(), 1,
-                      output_ptr, output_ptr, 0, samples, 1);
+    char* input_offset = &(input_ptr[i * kernel->numFeatures() * kernel->bytesPerFeature()]);
+    // Calculate pointer to first output for this batch, using information about the
+    // number or results and number of bytes used to encode each result.
+    char* output_offset = &(output_ptr[i * kernel->numResults() * kernel->bytesPerResult()]);
+    kernel_func.batch(input_offset, input_offset, 0, samples, 1, kernel->numFeatures(), 1,
+                      output_offset, output_offset, 0, samples, 1);
   }
 }
 

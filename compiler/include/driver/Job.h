@@ -104,6 +104,9 @@ namespace spnc {
     unsigned batchSize;
     unsigned numFeatures;
     unsigned bytesPerFeature;
+    unsigned numResults;
+    unsigned bytesPerResult;
+    std::string dtype;
     std::string kernelName;
   };
 

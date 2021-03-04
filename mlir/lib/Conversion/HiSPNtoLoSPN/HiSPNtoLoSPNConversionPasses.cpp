@@ -28,7 +28,7 @@ void HiSPNtoLoSPNNodeConversionPass::runOnOperation() {
   // The concrete type determined by the analysis replaces the abstract
   // probability type used by the HiSPN dialect.
   auto& arithmeticAnalysis = getAnalysis<mlir::spn::ArithmeticPrecisionAnalysis>();
-  HiSPNTypeConverter typeConverter(arithmeticAnalysis.getComputationType());
+  HiSPNTypeConverter typeConverter(arithmeticAnalysis.getComputationType(computeLogSpace));
 
   OwningRewritePatternList patterns;
   mlir::spn::populateHiSPNtoLoSPNNodePatterns(patterns, &getContext(), typeConverter);
@@ -44,8 +44,8 @@ void HiSPNtoLoSPNNodeConversionPass::runOnOperation() {
   markAnalysesPreserved<ArithmeticPrecisionAnalysis>();
 }
 
-std::unique_ptr<mlir::Pass> mlir::spn::createHiSPNtoLoSPNNodeConversionPass() {
-  return std::make_unique<HiSPNtoLoSPNNodeConversionPass>();
+std::unique_ptr<mlir::Pass> mlir::spn::createHiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation) {
+  return std::make_unique<HiSPNtoLoSPNNodeConversionPass>(useLogSpaceComputation);
 }
 
 void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
@@ -62,7 +62,7 @@ void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
   // probability type used by the HiSPN dialect.
   auto arithmeticAnalysis = getCachedAnalysis<ArithmeticPrecisionAnalysis>();
   assert(arithmeticAnalysis && "The arithmetic analysis needs to be preserved after node conversion");
-  HiSPNTypeConverter typeConverter(arithmeticAnalysis->get().getComputationType());
+  HiSPNTypeConverter typeConverter(arithmeticAnalysis->get().getComputationType(computeLogSpace));
 
   OwningRewritePatternList patterns;
   mlir::spn::populateHiSPNtoLoSPNQueryPatterns(patterns, &getContext(), typeConverter);
@@ -74,6 +74,6 @@ void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
   }
 }
 
-std::unique_ptr<mlir::Pass> mlir::spn::createHiSPNtoLoSPNQueryConversionPass() {
-  return std::make_unique<HiSPNtoLoSPNQueryConversionPass>();
+std::unique_ptr<mlir::Pass> mlir::spn::createHiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation) {
+  return std::make_unique<HiSPNtoLoSPNQueryConversionPass>(useLogSpaceComputation);
 }

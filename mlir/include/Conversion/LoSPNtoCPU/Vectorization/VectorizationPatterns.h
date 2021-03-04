@@ -43,7 +43,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNBatchWrite>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNBatchWrite op,
-                                    ArrayRef<Value> operands,
+                                    ArrayRef <Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -52,11 +52,29 @@ namespace mlir {
       using OpConversionPattern<low::SPNMul>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNMul op,
-                                    ArrayRef<Value> operands,
+                                    ArrayRef <Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
+    struct VectorizeLogMul : public OpConversionPattern<low::SPNMul> {
+
+      using OpConversionPattern<low::SPNMul>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNMul op,
+                                    ArrayRef <Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
     struct VectorizeAdd : public OpConversionPattern<low::SPNAdd> {
+
+      using OpConversionPattern<low::SPNAdd>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNAdd op,
+                                    ArrayRef <Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
+    struct VectorizeLogAdd : public OpConversionPattern<low::SPNAdd> {
 
       using OpConversionPattern<low::SPNAdd>::OpConversionPattern;
 
@@ -83,12 +101,21 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
+    struct VectorizeLogGaussian : public OpConversionPattern<low::SPNGaussianLeaf> {
+
+      using OpConversionPattern<low::SPNGaussianLeaf>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNGaussianLeaf op,
+                                    ArrayRef <Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
     struct VectorizeCategorical : public OpConversionPattern<low::SPNCategoricalLeaf> {
 
       using OpConversionPattern<low::SPNCategoricalLeaf>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNCategoricalLeaf op,
-                                    ArrayRef<Value> operands,
+                                    ArrayRef <Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -110,13 +137,25 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
+    struct ResolveVectorizedStripLog : public OpConversionPattern<low::SPNStripLog> {
+
+      using OpConversionPattern<low::SPNStripLog>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNStripLog op,
+                                    ArrayRef <Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
     static void populateLoSPNCPUVectorizationNodePatterns(OwningRewritePatternList& patterns,
                                                           MLIRContext* context,
                                                           TypeConverter& typeConverter) {
       patterns.insert<VectorizeBatchRead, VectorizeBatchWrite>(typeConverter, context, 2);
-      patterns.insert<VectorizeGaussian, VectorizeCategorical, VectorizeHistogram>(typeConverter, context, 2);
+      patterns.insert<VectorizeCategorical, VectorizeHistogram>(typeConverter, context, 2);
+      patterns.insert<VectorizeGaussian, VectorizeLogGaussian>(typeConverter, context, 2);
       patterns.insert<VectorizeAdd, VectorizeMul, VectorizeLog>(typeConverter, context, 2);
+      patterns.insert<VectorizeLogAdd, VectorizeLogMul>(typeConverter, context, 2);
       patterns.insert<VectorizeConstant>(typeConverter, context, 2);
+      patterns.insert<ResolveVectorizedStripLog>(typeConverter, context, 2);
     }
 
   }

@@ -9,6 +9,7 @@
 #include <mlir/Transforms/DialectConversion.h>
 #include "mlir/IR/BuiltinTypes.h"
 #include "LoSPN/LoSPNOps.h"
+#include "LoSPN/LoSPNTypes.h"
 
 namespace mlir {
   namespace spn {
@@ -31,6 +32,22 @@ namespace mlir {
         addConversion([](IndexType indexType) -> Optional<Type> {
           // IndexType is unconditionally legal.
           return indexType;
+        });
+        addConversion([](low::LogType logType) -> Optional<Type> {
+          return logType.getBaseType();
+        });
+        addTargetMaterialization([](OpBuilder& builder, FloatType type,
+                                    ValueRange inputs, Location loc) -> Optional<Value> {
+          if (inputs.size() != 1) {
+            return llvm::None;
+          }
+          if (auto logType = inputs[0].getType().dyn_cast<low::LogType>()) {
+            if (logType.getBaseType() != type) {
+              return llvm::None;
+            }
+            return builder.create<low::SPNStripLog>(loc, inputs[0], type).getResult();
+          }
+          return llvm::None;
         });
       }
     };

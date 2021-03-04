@@ -80,6 +80,15 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
+    struct MulLogLowering : public OpConversionPattern<low::SPNMul> {
+
+      using OpConversionPattern<low::SPNMul>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNMul op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
     struct AddLowering : public OpConversionPattern<low::SPNAdd> {
 
       using OpConversionPattern<low::SPNAdd>::OpConversionPattern;
@@ -89,7 +98,25 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
+    struct AddLogLowering : public OpConversionPattern<low::SPNAdd> {
+
+      using OpConversionPattern<low::SPNAdd>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNAdd op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
     struct GaussianLowering : public OpConversionPattern<low::SPNGaussianLeaf> {
+
+      using OpConversionPattern<low::SPNGaussianLeaf>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNGaussianLeaf op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
+    struct GaussianLogLowering : public OpConversionPattern<low::SPNGaussianLeaf> {
 
       using OpConversionPattern<low::SPNGaussianLeaf>::OpConversionPattern;
 
@@ -125,13 +152,24 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
+    struct ResolveStripLog : public OpConversionPattern<low::SPNStripLog> {
+
+      using OpConversionPattern<low::SPNStripLog>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNStripLog op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
     static void populateLoSPNtoCPUNodePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                TypeConverter& typeConverter) {
       patterns.insert<BatchReadLowering, BatchWriteLowering, CopyLowering>(typeConverter, context);
       patterns.insert<LogLowering, ReturnLowering, ConstantLowering>(typeConverter, context);
       patterns.insert<MulLowering, AddLowering>(typeConverter, context);
-      patterns.insert<GaussianLowering, CategoricalLowering, HistogramLowering>(typeConverter, context);
-      patterns.insert<ResolveConvertToVector>(typeConverter, context);
+      patterns.insert<MulLogLowering, AddLogLowering>(typeConverter, context);
+      patterns.insert<CategoricalLowering, HistogramLowering>(typeConverter, context);
+      patterns.insert<GaussianLowering, GaussianLogLowering>(typeConverter, context);
+      patterns.insert<ResolveConvertToVector, ResolveStripLog>(typeConverter, context);
     }
   }
 }

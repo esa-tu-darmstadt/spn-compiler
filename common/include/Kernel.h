@@ -32,13 +32,18 @@ namespace spnc {
     /// \param query_type Type of the query compiled into the kernel.
     /// \param _batchSize Batch size the kernel was optimized for.
     Kernel(const std::string& fN, const std::string& kN, unsigned query_type,
-           unsigned _batchSize, unsigned _numFeatures, unsigned _bytesPerFeatures) : _fileName{fN},
-                                                                                     _kernelName{kN},
-                                                                                     query{query_type},
-                                                                                     batch_size{_batchSize},
-                                                                                     num_features{_numFeatures},
-                                                                                     bytes_per_feature{
-                                                                                         _bytesPerFeatures} {
+           unsigned _batchSize,
+           unsigned _numFeatures, unsigned _bytesPerFeatures,
+           unsigned numResults, unsigned bytesPerResult,
+           const std::string& dataType) : _fileName{fN},
+                                          _kernelName{kN},
+                                          query{query_type},
+                                          batch_size{_batchSize},
+                                          num_features{_numFeatures},
+                                          bytes_per_feature{_bytesPerFeatures},
+                                          num_results{numResults},
+                                          bytes_per_result{bytesPerResult},
+                                          dtype{dataType} {
       _unique_id = std::hash<std::string>{}(fN + kN);
     }
 
@@ -70,6 +75,18 @@ namespace spnc {
     /// \return Number of bytes used to encode each SPN input.
     unsigned bytesPerFeature() const { return bytes_per_feature; }
 
+    /// Get the number of results returned per sample from this kernel.
+    /// \return Number of result values returned per sample.
+    unsigned numResults() const { return num_results; }
+
+    /// Get the number of bytes used to encode each result value.
+    /// \return Number of bytes used to encode a single result value.
+    unsigned bytesPerResult() const { return bytes_per_result; }
+
+    /// Get the data-type of the result values.
+    /// \return Data-type of each result value.
+    const std::string& dataType() const { return dtype; }
+
   private:
 
     std::string _fileName;
@@ -85,6 +102,12 @@ namespace spnc {
     unsigned num_features;
 
     unsigned bytes_per_feature;
+
+    unsigned num_results;
+
+    unsigned bytes_per_result;
+
+    std::string dtype;
 
   };
 

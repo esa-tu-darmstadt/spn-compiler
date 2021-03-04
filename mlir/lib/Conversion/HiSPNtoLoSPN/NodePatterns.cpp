@@ -5,6 +5,7 @@
 
 #include "HiSPNtoLoSPN/NodePatterns.h"
 #include "LoSPN/LoSPNOps.h"
+#include "LoSPN/LoSPNTypes.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -49,9 +50,13 @@ Value SumNodeLowering::splitWeightedSum(high::SumNode op,
   if (operands.size() == 1) {
     assert(weights.size() == 1 && "Expecting identical number of operands and weights");
     auto type = typeConverter->convertType(op.getType());
+    double weight = weights[0];
+    if (type.isa<low::LogType>()) {
+      weight = log(weight);
+    }
     auto constant = rewriter.create<low::SPNConstant>(op.getLoc(), type,
                                                       TypeAttr::get(type),
-                                                      rewriter.getFloatAttr(type, weights[0]));
+                                                      rewriter.getF64FloatAttr(weight));
 
     return rewriter.create<low::SPNMul>(op.getLoc(), operands[0], constant);
   } else {
@@ -118,8 +123,7 @@ LogicalResult GaussianNodeLowering::matchAndRewriteChecked(high::GaussianNode op
 namespace {
 
   bool isLogType(Type type) {
-    // TODO: Perform an actual check as soon as we support a type representing computation in log-space.
-    return false;
+    return type.isa<low::LogType>();
   }
 
 }

@@ -102,8 +102,19 @@ namespace mlir {
           return body.emitOpError() << "Body does not return the correct number of values";
         }
         for (auto retVal : llvm::zip(yield.resultValues(), body->getResults())) {
-          if (std::get<0>(retVal).getType() != std::get<1>(retVal).getType()) {
-            return body.emitOpError() << "Returned value type does not match Body result type";
+          auto yieldResult = std::get<0>(retVal).getType();
+          auto bodyResult = std::get<1>(retVal).getType();
+          if (auto logType = yieldResult.dyn_cast<low::LogType>()) {
+            // If the body internally computes in log-space, the body itself
+            // will return a result corresponding to the base-type of the log-type,
+            // as the log-type is only used internally to flag log-space computation.
+            if (logType.getBaseType() != bodyResult) {
+              return body.emitOpError() << "Log-type base type does not match Body result type";
+            }
+          } else {
+            if (yieldResult != bodyResult) {
+              return body.emitOpError() << "Returned value type does not match Body result type";
+            }
           }
         }
         return mlir::success();
@@ -247,6 +258,17 @@ mlir::Block* mlir::spn::low::SPNBody::addEntryBlock() {
 }
 
 //===----------------------------------------------------------------------===//
+// SPNStripLog
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::low::SPNStripLog::build(::mlir::OpBuilder& odsBuilder,
+                                        ::mlir::OperationState& odsState,
+                                        Value input,
+                                        Type targetType) {
+  build(odsBuilder, odsState, targetType, input, TypeAttr::get(targetType));
+}
+
+//===----------------------------------------------------------------------===//
 // SPNMul
 //===----------------------------------------------------------------------===//
 
@@ -322,6 +344,13 @@ bool mlir::spn::low::SPNGaussianLeaf::isVectorizable(unsigned vectorFactor) {
     if (auto outputFloatType = this->getResult().getType().dyn_cast<FloatType>()) {
       if (inputFloatType.getWidth() != outputFloatType.getWidth()) {
         return false;
+      }
+    }
+    if (auto outputLogType = this->getResult().getType().dyn_cast<low::LogType>()) {
+      if (auto logFloatType = outputLogType.getBaseType().dyn_cast<FloatType>()) {
+        if (inputFloatType.getWidth() != logFloatType.getWidth()) {
+          return false;
+        }
       }
     }
   }

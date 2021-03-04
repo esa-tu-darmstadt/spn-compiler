@@ -30,10 +30,17 @@ class LoSPN_Op<string mnemonic, list<OpTrait> traits = []> : Op<LoSPN_Dialect, m
 def LoSPNInputType : AnyTypeOf<[AnyFloat, AnySignlessInteger]>;
 
 ///
+/// Type wrapping an base-type to indicate computation in log-space
+///
+def LoSPN_IsLogType : CPred<"$_self.isa<::mlir::spn::low::LogType>()">;
+def LoSPN_LogType : DialectType<LoSPN_Dialect, LoSPN_IsLogType, "log", "::mlir::spn::low::LogType">;
+
+///
 /// Type representing types that can be used internally for computation
 /// of a query. Currently only allows float or integer types.
 ///
 /// TODO: Extend for vector types.
-def LoSPNComputeType : AnyTypeOf<[AnyFloat, AnySignlessInteger]>;
+def LoSPNComputeType : AnyTypeOf<[AnyFloat, AnySignlessInteger, LoSPN_LogType]>;
+
 
 #endif // LoSPN_DIALECT

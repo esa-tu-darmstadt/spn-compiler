@@ -118,7 +118,20 @@ mlir::LogicalResult mlir::spn::BodyLowering::matchAndRewrite(mlir::spn::low::SPN
   SmallVector<Value, 2> resultValues;
   op.body().front().walk([&](low::SPNYield yield) {
     for (auto res : yield.resultValues()) {
-      resultValues.push_back(res);
+      if (auto logType = res.getType().dyn_cast<low::LogType>()) {
+        // If the body internally computes in log-space, we need to
+        // strip the log-semantic for the operations using the result of the body.
+        rewriter.setInsertionPoint(yield);
+        auto stripLog = rewriter.create<low::SPNStripLog>(yield->getLoc(), res, logType.getBaseType());
+        if (auto vectorizedRes = dyn_cast<low::LoSPNVectorizable>(res.getDefiningOp())) {
+          if (vectorizedRes.checkVectorized()) {
+            stripLog.setVectorized(vectorizedRes.getVectorWidth());
+          }
+        }
+        resultValues.push_back(stripLog);
+      } else {
+        resultValues.push_back(res);
+      }
     }
     rewriter.eraseOp(yield);
   });

@@ -9,6 +9,7 @@
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "HiSPN/HiSPNOps.h"
+#include "LoSPN/LoSPNTypes.h"
 
 namespace mlir {
   namespace spn {
@@ -26,8 +27,11 @@ namespace mlir {
         // contained in the Query.
       }
 
-      mlir::Type getComputationType() {
+      mlir::Type getComputationType(bool useLogSpace) {
         // TODO Implement to actually use the analysis results.
+        if (useLogSpace) {
+          return mlir::spn::low::LogType::get(mlir::FloatType::getF32(root->getContext()));
+        }
         return mlir::FloatType::getF64(root->getContext());
       }
 

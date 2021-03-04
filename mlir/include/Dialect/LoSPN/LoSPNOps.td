@@ -185,6 +185,24 @@ def SPNConvertToVector : LoSPN_Op<"to_vector", []> {
 
 }
 
+def SPNStripLog : LoSPN_Op<"strip_log", [VectorizableOp, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
+    let summary = "Strip the log-space property from a value";
+
+    let description = [{
+        Remove the log-space property from a value.
+        This operation is only used as a materialization during type
+        conversion and does not generate actual code.
+    }];
+
+    let arguments = (ins LoSPN_LogType:$input, TypeAttr:$target);
+
+    let results = (outs LoSPNComputeType:$out);
+
+    let builders = [
+        OpBuilderDAG<(ins "Value":$input, "Type":$targetType)>
+    ];
+}
+
 def SPNReturn : LoSPN_Op<"return", [Terminator]> {
 
     let summary = "Return one or multiple results from a Task or Kernel";
