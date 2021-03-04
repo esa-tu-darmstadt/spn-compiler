@@ -20,8 +20,8 @@ namespace spnc_rt {
                                  int input_stride_dim1,
                                  int input_size_dim2,
                                  int input_stride_dim2,
-                                 double* output_ptr,
-                                 double* output_aligned_ptr,
+                                 void* output_ptr,
+                                 void* output_aligned_ptr,
                                  int output_offset,
                                  int output_size,
                                  int output_stride);
@@ -33,8 +33,8 @@ namespace spnc_rt {
                                 int input_stride_dim1,
                                 int input_size_dim2,
                                 int input_stride_dim2,
-                                double* output_ptr,
-                                double* output_aligned_ptr,
+                                void* output_ptr,
+                                void* output_aligned_ptr,
                                 int output_offset,
                                 int output_size,
                                 int output_stride);
@@ -73,7 +73,7 @@ namespace spnc_rt {
     /// \param num_elements Number of queries in the batch.
     /// \param inputs Input SPN evidence.
     /// \param outputs SPN output probabilities.
-    void execute(size_t num_elements, void* inputs, double* outputs);
+    void execute(size_t num_elements, void* inputs, void* outputs);
 
   private:
     const Kernel* kernel;
@@ -84,9 +84,9 @@ namespace spnc_rt {
 
     void initialize();
 
-    void executeSingle(size_t num_samples, void* inputs, double* outputs);
+    void executeSingle(size_t num_samples, void* inputs, void* outputs);
 
-    void executeBatch(size_t num_samples, void* inputs, double* outputs);
+    void executeBatch(size_t num_samples, void* inputs, void* outputs);
 
   };
 

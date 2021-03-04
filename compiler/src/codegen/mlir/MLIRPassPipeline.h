@@ -42,6 +42,8 @@ namespace spnc {
         // Clone the module to keep the original module available
         // for actions using the same input module.
         module = std::make_unique<mlir::ModuleOp>(inputModule.clone());
+        // Invoke the pre-processing defined by the CRTP heirs of this class
+        static_cast<PassPipeline*>(this)->preProcess(module.get());
         auto result = pm.run(*module);
         if (failed(result)) {
           SPNC_FATAL_ERROR("Running the MLIR pass pipeline failed!");
@@ -50,10 +52,16 @@ namespace spnc {
         if (failed(verificationResult)) {
           SPNC_FATAL_ERROR("Transformed module failed verification");
         }
+        // Invoke the post-processing defined by the CRTP heirs of this class
+        static_cast<PassPipeline*>(this)->postProcess(module.get());
         cached = true;
       }
       return *module;
     }
+
+    virtual void postProcess(mlir::ModuleOp* transformedModule) {};
+
+    virtual void preProcess(mlir::ModuleOp* inputModule) {};
 
   private:
 
