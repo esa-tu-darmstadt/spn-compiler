@@ -185,7 +185,7 @@ def SPNConvertToVector : LoSPN_Op<"to_vector", []> {
 
 }
 
-def SPNStripLog : LoSPN_Op<"strip_log", []> {
+def SPNStripLog : LoSPN_Op<"strip_log", [VectorizableOp, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
     let summary = "Strip the log-space property from a value";
 
     let description = [{

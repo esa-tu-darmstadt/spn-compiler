@@ -22,6 +22,10 @@ namespace mlir {
           // All integer types are converted to vectors of float.
           return VectorType::get(vector_width, intType);
         });
+        addConversion([vector_width](low::LogType logType) -> Optional<Type> {
+          // The log type is converted to a vector of the base type.
+          return VectorType::get(vector_width, logType.getBaseType());
+        });
         addConversion([](MemRefType memRefType) -> Optional<Type> {
           // MemRefType are unconditionally legal.
           return memRefType;

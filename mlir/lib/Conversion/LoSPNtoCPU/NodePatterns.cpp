@@ -484,6 +484,9 @@ mlir::LogicalResult mlir::spn::ResolveConvertToVector::matchAndRewrite(mlir::spn
 mlir::LogicalResult mlir::spn::ResolveStripLog::matchAndRewrite(mlir::spn::low::SPNStripLog op,
                                                                 llvm::ArrayRef<mlir::Value> operands,
                                                                 mlir::ConversionPatternRewriter& rewriter) const {
+  if (op.checkVectorized()) {
+    return rewriter.notifyMatchFailure(op, "Pattern does not resolve vectorized operation");
+  }
   assert(operands.size() == 1);
   if (operands[0].getType() != op.target()) {
     return rewriter.notifyMatchFailure(op, "Could not resolve StripLog trivially");
