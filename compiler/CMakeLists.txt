@@ -22,6 +22,8 @@ add_library(spnc SHARED
         src/driver/action/DetectTracingLib.cpp
         src/driver/action/ClangKernelLinking.cpp
         src/driver/toolchain/MLIRToolchain.cpp
+        src/driver/toolchain/CPUToolchain.cpp
+        src/driver/toolchain/CUDAGPUToolchain.cpp
         src/codegen/mlir/pipeline/SPNDialectPipeline.cpp
         src/codegen/mlir/conversion/HiSPNtoLoSPNConversion.cpp
         src/codegen/mlir/conversion/LoSPNtoCPUConversion.cpp
