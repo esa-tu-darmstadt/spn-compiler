@@ -16,23 +16,25 @@ namespace spnc_rt {
   typedef void (* single_kernel)(void* input_ptr,
                                  void* aligned_input_ptr,
                                  int input_offset,
-                                 int input_size,
-                                 int input_stride,
-                                 double* output_ptr,
-                                 double* output_aligned_ptr,
+                                 int input_size_dim1,
+                                 int input_stride_dim1,
+                                 int input_size_dim2,
+                                 int input_stride_dim2,
+                                 void* output_ptr,
+                                 void* output_aligned_ptr,
                                  int output_offset,
                                  int output_size,
                                  int output_stride);
 
-  typedef void (* batch_kernel)(int numSamples, void* input_ptr,
+  typedef void (* batch_kernel)(void* input_ptr,
                                 void* aligned_input_ptr,
                                 int input_offset,
                                 int input_size_dim1,
                                 int input_stride_dim1,
                                 int input_size_dim2,
                                 int input_stride_dim2,
-                                double* output_ptr,
-                                double* output_aligned_ptr,
+                                void* output_ptr,
+                                void* output_aligned_ptr,
                                 int output_offset,
                                 int output_size,
                                 int output_stride);
@@ -71,7 +73,7 @@ namespace spnc_rt {
     /// \param num_elements Number of queries in the batch.
     /// \param inputs Input SPN evidence.
     /// \param outputs SPN output probabilities.
-    void execute(size_t num_elements, void* inputs, double* outputs);
+    void execute(size_t num_elements, void* inputs, void* outputs);
 
   private:
     const Kernel* kernel;
@@ -82,9 +84,9 @@ namespace spnc_rt {
 
     void initialize();
 
-    void executeSingle(size_t num_samples, void* inputs, double* outputs);
+    void executeSingle(size_t num_samples, void* inputs, void* outputs);
 
-    void executeBatch(size_t num_samples, void* inputs, double* outputs);
+    void executeBatch(size_t num_samples, void* inputs, void* outputs);
 
   };
 

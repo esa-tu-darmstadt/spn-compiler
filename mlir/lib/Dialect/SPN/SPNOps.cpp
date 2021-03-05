@@ -167,7 +167,7 @@ void mlir::spn::WeightedSumOp::build(::mlir::OpBuilder& odsBuilder,
   }
   assert(weightAttrs.size() == operands.size() && "Number of weights must match number of operands!");
   build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), ValueRange(operands),
-        ArrayAttr::get(weightAttrs, odsBuilder.getContext()));
+        ArrayAttr::get(odsBuilder.getContext(), weightAttrs));
 }
 
 void mlir::spn::WeightedSumOp::getCanonicalizationPatterns(::mlir::OwningRewritePatternList& results,

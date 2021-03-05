@@ -39,13 +39,18 @@ namespace spnc {
     extern Option<bool> cpuVectorize;
 
     ///
+    /// Flag to indicate whether log-space computation should be used.
+    extern Option<bool> logSpace;
+
+    ///
     /// Flag to indicate whether temporary files created during compilation
     /// should be deleted after the compilation completes. Defaults to true.
     extern Option<bool> deleteTemporaryFiles;
 
     ///
-    /// Flag to indicate whether the MLIR based toolchain should be used.
-    extern Option<bool> useMLIRToolchain;
+    /// Flag to enable printing of IR after the individual steps and
+    /// passes in the toolchain.
+    extern Option<bool> dumpIR;
 
     ///
     /// Flag to indicate whether an optimal representation for SPN evaluation shall be determined.

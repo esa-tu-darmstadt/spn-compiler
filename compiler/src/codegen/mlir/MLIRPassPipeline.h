@@ -11,6 +11,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "util/Logging.h"
+#include <driver/GlobalOptions.h>
 
 namespace spnc {
 
@@ -30,19 +31,37 @@ namespace spnc {
     mlir::ModuleOp& execute() override {
       if (!cached) {
         static_cast<PassPipeline*>(this)->initializePassPipeline(&pm, mlirContext.get());
+        // Enable IR printing if requested via CLI
+        if (spnc::option::dumpIR.get(*this->config)) {
+          pm.enableIRPrinting(/* Print before every pass*/ [](mlir::Pass*, mlir::Operation*) { return false; },
+              /* Print after every pass*/ [](mlir::Pass*, mlir::Operation*) { return true; },
+              /* Print module scope*/ true,
+              /* Print only after change*/ false);
+        }
         auto inputModule = input.execute();
         // Clone the module to keep the original module available
         // for actions using the same input module.
         module = std::make_unique<mlir::ModuleOp>(inputModule.clone());
+        // Invoke the pre-processing defined by the CRTP heirs of this class
+        static_cast<PassPipeline*>(this)->preProcess(module.get());
         auto result = pm.run(*module);
         if (failed(result)) {
           SPNC_FATAL_ERROR("Running the MLIR pass pipeline failed!");
         }
+        auto verificationResult = module->verify();
+        if (failed(verificationResult)) {
+          SPNC_FATAL_ERROR("Transformed module failed verification");
+        }
+        // Invoke the post-processing defined by the CRTP heirs of this class
+        static_cast<PassPipeline*>(this)->postProcess(module.get());
         cached = true;
       }
-      module->dump();
       return *module;
     }
+
+    virtual void postProcess(mlir::ModuleOp* transformedModule) {};
+
+    virtual void preProcess(mlir::ModuleOp* inputModule) {};
 
   private:
 

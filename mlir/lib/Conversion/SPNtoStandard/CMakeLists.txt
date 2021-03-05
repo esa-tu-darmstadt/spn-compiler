@@ -11,6 +11,7 @@ add_mlir_conversion_library(MLIRSPNtoStandardTransforms
         LINK_LIBS PUBLIC
         MLIRSPN
         MLIRIR
+        MLIRMath
         MLIRPass
         MLIRStandard
         MLIRSupport

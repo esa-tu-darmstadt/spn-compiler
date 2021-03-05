@@ -7,12 +7,14 @@
 #include <driver/BaseActions.h>
 #include <driver/GlobalOptions.h>
 #include <SPN/SPNDialect.h>
+#include <HiSPN/HiSPNDialect.h>
+#include <LoSPN/LoSPNDialect.h>
 #include <codegen/mlir/pipeline/SPNDialectPipeline.h>
-#include "codegen/mlir/conversion/SPNtoStandardConversion.h"
-#include "codegen/mlir/conversion/SPNtoLLVMConversion.h"
+#include "codegen/mlir/conversion/HiSPNtoLoSPNConversion.h"
+#include "codegen/mlir/conversion/LoSPNtoCPUConversion.h"
+#include "codegen/mlir/conversion/CPUtoLLVMConversion.h"
 #include "codegen/mlir/conversion/MLIRtoLLVMIRConversion.h"
 #include "codegen/mlir/analysis/CollectGraphStatistics.h"
-#include <driver/action/LLVMStaticCompiler.h>
 #include <driver/action/ClangKernelLinking.h>
 #include <codegen/mlir/frontend/MLIRDeserializer.h>
 #include "MLIRToolchain.h"
@@ -21,44 +23,54 @@
 #include <llvm/MC/SubtargetFeature.h>
 #include <llvm/Support/TargetSelect.h>
 #include <driver/action/EmitObjectCode.h>
+#include <codegen/mlir/transformation/LoSPNTransformations.h>
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "mlir/Target/LLVMIR.h"
 
 using namespace spnc;
 
 std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::string& inputFile,
-                                                                  const Configuration& config) {
+                                                                  std::shared_ptr<Configuration> config) {
   // Uncomment the following two lines to get detailed output during MLIR dialect conversion;
   //llvm::DebugFlag = true;
   //llvm::setCurrentDebugType("dialect-conversion");
-  std::unique_ptr<Job<Kernel>> job = std::make_unique<Job<Kernel>>();
+  std::unique_ptr<Job<Kernel>> job = std::make_unique<Job<Kernel>>(config);
   // Invoke MLIR code-generation on parsed tree.
   auto ctx = std::make_shared<MLIRContext>();
   initializeMLIRContext(*ctx);
+  // If IR should be dumped between steps/passes, we need to disable
+  // multi-threading in MLIR
+  if (spnc::option::dumpIR.get(*config)) {
+    ctx->enableMultithreading(false);
+  }
   auto diagHandler = setupDiagnosticHandler(ctx.get());
-  auto cpuVectorize = spnc::option::cpuVectorize.get(config);
+  auto cpuVectorize = spnc::option::cpuVectorize.get(*config);
   SPDLOG_INFO("CPU Vectorization enabled: {}", cpuVectorize);
   auto targetMachine = createTargetMachine(cpuVectorize);
   auto kernelInfo = std::make_shared<KernelInfo>();
   BinarySPN binarySPNFile{inputFile, false};
   auto& deserialized = job->insertAction<MLIRDeserializer>(std::move(binarySPNFile), ctx, kernelInfo);
-  auto& spnDialectPipeline = job->insertAction<SPNDialectPipeline>(deserialized, ctx, diagHandler);
-  ActionWithOutput<ModuleOp>* spnPipelineResult = &spnDialectPipeline;
+  auto& hispn2lospn = job->insertAction<HiSPNtoLoSPNConversion>(deserialized, ctx, diagHandler);
   // If requested via the configuration, collect graph statistics.
-  if (spnc::option::collectGraphStats.get(config)) {
-    auto deleteTmps = spnc::option::deleteTemporaryFiles.get(config);
+  // TODO: Graph statistics collection is currently disabled, as it does not yet work
+  // with the LoSPN dialect.
+  // TODO: Move this to LoSPNTransformations
+  if (false && spnc::option::collectGraphStats.get(*config)) {
+    auto deleteTmps = spnc::option::deleteTemporaryFiles.get(*config);
     // Collect graph statistics on transformed / canonicalized MLIR.
-    auto statsFile = StatsFile(spnc::option::graphStatsFile.get(config), deleteTmps);
-    auto& graphStats = job->insertAction<CollectGraphStatistics>(spnDialectPipeline, std::move(statsFile));
+    auto statsFile = StatsFile(spnc::option::graphStatsFile.get(*config), deleteTmps);
+    auto& graphStats = job->insertAction<CollectGraphStatistics>(hispn2lospn, std::move(statsFile));
     // Join the two actions happening on the transformed module (Graph-Stats & SPN-to-Standard-MLIR lowering).
-    auto& joinAction = job->insertAction<JoinAction<mlir::ModuleOp, StatsFile>>(spnDialectPipeline, graphStats);
-    spnPipelineResult = &joinAction;
+    auto& joinAction = job->insertAction<JoinAction<mlir::ModuleOp, StatsFile>>(hispn2lospn, graphStats);
+    //spnPipelineResult = &joinAction;
   }
-  auto& spn2standard = job->insertAction<SPNtoStandardConversion>(*spnPipelineResult, ctx, diagHandler, cpuVectorize);
-  auto& spn2llvm = job->insertAction<SPNtoLLVMConversion>(spn2standard, ctx, diagHandler);
+  auto& lospnTransform = job->insertAction<LoSPNTransformations>(hispn2lospn, ctx, diagHandler, kernelInfo);
+  auto& lospn2cpu = job->insertAction<LoSPNtoCPUConversion>(lospnTransform, ctx, diagHandler);
+  auto& cpu2llvm = job->insertAction<CPUtoLLVMConversion>(lospn2cpu, ctx, diagHandler);
 
   // Convert the MLIR module to a LLVM-IR module.
-  auto& llvmConversion = job->insertAction<MLIRtoLLVMIRConversion>(spn2llvm, ctx, targetMachine);
+  auto& llvmConversion = job->insertAction<MLIRtoLLVMIRConversion>(cpu2llvm, ctx, targetMachine);
 
   // Translate the generated LLVM IR module to object code and write it to an object file.
   auto objectFile = FileSystem::createTempFile<FileType::OBJECT>(false);
@@ -74,13 +86,23 @@ std::unique_ptr<Job<Kernel> > MLIRToolchain::constructJobFromFile(const std::str
 }
 
 void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext& ctx) {
-  mlir::registerAllDialects(ctx.getDialectRegistry());
-  ctx.getDialectRegistry().insert<mlir::spn::SPNDialect>();
-  ctx.loadDialect<mlir::spn::SPNDialect>();
+  DialectRegistry registry;
+  mlir::registerAllDialects(registry);
+  registry.insert<mlir::spn::high::HiSPNDialect>();
+  registry.insert<mlir::spn::low::LoSPNDialect>();
+  ctx.loadDialect<mlir::spn::high::HiSPNDialect>();
+  ctx.loadDialect<mlir::spn::low::LoSPNDialect>();
   ctx.loadDialect<mlir::StandardOpsDialect>();
   ctx.loadDialect<mlir::scf::SCFDialect>();
   ctx.loadDialect<mlir::LLVM::LLVMDialect>();
   ctx.loadDialect<mlir::vector::VectorDialect>();
+  ctx.loadDialect<mlir::math::MathDialect>();
+  ctx.loadDialect<mlir::linalg::LinalgDialect>();
+  ctx.appendDialectRegistry(registry);
+  mlir::registerLLVMDialectTranslation(ctx);
+  for (auto* D : ctx.getLoadedDialects()) {
+    SPDLOG_INFO("Loaded dialect: {}", D->getNamespace().str());
+  }
 }
 
 std::shared_ptr<mlir::ScopedDiagnosticHandler> spnc::MLIRToolchain::setupDiagnosticHandler(mlir::MLIRContext* ctx) {
