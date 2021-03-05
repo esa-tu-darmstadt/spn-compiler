@@ -27,7 +27,8 @@ namespace spnc {
 
     /// Available compilation targets.
     enum TargetMachine {
-      CPU
+      CPU,
+      CUDA
     };
 
     ///
