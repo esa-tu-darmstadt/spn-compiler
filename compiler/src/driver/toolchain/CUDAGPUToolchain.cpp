@@ -7,7 +7,7 @@
 #include <driver/BaseActions.h>
 #include "codegen/mlir/conversion/HiSPNtoLoSPNConversion.h"
 #include "codegen/mlir/conversion/LoSPNtoGPUConversion.h"
-#include "codegen/mlir/conversion/CPUtoLLVMConversion.h"
+#include "codegen/mlir/conversion/GPUtoLLVMConversion.h"
 #include "codegen/mlir/conversion/MLIRtoLLVMIRConversion.h"
 #include "codegen/mlir/analysis/CollectGraphStatistics.h"
 #include <driver/action/ClangKernelLinking.h>
@@ -40,7 +40,7 @@ std::unique_ptr<Job<Kernel> > CUDAGPUToolchain::constructJobFromFile(const std::
   auto& hispn2lospn = job->insertAction<HiSPNtoLoSPNConversion>(deserialized, ctx, diagHandler);
   auto& lospnTransform = job->insertAction<LoSPNTransformations>(hispn2lospn, ctx, diagHandler, kernelInfo);
   auto& lospn2gpu = job->insertAction<LoSPNtoGPUConversion>(lospnTransform, ctx, diagHandler);
-  auto& cpu2llvm = job->insertAction<CPUtoLLVMConversion>(lospn2gpu, ctx, diagHandler);
+  auto& cpu2llvm = job->insertAction<GPUtoLLVMConversion>(lospn2gpu, ctx, diagHandler);
 
   // Convert the MLIR module to a LLVM-IR module.
   auto& llvmConversion = job->insertAction<MLIRtoLLVMIRConversion>(cpu2llvm, ctx, targetMachine);

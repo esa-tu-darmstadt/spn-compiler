@@ -30,6 +30,7 @@ add_library(spnc SHARED
         src/codegen/mlir/conversion/LoSPNtoGPUConversion.cpp
         src/codegen/mlir/conversion/SPNtoStandardConversion.cpp
         src/codegen/mlir/conversion/CPUtoLLVMConversion.cpp
+        src/codegen/mlir/conversion/GPUtoLLVMConversion.cpp
         src/codegen/mlir/conversion/MLIRtoLLVMIRConversion.cpp
         src/codegen/mlir/analysis/CollectGraphStatistics.cpp
         src/codegen/mlir/transformation/LoSPNTransformations.cpp
