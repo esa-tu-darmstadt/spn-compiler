@@ -6,6 +6,7 @@
 #include "LoSPNtoGPU/LoSPNtoGPUConversionPasses.h"
 #include "LoSPNtoGPU/LoSPNtoGPUTypeConverter.h"
 #include "LoSPNtoGPU/GPUStructurePatterns.h"
+#include "LoSPNtoGPU/GPUNodePatterns.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Math/IR/Math.h"
@@ -39,4 +40,35 @@ void mlir::spn::LoSPNtoGPUStructureConversionPass::runOnOperation() {
 
 std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoGPUStructureConversionPass() {
   return std::make_unique<LoSPNtoGPUStructureConversionPass>();
+}
+
+void mlir::spn::LoSPNtoGPUNodeConversionPass::runOnOperation() {
+  ConversionTarget target(getContext());
+
+  target.addLegalDialect<StandardOpsDialect>();
+  target.addLegalDialect<mlir::scf::SCFDialect>();
+  target.addLegalDialect<mlir::math::MathDialect>();
+  // Linalg is required here, because we lower spn.copy to linalg.copy
+  // as the Standard dialect currently does not have a copy operation.
+  target.addLegalDialect<mlir::linalg::LinalgDialect>();
+  target.addLegalDialect<mlir::gpu::GPUDialect>();
+  target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
+  target.addLegalOp<FuncOp>();
+
+  LoSPNtoGPUTypeConverter typeConverter;
+
+  target.addIllegalDialect<mlir::spn::low::LoSPNDialect>();
+
+  OwningRewritePatternList patterns;
+  mlir::spn::populateLoSPNtoGPUNodePatterns(patterns, &getContext(), typeConverter);
+
+  auto op = getOperation();
+  FrozenRewritePatternList frozenPatterns(std::move(patterns));
+  if (failed(applyFullConversion(op, target, frozenPatterns))) {
+    signalPassFailure();
+  }
+}
+
+std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoGPUNodeConversionPass() {
+  return std::make_unique<LoSPNtoGPUNodeConversionPass>();
 }

@@ -10,4 +10,5 @@
 void spnc::LoSPNtoGPUConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   pm->addPass(mlir::spn::createLoSPNtoGPUStructureConversionPass());
   pm->addPass(mlir::createGpuKernelOutliningPass());
+  pm->addPass(mlir::spn::createLoSPNtoGPUNodeConversionPass());
 }
