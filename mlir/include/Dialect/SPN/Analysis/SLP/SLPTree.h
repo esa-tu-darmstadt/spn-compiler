@@ -38,6 +38,15 @@ namespace mlir {
 
         int getLookAheadScore(Operation* last, Operation* candidate, size_t const& maxLevel) const;
 
+        static bool areConsecutive(Operation* op1, Operation* op2) {
+          if (auto leaf1 = dyn_cast<LeafNodeInterface>(op1)) {
+            if (auto leaf2 = dyn_cast<LeafNodeInterface>(op2)) {
+              return leaf2.getFeatureIndex() == leaf1.getFeatureIndex() + 1;
+            }
+          }
+          return false;
+        }
+
         /// Checks if the given operations are vectorizable. Operations are vectorizable iff the SPN dialect says they're
         /// vectorizable and they all share the same opcode.
         /// \param operations The potentially vectorizable operations.
@@ -47,6 +56,13 @@ namespace mlir {
             if (!operations.at(i)->hasTrait<OpTrait::spn::Vectorizable>()
                 || (i > 0 && operations.at(i)->getName() != operations.front()->getName())) {
               return false;
+            }
+          }
+          if (dyn_cast<GaussianOp>(operations.front())) {
+            for (size_t i = 1; i < operations.size(); ++i) {
+              if (!areConsecutive(operations.at(i - 1), operations.at(i))) {
+                return false;
+              }
             }
           }
           return true;
@@ -140,7 +156,11 @@ namespace mlir {
           llvm::errs() << "rankdir = BT;\n";
           llvm::errs() << "node[shape=box];\n";
           for (auto& op : nodes) {
-            llvm::errs() << "node_" << op << "[label=\"" << op->getName().getStringRef() << "\\n" << op << "\"];\n";
+            llvm::errs() << "node_" << op << "[label=\"" << op->getName().getStringRef() << "\\n" << op;
+            if (auto leaf = dyn_cast<LeafNodeInterface>(op)) {
+              llvm::errs() << "\\narg: " << leaf.getFeatureIndex() << "\\n";
+            }
+            llvm::errs() << "\", fillcolor=\"#a0522d\"];\n";
           }
           for (auto& edge : edges) {
             llvm::errs() << "node_" << std::get<0>(edge) << " -> node_" << std::get<1>(edge) << "[label=\""

@@ -206,15 +206,24 @@ std::pair<Operation*, Mode> SLPTree::getBest(Mode const& mode,
 
 int SLPTree::getLookAheadScore(Operation* last, Operation* candidate, size_t const& maxLevel) const {
   if (maxLevel == 0) {
-    // No consecutive loads to check, only opcodes.
-    return last->getName() == candidate->getName() ? 1 : 0;
+    if (last->getName() != candidate->getName()) {
+      return 0;
+    }
+    if (dyn_cast<GaussianOp>(last)) {
+      return areConsecutive(last, candidate) ? 1 : 0;
+    }
+    return 1;
   }
   auto scoreSum = 0;
   // TODO: if operands are commutative, sort operands to speed up lookahead?
-  for (auto const& lastOperand : getOperands(last)) {
-    for (auto const& candidateOperand : getOperands(candidate)) {
-      scoreSum += getLookAheadScore(lastOperand, candidateOperand, maxLevel - 1);
-
+  for (auto& lastOperand : getOperands(last)) {
+    for (auto& candidateOperand : getOperands(candidate)) {
+      // Can be null if the operand is a block argument.
+      if (!lastOperand || !candidateOperand) {
+        scoreSum += getLookAheadScore(last, candidate, 0);
+      } else {
+        scoreSum += getLookAheadScore(lastOperand, candidateOperand, maxLevel - 1);
+      }
     }
   }
   return scoreSum;
