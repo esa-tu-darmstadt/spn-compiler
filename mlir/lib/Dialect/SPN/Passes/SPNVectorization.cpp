@@ -6,9 +6,10 @@
 #include "SPN/SPNPasses.h"
 #include "SPNPassDetails.h"
 #include <iostream>
+#include <mlir/Pass/PassManager.h>
+#include "../Analysis/SLP/VectorPatterns.h"
 #include "SPN/Analysis/SLP/SLPTree.h"
-#include "SPN/Analysis/SLP/SLPSeeding.h"
-#include "SPN/Analysis/SPNNodeLevel.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -50,6 +51,14 @@ namespace {
       if (!seeds.empty()) {
         slp::SLPTree graph(seeds.front(), 3);
       }
+
+      OwningRewritePatternList patterns;
+      TypeConverter converter;
+      slp::populateVectorizationPatterns(patterns, &getContext(), converter);
+      auto op = getOperation();
+      FrozenRewritePatternList frozenPatterns(std::move(patterns));
+      applyPatternsAndFoldGreedily(op, frozenPatterns);
+
     }
 
   };

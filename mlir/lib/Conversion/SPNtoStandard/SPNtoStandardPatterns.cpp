@@ -26,7 +26,7 @@ mlir::LogicalResult mlir::spn::ReturnOpLowering::matchAndRewrite(mlir::spn::Retu
   return failure();
 }
 
-mlir::LogicalResult mlir::spn::GaussionOpLowering::matchAndRewrite(mlir::spn::GaussianOp op,
+mlir::LogicalResult mlir::spn::GaussianOpLowering::matchAndRewrite(mlir::spn::GaussianOp op,
                                                                    llvm::ArrayRef<mlir::Value> operands,
                                                                    mlir::ConversionPatternRewriter& rewriter) const {
   assert(operands.size() == 1);

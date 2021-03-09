@@ -40,7 +40,7 @@ namespace mlir {
     ///
     /// Pattern for lowering SPN Gaussian leaf to actual computation of
     /// Gaussian distribution in the Standard dialect.
-    struct GaussionOpLowering : public OpConversionPattern<GaussianOp> {
+    struct GaussianOpLowering : public OpConversionPattern<GaussianOp> {
 
       using OpConversionPattern<GaussianOp>::OpConversionPattern;
 
@@ -96,7 +96,7 @@ namespace mlir {
     static void populateSPNtoStandardConversionPatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                         TypeConverter& typeConverter) {
       patterns.insert<ReturnOpLowering, ConstantOpLowering, FloatProductLowering, FLoatSumLowering>(context);
-      patterns.insert<GaussionOpLowering>(context);
+      patterns.insert<GaussianOpLowering>(context);
       patterns.insert<SingleJointLowering>(typeConverter, context);
     }
 

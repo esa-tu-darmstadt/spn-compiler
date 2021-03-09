@@ -152,6 +152,28 @@ def GaussianOp : SPN_Op<"gaussian",
 }
 
 ///
+/// Vectorized Gaussian distribution as SPN leaf node.
+///
+def GaussianVectorOp : SPN_Op<"vgaussian",
+    [NoSideEffect, DeclareOpInterfaceMethods<LeafNodeInterface>]> {
+
+    let summary = "Vectorized Gaussian leaf distribution";
+
+    let description = [{
+        A vector of univariate Gaussian leaf distributions.
+    }];
+
+    let arguments = (ins AnyFloat:$index, F64ArrayAttr:$means, F64ArrayAttr:$stddevs);
+
+    let results = (outs Variadic<AnyProbabilityType>);
+
+    let builders = [
+        OpBuilderDAG<(ins "Value":$indexVal, "llvm::ArrayRef<double>":$means, "llvm::ArrayRef<double>":$stddevs)>
+    ];
+
+}
+
+///
 /// Return operation, returning 0 or 1 probability values.
 ///
 def ReturnOp : SPN_Op<"return", [Terminator]> {
