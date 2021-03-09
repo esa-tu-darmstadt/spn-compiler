@@ -7,7 +7,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/IR/Attributes.h"
-#include "SPN/Analysis/SPNErrorEstimation.h"
+// #include "HiSPNtoLoSPN/ArithmeticPrecisionAnalysis.h"
 #include "SPN/SPNPasses.h"
 #include "SPNPassDetails.h"
 #include "../TypeAnalysis/TypePinningPatterns.h"
@@ -21,16 +21,19 @@ namespace {
 
   protected:
     void runOnOperation() override {
+      // ToDo: The type-selection part should eventually be removed / reworked.
+      /*
       OwningRewritePatternList patterns;
       auto* context = &getContext();
-      auto analysis = getAnalysis<SPNErrorEstimation>();
-      auto pinnedType = analysis.getOptimalType();
+      auto analysis = getAnalysis<ArithmeticPrecisionAnalysis>();
+      auto pinnedType = analysis.getComputationType(false);
       patterns.insert<TypePinConstant>(context, pinnedType);
       patterns.insert<TypePinHistogram, TypePinCategorical, TypePinGaussian>(context, pinnedType);
       patterns.insert<TypePinWeightedSum, TypePinProduct, TypePinSum>(context, pinnedType);
       auto op = getOperation();
       FrozenRewritePatternList frozenPatterns(std::move(patterns));
       applyPatternsAndFoldGreedily(op.getBodyRegion(), frozenPatterns);
+       */
     }
 
   };

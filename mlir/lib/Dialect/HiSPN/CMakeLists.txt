@@ -3,6 +3,7 @@ add_mlir_dialect_library(MLIRHiSPN
         HiSPNOps.cpp
         HiSPNAttributes.cpp
         HiSPNEnums.cpp
+        Analysis/ArithmeticPrecisionAnalysis.cpp
 
         ADDITIONAL_HEADER_DIRS
         ${PROJECT_SOURCE_DIR}/mlir/include/Dialect

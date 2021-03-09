@@ -5,26 +5,26 @@
 
 #include <llvm/Support/Debug.h>
 #include <SPN/SPNAttributes.h>
-#include "SPN/Analysis/SPNErrorEstimation.h"
+#include "HiSPNtoLoSPN/ArithmeticPrecisionAnalysis.h"
 
 using namespace mlir::spn;
+using namespace mlir::spn::high;
 
-SPNErrorEstimation::SPNErrorEstimation(Operation* root) {
-  assert(root);
+ArithmeticPrecisionAnalysis::ArithmeticPrecisionAnalysis(Operation* rootNode) {
+  assert(rootNode);
   llvm::SmallVector<Operation*, 5> queries;
   llvm::SmallVector<Operation*, 5> roots;
 
-  if (auto module = dyn_cast<ModuleOp>(root)) {
+  if (auto module = dyn_cast<ModuleOp>(rootNode)) {
     module.walk([&queries, &roots](Operation* op) {
       if (auto query = dyn_cast<QueryInterface>(op)) {
         queries.push_back(op);
-        for (auto r : query.getRootNodes()) {
-          roots.push_back(r->getOperand(0).getDefiningOp());
-        }
+      } else if (auto rootNode = dyn_cast<RootNode>(op)) {
+        roots.push_back(op);
       }
     });
   } else {
-    llvm::dbgs() << "SPNErrorEstimation ctor expected: mlir::ModuleOp\n";
+    llvm::dbgs() << "ArithmeticPrecisionAnalysis ctor expected: mlir::ModuleOp\n";
     return;
   }
 
@@ -37,25 +37,27 @@ SPNErrorEstimation::SPNErrorEstimation(Operation* root) {
     llvm::dbgs() << "Found more than one query, will only analyze the first query!\n";
   }
 
-  auto query = dyn_cast<QueryInterface>(queries.front());
+  auto query = dyn_cast<spn::high::QueryInterface>(queries.front());
 
-  rootNode = roots.front();
   // FIXME: Static data representation should be replaced by extracting this info from somewhere (e.g. the query?).
   est_data_representation = data_representation::EM_FLOATING_POINT;
   est_error_model = query.getErrorModel();
   error_margin = query.getMaxError();
 
+  // The RootNode acts like an interface, the "desired root" can be obtained by calling root() + getDefiningOp().
+  root = dyn_cast<spn::high::RootNode>(roots.front()).root().getDefiningOp();
+
   iterationCount = 0;
   while (!satisfiedRequirements && !abortAnalysis) {
-    analyzeGraph(rootNode);
+    analyzeGraph(root);
     ++iterationCount;
   }
   selectOptimalType();
   emitDiagnosticInfo();
 }
 
-void SPNErrorEstimation::emitDiagnosticInfo() {
-  auto rootValues = spn_node_values[rootNode];
+void ArithmeticPrecisionAnalysis::emitDiagnosticInfo() {
+  auto rootValues = spn_node_values[root];
   double value = rootValues.accurate;
   double defect = rootValues.defective;
 
@@ -63,7 +65,7 @@ void SPNErrorEstimation::emitDiagnosticInfo() {
   double err_abs = std::abs(value - defect);
   double err_abs_log = std::abs(std::log(value / defect));
 
-  std::string emitHeader = "===================== SPNErrorEstimation =====================\n";
+  std::string emitHeader = "=============== ArithmeticPrecisionAnalysis ===============\n";
   llvm::raw_string_ostream rso{emitHeader};
   rso << "|| abortAnalysis:            " << abortAnalysis << "\n";
   rso << "|| satisfiedRequirements:    " << satisfiedRequirements << "\n";
@@ -86,12 +88,15 @@ void SPNErrorEstimation::emitDiagnosticInfo() {
   rso << "|| optimal representation:   ";
   selectedType.print(rso);
   rso << "\n";
-  rso << "==============================================================\n";
+  rso << "===========================================================\n";
 
-  rootNode->emitRemark("Error Estimation done.").attachNote(rootNode->getLoc()) << rso.str();
+  root->emitRemark("Error Estimation done.").attachNote(root->getLoc()) << rso.str();
+
+  // ToDo: Remove when "done debugging".
+  // llvm::dbgs() << rso.str();
 }
 
-void SPNErrorEstimation::analyzeGraph(Operation* graphRoot) {
+void ArithmeticPrecisionAnalysis::analyzeGraph(Operation* graphRoot) {
   assert(graphRoot);
   spn_node_values.clear();
   // Either select next floating-point format or increase number of Integer-bits
@@ -118,7 +123,7 @@ void SPNErrorEstimation::analyzeGraph(Operation* graphRoot) {
   satisfiedRequirements = checkRequirements();
 }
 
-void SPNErrorEstimation::estimateLeastMagnitudeBits() {
+void ArithmeticPrecisionAnalysis::estimateLeastMagnitudeBits() {
   // Find global extreme values
   for (auto entry : spn_node_values) {
     auto value = entry.second;
@@ -137,9 +142,9 @@ void SPNErrorEstimation::estimateLeastMagnitudeBits() {
   estimatedLeastMagnitudeBits = true;
 }
 
-bool SPNErrorEstimation::checkRequirements() {
+bool ArithmeticPrecisionAnalysis::checkRequirements() {
   bool satisfied = true;
-  auto rootValues = spn_node_values[rootNode];
+  auto rootValues = spn_node_values[root];
   double value = rootValues.accurate;
   double defect = rootValues.defective;
 
@@ -165,11 +170,11 @@ bool SPNErrorEstimation::checkRequirements() {
   double err_current = std::numeric_limits<double>::infinity();
 
   switch (est_error_model) {
-    case error_model::relative_error:err_current = std::abs((value / defect) - 1.0);
+    case mlir::spn::high::error_model::relative_error:err_current = std::abs((value / defect) - 1.0);
       break;
-    case error_model::absolute_error:err_current = std::abs(value - defect);
+    case mlir::spn::high::error_model::absolute_error:err_current = std::abs(value - defect);
       break;
-    case error_model::absolute_log_error:err_current = std::abs(std::log(std::abs(value / defect)));
+    case mlir::spn::high::error_model::absolute_log_error:err_current = std::abs(std::log(std::abs(value / defect)));
       break;
   }
 
@@ -181,22 +186,21 @@ bool SPNErrorEstimation::checkRequirements() {
   if (!satisfied && (est_data_representation == data_representation::EM_FLOATING_POINT)
       && (iterationCount >= maxIndex)) {
     abortAnalysis = true;
-    selectedType = Float_Formats.back().getType(rootNode->getContext());
+    selectedType = Float_Formats.back().getType(root->getContext());
   }
 
   return satisfied;
 }
 
-void SPNErrorEstimation::traverseSubgraph(Operation* subgraphRoot) {
+void ArithmeticPrecisionAnalysis::traverseSubgraph(Operation* subgraphRoot) {
   assert(subgraphRoot);
-
-  if (auto leaf = dyn_cast<LeafNodeInterface>(subgraphRoot)) {
+  if (auto leaf = dyn_cast<mlir::spn::high::LeafNodeInterface>(subgraphRoot)) {
     // Handle leaf node.
-    if (auto categorical = dyn_cast<CategoricalOp>(subgraphRoot)) {
+    if (auto categorical = dyn_cast<mlir::spn::high::CategoricalNode>(subgraphRoot)) {
       estimateErrorCategorical(categorical);
-    } else if (auto gaussian = dyn_cast<GaussianOp>(subgraphRoot)) {
+    } else if (auto gaussian = dyn_cast<mlir::spn::high::GaussianNode>(subgraphRoot)) {
       estimateErrorGaussian(gaussian);
-    } else if (auto histogram = dyn_cast<HistogramOp>(subgraphRoot)) {
+    } else if (auto histogram = dyn_cast<mlir::spn::high::HistogramNode>(subgraphRoot)) {
       estimateErrorHistogram(histogram);
     } else {
       // Unhandled leaf-node-type: Abort.
@@ -205,89 +209,129 @@ void SPNErrorEstimation::traverseSubgraph(Operation* subgraphRoot) {
       llvm::dbgs() << "\n";
       assert(false);
     }
-  } else if (auto constant = dyn_cast<ConstantOp>(subgraphRoot)) {
-    // Handle constant node.
-    estimateErrorConstant(constant);
   } else {
     // Handle inner node.
-    arg_t passed_arg(nullptr);
-
-    // First: Visit every child-node.
+    // (1): Visit every child-node.
     auto operands = subgraphRoot->getOperands();
     for (auto child : operands) {
       traverseSubgraph(child.getDefiningOp());
     }
 
-    // Second: Estimate errors of current operation.
-    if (auto sum = dyn_cast<SumOp>(subgraphRoot)) {
+    // (2): Estimate errors of current operation.
+    if (auto sum = dyn_cast<mlir::spn::high::SumNode>(subgraphRoot)) {
       estimateErrorSum(sum);
-    } else if (auto product = dyn_cast<ProductOp>(subgraphRoot)) {
+    } else if (auto product = dyn_cast<mlir::spn::high::ProductNode>(subgraphRoot)) {
       estimateErrorProduct(product);
+    } else {
+      // Unhandled inner node-type: Abort, *should* never happen.
+      llvm::dbgs() << "Encountered unhandled inner node-type, operation was: ";
+      subgraphRoot->print(llvm::dbgs());
+      llvm::dbgs() << "\n";
+      assert(false);
     }
   }
 }
 
-void SPNErrorEstimation::estimateErrorSum(SumOp op) {
-  double value, defect, max, min;
-  int max_depth;
+void ArithmeticPrecisionAnalysis::estimateErrorSum(mlir::spn::high::SumNode op) {
+  // Assumption: There are at least two operands.
+  auto operands = op.operands();
+  assert(operands.size() > 1);
+  auto weights = op.weights();
 
-  // Assumption: There are exactly & guaranteed(!) two operands
-  auto operands = op.getOperands();
-  assert(operands.size() == 2);
-
-  // Assumption: Both operands were encountered beforehand -- i.e. their values are known.
+  // Assumption: Operands were encountered beforehand -- i.e. their values are known.
   auto it_v1 = spn_node_values.find(operands[0].getDefiningOp());
-  auto it_v2 = spn_node_values.find(operands[1].getDefiningOp());
   assert(it_v1 != spn_node_values.end());
-  assert(it_v2 != spn_node_values.end());
 
   // Retrieve the corresponding data
   ErrorEstimationValue& v1 = it_v1->second;
-  ErrorEstimationValue& v2 = it_v2->second;
+  auto v = ErrorEstimationValue{v1.accurate, v1.defective, v1.max, v1.min, v1.depth};
 
-  value = v1.accurate + v2.accurate;
-  max_depth = std::max(v1.depth, v2.depth) + 1;
-  defect = calc->calculateDefectiveSum(v1, v2);
+  // Get the first weight
+  double weightValue = weights[0].dyn_cast<FloatAttr>().getValueAsDouble();
+  double weightDefect = calc->calculateDefectiveLeaf(weightValue);
+  auto w = ErrorEstimationValue{weightValue, weightDefect, weightValue, weightValue, 1};
 
-  // "max": values will be added
-  // "min": the higher value will be ignored entirely (adder becomes min-selection)
-  max = v1.max + v2.max;
-  min = std::min(v1.min, v2.min);
+  // Treat first weighted addend as defective product (w * v).
+  v.defective = calc->calculateDefectiveProduct(w, v);
+  v.accurate *= w.accurate;
+  v.max = v.max * w.accurate;
+  v.min = v.min * w.accurate;
 
-  spn_node_values.emplace(op.getOperation(), ErrorEstimationValue{value, defect, max, min, max_depth});
+  // Iteratively determine values of Sum(w1*v1 + w2*v2 + ... + wn*vn).
+  for (int i = 1; i < (int) operands.size(); ++i) {
+    auto it_v2 = spn_node_values.find(operands[i].getDefiningOp());
+    assert(it_v2 != spn_node_values.end());
+    ErrorEstimationValue& v2 = it_v2->second;
+
+    // Working copy of the next value
+    auto u = ErrorEstimationValue{v2.accurate, v2.defective, v2.max, v2.min, v2.depth};
+
+    // Get the next weight
+    weightValue = weights[i].dyn_cast<FloatAttr>().getValueAsDouble();
+    weightDefect = calc->calculateDefectiveLeaf(weightValue);
+    w = ErrorEstimationValue{weightValue, weightDefect, weightValue, weightValue, 1};
+
+    // Treat next weighted addend as defective product.
+    u.defective = calc->calculateDefectiveProduct(u, w);
+    u.accurate *= w.accurate;
+    u.max = v.max * w.accurate;
+    u.min = v.min * w.accurate;
+
+    // Calculate defective sum of accumulated and next addend, before next iteration alters accumulated value.
+    v.defective = calc->calculateDefectiveSum(v, u);
+
+    // Accumulate accurate values
+    v.accurate += u.accurate;
+    v.depth = std::max(v.depth, u.depth);
+
+    // "max": values will be added
+    // "min": the higher value will be ignored entirely (adder becomes min-selection)
+    v.max = v.max + u.max;
+    v.min = std::min(v.min, u.min);
+  }
+
+  // Increase depth, since up until now we only took the operands' depth into account.
+  v.depth += 1;
+  spn_node_values.emplace(op.getOperation(), v);
 }
 
-void SPNErrorEstimation::estimateErrorProduct(ProductOp op) {
-  double value, defect, max, min;
-  int max_depth;
+void ArithmeticPrecisionAnalysis::estimateErrorProduct(mlir::spn::high::ProductNode op) {
+  // Assumption: There are at least two operands.
+  auto operands = op.operands();
+  assert(operands.size() > 1);
 
-  // Assumption: There are exactly & guaranteed(!) two operands
-  auto operands = op.getOperands();
-  assert(operands.size() == 2);
-
-  // Assumption: Both operands were encountered beforehand -- i.e. their values are known.
+  // Assumption: Operands were encountered beforehand -- i.e. their values are known.
   auto it_v1 = spn_node_values.find(operands[0].getDefiningOp());
-  auto it_v2 = spn_node_values.find(operands[1].getDefiningOp());
   assert(it_v1 != spn_node_values.end());
-  assert(it_v2 != spn_node_values.end());
 
   // Retrieve the corresponding data
   ErrorEstimationValue& v1 = it_v1->second;
-  ErrorEstimationValue& v2 = it_v2->second;
+  auto v = ErrorEstimationValue{v1.accurate, v1.defective, v1.max, v1.min, v1.depth};
 
-  value = v1.accurate * v2.accurate;
-  max_depth = std::max(v1.depth, v2.depth) + 1;
-  defect = calc->calculateDefectiveProduct(v1, v2);
+  // Iteratively determine values of Product(v1 * v2 * ... * vn)
+  for (int i = 1; i < (int) operands.size(); ++i) {
+    auto it_vi = spn_node_values.find(operands[i].getDefiningOp());
+    assert(it_vi != spn_node_values.end());
+    ErrorEstimationValue& vi = it_vi->second;
 
-  // "max": highest values will be multiplied
-  // "min": lowest values will be multiplied
-  max = v1.max * v2.max;
-  min = v1.min * v2.min;
+    // Calculate defective product before next iteration alters "joint-product" value.
+    v.defective = calc->calculateDefectiveProduct(v, vi);
 
-  spn_node_values.emplace(op.getOperation(), ErrorEstimationValue{value, defect, max, min, max_depth});
+    v.accurate *= vi.accurate;
+    v.depth = std::max(v.depth, vi.depth);
+
+    // "max": highest values will be multiplied
+    // "min": lowest values will be multiplied
+    v.max *= vi.max;
+    v.min *= vi.min;
+  }
+
+  // Increase depth, since up until now we only took the operands' depth into account.
+  v.depth += 1;
+  spn_node_values.emplace(op.getOperation(), v);
 }
 
-void SPNErrorEstimation::estimateErrorCategorical(CategoricalOp op) {
+void ArithmeticPrecisionAnalysis::estimateErrorCategorical(mlir::spn::high::CategoricalNode op) {
   double value, max, min, defect;
 
   for (auto& p : op.probabilitiesAttr().getValue()) {
@@ -303,16 +347,7 @@ void SPNErrorEstimation::estimateErrorCategorical(CategoricalOp op) {
   spn_node_values.emplace(op.getOperation(), ErrorEstimationValue{value, defect, max, min, 1});
 }
 
-void SPNErrorEstimation::estimateErrorConstant(ConstantOp op) {
-  double value = op.value().convertToDouble();
-  double max = value;
-  double min = value;
-  double defect = calc->calculateDefectiveLeaf(value);
-
-  spn_node_values.emplace(op.getOperation(), ErrorEstimationValue{value, defect, max, min, 1});
-}
-
-void SPNErrorEstimation::estimateErrorGaussian(GaussianOp op) {
+void ArithmeticPrecisionAnalysis::estimateErrorGaussian(mlir::spn::high::GaussianNode op) {
   // Use probability density function (PDF) of the normal distribution
   //   PDF(x) := ( 1 / (stddev * SQRT[2 * Pi] ) ) * EXP( -0.5 * ( [x - mean] / stddev )^2 )
   double stddev = op.stddev().convertToDouble();
@@ -334,14 +369,14 @@ void SPNErrorEstimation::estimateErrorGaussian(GaussianOp op) {
   spn_node_values.emplace(op.getOperation(), ErrorEstimationValue{value, defect, max, min, 1});
 }
 
-void SPNErrorEstimation::estimateErrorHistogram(HistogramOp op) {
+void ArithmeticPrecisionAnalysis::estimateErrorHistogram(mlir::spn::high::HistogramNode op) {
   double value;
   double max = std::numeric_limits<double>::min();
   double min = std::numeric_limits<double>::max();
   double defect;
 
   for (auto& b : op.bucketsAttr()) {
-    auto val = b.cast<Bucket>().val().getValueAsDouble();
+    auto val = b.cast<mlir::spn::high::Bucket>().val().getValueAsDouble();
     max = std::max(max, val);
     min = std::min(min, val);
   }
@@ -357,35 +392,39 @@ void SPNErrorEstimation::estimateErrorHistogram(HistogramOp op) {
   spn_node_values.emplace(op.getOperation(), ErrorEstimationValue{value, defect, max, min, 1});
 }
 
-void SPNErrorEstimation::selectOptimalType() {
+void ArithmeticPrecisionAnalysis::selectOptimalType() {
   if (!abortAnalysis) {
     switch (est_data_representation) {
       case data_representation::EM_FIXED_POINT:
         selectedType =
-            IntegerType::get(rootNode->getContext(), (format_bits_magnitude + format_bits_significance));
+            IntegerType::get(root->getContext(), (format_bits_magnitude + format_bits_significance));
         break;
       case data_representation::EM_FLOATING_POINT:
         // Invoke call: Type::get(MLIRContext*)
-        selectedType = Float_Formats[iterationCount - 1].getType(rootNode->getContext());
+        selectedType = Float_Formats[iterationCount - 1].getType(root->getContext());
         break;
     }
   }
 }
 
-mlir::Type SPNErrorEstimation::getOptimalType() {
+mlir::Type ArithmeticPrecisionAnalysis::getComputationType(bool useLogSpace) {
+  // TODO Implement to actually use the analysis results.
+  if (useLogSpace) {
+    return mlir::spn::low::LogType::get(mlir::FloatType::getF32(root->getContext()));
+  }
   return selectedType;
 }
 
-inline double SPNErrorEstimation::FixedPointCalculator::calculateDefectiveLeaf(double value) {
+inline double ArithmeticPrecisionAnalysis::FixedPointCalculator::calculateDefectiveLeaf(double value) {
   return (value + EPS);
 }
 
-inline double SPNErrorEstimation::FloatingPointCalculator::calculateDefectiveLeaf(double value) {
+inline double ArithmeticPrecisionAnalysis::FloatingPointCalculator::calculateDefectiveLeaf(double value) {
   return (value * ERR_COEFFICIENT);
 }
 
-inline double SPNErrorEstimation::FixedPointCalculator::calculateDefectiveProduct(ErrorEstimationValue& v1,
-                                                                                  ErrorEstimationValue& v2) {
+inline double ArithmeticPrecisionAnalysis::FixedPointCalculator::calculateDefectiveProduct(ErrorEstimationValue& v1,
+                                                                                           ErrorEstimationValue& v2) {
   // Calculate accurate value
   double defect = v1.accurate * v2.accurate;
   // Calculate deltas of the given operators (see equation (5) of ProbLP paper)
@@ -396,8 +435,8 @@ inline double SPNErrorEstimation::FixedPointCalculator::calculateDefectiveProduc
   return defect;
 }
 
-inline double SPNErrorEstimation::FloatingPointCalculator::calculateDefectiveProduct(ErrorEstimationValue& v1,
-                                                                                     ErrorEstimationValue& v2) {
+inline double ArithmeticPrecisionAnalysis::FloatingPointCalculator::calculateDefectiveProduct(ErrorEstimationValue& v1,
+                                                                                              ErrorEstimationValue& v2) {
   // Calculate accurate value
   double defect = v1.accurate * v2.accurate;
   // Apply error coefficient for each past conversion step.
@@ -405,24 +444,24 @@ inline double SPNErrorEstimation::FloatingPointCalculator::calculateDefectivePro
   return defect;
 }
 
-inline double SPNErrorEstimation::FixedPointCalculator::calculateDefectiveSum(ErrorEstimationValue& v1,
-                                                                              ErrorEstimationValue& v2) {
+inline double ArithmeticPrecisionAnalysis::FixedPointCalculator::calculateDefectiveSum(ErrorEstimationValue& v1,
+                                                                                       ErrorEstimationValue& v2) {
   // Calculate defective value directly
   return (v1.defective + v2.defective);
 }
 
-inline double SPNErrorEstimation::FloatingPointCalculator::calculateDefectiveSum(ErrorEstimationValue& v1,
-                                                                                 ErrorEstimationValue& v2) {
+inline double ArithmeticPrecisionAnalysis::FloatingPointCalculator::calculateDefectiveSum(ErrorEstimationValue& v1,
+                                                                                          ErrorEstimationValue& v2) {
   int max_depth = std::max(v1.depth, v2.depth) + 1;
   // Apply error coefficient for the longest conversion chain.
   return ((v1.accurate + v2.accurate) * std::pow(ERR_COEFFICIENT, max_depth));
 }
 
-inline int SPNErrorEstimation::FixedPointCalculator::calculateMagnitudeBits(double max, double min) {
+inline int ArithmeticPrecisionAnalysis::FixedPointCalculator::calculateMagnitudeBits(double max, double min) {
   return ((int) std::ceil(std::log2(max)));
 }
 
-inline int SPNErrorEstimation::FloatingPointCalculator::calculateMagnitudeBits(double max, double min) {
+inline int ArithmeticPrecisionAnalysis::FloatingPointCalculator::calculateMagnitudeBits(double max, double min) {
   // Overflow and underflow has to be taken into account.
   // Calculate minimum number of bits (then bias) for 2's complement to determine the number of exponent bits.
   double bias = std::ceil(std::abs(std::log2(std::ceil(std::abs(std::log2(min))))));
