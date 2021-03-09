@@ -76,7 +76,7 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
         dynamicSizes.push_back(dymSize);
       }
     }
-    auto memref = MemRefType::get(inputType.getShape(), inputType.getElementType(), {}, 1);
+    auto memref = MemRefType::get(inputType.getShape(), inputType.getElementType());
     auto deviceMem = rewriter.create<gpu::AllocOp>(op->getLoc(), memref, ValueRange{}, dynamicSizes, ValueRange{});
     deviceMemories.push_back(deviceMem.memref());
     if (isRead) {
@@ -136,6 +136,11 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
     auto deviceMem = deviceHost.first;
     auto hostMem = deviceHost.second;
     rewriter.create<gpu::MemcpyOp>(op->getLoc(), llvm::None, ValueRange{}, hostMem, deviceMem);
+  }
+  for (auto& dMem : deviceMemories) {
+    // Deallocate all input and output device memories after copying the result
+    // to the host.
+    rewriter.create<gpu::DeallocOp>(op->getLoc(), llvm::None, ValueRange{}, dMem);
   }
   rewriter.eraseOp(op);
   return success();
