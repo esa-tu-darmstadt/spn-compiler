@@ -15,29 +15,29 @@ namespace spnc_rt {
 
   typedef void (* single_kernel)(void* input_ptr,
                                  void* aligned_input_ptr,
-                                 int input_offset,
-                                 int input_size_dim1,
-                                 int input_stride_dim1,
-                                 int input_size_dim2,
-                                 int input_stride_dim2,
+                                 int64_t input_offset,
+                                 int64_t input_size_dim1,
+                                 int64_t input_stride_dim1,
+                                 int64_t input_size_dim2,
+                                 int64_t input_stride_dim2,
                                  void* output_ptr,
                                  void* output_aligned_ptr,
-                                 int output_offset,
-                                 int output_size,
-                                 int output_stride);
+                                 int64_t output_offset,
+                                 int64_t output_size,
+                                 int64_t output_stride);
 
   typedef void (* batch_kernel)(void* input_ptr,
                                 void* aligned_input_ptr,
-                                int input_offset,
-                                int input_size_dim1,
-                                int input_stride_dim1,
-                                int input_size_dim2,
-                                int input_stride_dim2,
+                                int64_t input_offset,
+                                int64_t input_size_dim1,
+                                int64_t input_stride_dim1,
+                                int64_t input_size_dim2,
+                                int64_t input_stride_dim2,
                                 void* output_ptr,
                                 void* output_aligned_ptr,
-                                int output_offset,
-                                int output_size,
-                                int output_stride);
+                                int64_t output_offset,
+                                int64_t output_size,
+                                int64_t output_stride);
 
   union kernel_function {
     single_kernel single;
