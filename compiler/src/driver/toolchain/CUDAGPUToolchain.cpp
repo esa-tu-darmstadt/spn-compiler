@@ -15,6 +15,12 @@
 #include <codegen/mlir/transformation/LoSPNTransformations.h>
 #include <driver/action/EmitObjectCode.h>
 
+#ifndef SPNC_CUDA_RUNTIME_WRAPPERS_DIR
+// This define should usually be set by CMake, pointing
+// to the correct location of the MLIR CUDA runtime wrappers.
+#define SPNC_CUDA_RUNTIME_WRAPPERS_DIR "/usr/local"
+#endif
+
 using namespace spnc;
 using namespace mlir;
 
@@ -53,7 +59,10 @@ std::unique_ptr<Job<Kernel> > CUDAGPUToolchain::constructJobFromFile(const std::
   // Link generated object file into shared object.
   auto sharedObject = FileSystem::createTempFile<FileType::SHARED_OBJECT>(false);
   SPDLOG_INFO("Compiling to shared object file {}", sharedObject.fileName());
+  // The generated kernel must be linked against the MLIR CUDA runtime wrappers.
+  LibraryInfo cudaRuntimeWrappers{"cuda-runtime-wrappers", SPNC_CUDA_RUNTIME_WRAPPERS_DIR};
   auto& linkSharedObject =
-      job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo);
+      job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo,
+                                                 std::initializer_list<LibraryInfo>{cudaRuntimeWrappers});
   return std::move(job);
 }

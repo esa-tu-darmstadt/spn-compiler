@@ -2,6 +2,35 @@
 find_package(MLIR REQUIRED CONFIG)
 message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
 
+# TODO: The old FindCUDA is deprecated, the new FindCUDAToolkit is only available in version > 3.17.
+# Use this feature here after upgrading the required CMake version.
+# TODO Guard this with a flag to enable usage of the compiler on devices with no CUDA GPU.
+include(CheckLanguage)
+check_language(CUDA)
+if (CMAKE_CUDA_COMPILER)
+    enable_language(CUDA)
+else ()
+    message(SEND_ERROR "Targeting CUDA GPUs requires a working CUDA install")
+endif ()
+
+find_library(CUDA_RUNTIME_LIBRARY cuda)
+if (NOT CUDA_RUNTIME_LIBRARY)
+    message(FATAL_ERROR "CUDA runtime library not found. Try setting CUDA_TOOLKIT_ROOT_DIR or CUDACXX")
+else ()
+    message(STATUS "Using CUDA runtime library: " ${CUDA_RUNTIME_LIBRARY})
+    message(STATUS "Using CUDA runtime headers: " ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+endif ()
+
+# When compiling for CUDA GPUs, the generated Kernel must be linked with the
+# MLIR CUDA runtime wrappers for data-transfer, kernel-launch etc.
+find_library(MLIR_CUDA_RUNTIME_WRAPPERS cuda-runtime-wrappers
+        HINTS ${LLVM_BUILD_LIBRARY_DIR})
+if (NOT MLIR_CUDA_RUNTIME_WRAPPERS)
+    message(FATAL_ERROR "MLIR CUDA runtime wrappers not found")
+else ()
+    message(STATUS "Using MLIR CUDA wrappers from:" ${MLIR_CUDA_RUNTIME_WRAPPERS})
+endif ()
+
 find_package(CapnProto REQUIRED CONFIG)
 message(STATUS "Using capnproto version ${CapnProto_VERSION}")
 set(CAPNPC_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
@@ -52,7 +81,14 @@ target_include_directories(spnc
         ${MLIR_INCLUDE_DIRS}
         ${SPN_DIALECT_INCLUDE_DIRS}
         ${CAPNP_HDRS}
-        ${CAPNPC_OUTPUT_DIR})
+        ${CAPNPC_OUTPUT_DIR}
+        ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+
+if (MLIR_CUDA_RUNTIME_WRAPPERS)
+    get_filename_component(MLIR_CUDA_RUNTIME_WRAPPERS_DIR ${MLIR_CUDA_RUNTIME_WRAPPERS} DIRECTORY)
+    message(STATUS "Directory containing the MLIR CUDA runtime wrappers: " ${MLIR_CUDA_RUNTIME_WRAPPERS_DIR})
+    target_compile_definitions(spnc PRIVATE SPNC_CUDA_RUNTIME_WRAPPERS_DIR=\"${MLIR_CUDA_RUNTIME_WRAPPERS_DIR}\")
+endif ()
 
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
@@ -73,10 +109,12 @@ set(mlir_libs
         MLIRTranslation
         MLIRSupport
         MLIRExecutionEngine
+        MLIRTargetNVVMIR
         )
 
 llvm_map_components_to_libnames(llvm_libs bitwriter native passes)
-target_link_libraries(spnc PRIVATE spnc-common ${llvm_libs} ${mlir_libs} spdlog::spdlog CapnProto::capnp)
+target_link_libraries(spnc PRIVATE spnc-common ${llvm_libs} ${mlir_libs} spdlog::spdlog
+        CapnProto::capnp ${CUDA_RUNTIME_LIBRARY})
 
 mlir_check_link_libraries(spnc)
 
