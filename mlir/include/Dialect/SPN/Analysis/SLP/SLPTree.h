@@ -26,6 +26,8 @@ namespace mlir {
 
         SLPTree(seed_t const& seed, size_t const& maxLookAhead);
 
+        std::vector<std::shared_ptr<SLPNode>> getNodes() const;
+
       private:
 
         void buildGraph(std::vector<Operation*> const& operations, node_t const& currentNode);

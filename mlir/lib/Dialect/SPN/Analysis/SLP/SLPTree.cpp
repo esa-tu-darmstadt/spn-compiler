@@ -12,7 +12,16 @@ using namespace mlir::spn::slp;
 SLPTree::SLPTree(seed_t const& seed, size_t const& maxLookAhead) : operandsOf{}, maxLookAhead{maxLookAhead} {
   auto const& currentNode = std::make_shared<SLPNode>(seed);
   operandsOf[currentNode] = {};
+  printSubgraph(seed);
   buildGraph(seed, currentNode);
+}
+
+std::vector<std::shared_ptr<SLPNode>> SLPTree::getNodes() const {
+  std::vector<std::shared_ptr<SLPNode>> nodes;
+  for (auto const& entry : operandsOf) {
+    nodes.emplace_back(entry.first);
+  }
+  return nodes;
 }
 
 void SLPTree::buildGraph(std::vector<Operation*> const& operations, node_t const& currentNode) {
@@ -36,17 +45,17 @@ void SLPTree::buildGraph(std::vector<Operation*> const& operations, node_t const
     }
     for (size_t i = 0; i < operations.front()->getNumOperands(); ++i) {
       if (std::all_of(std::begin(allOperands), std::end(allOperands), [&](auto const& operandOperations) {
-        return operandOperations.at(i)->getName() == currentOpCode && !escapesMultinode(operandOperations.at(i));
+        return operandOperations[i]->getName() == currentOpCode && !escapesMultinode(operandOperations[i]);
       })) {
         for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
-          currentNode->addOperationToLane(allOperands.at(lane).at(i), lane);
+          currentNode->addOperationToLane(allOperands[lane][i], lane);
         }
-        buildGraph(currentNode->getLastOperations(), currentNode);
+        buildGraph(currentNode->getVector(currentNode->numVectors() - 1), currentNode);
       } else {
         // TODO: here might be a good place to implement variable vector width
         std::vector<Operation*> operandOperations;
         for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
-          operandOperations.emplace_back(allOperands.at(lane).at(i));
+          operandOperations.emplace_back(allOperands[lane][i]);
         }
         for (auto const& tmp : operandOperations) {
           tmp->dump();
@@ -60,11 +69,11 @@ void SLPTree::buildGraph(std::vector<Operation*> const& operations, node_t const
       auto const& order = reorderOperands(currentNode);
       for (size_t operandIndex = 0; operandIndex < operandsOf.at(currentNode).size(); ++operandIndex) {
         for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
-          operandsOf.at(currentNode).at(operandIndex)->setOperation(lane, 0, order.at(lane).at(operandIndex));
+          operandsOf.at(currentNode).at(operandIndex)->setOperation(lane, 0, order[lane][operandIndex]);
         }
       }
       for (auto& operandNode : operandsOf.at(currentNode)) {
-        buildGraph(operandNode->getLastOperations(), operandNode);
+        buildGraph(operandNode->getVector(operandNode->numVectors() - 1), operandNode);
       }
     }
   }
@@ -86,9 +95,9 @@ std::vector<std::vector<Operation*>> SLPTree::reorderOperands(node_t const& mult
   std::vector<std::vector<Mode>> mode{multinode->numLanes()};
   // 1. Strip first lane
   for (size_t i = 0; i < numOperands; ++i) {
-    auto operation = operandsOf.at(multinode).at(i)->getOperation(0, 0);
-    finalOrder.at(0).emplace_back(operation);
-    mode.at(0).emplace_back(modeFromOperation(operation));
+    auto operation = operandsOf.at(multinode)[i]->getOperation(0, 0);
+    finalOrder[0].emplace_back(operation);
+    mode[0].emplace_back(modeFromOperation(operation));
   }
 
   // 2. For all other lanes, find best candidate
@@ -101,30 +110,30 @@ std::vector<std::vector<Operation*>> SLPTree::reorderOperands(node_t const& mult
     for (size_t i = 0; i < numOperands; ++i) {
       // Skip if we can't vectorize
       // TODO: here might also be a good place to start looking for variable-width
-      if (mode.at(lane - 1).at(i) == FAILED) {
-        finalOrder.at(lane).emplace_back(nullptr);
-        mode.at(lane).emplace_back(FAILED);
+      if (mode[lane - 1][i] == FAILED) {
+        finalOrder[lane].emplace_back(nullptr);
+        mode[lane].emplace_back(FAILED);
         continue;
       }
-      auto* last = finalOrder.at(lane - 1).at(i);
-      auto const& bestResult = getBest(mode.at(lane - 1).at(i), last, candidates);
+      auto* last = finalOrder[lane - 1][i];
+      auto const& bestResult = getBest(mode[lane - 1][i], last, candidates);
 
       // Update output
-      finalOrder.at(lane).emplace_back(bestResult.first);
+      finalOrder[lane].emplace_back(bestResult.first);
 
       // Detect SPLAT mode
       if (i == 1 && bestResult.first == last) {
-        mode.at(lane).at(i) = SPLAT;
+        mode[lane][i] = SPLAT;
       } else {
-        mode.at(lane).emplace_back(bestResult.second);
+        mode[lane].emplace_back(bestResult.second);
       }
 
     }
     // Distribute remaining candidates in case we encountered a FAILED.
     for (auto* candidate : candidates) {
       for (size_t i = 0; i < numOperands; ++i) {
-        if (finalOrder.at(lane).at(i) == nullptr) {
-          finalOrder.at(lane).at(i) = candidate;
+        if (finalOrder[lane][i] == nullptr) {
+          finalOrder[lane][i] = candidate;
           break;
         }
       }

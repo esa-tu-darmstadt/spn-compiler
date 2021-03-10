@@ -7,7 +7,7 @@
 #include "SPNPassDetails.h"
 #include <iostream>
 #include <mlir/Pass/PassManager.h>
-#include "../Analysis/SLP/VectorPatterns.h"
+#include "../Analysis/SLP/VectorizationPatterns.h"
 #include "SPN/Analysis/SLP/SLPTree.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
@@ -50,14 +50,18 @@ namespace {
 
       if (!seeds.empty()) {
         slp::SLPTree graph(seeds.front(), 3);
+        OwningRewritePatternList patterns;
+        std::vector<std::vector<Operation*>> vectors;
+        for (auto const& node_ptr : graph.getNodes()) {
+          for (size_t i = 0; i < node_ptr->numVectors(); ++i) {
+            vectors.emplace_back(node_ptr->getVector(i));
+          }
+        }
+        slp::populateVectorizationPatterns(patterns, &getContext(), vectors);
+        auto op = getOperation();
+        FrozenRewritePatternList frozenPatterns(std::move(patterns));
+        applyPatternsAndFoldGreedily(op, frozenPatterns);
       }
-
-      OwningRewritePatternList patterns;
-      TypeConverter converter;
-      slp::populateVectorizationPatterns(patterns, &getContext(), converter);
-      auto op = getOperation();
-      FrozenRewritePatternList frozenPatterns(std::move(patterns));
-      applyPatternsAndFoldGreedily(op, frozenPatterns);
 
     }
 

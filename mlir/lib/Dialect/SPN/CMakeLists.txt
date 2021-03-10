@@ -9,7 +9,7 @@ add_mlir_dialect_library(MLIRSPN
         Analysis/SLP/SLPNode.cpp
         Analysis/SLP/SLPTree.cpp
         Analysis/SLP/SLPSeeding.cpp
-        Analysis/SLP/VectorPatterns.cpp
+        Analysis/SLP/VectorizationPatterns.cpp
         Canonicalization/CanonicalizationPatterns.cpp
         Simplification/SimplificationPatterns.cpp
         TypeAnalysis/TypePinningPatterns.cpp

@@ -11,28 +11,20 @@ using namespace mlir::spn::slp;
 
 SLPNode::SLPNode(std::vector<Operation*> const& operations) : lanes{operations.size()} {
   for (size_t i = 0; i < operations.size(); ++i) {
-    lanes.at(i).emplace_back(operations.at(i));
+    lanes[i].emplace_back(operations[i]);
   }
 }
 
 void SLPNode::addOperationToLane(Operation* operation, size_t const& lane) {
-  lanes.at(lane).emplace_back(operation);
-}
-
-std::vector<Operation*> SLPNode::getLastOperations() const {
-  std::vector<Operation*> lastOperations;
-  for (size_t lane = 0; lane < numLanes(); ++lane) {
-    lastOperations.emplace_back(lanes.at(lane).back());
-  }
-  return lastOperations;
+  lanes[lane].emplace_back(operation);
 }
 
 Operation* SLPNode::getOperation(size_t lane, size_t index) const {
-  return lanes.at(lane).at(index);
+  return lanes[lane][index];
 }
 
 void SLPNode::setOperation(size_t lane, size_t index, Operation* operation) {
-  lanes.at(lane).at(index) = operation;
+  lanes[lane][index] = operation;
 }
 
 bool SLPNode::isMultiNode() const {
@@ -41,7 +33,7 @@ bool SLPNode::isMultiNode() const {
 
 bool SLPNode::areRootOfNode(std::vector<Operation*> const& operations) const {
   for (size_t lane = 0; lane < numLanes(); ++lane) {
-    if (operations.at(lane) != lanes.at(lane).front()) {
+    if (operations[lane] != lanes[lane].front()) {
       return false;
     }
   }
@@ -50,4 +42,16 @@ bool SLPNode::areRootOfNode(std::vector<Operation*> const& operations) const {
 
 size_t SLPNode::numLanes() const {
   return lanes.size();
+}
+
+size_t SLPNode::numVectors() const {
+  return lanes.front().size();
+}
+
+std::vector<Operation*> SLPNode::getVector(size_t index) const {
+  std::vector<Operation*> vector;
+  for (size_t lane = 0; lane < numLanes(); ++lane) {
+    vector.emplace_back(lanes[lane][index]);
+  }
+  return vector;
 }

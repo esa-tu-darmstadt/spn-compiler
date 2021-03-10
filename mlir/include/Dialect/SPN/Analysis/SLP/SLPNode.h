@@ -21,13 +21,16 @@ namespace mlir {
         explicit SLPNode(std::vector<Operation*> const& operations);
 
         void addOperationToLane(Operation* operation, size_t const& lane);
-        std::vector<Operation*> getLastOperations() const;
         Operation* getOperation(size_t lane, size_t index) const;
         void setOperation(size_t lane, size_t index, Operation* operation);
 
         bool isMultiNode() const;
         bool areRootOfNode(std::vector<Operation*> const& operations) const;
+
         size_t numLanes() const;
+        size_t numVectors() const;
+
+        std::vector<Operation*> getVector(size_t index) const;
 
         friend bool operator==(SLPNode const& lhs, SLPNode const& rhs) {
           return std::tie(lhs.lanes)

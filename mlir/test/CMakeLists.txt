@@ -13,10 +13,10 @@ configure_lit_site_cfg(
 set(CHECK_SPNC_LIT_ARGS "")
 
 # Add verbose flag if requested
-if(${CHECK_SPNC_VERBOSE})
-  message(STATUS "Running llvm-lit in verbose mode")
-  set(CHECK_SPNC_LIT_ARGS "${CHECK_SPNC_LIT_ARGS};-v")
-endif()
+if (${CHECK_SPNC_VERBOSE})
+    message(STATUS "Running llvm-lit in verbose mode")
+    set(CHECK_SPNC_LIT_ARGS "${CHECK_SPNC_LIT_ARGS};-v")
+endif ()
 
 # Run regression tests
 add_lit_testsuite(check-spnc-mlir-tests "Running spnc-mlir regression tests"
