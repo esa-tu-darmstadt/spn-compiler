@@ -201,6 +201,9 @@ std::unique_ptr<llvm::Module> spnc::GPUtoLLVMConversion::translateAndLinkGPUModu
   });
   // Translate the input MLIR GPU module to NVVM IR (LLVM IR + some extension).
   auto llvmModule = mlir::translateModuleToNVVMIR(gpuModule, llvmContext, name);
+  if (!llvmModule) {
+    SPNC_FATAL_ERROR("Translation of GPU code to NVVM IR failed");
+  }
 
   // Link the generated LLVM/NVVM IR with libdevice.
   linkWithLibdevice(llvmModule.get(), kernelFuncs);
@@ -270,6 +273,8 @@ mlir::ModuleOp& spnc::GPUtoLLVMConversion::execute() {
     // Retrieve option value to pass to translateAndLinkGPUModule.
     auto printIR = spnc::option::dumpIR.get(*config);
 
+    // Lower SCF constructs to CFG structure.
+    pm.addPass(mlir::createLowerToCFGPass());
     // Nested pass manager operating only on the GPU-part of the code.
     auto& kernelPm = pm.nest<mlir::gpu::GPUModuleOp>();
     kernelPm.addPass(mlir::createStripDebugInfoPass());

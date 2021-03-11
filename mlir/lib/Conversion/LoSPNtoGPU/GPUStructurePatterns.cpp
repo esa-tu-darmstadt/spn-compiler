@@ -7,6 +7,7 @@
 #include <mlir/IR/BlockAndValueMapping.h>
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
+#include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/IR/BuiltinOps.h"
 
 mlir::LogicalResult mlir::spn::KernelGPULowering::matchAndRewrite(mlir::spn::low::SPNKernel op,
@@ -116,14 +117,17 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
   rewriter.setInsertionPointToStart(&gpuLaunch.body().front());
   auto blockOffset = rewriter.create<MulIOp>(op->getLoc(), gpuLaunch.blockSizeX(), gpuLaunch.getBlockIds().x);
   auto batchIndex = rewriter.create<AddIOp>(op.getLoc(), blockOffset, gpuLaunch.getThreadIds().x);
-  auto terminator = rewriter.create<gpu::TerminatorOp>(op.getLoc());
   SmallVector<Value, 5> blockReplacementArgs;
   blockReplacementArgs.push_back(batchIndex);
   for (auto mem : deviceMemories) {
     // Use the previously allocated GPU device memory.
     blockReplacementArgs.push_back(mem);
   }
-  rewriter.mergeBlockBefore(&op.body().front(), terminator, blockReplacementArgs);
+  auto checkInBounds = rewriter.create<mlir::CmpIOp>(op->getLoc(), CmpIPredicate::ult, batchIndex, numSamples);
+  auto ifOp = rewriter.create<mlir::scf::IfOp>(op.getLoc(), checkInBounds, false);
+  auto terminator = rewriter.create<gpu::TerminatorOp>(op.getLoc());
+  rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
+  rewriter.mergeBlockBefore(&op.body().front(), ifOp.thenRegion().front().getTerminator(), blockReplacementArgs);
   gpuLaunch.body().front().walk([&rewriter](low::SPNReturn ret) {
     assert(ret.returnValues().empty() && "Task return should be empty");
     rewriter.eraseOp(ret);
