@@ -15,6 +15,11 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 include(Doxygen.cmake)
 doxygen_setup()
 
+option(CUDA_GPU_SUPPORT
+        "Enable/disable support for CUDA GPUs. Requires a working installation of the CUDA driver and toolkit"
+        OFF
+        )
+
 add_subdirectory(common)
 # Ensure processing of ./execute before ./compiler
 # Reason: tests in ./compiler depend on CMake variables set in ./execute
