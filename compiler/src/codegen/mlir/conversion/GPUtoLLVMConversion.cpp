@@ -3,7 +3,6 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#include <mlir/ExecutionEngine/OptUtils.h>
 #include <llvm/Support/TargetRegistry.h>
 #include "GPUtoLLVMConversion.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
@@ -14,13 +13,22 @@
 #include "mlir/InitAllPasses.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Translation.h"
-#include "mlir/Dialect/LLVMIR/NVVMDialect.h"
-#include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/TargetSelect.h"
 #include "mlir/Target/NVVMIR.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Linker/Linker.h"
 #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "llvm/Transforms/IPO/Internalize.h"
+#include "llvm/ADT/SmallSet.h"
+#include <driver/GlobalOptions.h>
+#include <llvm/IR/LegacyPassManager.h>
+#include "llvm/Target/TargetOptions.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/Coroutines.h"
 
 #ifndef SPNC_LIBDEVICE_FILE
 // The location of libdevice is usually auto-detected and set by CMake.
@@ -102,28 +110,109 @@ mlir::OwnedBlob spnc::GPUtoLLVMConversion::compilePtxToCubin(const std::string p
   return result;
 }
 
-std::unique_ptr<llvm::Module> spnc::GPUtoLLVMConversion::translateAndLinkGPUModule(mlir::Operation* gpuModule,
-                                                                                   llvm::LLVMContext& llvmContext,
-                                                                                   llvm::StringRef name) {
-  // Translate the input MLIR GPU module to NVVM IR (LLVM IR + some extension.
-  auto llvmModule = mlir::translateModuleToNVVMIR(gpuModule, llvmContext, name);
+void spnc::GPUtoLLVMConversion::linkWithLibdevice(llvm::Module* module, llvm::ArrayRef<llvm::StringRef> kernelFuncs) {
   // The kernel might use some optimized device functions from libdevice (__nv_*, e.g. __nv_exp).
   // libdevice is shipped as LLVM bitcode by Nvidia, so we load the bitcode file and link it
   // with the translated NVVM IR module.
   llvm::SMDiagnostic Err;
-  auto libdevice = llvm::parseIRFile(SPNC_LIBDEVICE_FILE, Err, llvmContext);
+  auto libdevice = llvm::parseIRFile(SPNC_LIBDEVICE_FILE, Err, module->getContext());
   if (!libdevice) {
     SPNC_FATAL_ERROR("Failed to load libdevice: {}", Err.getMessage().str());
   }
-  llvm::Linker::linkModules(*llvmModule, std::move(libdevice));
+  llvm::Linker::linkModules(*module, std::move(libdevice));
 
-  // Apply optimizations to the module after linking.
-  auto gpuOptPipeline = mlir::makeOptimizingTransformer(3, 0, nullptr);
-  if (auto err = gpuOptPipeline(llvmModule.get())) {
-    SPNC_FATAL_ERROR("Optimization of converted GPU LLVM IR failed");
+  // Internalize all functions except for the GPU kernel functions that were present in the module
+  // before linking libdevice and conversion to NVVM.
+  llvm::SmallSet<llvm::StringRef, 5> gpuKernels;
+  gpuKernels.insert(kernelFuncs.begin(), kernelFuncs.end());
+  llvm::internalizeModule(*module, [&gpuKernels](const llvm::GlobalValue& V) -> bool {
+    if (gpuKernels.contains(V.getName())) {
+      return true;
+    }
+    return false;
+  });
+}
+
+void spnc::GPUtoLLVMConversion::optimizeNVVMIR(llvm::Module* module, const GPUOptimizationOptions& options) {
+  // Set the nvvm-reflect-ftz flag to enable/disable use of fast-paths flushing subnormals to zero
+  // during the NVVMReflect pass.
+  module->addModuleFlag(llvm::Module::Override, "nvvm-reflect-ftz", options.flushDenormalsToZero);
+
+  // Setup target machine.
+  std::string errorMessage;
+  auto target = llvm::TargetRegistry::lookupTarget("nvptx64-nvidia-cuda", errorMessage);
+  if (!target) {
+    SPNC_FATAL_ERROR("Failed to get target for NVPTX: {}", errorMessage);
   }
-  llvm::dbgs() << "LLVM GPU module after optimization:\n";
-  llvmModule->dump();
+  std::unique_ptr<llvm::TargetMachine> machine(target->createTargetMachine("nvptx64-nvidia-cuda",
+                                                                           options.computeCapability,
+                                                                           options.features, {}, {}));
+
+  // Create and populate pass manager.
+  // This is copy & pasta code from OptUtils.cpp, with the important difference being that we let
+  // the target machine adjust the pass manager, adding the NVVMReflectPass to our pass pipeline.
+  llvm::legacy::PassManager modulePM;
+  llvm::legacy::FunctionPassManager funcPM(module);
+  llvm::PassManagerBuilder builder;
+  builder.OptLevel = 3;
+  builder.SizeLevel = 0;
+  builder.Inliner = llvm::createFunctionInliningPass(3, 0, /*DisableInlineHotCallSite=*/false);
+  builder.LoopVectorize = false; // Not required on GPU
+  builder.SLPVectorize = false; // Not required on GPU
+  builder.DisableUnrollLoops = false; // Allow loop unrolling.
+
+  // Add all coroutine passes to the builder.
+  llvm::addCoroutinePassesToExtensionPoints(builder);
+
+  if (machine) {
+    // Adjust the pass manager, which adds the NVVMReflectPass to the pipeline.
+    machine->adjustPassManager(builder);
+    // Add pass to initialize TTI for this specific target. Otherwise, TTI will
+    // be initialized to NoTTIImpl by default.
+    modulePM.add(createTargetTransformInfoWrapperPass(
+        machine->getTargetIRAnalysis()));
+    funcPM.add(createTargetTransformInfoWrapperPass(
+        machine->getTargetIRAnalysis()));
+  }
+
+  builder.populateModulePassManager(modulePM);
+  builder.populateFunctionPassManager(funcPM);
+  funcPM.doInitialization();
+  for (auto& func : *module) {
+    funcPM.run(func);
+  }
+  funcPM.doFinalization();
+  modulePM.run(*module);
+}
+
+std::unique_ptr<llvm::Module> spnc::GPUtoLLVMConversion::translateAndLinkGPUModule(llvm::ArrayRef<llvm::StringRef> kernelFuncs,
+                                                                                   const GPUOptimizationOptions& options,
+                                                                                   mlir::Operation* gpuModule,
+                                                                                   llvm::LLVMContext& llvmContext,
+                                                                                   llvm::StringRef name) {
+  // Apply fast-math flags to all floating-point operations and functions in the GPU module.
+  // TODO Reason about reassoc flag.
+  auto fmf = mlir::LLVM::FastmathFlags::nsz | mlir::LLVM::FastmathFlags::contract |
+      mlir::LLVM::FastmathFlags::arcp | mlir::LLVM::FastmathFlags::afn;
+  gpuModule->walk([fmf](mlir::Operation* op) {
+    if (auto fmi = mlir::dyn_cast<mlir::LLVM::FastmathFlagsInterface>(op)) {
+      fmi->setAttr("fastmathFlags", mlir::LLVM::FMFAttr::get(fmf, fmi->getContext()));
+    }
+  });
+  // Translate the input MLIR GPU module to NVVM IR (LLVM IR + some extension).
+  auto llvmModule = mlir::translateModuleToNVVMIR(gpuModule, llvmContext, name);
+
+  // Link the generated LLVM/NVVM IR with libdevice.
+  linkWithLibdevice(llvmModule.get(), kernelFuncs);
+
+  // Apply optimization passes to the LLVM/NVVM IR after linking with libdevice.
+  optimizeNVVMIR(llvmModule.get(), options);
+
+  if (options.printIRAfter) {
+    llvm::dbgs() << "// *** IR Dump After conversion and optimization of NVVM IR ***\n\n";
+    llvmModule->dump();
+    llvm::dbgs() << "\n";
+  }
   return llvmModule;
 }
 
@@ -169,8 +258,18 @@ mlir::ModuleOp& spnc::GPUtoLLVMConversion::execute() {
     // for actions using the same input module.
     module = std::make_unique<mlir::ModuleOp>(inputModule.clone());
 
-    // Outline the GPU kernels from the host-part of the code.
-    pm.addPass(mlir::createGpuKernelOutliningPass());
+    // Collect all the GPU kernel function names present in the module
+    // to preserve them during internalization.
+    // This list is passed to translateAndLinkGPUModule.
+    // NOTE: The GPU kernels should already have been outlined by
+    // the GPUKernelOutliningPass.
+    llvm::SmallVector<llvm::StringRef, 5> gpuKernels;
+    module->walk([&gpuKernels](mlir::gpu::GPUFuncOp op) {
+      gpuKernels.push_back(op.getName());
+    });
+    // Retrieve option value to pass to translateAndLinkGPUModule.
+    auto printIR = spnc::option::dumpIR.get(*config);
+
     // Nested pass manager operating only on the GPU-part of the code.
     auto& kernelPm = pm.nest<mlir::gpu::GPUModuleOp>();
     kernelPm.addPass(mlir::createStripDebugInfoPass());
@@ -179,8 +278,13 @@ mlir::ModuleOp& spnc::GPUtoLLVMConversion::execute() {
     // translateAndLinkModule and compilePtxToCubin are call-backs.
     const char gpuBinaryAnnotation[] = "nvvm.cubin";
     auto gpuArch = getGPUArchitecture();
+    GPUOptimizationOptions optimizationOptions{gpuArch, "+ptx60", true, printIR};
     kernelPm.addPass(mlir::createConvertGPUKernelToBlobPass(
-        GPUtoLLVMConversion::translateAndLinkGPUModule,
+        [printIR, &gpuKernels, &optimizationOptions](mlir::Operation* gpuModule,
+                                                     llvm::LLVMContext& llvmContext,
+                                                     llvm::StringRef name = "LLVMDialectModule") -> std::unique_ptr<llvm::Module> {
+          return translateAndLinkGPUModule(gpuKernels, optimizationOptions, gpuModule, llvmContext, name);
+        },
         GPUtoLLVMConversion::compilePtxToCubin,
         "nvptx64-nvidia-cuda", gpuArch, "+ptx60",
         gpuBinaryAnnotation));
