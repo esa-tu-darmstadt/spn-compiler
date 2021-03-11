@@ -30,7 +30,7 @@
 #include "cuda.h"
 
 inline void emit_cuda_error(const llvm::Twine& message, const char* buffer,
-                            CUresult error, mlir::Location loc) {
+                            CUresult error) {
   SPNC_FATAL_ERROR(message.concat(" failed with error code ")
                        .concat(llvm::Twine{error})
                        .concat("[")
@@ -42,7 +42,7 @@ inline void emit_cuda_error(const llvm::Twine& message, const char* buffer,
   {                                                                            \
     auto _cuda_error = (expr);                                                 \
     if (_cuda_error != CUDA_SUCCESS) {                                         \
-      emit_cuda_error(msg, jitErrorBuffer, _cuda_error, loc);                  \
+      emit_cuda_error(msg, jitErrorBuffer, _cuda_error);                  \
       return {};                                                               \
     }                                                                          \
   }
@@ -177,12 +177,12 @@ mlir::ModuleOp& spnc::GPUtoLLVMConversion::execute() {
     kernelPm.addPass(mlir::createLowerGpuOpsToNVVMOpsPass());
     // Convert the GPU-part to a binary blob and annotate it as an atttribute to the MLIR module.
     // translateAndLinkModule and compilePtxToCubin are call-backs.
-    // TODO Retrieve and use information about target GPU from CUDA.
     const char gpuBinaryAnnotation[] = "nvvm.cubin";
+    auto gpuArch = getGPUArchitecture();
     kernelPm.addPass(mlir::createConvertGPUKernelToBlobPass(
         GPUtoLLVMConversion::translateAndLinkGPUModule,
         GPUtoLLVMConversion::compilePtxToCubin,
-        "nvptx64-nvidia-cuda", "sm_35", "+ptx60",
+        "nvptx64-nvidia-cuda", gpuArch, "+ptx60",
         gpuBinaryAnnotation));
     auto& funcPm = pm.nest<mlir::FuncOp>();
     funcPm.addPass(mlir::createStdExpandOpsPass());
@@ -206,6 +206,45 @@ mlir::ModuleOp& spnc::GPUtoLLVMConversion::execute() {
     cached = true;
   }
   return *module;
+}
+
+std::string spnc::GPUtoLLVMConversion::getGPUArchitecture() {
+  // Text buffer to hold error messages if necessary.
+  char jitErrorBuffer[4096] = {0};
+
+  // Retrieve information about the compute capability of the GPU
+  // hosted in this machine from the CUDA device driver API.
+  // If multiple devices are present, arbitrarily choose the first
+  // one to retrieve information from.
+
+  RETURN_ON_CUDA_ERROR(cuInit(0), "cuInit");
+  int numDevices;
+  RETURN_ON_CUDA_ERROR(cuDeviceGetCount(&numDevices), "cuDeviceGetCount");
+
+  if (numDevices == 0) {
+    SPDLOG_WARN("Found no CUDA devices, assuming architecture sm_35");
+    return "sm_35";
+  }
+  SPDLOG_INFO("Found {} CUDA device(s)", numDevices);
+  if (numDevices > 1) {
+    SPDLOG_WARN("Found multiple CUDA devices, retrieving device information from first device");
+  }
+  CUdevice device;
+  RETURN_ON_CUDA_ERROR(cuDeviceGet(&device, 0), "cuDeviceGet");
+  CUcontext context;
+  RETURN_ON_CUDA_ERROR(cuCtxCreate(&context, 0, device), "cuCtxCreate");
+  char deviceName[1024] = {0};
+  RETURN_ON_CUDA_ERROR(cuDeviceGetName(deviceName, sizeof(deviceName), device), "cuDeviceGetName");
+  SPDLOG_INFO("Querying GPU device {} for information", deviceName);
+  int major;
+  RETURN_ON_CUDA_ERROR(cuDeviceGetAttribute(&major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR,
+                                            device), "cuDeviceGetAttribute (Compute capability major)");
+  int minor;
+  RETURN_ON_CUDA_ERROR(cuDeviceGetAttribute(&minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR,
+                                            device), "cuDeviceGetAttribute (Compute capability minor)");
+  std::string arch = "sm_" + std::to_string(major) + std::to_string(minor);
+  SPDLOG_INFO("GPU device {} supports compute capability {}", deviceName, arch);
+  return arch;
 }
 
 spnc::GPUtoLLVMConversion::GPUtoLLVMConversion(ActionWithOutput<mlir::ModuleOp>& input,

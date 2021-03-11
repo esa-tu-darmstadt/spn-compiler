@@ -37,6 +37,8 @@ namespace spnc {
                                                                    llvm::LLVMContext& llvmContext,
                                                                    llvm::StringRef name = "LLVMDialectModule");
 
+    static std::string getGPUArchitecture();
+
     bool cached = false;
 
     std::shared_ptr<mlir::MLIRContext> mlirContext;
