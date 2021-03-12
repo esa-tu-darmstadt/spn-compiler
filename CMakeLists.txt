@@ -20,6 +20,11 @@ option(CUDA_GPU_SUPPORT
         OFF
         )
 
+if (${CUDA_GPU_SUPPORT})
+    include(CudaToolkit.cmake)
+    cuda_setup()
+endif (${CUDA_GPU_SUPPORT})
+
 add_subdirectory(common)
 # Ensure processing of ./execute before ./compiler
 # Reason: tests in ./compiler depend on CMake variables set in ./execute

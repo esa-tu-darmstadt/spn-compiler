@@ -3,8 +3,8 @@ find_package(MLIR REQUIRED CONFIG)
 message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
 
 if (${CUDA_GPU_SUPPORT})
-    include(CudaToolkit.cmake)
-    cuda_setup()
+    include(DetectCUDALibs.cmake)
+    detect_cuda_libs()
 endif (${CUDA_GPU_SUPPORT})
 
 find_package(CapnProto REQUIRED CONFIG)
@@ -72,7 +72,7 @@ if (${CUDA_GPU_SUPPORT})
     target_include_directories(spnc PRIVATE ${CUDA_INCLUDE_DIRS})
 
     # Additional libraries to link
-    target_link_libraries(spnc PRIVATE ${CUDA_RUNTIME_LIBRARY})
+    target_link_libraries(spnc PRIVATE ${CUDA_RUNTIME_LIBRARY} MLIRLoSPNtoGPUTransforms)
 
     if (MLIR_CUDA_RUNTIME_WRAPPERS)
         get_filename_component(MLIR_CUDA_RUNTIME_WRAPPERS_DIR ${MLIR_CUDA_RUNTIME_WRAPPERS} DIRECTORY)
@@ -104,7 +104,6 @@ set(mlir_libs
         MLIRLoSPN
         MLIRHiSPNtoLoSPNTransforms
         MLIRLoSPNtoCPUTransforms
-        MLIRLoSPNtoGPUTransforms
         MLIRSPNtoStandardTransforms
         MLIRIR
         MLIRParser

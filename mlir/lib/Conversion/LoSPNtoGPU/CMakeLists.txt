@@ -1,3 +1,7 @@
+message(STATUS "CUDA include dir: ${CUDA_INCLUDE_DIRS}")
+
+add_subdirectory(Target)
+
 add_mlir_conversion_library(MLIRLoSPNtoGPUTransforms
         GPUNodePatterns.cpp
         GPUStructurePatterns.cpp
@@ -17,4 +21,9 @@ add_mlir_conversion_library(MLIRLoSPNtoGPUTransforms
         MLIRMath
         MLIRLinalg
         MLIRGPU
+
+        DEPENDS
+        cuda_targetinfo
         )
+
+target_link_libraries(MLIRLoSPNtoGPUTransforms PRIVATE cuda_targetinfo)
