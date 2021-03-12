@@ -31,6 +31,16 @@ namespace mlir {
 
     std::unique_ptr<Pass> createLoSPNtoGPUNodeConversionPass();
 
+    struct LoSPNGPUSharedMemoryInsertionPass :
+        public PassWrapper<LoSPNGPUSharedMemoryInsertionPass, OperationPass<ModuleOp>> {
+
+    protected:
+      void runOnOperation() override;
+
+    };
+
+    std::unique_ptr<Pass> createLoSPNGPUSharedMemoryInsertionPass();
+
   }
 }
 

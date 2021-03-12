@@ -2,6 +2,7 @@ add_mlir_conversion_library(MLIRLoSPNtoGPUTransforms
         GPUNodePatterns.cpp
         GPUStructurePatterns.cpp
         LoSPNtoGPUConversionPasses.cpp
+        LoSPNGPUSharedMemoryInsertion.cpp
 
         ADDITIONAL_HEADER_DIRS
         ${PROJECT_SOURCE_DIR}/mlir/include/Conversion
