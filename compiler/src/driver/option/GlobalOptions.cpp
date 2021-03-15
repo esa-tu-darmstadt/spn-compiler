@@ -24,6 +24,8 @@ Option<bool> spnc::option::cpuVectorize{"cpu-vectorize", false};
 
 Option<bool> spnc::option::logSpace{"use-log-space", false};
 
+Option<bool> spnc::option::gpuSharedMem{"gpu-shared-mem", true};
+
 Option<bool> spnc::option::deleteTemporaryFiles{"delete-temps", true};
 
 // TODO: Switch the default to false when we leave development mode.

@@ -6,11 +6,16 @@
 #include "LoSPNtoGPUConversion.h"
 #include "LoSPNtoGPU/LoSPNtoGPUConversionPasses.h"
 #include "mlir/InitAllPasses.h"
+#include <driver/GlobalOptions.h>
 
 void spnc::LoSPNtoGPUConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   pm->addPass(mlir::spn::createLoSPNtoGPUStructureConversionPass());
   pm->addPass(mlir::createGpuKernelOutliningPass());
-  pm->addPass(mlir::spn::createLoSPNGPUSharedMemoryInsertionPass());
+  if (spnc::option::gpuSharedMem.get(*(this->config))) {
+    // Add the pass transforming accesses to global memory with
+    // preloads to shared memory depending on option value.
+    pm->addPass(mlir::spn::createLoSPNGPUSharedMemoryInsertionPass());
+  }
   pm->addPass(mlir::spn::createLoSPNtoGPUNodeConversionPass());
   // The remaining bufferization, buffer deallocation and copy removal passes
   // currently need to be placed at this point in the pipeline, as they operate

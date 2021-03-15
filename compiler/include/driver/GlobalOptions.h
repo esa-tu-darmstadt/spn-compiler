@@ -44,6 +44,10 @@ namespace spnc {
     extern Option<bool> logSpace;
 
     ///
+    /// Flag to indicate whether GPU computation should use shared/workgroup memory.
+    extern Option<bool> gpuSharedMem;
+
+    ///
     /// Flag to indicate whether temporary files created during compilation
     /// should be deleted after the compilation completes. Defaults to true.
     extern Option<bool> deleteTemporaryFiles;
