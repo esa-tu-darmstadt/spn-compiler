@@ -16,7 +16,7 @@ namespace py = pybind11;
 PYBIND11_MODULE(spncpy, m) {
 
   py::class_<Kernel>(m, "Kernel")
-      .def(py::init<const std::string&, const std::string&, unsigned, unsigned, unsigned,
+      .def(py::init<const std::string&, const std::string&, unsigned, unsigned, unsigned, unsigned,
                     unsigned, unsigned, unsigned, const std::string&>())
       .def("fileName", &Kernel::fileName)
       .def("kernelName", &Kernel::kernelName)

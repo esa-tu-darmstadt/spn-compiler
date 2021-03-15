@@ -16,12 +16,15 @@ Option<std::string> spnc::option::graphStatsFile{"graph-stats-file",
 
 using spnc::option::TargetMachine;
 EnumOpt spnc::option::compilationTarget{"target",
-                                        {EnumVal(CPU, "CPU")},
+                                        {EnumVal(CPU, "CPU"),
+                                         EnumVal(CUDA, "CUDA")},
                                         {required()}};
 
 Option<bool> spnc::option::cpuVectorize{"cpu-vectorize", false};
 
 Option<bool> spnc::option::logSpace{"use-log-space", false};
+
+Option<bool> spnc::option::gpuSharedMem{"gpu-shared-mem", true};
 
 Option<bool> spnc::option::deleteTemporaryFiles{"delete-temps", true};
 
