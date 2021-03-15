@@ -13,36 +13,18 @@ using namespace spnc;
 
 namespace spnc_rt {
 
-  typedef void (* single_kernel)(void* input_ptr,
-                                 void* aligned_input_ptr,
-                                 int64_t input_offset,
-                                 int64_t input_size_dim1,
-                                 int64_t input_stride_dim1,
-                                 int64_t input_size_dim2,
-                                 int64_t input_stride_dim2,
-                                 void* output_ptr,
-                                 void* output_aligned_ptr,
-                                 int64_t output_offset,
-                                 int64_t output_size,
-                                 int64_t output_stride);
-
-  typedef void (* batch_kernel)(void* input_ptr,
-                                void* aligned_input_ptr,
-                                int64_t input_offset,
-                                int64_t input_size_dim1,
-                                int64_t input_stride_dim1,
-                                int64_t input_size_dim2,
-                                int64_t input_stride_dim2,
-                                void* output_ptr,
-                                void* output_aligned_ptr,
-                                int64_t output_offset,
-                                int64_t output_size,
-                                int64_t output_stride);
-
-  union kernel_function {
-    single_kernel single;
-    batch_kernel batch;
-  };
+  typedef void (* kernel_function)(void* input_ptr,
+                                   void* aligned_input_ptr,
+                                   int64_t input_offset,
+                                   int64_t input_size_dim1,
+                                   int64_t input_stride_dim1,
+                                   int64_t input_size_dim2,
+                                   int64_t input_stride_dim2,
+                                   void* output_ptr,
+                                   void* output_aligned_ptr,
+                                   int64_t output_offset,
+                                   int64_t output_size,
+                                   int64_t output_stride);
 
   ///
   /// Manages a Kernel by loading it from the shared object using libelf.
@@ -87,6 +69,8 @@ namespace spnc_rt {
     void executeSingle(size_t num_samples, void* inputs, void* outputs);
 
     void executeBatch(size_t num_samples, void* inputs, void* outputs);
+
+    void executeGPU(size_t num_samples, void* inputs, void* outputs);
 
   };
 

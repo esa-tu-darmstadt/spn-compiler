@@ -37,6 +37,7 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
   SPDLOG_INFO("CPU Vectorization enabled: {}", cpuVectorize);
   auto targetMachine = createTargetMachine(cpuVectorize);
   auto kernelInfo = std::make_shared<KernelInfo>();
+  kernelInfo->target = KernelTarget::CPU;
   BinarySPN binarySPNFile{inputFile, false};
   auto& deserialized = job->insertAction<MLIRDeserializer>(std::move(binarySPNFile), ctx, kernelInfo);
   auto& hispn2lospn = job->insertAction<HiSPNtoLoSPNConversion>(deserialized, ctx, diagHandler);

@@ -41,6 +41,7 @@ std::unique_ptr<Job<Kernel> > CUDAGPUToolchain::constructJobFromFile(const std::
   auto diagHandler = setupDiagnosticHandler(ctx.get());
   auto targetMachine = createTargetMachine(false);
   auto kernelInfo = std::make_shared<KernelInfo>();
+  kernelInfo->target = KernelTarget::CUDA;
   BinarySPN binarySPNFile{inputFile, false};
   auto& deserialized = job->insertAction<MLIRDeserializer>(std::move(binarySPNFile), ctx, kernelInfo);
   auto& hispn2lospn = job->insertAction<HiSPNtoLoSPNConversion>(deserialized, ctx, diagHandler);

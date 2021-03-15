@@ -31,7 +31,7 @@ Kernel& ClangKernelLinking::execute() {
     }
     Command::executeExternalCommand(command);
     kernel = std::make_unique<Kernel>(outFile.fileName(), kernelInfo->kernelName,
-                                      kernelInfo->queryType, kernelInfo->batchSize,
+                                      kernelInfo->queryType, kernelInfo->target, kernelInfo->batchSize,
                                       kernelInfo->numFeatures, kernelInfo->bytesPerFeature,
                                       kernelInfo->numResults, kernelInfo->bytesPerResult,
                                       kernelInfo->dtype);
