@@ -230,7 +230,8 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
         }
         // Load from global memory, transpose and store into shared memory.
         auto readGlobal = rewriter.create<LoadOp>(loc, inputMem, ValueRange{sampleIndex, featureIndex});
-        auto storeShared = rewriter.create<StoreOp>(loc, readGlobal, sharedMem, ValueRange{featureIndex, sampleIndex});
+        auto storeShared = rewriter.create<StoreOp>(loc, readGlobal, sharedMem,
+                                                    ValueRange{featureIndex, loop.getInductionVar()});
       }
 
       //
