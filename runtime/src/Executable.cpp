@@ -7,6 +7,7 @@
 #include <iostream>
 #include <util/Logging.h>
 #include "Executable.h"
+#include <omp.h>
 
 using namespace spnc_rt;
 
@@ -64,6 +65,7 @@ void Executable::executeBatch(size_t num_samples, void* inputs, void* outputs) {
   char* input_ptr = reinterpret_cast<char*>(inputs);
   char* output_ptr = reinterpret_cast<char*>(outputs);
   size_t batchSize = kernel->batchSize();
+#pragma omp parallel for firstprivate(input_ptr, output_ptr, batchSize, num_samples)
   for (size_t i = 0; i < num_samples; i += batchSize) {
     // Calculate the number of remaining samples, can be < batchSize for the last batch.
     size_t remainingSamples = num_samples - i;
