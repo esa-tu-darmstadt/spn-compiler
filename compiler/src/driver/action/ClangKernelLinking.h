@@ -9,7 +9,9 @@
 #include <driver/Actions.h>
 #include <util/FileSystem.h>
 #include <driver/Job.h>
+#include <llvm/ADT/ArrayRef.h>
 #include "../../../../common/include/Kernel.h"
+#include "llvm/ADT/SmallVector.h"
 
 namespace spnc {
 
@@ -30,7 +32,7 @@ namespace spnc {
     /// \param outputFile File to write resulting kernel (shared object) to.
     /// \param kernelFunctionName Name of the top-level SPN function inside the object file.
     ClangKernelLinking(ActionWithOutput<ObjectFile>& _input, SharedObject outputFile,
-                       std::shared_ptr<KernelInfo> info, std::initializer_list<LibraryInfo> additionalLibraries = {});
+                       std::shared_ptr<KernelInfo> info, llvm::ArrayRef<LibraryInfo> additionalLibraries = {});
 
     Kernel& execute() override;
 
@@ -44,7 +46,7 @@ namespace spnc {
 
     bool cached = false;
 
-    std::vector<LibraryInfo> additionalLibs;
+    llvm::SmallVector<LibraryInfo, 3> additionalLibs;
 
   };
 

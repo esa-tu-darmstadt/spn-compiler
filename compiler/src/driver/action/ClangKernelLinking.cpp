@@ -10,9 +10,9 @@ using namespace spnc;
 
 ClangKernelLinking::ClangKernelLinking(ActionWithOutput<ObjectFile>& _input,
                                        SharedObject outputFile, std::shared_ptr<KernelInfo> info,
-                                       std::initializer_list<LibraryInfo> additionalLibraries)
+                                       llvm::ArrayRef<LibraryInfo> additionalLibraries)
     : ActionSingleInput<ObjectFile, Kernel>(_input), outFile{std::move(outputFile)},
-      kernelInfo{std::move(info)}, additionalLibs(additionalLibraries) {}
+      kernelInfo{std::move(info)}, additionalLibs(additionalLibraries.begin(), additionalLibraries.end()) {}
 
 Kernel& ClangKernelLinking::execute() {
   if (!cached) {
@@ -27,7 +27,9 @@ Kernel& ClangKernelLinking::execute() {
     command.push_back(input.execute().fileName());
     for (auto& lib : additionalLibs) {
       command.push_back("-l" + lib.libraryName);
-      command.push_back("-L " + lib.libraryLocation);
+      if (!lib.libraryLocation.empty()) {
+        command.push_back("-L " + lib.libraryLocation);
+      }
     }
     Command::executeExternalCommand(command);
     kernel = std::make_unique<Kernel>(outFile.fileName(), kernelInfo->kernelName,

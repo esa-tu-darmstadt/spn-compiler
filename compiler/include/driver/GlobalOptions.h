@@ -39,6 +39,17 @@ namespace spnc {
     /// Flag to indicate whether the code generated for the CPU should be vectorized.
     extern Option<bool> cpuVectorize;
 
+    /// Available vector libraries
+    enum VectorLibrary {
+      SVML,
+      LIBMVEC,
+      NONE
+    };
+
+    extern EnumOpt vectorLibrary;
+
+    extern Option<bool> replaceGatherWithShuffle;
+
     ///
     /// Flag to indicate whether log-space computation should be used.
     extern Option<bool> logSpace;

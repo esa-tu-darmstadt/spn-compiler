@@ -4,6 +4,7 @@ add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
         Vectorization/VectorizeStructurePatterns.cpp
         Vectorization/VectorizeNodePatterns.cpp
         Vectorization/TargetInformation.cpp
+        Vectorization/ReplaceGatherWithShuffle.cpp
         LoSPNtoCPUConversionPasses.cpp
 
         ADDITIONAL_HEADER_DIRS
