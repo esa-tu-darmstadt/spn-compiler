@@ -20,6 +20,11 @@ std::vector<std::shared_ptr<SLPNode>> SLPTree::getNodes() const {
   std::vector<std::shared_ptr<SLPNode>> nodes;
   for (auto const& entry : operandsOf) {
     nodes.emplace_back(entry.first);
+    for (auto const& operand : entry.second) {
+      if (std::find(std::begin(nodes), std::end(nodes), operand) == std::end(nodes)) {
+        nodes.emplace_back(operand);
+      }
+    }
   }
   return nodes;
 }

@@ -31,8 +31,14 @@ namespace mlir {
         }
       protected:
 
-        bool assignedToVector(Operation* op) const {
+        bool isAssignedToVector(Operation* op) const {
           return vectorIndices.count(op);
+        }
+
+        bool isVectorMixed(std::vector<Operation*> vector) const {
+          return std::any_of(std::begin(vector), std::end(vector), [&](Operation* op) {
+            return op->getName() != vector.front()->getName();
+          });
         }
 
         std::map<Operation*, std::vector<size_t>> vectorIndices;
@@ -48,9 +54,19 @@ namespace mlir {
 
       };
 
+      /// Pattern for transforming SPN sum ops to a vectorized version.
+      struct SumOpVectorization : public VectorizationPattern<SumOp> {
+
+        using VectorizationPattern<SumOp>::VectorizationPattern;
+
+        LogicalResult matchAndRewrite(SumOp op, PatternRewriter& rewriter) const override;
+
+      };
+
       static void populateVectorizationPatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                 std::vector<std::vector<Operation*>> const& vectors) {
         patterns.insert<GaussianOpVectorization>(context, vectors);
+        patterns.insert<SumOpVectorization>(context, vectors);
       }
     }
   }

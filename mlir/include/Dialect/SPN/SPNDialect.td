@@ -37,4 +37,5 @@ def SPNProbabilityType : DialectType<SPN_Dialect,
 def AnyProbabilityType : AnyTypeOf<[AnyInteger, AnyFloat, SPNProbabilityType],
     "Any type that can be used to represent probabilities of varying precision">;
 
+
 #endif // SPN_DIALECT

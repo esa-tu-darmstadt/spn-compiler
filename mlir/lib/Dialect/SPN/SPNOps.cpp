@@ -254,18 +254,18 @@ unsigned int mlir::spn::GaussianOp::getFeatureIndex() {
 //===----------------------------------------------------------------------===//
 // GaussianVectorOp
 //===----------------------------------------------------------------------===//
-
+/*
 void mlir::spn::GaussianVectorOp::build(::mlir::OpBuilder& odsBuilder,
                                         ::mlir::OperationState& odsState,
-                                        Value indexVal,
+                                        llvm::ArrayRef<Value> indices,
                                         llvm::ArrayRef<double> means,
                                         llvm::ArrayRef<double> stddevs) {
-  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), indexVal,
+  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), VectorType::get(indices, indices.front().getType()),
         odsBuilder.getF64ArrayAttr(means), odsBuilder.getF64ArrayAttr(stddevs));
 }
-
+*/
 unsigned int mlir::spn::GaussianVectorOp::getFeatureIndex() {
-  if (auto blockArg = index().dyn_cast<BlockArgument>()) {
+  if (auto blockArg = indices().dyn_cast<BlockArgument>()) {
     return blockArg.getArgNumber();
   }
   // Expecting the index to be a block argument.

@@ -163,13 +163,13 @@ def GaussianVectorOp : SPN_Op<"vgaussian",
         A vector of univariate Gaussian leaf distributions.
     }];
 
-    let arguments = (ins AnyFloat:$index, F64ArrayAttr:$means, F64ArrayAttr:$stddevs);
+    let arguments = (ins VectorOf<[AnyFloat]>:$indices, F64ArrayAttr:$means, F64ArrayAttr:$stddevs);
 
-    let results = (outs Variadic<AnyProbabilityType>);
+    let results = (outs VectorOf<[AnyProbabilityType]>);
 
-    let builders = [
-        OpBuilderDAG<(ins "Value":$indexVal, "llvm::ArrayRef<double>":$means, "llvm::ArrayRef<double>":$stddevs)>
-    ];
+///    let builders = [
+///        OpBuilderDAG<(ins "llvm::ArrayRef<Value>":$indices, "llvm::ArrayRef<double>":$means, "llvm::ArrayRef<double>":$stddevs)>
+///    ];
 
 }
 
