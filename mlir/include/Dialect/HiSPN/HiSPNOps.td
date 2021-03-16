@@ -41,6 +41,8 @@ def JointQuery : HiSPN_Op<"joint_query",
 
     let regions = (region SizedRegion<1>:$graph);
 
+    let verifier = [{return ::mlir::spn::high::verify(*this); }];
+
 }
 
 ///
