@@ -44,6 +44,12 @@ namespace mlir {
           if (inputs.size() != 1) {
             return llvm::None;
           }
+          if (auto toScalar = dyn_cast<low::SPNConvertToScalar>(inputs.front().getDefiningOp())) {
+            // Handle the special case that the values was previously converted from a vector
+            // to a scalar.
+            assert(toScalar.vector().getType() == type);
+            return toScalar.vector();
+          }
           return builder.create<low::SPNConvertToVector>(loc, type, inputs.front()).getResult();
         });
       }

@@ -48,6 +48,8 @@ namespace spnc {
 
     extern EnumOpt vectorLibrary;
 
+    extern Option<bool> replaceGatherWithShuffle;
+
     ///
     /// Flag to indicate whether log-space computation should be used.
     extern Option<bool> logSpace;

@@ -28,6 +28,9 @@ EnumOpt spnc::option::vectorLibrary{"vector-library", NONE,
                                      EnumVal(LIBMVEC, "LIBMVEC"),
                                      EnumVal(NONE, "None")}};
 
+Option<bool> spnc::option::replaceGatherWithShuffle{"use-shuffle", false,
+                                                    {depends(spnc::option::cpuVectorize, true)}};
+
 Option<bool> spnc::option::logSpace{"use-log-space", false};
 
 Option<bool> spnc::option::gpuSharedMem{"gpu-shared-mem", true};
