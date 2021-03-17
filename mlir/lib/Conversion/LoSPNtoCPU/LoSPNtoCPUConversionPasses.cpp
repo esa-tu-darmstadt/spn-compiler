@@ -15,7 +15,6 @@
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
-#include "SPN/Analysis/SPNNodeLevel.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPSeeding.h"
 
 void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
@@ -35,6 +34,7 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
 
   OwningRewritePatternList patterns;
   if (vectorize) {
+    // auto& depthAnalysis = getAnalysis<mlir::spn::SPNNodeLevel>();
     // Try to vectorize tasks if vectorization was requested.
     mlir::spn::populateLoSPNCPUVectorizationStructurePatterns(patterns, &getContext(), typeConverter);
   }
@@ -56,13 +56,13 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
       auto const& uses = std::distance(op->getUses().begin(), op->getUses().end());
       if (uses > 1) {
         // TODO: how to handle such cases? and is special handling required at all?
-        assert(false && "SPN is not a tree!");
+        //assert(false && "SPN is not a tree!");
       }
     });
     // ==================================== //
 
-    //auto& depthAnalysis = getAnalysis<mlir::spn::SPNNodeLevel>();
-    //auto& seedAnalysis = getAnalysis<mlir::spn::slp::SeedAnalysis>();
+    // auto& depthAnalysis = getAnalysis<mlir::spn::SPNNodeLevel>();
+    auto& seedAnalysis = getAnalysis<mlir::spn::slp::SeedAnalysis>();
     /*auto seeds = seedAnalysis.getSeeds(4, depthAnalysis);
 
     if (!seeds.empty()) {

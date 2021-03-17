@@ -7,7 +7,7 @@
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPTREE_H
 
 #include "mlir/IR/Operation.h"
-#include "SPN/SPNOpTraits.h"
+#include "LoSPN/LoSPNTraits.h"
 #include "SLPMode.h"
 #include "SLPNode.h"
 #include "SLPSeeding.h"
@@ -41,11 +41,7 @@ namespace mlir {
         int getLookAheadScore(Operation* last, Operation* candidate, size_t const& maxLevel) const;
 
         static bool areConsecutive(Operation* op1, Operation* op2) {
-          if (auto leaf1 = dyn_cast<LeafNodeInterface>(op1)) {
-            if (auto leaf2 = dyn_cast<LeafNodeInterface>(op2)) {
-              return leaf2.getFeatureIndex() == leaf1.getFeatureIndex() + 1;
-            }
-          }
+          assert(false);
           return false;
         }
 
@@ -55,11 +51,12 @@ namespace mlir {
         /// \return True if the operations can be vectorized, otherwise false.
         static bool vectorizable(std::vector<Operation*> const& operations) {
           for (size_t i = 0; i < operations.size(); ++i) {
-            if (!operations.at(i)->hasTrait<OpTrait::spn::Vectorizable>()
+            if (!operations.at(i)->hasTrait<OpTrait::spn::low::VectorizableOp>()
                 || (i > 0 && operations.at(i)->getName() != operations.front()->getName())) {
               return false;
             }
           }
+          /*
           if (dyn_cast<GaussianOp>(operations.front())) {
             for (size_t i = 1; i < operations.size(); ++i) {
               if (!areConsecutive(operations.at(i - 1), operations.at(i))) {
@@ -67,6 +64,8 @@ namespace mlir {
               }
             }
           }
+          */
+          assert(false);
           return true;
         }
 
@@ -129,7 +128,7 @@ namespace mlir {
 
         /// For debugging purposes.
         static void printSubgraph(std::vector<Operation*> const& operations) {
-          std::set<Operation*> nodes;
+          std::vector<Operation*> nodes;
           std::vector<std::tuple<Operation*, Operation*, size_t>> edges;
 
           std::stack<Operation*> worklist;
@@ -142,8 +141,8 @@ namespace mlir {
             auto op = worklist.top();
             worklist.pop();
 
-            if (nodes.find(op) == nodes.end()) {
-              nodes.insert(op);
+            if (std::find(std::begin(nodes), std::end(nodes), op) == nodes.end()) {
+              nodes.emplace_back(op);
               for (size_t i = 0; i < op->getNumOperands(); ++i) {
                 auto const& operand = op->getOperand(i);
                 if (operand.getDefiningOp() != nullptr) {
@@ -159,9 +158,12 @@ namespace mlir {
           llvm::errs() << "node[shape=box];\n";
           for (auto& op : nodes) {
             llvm::errs() << "node_" << op << "[label=\"" << op->getName().getStringRef() << "\\n" << op;
-            if (auto leaf = dyn_cast<LeafNodeInterface>(op)) {
-              llvm::errs() << "\\narg: " << leaf.getFeatureIndex() << "\\n";
-            }
+            assert(false);
+            /*
+          if (auto leaf = dyn_cast<LeafNodeInterface>(op)) {
+            llvm::errs() << "\\narg: " << leaf.getFeatureIndex() << "\\n";
+          }
+             */
             llvm::errs() << "\", fillcolor=\"#a0522d\"];\n";
           }
           for (auto& edge : edges) {

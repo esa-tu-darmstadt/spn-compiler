@@ -13,19 +13,19 @@ using namespace mlir::spn::slp;
 SeedAnalysis::SeedAnalysis(Operation* jointQuery) : jointQuery{jointQuery} {}
 
 std::vector<seed_t> SeedAnalysis::getSeeds(size_t const& width,
-                                           SPNNodeLevel const& nodeLevels,
+                                           std::map<Operation*, unsigned int> const& nodeLevels,
                                            SearchMode const& mode) const {
 
   llvm::StringMap<std::vector<seed_t>> seedsByOpName;
 
   jointQuery->walk([&](Operation* op) {
-    auto depth = nodeLevels.getOperationDepth(op);
-    if (!op->hasTrait<OpTrait::spn::Vectorizable>() || depth < log2(width)) {
+    auto depth = nodeLevels.at(op);
+    if (!op->hasTrait<OpTrait::spn::low::VectorizableOp>() || depth < log2(width)) {
       return;
     }
     bool needsNewSeed = true;
     for (auto& seed : seedsByOpName[op->getName().getStringRef()]) {
-      if (seed.size() < width && nodeLevels.getOperationDepth(seed.front()) == depth) {
+      if (seed.size() < width && nodeLevels.at(seed.front()) == depth) {
         seed.emplace_back(op);
         needsNewSeed = false;
         break;
@@ -51,9 +51,9 @@ std::vector<seed_t> SeedAnalysis::getSeeds(size_t const& width,
   // or those closest to the leaves (LeafToRoot).
   std::sort(seeds.begin(), seeds.end(), [&](seed_t const& seed1, seed_t const& seed2) {
     if (mode == RootToLeaf) {
-      return nodeLevels.getOperationDepth(seed1.front()) < nodeLevels.getOperationDepth(seed2.front());
+      return nodeLevels.at(seed1.front()) < nodeLevels.at(seed2.front());
     } else if (mode == LeafToRoot) {
-      return nodeLevels.getOperationDepth(seed1.front()) > nodeLevels.getOperationDepth(seed2.front());
+      return nodeLevels.at(seed1.front()) > nodeLevels.at(seed2.front());
     } else {
       // Unused so far.
       assert(false);

@@ -8,8 +8,8 @@
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/Vector/VectorTransforms.h"
 
-mlir::LogicalResult mlir::spn::slp::SumOpVectorization::matchAndRewrite(mlir::spn::SumOp op,
-                                                                        mlir::PatternRewriter& rewriter) const {
+mlir::LogicalResult mlir::spn::low::slp::SumOpVectorization::matchAndRewrite(mlir::spn::low::SPNAdd op,
+                                                                             mlir::PatternRewriter& rewriter) const {
 
   if (!isAssignedToVector(op.getOperation())) {
     return failure();

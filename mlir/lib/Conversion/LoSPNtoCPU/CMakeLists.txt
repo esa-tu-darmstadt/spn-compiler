@@ -5,11 +5,11 @@ add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
         Vectorization/VectorizeNodePatterns.cpp
         Vectorization/TargetInformation.cpp
         Vectorization/ReplaceGatherWithShuffle.cpp
-        #Vectorization/SLP/SLPMode.cpp
-        #Vectorization/SLP/SLPNode.cpp
-        #Vectorization/SLP/SLPSeeding.cpp
-        #Vectorization/SLP/SLPTree.cpp
-        #Vectorization/SLP/SLPVectorizationPatterns.cpp
+        Vectorization/SLP/SLPMode.cpp
+        Vectorization/SLP/SLPNode.cpp
+        Vectorization/SLP/SLPSeeding.cpp
+        Vectorization/SLP/SLPTree.cpp
+        Vectorization/SLP/SLPVectorizationPatterns.cpp
         LoSPNtoCPUConversionPasses.cpp
 
         ADDITIONAL_HEADER_DIRS

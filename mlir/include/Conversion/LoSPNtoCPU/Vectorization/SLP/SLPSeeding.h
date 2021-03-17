@@ -6,8 +6,7 @@
 #ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPSEEDING_H
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPSEEDING_H
 
-#include "SPN/Analysis/SPNNodeLevel.h"
-#include "SPN/SPNOps.h"
+#include "LoSPN/LoSPNOps.h"
 
 namespace mlir {
   namespace spn {
@@ -31,7 +30,7 @@ namespace mlir {
         explicit SeedAnalysis(Operation* jointQuery);
 
         std::vector<seed_t> getSeeds(size_t const& op,
-                                     SPNNodeLevel const& nodeLevels,
+                                     std::map<Operation*, unsigned int> const& nodeLevels,
                                      SearchMode const& mode = RootToLeaf) const;
 
       private:
