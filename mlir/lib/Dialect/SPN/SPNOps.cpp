@@ -8,7 +8,7 @@
 #include "SPN/SPNAttributes.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/Builders.h"
-#include "mlir/IR/StandardTypes.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "Canonicalization/CanonicalizationPatterns.h"
 
@@ -167,7 +167,7 @@ void mlir::spn::WeightedSumOp::build(::mlir::OpBuilder& odsBuilder,
   }
   assert(weightAttrs.size() == operands.size() && "Number of weights must match number of operands!");
   build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), ValueRange(operands),
-        ArrayAttr::get(weightAttrs, odsBuilder.getContext()));
+        ArrayAttr::get(odsBuilder.getContext(), weightAttrs));
 }
 
 void mlir::spn::WeightedSumOp::getCanonicalizationPatterns(::mlir::OwningRewritePatternList& results,
@@ -252,27 +252,6 @@ unsigned int mlir::spn::GaussianOp::getFeatureIndex() {
 }
 
 //===----------------------------------------------------------------------===//
-// GaussianVectorOp
-//===----------------------------------------------------------------------===//
-/*
-void mlir::spn::GaussianVectorOp::build(::mlir::OpBuilder& odsBuilder,
-                                        ::mlir::OperationState& odsState,
-                                        llvm::ArrayRef<Value> indices,
-                                        llvm::ArrayRef<double> means,
-                                        llvm::ArrayRef<double> stddevs) {
-  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), VectorType::get(indices, indices.front().getType()),
-        odsBuilder.getF64ArrayAttr(means), odsBuilder.getF64ArrayAttr(stddevs));
-}
-*/
-unsigned int mlir::spn::GaussianVectorOp::getFeatureIndex() {
-  if (auto blockArg = indices().dyn_cast<BlockArgument>()) {
-    return blockArg.getArgNumber();
-  }
-  // Expecting the index to be a block argument.
-  assert(false);
-}
-
-//===----------------------------------------------------------------------===//
 // ReturnOp
 //===----------------------------------------------------------------------===//
 
@@ -289,6 +268,11 @@ void mlir::spn::ConstantOp::build(::mlir::OpBuilder& odsBuilder, ::mlir::Operati
         odsBuilder.getFloatAttr(odsBuilder.getF64Type(), value));
 }
 
+::mlir::OpFoldResult mlir::spn::ConstantOp::fold(::llvm::ArrayRef<::mlir::Attribute> operands) {
+  assert(operands.empty() && "SPN ConstantOp has no operands");
+  return valueAttr();
+}
+
 //===----------------------------------------------------------------------===//
 // SingleJointQuery
 //===----------------------------------------------------------------------===//
@@ -303,6 +287,16 @@ unsigned int mlir::spn::JointQuery::getNumFeatures() {
   return this->numFeatures();
 }
 
+mlir::Type mlir::spn::JointQuery::getFeatureDataType() {
+  return this->inputType();
+}
+
+mlir::Type mlir::spn::JointQuery::getComputationDataType() {
+  auto retOp = dyn_cast<mlir::spn::ReturnOp>(getRootNodes().front());
+  assert(retOp);
+  return retOp.retValue().front().getType();
+}
+
 unsigned int mlir::spn::JointQuery::getBatchSize() {
   return this->batchSize();
 }
@@ -313,6 +307,10 @@ mlir::spn::error_model mlir::spn::JointQuery::getErrorModel() {
 
 double mlir::spn::JointQuery::getMaxError() {
   return this->maxError().convertToDouble();
+}
+
+llvm::StringRef mlir::spn::JointQuery::getQueryName() {
+  return this->kernelName();
 }
 
 #define GET_OP_CLASSES

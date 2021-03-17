@@ -1,2 +1,6 @@
 add_subdirectory(SPNtoStandard)
-add_subdirectory(SPNtoLLVM)
+add_subdirectory(HiSPNtoLoSPN)
+add_subdirectory(LoSPNtoCPU)
+if (${CUDA_GPU_SUPPORT})
+    add_subdirectory(LoSPNtoGPU)
+endif (${CUDA_GPU_SUPPORT})

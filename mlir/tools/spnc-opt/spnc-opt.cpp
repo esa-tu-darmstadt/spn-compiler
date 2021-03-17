@@ -12,10 +12,11 @@
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/ToolOutputFile.h"
 
-#include "SPN/SPNDialect.h"
-#include "SPN/SPNPasses.h"
-#include "SPNtoStandard/SPNtoStandardConversionPass.h"
-#include "SPNtoLLVM/SPNtoLLVMConversionPass.h"
+#include "HiSPN/HiSPNDialect.h"
+#include "LoSPN/LoSPNDialect.h"
+#include "LoSPN/LoSPNPasses.h"
+#include "HiSPNtoLoSPN/HiSPNtoLoSPNConversionPasses.h"
+#include "LoSPNtoCPU/LoSPNtoCPUConversionPasses.h"
 
 static llvm::cl::opt<std::string> inputFilename(llvm::cl::Positional,
                                                 llvm::cl::desc("<input file>"),
@@ -52,33 +53,50 @@ static llvm::cl::opt<bool>
                  llvm::cl::desc("Print the list of registered dialects"),
                  llvm::cl::init(false));
 
+static llvm::cl::opt<bool> cpuVectorize("cpu-vectorize",
+                                        llvm::cl::desc("Vectorize code generated for CPU targets"),
+                                        llvm::cl::init(false));
+
+static llvm::cl::opt<bool> logSpace("use-log-space",
+                                    llvm::cl::desc("Use log-space computation"),
+                                    llvm::cl::init(false));
+
 ///
 /// spnc-opt: Custom tool to run SPN-dialect specific and generic passes on MLIR files.
 int main(int argc, char** argv) {
 
   mlir::DialectRegistry registry;
   mlir::registerAllDialects(registry);
-  registry.insert<mlir::spn::SPNDialect>();
+  registry.insert<mlir::spn::high::HiSPNDialect>();
+  registry.insert<mlir::spn::low::LoSPNDialect>();
 
-  mlir::registerPass("spn-simplify", "simplify SPN-dialect operations", []() -> std::unique_ptr<mlir::Pass> {
-    return mlir::spn::createSPNOpSimplifierPass();
-  });
+  mlir::registerAllPasses();
+  mlir::spn::low::registerLoSPNPasses();
 
-  mlir::registerPass("spn-type-pinning", "Pin types of SPN-dialect operations", []() -> std::unique_ptr<mlir::Pass> {
-    return mlir::spn::createSPNTypePinningPass();
-  });
+  mlir::registerPass("convert-hispn-query-to-lospn", "Convert queries from HiSPN to LoSPN dialect",
+                     []() -> std::unique_ptr<mlir::Pass> {
+                       return mlir::spn::createHiSPNtoLoSPNQueryConversionPass(logSpace);
+                     });
 
-  mlir::registerPass("spn-vectorize", "Vectorize the SPN execution", []() -> std::unique_ptr<mlir::Pass> {
-    return mlir::spn::createSPNVectorizationPass();
-  });
+  mlir::registerPass("convert-hispn-node-to-lospn", "Convert nodes from HiSPN to LoSPN dialect",
+                     []() -> std::unique_ptr<mlir::Pass> {
+                       return mlir::spn::createHiSPNtoLoSPNNodeConversionPass(logSpace);
+                     });
 
-  mlir::registerPass("spn-to-standard", "Lower SPN to Standard dialect", []() -> std::unique_ptr<mlir::Pass> {
-    return mlir::spn::createSPNtoStandardConversionPass();
-  });
+  mlir::registerPass("convert-lospn-structure-to-cpu", "Convert structure from LoSPN to CPU target",
+                     []() -> std::unique_ptr<mlir::Pass> {
+                       return mlir::spn::createLoSPNtoCPUStructureConversionPass(cpuVectorize);
+                     });
 
-  mlir::registerPass("spn-to-llvm", "Lower SPN to LLVM dialect", []() -> std::unique_ptr<mlir::Pass> {
-    return mlir::spn::createSPNtoLLVMConversionPass();
-  });
+  mlir::registerPass("convert-lospn-nodes-to-cpu", "Convert nodes from LoSPN to CPU target",
+                     []() -> std::unique_ptr<mlir::Pass> {
+                       return mlir::spn::createLoSPNtoCPUNodeConversionPass();
+                     });
+
+  mlir::registerPass("vectorize-lospn-nodes", "Vectorize LoSPN nodes for CPU target",
+                     []() -> std::unique_ptr<mlir::Pass> {
+                       return mlir::spn::createLoSPNNodeVectorizationPass();
+                     });
 
   mlir::registerPass("spn-to-dot", "Prints the SPN to stderr", []() -> std::unique_ptr<mlir::Pass> {
     return mlir::createPrintOpGraphPass();
@@ -88,7 +106,6 @@ int main(int argc, char** argv) {
 
   // Register any pass manager command line options.
   mlir::registerPassManagerCLOptions();
-  mlir::registerCanonicalizerPass();
   mlir::PassPipelineCLParser passPipeline("", "Compiler passes to run");
 
   // Parse pass names in main to ensure static initialization completed.

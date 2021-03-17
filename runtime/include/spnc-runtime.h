@@ -30,8 +30,8 @@ namespace spnc_rt {
     /// \param kernel Kernel to launch.
     /// \param num_elements Number of queries in the batch.
     /// \param inputs Input SPN evidence.
-    /// \param outputs Probabilities computed by the SPN.
-    void execute(const Kernel& kernel, size_t num_elements, void* inputs, double* outputs);
+    /// \param outputs Results computed by the kernel.
+    void execute(const Kernel& kernel, size_t num_elements, void* inputs, void* outputs);
 
     spn_runtime(const spn_runtime&) = delete;
 

@@ -22,10 +22,6 @@ namespace mlir {
     /// \return Pass instance.
     std::unique_ptr<OperationPass<ModuleOp>> createSPNTypePinningPass();
 
-    /// Instantiate the SPNVectorization pass vectorizing the computation of the SPN.
-    /// \return Pass instance.
-    std::unique_ptr<OperationPass<JointQuery>> createSPNVectorizationPass();
-
 #define GEN_PASS_REGISTRATION
 #include "SPN/SPNPasses.h.inc"
   }

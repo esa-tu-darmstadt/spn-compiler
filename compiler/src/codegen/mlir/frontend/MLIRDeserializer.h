@@ -6,16 +6,16 @@
 #ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_FRONTEND_MLIRDESERIALIZER_H
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_FRONTEND_MLIRDESERIALIZER_H
 
-#include <mlir/IR/Module.h>
+#include "mlir/IR/BuiltinOps.h"
 #include <util/FileSystem.h>
 #include <mlir/IR/Builders.h>
 #include <driver/Job.h>
 #include "driver/Actions.h"
 #include "xspn/xspn/serialization/binary/capnproto/spflow.capnp.h"
 #include "llvm/ADT/IndexedMap.h"
-#include "SPN/SPNDialect.h"
-#include "SPN/SPNOps.h"
-#include "SPN/SPNEnums.h"
+#include "HiSPN/HiSPNDialect.h"
+#include "HiSPN/HiSPNOps.h"
+#include "HiSPN/HiSPNEnums.h"
 
 namespace spnc {
 
@@ -35,29 +35,29 @@ namespace spnc {
     void deserializeQuery(Query::Reader&& query);
 
     void deserializeJointQuery(JointProbability::Reader&& query, int batchSize,
-                               mlir::spn::error_model errorKind, double maxError);
+                               mlir::spn::high::error_model errorKind, double maxError);
 
     void deserializeModel(Model::Reader&& model);
 
     void deserializeNode(Node::Reader& node);
 
-    mlir::spn::WeightedSumOp deserializeSum(SumNode::Reader&& sum);
+    mlir::spn::high::SumNode deserializeSum(SumNode::Reader&& sum);
 
-    mlir::spn::ProductOp deserializeProduct(ProductNode::Reader&& product);
+    mlir::spn::high::ProductNode deserializeProduct(ProductNode::Reader&& product);
 
-    mlir::spn::HistogramOp deserializeHistogram(HistogramLeaf::Reader&& histogram);
+    mlir::spn::high::HistogramNode deserializeHistogram(HistogramLeaf::Reader&& histogram);
 
-    mlir::spn::GaussianOp deserializeGaussian(GaussianLeaf::Reader&& gaussian);
+    mlir::spn::high::GaussianNode deserializeGaussian(GaussianLeaf::Reader&& gaussian);
 
-    mlir::spn::CategoricalOp deserializeCaterogical(CategoricalLeaf::Reader&& categorical);
+    mlir::spn::high::CategoricalNode deserializeCaterogical(CategoricalLeaf::Reader&& categorical);
 
     mlir::Value getValueForNode(int id);
 
     mlir::Value getInputValueByIndex(int index);
 
-    mlir::Value convertToSignlessInteger(mlir::Value value);
-
     mlir::Type translateTypeString(const std::string& text);
+
+    unsigned sizeInByte(mlir::Type type);
 
     std::shared_ptr<KernelInfo> kernelInfo;
 

@@ -36,7 +36,7 @@ spn_runtime& spn_runtime::instance() {
   return *_instance;
 }
 
-void spn_runtime::execute(const Kernel& kernel, size_t num_elements, void* inputs, double* outputs) {
+void spn_runtime::execute(const Kernel& kernel, size_t num_elements, void* inputs, void* outputs) {
   // Caching executables wrapping around kernels to avoid repeated loading via libelf.
   if (!cached_executables.count(kernel.unique_id())) {
     cached_executables.emplace(std::pair<size_t, std::unique_ptr<Executable>>{kernel.unique_id(),

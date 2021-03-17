@@ -16,30 +16,37 @@ namespace py = pybind11;
 PYBIND11_MODULE(spncpy, m) {
 
   py::class_<Kernel>(m, "Kernel")
-      .def(py::init<const std::string&, const std::string&, unsigned, unsigned>())
+      .def(py::init<const std::string&, const std::string&, unsigned, unsigned, unsigned, unsigned,
+                    unsigned, unsigned, unsigned, const std::string&>())
       .def("fileName", &Kernel::fileName)
       .def("kernelName", &Kernel::kernelName)
       .def("execute",
-           [](const Kernel& kernel, int num_elements, py::array_t<int>& inputs) {
+           [](const Kernel& kernel, int num_elements, py::array& inputs) {
              py::buffer_info input_buf = inputs.request();
-             if (input_buf.format != py::format_descriptor<int>::format()) {
-               std::cerr << "ERROR: Expected an int array as input!" << std::endl;
-             }
 
-             auto result = py::array_t<double>(num_elements);
-             py::buffer_info output_buf = result.request();
+             // Get a new array to hold the result values, using the data-type
+             // and shape information attached to the kernel.
+             auto dtype = py::dtype(kernel.dataType());
+             std::vector<unsigned> shape;
+             shape.push_back(num_elements);
+             if (kernel.numResults() > 1) {
+               shape.push_back(kernel.numResults());
+             }
+             auto result = py::array(dtype, shape);
+             py::buffer_info result_buf = result.request(true);
 
              void* input_ptr = (void*) input_buf.ptr;
-             double* output_ptr = (double*) output_buf.ptr;
+             void* output_ptr = (void*) result_buf.ptr;
 
              spnc_rt::spn_runtime::instance().execute(kernel, num_elements, input_ptr, output_ptr);
 
              return result;
-
            });
 
   py::class_<spn_compiler>(m, "SPNCompiler")
       .def(py::init())
-      .def("compileQuery", &spn_compiler::compileQuery);
+      .def("compileQuery", [](const spn_compiler& compiler, const std::string& inputFile, const options_t& options) {
+        return spn_compiler::compileQuery(inputFile, options);
+      });
 
 }

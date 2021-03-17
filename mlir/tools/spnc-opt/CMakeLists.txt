@@ -3,10 +3,11 @@ get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 set(LIBS
         ${dialect_libs}
         ${conversion_libs}
-        MLIRSPN
+        MLIRHiSPN
+        MLIRLoSPN
+        MLIRHiSPNtoLoSPNTransforms
+        MLIRLoSPNtoCPUTransforms
         MLIROptLib
-        MLIRSPNtoStandardTransforms
-        MLIRSPNtoLLVMTransforms
         MLIRIR
         MLIRParser
         MLIRPass

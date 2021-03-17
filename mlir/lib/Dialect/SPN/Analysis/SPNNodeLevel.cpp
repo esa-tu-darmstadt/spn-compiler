@@ -8,7 +8,7 @@
 
 using namespace mlir::spn;
 
-mlir::spn::SPNNodeLevel::SPNNodeLevel(Operation* root, int rootLevel) : rootNode{root}, rootNodeLevel{rootLevel} {
+SPNNodeLevel::SPNNodeLevel(Operation* root, int rootLevel) : rootNode{root}, rootNodeLevel{rootLevel} {
   assert(root);
   analyzeGraph(root);
 }
