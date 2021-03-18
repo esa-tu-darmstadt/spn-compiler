@@ -89,9 +89,13 @@ void Executable::executeBatch(size_t num_samples, void* inputs, void* outputs) {
 
 void Executable::executeGPU(size_t num_samples, void* inputs, void* outputs) {
   assert(kernel_func);
+  auto nativeStart = std::chrono::high_resolution_clock::now();
   // For GPUs, we launch all inputs at once. The host-part of the compiled kernel will split the samples
   // into multiple blocks, which in turn are processed by multiple GPU threads at once.
   kernel_func(inputs, inputs, 0, num_samples, 1, kernel->numFeatures(), 1, outputs, outputs, 0, num_samples, 1);
+  auto nativeEnd = std::chrono::high_resolution_clock::now();
+  auto nativeTime = std::chrono::duration_cast<std::chrono::nanoseconds>(nativeEnd - nativeStart);
+  std::cout << "SPEAKER_IDENT: NATIVE EXECUTION TIME: " << nativeTime.count() << " ns" << std::endl;
 }
 
 void Executable::initialize() {
