@@ -35,10 +35,13 @@ def JointQuery : HiSPN_Op<"joint_query",
                     SymbolNameAttr:$kernelName,
                     UI32Attr:$batchSize,
                     ErrorModelAttr:$errorModel,
-                    F64Attr:$maxError
+                    F64Attr:$maxError,
+                    BoolAttr:$supportMarginal
                     );
 
     let regions = (region SizedRegion<1>:$graph);
+
+    let verifier = [{return ::mlir::spn::high::verify(*this); }];
 
 }
 

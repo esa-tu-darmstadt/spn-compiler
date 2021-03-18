@@ -56,9 +56,14 @@ class JointProbability(Query):
 
     """
 
-    def __init__(self, model : SPNModel, batchSize = 1, rootError = ErrorModel(ErrorKind.ABSOLUTE, 0.02)):
+    def __init__(self, model: SPNModel, batchSize=1, supportMarginal=False,
+                 rootError=ErrorModel(ErrorKind.ABSOLUTE, 0.02)):
         Query.__init__(self, batchSize, rootError)
         self.graph = model
+        self.marginal = supportMarginal
 
     def models(self):
         return [self.graph]
+
+    def supportsMarginal(self):
+        return self.marginal

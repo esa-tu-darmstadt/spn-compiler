@@ -92,6 +92,7 @@ class BinarySerializer:
     def _serialize_joint(self, joint):
         joint_msg = spflow_capnp.JointProbability.new_message()
         joint_msg.model = self._serialize_model(joint.graph)
+        joint_msg.supportMarginal = joint.supportsMarginal()
         return joint_msg
 
 
@@ -274,7 +275,8 @@ class BinaryDeserializer:
             raise NotImplementedError(f"Cannot deserialize error kind {query.errorKind}")
         errorModel = ErrorModel(errorKind, maxError)
         model = self._deserialize_model(query.joint.model)
-        return JointProbability(model, batchSize, errorModel)
+        supportsMarginal = query.joint.supportMarginal
+        return JointProbability(model, batchSize, supportsMarginal, errorModel)
 
     def _deserialize_model(self, model):
         rootID = model.rootNode
