@@ -1,14 +1,16 @@
 import logging
 import numpy as np
+import capnp
 from spn.algorithms.Validity import is_valid
 from spn.structure.Base import Product, Sum, rebuild_scopes_bottom_up, assign_ids, get_number_of_nodes
 from spn.structure.StatisticalTypes import Type, MetaType
 from spn.structure.leaves.histogram.Histograms import Histogram
 from spn.structure.leaves.parametric.Parametric import Gaussian, Categorical
-# Magic import making the schema defined in the schema language available
-from xspn.serialization.binary.capnproto import spflow_capnp
 from xspn.structure.Model import SPNModel
 from xspn.structure.Query import Query, JointProbability, ErrorModel, ErrorKind
+
+# Magic import making the schema defined in the schema language available
+from xspn.serialization.binary.capnproto import spflow_capnp
 
 logger = logging.getLogger(__name__)
 
