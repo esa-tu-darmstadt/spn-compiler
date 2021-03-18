@@ -53,7 +53,7 @@ std::unique_ptr<Job<Kernel> > CUDAGPUToolchain::constructJobFromFile(const std::
   auto& llvmConversion = job->insertAction<MLIRtoLLVMIRConversion>(cpu2llvm, ctx, targetMachine);
 
   // Translate the generated LLVM IR module to object code and write it to an object file.
-  auto objectFile = FileSystem::createTempFile<FileType::OBJECT>(false);
+  auto objectFile = FileSystem::createTempFile<FileType::OBJECT>(true);
   SPDLOG_INFO("Generating object file {}", objectFile.fileName());
   auto& emitObjectCode = job->insertAction<EmitObjectCode>(llvmConversion, std::move(objectFile), targetMachine);
 
