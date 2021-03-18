@@ -1,29 +1,24 @@
 import logging
-import os
 import numpy as np
-import capnp
-
 from spn.algorithms.Validity import is_valid
 from spn.structure.Base import Product, Sum, rebuild_scopes_bottom_up, assign_ids, get_number_of_nodes
 from spn.structure.StatisticalTypes import Type, MetaType
 from spn.structure.leaves.histogram.Histograms import Histogram
 from spn.structure.leaves.parametric.Parametric import Gaussian, Categorical
-
+# Magic import making the schema defined in the schema language available
+from xspn.serialization.binary.capnproto import spflow_capnp
 from xspn.structure.Model import SPNModel
 from xspn.structure.Query import Query, JointProbability, ErrorModel, ErrorKind
 
-# Magic import making the schema defined in the schema language available
-from  xspn.serialization.binary.capnproto import spflow_capnp
-
 logger = logging.getLogger(__name__)
 
-metaType2Enum = {MetaType.REAL : "real", MetaType.BINARY : "binary", MetaType.DISCRETE : "discrete"}
+metaType2Enum = {MetaType.REAL: "real", MetaType.BINARY: "binary", MetaType.DISCRETE: "discrete"}
 
-enum2MetaType = {v : k for k, v in metaType2Enum.items()}
+enum2MetaType = {v: k for k, v in metaType2Enum.items()}
 
-type2Enum = {Type.REAL : "real", 
-                Type.INTERVAL : "interval", 
-                Type.POSITIVE : "positive", 
+type2Enum = {Type.REAL: "real",
+             Type.INTERVAL: "interval",
+             Type.POSITIVE: "positive",
                 Type.CATEGORICAL : "categorical",
                 Type.ORDINAL : "ordinal", 
                 Type.COUNT : "count", 
@@ -39,7 +34,6 @@ class ListHandler:
 
     def getElement(self):
         element = self._list[self._index]
-        print(f"Filling list element {self._index}")
         self._index = self._index + 1
         return element
 
