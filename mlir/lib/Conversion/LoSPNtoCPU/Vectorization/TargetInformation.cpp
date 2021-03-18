@@ -3,7 +3,7 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#include "TargetInformation.h"
+#include "LoSPNtoCPU/Vectorization/TargetInformation.h"
 #include "llvm/Support/Host.h"
 #include "llvm/ADT/StringRef.h"
 #include <llvm/ADT/StringMap.h>

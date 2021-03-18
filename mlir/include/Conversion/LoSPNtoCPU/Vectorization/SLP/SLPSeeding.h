@@ -27,15 +27,17 @@ namespace mlir {
 
       public:
 
-        explicit SeedAnalysis(Operation* jointQuery);
+        explicit SeedAnalysis(Operation* rootOp);
+
+        std::map<Operation*, unsigned int> getOpDepths() const;
 
         std::vector<seed_t> getSeeds(size_t const& op,
-                                     std::map<Operation*, unsigned int> const& nodeLevels,
+                                     std::map<Operation*, unsigned int> const& depthsOf,
                                      SearchMode const& mode = RootToLeaf) const;
 
       private:
 
-        Operation* jointQuery;
+        Operation* rootOp;
 
       };
     }

@@ -83,18 +83,18 @@ void SLPTree::buildGraph(std::vector<Operation*> const& operations, node_t const
       }
     }
   }
-    // 2. Non-Commutative
-    // Only consider operands further when the current operations aren't leaf nodes.
-    assert(false);
-    /*
-  else if (!dyn_cast<LeafNodeInterface>(operations.front())) {
-    for (auto const& operandOperations : getOperandsTransposed(operations)) {
-      auto const& operandNode = std::make_shared<SLPNode>(operandOperations);
-      operandsOf[currentNode].emplace_back(operandNode);
-      buildGraph(operandOperations, operandNode);
-    }
+  // 2. Non-Commutative
+  // Only consider operands further when the current operations aren't leaf nodes.
+  assert(false);
+  /*
+else if (!dyn_cast<LeafNodeInterface>(operations.front())) {
+  for (auto const& operandOperations : getOperandsTransposed(operations)) {
+    auto const& operandNode = std::make_shared<SLPNode>(operandOperations);
+    operandsOf[currentNode].emplace_back(operandNode);
+    buildGraph(operandOperations, operandNode);
   }
-     */
+}
+   */
 }
 
 std::vector<std::vector<Operation*>> SLPTree::reorderOperands(node_t const& multinode) {
@@ -227,9 +227,9 @@ int SLPTree::getLookAheadScore(Operation* last, Operation* candidate, size_t con
       return 0;
     }
     assert(false);
-   /* if (dyn_cast<GaussianOp>(last)) {
-     return areConsecutive(last, candidate) ? 1 : 0;
-    }*/
+    /* if (dyn_cast<GaussianOp>(last)) {
+      return areConsecutive(last, candidate) ? 1 : 0;
+     }*/
     return 1;
   }
   auto scoreSum = 0;

@@ -17,6 +17,7 @@
 #include "LoSPN/LoSPNPasses.h"
 #include "HiSPNtoLoSPN/HiSPNtoLoSPNConversionPasses.h"
 #include "LoSPNtoCPU/LoSPNtoCPUConversionPasses.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPass.h"
 
 static llvm::cl::opt<std::string> inputFilename(llvm::cl::Positional,
                                                 llvm::cl::desc("<input file>"),
@@ -96,6 +97,11 @@ int main(int argc, char** argv) {
   mlir::registerPass("vectorize-lospn-nodes", "Vectorize LoSPN nodes for CPU target",
                      []() -> std::unique_ptr<mlir::Pass> {
                        return mlir::spn::createLoSPNNodeVectorizationPass();
+                     });
+
+  mlir::registerPass("slp-vectorize-structure", "Run SLP vectorization of the structure for CPU target",
+                     []() -> std::unique_ptr<mlir::Pass> {
+                       return mlir::spn::createSLPVectorizationPass();
                      });
 
   mlir::registerPass("spn-to-dot", "Prints the SPN to stderr", []() -> std::unique_ptr<mlir::Pass> {

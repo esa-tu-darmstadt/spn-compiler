@@ -10,12 +10,9 @@
 #include "LoSPNtoCPU/NodePatterns.h"
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
 #include "LoSPNtoCPU/Vectorization/LoSPNVectorizationTypeConverter.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
-#include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPSeeding.h"
 
 void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   ConversionTarget target(getContext());
@@ -34,7 +31,6 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
 
   OwningRewritePatternList patterns;
   if (vectorize) {
-    // auto& depthAnalysis = getAnalysis<mlir::spn::SPNNodeLevel>();
     // Try to vectorize tasks if vectorization was requested.
     mlir::spn::populateLoSPNCPUVectorizationStructurePatterns(patterns, &getContext(), typeConverter);
   }
@@ -45,43 +41,6 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   if (failed(applyPartialConversion(op, target, frozenPatterns))) {
     signalPassFailure();
   }
-
-  if (vectorize) {
-    auto module = getOperation();
-
-    // ============ TREE CHECK ============ //
-    module.walk([&](Operation* op) {
-      llvm::StringMap<std::vector<Operation*>> operationsByOpCode;
-      operationsByOpCode[op->getName().getStringRef().str()].emplace_back(op);
-      auto const& uses = std::distance(op->getUses().begin(), op->getUses().end());
-      if (uses > 1) {
-        // TODO: how to handle such cases? and is special handling required at all?
-        //assert(false && "SPN is not a tree!");
-      }
-    });
-    // ==================================== //
-
-    // auto& depthAnalysis = getAnalysis<mlir::spn::SPNNodeLevel>();
-    auto& seedAnalysis = getAnalysis<mlir::spn::slp::SeedAnalysis>();
-    /*auto seeds = seedAnalysis.getSeeds(4, depthAnalysis);
-
-    if (!seeds.empty()) {
-      slp::SLPTree graph(seeds.front(), 3);
-      OwningRewritePatternList patterns;
-      std::vector<std::vector<Operation*>> vectors;
-      for (auto const& node_ptr : graph.getNodes()) {
-        for (size_t i = 0; i < node_ptr->numVectors(); ++i) {
-          vectors.emplace_back(node_ptr->getVector(i));
-        }
-      }
-      slp::populateVectorizationPatterns(patterns, &getContext(), vectors);
-      auto op = getOperation();
-      FrozenRewritePatternList frozenPatterns(std::move(patterns));
-      applyPatternsAndFoldGreedily(op, frozenPatterns);
-    }
-*/
-  }
-
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoCPUStructureConversionPass(bool enableVectorization) {

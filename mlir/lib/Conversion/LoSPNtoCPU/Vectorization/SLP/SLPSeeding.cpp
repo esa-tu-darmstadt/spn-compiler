@@ -4,28 +4,45 @@
 //
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPSeeding.h"
-#include <llvm/ADT/StringMap.h>
 
 using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::slp;
 
-SeedAnalysis::SeedAnalysis(Operation* jointQuery) : jointQuery{jointQuery} {}
+SeedAnalysis::SeedAnalysis(Operation* rootOp) : rootOp{rootOp} {}
+
+std::map<Operation*, unsigned int> SeedAnalysis::getOpDepths() const {
+
+  std::map<Operation*, unsigned int> opDepths;
+
+  rootOp->walk([&](Operation* op) {
+    if (!opDepths.count(op)) {
+      opDepths[op] = 0;
+    }
+    for (auto const& use : op->getUsers()) {
+      if (!opDepths.count(use) || opDepths[op] + 1 > opDepths[use]) {
+        opDepths[use] = opDepths[op] + 1;
+      }
+    }
+  });
+
+  return opDepths;
+}
 
 std::vector<seed_t> SeedAnalysis::getSeeds(size_t const& width,
-                                           std::map<Operation*, unsigned int> const& nodeLevels,
+                                           std::map<Operation*, unsigned int> const& depthsOf,
                                            SearchMode const& mode) const {
 
   llvm::StringMap<std::vector<seed_t>> seedsByOpName;
 
-  jointQuery->walk([&](Operation* op) {
-    auto depth = nodeLevels.at(op);
-    if (!op->hasTrait<OpTrait::spn::low::VectorizableOp>() || depth < log2(width)) {
+  rootOp->walk([&](Operation* op) {
+    auto depth = depthsOf.at(op);
+    if (!op->hasTrait<OpTrait::OneResult>() || depth < log2(width)) {
       return;
     }
     bool needsNewSeed = true;
     for (auto& seed : seedsByOpName[op->getName().getStringRef()]) {
-      if (seed.size() < width && nodeLevels.at(seed.front()) == depth) {
+      if (seed.size() < width && depthsOf.at(seed.front()) == depth) {
         seed.emplace_back(op);
         needsNewSeed = false;
         break;
@@ -51,9 +68,9 @@ std::vector<seed_t> SeedAnalysis::getSeeds(size_t const& width,
   // or those closest to the leaves (LeafToRoot).
   std::sort(seeds.begin(), seeds.end(), [&](seed_t const& seed1, seed_t const& seed2) {
     if (mode == RootToLeaf) {
-      return nodeLevels.at(seed1.front()) < nodeLevels.at(seed2.front());
+      return depthsOf.at(seed1.front()) < depthsOf.at(seed2.front());
     } else if (mode == LeafToRoot) {
-      return nodeLevels.at(seed1.front()) > nodeLevels.at(seed2.front());
+      return depthsOf.at(seed1.front()) > depthsOf.at(seed2.front());
     } else {
       // Unused so far.
       assert(false);

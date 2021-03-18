@@ -33,8 +33,7 @@ namespace mlir {
         std::vector<Operation*> getVector(size_t index) const;
 
         friend bool operator==(SLPNode const& lhs, SLPNode const& rhs) {
-          return std::tie(lhs.lanes)
-              == std::tie(rhs.lanes);
+          return std::tie(lhs.lanes) == std::tie(rhs.lanes);
         }
 
         friend bool operator!=(SLPNode const& lhs, SLPNode const& rhs) {

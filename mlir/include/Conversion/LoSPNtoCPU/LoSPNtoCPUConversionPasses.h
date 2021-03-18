@@ -11,47 +11,43 @@
 namespace mlir {
   namespace spn {
 
-    struct LoSPNtoCPUStructureConversionPass :
-        public PassWrapper<LoSPNtoCPUStructureConversionPass, OperationPass < ModuleOp>> {
+    struct LoSPNtoCPUStructureConversionPass : public PassWrapper<LoSPNtoCPUStructureConversionPass,
+                                                                  OperationPass<ModuleOp>> {
 
     public:
 
-    explicit LoSPNtoCPUStructureConversionPass(bool enableVectorization) : vectorize{enableVectorization} {}
+      explicit LoSPNtoCPUStructureConversionPass(bool enableVectorization) : vectorize{enableVectorization} {}
 
     protected:
-    void runOnOperation()
-    override;
+      void runOnOperation() override;
 
     private:
 
-    bool vectorize;
+      bool vectorize;
 
-  };
+    };
 
-  std::unique_ptr<Pass> createLoSPNtoCPUStructureConversionPass(bool enableVectorization);
+    std::unique_ptr<Pass> createLoSPNtoCPUStructureConversionPass(bool enableVectorization);
 
-  struct LoSPNtoCPUNodeConversionPass :
-      public PassWrapper<LoSPNtoCPUNodeConversionPass, OperationPass < ModuleOp>> {
+    struct LoSPNtoCPUNodeConversionPass : public PassWrapper<LoSPNtoCPUNodeConversionPass, OperationPass<ModuleOp>> {
 
-  protected:
-  void runOnOperation()
-  override;
+    protected:
+      void runOnOperation() override;
 
-};
+    };
 
-std::unique_ptr<Pass> createLoSPNtoCPUNodeConversionPass();
+    std::unique_ptr<Pass> createLoSPNtoCPUNodeConversionPass();
 
-struct LoSPNNodeVectorizationPass : public PassWrapper<LoSPNNodeVectorizationPass, OperationPass < ModuleOp>> {
+    struct LoSPNNodeVectorizationPass : public PassWrapper<LoSPNNodeVectorizationPass, OperationPass<ModuleOp>> {
 
-protected:
-void runOnOperation()
-override;
+    protected:
+      void runOnOperation() override;
 
-};
+    };
 
-std::unique_ptr<Pass> createLoSPNNodeVectorizationPass();
+    std::unique_ptr<Pass> createLoSPNNodeVectorizationPass();
 
-}
+  }
 }
 
 #endif //SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_LOSPNTOCPUCONVERSIONPASSES_H
