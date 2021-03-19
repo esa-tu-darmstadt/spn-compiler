@@ -3,10 +3,11 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPTREE_H
-#define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPTREE_H
+#ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPGRAPH_H
+#define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPGRAPH_H
 
 #include "mlir/IR/Operation.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "LoSPN/LoSPNTraits.h"
 #include "SLPMode.h"
 #include "SLPNode.h"
@@ -18,13 +19,13 @@ namespace mlir {
   namespace spn {
     namespace slp {
 
-      class SLPTree {
+      class SLPGraph {
 
         typedef std::shared_ptr<SLPNode> node_t;
 
       public:
 
-        SLPTree(seed_t const& seed, size_t const& maxLookAhead);
+        SLPGraph(seed_t const& seed, size_t const& maxLookAhead);
 
         std::vector<std::shared_ptr<SLPNode>> getNodes() const;
 
@@ -41,37 +42,53 @@ namespace mlir {
         int getLookAheadScore(Operation* last, Operation* candidate, size_t const& maxLevel) const;
 
         static bool areConsecutive(Operation* op1, Operation* op2) {
-          assert(false);
+          auto load1 = dyn_cast<LoadOp>(op1);
+          auto load2 = dyn_cast<LoadOp>(op2);
+          if (!load1 || !load2) {
+            return false;
+          }
+          if (load1.indices().size() != load2.indices().size()) {
+            return false;
+          }
+          for (size_t i = 0; i < load1.indices().size(); ++i) {
+            auto const1 = load1.indices()[i].getDefiningOp<ConstantOp>();
+            auto const2 = load2.indices()[i].getDefiningOp<ConstantOp>();
+            if (!const1 || !const2) {
+              return false;
+            }
+            auto index1 = const1.value().dyn_cast<IntegerAttr>();
+            auto index2 = const2.value().dyn_cast<IntegerAttr>();
+            if (!index1 || !index2) {
+              return false;
+            }
+            if (i == load1.indices().size() - 1) {
+              return index1.getInt() == index2.getInt() - 1;
+            } else if (index1.getInt() != index2.getInt()) {
+              return false;
+            }
+          }
           return false;
         }
 
-        /// Checks if the given operations are vectorizable. Operations are vectorizable iff the SPN dialect says they're
-        /// vectorizable and they all share the same opcode.
+        /// Checks if the given operations are vectorizable.
         /// \param operations The potentially vectorizable operations.
         /// \return True if the operations can be vectorized, otherwise false.
         static bool vectorizable(std::vector<Operation*> const& operations) {
           for (size_t i = 0; i < operations.size(); ++i) {
-            if (!operations.at(i)->hasTrait<OpTrait::spn::low::VectorizableOp>()
-                || (i > 0 && operations.at(i)->getName() != operations.front()->getName())) {
+            auto* op = operations[i];
+            if (!op->hasTrait<OpTrait::OneResult>() || (i > 0 && op->getName() != operations.front()->getName())) {
               return false;
             }
           }
-          /*
-          if (dyn_cast<GaussianOp>(operations.front())) {
-            for (size_t i = 1; i < operations.size(); ++i) {
-              if (!areConsecutive(operations.at(i - 1), operations.at(i))) {
-                return false;
-              }
-            }
-          }
-          */
-          assert(false);
           return true;
         }
 
         static bool commutative(std::vector<Operation*> const& operations) {
-          return std::all_of(std::begin(operations), std::end(operations), [&](Operation* operation) {
-            return operation->hasTrait<OpTrait::IsCommutative>();
+          return std::all_of(std::begin(operations), std::end(operations), [&](Operation* op) {
+            if (op->hasTrait<OpTrait::IsCommutative>()) {
+              return true;
+            }
+            return dyn_cast<AddFOp>(op) || dyn_cast<MulFOp>(op);
           });
         }
 
@@ -153,24 +170,35 @@ namespace mlir {
             }
           }
 
-          llvm::errs() << "digraph debug_graph {\n";
-          llvm::errs() << "rankdir = BT;\n";
-          llvm::errs() << "node[shape=box];\n";
+          llvm::dbgs() << "digraph debug_graph {\n";
+          llvm::dbgs() << "rankdir = BT;\n";
+          llvm::dbgs() << "node[shape=box];\n";
           for (auto& op : nodes) {
-            llvm::errs() << "node_" << op << "[label=\"" << op->getName().getStringRef() << "\\n" << op;
-            assert(false);
-            /*
-          if (auto leaf = dyn_cast<LeafNodeInterface>(op)) {
-            llvm::errs() << "\\narg: " << leaf.getFeatureIndex() << "\\n";
-          }
-             */
-            llvm::errs() << "\", fillcolor=\"#a0522d\"];\n";
+            printNode(op);
           }
           for (auto& edge : edges) {
-            llvm::errs() << "node_" << std::get<0>(edge) << " -> node_" << std::get<1>(edge) << "[label=\""
-                         << std::get<2>(edge) << "\"];\n";
+            printEdge(std::get<0>(edge), std::get<1>(edge), std::get<2>(edge));
           }
-          llvm::errs() << "}\n";
+          llvm::dbgs() << "}\n";
+        }
+
+        /// For debugging purposes.
+        static void printNode(Operation* op) {
+          llvm::dbgs() << "node_" << op << "[label=\"" << op->getName().getStringRef() << "\\n" << op;
+          if (auto constantOp = dyn_cast<ConstantOp>(op)) {
+            if (constantOp.value().getType().isIntOrIndex()) {
+              llvm::dbgs() << "\\nvalue: " << std::to_string(constantOp.value().dyn_cast<IntegerAttr>().getInt());
+            } else if (constantOp.value().getType().isIntOrFloat()) {
+              llvm::dbgs() << "\\nvalue: "
+                           << std::to_string(constantOp.value().dyn_cast<FloatAttr>().getValueAsDouble());
+            }
+          }
+          llvm::dbgs() << "\", fillcolor=\"#a0522d\"];\n";
+        }
+
+        /// For debugging purposes.
+        static void printEdge(Operation* src, Operation* dst, size_t index) {
+          llvm::dbgs() << "node_" << src << " -> node_" << dst << "[label=\"" << std::to_string(index) << "\"];\n";
         }
 
         std::map<node_t, std::vector<node_t>> operandsOf;
@@ -182,4 +210,4 @@ namespace mlir {
   }
 }
 
-#endif //SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPTREE_H
+#endif //SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPGRAPH_H

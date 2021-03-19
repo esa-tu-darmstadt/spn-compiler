@@ -16,9 +16,9 @@ namespace mlir {
 
       enum SearchMode {
         ///
-        RootToLeaf,
+        DefBeforeUse,
         ///
-        LeafToRoot,
+        UseBeforeDef,
         /// TODO?
         Chain
       };
@@ -33,7 +33,7 @@ namespace mlir {
 
         std::vector<seed_t> getSeeds(size_t const& op,
                                      std::map<Operation*, unsigned int> const& depthsOf,
-                                     SearchMode const& mode = RootToLeaf) const;
+                                     SearchMode const& mode) const;
 
       private:
 

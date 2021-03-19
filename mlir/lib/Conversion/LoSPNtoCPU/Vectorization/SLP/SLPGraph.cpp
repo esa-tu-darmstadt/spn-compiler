@@ -3,21 +3,25 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#include "LoSPNtoCPU/Vectorization/SLP/SLPTree.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPGraph.h"
 #include <set>
 
 using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::slp;
 
-SLPTree::SLPTree(seed_t const& seed, size_t const& maxLookAhead) : operandsOf{}, maxLookAhead{maxLookAhead} {
+SLPGraph::SLPGraph(seed_t const& seed, size_t const& maxLookAhead) : operandsOf{}, maxLookAhead{maxLookAhead} {
   auto const& currentNode = std::make_shared<SLPNode>(seed);
   operandsOf[currentNode] = {};
-  printSubgraph(seed);
+  //printSubgraph(seed);
+  llvm::dbgs() << "Building graph with seed:\n";
+  for (auto* op : seed) {
+    printNode(op);
+  }
   buildGraph(seed, currentNode);
 }
 
-std::vector<std::shared_ptr<SLPNode>> SLPTree::getNodes() const {
+std::vector<std::shared_ptr<SLPNode>> SLPGraph::getNodes() const {
   std::vector<std::shared_ptr<SLPNode>> nodes;
   for (auto const& entry : operandsOf) {
     nodes.emplace_back(entry.first);
@@ -30,12 +34,7 @@ std::vector<std::shared_ptr<SLPNode>> SLPTree::getNodes() const {
   return nodes;
 }
 
-void SLPTree::buildGraph(std::vector<Operation*> const& operations, node_t const& currentNode) {
-  llvm::errs() << "Building graph with:\n";
-  for (auto* op : operations) {
-    llvm::errs() << op << ": ";
-    op->dump();
-  }
+void SLPGraph::buildGraph(std::vector<Operation*> const& operations, node_t const& currentNode) {
   // Stop growing graph
   if (!vectorizable(operations)) {
     return;
@@ -50,6 +49,11 @@ void SLPTree::buildGraph(std::vector<Operation*> const& operations, node_t const
       sortByOpcode(operands, currentOpCode);
     }
     for (size_t i = 0; i < operations.front()->getNumOperands(); ++i) {
+      llvm::dbgs() << "\n";
+      for (auto* op : operations) {
+        printNode(op->getOperand(i).getDefiningOp());
+        printEdge(op, op->getOperand(i).getDefiningOp(), i);
+      }
       if (std::all_of(std::begin(allOperands), std::end(allOperands), [&](auto const& operandOperations) {
         return operandOperations[i]->getName() == currentOpCode && !escapesMultinode(operandOperations[i]);
       })) {
@@ -62,9 +66,6 @@ void SLPTree::buildGraph(std::vector<Operation*> const& operations, node_t const
         std::vector<Operation*> operandOperations;
         for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
           operandOperations.emplace_back(allOperands[lane][i]);
-        }
-        for (auto const& tmp : operandOperations) {
-          tmp->dump();
         }
         operandsOf[currentNode].emplace_back(std::make_shared<SLPNode>(operandOperations));
       }
@@ -83,21 +84,19 @@ void SLPTree::buildGraph(std::vector<Operation*> const& operations, node_t const
       }
     }
   }
-  // 2. Non-Commutative
-  // Only consider operands further when the current operations aren't leaf nodes.
-  assert(false);
-  /*
-else if (!dyn_cast<LeafNodeInterface>(operations.front())) {
-  for (auto const& operandOperations : getOperandsTransposed(operations)) {
-    auto const& operandNode = std::make_shared<SLPNode>(operandOperations);
-    operandsOf[currentNode].emplace_back(operandNode);
-    buildGraph(operandOperations, operandNode);
+    // 2. Non-Commutative
+    // Only consider operands further when the current operations aren't leaf nodes.
+  else if (!dyn_cast<LoadOp>(operations.front())) {
+    for (auto const& operandOperations : getOperandsTransposed(operations)) {
+      auto const& operandNode = std::make_shared<SLPNode>(operandOperations);
+      operandsOf[currentNode].emplace_back(operandNode);
+      buildGraph(operandOperations, operandNode);
+    }
   }
-}
-   */
+
 }
 
-std::vector<std::vector<Operation*>> SLPTree::reorderOperands(node_t const& multinode) {
+std::vector<std::vector<Operation*>> SLPGraph::reorderOperands(node_t const& multinode) {
   assert(multinode->isMultiNode());
   auto const& numOperands = operandsOf.at(multinode).size();
   std::vector<std::vector<Operation*>> finalOrder{multinode->numLanes()};
@@ -151,9 +150,9 @@ std::vector<std::vector<Operation*>> SLPTree::reorderOperands(node_t const& mult
   return finalOrder;
 }
 
-std::pair<Operation*, Mode> SLPTree::getBest(Mode const& mode,
-                                             Operation* last,
-                                             std::vector<Operation*>& candidates) const {
+std::pair<Operation*, Mode> SLPGraph::getBest(Mode const& mode,
+                                              Operation* last,
+                                              std::vector<Operation*>& candidates) const {
   Operation* best = nullptr;
   Mode resultMode = mode;
   std::vector<Operation*> bestCandidates;
@@ -221,7 +220,7 @@ std::pair<Operation*, Mode> SLPTree::getBest(Mode const& mode,
   return {best, resultMode};
 }
 
-int SLPTree::getLookAheadScore(Operation* last, Operation* candidate, size_t const& maxLevel) const {
+int SLPGraph::getLookAheadScore(Operation* last, Operation* candidate, size_t const& maxLevel) const {
   if (maxLevel == 0) {
     if (last->getName() != candidate->getName()) {
       return 0;

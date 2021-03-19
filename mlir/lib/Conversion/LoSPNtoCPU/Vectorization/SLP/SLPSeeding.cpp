@@ -19,7 +19,7 @@ std::map<Operation*, unsigned int> SeedAnalysis::getOpDepths() const {
     if (!opDepths.count(op)) {
       opDepths[op] = 0;
     }
-    for (auto const& use : op->getUsers()) {
+    for (auto* use : op->getUsers()) {
       if (!opDepths.count(use) || opDepths[op] + 1 > opDepths[use]) {
         opDepths[use] = opDepths[op] + 1;
       }
@@ -64,12 +64,12 @@ std::vector<seed_t> SeedAnalysis::getSeeds(size_t const& width,
       seeds.emplace_back(seed);
     }
   }
-  // Sort the seeds such that either the seeds closest to the root come first (RootToLeaf),
-  // or those closest to the leaves (LeafToRoot).
+  // Sort the seeds such that either the seeds closest to the beginning of the function come first (DefBeforeUse),
+  // or those closest to the return statement (UseBeforeDef).
   std::sort(seeds.begin(), seeds.end(), [&](seed_t const& seed1, seed_t const& seed2) {
-    if (mode == RootToLeaf) {
+    if (mode == DefBeforeUse) {
       return depthsOf.at(seed1.front()) < depthsOf.at(seed2.front());
-    } else if (mode == LeafToRoot) {
+    } else if (mode == UseBeforeDef) {
       return depthsOf.at(seed1.front()) > depthsOf.at(seed2.front());
     } else {
       // Unused so far.

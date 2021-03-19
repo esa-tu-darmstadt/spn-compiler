@@ -12,6 +12,7 @@
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPSeeding.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPGraph.h"
 
 void mlir::spn::SLPVectorizationPass::runOnOperation() {
   llvm::StringRef funcName = getOperation().getName();
@@ -38,24 +39,23 @@ void mlir::spn::SLPVectorizationPass::runOnOperation() {
 
   getOperation()->dump();
 
-  auto seeds = seedAnalysis.getSeeds(width, seedAnalysis.getOpDepths());
-  llvm::outs() << "nnn\n";
-/*
-  if (!seeds.empty()) {
-    slp::SLPTree graph(seeds.front(), 3);
-    OwningRewritePatternList patterns;
-    std::vector<std::vector<Operation*>> vectors;
-    for (auto const& node_ptr : graph.getNodes()) {
-      for (size_t i = 0; i < node_ptr->numVectors(); ++i) {
-        vectors.emplace_back(node_ptr->getVector(i));
-      }
+  auto seeds = seedAnalysis.getSeeds(width, seedAnalysis.getOpDepths(), slp::UseBeforeDef);
+  assert(!seeds.empty() && "couldn't find a seed!");
+
+  slp::SLPGraph tree(seeds.front(), 3);
+  std::vector<std::vector<Operation*>> vectors;
+  for (auto const& node_ptr : tree.getNodes()) {
+    for (size_t i = 0; i < node_ptr->numVectors(); ++i) {
+      vectors.emplace_back(node_ptr->getVector(i));
     }
-    slp::populateVectorizationPatterns(patterns, &getContext(), vectors);
-    auto op = getOperation();
-    FrozenRewritePatternList frozenPatterns(std::move(patterns));
-    applyPatternsAndFoldGreedily(op, frozenPatterns);
   }
-*/
+  /*
+  OwningRewritePatternList patterns;
+  slp::populateVectorizationPatterns(patterns, &getContext(), vectors);
+  auto op = getOperation();
+  FrozenRewritePatternList frozenPatterns(std::move(patterns));
+  applyPatternsAndFoldGreedily(op, frozenPatterns);
+  */
 
 
 }
