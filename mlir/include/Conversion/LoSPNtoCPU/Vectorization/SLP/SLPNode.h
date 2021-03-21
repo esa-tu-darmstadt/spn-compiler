@@ -18,6 +18,7 @@ namespace mlir {
 
       public:
 
+        SLPNode() = delete;
         explicit SLPNode(std::vector<Operation*> const& operations);
 
         void addOperationToLane(Operation* operation, size_t const& lane);

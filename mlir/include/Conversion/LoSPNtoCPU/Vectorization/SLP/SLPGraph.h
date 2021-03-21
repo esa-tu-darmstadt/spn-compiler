@@ -33,7 +33,7 @@ namespace mlir {
 
         void buildGraph(std::vector<Operation*> const& operations, node_t const& currentNode);
 
-        std::vector<std::vector<Operation*>> reorderOperands(node_t const& multinode);
+        void reorderOperands(node_t const& multinode);
 
         std::pair<Operation*, Mode> getBest(Mode const& mode,
                                             Operation* last,
@@ -116,15 +116,19 @@ namespace mlir {
           return allOperands;
         }
 
-        static std::vector<std::vector<Operation*>> getOperandsTransposed(std::vector<Operation*> const& operations) {
+        static std::vector<std::vector<Operation*>> getOperandsVectorized(std::vector<Operation*> const& operations) {
+          for (auto* operation : operations) {
+            assert(operation->getNumOperands() == operations.front()->getNumOperands()
+                       && "operations must have same numbers of operands");
+          }
           std::vector<std::vector<Operation*>> allOperands;
           for (size_t i = 0; i < operations.front()->getNumOperands(); ++i) {
-            std::vector<Operation*> operand;
-            operand.reserve(operations.size());
+            std::vector<Operation*> operands;
+            operands.reserve(operations.size());
             for (auto* operation : operations) {
-              operand.emplace_back(operation->getOperand(i).getDefiningOp());
+              operands.emplace_back(operation->getOperand(i).getDefiningOp());
             }
-            allOperands.emplace_back(operand);
+            allOperands.emplace_back(operands);
           }
           return allOperands;
         }
@@ -143,62 +147,43 @@ namespace mlir {
           });
         }
 
-        /// For debugging purposes.
-        static void printSubgraph(std::vector<Operation*> const& operations) {
-          std::vector<Operation*> nodes;
-          std::vector<std::tuple<Operation*, Operation*, size_t>> edges;
-
-          std::stack<Operation*> worklist;
-          for (auto& op : operations) {
-            worklist.push(op);
-          }
-
-          while (!worklist.empty()) {
-
-            auto op = worklist.top();
-            worklist.pop();
-
-            if (std::find(std::begin(nodes), std::end(nodes), op) == nodes.end()) {
-              nodes.emplace_back(op);
-              for (size_t i = 0; i < op->getNumOperands(); ++i) {
-                auto const& operand = op->getOperand(i);
-                if (operand.getDefiningOp() != nullptr) {
-                  edges.emplace_back(std::make_tuple(op, operand.getDefiningOp(), i));
-                  worklist.push(operand.getDefiningOp());
-                }
-              }
-            }
-          }
-
+        static void print(SLPGraph const& graph) {
           llvm::dbgs() << "digraph debug_graph {\n";
           llvm::dbgs() << "rankdir = BT;\n";
           llvm::dbgs() << "node[shape=box];\n";
-          for (auto& op : nodes) {
-            printNode(op);
-          }
-          for (auto& edge : edges) {
-            printEdge(std::get<0>(edge), std::get<1>(edge), std::get<2>(edge));
+          for (auto const& entry : graph.operandsOf) {
+            printNode(entry.first.get());
+            for (auto const& operand : entry.second) {
+              llvm::dbgs() << "node_" << entry.first.get() << "->" << "node_" << operand.get() << ";\n";
+            }
           }
           llvm::dbgs() << "}\n";
         }
 
         /// For debugging purposes.
-        static void printNode(Operation* op) {
-          llvm::dbgs() << "node_" << op << "[label=\"" << op->getName().getStringRef() << "\\n" << op;
-          if (auto constantOp = dyn_cast<ConstantOp>(op)) {
-            if (constantOp.value().getType().isIntOrIndex()) {
-              llvm::dbgs() << "\\nvalue: " << std::to_string(constantOp.value().dyn_cast<IntegerAttr>().getInt());
-            } else if (constantOp.value().getType().isIntOrFloat()) {
-              llvm::dbgs() << "\\nvalue: "
-                           << std::to_string(constantOp.value().dyn_cast<FloatAttr>().getValueAsDouble());
+        static void printNode(SLPNode const* node) {
+          llvm::dbgs() << "node_" << node << "[label=<\n";
+          llvm::dbgs()
+              << "\t<TABLE ALIGN=\"CENTER\" BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"10\" CELLPADDING=\"0\">\n";
+          for (size_t i = node->numVectors(); i-- > 0;) {
+            llvm::dbgs() << "\t\t<TR>\n";
+            for (size_t j = 0; j < node->numLanes(); ++j) {
+              auto* operation = node->getOperation(j, i);
+              if (std::intptr_t(operation) == 0x903a08) {
+                llvm::dbgs();
+              }
+              llvm::dbgs() << "\t\t\t<TD ALIGN=\"CENTER\">\n";
+              llvm::dbgs() << "\t\t\t\t<B>" << operation->getName() << "</B> <FONT COLOR=\"#bbbbbb\">(" << operation
+                           << ")</FONT>\n";
+              llvm::dbgs() << "\t\t\t</TD>\n";
+              if (j < node->numLanes() - 1) {
+                llvm::dbgs() << "\t\t\t<VR/>\n";
+              }
             }
+            llvm::dbgs() << "\t\t</TR>\n";
           }
-          llvm::dbgs() << "\", fillcolor=\"#a0522d\"];\n";
-        }
-
-        /// For debugging purposes.
-        static void printEdge(Operation* src, Operation* dst, size_t index) {
-          llvm::dbgs() << "node_" << src << " -> node_" << dst << "[label=\"" << std::to_string(index) << "\"];\n";
+          llvm::dbgs() << "\t</TABLE>\n";
+          llvm::dbgs() << ">];\n";
         }
 
         std::map<node_t, std::vector<node_t>> operandsOf;
