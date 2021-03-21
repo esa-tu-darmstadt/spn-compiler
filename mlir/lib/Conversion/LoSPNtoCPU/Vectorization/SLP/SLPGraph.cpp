@@ -14,7 +14,6 @@ SLPGraph::SLPGraph(seed_t const& seed, size_t const& maxLookAhead) : operandsOf{
   auto const& currentNode = std::make_shared<SLPNode>(seed);
   operandsOf[currentNode] = {};
   buildGraph(seed, currentNode);
-  print(*this);
 }
 
 std::vector<std::shared_ptr<SLPNode>> SLPGraph::getNodes() const {
@@ -247,4 +246,35 @@ int SLPGraph::getLookAheadScore(Operation* last, Operation* candidate, size_t co
     }
   }
   return scoreSum;
+}
+
+void SLPGraph::dump() const {
+  llvm::dbgs() << "digraph debug_graph {\n";
+  llvm::dbgs() << "rankdir = BT;\n";
+  llvm::dbgs() << "node[shape=box];\n";
+  for (auto const& entry : operandsOf) {
+    auto const* node = entry.first.get();
+    llvm::dbgs() << "node_" << node << "[label=<\n";
+    llvm::dbgs() << "\t<TABLE ALIGN=\"CENTER\" BORDER=\"0\" CELLSPACING=\"10\" CELLPADDING=\"0\">\n";
+    for (size_t i = node->numVectors(); i-- > 0;) {
+      llvm::dbgs() << "\t\t<TR>\n";
+      for (size_t lane = 0; lane < node->numLanes(); ++lane) {
+        auto* operation = node->getOperation(lane, i);
+        llvm::dbgs() << "\t\t\t<TD>";
+        llvm::dbgs() << "<B>" << operation->getName() << "</B> <FONT COLOR=\"#bbbbbb\">(" << operation << ")</FONT>";
+        llvm::dbgs() << "</TD>";
+        if (lane < node->numLanes() - 1) {
+          llvm::dbgs() << "<VR/>";
+        }
+        llvm::dbgs() << "\n";
+      }
+      llvm::dbgs() << "\t\t</TR>\n";
+    }
+    llvm::dbgs() << "\t</TABLE>\n";
+    llvm::dbgs() << ">];\n";
+    for (auto const& operand : entry.second) {
+      llvm::dbgs() << "node_" << entry.first.get() << "->" << "node_" << operand.get() << ";\n";
+    }
+  }
+  llvm::dbgs() << "}\n";
 }

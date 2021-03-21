@@ -41,6 +41,7 @@ void mlir::spn::SLPVectorizationPass::runOnOperation() {
   assert(!seeds.empty() && "couldn't find a seed!");
 
   slp::SLPGraph graph(seeds.front(), 3);
+  graph.dump();
   std::vector<std::vector<Operation*>> vectors;
   for (auto const& node_ptr : graph.getNodes()) {
     for (size_t i = 0; i < node_ptr->numVectors(); ++i) {

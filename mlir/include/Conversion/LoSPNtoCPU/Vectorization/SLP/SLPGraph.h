@@ -29,6 +29,8 @@ namespace mlir {
 
         std::vector<std::shared_ptr<SLPNode>> getNodes() const;
 
+        void dump() const;
+
       private:
 
         void buildGraph(std::vector<Operation*> const& operations, node_t const& currentNode);
@@ -145,43 +147,6 @@ namespace mlir {
             }
             return lhs->getName().getStringRef() < rhs->getName().getStringRef();
           });
-        }
-
-        static void print(SLPGraph const& graph) {
-          llvm::dbgs() << "digraph debug_graph {\n";
-          llvm::dbgs() << "rankdir = BT;\n";
-          llvm::dbgs() << "node[shape=box];\n";
-          for (auto const& entry : graph.operandsOf) {
-            printNode(entry.first.get());
-            for (auto const& operand : entry.second) {
-              llvm::dbgs() << "node_" << entry.first.get() << "->" << "node_" << operand.get() << ";\n";
-            }
-          }
-          llvm::dbgs() << "}\n";
-        }
-
-        /// For debugging purposes.
-        static void printNode(SLPNode const* node) {
-          llvm::dbgs() << "node_" << node << "[label=<\n";
-          llvm::dbgs()
-              << "\t<TABLE ALIGN=\"CENTER\" BORDER=\"0\" CELLSPACING=\"10\" CELLPADDING=\"0\">\n";
-          for (size_t i = node->numVectors(); i-- > 0;) {
-            llvm::dbgs() << "\t\t<TR>\n";
-            for (size_t j = 0; j < node->numLanes(); ++j) {
-              auto* operation = node->getOperation(j, i);
-              llvm::dbgs() << "\t\t\t<TD>";
-              llvm::dbgs() << "<B>" << operation->getName() << "</B> <FONT COLOR=\"#bbbbbb\">(" << operation
-                           << ")</FONT>";
-              llvm::dbgs() << "</TD>";
-              if (j < node->numLanes() - 1) {
-                llvm::dbgs() << "<VR/>";
-              }
-              llvm::dbgs() << "\n";
-            }
-            llvm::dbgs() << "\t\t</TR>\n";
-          }
-          llvm::dbgs() << "\t</TABLE>\n";
-          llvm::dbgs() << ">];\n";
         }
 
         std::map<node_t, std::vector<node_t>> operandsOf;
