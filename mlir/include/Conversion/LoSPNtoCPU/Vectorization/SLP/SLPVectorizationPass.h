@@ -24,7 +24,7 @@ namespace mlir {
     private:
 
       /// For debugging purposes.
-      static void printSubgraph(std::vector<Operation*> const& operations) {
+      static void printSPN(std::vector<Operation*> const& operations) {
         std::vector<Operation*> nodes;
         std::vector<std::tuple<Operation*, Operation*, size_t>> edges;
 
@@ -54,7 +54,7 @@ namespace mlir {
         llvm::dbgs() << "rankdir = BT;\n";
         llvm::dbgs() << "node[shape=box];\n";
         for (auto& op : nodes) {
-          printNode(op);
+          printOperation(op);
         }
         for (auto& edge : edges) {
           printEdge(std::get<0>(edge), std::get<1>(edge), std::get<2>(edge));
@@ -63,7 +63,7 @@ namespace mlir {
       }
 
       /// For debugging purposes.
-      static void printNode(Operation* op) {
+      static void printOperation(Operation* op) {
         llvm::dbgs() << "node_" << op << "[label=\"" << op->getName().getStringRef() << "\\n" << op;
         if (auto constantOp = dyn_cast<ConstantOp>(op)) {
           if (constantOp.value().getType().isIntOrIndex()) {

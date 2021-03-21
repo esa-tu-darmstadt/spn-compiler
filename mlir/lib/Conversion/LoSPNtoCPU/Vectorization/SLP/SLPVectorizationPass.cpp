@@ -37,14 +37,12 @@ void mlir::spn::SLPVectorizationPass::runOnOperation() {
   auto computationType = function.getArguments().back().getType().dyn_cast<MemRefType>().getElementType();
   auto width = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
 
-  getOperation()->dump();
-
   auto seeds = seedAnalysis.getSeeds(width, seedAnalysis.getOpDepths(), slp::UseBeforeDef);
   assert(!seeds.empty() && "couldn't find a seed!");
 
-  slp::SLPGraph tree(seeds.front(), 3);
+  slp::SLPGraph graph(seeds.front(), 3);
   std::vector<std::vector<Operation*>> vectors;
-  for (auto const& node_ptr : tree.getNodes()) {
+  for (auto const& node_ptr : graph.getNodes()) {
     for (size_t i = 0; i < node_ptr->numVectors(); ++i) {
       vectors.emplace_back(node_ptr->getVector(i));
     }

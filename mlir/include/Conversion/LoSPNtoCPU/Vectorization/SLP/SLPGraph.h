@@ -164,21 +164,19 @@ namespace mlir {
         static void printNode(SLPNode const* node) {
           llvm::dbgs() << "node_" << node << "[label=<\n";
           llvm::dbgs()
-              << "\t<TABLE ALIGN=\"CENTER\" BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"10\" CELLPADDING=\"0\">\n";
+              << "\t<TABLE ALIGN=\"CENTER\" BORDER=\"0\" CELLSPACING=\"10\" CELLPADDING=\"0\">\n";
           for (size_t i = node->numVectors(); i-- > 0;) {
             llvm::dbgs() << "\t\t<TR>\n";
             for (size_t j = 0; j < node->numLanes(); ++j) {
               auto* operation = node->getOperation(j, i);
-              if (std::intptr_t(operation) == 0x903a08) {
-                llvm::dbgs();
-              }
-              llvm::dbgs() << "\t\t\t<TD ALIGN=\"CENTER\">\n";
-              llvm::dbgs() << "\t\t\t\t<B>" << operation->getName() << "</B> <FONT COLOR=\"#bbbbbb\">(" << operation
-                           << ")</FONT>\n";
-              llvm::dbgs() << "\t\t\t</TD>\n";
+              llvm::dbgs() << "\t\t\t<TD>";
+              llvm::dbgs() << "<B>" << operation->getName() << "</B> <FONT COLOR=\"#bbbbbb\">(" << operation
+                           << ")</FONT>";
+              llvm::dbgs() << "</TD>";
               if (j < node->numLanes() - 1) {
-                llvm::dbgs() << "\t\t\t<VR/>\n";
+                llvm::dbgs() << "<VR/>";
               }
+              llvm::dbgs() << "\n";
             }
             llvm::dbgs() << "\t\t</TR>\n";
           }
