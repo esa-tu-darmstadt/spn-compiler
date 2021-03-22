@@ -3,16 +3,76 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
+#include "LoSPN/LoSPNDialect.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPass.h"
 #include "LoSPNtoCPU/Vectorization/TargetInformation.h"
-#include "LoSPNtoCPU/LoSPNtoCPUTypeConverter.h"
-#include "LoSPNtoCPU/StructurePatterns.h"
-#include "LoSPNtoCPU/NodePatterns.h"
+#include "LoSPNtoCPU/Vectorization/LoSPNVectorizationTypeConverter.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
-#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPSeeding.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPGraph.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Transforms/DialectConversion.h"
+
+// Anonymous namespace for helper functions.
+namespace {
+
+  /// For debugging purposes.
+  void printOperation(mlir::Operation* op) {
+    llvm::dbgs() << "node_" << op << "[label=\"" << op->getName().getStringRef() << "\\n" << op;
+    if (auto constantOp = llvm::dyn_cast<mlir::ConstantOp>(op)) {
+      if (constantOp.value().getType().isIntOrIndex()) {
+        llvm::dbgs() << "\\nvalue: " << std::to_string(constantOp.value().dyn_cast<mlir::IntegerAttr>().getInt());
+      } else if (constantOp.value().getType().isIntOrFloat()) {
+        llvm::dbgs() << "\\nvalue: "
+                     << std::to_string(constantOp.value().dyn_cast<mlir::FloatAttr>().getValueAsDouble());
+      }
+    }
+    llvm::dbgs() << "\", fillcolor=\"#a0522d\"];\n";
+  }
+
+  /// For debugging purposes.
+  void printEdge(mlir::Operation* src, mlir::Operation* dst, size_t index) {
+    llvm::dbgs() << "node_" << src << " -> node_" << dst << "[label=\"" << std::to_string(index) << "\"];\n";
+  }
+
+  /// For debugging purposes.
+  void printSeedTree(std::vector<mlir::Operation*> const& operations) {
+    std::vector<mlir::Operation*> nodes;
+    std::vector<std::tuple<mlir::Operation*, mlir::Operation*, size_t>> edges;
+
+    std::stack<mlir::Operation*> worklist;
+    for (auto& op : operations) {
+      worklist.push(op);
+    }
+
+    while (!worklist.empty()) {
+
+      auto op = worklist.top();
+      worklist.pop();
+
+      if (std::find(std::begin(nodes), std::end(nodes), op) == nodes.end()) {
+        nodes.emplace_back(op);
+        for (size_t i = 0; i < op->getNumOperands(); ++i) {
+          auto const& operand = op->getOperand(i);
+          if (operand.getDefiningOp() != nullptr) {
+            edges.emplace_back(std::make_tuple(op, operand.getDefiningOp(), i));
+            worklist.push(operand.getDefiningOp());
+          }
+        }
+      }
+    }
+
+    llvm::dbgs() << "digraph debug_graph {\n";
+    llvm::dbgs() << "rankdir = BT;\n";
+    llvm::dbgs() << "node[shape=box];\n";
+    for (auto& op : nodes) {
+      printOperation(op);
+    }
+    for (auto& edge : edges) {
+      printEdge(std::get<0>(edge), std::get<1>(edge), std::get<2>(edge));
+    }
+    llvm::dbgs() << "}\n";
+  }
+}
 
 void mlir::spn::SLPVectorizationPass::runOnOperation() {
   llvm::StringRef funcName = getOperation().getName();
@@ -32,26 +92,59 @@ void mlir::spn::SLPVectorizationPass::runOnOperation() {
 
   auto function = getOperation();
 
-  auto& seedAnalysis = getAnalysis<mlir::spn::slp::SeedAnalysis>();
+  auto& seedAnalysis = getAnalysis<SeedAnalysis>();
 
   auto computationType = function.getArguments().back().getType().dyn_cast<MemRefType>().getElementType();
   auto width = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
 
-  auto seeds = seedAnalysis.getSeeds(width, seedAnalysis.getOpDepths(), slp::UseBeforeDef);
+  auto seeds = seedAnalysis.getSeeds(width, seedAnalysis.getOpDepths(), SearchMode::UseBeforeDef);
   assert(!seeds.empty() && "couldn't find a seed!");
 
-  slp::SLPGraph graph(seeds.front(), 3);
+  SLPGraph graph(seeds.front(), 3);
   transform(graph);
 
 }
 
-void mlir::spn::SLPVectorizationPass::transform(slp::SLPGraph& graph) {
+void mlir::spn::SLPVectorizationPass::transform(SLPGraph& graph) {
   graph.dump();
-  transform(graph.getRoot(), true);
+  auto* rootOperation = transform(graph.getRoot(), true);
+  assert(false);
+  // Update users of vector operations that aren't contained in the graph.
+  for (auto const& entry : extractOps) {
+    for (auto const& extractOpData : entry.second) {
+      extractOpData.first->setOperand(extractOpData.second, nullptr);
+    }
+  }
 }
 
-mlir::Operation* mlir::spn::SLPVectorizationPass::transform(slp::SLPNode& node, bool isRoot) {
+mlir::Operation* mlir::spn::SLPVectorizationPass::transform(SLPNode& node, bool isRoot) {
+
+  for (size_t vectorIndex = 0; vectorIndex < node.numVectors(); ++vectorIndex) {
+    if (node.isUniform()) {
+
+      for (size_t lane = 0; lane < node.numLanes(); ++lane) {
+        auto* operation = node.getOperation(lane, vectorIndex);
+
+        auto type = VectorType::get(node.numLanes(), operation->getResult(0).getType());
+        auto operands = llvm::SmallVector<Value, 2>{};
+        auto* vectorOperation = Operation::create(operation->getLoc(),
+                                                  operation->getName(),
+                                                  type,
+                                                  operands,
+                                                  operation->getAttrs(),
+                                                  operation->getSuccessors(),
+                                                  operation->getNumRegions());
+
+        operation->dropAllUses();
+
+      }
+    } else {
+
+    }
+  }
   bool isMixed = false;
+  assert(false);
+  extractOps[nullptr];
   return node.getVector(0).front();
 }
 

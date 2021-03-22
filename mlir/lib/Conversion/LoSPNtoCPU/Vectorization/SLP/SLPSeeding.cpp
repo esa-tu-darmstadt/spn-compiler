@@ -4,10 +4,11 @@
 //
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPSeeding.h"
+#include "llvm/ADT/StringMap.h"
+#include "mlir/Dialect/Traits.h"
 
 using namespace mlir;
 using namespace mlir::spn;
-using namespace mlir::spn::slp;
 
 SeedAnalysis::SeedAnalysis(Operation* rootOp) : rootOp{rootOp} {}
 

@@ -7,7 +7,6 @@
 
 using namespace mlir;
 using namespace mlir::spn;
-using namespace mlir::spn::slp;
 
 SLPNode::SLPNode(std::vector<Operation*> const& operations) : lanes{operations.size()} {
   for (size_t i = 0; i < operations.size(); ++i) {

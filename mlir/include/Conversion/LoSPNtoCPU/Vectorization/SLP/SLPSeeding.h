@@ -6,41 +6,40 @@
 #ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPSEEDING_H
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPSEEDING_H
 
-#include "LoSPN/LoSPNOps.h"
+#include "mlir/IR/Operation.h"
+#include <map>
 
 namespace mlir {
   namespace spn {
-    namespace slp {
 
-      typedef std::vector<Operation*> seed_t;
+    typedef std::vector<Operation*> seed_t;
 
-      enum SearchMode {
-        ///
-        DefBeforeUse,
-        ///
-        UseBeforeDef,
-        /// TODO?
-        Chain
-      };
+    enum SearchMode {
+      ///
+      DefBeforeUse,
+      ///
+      UseBeforeDef,
+      /// TODO?
+      Chain
+    };
 
-      class SeedAnalysis {
+    class SeedAnalysis {
 
-      public:
+    public:
 
-        explicit SeedAnalysis(Operation* rootOp);
+      explicit SeedAnalysis(Operation* rootOp);
 
-        std::map<Operation*, unsigned int> getOpDepths() const;
+      std::map<Operation*, unsigned int> getOpDepths() const;
 
-        std::vector<seed_t> getSeeds(size_t const& op,
-                                     std::map<Operation*, unsigned int> const& depthsOf,
-                                     SearchMode const& mode) const;
+      std::vector<seed_t> getSeeds(size_t const& op,
+                                   std::map<Operation*, unsigned int> const& depthsOf,
+                                   SearchMode const& mode) const;
 
-      private:
+    private:
 
-        Operation* rootOp;
+      Operation* rootOp;
 
-      };
-    }
+    };
   }
 }
 

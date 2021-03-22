@@ -7,46 +7,40 @@
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPGRAPH_H
 
 #include "mlir/IR/Operation.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "LoSPN/LoSPNTraits.h"
 #include "SLPMode.h"
 #include "SLPNode.h"
 #include "SLPSeeding.h"
 
-#include <stack>
-
 namespace mlir {
   namespace spn {
-    namespace slp {
 
-      class SLPGraph {
+    class SLPGraph {
 
-      public:
+    public:
 
-        SLPGraph(seed_t const& seed, size_t const& maxLookAhead);
+      SLPGraph(seed_t const& seed, size_t const& maxLookAhead);
 
-        SLPNode& getRoot();
+      SLPNode& getRoot();
 
-        void dump() const;
+      void dump() const;
 
-      private:
+    private:
 
-        void buildGraph(std::vector<Operation*> const& operations, SLPNode& currentNode);
+      void buildGraph(std::vector<Operation*> const& operations, SLPNode& currentNode);
 
-        void reorderOperands(SLPNode const& multinode);
+      void reorderOperands(SLPNode const& multinode);
 
-        std::pair<Operation*, Mode> getBest(Mode const& mode,
-                                            Operation* last,
-                                            std::vector<Operation*>& candidates) const;
+      std::pair<Operation*, Mode> getBest(Mode const& mode,
+                                          Operation* last,
+                                          std::vector<Operation*>& candidates) const;
 
-        int getLookAheadScore(Operation* last, Operation* candidate, size_t const& maxLevel) const;
+      int getLookAheadScore(Operation* last, Operation* candidate, size_t const& maxLevel) const;
 
-        size_t const maxLookAhead;
+      size_t const maxLookAhead;
 
-        SLPNode root;
+      SLPNode root;
 
-      };
-    }
+    };
   }
 }
 

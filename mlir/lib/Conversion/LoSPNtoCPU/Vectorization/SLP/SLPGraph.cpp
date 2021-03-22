@@ -3,13 +3,14 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "llvm/Support/Debug.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraph.h"
 #include <set>
 #include <queue>
 
 using namespace mlir;
 using namespace mlir::spn;
-using namespace mlir::spn::slp;
 
 SLPGraph::SLPGraph(seed_t const& seed, size_t const& maxLookAhead) : maxLookAhead{maxLookAhead}, root{seed} {
   buildGraph(seed, root);
@@ -90,7 +91,7 @@ namespace {
     }
     return false;
   }
-  
+
   bool vectorizable(std::vector<Operation*> const& operations) {
     for (size_t i = 0; i < operations.size(); ++i) {
       auto* op = operations[i];

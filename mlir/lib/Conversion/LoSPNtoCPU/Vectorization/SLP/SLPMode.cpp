@@ -8,9 +8,8 @@
 
 using namespace mlir;
 using namespace mlir::spn;
-using namespace mlir::spn::slp;
 
-Mode slp::modeFromOperation(const Operation* operation) {
+Mode mlir::spn::modeFromOperation(const Operation* operation) {
   if (dyn_cast<ConstantOp>(operation)) {
     return CONST;
   } else if (dyn_cast<LoadOp>(operation)) {
