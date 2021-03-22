@@ -41,22 +41,18 @@ void mlir::spn::SLPVectorizationPass::runOnOperation() {
   assert(!seeds.empty() && "couldn't find a seed!");
 
   slp::SLPGraph graph(seeds.front(), 3);
+  transform(graph);
+
+}
+
+void mlir::spn::SLPVectorizationPass::transform(slp::SLPGraph& graph) {
   graph.dump();
-  std::vector<std::vector<Operation*>> vectors;
-  for (auto const& node_ptr : graph.getNodes()) {
-    for (size_t i = 0; i < node_ptr->numVectors(); ++i) {
-      vectors.emplace_back(node_ptr->getVector(i));
-    }
-  }
-  /*
-  OwningRewritePatternList patterns;
-  slp::populateVectorizationPatterns(patterns, &getContext(), vectors);
-  auto op = getOperation();
-  FrozenRewritePatternList frozenPatterns(std::move(patterns));
-  applyPatternsAndFoldGreedily(op, frozenPatterns);
-  */
+  transform(graph.getRoot(), true);
+}
 
-
+mlir::Operation* mlir::spn::SLPVectorizationPass::transform(slp::SLPNode& node, bool isRoot) {
+  bool isMixed = false;
+  return node.getVector(0).front();
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createSLPVectorizationPass() {

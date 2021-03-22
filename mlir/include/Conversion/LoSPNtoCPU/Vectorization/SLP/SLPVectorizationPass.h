@@ -8,6 +8,7 @@
 
 #include "mlir/Pass/Pass.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "SLPGraph.h"
 
 namespace mlir {
   namespace spn {
@@ -22,6 +23,9 @@ namespace mlir {
       void runOnOperation() override;
 
     private:
+
+      void transform(slp::SLPGraph& graph);
+      Operation* transform(slp::SLPNode& node, bool isRoot);
 
       /// For debugging purposes.
       static void printSPN(std::vector<Operation*> const& operations) {
