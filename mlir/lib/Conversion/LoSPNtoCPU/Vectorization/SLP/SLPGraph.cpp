@@ -10,7 +10,7 @@
 #include <queue>
 
 using namespace mlir;
-using namespace mlir::spn;
+using namespace mlir::spn::low::slp;
 
 SLPGraph::SLPGraph(seed_t const& seed, size_t const& maxLookAhead) : maxLookAhead{maxLookAhead}, root{seed} {
   buildGraph(seed, root);

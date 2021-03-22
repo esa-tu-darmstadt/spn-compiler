@@ -6,6 +6,7 @@
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPass.h"
 #include "LoSPNtoCPU/Vectorization/TargetInformation.h"
+#include "LoSPNtoCPU/LoSPNtoCPUTypeConverter.h"
 #include "LoSPNtoCPU/Vectorization/LoSPNVectorizationTypeConverter.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
@@ -74,7 +75,7 @@ namespace {
   }
 }
 
-void mlir::spn::SLPVectorizationPass::runOnOperation() {
+void mlir::spn::low::slp::SLPVectorizationPass::runOnOperation() {
   llvm::StringRef funcName = getOperation().getName();
   if (!funcName.contains("task_")) {
     return;
@@ -105,7 +106,7 @@ void mlir::spn::SLPVectorizationPass::runOnOperation() {
 
 }
 
-void mlir::spn::SLPVectorizationPass::transform(SLPGraph& graph) {
+void mlir::spn::low::slp::SLPVectorizationPass::transform(SLPGraph& graph) {
   graph.dump();
   auto* rootOperation = transform(graph.getRoot(), true);
   assert(false);
@@ -117,8 +118,8 @@ void mlir::spn::SLPVectorizationPass::transform(SLPGraph& graph) {
   }
 }
 
-mlir::Operation* mlir::spn::SLPVectorizationPass::transform(SLPNode& node, bool isRoot) {
-
+mlir::Operation* mlir::spn::low::slp::SLPVectorizationPass::transform(SLPNode& node, bool isRoot) {
+  LoSPNVectorizationTypeConverter typeConverter{4};
   for (size_t vectorIndex = 0; vectorIndex < node.numVectors(); ++vectorIndex) {
     if (node.isUniform()) {
 
@@ -149,6 +150,6 @@ mlir::Operation* mlir::spn::SLPVectorizationPass::transform(SLPNode& node, bool 
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createSLPVectorizationPass() {
-  return std::make_unique<SLPVectorizationPass>();
+  return std::make_unique<mlir::spn::low::slp::SLPVectorizationPass>();
 }
 

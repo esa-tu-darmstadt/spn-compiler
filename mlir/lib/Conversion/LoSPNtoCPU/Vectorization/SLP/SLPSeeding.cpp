@@ -8,7 +8,7 @@
 #include "mlir/Dialect/Traits.h"
 
 using namespace mlir;
-using namespace mlir::spn;
+using namespace mlir::spn::low::slp;
 
 SeedAnalysis::SeedAnalysis(Operation* rootOp) : rootOp{rootOp} {}
 

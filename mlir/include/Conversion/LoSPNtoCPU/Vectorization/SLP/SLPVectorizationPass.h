@@ -12,23 +12,26 @@
 
 namespace mlir {
   namespace spn {
+    namespace low {
+      namespace slp {
 
-    struct SLPVectorizationPass : public PassWrapper<SLPVectorizationPass, OperationPass<FuncOp>> {
+        struct SLPVectorizationPass : public PassWrapper<SLPVectorizationPass, OperationPass<FuncOp>> {
 
-    public:
+        public:
 
-    protected:
-      void runOnOperation() override;
+        protected:
+          void runOnOperation() override;
 
-    private:
+        private:
 
-      void transform(SLPGraph& graph);
-      Operation* transform(SLPNode& node, bool isRoot);
+          void transform(SLPGraph& graph);
+          Operation* transform(SLPNode& node, bool isRoot);
 
-      std::map<Operation*, std::vector<std::pair<Operation*, size_t>>> extractOps;
+          std::map<Operation*, std::vector<std::pair<Operation*, size_t>>> extractOps;
 
-    };
-
+        };
+      }
+    }
     std::unique_ptr<Pass> createSLPVectorizationPass();
   }
 }

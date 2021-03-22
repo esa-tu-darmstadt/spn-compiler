@@ -9,10 +9,9 @@
 #include "mlir/Dialect/Vector/VectorTransforms.h"
 
 using namespace mlir;
-using namespace mlir::spn;
+using namespace mlir::spn::low::slp;
 
-LogicalResult VectorizeTask::matchAndRewrite(FuncOp op,
-                                             PatternRewriter& rewriter) const {
+LogicalResult VectorizeTask::matchAndRewrite(FuncOp op, PatternRewriter& rewriter) const {
 
   if (!op->getName().getStringRef().contains("task_")) {
     return failure();
@@ -21,7 +20,6 @@ LogicalResult VectorizeTask::matchAndRewrite(FuncOp op,
 
   return success();
 }
-VectorizeTask::VectorizeTask(MLIRContext* context,
-                             SLPGraph& graph) : OpRewritePattern(context), graph{graph} {
+VectorizeTask::VectorizeTask(MLIRContext* context, SLPGraph& graph) : OpRewritePattern(context), graph{graph} {
 
 }

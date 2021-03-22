@@ -11,18 +11,22 @@
 
 namespace mlir {
   namespace spn {
+    namespace low {
+      namespace slp {
 
-    struct VectorizeTask : OpRewritePattern<FuncOp> {
+        struct VectorizeTask : OpRewritePattern<FuncOp> {
 
-      using OpRewritePattern<FuncOp>::OpRewritePattern;
+          using OpRewritePattern<FuncOp>::OpRewritePattern;
 
-      explicit VectorizeTask(MLIRContext* context, SLPGraph& graph);
+          explicit VectorizeTask(MLIRContext* context, SLPGraph& graph);
 
-      LogicalResult matchAndRewrite(FuncOp op, PatternRewriter& rewriter) const override;
+          LogicalResult matchAndRewrite(FuncOp op, PatternRewriter& rewriter) const override;
 
-    private:
-      SLPGraph& graph;
-    };
+        private:
+          SLPGraph& graph;
+        };
+      }
+    }
   }
 }
 
