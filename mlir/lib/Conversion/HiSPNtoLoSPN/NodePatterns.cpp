@@ -136,7 +136,7 @@ LogicalResult RootNodeLowering::matchAndRewriteChecked(high::RootNode op,
   if (!isLogType(result.getType())) {
     // Insert a conversion to log before returning the result.
     // Currently always uses F64 type to represent log results.
-    result = rewriter.create<low::SPNLog>(op->getLoc(), rewriter.getF64Type(), result);
+    result = rewriter.create<low::SPNLog>(op->getLoc(),operands[0].getType(), result);
   }
   rewriter.replaceOpWithNewOp<low::SPNYield>(op, result);
   return success();
