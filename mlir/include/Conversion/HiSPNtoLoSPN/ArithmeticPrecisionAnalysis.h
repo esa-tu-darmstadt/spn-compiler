@@ -117,10 +117,17 @@ namespace mlir {
       /// Process minimum and maximum node values to estimate the least amount of magnitude (Integer / Exponent) bits.
       void estimateLeastMagnitudeBits();
 
-      /// Check the error requirements .
+      /// Check the error requirements.
       /// \return Boolean true if the selected type can represent the SPN's value(s) within the error margin.
       ///                 Otherwise: false.
       bool checkRequirements();
+
+      /// Estimate error of Sum or Product operations, in a binary-tree-like evaluation order.
+      /// \param operands SmallVector<ErrorEstimationValue> The corresponding operation's operands (e.g. addends).
+      /// \param isSum Boolean If set to true will treat operands as addends, otherwise as multiplicands.
+      /// \return SmallVector<ErrorEstimationValue> with a single element, representing the whole Sum or Product.
+      llvm::SmallVector<ArithmeticPrecisionAnalysis::ErrorEstimationValue>
+        estimateErrorBinaryOperation(SmallVector<ErrorEstimationValue> operands, bool isSum);
 
       /// Estimate the error introduced by the given (weighted) addition operation w.r.t. the current format.
       /// \param op Pointer to the defining operation, representing a SPN node.

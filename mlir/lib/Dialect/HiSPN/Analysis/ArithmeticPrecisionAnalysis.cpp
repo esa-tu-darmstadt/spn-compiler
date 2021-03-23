@@ -91,9 +91,6 @@ void ArithmeticPrecisionAnalysis::emitDiagnosticInfo() {
   rso << "===========================================================\n";
 
   root->emitRemark("Error Estimation done.").attachNote(root->getLoc()) << rso.str();
-
-  // ToDo: Remove when "done debugging".
-  // llvm::dbgs() << rso.str();
 }
 
 void ArithmeticPrecisionAnalysis::analyzeGraph(Operation* graphRoot) {
@@ -232,63 +229,102 @@ void ArithmeticPrecisionAnalysis::traverseSubgraph(Operation* subgraphRoot) {
   }
 }
 
+llvm::SmallVector<ArithmeticPrecisionAnalysis::ErrorEstimationValue>
+    ArithmeticPrecisionAnalysis::estimateErrorBinaryOperation(SmallVector<ErrorEstimationValue> operands, bool isSum) {
+  int numOperands = operands.size();
+
+  if (numOperands == 1) {
+    // Nothing to do.
+    return operands;
+  } else if (numOperands == 2) {
+    double defective, accurate, max, min;
+    int depth;
+    if (isSum) {
+      // Calculate defective sum of two weighted addends.
+      defective = calc->calculateDefectiveSum(operands[0], operands[1]);
+
+      // Accumulate accurate values
+      accurate = operands[0].accurate + operands[1].accurate;
+      depth = std::max(operands[0].depth, operands[1].depth);
+
+      // "max": values will be added
+      // "min": the higher value will be ignored entirely (adder becomes min-selection)
+      max = operands[0].max + operands[1].max;
+      min = std::min(operands[0].min, operands[1].min);
+    } else {
+      // Calculate defective product value.
+      defective = calc->calculateDefectiveProduct(operands[0], operands[1]);
+
+      accurate = operands[0].accurate * operands[1].accurate;
+      depth = std::max(operands[0].depth, operands[1].depth);
+
+      // "max": highest values will be multiplied
+      // "min": lowest values will be multiplied
+      max = operands[0].max * operands[1].max;
+      min = operands[0].min * operands[1].min;
+    }
+    operands.set_size(1);
+    operands[0] = ErrorEstimationValue{accurate, defective, max, min, depth};
+    return operands;
+  } else {
+    // Split group of addends.
+    auto pivot = llvm::divideCeil(numOperands, 2);
+    SmallVector<ErrorEstimationValue> leftOperands;
+    SmallVector<ErrorEstimationValue> rightOperands;
+    unsigned count = 0;
+    for (auto addend : operands) {
+      if (count < pivot) {
+        leftOperands.push_back(addend);
+      } else {
+        rightOperands.push_back(addend);
+      }
+      ++count;
+    }
+
+    while (leftOperands.size() > 1) {
+      leftOperands = estimateErrorBinaryOperation(leftOperands, isSum);
+    }
+
+    while (rightOperands.size() > 1) {
+      rightOperands = estimateErrorBinaryOperation(rightOperands, isSum);
+    }
+
+    leftOperands.append(rightOperands);
+    return estimateErrorBinaryOperation(leftOperands, isSum);
+  }
+}
+
 void ArithmeticPrecisionAnalysis::estimateErrorSum(mlir::spn::high::SumNode op) {
   // Assumption: There are at least two operands.
   auto operands = op.operands();
   assert(operands.size() > 1);
   auto weights = op.weights();
 
-  // Assumption: Operands were encountered beforehand -- i.e. their values are known.
-  auto it_v1 = spn_node_values.find(operands[0].getDefiningOp());
-  assert(it_v1 != spn_node_values.end());
+  int numOperands = operands.size();
+  SmallVector<ErrorEstimationValue> weightedAddends;
 
-  // Retrieve the corresponding data
-  ErrorEstimationValue& v1 = it_v1->second;
-  auto v = ErrorEstimationValue{v1.accurate, v1.defective, v1.max, v1.min, v1.depth};
+  for (int i = 0; i < numOperands; ++i) {
+    // Assumption: Operands were encountered beforehand -- i.e. their values are known.
+    auto it_v = spn_node_values.find(operands[i].getDefiningOp());
+    assert(it_v != spn_node_values.end());
+    ErrorEstimationValue& v = it_v->second;
 
-  // Get the first weight
-  double weightValue = weights[0].dyn_cast<FloatAttr>().getValueAsDouble();
-  double weightDefect = calc->calculateDefectiveLeaf(weightValue);
-  auto w = ErrorEstimationValue{weightValue, weightDefect, weightValue, weightValue, 1};
+    double weightValue = weights[i].dyn_cast<FloatAttr>().getValueAsDouble();
+    double weightDefect = calc->calculateDefectiveLeaf(weightValue);
+    ErrorEstimationValue w = ErrorEstimationValue{weightValue, weightDefect, weightValue, weightValue, 1};
 
-  // Treat first weighted addend as defective product (w * v).
-  v.defective = calc->calculateDefectiveProduct(w, v);
-  v.accurate *= w.accurate;
-  v.max = v.max * w.accurate;
-  v.min = v.min * w.accurate;
-
-  // Iteratively determine values of Sum(w1*v1 + w2*v2 + ... + wn*vn).
-  for (int i = 1; i < (int) operands.size(); ++i) {
-    auto it_v2 = spn_node_values.find(operands[i].getDefiningOp());
-    assert(it_v2 != spn_node_values.end());
-    ErrorEstimationValue& v2 = it_v2->second;
-
-    // Working copy of the next value
-    auto u = ErrorEstimationValue{v2.accurate, v2.defective, v2.max, v2.min, v2.depth};
-
-    // Get the next weight
-    weightValue = weights[i].dyn_cast<FloatAttr>().getValueAsDouble();
-    weightDefect = calc->calculateDefectiveLeaf(weightValue);
-    w = ErrorEstimationValue{weightValue, weightDefect, weightValue, weightValue, 1};
-
-    // Treat next weighted addend as defective product.
-    u.defective = calc->calculateDefectiveProduct(u, w);
-    u.accurate *= w.accurate;
-    u.max = v.max * w.accurate;
-    u.min = v.min * w.accurate;
-
-    // Calculate defective sum of accumulated and next addend, before next iteration alters accumulated value.
-    v.defective = calc->calculateDefectiveSum(v, u);
-
-    // Accumulate accurate values
-    v.accurate += u.accurate;
-    v.depth = std::max(v.depth, u.depth);
-
-    // "max": values will be added
-    // "min": the higher value will be ignored entirely (adder becomes min-selection)
-    v.max = v.max + u.max;
-    v.min = std::min(v.min, u.min);
+    // Treat weighted addend as defective product.
+    double defective = calc->calculateDefectiveProduct(v, w);
+    double accurate = w.accurate * v.accurate;
+    double max = v.max * w.accurate;
+    double min = v.min * w.accurate;
+    int depth = std::max(v.depth, 1);
+    weightedAddends.push_back(ErrorEstimationValue{accurate, defective, max, min, depth});
   }
+
+  auto estimatedSum = estimateErrorBinaryOperation(weightedAddends, true);
+  assert(1 == estimatedSum.size());
+  auto v = estimatedSum[0];
 
   // Increase depth, since up until now we only took the operands' depth into account.
   v.depth += 1;
@@ -304,27 +340,20 @@ void ArithmeticPrecisionAnalysis::estimateErrorProduct(mlir::spn::high::ProductN
   auto it_v1 = spn_node_values.find(operands[0].getDefiningOp());
   assert(it_v1 != spn_node_values.end());
 
-  // Retrieve the corresponding data
-  ErrorEstimationValue& v1 = it_v1->second;
-  auto v = ErrorEstimationValue{v1.accurate, v1.defective, v1.max, v1.min, v1.depth};
+  int numOperands = operands.size();
+  SmallVector<ErrorEstimationValue> productOperands;
 
-  // Iteratively determine values of Product(v1 * v2 * ... * vn)
-  for (int i = 1; i < (int) operands.size(); ++i) {
-    auto it_vi = spn_node_values.find(operands[i].getDefiningOp());
-    assert(it_vi != spn_node_values.end());
-    ErrorEstimationValue& vi = it_vi->second;
-
-    // Calculate defective product before next iteration alters "joint-product" value.
-    v.defective = calc->calculateDefectiveProduct(v, vi);
-
-    v.accurate *= vi.accurate;
-    v.depth = std::max(v.depth, vi.depth);
-
-    // "max": highest values will be multiplied
-    // "min": lowest values will be multiplied
-    v.max *= vi.max;
-    v.min *= vi.min;
+  // Collect all data / operands
+  for (int i = 0; i < numOperands; ++i) {
+    // Assumption: Operands were encountered beforehand -- i.e. their values are known.
+    auto it_v = spn_node_values.find(operands[i].getDefiningOp());
+    assert(it_v != spn_node_values.end());
+    productOperands.push_back(ErrorEstimationValue{it_v->second});
   }
+
+  auto estimatedProduct = estimateErrorBinaryOperation(productOperands, false);
+  assert(1 == estimatedProduct.size());
+  auto v = estimatedProduct[0];
 
   // Increase depth, since up until now we only took the operands' depth into account.
   v.depth += 1;
