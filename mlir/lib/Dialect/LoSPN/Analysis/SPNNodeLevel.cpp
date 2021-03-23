@@ -3,10 +3,10 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#include "SPN/Analysis/SPNNodeLevel.h"
-#include "SPN/SPNInterfaces.h"
+#include "LoSPN/Analysis/SPNNodeLevel.h"
 
 using namespace mlir::spn;
+using namespace mlir::spn::low;
 
 mlir::spn::SPNNodeLevel::SPNNodeLevel(Operation* root, int rootLevel) : rootNode{root}, rootNodeLevel{rootLevel} {
   assert(root);
@@ -15,9 +15,18 @@ mlir::spn::SPNNodeLevel::SPNNodeLevel(Operation* root, int rootLevel) : rootNode
 
 void SPNNodeLevel::analyzeGraph(Operation* graphRoot) {
   assert(graphRoot);
-  if (auto query = dyn_cast<mlir::spn::QueryInterface>(graphRoot)) {
-    // If this is a query op, traverse all root nodes stored in the query.
-    for (auto root : query.getRootNodes()) {
+  llvm::SmallVector<Operation*, 5> spn_yields;
+
+  if (auto module = dyn_cast<ModuleOp>(graphRoot)) {
+    // If this is a ModuleOp, traverse all spn yields (SPN result / return values) stored in the module.
+    module.walk([&spn_yields](Operation* op) {
+      if (auto spnYield = dyn_cast<SPNYield>(op)) {
+        // SPNYield should only return one operand, which represents the SPN root.
+        spn_yields.push_back(spnYield.getOperand(0).getDefiningOp());
+      }
+    });
+
+    for (auto root : spn_yields) {
       analyzeGraph(root);
     }
     opLevels[graphRoot] = 0;
@@ -58,7 +67,8 @@ void SPNNodeLevel::traverseSubgraph(Operation* subgraphRoot, GraphLevelInfo info
     level = std::max(info.level, opLevels[subgraphRoot]);
   }
   opLevels[subgraphRoot] = level;
-  if (auto leafNode = dyn_cast<LeafNodeInterface>(subgraphRoot)) {
+  // FIXME: Add support for remaining / other leaf nodes -- i.e. find a "good way" to check for them.
+  if (auto leafNode = dyn_cast<SPNHistogramLeaf>(subgraphRoot)) {
     // Special treatment of leaf nodes: Stop the recursion
     // and store depth information.
 

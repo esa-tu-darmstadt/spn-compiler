@@ -12,7 +12,7 @@
 #include "mlir/IR/BuiltinOps.h"
 #include <util/Logging.h>
 #include <LoSPN/Analysis/SPNGraphStatistics.h>
-#include <SPN/Analysis/SPNNodeLevel.h>
+#include <LoSPN/Analysis/SPNNodeLevel.h>
 
 namespace spnc {
 

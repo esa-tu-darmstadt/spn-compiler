@@ -28,12 +28,18 @@ StatsFile& CollectGraphStatistics::execute() {
 void CollectGraphStatistics::collectStatistics(mlir::ModuleOp& module) {
   // ToDo: Do we need previous checks / assertions?
 
-  // ToDo: Adapt SPNNodeLevel analysis to loSPN dialect.
-  // nodeLevel = std::make_unique<SPNNodeLevel>(module);
+  llvm::SmallVector<Operation*, 5> spn_body_bb;
+  module.walk([&spn_body_bb](Operation* op) {
+    if (auto spnBody = dyn_cast<SPNBody>(op)) {
+      spn_body_bb.push_back(op);
+    }
+  });
+
+  nodeLevel = std::make_unique<SPNNodeLevel>(module);
   graphStats = std::make_unique<SPNGraphStatistics>(module);
 
-  // ToDo: How to get the featureCount from loSPN?
-  auto featureCount = -1; //  dyn_cast<QueryInterface>(queries.front()).getNumFeatures();
+  // ToDo: "Correct way" of obtaining the featureCount from loSPN?
+  auto featureCount = spn_body_bb.front()->getNumOperands();
 
   auto sumCount = graphStats->getKindNodeCount<SPNAdd>();
   auto prodCount = graphStats->getKindNodeCount<SPNMul>();
@@ -44,11 +50,10 @@ void CollectGraphStatistics::collectStatistics(mlir::ModuleOp& module) {
   auto innerCount = graphStats->getInnerNodeCount();
   auto leafCount = graphStats->getLeafNodeCount();
 
-  // ToDo: Adapt SPNNodeLevel analysis to loSPN dialect.
-  auto maxDepth = -1; // nodeLevel->getMaxDepth();
-  auto minDepth = -1; // nodeLevel->getMinDepth();
-  auto medianDepth = -1; // nodeLevel->getMedianDepth();
-  auto avgDepth = -1; // nodeLevel->getAverageDepth();
+  auto maxDepth = nodeLevel->getMaxDepth();
+  auto minDepth = nodeLevel->getMinDepth();
+  auto medianDepth = nodeLevel->getMedianDepth();
+  auto avgDepth = nodeLevel->getAverageDepth();
 
   SPDLOG_INFO("====================================");
   SPDLOG_INFO("|          SPN Statistics          |");

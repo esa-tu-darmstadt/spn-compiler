@@ -3,13 +3,12 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#ifndef SPNC_MLIR_DIALECTS_INCLUDE_ANALYSIS_SPNNODELEVEL_H
-#define SPNC_MLIR_DIALECTS_INCLUDE_ANALYSIS_SPNNODELEVEL_H
+#ifndef SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_LOSPN_ANALYSIS_SPNNODELEVEL_H
+#define SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_LOSPN_ANALYSIS_SPNNODELEVEL_H
 
-#include "mlir/IR/Operation.h"
-#include "mlir/IR/OpDefinition.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/IndexedMap.h"
+#include "LoSPN/LoSPNOps.h"
 
 namespace mlir {
   namespace spn {
@@ -87,4 +86,4 @@ namespace mlir {
   }
 }
 
-#endif //SPNC_MLIR_DIALECTS_INCLUDE_ANALYSIS_SPNNODELEVEL_H
+#endif //SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_LOSPN_ANALYSIS_SPNNODELEVEL_H
