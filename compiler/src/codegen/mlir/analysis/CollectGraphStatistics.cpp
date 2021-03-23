@@ -4,12 +4,13 @@
 //
 
 #include "CollectGraphStatistics.h"
-#include "SPN/SPNOps.h"
+#include "LoSPN/LoSPNOps.h"
 #include "util/json.hpp"
 
 using namespace spnc;
 using namespace mlir;
 using namespace mlir::spn;
+using namespace mlir::spn::low;
 using json = nlohmann::json;
 
 CollectGraphStatistics::CollectGraphStatistics(ActionWithOutput<mlir::ModuleOp>& _input, StatsFile _statsFile)
@@ -25,39 +26,29 @@ StatsFile& CollectGraphStatistics::execute() {
 }
 
 void CollectGraphStatistics::collectStatistics(mlir::ModuleOp& module) {
-  llvm::SmallVector<Operation*, 5> queries;
-  module.walk([&queries](Operation* op) {
-    if (auto query = dyn_cast<QueryInterface>(op)) {
-      queries.push_back(op);
-    }
-  });
+  // ToDo: Do we need previous checks / assertions?
 
-  if (queries.empty()) {
-    SPDLOG_ERROR("Did not find any queries to analyze!");
-    return;
-  }
+  // ToDo: Adapt SPNNodeLevel analysis to loSPN dialect.
+  // nodeLevel = std::make_unique<SPNNodeLevel>(module);
+  graphStats = std::make_unique<SPNGraphStatistics>(module);
 
-  if (queries.size() > 1) {
-    // TODO: Maybe we can extend this to multiple queries in a single module in the future.
-    SPDLOG_WARN("Found more than one query, will only analyze the first query!");
-  }
+  // ToDo: How to get the featureCount from loSPN?
+  auto featureCount = -1; //  dyn_cast<QueryInterface>(queries.front()).getNumFeatures();
 
-  nodeLevel = std::make_unique<SPNNodeLevel>(queries.front());
-  graphStats = std::make_unique<SPNGraphStatistics>(queries.front());
-
-  auto featureCount = dyn_cast<QueryInterface>(queries.front()).getNumFeatures();
-
-  auto sumCount = graphStats->getKindNodeCount<SumOp>();
-  auto prodCount = graphStats->getKindNodeCount<ProductOp>();
-  auto histCount = graphStats->getKindNodeCount<HistogramOp>();
-  auto constCount = graphStats->getKindNodeCount<ConstantOp>();
+  auto sumCount = graphStats->getKindNodeCount<SPNAdd>();
+  auto prodCount = graphStats->getKindNodeCount<SPNMul>();
+  auto categCount = graphStats->getKindNodeCount<SPNCategoricalLeaf>();
+  auto constCount = graphStats->getKindNodeCount<SPNConstant>();
+  auto gaussCount = graphStats->getKindNodeCount<SPNGaussianLeaf>();
+  auto histCount = graphStats->getKindNodeCount<SPNHistogramLeaf>();
   auto innerCount = graphStats->getInnerNodeCount();
   auto leafCount = graphStats->getLeafNodeCount();
 
-  auto maxDepth = nodeLevel->getMaxDepth();
-  auto minDepth = nodeLevel->getMinDepth();
-  auto medianDepth = nodeLevel->getMedianDepth();
-  auto avgDepth = nodeLevel->getAverageDepth();
+  // ToDo: Adapt SPNNodeLevel analysis to loSPN dialect.
+  auto maxDepth = -1; // nodeLevel->getMaxDepth();
+  auto minDepth = -1; // nodeLevel->getMinDepth();
+  auto medianDepth = -1; // nodeLevel->getMedianDepth();
+  auto avgDepth = -1; // nodeLevel->getAverageDepth();
 
   SPDLOG_INFO("====================================");
   SPDLOG_INFO("|          SPN Statistics          |");
@@ -68,10 +59,12 @@ void CollectGraphStatistics::collectStatistics(mlir::ModuleOp& module) {
   SPDLOG_INFO(" > Average depth: {}", avgDepth);
   SPDLOG_INFO(" > Median depth:  {}", medianDepth);
   SPDLOG_INFO(" > Nodes (inner, leaf): ({}, {})", innerCount, leafCount);
-  SPDLOG_INFO(" > Sum-Nodes: {}", sumCount);
-  SPDLOG_INFO(" > Product-Nodes: {}", prodCount);
-  SPDLOG_INFO(" > Histogram-Nodes: {}", histCount);
-  SPDLOG_INFO(" > Constant-Nodes: {}", constCount);
+  SPDLOG_INFO(" > Sum-Nodes:         {}", sumCount);
+  SPDLOG_INFO(" > Product-Nodes:     {}", prodCount);
+  SPDLOG_INFO(" > Categorical-Nodes: {}", categCount);
+  SPDLOG_INFO(" > Constant-Nodes:    {}", constCount);
+  SPDLOG_INFO(" > Gaussian-Nodes:    {}", gaussCount);
+  SPDLOG_INFO(" > Histogram-Nodes:   {}", histCount);
   SPDLOG_INFO("====================================");
 
   json stats;
@@ -85,8 +78,10 @@ void CollectGraphStatistics::collectStatistics(mlir::ModuleOp& module) {
   stats["leafCount"] = leafCount;
   stats["sumCount"] = sumCount;
   stats["productCount"] = prodCount;
-  stats["histogramCount"] = histCount;
+  stats["categoricalCount"] = categCount;
   stats["constantCount"] = constCount;
+  stats["gaussianCount"] = gaussCount;
+  stats["histogramCount"] = histCount;
 
   std::ofstream fileStream;
   fileStream.open(statsFile.fileName());

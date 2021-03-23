@@ -4,6 +4,7 @@ add_mlir_dialect_library(MLIRLoSPN
         LoSPNAttributes.cpp
         Passes/LoSPNBufferize.cpp
         Bufferize/LoSPNBufferizationPatterns.cpp
+        Analysis/SPNGraphStatistics.cpp
 
         ADDITIONAL_HEADER_DIRS
         ${PROJECT_SOURCE_DIR}/mlir/include/Dialect

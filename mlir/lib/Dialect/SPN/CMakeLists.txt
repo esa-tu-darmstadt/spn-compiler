@@ -4,7 +4,6 @@ add_mlir_dialect_library(MLIRSPN
         SPNAttributes.cpp
         SPNEnums.cpp
         Analysis/SPNNodeLevel.cpp
-        Analysis/SPNGraphStatistics.cpp
         Canonicalization/CanonicalizationPatterns.cpp
         Simplification/SimplificationPatterns.cpp
         TypeAnalysis/TypePinningPatterns.cpp

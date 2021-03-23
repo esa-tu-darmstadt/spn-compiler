@@ -11,7 +11,7 @@
 #include <util/json.hpp>
 #include "mlir/IR/BuiltinOps.h"
 #include <util/Logging.h>
-#include <SPN/Analysis/SPNGraphStatistics.h>
+#include <LoSPN/Analysis/SPNGraphStatistics.h>
 #include <SPN/Analysis/SPNNodeLevel.h>
 
 namespace spnc {

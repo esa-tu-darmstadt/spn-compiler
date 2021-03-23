@@ -41,21 +41,19 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
   BinarySPN binarySPNFile{inputFile, false};
   auto& deserialized = job->insertAction<MLIRDeserializer>(std::move(binarySPNFile), ctx, kernelInfo);
   auto& hispn2lospn = job->insertAction<HiSPNtoLoSPNConversion>(deserialized, ctx, diagHandler);
+  auto& lospnTransform = job->insertAction<LoSPNTransformations>(hispn2lospn, ctx, diagHandler, kernelInfo);
+  ActionWithOutput<ModuleOp>* lospnTransformResult = &lospnTransform;
   // If requested via the configuration, collect graph statistics.
-  // TODO: Graph statistics collection is currently disabled, as it does not yet work
-  // with the LoSPN dialect.
-  // TODO: Move this to LoSPNTransformations
-  if (false && spnc::option::collectGraphStats.get(*config)) {
+  if (spnc::option::collectGraphStats.get(*config)) {
     auto deleteTmps = spnc::option::deleteTemporaryFiles.get(*config);
     // Collect graph statistics on transformed / canonicalized MLIR.
     auto statsFile = StatsFile(spnc::option::graphStatsFile.get(*config), deleteTmps);
-    auto& graphStats = job->insertAction<CollectGraphStatistics>(hispn2lospn, std::move(statsFile));
+    auto& graphStats = job->insertAction<CollectGraphStatistics>(lospnTransform, std::move(statsFile));
     // Join the two actions happening on the transformed module (Graph-Stats & SPN-to-Standard-MLIR lowering).
-    auto& joinAction = job->insertAction<JoinAction<mlir::ModuleOp, StatsFile>>(hispn2lospn, graphStats);
-    //spnPipelineResult = &joinAction;
+    auto& joinAction = job->insertAction<JoinAction<mlir::ModuleOp, StatsFile>>(lospnTransform, graphStats);
+    lospnTransformResult = &joinAction;
   }
-  auto& lospnTransform = job->insertAction<LoSPNTransformations>(hispn2lospn, ctx, diagHandler, kernelInfo);
-  auto& lospn2cpu = job->insertAction<LoSPNtoCPUConversion>(lospnTransform, ctx, diagHandler);
+  auto& lospn2cpu = job->insertAction<LoSPNtoCPUConversion>(*lospnTransformResult, ctx, diagHandler);
   auto& cpu2llvm = job->insertAction<CPUtoLLVMConversion>(lospn2cpu, ctx, diagHandler);
 
   // Convert the MLIR module to a LLVM-IR module.
