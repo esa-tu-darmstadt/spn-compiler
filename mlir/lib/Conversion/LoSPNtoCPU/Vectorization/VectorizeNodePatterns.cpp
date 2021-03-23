@@ -326,7 +326,13 @@ mlir::LogicalResult mlir::spn::VectorizeGaussian::matchAndRewrite(mlir::spn::low
   // e^(-(x-mean)^2 / 2*variance)
   auto exp = rewriter.create<mlir::math::ExpOp>(op.getLoc(), fraction);
   // e^(-(x - mean)^2/2*variance)) * 1/sqrt(2*PI*variance)
-  rewriter.replaceOpWithNewOp<mlir::MulFOp>(op, coefficientConst, exp);
+  Value gaussian = rewriter.create<mlir::MulFOp>(op->getLoc(), coefficientConst, exp);
+  if (op.supportMarginal()) {
+    auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), CmpFPredicate::UNO, feature, feature);
+    auto constOne = broadcastVectorConstant(vectorType, 1.0, rewriter, op.getLoc());
+    gaussian = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, gaussian);
+  }
+  rewriter.replaceOp(op, gaussian);
   return success();
 }
 
@@ -400,7 +406,13 @@ mlir::LogicalResult mlir::spn::VectorizeLogGaussian::matchAndRewrite(mlir::spn::
   // - ( (x-mean)^2 / 2 * stddev^2 )
   auto fraction = rewriter.create<mlir::MulFOp>(op.getLoc(), numerator, denominatorConst);
   // -ln(stddev) - 1/2 ln(2*pi) - 1/2*(stddev^2) * (x - mean)^2
-  rewriter.replaceOpWithNewOp<mlir::AddFOp>(op, coefficientConst, fraction);
+  Value gaussian = rewriter.create<mlir::AddFOp>(op->getLoc(), coefficientConst, fraction);
+  if (op.supportMarginal()) {
+    auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), CmpFPredicate::UNO, feature, feature);
+    auto constOne = broadcastVectorConstant(vectorType, 0.0, rewriter, op.getLoc());
+    gaussian = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, gaussian);
+  }
+  rewriter.replaceOp(op, gaussian);
   return success();
 }
 
@@ -413,7 +425,7 @@ namespace {
                                                           mlir::Value indexOperand,
                                                           llvm::ArrayRef<mlir::Attribute> arrayValues,
                                                           mlir::Type resultType,
-                                                          const std::string& tablePrefix) {
+                                                          const std::string& tablePrefix, bool computesLog) {
     static int tableCount = 0;
     auto inputType = indexOperand.getType();
     if (!inputType.template isa<mlir::VectorType>()) {
@@ -463,8 +475,17 @@ namespace {
     auto mask = broadcastVectorConstant(mlir::VectorType::get(vectorShape, rewriter.getI1Type()), true,
                                         rewriter, op->getLoc());
     // Replace the source operation with a gather load from the global memref.
-    rewriter.template replaceOpWithNewOp<mlir::vector::GatherOp>(op, vectorType, addressOf,
-                                                                 index, mask, passThru);
+    mlir::Value leaf = rewriter.template create<mlir::vector::GatherOp>(op.getLoc(), vectorType, addressOf,
+                                                                        index, mask, passThru);
+    if (op.supportMarginal()) {
+      assert(indexType.template isa<mlir::FloatType>());
+      auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), mlir::CmpFPredicate::UNO,
+                                                 indexOperand, indexOperand);
+      auto marginalValue = (computesLog) ? 0.0 : 1.0;
+      auto constOne = broadcastVectorConstant(vectorType, marginalValue, rewriter, op.getLoc());
+      leaf = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, leaf);
+    }
+    rewriter.replaceOp(op, leaf);
     return mlir::success();
   }
 
@@ -495,7 +516,8 @@ mlir::LogicalResult mlir::spn::VectorizeCategorical::matchAndRewrite(mlir::spn::
     }
   }
   return replaceOpWithGatherFromGlobalMemref<low::SPNCategoricalLeaf>(op, rewriter, operands[0],
-                                                                      values, resultType, "categorical_vec_");
+                                                                      values, resultType, "categorical_vec_",
+                                                                      computesLog);
 }
 
 mlir::LogicalResult mlir::spn::VectorizeHistogram::matchAndRewrite(mlir::spn::low::SPNHistogramLeaf op,
@@ -559,7 +581,8 @@ mlir::LogicalResult mlir::spn::VectorizeHistogram::matchAndRewrite(mlir::spn::lo
 
   }
   return replaceOpWithGatherFromGlobalMemref<low::SPNHistogramLeaf>(op, rewriter, operands[0], valArray,
-                                                                    resultType, "histogram_vec_");
+                                                                    resultType, "histogram_vec_",
+                                                                    computesLog);
 }
 
 mlir::LogicalResult mlir::spn::ResolveVectorizedStripLog::matchAndRewrite(low::SPNStripLog op,

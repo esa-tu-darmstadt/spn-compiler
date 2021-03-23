@@ -27,7 +27,8 @@ namespace spnc {
 
     /// Available compilation targets.
     enum TargetMachine {
-      CPU
+      CPU,
+      CUDA
     };
 
     ///
@@ -38,9 +39,24 @@ namespace spnc {
     /// Flag to indicate whether the code generated for the CPU should be vectorized.
     extern Option<bool> cpuVectorize;
 
+    /// Available vector libraries
+    enum VectorLibrary {
+      SVML,
+      LIBMVEC,
+      NONE
+    };
+
+    extern EnumOpt vectorLibrary;
+
+    extern Option<bool> replaceGatherWithShuffle;
+
     ///
     /// Flag to indicate whether log-space computation should be used.
     extern Option<bool> logSpace;
+
+    ///
+    /// Flag to indicate whether GPU computation should use shared/workgroup memory.
+    extern Option<bool> gpuSharedMem;
 
     ///
     /// Flag to indicate whether temporary files created during compilation

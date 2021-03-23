@@ -74,6 +74,7 @@ enum ErrorKind {
 
 struct JointProbability {
     model @0 : Model;
+    supportMarginal @1 : Bool;
 }
 
 struct Query {

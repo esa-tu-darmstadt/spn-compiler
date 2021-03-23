@@ -185,6 +185,21 @@ def SPNConvertToVector : LoSPN_Op<"to_vector", []> {
 
 }
 
+def SPNConvertToScalar : LoSPN_Op<"to_scalar", [NoSideEffect]> {
+    let summary = "Convert vector input to scalar";
+
+    let description = [{
+        Converts from a vector to a single scalar.
+        This operation is only used as a materialization during type conversion
+        and does not generate actual code to convert the value to a scalar.
+    }];
+
+    let arguments = (ins VectorOf<[LoSPNComputeType]>:$vector);
+
+    let results = (outs LoSPNComputeType:$output);
+
+}
+
 def SPNStripLog : LoSPN_Op<"strip_log", [VectorizableOp, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
     let summary = "Strip the log-space property from a value";
 

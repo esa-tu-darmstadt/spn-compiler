@@ -101,6 +101,7 @@ namespace spnc {
   /// steps of the tool-chain.
   struct KernelInfo {
     spnc::KernelQueryType queryType;
+    spnc::KernelTarget target;
     unsigned batchSize;
     unsigned numFeatures;
     unsigned bytesPerFeature;

@@ -11,27 +11,13 @@
 #include <driver/Options.h>
 #include <llvm/Target/TargetMachine.h>
 
-using namespace spnc::interface;
-using namespace mlir;
-
 namespace spnc {
 
   ///
-  /// Toolchain generating code for CPUs using LLVM.
+  /// Common functionality for all tool-chains.
   class MLIRToolchain {
 
-  public:
-    /// Construct a job reading the SPN from an input file.
-    /// \param inputFile Input file.
-    /// \param config Compilation option configuration.
-    /// \return Job containing all necessary actions.
-    static std::unique_ptr<Job < Kernel>> constructJobFromFile(
-    const std::string& inputFile,
-        std::shared_ptr<Configuration>
-    config
-    );
-
-  private:
+  protected:
 
     static void initializeMLIRContext(mlir::MLIRContext& ctx);
 

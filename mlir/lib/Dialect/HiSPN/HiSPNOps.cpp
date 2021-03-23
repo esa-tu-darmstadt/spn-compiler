@@ -25,6 +25,20 @@ namespace mlir {
       }
 
       //===----------------------------------------------------------------------===//
+      // JointQuery
+      //===----------------------------------------------------------------------===//
+      static mlir::LogicalResult verify(JointQuery node) {
+        if (node.supportMarginal()) {
+          // Marginalization is triggered by feature values set to NaN,
+          // so the input must be a float type to represent that.
+          if (!node.getFeatureDataType().isa<FloatType>()) {
+            return node->emitOpError("Feature data type must be floating-point to support marginal");
+          }
+        }
+        return mlir::success();
+      }
+
+      //===----------------------------------------------------------------------===//
       // ProductNode
       //===----------------------------------------------------------------------===//
       static mlir::LogicalResult verify(ProductNode node) {
