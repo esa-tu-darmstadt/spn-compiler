@@ -133,27 +133,29 @@ mlir::Operation* SLPVectorizationPass::transform(SLPNode const& node, size_t vec
   if (isBroadcastable(vectorizableOps)) {
     auto value = firstOp->getResult(0);
     vectorOp = builder.create<vector::BroadcastOp>(firstOp->getLoc(), vectorType, value);
-  } else if (node.isUniform()) {
-    if (areConsecutiveLoads(vectorizableOps)) {
-      auto base = firstOp->getResult(0);
-      auto zero = builder.create<ConstantOp>(firstOp->getLoc(), builder.getIndexAttr(0));
-      auto indices = ValueRange{zero.getResult()};
-      vectorOp = builder.create<vector::LoadOp>(firstOp->getLoc(), vectorType, base, indices);
-    } else {
-      llvm::SmallVector<Value, 2> operands;
-      for (size_t i = 0; i < firstOp->getNumOperands(); ++i) {
+  } else if (areConsecutiveLoads(vectorizableOps)) {
+    auto base = firstOp->getResult(0);
+    auto zero = builder.create<ConstantOp>(firstOp->getLoc(), builder.getIndexAttr(0));
+    auto indices = ValueRange{zero.getResult()};
+    vectorOp = builder.create<vector::LoadOp>(firstOp->getLoc(), vectorType, base, indices);
+  } else if (node.isUniform() && firstOp->getNumOperands() > 0) {
+    llvm::SmallVector<Value, 2> operands;
+    for (size_t i = 0; i < firstOp->getNumOperands(); ++i) {
 
-        SLPNode const* operandNode = &node;
+      if (node.isMultiNode()) {
+        // TODO: visit non-multinode-operands first?
         size_t operandNodeIndex = 0;
+        SLPNode const* operandNode = &node;
+
+        size_t nodeSpill = spill;
 
         unsigned availableOperands = node.numVectors();
-        unsigned usedOperands = vectorIndex * firstOp->getNumOperands() + spill;
+        unsigned usedOperands = vectorIndex * firstOp->getNumOperands() + nodeSpill;
         size_t nextIndex = usedOperands + i;
-        size_t nodeSpill = spill;
 
         while (availableOperands <= nextIndex) {
           if (operandNodeIndex == 0) {
-            nodeSpill = ((firstOp->getNumOperands() - 1) * node.numVectors()) + spill;
+            nodeSpill = ((firstOp->getNumOperands() - 1) * node.numVectors()) + nodeSpill;
           } else {
             nodeSpill -= availableOperands;
           }
@@ -161,19 +163,21 @@ mlir::Operation* SLPVectorizationPass::transform(SLPNode const& node, size_t vec
           nextIndex -= availableOperands;
           availableOperands = operandNode->numVectors();
         }
-
+        assert(nodeSpill > 0);
         operands.emplace_back(transform(*operandNode, nextIndex, nodeSpill)->getResult(0));
+      } else {
+        operands.emplace_back(transform(node.getOperand(i), 0, 1)->getResult(0));
       }
-      vectorOp = Operation::create(firstOp->getLoc(),
-                                   firstOp->getName(),
-                                   vectorType,
-                                   operands,
-                                   firstOp->getAttrs(),
-                                   firstOp->getSuccessors(),
-                                   firstOp->getNumRegions());
-      builder.insert(vectorOp);
-    }
 
+    }
+    vectorOp = Operation::create(firstOp->getLoc(),
+                                 firstOp->getName(),
+                                 vectorType,
+                                 operands,
+                                 firstOp->getAttrs(),
+                                 firstOp->getSuccessors(),
+                                 firstOp->getNumRegions());
+    builder.insert(vectorOp);
   } else {
     vectorOp = builder.create<vector::BroadcastOp>(firstOp->getLoc(), vectorType, firstOp->getResult(0));
     for (size_t lane = 1; lane < node.numLanes(); ++lane) {
@@ -208,4 +212,3 @@ void SLPVectorizationPass::updateExtractions(SLPNode const& node, size_t const& 
 std::unique_ptr<mlir::Pass> mlir::spn::createSLPVectorizationPass() {
   return std::make_unique<SLPVectorizationPass>();
 }
-

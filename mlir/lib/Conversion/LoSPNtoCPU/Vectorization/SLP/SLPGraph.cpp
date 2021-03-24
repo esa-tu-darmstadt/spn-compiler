@@ -197,7 +197,7 @@ void SLPGraph::buildGraph(std::vector<Operation*> const& operations, SLPNode& cu
 }
 
 void SLPGraph::reorderOperands(SLPNode const& multinode) {
-  if(std::uintptr_t(multinode.getOperation(0, 0)) == 12345) {
+  if (std::uintptr_t(multinode.getOperation(0, 0)) == 12345) {
     multinode.dump();
     llvm::dbgs() << "\n";
   }
