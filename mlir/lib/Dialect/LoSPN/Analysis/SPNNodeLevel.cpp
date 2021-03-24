@@ -43,7 +43,7 @@ void SPNNodeLevel::analyzeGraph(Operation* graphRoot) {
       // Evaluate the histogram to compute average and median.
       avg_acc += *it * leafLevelHistogram[*it];
       index += leafLevelHistogram[*it];
-      if (pivot < index) {
+      if ((pivot < index) && (pivot > (index - leafLevelHistogram[*it]))) {
         // The median element is located in this bucket.
         if ((numLeafNodes % 2) == 0 && ((int) (pivot + 1)) == index) {
           // Even number of leaf nodes, we need consider two leaves to
