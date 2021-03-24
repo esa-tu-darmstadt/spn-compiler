@@ -15,6 +15,10 @@ namespace mlir {
     namespace low {
       namespace slp {
 
+        namespace {
+          typedef std::pair<Operation*, size_t> Extraction;
+        }
+
         struct SLPVectorizationPass : public PassWrapper<SLPVectorizationPass, OperationPass<FuncOp>> {
 
         public:
@@ -24,10 +28,13 @@ namespace mlir {
 
         private:
 
-          void transform(SLPGraph& graph);
-          Operation* transform(SLPNode& node, bool isRoot);
+          void transform(SLPGraph const& graph);
+          Operation* transform(SLPNode const& node, size_t vectorIndex, size_t spill);
+          void updateExtractions(SLPNode const& node, size_t const& vectorIndex, Operation* vectorOp);
 
-          std::map<Operation*, std::vector<std::pair<Operation*, size_t>>> extractOps;
+          /// Stores where operations can find their operands after vectorization in case their defining operations
+          /// were deleted during vectorization.
+          std::map<Operation*, std::map<size_t, Extraction>> extractions;
 
         };
       }

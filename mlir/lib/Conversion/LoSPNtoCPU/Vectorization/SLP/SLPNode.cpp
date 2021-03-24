@@ -4,6 +4,7 @@
 //
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPNode.h"
+#include "llvm/Support/Debug.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -30,7 +31,7 @@ void SLPNode::setOperation(size_t lane, size_t index, Operation* operation) {
 }
 
 bool SLPNode::isMultiNode() const {
-  return lanes.front().size() > 1;
+  return numVectors() > 1;
 }
 
 bool SLPNode::isUniform() const {
@@ -86,4 +87,20 @@ std::vector<SLPNode*> SLPNode::getOperands() const {
 
 size_t SLPNode::numOperands() const {
   return operandNodes.size();
+}
+
+Type SLPNode::getResultType() const {
+  return lanes[0][0]->getResult(0).getType();
+}
+
+void SLPNode::dump() const {
+  for (size_t i = numVectors(); i-- > 0;) {
+    for (size_t lane = 0; lane < numLanes(); ++lane) {
+      llvm::dbgs() << *getOperation(lane, i) << "(" << getOperation(lane, i) << ")";
+      if (lane < numLanes() - 1) {
+        llvm::dbgs() << "\t|\t";
+      }
+    }
+    llvm::dbgs() << "\n";
+  }
 }

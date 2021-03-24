@@ -22,7 +22,7 @@ namespace mlir {
 
           SLPGraph(seed_t const& seed, size_t const& maxLookAhead);
 
-          SLPNode& getRoot();
+          SLPNode const& getRoot() const;
 
           void dump() const;
 

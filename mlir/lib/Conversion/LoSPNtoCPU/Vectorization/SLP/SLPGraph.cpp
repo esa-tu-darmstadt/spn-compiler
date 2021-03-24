@@ -6,6 +6,7 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "llvm/Support/Debug.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraph.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
 #include <set>
 #include <queue>
 
@@ -16,7 +17,7 @@ SLPGraph::SLPGraph(seed_t const& seed, size_t const& maxLookAhead) : maxLookAhea
   buildGraph(seed, root);
 }
 
-SLPNode& SLPGraph::getRoot() {
+SLPNode const& SLPGraph::getRoot() const {
   return root;
 }
 
@@ -62,35 +63,6 @@ void SLPGraph::dump() const {
 
 // Some helper functions in an anonymous namespace.
 namespace {
-
-  bool areConsecutive(Operation* op1, Operation* op2) {
-    auto load1 = dyn_cast<LoadOp>(op1);
-    auto load2 = dyn_cast<LoadOp>(op2);
-    if (!load1 || !load2) {
-      return false;
-    }
-    if (load1.indices().size() != load2.indices().size()) {
-      return false;
-    }
-    for (size_t i = 0; i < load1.indices().size(); ++i) {
-      auto const1 = load1.indices()[i].getDefiningOp<ConstantOp>();
-      auto const2 = load2.indices()[i].getDefiningOp<ConstantOp>();
-      if (!const1 || !const2) {
-        return false;
-      }
-      auto index1 = const1.value().dyn_cast<IntegerAttr>();
-      auto index2 = const2.value().dyn_cast<IntegerAttr>();
-      if (!index1 || !index2) {
-        return false;
-      }
-      if (i == load1.indices().size() - 1) {
-        return index1.getInt() == index2.getInt() - 1;
-      } else if (index1.getInt() != index2.getInt()) {
-        return false;
-      }
-    }
-    return false;
-  }
 
   bool vectorizable(std::vector<Operation*> const& operations) {
     for (size_t i = 0; i < operations.size(); ++i) {
@@ -225,6 +197,10 @@ void SLPGraph::buildGraph(std::vector<Operation*> const& operations, SLPNode& cu
 }
 
 void SLPGraph::reorderOperands(SLPNode const& multinode) {
+  if(std::uintptr_t(multinode.getOperation(0, 0)) == 12345) {
+    multinode.dump();
+    llvm::dbgs() << "\n";
+  }
   auto const& numOperands = multinode.numOperands();
   std::vector<std::vector<Operation*>> finalOrder{multinode.numLanes()};
   std::vector<std::vector<Mode>> mode{multinode.numLanes()};
@@ -304,7 +280,7 @@ std::pair<Operation*, Mode> SLPGraph::getBest(Mode const& mode,
     best = candidates.front();
     for (auto& candidate : candidates) {
       if (mode == LOAD) {
-        if (areConsecutive(last, candidate)) {
+        if (areConsecutiveLoads(last, candidate)) {
           bestCandidates.emplace_back(candidate);
         }
       } else if (candidate->getName() == last->getName()) {
@@ -360,7 +336,7 @@ int SLPGraph::getLookAheadScore(Operation* last, Operation* candidate, size_t co
       return 0;
     }
     if (dyn_cast<LoadOp>(last)) {
-      return areConsecutive(last, candidate) ? 1 : 0;
+      return areConsecutiveLoads(last, candidate) ? 1 : 0;
     }
     return 1;
   }

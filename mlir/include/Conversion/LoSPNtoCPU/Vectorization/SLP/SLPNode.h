@@ -28,14 +28,18 @@ namespace mlir {
           bool areRootOfNode(std::vector<Operation*> const& operations) const;
 
           size_t numLanes() const;
-          size_t numVectors() const;
 
+          size_t numVectors() const;
           std::vector<Operation*> getVector(size_t index) const;
 
           SLPNode& addOperand(std::vector<Operation*> const& operations);
           SLPNode& getOperand(size_t index) const;
           std::vector<SLPNode*> getOperands() const;
           size_t numOperands() const;
+
+          Type getResultType() const;
+
+          void dump() const;
 
           friend bool operator==(SLPNode const& lhs, SLPNode const& rhs) {
             return std::tie(lhs.lanes) == std::tie(rhs.lanes);
