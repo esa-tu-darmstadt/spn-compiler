@@ -29,8 +29,10 @@ namespace mlir {
         private:
 
           void transform(SLPGraph const& graph);
-          Operation* transform(SLPNode const& node, size_t vectorIndex, size_t spill);
-          void updateExtractions(SLPNode const& node, size_t const& vectorIndex, Operation* vectorOp);
+          Value transform(SLPNode const& node,
+                               size_t vectorIndex,
+                               std::map<SLPNode const*, unsigned>& vectorsDone);
+          Operation* updateExtractions(SLPNode const& node, size_t const& vectorIndex, Operation* vectorOp);
 
           /// Stores where operations can find their operands after vectorization in case their defining operations
           /// were deleted during vectorization.

@@ -34,6 +34,10 @@ namespace {
         llvm::dbgs() << "\\nvalue: "
                      << std::to_string(constantOp.value().dyn_cast<mlir::FloatAttr>().getValueAsDouble());
       }
+    } else if (auto batchReadOp = llvm::dyn_cast<mlir::spn::low::SPNBatchRead>(op)) {
+      llvm::dbgs() << "\\nbatch mem: " << batchReadOp.batchMem().dyn_cast<mlir::BlockArgument>().getArgNumber();
+      llvm::dbgs() << "\\nbatch index: " << batchReadOp.batchMem().dyn_cast<mlir::BlockArgument>().getArgNumber();
+      llvm::dbgs() << "\\nsample index: " << batchReadOp.sampleIndex();
     }
     llvm::dbgs() << "\", fillcolor=\"#a0522d\"];\n";
   }
@@ -99,7 +103,7 @@ void SLPVectorizationPass::runOnOperation() {
 
   auto seeds = seedAnalysis.getSeeds(width, seedAnalysis.getOpDepths(), SearchMode::UseBeforeDef);
   assert(!seeds.empty() && "couldn't find a seed!");
-
+  printSeedTree(seeds.front());
   SLPGraph graph(seeds.front(), 3);
   transform(graph);
 
@@ -107,18 +111,24 @@ void SLPVectorizationPass::runOnOperation() {
 
 void SLPVectorizationPass::transform(SLPGraph const& graph) {
   //graph.dump();
-  auto* rootOperation = transform(graph.getRoot(), 0, 1);
+  std::map<SLPNode const*, unsigned> vectorsDone;
+  auto rootOperation = transform(graph.getRoot(), 0, vectorsDone);
+  llvm::dbgs() << extractions.size() << "\n";
   assert(false);
   // Update users of vector operations that aren't contained in the graph.
 }
 
-mlir::Operation* SLPVectorizationPass::transform(SLPNode const& node, size_t vectorIndex, size_t spill) {
+mlir::Value SLPVectorizationPass::transform(SLPNode const& node,
+                                            size_t vectorIndex,
+                                            std::map<SLPNode const*, unsigned>& vectorsDone) {
 
   node.dump();
   llvm::dbgs() << "\n";
-  if (std::uintptr_t(node.getOperation(0, 0)) == 0x9033b8) {
+  if (std::uintptr_t(node.getOperation(0, 0)) == 0x716008) {
     llvm::dbgs() << "\n";
   }
+
+  vectorsDone[&node]++;
 
   LoSPNVectorizationTypeConverter typeConverter{static_cast<unsigned int>(node.numLanes())};
   auto vectorType = typeConverter.convertType(node.getResultType());
@@ -128,73 +138,60 @@ mlir::Operation* SLPVectorizationPass::transform(SLPNode const& node, size_t vec
   auto const& firstOp = vectorizableOps.front();
   builder.setInsertionPointAfter(firstOp);
 
-  Operation* vectorOp;
-
   if (isBroadcastable(vectorizableOps)) {
     auto value = firstOp->getResult(0);
-    vectorOp = builder.create<vector::BroadcastOp>(firstOp->getLoc(), vectorType, value);
-  } else if (areConsecutiveLoads(vectorizableOps)) {
+    auto vectorOp = builder.create<vector::BroadcastOp>(firstOp->getLoc(), vectorType, value);
+    return updateExtractions(node, vectorIndex, vectorOp)->getResult(0);
+  }
+
+  if (areConsecutiveLoads(vectorizableOps)) {
     auto base = firstOp->getResult(0);
     auto zero = builder.create<ConstantOp>(firstOp->getLoc(), builder.getIndexAttr(0));
     auto indices = ValueRange{zero.getResult()};
-    vectorOp = builder.create<vector::LoadOp>(firstOp->getLoc(), vectorType, base, indices);
-  } else if (node.isUniform() && firstOp->getNumOperands() > 0) {
-    llvm::SmallVector<Value, 2> operands;
-    for (size_t i = 0; i < firstOp->getNumOperands(); ++i) {
-
-      if (node.isMultiNode()) {
-        // TODO: visit non-multinode-operands first?
-        size_t operandNodeIndex = 0;
-        SLPNode const* operandNode = &node;
-
-        size_t nodeSpill = spill;
-
-        unsigned availableOperands = node.numVectors();
-        unsigned usedOperands = vectorIndex * firstOp->getNumOperands() + nodeSpill;
-        size_t nextIndex = usedOperands + i;
-
-        while (availableOperands <= nextIndex) {
-          if (operandNodeIndex == 0) {
-            nodeSpill = ((firstOp->getNumOperands() - 1) * node.numVectors()) + nodeSpill;
-          } else {
-            nodeSpill -= availableOperands;
-          }
-          operandNode = &node.getOperand(operandNodeIndex++);
-          nextIndex -= availableOperands;
-          availableOperands = operandNode->numVectors();
-        }
-        assert(nodeSpill > 0);
-        operands.emplace_back(transform(*operandNode, nextIndex, nodeSpill)->getResult(0));
-      } else {
-        operands.emplace_back(transform(node.getOperand(i), 0, 1)->getResult(0));
-      }
-
-    }
-    vectorOp = Operation::create(firstOp->getLoc(),
-                                 firstOp->getName(),
-                                 vectorType,
-                                 operands,
-                                 firstOp->getAttrs(),
-                                 firstOp->getSuccessors(),
-                                 firstOp->getNumRegions());
-    builder.insert(vectorOp);
-  } else {
-    vectorOp = builder.create<vector::BroadcastOp>(firstOp->getLoc(), vectorType, firstOp->getResult(0));
-    for (size_t lane = 1; lane < node.numLanes(); ++lane) {
-      vectorOp = builder.create<vector::InsertElementOp>(vectorOp->getLoc(),
-                                                         vectorizableOps[lane]->getResult(0),
-                                                         vectorOp->getResult(0),
-                                                         lane);
-    }
+    auto vectorOp = builder.create<vector::LoadOp>(firstOp->getLoc(), vectorType, base, indices);
+    return updateExtractions(node, vectorIndex, vectorOp)->getResult(0);
   }
 
-  vectorOp->dump();
-  updateExtractions(node, vectorIndex, vectorOp);
+  if (node.isUniform()) {
 
-  return vectorOp;
+    llvm::SmallVector<Value, 2> operands;
+
+    for (size_t i = 0; i < firstOp->getNumOperands(); ++i) {
+      size_t operandNodeIndex = vectorIndex % node.getOperands().size();
+      auto* operandNode = (i == 0) ? &node : &node.getOperand(operandNodeIndex);
+      size_t nextIndex = vectorsDone[operandNode];
+      while (nextIndex >= operandNode->numVectors()) {
+        operandNode = &node.getOperand(operandNodeIndex++ % node.getOperands().size());
+        nextIndex = vectorsDone[operandNode];
+      }
+      operands.emplace_back(transform(*operandNode, nextIndex, vectorsDone));
+    }
+
+    auto vectorOp = Operation::create(firstOp->getLoc(),
+                                      firstOp->getName(),
+                                      vectorType,
+                                      operands,
+                                      firstOp->getAttrs(),
+                                      firstOp->getSuccessors(),
+                                      firstOp->getNumRegions());
+    builder.insert(vectorOp);
+    return updateExtractions(node, vectorIndex, vectorOp)->getResult(0);
+  }
+
+  Operation* vectorOp = builder.create<vector::BroadcastOp>(firstOp->getLoc(), vectorType, firstOp->getResult(0));
+  for (size_t lane = 1; lane < node.numLanes(); ++lane) {
+    vectorOp = builder.create<vector::InsertElementOp>(vectorOp->getLoc(),
+                                                       vectorizableOps[lane]->getResult(0),
+                                                       vectorOp->getResult(0),
+                                                       lane);
+  }
+
+  return updateExtractions(node, vectorIndex, vectorOp)->getResult(0);
 }
 
-void SLPVectorizationPass::updateExtractions(SLPNode const& node, size_t const& vectorIndex, Operation* vectorOp) {
+mlir::Operation* SLPVectorizationPass::updateExtractions(SLPNode const& node,
+                                                         size_t const& vectorIndex,
+                                                         Operation* vectorOp) {
   for (size_t lane = 0; lane < node.numLanes(); ++lane) {
     auto* operation = node.getOperation(lane, vectorIndex);
     for (auto* use : operation->getUsers()) {
@@ -207,6 +204,7 @@ void SLPVectorizationPass::updateExtractions(SLPNode const& node, size_t const& 
     }
     extractions.erase(operation);
   }
+  return vectorOp;
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createSLPVectorizationPass() {
