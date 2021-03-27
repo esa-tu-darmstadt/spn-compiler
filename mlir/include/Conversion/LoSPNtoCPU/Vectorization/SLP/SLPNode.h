@@ -32,14 +32,18 @@ namespace mlir {
           size_t numVectors() const;
           std::vector<Operation*> getVector(size_t index) const;
 
-          SLPNode& addOperand(std::vector<Operation*> const& operations);
-          SLPNode& getOperand(size_t index) const;
+          SLPNode* addOperand(std::vector<Operation*> const& operations);
+          SLPNode* getOperand(size_t index) const;
           std::vector<SLPNode*> getOperands() const;
           size_t numOperands() const;
+
+          void addNodeInput(Value const& value);
+          Value const& getNodeInput(size_t index) const;
 
           Type getResultType() const;
 
           void dump() const;
+          void dumpGraph() const;
 
           friend bool operator==(SLPNode const& lhs, SLPNode const& rhs) {
             return std::tie(lhs.lanes) == std::tie(rhs.lanes);
@@ -57,6 +61,8 @@ namespace mlir {
           std::vector<std::vector<Operation*>> lanes;
 
           std::vector<std::unique_ptr<SLPNode>> operandNodes;
+
+          std::vector<Value> nodeInputs;
 
         };
       }

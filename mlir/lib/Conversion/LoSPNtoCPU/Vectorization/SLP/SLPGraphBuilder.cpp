@@ -5,60 +5,21 @@
 
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "llvm/Support/Debug.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPGraph.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPGraphBuilder.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
 #include <set>
 #include <queue>
+#include <LoSPN/LoSPNInterfaces.h>
 
 using namespace mlir;
 using namespace mlir::spn::low::slp;
 
-SLPGraph::SLPGraph(seed_t const& seed, size_t const& maxLookAhead) : maxLookAhead{maxLookAhead}, root{seed} {
-  buildGraph(seed, root);
-}
+SLPGraphBuilder::SLPGraphBuilder(size_t maxLookAhead) : maxLookAhead{maxLookAhead} {}
 
-SLPNode const& SLPGraph::getRoot() const {
+std::unique_ptr<SLPNode> SLPGraphBuilder::build(seed_t const& seed) const {
+  auto root = std::make_unique<SLPNode>(SLPNode{seed});
+  buildGraph(seed, root.get());
   return root;
-}
-
-void SLPGraph::dump() const {
-
-  llvm::dbgs() << "digraph debug_graph {\n";
-  llvm::dbgs() << "rankdir = BT;\n";
-  llvm::dbgs() << "node[shape=box];\n";
-
-  std::queue<SLPNode const*> worklist;
-  worklist.emplace(&root);
-
-  while (!worklist.empty()) {
-    auto const* node = worklist.front();
-    worklist.pop();
-
-    llvm::dbgs() << "node_" << node << "[label=<\n";
-    llvm::dbgs() << "\t<TABLE ALIGN=\"CENTER\" BORDER=\"0\" CELLSPACING=\"10\" CELLPADDING=\"0\">\n";
-    for (size_t i = node->numVectors(); i-- > 0;) {
-      llvm::dbgs() << "\t\t<TR>\n";
-      for (size_t lane = 0; lane < node->numLanes(); ++lane) {
-        auto* operation = node->getOperation(lane, i);
-        llvm::dbgs() << "\t\t\t<TD>";
-        llvm::dbgs() << "<B>" << operation->getName() << "</B> <FONT COLOR=\"#bbbbbb\">(" << operation << ")</FONT>";
-        llvm::dbgs() << "</TD>";
-        if (lane < node->numLanes() - 1) {
-          llvm::dbgs() << "<VR/>";
-        }
-        llvm::dbgs() << "\n";
-      }
-      llvm::dbgs() << "\t\t</TR>\n";
-    }
-    llvm::dbgs() << "\t</TABLE>\n";
-    llvm::dbgs() << ">];\n";
-
-    for (auto const& operand : node->getOperands()) {
-      llvm::dbgs() << "node_" << node << "->" << "node_" << operand << ";\n";
-      worklist.emplace(operand);
-    }
-  }
-  llvm::dbgs() << "}\n";
 }
 
 // Some helper functions in an anonymous namespace.
@@ -67,7 +28,7 @@ namespace {
   bool vectorizable(std::vector<Operation*> const& operations) {
     for (size_t i = 0; i < operations.size(); ++i) {
       auto* op = operations[i];
-      if (!op->hasTrait<OpTrait::OneResult>() || (i > 0 && op->getName() != operations.front()->getName())) {
+      if (!op->hasTrait<OpTrait::spn::low::VectorizableOp>() || (op->getName() != operations.front()->getName())) {
         return false;
       }
     }
@@ -107,25 +68,7 @@ namespace {
     return allOperands;
   }
 
-  std::vector<std::vector<Operation*>> getOperandsVectorized(std::vector<Operation*> const& operations) {
-    for (auto* operation : operations) {
-      assert(operation->getNumOperands() == operations.front()->getNumOperands()
-                 && "operations must have same numbers of operands");
-    }
-    std::vector<std::vector<Operation*>> allOperands;
-    for (size_t i = 0; i < operations.front()->getNumOperands(); ++i) {
-      std::vector<Operation*> operands;
-      operands.reserve(operations.size());
-      for (auto* operation : operations) {
-        operands.emplace_back(operation->getOperand(i).getDefiningOp());
-      }
-      allOperands.emplace_back(operands);
-    }
-    return allOperands;
-  }
-
-  void sortByOpcode(std::vector<Operation*>& operations,
-                    Optional<OperationName> const& smallestOpcode) {
+  void sortByOpcode(std::vector<Operation*>& operations, Optional<OperationName> const& smallestOpcode) {
     std::sort(std::begin(operations), std::end(operations), [&](Operation* lhs, Operation* rhs) {
       if (smallestOpcode.hasValue()) {
         if (lhs->getName() == smallestOpcode.getValue()) {
@@ -137,10 +80,10 @@ namespace {
       return lhs->getName().getStringRef() < rhs->getName().getStringRef();
     });
   }
+} // end namespace
 
-}
-
-void SLPGraph::buildGraph(std::vector<Operation*> const& operations, SLPNode& currentNode) {
+void SLPGraphBuilder::buildGraph(std::vector<Operation*> const& operations,
+                                 SLPNode* currentNode) const {
   // Stop growing graph
   if (!vectorizable(operations)) {
     return;
@@ -156,65 +99,75 @@ void SLPGraph::buildGraph(std::vector<Operation*> const& operations, SLPNode& cu
     }
     for (size_t i = 0; i < operations.front()->getNumOperands(); ++i) {
       if (std::all_of(std::begin(allOperands), std::end(allOperands), [&](auto const& operandOperations) {
-        return operandOperations[i]->getName() == currentOpCode && !escapesMultinode(operandOperations[i]);
+        return operandOperations[i]->getName() == currentOpCode
+            && !escapesMultinode(operandOperations[i]);
       })) {
-        for (size_t lane = 0; lane < currentNode.numLanes(); ++lane) {
-          currentNode.addOperationToLane(allOperands[lane][i], lane);
+        for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
+          currentNode->addOperationToLane(allOperands[lane][i], lane);
         }
-        buildGraph(currentNode.getVector(currentNode.numVectors() - 1), currentNode);
+        buildGraph(currentNode->getVector(currentNode->numVectors() - 1), currentNode);
       } else {
         // TODO: here might be a good place to implement variable vector width
         std::vector<Operation*> operandOperations;
-        for (size_t lane = 0; lane < currentNode.numLanes(); ++lane) {
+        for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
           operandOperations.emplace_back(allOperands[lane][i]);
         }
-        currentNode.addOperand(operandOperations);
+        currentNode->addOperand(operandOperations);
       }
     }
-
     // B. Normal Mode: Finished building multi-node
-    if (currentNode.isMultiNode() && currentNode.areRootOfNode(operations)) {
+    if (currentNode->isMultiNode() && currentNode->areRootOfNode(operations)) {
       reorderOperands(currentNode);
-      for (auto* operandNode : currentNode.getOperands()) {
-        buildGraph(operandNode->getVector(operandNode->numVectors() - 1), *operandNode);
+      for (auto* operandNode : currentNode->getOperands()) {
+        buildGraph(operandNode->getVector(operandNode->numVectors() - 1), operandNode);
       }
     }
   }
     // 2. Non-Commutative
   else {
-    // Only consider operands further when the current operations aren't leaf nodes.
-    for (auto* operation : operations) {
-      for (auto const& operand : operation->getOperands()) {
-        if (operand.isa<BlockArgument>()) {
-          return;
-        }
+    for (size_t i = 0; i < operations.front()->getNumOperands(); ++i) {
+      std::vector<Value> operands;
+      bool containsBlockArgument = false;
+      for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
+        auto operand = currentNode->getOperation(lane, 0)->getOperand(i);
+        operands.emplace_back(operand);
+        containsBlockArgument |= operand.isa<BlockArgument>();
       }
-    }
-    for (auto const& operandVector : getOperandsVectorized(operations)) {
-      buildGraph(operandVector, currentNode.addOperand(operandVector));
+      // Only consider operands that don't contain block arguments for further graph building.
+      if (containsBlockArgument) {
+        for (auto const& operand : operands) {
+          currentNode->addNodeInput(operand);
+        }
+      } else {
+        std::vector<Operation*> operandOperations;
+        operandOperations.reserve(operands.size());
+        for (auto const& operand : operands) {
+          operandOperations.emplace_back(operand.getDefiningOp());
+        }
+        buildGraph(operandOperations, currentNode->addOperand(operandOperations));
+      }
     }
   }
 }
 
-void SLPGraph::reorderOperands(SLPNode const& multinode) {
-  if (std::uintptr_t(multinode.getOperation(0, 0)) == 12345) {
-    multinode.dump();
+void SLPGraphBuilder::reorderOperands(SLPNode* multinode) const {
+  if (std::uintptr_t(multinode->getOperation(0, 0)) == 12345) {
+    multinode->dump();
     llvm::dbgs() << "\n";
   }
-  auto const& numOperands = multinode.numOperands();
-  std::vector<std::vector<Operation*>> finalOrder{multinode.numLanes()};
-  std::vector<std::vector<Mode>> mode{multinode.numLanes()};
+  auto const& numOperands = multinode->numOperands();
+  std::vector<std::vector<Operation*>> finalOrder{multinode->numLanes()};
+  std::vector<std::vector<Mode>> mode{multinode->numLanes()};
   // 1. Strip first lane
   for (size_t i = 0; i < numOperands; ++i) {
-    auto operation = multinode.getOperand(i).getOperation(0, 0);
+    auto operation = multinode->getOperand(i)->getOperation(0, 0);
     finalOrder[0].emplace_back(operation);
     mode[0].emplace_back(modeFromOperation(operation));
   }
-
   // 2. For all other lanes, find best candidate
-  for (size_t lane = 1; lane < multinode.numLanes(); ++lane) {
+  for (size_t lane = 1; lane < multinode->numLanes(); ++lane) {
     std::vector<Operation*> candidates;
-    for (auto const& operand : multinode.getOperands()) {
+    for (auto const& operand : multinode->getOperands()) {
       candidates.emplace_back(operand->getOperation(lane, 0));
     }
     // Look for a matching candidate
@@ -228,17 +181,14 @@ void SLPGraph::reorderOperands(SLPNode const& multinode) {
       }
       auto* last = finalOrder[lane - 1][i];
       auto const& bestResult = getBest(mode[lane - 1][i], last, candidates);
-
       // Update output
       finalOrder[lane].emplace_back(bestResult.first);
-
       // Detect SPLAT mode
       if (i == 1 && bestResult.first == last) {
         mode[lane][i] = SPLAT;
       } else {
         mode[lane].emplace_back(bestResult.second);
       }
-
     }
     // Distribute remaining candidates in case we encountered a FAILED.
     for (auto* candidate : candidates) {
@@ -250,20 +200,19 @@ void SLPGraph::reorderOperands(SLPNode const& multinode) {
       }
     }
   }
-  for (size_t operandIndex = 0; operandIndex < multinode.numOperands(); ++operandIndex) {
-    for (size_t lane = 0; lane < multinode.numLanes(); ++lane) {
-      multinode.getOperand(operandIndex).setOperation(lane, 0, finalOrder[lane][operandIndex]);
+  for (size_t operandIndex = 0; operandIndex < multinode->numOperands(); ++operandIndex) {
+    for (size_t lane = 0; lane < multinode->numLanes(); ++lane) {
+      multinode->getOperand(operandIndex)->setOperation(lane, 0, finalOrder[lane][operandIndex]);
     }
   }
 }
 
-std::pair<Operation*, Mode> SLPGraph::getBest(Mode const& mode,
-                                              Operation* last,
-                                              std::vector<Operation*>& candidates) const {
+std::pair<Operation*, Mode> SLPGraphBuilder::getBest(Mode const& mode,
+                                                     Operation* last,
+                                                     std::vector<Operation*>& candidates) const {
   Operation* best = nullptr;
   Mode resultMode = mode;
   std::vector<Operation*> bestCandidates;
-
   if (mode == FAILED) {
     // Don't select now, let others choose first
     best = nullptr;
@@ -321,7 +270,6 @@ std::pair<Operation*, Mode> SLPGraph::getBest(Mode const& mode,
         }
       }
     }
-
   }
   // Remove best from candidates
   if (best != nullptr) {
@@ -330,7 +278,7 @@ std::pair<Operation*, Mode> SLPGraph::getBest(Mode const& mode,
   return {best, resultMode};
 }
 
-int SLPGraph::getLookAheadScore(Operation* last, Operation* candidate, size_t const& maxLevel) const {
+int SLPGraphBuilder::getLookAheadScore(Operation* last, Operation* candidate, size_t const& maxLevel) const {
   if (maxLevel == 0) {
     if (last->getName() != candidate->getName()) {
       return 0;

@@ -3,8 +3,8 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPGRAPH_H
-#define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPGRAPH_H
+#ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPGRAPHBUILDER_H
+#define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPGRAPHBUILDER_H
 
 #include "mlir/IR/Operation.h"
 #include "SLPMode.h"
@@ -16,21 +16,19 @@ namespace mlir {
     namespace low {
       namespace slp {
 
-        class SLPGraph {
+        class SLPGraphBuilder {
 
         public:
 
-          SLPGraph(seed_t const& seed, size_t const& maxLookAhead);
+          explicit SLPGraphBuilder(size_t maxLookAhead);
 
-          SLPNode const& getRoot() const;
-
-          void dump() const;
+          std::unique_ptr<SLPNode> build(seed_t const& seed) const;
 
         private:
 
-          void buildGraph(std::vector<Operation*> const& operations, SLPNode& currentNode);
+          void buildGraph(std::vector<Operation*> const& operations, SLPNode* currentNode) const;
 
-          void reorderOperands(SLPNode const& multinode);
+          void reorderOperands(SLPNode* multinode) const;
 
           std::pair<Operation*, Mode> getBest(Mode const& mode,
                                               Operation* last,
@@ -40,12 +38,10 @@ namespace mlir {
 
           size_t const maxLookAhead;
 
-          SLPNode root;
-
         };
       }
     }
   }
 }
 
-#endif //SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPGRAPH_H
+#endif //SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPGRAPHBUILDER_H

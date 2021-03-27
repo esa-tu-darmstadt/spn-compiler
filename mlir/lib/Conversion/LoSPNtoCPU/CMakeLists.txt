@@ -8,7 +8,7 @@ add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
         Vectorization/SLP/SLPMode.cpp
         Vectorization/SLP/SLPNode.cpp
         Vectorization/SLP/SLPSeeding.cpp
-        Vectorization/SLP/SLPGraph.cpp
+        Vectorization/SLP/SLPGraphBuilder.cpp
         Vectorization/SLP/SLPUtil.cpp
         Vectorization/SLP/SLPVectorizationPass.cpp
         LoSPNtoCPUConversionPasses.cpp

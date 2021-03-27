@@ -5,12 +5,13 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPNode.h"
 #include "llvm/Support/Debug.h"
+#include <queue>
 
 using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::low::slp;
 
-SLPNode::SLPNode(std::vector<Operation*> const& operations) : lanes{operations.size()} {
+SLPNode::SLPNode(std::vector<Operation*> const& operations) : lanes{operations.size()}, operandNodes{}, nodeInputs{} {
   for (size_t i = 0; i < operations.size(); ++i) {
     lanes[i].emplace_back(operations[i]);
   }
@@ -66,14 +67,14 @@ std::vector<Operation*> SLPNode::getVector(size_t index) const {
   return vector;
 }
 
-SLPNode& SLPNode::addOperand(std::vector<Operation*> const& operations) {
+SLPNode* SLPNode::addOperand(std::vector<Operation*> const& operations) {
   operandNodes.emplace_back(std::make_unique<SLPNode>(operations));
-  return *operandNodes.back();
+  return operandNodes.back().get();
 }
 
-SLPNode& SLPNode::getOperand(size_t index) const {
+SLPNode* SLPNode::getOperand(size_t index) const {
   assert(index <= operandNodes.size());
-  return *operandNodes[index];
+  return operandNodes[index].get();
 }
 
 std::vector<SLPNode*> SLPNode::getOperands() const {
@@ -87,6 +88,14 @@ std::vector<SLPNode*> SLPNode::getOperands() const {
 
 size_t SLPNode::numOperands() const {
   return operandNodes.size();
+}
+
+void SLPNode::addNodeInput(Value const& value) {
+  nodeInputs.emplace_back(value);
+}
+
+Value const& SLPNode::getNodeInput(size_t index) const {
+  return nodeInputs[index];
 }
 
 Type SLPNode::getResultType() const {
@@ -103,4 +112,44 @@ void SLPNode::dump() const {
     }
     llvm::dbgs() << "\n";
   }
+}
+
+void SLPNode::dumpGraph() const {
+
+  llvm::dbgs() << "digraph debug_graph {\n";
+  llvm::dbgs() << "rankdir = BT;\n";
+  llvm::dbgs() << "node[shape=box];\n";
+
+  std::queue<SLPNode const*> worklist;
+  worklist.emplace(this);
+
+  while (!worklist.empty()) {
+    auto const* node = worklist.front();
+    worklist.pop();
+
+    llvm::dbgs() << "node_" << node << "[label=<\n";
+    llvm::dbgs() << "\t<TABLE ALIGN=\"CENTER\" BORDER=\"0\" CELLSPACING=\"10\" CELLPADDING=\"0\">\n";
+    for (size_t i = node->numVectors(); i-- > 0;) {
+      llvm::dbgs() << "\t\t<TR>\n";
+      for (size_t lane = 0; lane < node->numLanes(); ++lane) {
+        auto* operation = node->getOperation(lane, i);
+        llvm::dbgs() << "\t\t\t<TD>";
+        llvm::dbgs() << "<B>" << operation->getName() << "</B> <FONT COLOR=\"#bbbbbb\">(" << operation << ")</FONT>";
+        llvm::dbgs() << "</TD>";
+        if (lane < node->numLanes() - 1) {
+          llvm::dbgs() << "<VR/>";
+        }
+        llvm::dbgs() << "\n";
+      }
+      llvm::dbgs() << "\t\t</TR>\n";
+    }
+    llvm::dbgs() << "\t</TABLE>\n";
+    llvm::dbgs() << ">];\n";
+
+    for (auto const& operand : node->getOperands()) {
+      llvm::dbgs() << "node_" << node << "->" << "node_" << operand << ";\n";
+      worklist.emplace(operand);
+    }
+  }
+  llvm::dbgs() << "}\n";
 }

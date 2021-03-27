@@ -8,7 +8,7 @@
 
 #include "mlir/IR/Operation.h"
 #include "mlir/Pass/Pass.h"
-#include "SLPGraph.h"
+#include "SLPGraphBuilder.h"
 
 namespace mlir {
   namespace spn {
@@ -28,11 +28,12 @@ namespace mlir {
 
         private:
 
-          void transform(SLPGraph const& graph);
-          Value transform(SLPNode const& node,
-                               size_t vectorIndex,
-                               std::map<SLPNode const*, unsigned>& vectorsDone);
-          Operation* updateExtractions(SLPNode const& node, size_t const& vectorIndex, Operation* vectorOp);
+          void transform(SLPNode* root);
+          Value transform(SLPNode* node,
+                          size_t vectorIndex,
+                          std::map<SLPNode*, size_t>& vectorsDone,
+                          std::map<SLPNode*, size_t>& nodeInputsDone);
+          Value applyCreation(SLPNode* node, size_t vectorIndex, Operation* vectorOp);
 
           /// Stores where operations can find their operands after vectorization in case their defining operations
           /// were deleted during vectorization.
