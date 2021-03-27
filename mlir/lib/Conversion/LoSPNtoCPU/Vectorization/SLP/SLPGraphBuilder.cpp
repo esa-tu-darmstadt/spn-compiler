@@ -7,9 +7,8 @@
 #include "llvm/Support/Debug.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraphBuilder.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
+#include "LoSPN/LoSPNTraits.h"
 #include <set>
-#include <queue>
-#include <LoSPN/LoSPNInterfaces.h>
 
 using namespace mlir;
 using namespace mlir::spn::low::slp;
@@ -82,8 +81,7 @@ namespace {
   }
 } // end namespace
 
-void SLPGraphBuilder::buildGraph(std::vector<Operation*> const& operations,
-                                 SLPNode* currentNode) const {
+void SLPGraphBuilder::buildGraph(std::vector<Operation*> const& operations, SLPNode* currentNode) const {
   // Stop growing graph
   if (!vectorizable(operations)) {
     return;
