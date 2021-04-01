@@ -9,3 +9,6 @@ target_include_directories(spncpy
 
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+# Configure input file with output filename of the spncpy library and write to setup.py
+file(GENERATE OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/setup.py INPUT ${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in)

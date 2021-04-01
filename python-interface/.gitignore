@@ -1,0 +1,9 @@
+# setup.py is auto-generated from setup.py.in by CMake.
+setup.py
+
+build/
+.eggs/
+dist/
+spnc.egg-info/
+
+spncpy/*.so
