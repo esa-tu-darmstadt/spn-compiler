@@ -8,7 +8,7 @@ import os
 if not os.path.isfile("$<TARGET_FILE:spncpy>"):
     raise RuntimeError("Python interface library not found, run make first")
 
-targetFile = os.path.join(os.path.realpath(os.path.dirname(__file__)), "$<TARGET_FILE_NAME:spncpy>")
+targetFile = os.path.join(os.path.realpath(os.path.dirname(__file__)), "spncpy", "$<TARGET_FILE_NAME:spncpy>")
 print(f"Copying Python interface library $<TARGET_FILE:spncpy> to {targetFile}")
 shutil.copyfile("$<TARGET_FILE:spncpy>", targetFile)
 
