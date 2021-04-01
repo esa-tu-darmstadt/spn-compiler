@@ -15,7 +15,7 @@ set(CAPNPC_SRC_PREFIX ${CMAKE_SOURCE_DIR})
 capnp_generate_cpp(CAPNP_SRCS CAPNP_HDRS ${CAPNPC_SRC_PREFIX}/xspn/xspn/serialization/binary/capnproto/spflow.capnp)
 message(STATUS "Capnproto headers: ${CAPNP_HDRS}")
 
-add_library(spnc SHARED
+add_library(spnc
         src/driver/option/Options.cpp
         src/Driver.cpp
         src/driver/util/Logging.cpp
