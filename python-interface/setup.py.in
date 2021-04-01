@@ -21,7 +21,7 @@ setuptools.setup(
     author="Embedded Systems and Applications Group, TU Darmstadt",
     author_email="sommer@esa.tu-darmstadt.de",
     description="SPNC: A CPU- and GPU compiler for Sum-Product Networks",
-    packages=["spncpy"],
+    packages=setuptools.find_packages(include=["spncpy", "spnc", "spnc.*"]),
     package_data={"spncpy" : ["$<TARGET_FILE_NAME:spncpy>"]},
     include_package_data=True,
     install_requires=requirements,
