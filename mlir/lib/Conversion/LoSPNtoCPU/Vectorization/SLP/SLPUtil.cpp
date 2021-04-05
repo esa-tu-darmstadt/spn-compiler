@@ -29,7 +29,7 @@ bool mlir::spn::low::slp::areConsecutiveLoads(Operation* op1, Operation* op2) {
     return false;
   }
 
-  return loadOp1.sampleIndex() == loadOp2.sampleIndex();
+  return loadOp1.sampleIndex() + 1 == loadOp2.sampleIndex();
 }
 
 bool mlir::spn::low::slp::areConsecutiveLoads(std::vector<Operation*> const& loads) {
