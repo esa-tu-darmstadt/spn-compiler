@@ -4,6 +4,8 @@
 //
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPNode.h"
+#include "LoSPN/LoSPNOps.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "llvm/Support/Debug.h"
 #include <queue>
 
@@ -114,6 +116,17 @@ void SLPNode::dump() const {
   }
 }
 
+// Helper functions in an anonymous namespace.
+namespace {
+  void dumpBlockArgOrDefiningAddress(Value const& val) {
+    if (auto* definingOp = val.getDefiningOp()) {
+      llvm::dbgs() << definingOp;
+    } else {
+      llvm::dbgs() << "block arg #" << val.cast<BlockArgument>().getArgNumber();
+    }
+  }
+}
+
 void SLPNode::dumpGraph() const {
 
   llvm::dbgs() << "digraph debug_graph {\n";
@@ -134,7 +147,23 @@ void SLPNode::dumpGraph() const {
       for (size_t lane = 0; lane < node->numLanes(); ++lane) {
         auto* operation = node->getOperation(lane, i);
         llvm::dbgs() << "\t\t\t<TD>";
-        llvm::dbgs() << "<B>" << operation->getName() << "</B> <FONT COLOR=\"#bbbbbb\">(" << operation << ")</FONT>";
+        llvm::dbgs() << "<B>" << operation->getName() << "</B>";
+        // --- Additional operation information ---
+        llvm::dbgs() << "<BR/><FONT COLOR=\"#bbbbbb\">";
+        llvm::dbgs() << "(" << operation << ")";
+        if (auto constOp = dyn_cast<mlir::ConstantOp>(operation)) {
+          llvm::dbgs() << "<BR/>value: " << constOp.getValue();
+        } else if (auto lowConstOp = dyn_cast<low::SPNConstant>(operation)) {
+          llvm::dbgs() << "<BR/>value: " << lowConstOp.value().convertToDouble();
+        } else if (auto readOp = dyn_cast<low::SPNBatchRead>(operation)) {
+          llvm::dbgs() << "<BR/>mem: ";
+          dumpBlockArgOrDefiningAddress(readOp.batchMem());
+          llvm::dbgs() << "<BR/>batch: ";
+          dumpBlockArgOrDefiningAddress(readOp.batchIndex());
+          llvm::dbgs() << "<BR/>sample: " << readOp.sampleIndex();
+        }
+        llvm::dbgs() << "</FONT>";
+        // --- ================================ ---
         llvm::dbgs() << "</TD>";
         if (lane < node->numLanes() - 1) {
           llvm::dbgs() << "<VR/>";
