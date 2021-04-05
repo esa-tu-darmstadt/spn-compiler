@@ -35,11 +35,11 @@ namespace {
   }
 
   bool commutative(std::vector<Operation*> const& operations) {
-    return std::all_of(std::begin(operations), std::end(operations), [&](Operation* op) {
-      if (op->hasTrait<OpTrait::IsCommutative>()) {
-        return true;
+    return std::any_of(std::begin(operations), std::end(operations), [&](Operation* op) {
+      if (!op->hasTrait<OpTrait::IsCommutative>()) {
+        return false;
       }
-      return dyn_cast<AddFOp>(op) || dyn_cast<MulFOp>(op);
+      return true;
     });
   }
 
