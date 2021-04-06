@@ -8,7 +8,7 @@ import os
 if not os.path.isfile("$<TARGET_FILE:spncpy>"):
     raise RuntimeError("Python interface library not found, run make first")
 
-targetFile = os.path.join(os.path.realpath(os.path.dirname(__file__)), "spncpy", "$<TARGET_FILE_NAME:spncpy>")
+targetFile = os.path.join(os.path.realpath(os.path.dirname(__file__)), "spnc", "$<TARGET_FILE_NAME:spncpy>")
 print(f"Copying Python interface library $<TARGET_FILE:spncpy> to {targetFile}")
 shutil.copyfile("$<TARGET_FILE:spncpy>", targetFile)
 
@@ -21,8 +21,8 @@ setuptools.setup(
     author="Embedded Systems and Applications Group, TU Darmstadt",
     author_email="sommer@esa.tu-darmstadt.de",
     description="SPNC: A CPU- and GPU compiler for Sum-Product Networks",
-    packages=setuptools.find_packages(include=["spncpy", "spnc", "spnc.*"]),
-    package_data={"spncpy" : ["$<TARGET_FILE_NAME:spncpy>"]},
+    packages=setuptools.find_packages(include=["spnc", "spnc.*"]),
+    package_data={"spnc" : ["$<TARGET_FILE_NAME:spncpy>"]},
     include_package_data=True,
     install_requires=requirements,
     setup_requires=["pytest-runner"],

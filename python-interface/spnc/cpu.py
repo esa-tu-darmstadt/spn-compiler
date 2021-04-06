@@ -23,7 +23,7 @@ import os
 from xspn.serialization.binary.BinarySerialization import BinarySerializer
 from xspn.structure.Model import SPNModel
 from xspn.structure.Query import JointProbability, ErrorModel
-import spncpy as spnc
+import spnc.spncpy as spncpy
 
 def convertToFlag(value):
     return "true" if value else "false"
@@ -65,12 +65,12 @@ class CPUCompiler:
                                  rootError = errorModel)
 
         # Serialize the SPN to binary format as input to the compiler.
-        tempfile = tempfile.NamedTemporaryFile()
+        tmpfile = tempfile.NamedTemporaryFile()
         if self.verbose:
-            print(f"Serializing SPN to {tempfile}")
-        BinarySerializer(tempfile).serialize_to_file(query)
+            print(f"Serializing SPN to {tmpfile}")
+        BinarySerializer(tmpfile.name).serialize_to_file(query)
         # Check that the serialization worked.
-        if not os.path.isfile(tempfile):
+        if not os.path.isfile(tmpfile.name):
             raise RuntimeError("Serialization of the SPN failed")
 
         # Compile the query into a Kernel.
@@ -84,13 +84,11 @@ class CPUCompiler:
         if self.verbose:
             print(f"Invoking compiler with options: {options}")
 
-        kernel = spncpy.SPNCompiler().compileQuery(tempfile, options)
+        kernel = spncpy.SPNCompiler().compileQuery(tmpfile.name, options)
         # Check that the comiled Kernel actually exists.
         if not os.path.isfile(kernel.fileName()):
-            os.remove(tempfile)
             raise RuntimeError("Compilation failed, not Kernel produced")
 
-        os.remove(tempfile)
         return kernel
 
     def execute(self, kernel, inputs):
@@ -100,10 +98,10 @@ class CPUCompiler:
             raise RuntimeError("Input must be a two-dimensional array")
         numSamples = inputs.shape[0]
         results = kernel.execute(numSamples, inputs)
-        return inputs
+        return results
 
     def log_likelihood(self, spn, inputs, errorModel = ErrorModel(),
-                        batchSize = 4096, supportMarginal = True, name = "spn_cpu"):
+                        batchSize = 4096, supportMarginal = True):
         if type(inputs) is not np.ndarray:
             raise RuntimeError("Input is not an numpy array")
         if inputs.ndim != 2:
@@ -111,9 +109,9 @@ class CPUCompiler:
 
         dataType = inputs.dtype
 
-        kernel = compile_ll(self, spn, dataType, errorModel = errorModel, 
+        kernel = self.compile_ll(spn, str(dataType), errorModel = errorModel, 
                             batchSize = batchSize, supportMarginal = supportMarginal, 
-                            name = name)
-        results = execute(self, kernel, inputs)
-        os.remove(kernel.filename())
+                            name = "spn_cpu")
+        results = self.execute(kernel, inputs)
+        os.remove(kernel.fileName())
         return results
