@@ -74,8 +74,8 @@ if (${CUDA_GPU_SUPPORT})
     # Additional libraries to link
     target_link_libraries(spnc PRIVATE ${CUDA_RUNTIME_LIBRARY} MLIRLoSPNtoGPUTransforms)
 
-    if (MLIR_CUDA_RUNTIME_WRAPPERS)
-        get_filename_component(MLIR_CUDA_RUNTIME_WRAPPERS_DIR ${MLIR_CUDA_RUNTIME_WRAPPERS} DIRECTORY)
+    if (MLIR_CUDA_WRAPPERS)
+        get_filename_component(MLIR_CUDA_RUNTIME_WRAPPERS_DIR ${MLIR_CUDA_WRAPPERS} DIRECTORY)
         message(STATUS "Directory containing the MLIR CUDA runtime wrappers: " ${MLIR_CUDA_RUNTIME_WRAPPERS_DIR})
         target_compile_definitions(spnc PRIVATE SPNC_CUDA_RUNTIME_WRAPPERS_DIR=\"${MLIR_CUDA_RUNTIME_WRAPPERS_DIR}\")
     endif ()

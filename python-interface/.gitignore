@@ -6,4 +6,4 @@ build/
 dist/
 spnc.egg-info/
 
-spnc/*.so
+spnc/*.so*
