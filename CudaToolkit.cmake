@@ -17,4 +17,16 @@ macro(cuda_setup)
     else ()
         message(STATUS "Using CUDA runtime library: " ${CUDA_RUNTIME_LIBRARY})
     endif ()
+
+    # When building static libraries, we want to create a complete Python package, including 
+    # all non-standard libraries. This includes the MLIR CUDA wrapper library, which the 
+    # compiled kernels for the GPU target need.
+    if (NOT BUILD_SHARED_LIBS)
+        find_library(MLIR_CUDA_WRAPPERS cuda-runtime-wrappers HINTS "${LLVM_BINARY_DIR}/lib")
+        if (NOT MLIR_CUDA_WRAPPERS)
+            message(FATAL_ERROR "MLIR CUDA wrappers not found.")
+        else ()
+            message(STATUS "Using MLIR CUDA wrappers: ${MLIR_CUDA_WRAPPERS}")
+        endif()
+    endif()
 endmacro(cuda_setup)

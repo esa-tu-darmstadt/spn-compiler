@@ -5,6 +5,16 @@ import setuptools
 import shutil
 import os
 
+if @INCLUDE_MLIR_CUDA_WRAPPERS@:
+    if not os.path.isfile("@MLIR_CUDA_WRAPPERS@"):
+        raise RuntimeError("MLIR CUDA wrappers not found")
+    cudaWrappers = os.path.join(os.path.realpath(os.path.dirname(__file__)), "spnc", "@MLIR_CUDA_WRAPPER_NAME@")
+    print(f"Copying MLIR CUDA wrapper library @MLIR_CUDA_WRAPPERS@ to {cudaWrappers}")
+    shutil.copyfile("@MLIR_CUDA_WRAPPERS@", cudaWrappers)
+    binaryPackages = ["$<TARGET_FILE_NAME:spncpy>", "@MLIR_CUDA_WRAPPER_NAME@"]
+else:
+    binaryPackages = ["$<TARGET_FILE_NAME:spncpy>"]
+
 if not os.path.isfile("$<TARGET_FILE:spncpy>"):
     raise RuntimeError("Python interface library not found, run make first")
 
@@ -22,7 +32,7 @@ setuptools.setup(
     author_email="sommer@esa.tu-darmstadt.de",
     description="SPNC: A CPU- and GPU compiler for Sum-Product Networks",
     packages=setuptools.find_packages(include=["spnc", "spnc.*"]),
-    package_data={"spnc" : ["$<TARGET_FILE_NAME:spncpy>"]},
+    package_data={"spnc" : binaryPackages},
     include_package_data=True,
     install_requires=requirements,
     setup_requires=["pytest-runner"],
