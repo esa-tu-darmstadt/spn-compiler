@@ -70,20 +70,21 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
   auto sharedObject = FileSystem::createTempFile<FileType::SHARED_OBJECT>(false);
   SPDLOG_INFO("Compiling to shared object file {}", sharedObject.fileName());
   // Add additional libraries to the link command if necessary.
-  llvm::SmallVector<LibraryInfo, 3> additionalLibs;
-
+  llvm::SmallVector<std::string, 3> additionalLibs;
   // Link vector libraries if specified by option.
   auto veclib = spnc::option::vectorLibrary.get(*config);
   if (veclib != spnc::option::VectorLibrary::NONE) {
     switch (veclib) {
-      case spnc::option::VectorLibrary::SVML:additionalLibs.push_back(LibraryInfo{"svml", ""});
+      case spnc::option::VectorLibrary::SVML: additionalLibs.push_back("svml");
         break;
-      case spnc::option::VectorLibrary::LIBMVEC:additionalLibs.push_back(LibraryInfo{"m", ""});
+      case spnc::option::VectorLibrary::LIBMVEC: additionalLibs.push_back("m");
         break;
       default:SPNC_FATAL_ERROR("Unknown vector library");
     }
   }
+  auto searchPaths = parseLibrarySearchPaths(spnc::option::searchPaths.get(*config));
   auto& linkSharedObject =
-      job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo, additionalLibs);
+      job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo, 
+                                                additionalLibs, searchPaths);
   return std::move(job);
 }

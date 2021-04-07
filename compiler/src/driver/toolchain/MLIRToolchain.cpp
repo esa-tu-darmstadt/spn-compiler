@@ -111,3 +111,13 @@ std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(bo
                                                                            llvm::Reloc::PIC_)};
   return std::move(machine);
 }
+
+llvm::SmallVector<std::string> spnc::MLIRToolchain::parseLibrarySearchPaths(std::string paths){
+  llvm::SmallVector<std::string, 5> searchPaths;
+  std::istringstream tokenStream(paths);
+  std::string token;
+  while(std::getline(tokenStream, token, ':')) {
+    searchPaths.push_back(token);
+  }
+  return searchPaths;
+}
