@@ -17,6 +17,7 @@ namespace mlir {
         bool areConsecutiveLoads(std::vector<Operation*> const& loads);
         bool canBeGathered(std::vector<Operation*> const& loads);
         bool areBroadcastable(std::vector<Operation*> const& ops);
+
       }
     }
   }

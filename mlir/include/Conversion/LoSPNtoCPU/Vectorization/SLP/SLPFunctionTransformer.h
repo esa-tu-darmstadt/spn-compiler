@@ -11,9 +11,7 @@
 #include "LoSPNtoCPU/LoSPNtoCPUTypeConverter.h"
 #include "LoSPNtoCPU/Vectorization/LoSPNVectorizationTypeConverter.h"
 #include "SLPNode.h"
-#include <map>
-#include <set>
-#include <unordered_map>
+#include <unordered_set>
 
 namespace mlir {
   namespace spn {
@@ -24,16 +22,24 @@ namespace mlir {
 
         public:
 
-          SLPFunctionTransformer(std::unique_ptr<SLPNode>&& graph, MLIRContext* context);
+          SLPFunctionTransformer(std::unique_ptr<SLPNode>&& graph, FuncOp function);
 
           void transform();
 
         private:
 
           Value transform(SLPNode* node, size_t vectorIndex);
-          Value applyCreation(SLPNode* node, size_t vectorIndex, Operation* vectorOp);
+          Value applyCreation(SLPNode* node, size_t vectorIndex, Operation* vectorOp, bool keepFirst = false);
+
+          Value extractMemRefOperand(Operation* op, Operation* position = nullptr);
+          Operation* broadcastFirstInsertRest(Operation* beforeOp,
+                                              Type const& vectorType,
+                                              SmallVector<Value, 4>& elements);
+          Value getOrCreateConstant(unsigned index, bool asIndex = true);
 
           std::unique_ptr<SLPNode> root;
+          FuncOp function;
+
           OpBuilder builder;
           LoSPNVectorizationTypeConverter typeConverter;
 
@@ -41,10 +47,12 @@ namespace mlir {
           /// were deleted during vectorization.
           llvm::DenseMap<Operation*, std::map<size_t, std::pair<Operation*, size_t>>> operandExtractions;
           llvm::DenseMap<std::tuple<Value, Value, unsigned>, Value> memRefLoads;
+          llvm::DenseMap<unsigned, Value> createdIndexConstants;
+          llvm::DenseMap<unsigned, Value> createdUnsignedConstants;
 
           llvm::DenseMap<SLPNode*, size_t> vectorsDone;
           llvm::DenseMap<SLPNode*, size_t> nodeInputsDone;
-          std::set<Operation*> vectorizedOps;
+          std::unordered_set<Operation*> vectorizedOps;
 
         };
       }

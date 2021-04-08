@@ -65,7 +65,7 @@ bool mlir::spn::low::slp::canBeGathered(std::vector<Operation*> const& loads) {
 
 bool mlir::spn::low::slp::areBroadcastable(std::vector<Operation*> const& ops) {
   return std::all_of(std::begin(ops), std::end(ops), [&](mlir::Operation* op) {
-    return op == ops.front();
+    return OperationEquivalence::isEquivalentTo(op, ops.front());
   });
 }
 
