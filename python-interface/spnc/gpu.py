@@ -1,19 +1,3 @@
-""" Option split:
-
-Compiler:
-verbose -> dumpIR
-computeinLogspace
-preloadToSharedMem
-
-
-compile/log_likelihood:
-
-errorModel
-batchSize
-supportMarginal
-
-"""
-
 import numpy as np
 import tempfile
 import os
@@ -30,31 +14,77 @@ def convertToFlag(value):
     return "true" if value else "false"
 
 class CUDACompiler:
-    __cudaWrappers = None
-
     """Convenience interface to SPNC, targeting execution on CUDA/Nvidia GPUs.
 
-    Args:
-        preloadToSharedMem (bool): Pre-load input values to GPU shared memory before computation.
-        computeInLogSpace (bool): Perform computations in log-space.
-        verbose (bool): Verbose output.
+    Attributes
+    ----------
 
-    Attributes:
-        preloadToSharedMem (bool): Pre-load input values to GPU shared memory before computation.
-        computeInLogSpace (bool): Perform computations in log-space.
-        verbose (bool): Verbose output.
+    preloadToSharedMem : bool
+        Pre-load input values to GPU shared memory before computation.
+    computeInLogSpace : bool
+        Perform computations in log-space.
+    verbose : bool
+        Verbose output.
+
+    Methods
+    -------
+
+    compile_ll(spn, inputDataType = "float64", errorModel = ErrorModel(), 
+                    batchSize = 4096, supportMarginal = True, name = "spn_cpu")
+        Compile SPN and return the compiled kernel.
+
+    execute(kernel, inputs)
+        Execute a previously compiled kernel on the given inputs.
+
+    log_likelihood(spn, inputs, errorModel = ErrorModel(), batchSize = 4096, supportMarginal = True)
+        Compile the SPN and immediately execute the compiled kernel on the given inputs.
+
+    isAvailable()
+        Check whether the compiler supports CUDA GPUs.
     
     """
 
+    __cudaWrappers = None
     
 
     def __init__(self, preloadToSharedMem = False, computeInLogSpace = True, verbose = False):
+        """
+        Parameters
+        ----------
+
+        preloadToSharedMem : bool
+            Pre-load input values to GPU shared memory before computation.
+        computeInLogSpace : bool
+            Perform computations in log-space.
+        verbose : bool
+            Verbose output.
+        """
+
         self.verbose = verbose
         self.preloadToSharedMem = preloadToSharedMem
         self.computeInLogSpace = computeInLogSpace
 
     def compile_ll(self, spn, inputDataType = "float64", errorModel = ErrorModel(), 
                     batchSize = 64, supportMarginal = True, name = "spn_gpu"):
+        """ Compile the SPN for the CUDA GPU target and return the compiled kernel.
+
+        Parameters
+        ----------
+
+        spn : spn.structure.Base.Node
+            Root node of the SPN.
+        inputDataType : str, optional
+            dtype of the input data.
+        errorModel : xspn.structure.Query.ErrorModel, optional
+            Error requirements
+        batchSize : int, optional
+            Batch size to optimize for, 1 for single execution
+        supportMarginal : bool, optional
+            Support marginalized evaluation in compiled kernel
+        name : str, optional
+            Name of the compiled kernel function.
+        """
+
         model = SPNModel(spn, inputDataType, name)
         query = JointProbability(model, batchSize = batchSize, supportMarginal = supportMarginal,
                                  rootError = errorModel)
@@ -106,6 +136,17 @@ class CUDACompiler:
         CUDACompiler.__cudaWrappers = CDLL(lib)
 
     def execute(self, kernel, inputs):
+        """Execute a compiled kernel on the given inputs.
+
+        Parameters
+        ----------
+
+        kernel : spnc.spncpy.Kernel
+            A previously compiled kernel
+        inputs : numpy.ndarray
+            Input data.
+        """
+
         if type(inputs) is not np.ndarray:
             raise RuntimeError("Input is not an numpy array")
         if inputs.ndim != 2:
@@ -119,6 +160,23 @@ class CUDACompiler:
 
     def log_likelihood(self, spn, inputs, errorModel = ErrorModel(),
                         batchSize = 64, supportMarginal = True):
+        """ Compile the SPN and immediately execute the compiled kernel on the given inputs.
+
+        Parameters
+        ----------
+
+        spn : spn.structure.Base.Node
+            Root node of the SPN.
+        inputs : numpy.ndarray
+            Input data.
+        errorModel : xspn.structure.Query.ErrorModel, optional
+            Error requirements
+        batchSize : int, optional
+            Batch size to optimize for, 1 for single execution
+        supportMarginal : bool, optional
+            Support marginalized evaluation in compiled kernel
+        """
+
         if type(inputs) is not np.ndarray:
             raise RuntimeError("Input is not an numpy array")
         if inputs.ndim != 2:
@@ -134,4 +192,6 @@ class CUDACompiler:
 
     @staticmethod
     def isAvailable():
+        """Query the compiler if compilation for CUDA GPUs is available."""
+
         return spncpy.SPNCompiler.isTargetSupported("CUDA")

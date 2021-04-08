@@ -1,21 +1,3 @@
-""" Option split:
-
-Compiler:
-verbose -> dumpIR
-vectorize
-vectorLibrary
-computeinLogspace
-shuffle
-
-
-compile/log_likelihood:
-
-errorModel
-batchSize
-supportMarginal
-
-"""
-
 import numpy as np
 import tempfile
 import os
@@ -31,26 +13,55 @@ def convertToFlag(value):
 class CPUCompiler:
     """Convenience interface to SPNC, targeting execution on the CPU.
 
-    Args:
-        vectorize (bool): Perform vectorization if possible.
-        vectorLibrary (str): Use vector library for optimized math functions, 
-                            possible values "LIBMVEC", "SVML" and "None".
-        computeInLogSpace (bool): Perform computations in log-space.
-        useVectorShuffle (bool): Use vector shuffles instead of gather loads when vectorizing.
-        verbose (bool): Verbose output.
+    Attributes
+    ----------
+    vectorize: bool
+        Perform vectorization if possible.
+    vectorLibrary : str
+        Use vector library for optimized math functions, possible values "LIBMVEC", "SVML" and "None".
+    computeInLogSpace : bool
+        Perform computations in log-space.
+    useVectorShuffle : bool
+        Use vector shuffles instead of gather loads when vectorizing.
+    verbose : bool
+        Verbose output.
 
-    Attributes:
-        vectorize (bool): Perform vectorization if possible.
-        vectorLibrary (str): Use vector library for optimized math functions, 
-                            possible values "LIBMVEC", "SVML" and "None".
-        computeInLogSpace (bool): Perform computations in log-space.
-        useVectorShuffle (bool): Use vector shuffles instead of gather loads when vectorizing.
-        verbose (bool): Verbose output.
+    Methods
+    -------
+
+    compile_ll(spn, inputDataType = "float64", errorModel = ErrorModel(), 
+                    batchSize = 4096, supportMarginal = True, name = "spn_cpu")
+        Compile SPN and return the compiled kernel.
+
+    execute(kernel, inputs)
+        Execute a previously compiled kernel on the given inputs.
+
+    log_likelihood(spn, inputs, errorModel = ErrorModel(), batchSize = 4096, supportMarginal = True)
+        Compile the SPN and immediately execute the compiled kernel on the given inputs.
+
+    isVectorizationSupported()
+        Check whether the compiler supports vectorization.
+
     
     """
 
     def __init__(self, vectorize = True, vectorLibrary = "LIBMVEC", computeInLogSpace = True, 
                 useVectorShuffle = True, verbose = False):
+        """
+        Parameters
+        ----------
+        vectorize: bool, optional
+            Perform vectorization if possible.
+        vectorLibrary : str, optional
+            Use vector library for optimized math functions, possible values "LIBMVEC", "SVML" and "None".
+        computeInLogSpace : bool, optional
+            Perform computations in log-space.
+        useVectorShuffle : bool, optional
+            Use vector shuffles instead of gather loads when vectorizing.
+        verbose : bool, optional
+            Verbose output.
+        """
+        
         self.verbose = verbose
         self.vectorize = vectorize
         self.vectorLibrary = vectorLibrary
@@ -60,6 +71,25 @@ class CPUCompiler:
 
     def compile_ll(self, spn, inputDataType = "float64", errorModel = ErrorModel(), 
                     batchSize = 4096, supportMarginal = True, name = "spn_cpu"):
+        """ Compile the SPN for the CPU target and return the compiled kernel.
+
+        Parameters
+        ----------
+
+        spn : spn.structure.Base.Node
+            Root node of the SPN.
+        inputDataType : str, optional
+            dtype of the input data.
+        errorModel : xspn.structure.Query.ErrorModel, optional
+            Error requirements
+        batchSize : int, optional
+            Batch size to optimize for, 1 for single execution
+        supportMarginal : bool, optional
+            Support marginalized evaluation in compiled kernel
+        name : str, optional
+            Name of the compiled kernel function.
+        """
+
         model = SPNModel(spn, inputDataType, name)
         query = JointProbability(model, batchSize = batchSize, supportMarginal = supportMarginal,
                                  rootError = errorModel)
@@ -92,6 +122,17 @@ class CPUCompiler:
         return kernel
 
     def execute(self, kernel, inputs):
+        """Execute a compiled kernel on the given inputs.
+
+        Parameters
+        ----------
+
+        kernel : spnc.spncpy.Kernel
+            A previously compiled kernel
+        inputs : numpy.ndarray
+            Input data.
+        """
+
         if type(inputs) is not np.ndarray:
             raise RuntimeError("Input is not an numpy array")
         if inputs.ndim != 2:
@@ -102,6 +143,23 @@ class CPUCompiler:
 
     def log_likelihood(self, spn, inputs, errorModel = ErrorModel(),
                         batchSize = 4096, supportMarginal = True):
+        """ Compile the SPN and immediately execute the compiled kernel on the given inputs.
+
+        Parameters
+        ----------
+
+        spn : spn.structure.Base.Node
+            Root node of the SPN.
+        inputs : numpy.ndarray
+            Input data.
+        errorModel : xspn.structure.Query.ErrorModel, optional
+            Error requirements
+        batchSize : int, optional
+            Batch size to optimize for, 1 for single execution
+        supportMarginal : bool, optional
+            Support marginalized evaluation in compiled kernel
+        """
+
         if type(inputs) is not np.ndarray:
             raise RuntimeError("Input is not an numpy array")
         if inputs.ndim != 2:
@@ -118,4 +176,6 @@ class CPUCompiler:
 
     @staticmethod
     def isVectorizationSupported():
+        """Query the compiler for vectoriztation support on the host CPU"""
+
         return spncpy.SPNCompiler.isFeatureAvailable("vectorize")
