@@ -91,6 +91,8 @@ std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(bo
   std::string cpu{llvm::sys::getHostCPUName()};
   llvm::SubtargetFeatures features;
   llvm::StringMap<bool> hostFeatures;
+  std::stringstream featureList;
+  bool initial = true;
   if (llvm::sys::getHostCPUFeatures(hostFeatures)) {
     for (auto& f : hostFeatures) {
       // Temporary hack: If no vectorization was requested by the user, disable
@@ -100,11 +102,20 @@ std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(bo
         features.AddFeature(f.first(), false);
       } else {
         features.AddFeature(f.first(), f.second);
+        if(f.second){
+          if (!initial) {
+            featureList << ", ";
+          }
+          featureList << f.first().str();
+          initial = false;
+        }
       }
     }
   }
+  SPDLOG_INFO("Target machine default triple: {}", targetTriple);
   SPDLOG_INFO("Target machine CPU name: {}", cpu);
-  SPDLOG_INFO("Target machine features: {}", features.getString());
+  SPDLOG_INFO("Target machine features: {}", featureList.str());
+  SPDLOG_INFO("Target machine CPU physical core count: {}", llvm::sys::getHostNumPhysicalCores());
 
   std::shared_ptr<llvm::TargetMachine> machine{target->createTargetMachine(targetTriple,
                                                                            cpu, features.getString(), {},

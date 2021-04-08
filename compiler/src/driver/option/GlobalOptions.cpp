@@ -38,5 +38,4 @@ Option<std::string> spnc::option::searchPaths{"search-paths", ""};
 
 Option<bool> spnc::option::deleteTemporaryFiles{"delete-temps", true};
 
-// TODO: Switch the default to false when we leave development mode.
-Option<bool> spnc::option::dumpIR{"dump-ir", true};
+Option<bool> spnc::option::dumpIR{"dump-ir", false};

@@ -18,7 +18,6 @@ using namespace spnc;
 
 Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t& options) {
   SPDLOG_INFO("Welcome to the SPN compiler!");
-  interface::Options::dump();
   auto config = interface::Options::parse(options);
   std::unique_ptr<Job<Kernel>> job;
   if (spnc::option::compilationTarget.get(*config) == option::TargetMachine::CUDA) {
