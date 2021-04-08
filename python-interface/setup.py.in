@@ -6,21 +6,16 @@ import shutil
 import os
 
 if @INCLUDE_MLIR_CUDA_WRAPPERS@:
-    if not os.path.isfile("@MLIR_CUDA_WRAPPERS@"):
-        raise RuntimeError("MLIR CUDA wrappers not found")
     cudaWrappers = os.path.join(os.path.realpath(os.path.dirname(__file__)), "spnc", "@MLIR_CUDA_WRAPPER_NAME@")
-    print(f"Copying MLIR CUDA wrapper library @MLIR_CUDA_WRAPPERS@ to {cudaWrappers}")
-    shutil.copyfile("@MLIR_CUDA_WRAPPERS@", cudaWrappers)
+    if not os.path.isfile(cudaWrappers):
+        raise RuntimeError("MLIR CUDA wrappers not found")
     binaryPackages = ["$<TARGET_FILE_NAME:spncpy>", "@MLIR_CUDA_WRAPPER_NAME@"]
 else:
     binaryPackages = ["$<TARGET_FILE_NAME:spncpy>"]
 
-if not os.path.isfile("$<TARGET_FILE:spncpy>"):
+spncpyLib = os.path.join(os.path.realpath(os.path.dirname(__file__)), "spnc", "$<TARGET_FILE_NAME:spncpy>")
+if not os.path.isfile(spncpyLib):
     raise RuntimeError("Python interface library not found, run make first")
-
-targetFile = os.path.join(os.path.realpath(os.path.dirname(__file__)), "spnc", "$<TARGET_FILE_NAME:spncpy>")
-print(f"Copying Python interface library $<TARGET_FILE:spncpy> to {targetFile}")
-shutil.copyfile("$<TARGET_FILE:spncpy>", targetFile)
 
 with open("requirements.txt", "r") as rf:
     requirements = rf.readlines()

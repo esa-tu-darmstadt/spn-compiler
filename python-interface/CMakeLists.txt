@@ -15,11 +15,21 @@ target_include_directories(spncpy
 # to substiture the generator expressions used to add target information to the setup.py
 if (${CUDA_GPU_SUPPORT} AND NOT ${BUILD_SHARED_LIBS})
     set(INCLUDE_MLIR_CUDA_WRAPPERS "True")
+    # Copy MLIR CUDA wrappers to spnc package directory.
+    add_custom_command(TARGET spncpy POST_BUILD
+                        COMMAND ${CMAKE_COMMAND} -E copy
+                        ${MLIR_CUDA_WRAPPERS} ${CMAKE_CURRENT_SOURCE_DIR}/spnc)       
+    get_filename_component(MLIR_CUDA_WRAPPER_NAME ${MLIR_CUDA_WRAPPERS} NAME)
 else()
     set(INCLUDE_MLIR_CUDA_WRAPPERS "False")
+    set(MLIR_CUDA_WRAPPER_NAME "")
 endif()
 
-get_filename_component(MLIR_CUDA_WRAPPER_NAME ${MLIR_CUDA_WRAPPERS} NAME)
+# Copy the spnc Python interface module/library to the spnc package directory.
+add_custom_command(TARGET spncpy POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy
+                    $<TARGET_FILE:spncpy> ${CMAKE_CURRENT_SOURCE_DIR}/spnc)
+
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in ${CMAKE_CURRENT_BINARY_DIR}/setup.py.in)
 
 file(GENERATE OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/setup.py INPUT ${CMAKE_CURRENT_BINARY_DIR}/setup.py.in)
