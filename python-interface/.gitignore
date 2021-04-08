@@ -7,3 +7,5 @@ dist/
 spnc.egg-info/
 
 spnc/*.so*
+
+**/.pytest_cache/
