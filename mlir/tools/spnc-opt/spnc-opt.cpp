@@ -104,10 +104,6 @@ int main(int argc, char** argv) {
                        return mlir::spn::createSLPVectorizationPass();
                      });
 
-  mlir::registerPass("spn-to-dot", "Prints the SPN to stderr", []() -> std::unique_ptr<mlir::Pass> {
-    return mlir::createPrintOpGraphPass();
-  });
-
   llvm::InitLLVM y(argc, argv);
 
   // Register any pass manager command line options.

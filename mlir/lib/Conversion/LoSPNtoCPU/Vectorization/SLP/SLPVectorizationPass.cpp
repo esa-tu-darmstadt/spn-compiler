@@ -7,6 +7,7 @@
 #include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPass.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraphBuilder.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPFunctionTransformer.h"
 #include "LoSPNtoCPU/Vectorization/TargetInformation.h"
 #include "LoSPNtoCPU/LoSPNtoCPUTypeConverter.h"
 #include "LoSPNtoCPU/Vectorization/LoSPNVectorizationTypeConverter.h"
@@ -18,12 +19,6 @@ using namespace mlir::spn::low::slp;
 
 // Anonymous namespace for helper functions.
 namespace {
-
-  bool isBroadcastable(std::vector<mlir::Operation*> const& vector) {
-    return std::all_of(std::begin(vector), std::end(vector), [&](mlir::Operation* op) {
-      return op == vector.front();
-    });
-  }
 
   /// For debugging purposes.
   void printOperation(mlir::Operation* op) {
@@ -104,159 +99,12 @@ void SLPVectorizationPass::runOnOperation() {
 
   auto seeds = seedAnalysis.getSeeds(width, seedAnalysis.getOpDepths(), SearchMode::UseBeforeDef);
   assert(!seeds.empty() && "couldn't find a seed!");
-  printSeedTree(seeds.front());
+  //printSeedTree(seeds.front());
   SLPGraphBuilder builder{3};
   auto graph = builder.build(seeds.front());
-  transform(graph.get());
-
-}
-
-void SLPVectorizationPass::transform(SLPNode* root) {
-  root->dumpGraph();
-  std::map<SLPNode*, size_t> vectorsDone;
-  std::map<SLPNode*, size_t> nodeInputsDone;
-  auto rootOperation = transform(root, 0, vectorsDone, nodeInputsDone);
+  SLPFunctionTransformer transformer(std::move(graph), &getContext());
+  transformer.transform();
   getOperation()->dump();
-  llvm::dbgs() << extractions.size() << "\n";
-  assert(false);
-  // Update users of vector operations that aren't contained in the graph.
-}
-
-mlir::Value SLPVectorizationPass::transform(SLPNode* node,
-                                            size_t vectorIndex,
-                                            std::map<SLPNode*, size_t>& vectorsDone,
-                                            std::map<SLPNode*, size_t>& nodeInputsDone) {
-
-  node->dump();
-  llvm::dbgs() << "\n";
-  if (std::uintptr_t(node->getOperation(0, 0)) == 0x716008) {
-    llvm::dbgs() << "\n";
-  }
-
-  vectorsDone[node]++;
-
-  LoSPNVectorizationTypeConverter typeConverter{static_cast<unsigned int>(node->numLanes())};
-  auto vectorType = typeConverter.convertType(node->getResultType());
-  auto builder = OpBuilder{&getContext()};
-
-  auto const& vectorizableOps = node->getVector(vectorIndex);
-  auto const& firstOp = vectorizableOps.front();
-  auto const& loc = firstOp->getLoc();
-  builder.setInsertionPoint(firstOp);
-
-  if (isBroadcastable(vectorizableOps)) {
-    auto value = firstOp->getResult(0);
-    auto vectorOp = builder.create<vector::BroadcastOp>(loc, vectorType, value);
-    return applyCreation(node, vectorIndex, vectorOp);
-  }
-
-  if (areConsecutiveLoads(vectorizableOps)) {
-    auto base = firstOp->getResult(0);
-    auto zero = builder.create<ConstantOp>(loc, builder.getIndexAttr(0));
-    auto indices = ValueRange{zero.getResult()};
-    auto vectorOp = builder.create<vector::LoadOp>(loc, vectorType, base, indices);
-    return applyCreation(node, vectorIndex, vectorOp);
-  }
-
-  if (node->isUniform() && firstOp->getNumOperands() > 0) {
-
-    llvm::SmallVector<Value, 2> operands;
-
-    for (size_t i = 0; i < firstOp->getNumOperands(); ++i) {
-
-      if (node->numOperands() == 0) {
-        size_t nextIndex = vectorsDone[node];
-        if (nextIndex < node->numVectors()) {
-          operands.emplace_back(transform(node, nextIndex, vectorsDone, nodeInputsDone));
-        } else {
-          auto nodeInput = node->getNodeInput(nodeInputsDone[node]++);
-          nodeInput.dump();
-          Operation* vectorOp = builder.create<vector::BroadcastOp>(loc, vectorType, nodeInput);
-          for (size_t lane = 1; lane < node->numLanes(); ++lane) {
-            nodeInput = node->getNodeInput(nodeInputsDone[node]++);
-            vectorOp = builder.create<vector::InsertElementOp>(vectorOp->getLoc(),
-                                                               nodeInput,
-                                                               vectorOp->getResult(0),
-                                                               lane);
-          }
-          operands.emplace_back(applyCreation(node, vectorIndex, vectorOp));
-        }
-      } else {
-
-        size_t initialOperandIndex = vectorIndex % node->getOperands().size();
-
-        size_t operandNodeIndex = initialOperandIndex;
-        SLPNode* operandNode = (i == 0) ? node : node->getOperand(operandNodeIndex);
-        bool useNodeInputs = false;
-
-        size_t nextVectorIndex = vectorsDone[operandNode];
-        while (nextVectorIndex >= operandNode->numVectors()) {
-          operandNode = node->getOperand(operandNodeIndex % node->getOperands().size());
-          nextVectorIndex = vectorsDone[operandNode];
-          // Check if we have looped through all operands already.
-          if (operandNodeIndex++ == initialOperandIndex + node->numOperands()) {
-            useNodeInputs = true;
-            break;
-          }
-        }
-
-        if (useNodeInputs) {
-          auto nodeInput = node->getNodeInput(nodeInputsDone[node]++);
-          nodeInput.dump();
-          Operation* vectorOp = builder.create<vector::BroadcastOp>(loc, vectorType, nodeInput);
-          for (size_t lane = 1; lane < node->numLanes(); ++lane) {
-            nodeInput = node->getNodeInput(nodeInputsDone[node]++);
-            vectorOp = builder.create<vector::InsertElementOp>(vectorOp->getLoc(),
-                                                               nodeInput,
-                                                               vectorOp->getResult(0),
-                                                               lane);
-          }
-          operands.emplace_back(applyCreation(node, vectorIndex, vectorOp));
-        } else {
-          operands.emplace_back(transform(operandNode, nextVectorIndex, vectorsDone, nodeInputsDone));
-        }
-
-      }
-    }
-
-    auto vectorOp = Operation::create(loc,
-                                      firstOp->getName(),
-                                      vectorType,
-                                      operands,
-                                      firstOp->getAttrs(),
-                                      firstOp->getSuccessors(),
-                                      firstOp->getNumRegions());
-    builder.insert(vectorOp);
-    return applyCreation(node, vectorIndex, vectorOp);
-  }
-
-  Operation* vectorOp = builder.create<vector::BroadcastOp>(loc, vectorType, firstOp->getResult(0));
-  for (size_t lane = 1; lane < node->numLanes(); ++lane) {
-    vectorOp = builder.create<vector::InsertElementOp>(vectorOp->getLoc(),
-                                                       vectorizableOps[lane]->getResult(0),
-                                                       vectorOp->getResult(0),
-                                                       lane);
-  }
-
-  return applyCreation(node, vectorIndex, vectorOp);
-}
-
-mlir::Value SLPVectorizationPass::applyCreation(SLPNode* node,
-                                                size_t vectorIndex,
-                                                Operation* createdVectorOp) {
-  for (size_t lane = 0; lane < node->numLanes(); ++lane) {
-    auto* operation = node->getOperation(lane, vectorIndex);
-    for (auto* use : operation->getUsers()) {
-      for (size_t i = 0; i < use->getNumOperands(); ++i) {
-        if (use->getOperand(i) == operation->getResult(0)) {
-          extractions[use][i] = std::make_pair(createdVectorOp, i);
-          break;
-        }
-      }
-    }
-    extractions.erase(operation);
-  }
-  return createdVectorOp->getResult(0);
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createSLPVectorizationPass() {

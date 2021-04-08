@@ -43,3 +43,29 @@ bool mlir::spn::low::slp::areConsecutiveLoads(std::vector<Operation*> const& loa
   return true;
 }
 
+bool mlir::spn::low::slp::canBeGathered(std::vector<Operation*> const& loads) {
+  auto firstLoad = dyn_cast<SPNBatchRead>(loads.front());
+  if (!firstLoad) {
+    return false;
+  }
+  for (size_t i = 1; i < loads.size(); ++i) {
+    auto load = dyn_cast<SPNBatchRead>(loads[i]);
+    if (!load) {
+      return false;
+    }
+    if (firstLoad.batchMem() != load.batchMem()) {
+      return false;
+    }
+    if (firstLoad.batchIndex() != load.batchIndex()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool mlir::spn::low::slp::areBroadcastable(std::vector<Operation*> const& ops) {
+  return std::all_of(std::begin(ops), std::end(ops), [&](mlir::Operation* op) {
+    return op == ops.front();
+  });
+}
+

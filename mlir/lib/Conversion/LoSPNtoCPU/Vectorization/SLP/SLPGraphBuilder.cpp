@@ -27,7 +27,17 @@ namespace {
   bool vectorizable(std::vector<Operation*> const& operations) {
     for (size_t i = 0; i < operations.size(); ++i) {
       auto* op = operations[i];
-      if (!op->hasTrait<OpTrait::spn::low::VectorizableOp>() || (op->getName() != operations.front()->getName())) {
+      if (!op->hasTrait<OpTrait::spn::low::VectorizableOp>()) {
+        return false;
+      }
+      if (op->getName() != operations.front()->getName()) {
+        return false;
+      }
+      if (op->getNumResults() != 1) {
+        return false;
+      }
+      // MLIR disallows index types in vectors.
+      if (op->getResult(0).getType().isa<IndexType>()) {
         return false;
       }
     }
@@ -125,23 +135,23 @@ void SLPGraphBuilder::buildGraph(std::vector<Operation*> const& operations, SLPN
   else {
     for (size_t i = 0; i < operations.front()->getNumOperands(); ++i) {
       std::vector<Value> operands;
-      bool containsBlockArgument = false;
+      std::vector<Operation*> operandOperations;
+      bool usesBlockArguments = false;
       for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
         auto operand = currentNode->getOperation(lane, 0)->getOperand(i);
         operands.emplace_back(operand);
-        containsBlockArgument |= operand.isa<BlockArgument>();
+        if (operand.isa<BlockArgument>()) {
+          usesBlockArguments = true;
+        } else {
+          operandOperations.emplace_back(operand.getDefiningOp());
+        }
       }
-      // Only consider operands that don't contain block arguments for further graph building.
-      if (containsBlockArgument) {
+
+      if (usesBlockArguments || !vectorizable(operandOperations)) {
         for (auto const& operand : operands) {
           currentNode->addNodeInput(operand);
         }
       } else {
-        std::vector<Operation*> operandOperations;
-        operandOperations.reserve(operands.size());
-        for (auto const& operand : operands) {
-          operandOperations.emplace_back(operand.getDefiningOp());
-        }
         buildGraph(operandOperations, currentNode->addOperand(operandOperations));
       }
     }
