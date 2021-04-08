@@ -8,6 +8,7 @@
 #include <driver/Options.h>
 #include <driver/GlobalOptions.h>
 #include <util/Logging.h>
+#include <TargetInformation.h>
 #if SPNC_CUDA_SUPPORT
 // Only include if CUDA GPU support was enabled.
 #include <driver/toolchain/CUDAGPUToolchain.h>
@@ -36,3 +37,35 @@ Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t&
 }
 
 
+bool spn_compiler::isTargetSupported(const std::string& target){
+  if(target == "CPU"){
+    return true;
+  }
+  if(target == "CUDA"){
+    #if SPNC_CUDA_SUPPORT
+    return true;
+    #else
+    return false;
+    #endif
+  }
+  return false;
+}
+
+bool spn_compiler::isFeatureSupported(const std::string& feature){
+  if(feature == "vectorize"){
+      auto& targetInfo = mlir::spn::TargetInformation::nativeCPUTarget();
+      return targetInfo.hasAVXSupport() || 
+              targetInfo.hasAVX2Support() || targetInfo.hasAVX512Support();
+  }
+  if(feature == "AVX"){
+    return mlir::spn::TargetInformation::nativeCPUTarget().hasAVXSupport();
+  }
+  if(feature == "AVX2"){
+    return mlir::spn::TargetInformation::nativeCPUTarget().hasAVX2Support();
+  }
+  if(feature == "AVX512"){
+    return mlir::spn::TargetInformation::nativeCPUTarget().hasAVX512Support();
+  }
+  // TODO Add query support for more features.
+  return false;
+}

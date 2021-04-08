@@ -115,3 +115,7 @@ class CPUCompiler:
         results = self.execute(kernel, inputs)
         os.remove(kernel.fileName())
         return results
+
+    @staticmethod
+    def isVectorizationSupported():
+        return spncpy.SPNCompiler.isFeatureAvailable("vectorize")

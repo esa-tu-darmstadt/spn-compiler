@@ -30,7 +30,7 @@ def convertToFlag(value):
     return "true" if value else "false"
 
 class CUDACompiler:
-    _cudaWrappers = None
+    __cudaWrappers = None
 
     """Convenience interface to SPNC, targeting execution on CUDA/Nvidia GPUs.
 
@@ -111,7 +111,7 @@ class CUDACompiler:
         if inputs.ndim != 2:
             raise RuntimeError("Input must be a two-dimensional array")
 
-        if not CUDACompiler._cudaWrappers:
+        if not CUDACompiler.__cudaWrappers:
             CUDACompiler._initializeCUDAWrappers()
         numSamples = inputs.shape[0]
         results = kernel.execute(numSamples, inputs)
@@ -131,3 +131,7 @@ class CUDACompiler:
         results = self.execute(kernel, inputs)
         os.remove(kernel.fileName())
         return results
+
+    @staticmethod
+    def isAvailable():
+        return spncpy.SPNCompiler.isTargetSupported("CUDA")
