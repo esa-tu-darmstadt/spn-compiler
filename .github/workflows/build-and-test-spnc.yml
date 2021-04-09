@@ -46,7 +46,7 @@ jobs:
           path: spdlog
 
       - name: Build spdlog
-        runs: |
+        run: |
           cd spdlog
           mkdir build
           cd build
@@ -61,7 +61,7 @@ jobs:
           path: capnproto
 
       - name: Build capnproto
-        runs: |
+        run: |
           cd capnproto/c++
           autoreconf -i
           ./configure --prefix=$GITHUB_WORKSPACE/capnproto/install --disable-shared --with-pic
@@ -74,7 +74,7 @@ jobs:
           path: spn-compiler
 
       - name: Build spnc
-        runs: |
+        run: |
           cd spn-compiler
           mkdir build
           cd build
