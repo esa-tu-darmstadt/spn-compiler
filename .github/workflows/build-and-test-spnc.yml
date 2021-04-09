@@ -21,7 +21,13 @@ jobs:
           cd llvm
           mkdir -p llvm-bin
           cd llvm-bin
-          cmake -G Ninja -DLLVM_ENABLE_PROJECTS="mlir;clang;compiler-rt"\ -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DLLVM_TARGETS_TO_BUILD="X86;NVPTX;AMDGPU" -DLLVM_ENABLE_LLD=ON -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_RTTI=ON -DCMAKE_C_COMPILER=/usr/bin/clang  -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DLLVM_OPTIMIZED_TABLEGEN=ON ../llvm-src/llvm/
+          cmake -G Ninja -DLLVM_ENABLE_PROJECTS="mlir;clang;compiler-rt"\
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF\
+            -DLLVM_TARGETS_TO_BUILD="X86;NVPTX;AMDGPU"\
+            -DLLVM_ENABLE_LLD=ON -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_RTTI=ON\
+            -DCMAKE_C_COMPILER=/usr/bin/clang  -DCMAKE_CXX_COMPILER=/usr/bin/clang++\
+            -DLLVM_OPTIMIZED_TABLEGEN=ON\
+            ../llvm-src/llvm/
           ninja
 
       - name: Pull Pybind11
@@ -78,6 +84,9 @@ jobs:
           cd spn-compiler
           mkdir -p build
           cd build
-          cmake -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/llvm/llvm-bin/lib/cmake/llvm;$GITHUB_WORKSPACE/llvm/llvm-bin/lib/cmake/mlir;$GITHUB_WORKSPACE/pybind11/install/share/cmake/pybind11;$GITHUB_WORKSPACE/spdlog/install/lib/cmake/spdlog;$GITHUB_WORKSPACE/capnproto/install" -DLLVM_ENABLE_LLD=ON -DLLVM_ENABLE_ASSERTIONS=ON -DSPNC_BUILD_DOC=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF ..
+          cmake -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/llvm/llvm-bin/lib/cmake/llvm;$GITHUB_WORKSPACE/llvm/llvm-bin/lib/cmake/mlir;$GITHUB_WORKSPACE/pybind11/install/share/cmake/pybind11;$GITHUB_WORKSPACE/spdlog/install/lib/cmake/spdlog;$GITHUB_WORKSPACE/capnproto/install"\
+          -DLLVM_ENABLE_LLD=ON -DLLVM_ENABLE_ASSERTIONS=ON -DSPNC_BUILD_DOC=OFF\
+          -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF\
+          ..
           make -j
 
