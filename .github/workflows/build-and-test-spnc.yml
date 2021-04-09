@@ -1,0 +1,25 @@
+name: build-and-test-xspn
+on: [push]
+jobs:
+  build-and-test:
+    runs-on: self-hosted
+    steps:
+      - name: Install Prerequisites
+        run: |
+          sudo apt update
+          apt install -y git gcc clang cmake ninja-build zlib1g zlib1g-dev python3 lld doxygen graphviz autoconf automake libtool python3-venv python3-pip
+
+      - name: Pull LLVM
+        uses: actions/checkout@v2
+        with:
+          repository: llvm/llvm-project
+          ref: f8d3f47e1fd09392aa30df83849b25acd8c59a25
+          path: llvm/llvm-src
+
+      - name: Build LLVM
+        run: |
+          cd llvm
+          mkdir llvm-bin
+          cd llvm-bin
+          cmake -G Ninja -DLLVM_ENABLE_PROJECTS="mlir;clang;compiler-rt"\ -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DLLVM_ENABLE_LLD=ON -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_RTTI=ON -DCMAKE_C_COMPILER=/usr/bin/clang  -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DLLVM_OPTIMIZED_TABLEGEN=ON ../llvm-src/llvm/
+          ninja
