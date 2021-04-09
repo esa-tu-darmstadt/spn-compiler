@@ -6,9 +6,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Python Setup
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.x
+        run: |
+          sudo apt install python3
+          python3 -m venv venv
+          source venv/bin/activate
 
       - name: Install dependencies
         run: |
