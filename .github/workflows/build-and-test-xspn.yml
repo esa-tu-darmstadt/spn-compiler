@@ -21,4 +21,6 @@ jobs:
 
       - name: Test
         run: |
+          source venv/bin/activate
+          cd xspn
           python -m pytest
