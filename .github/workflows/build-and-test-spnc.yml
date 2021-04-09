@@ -7,7 +7,7 @@ jobs:
       - name: Install Prerequisites
         run: |
           sudo apt update
-          apt install -y git gcc clang cmake ninja-build zlib1g zlib1g-dev python3 lld doxygen graphviz autoconf automake libtool python3-venv python3-pip python3-dev
+          apt install -y git gcc clang cmake ninja-build zlib1g zlib1g-dev python3 lld doxygen graphviz autoconf automake libtool python3-venv python3-pip python3-dev pkg-config
 
       - name: Pull LLVM
         uses: actions/checkout@v2
