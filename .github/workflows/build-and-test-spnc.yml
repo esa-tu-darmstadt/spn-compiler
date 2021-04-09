@@ -27,7 +27,7 @@ jobs:
       - name: Pull Pybind11
         uses: actions/checkout@v2
         with:
-          repository: pybind/pybind11.git
+          repository: pybind/pybind11
           path: pybind11
 
       - name: Build Pybind11
