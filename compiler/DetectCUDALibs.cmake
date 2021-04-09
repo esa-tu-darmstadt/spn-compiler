@@ -17,14 +17,4 @@ macro(detect_cuda_libs)
         endif ()
     endif ()
     message(STATUS "Using CUDA libdevice from: " ${SPNC_LIBDEVICE})
-
-    # When compiling for CUDA GPUs, the generated Kernel must be linked with the
-    # MLIR CUDA runtime wrappers for data-transfer, kernel-launch etc.
-    find_library(MLIR_CUDA_RUNTIME_WRAPPERS cuda-runtime-wrappers
-            HINTS ${LLVM_BUILD_LIBRARY_DIR})
-    if (NOT MLIR_CUDA_RUNTIME_WRAPPERS)
-        message(FATAL_ERROR "MLIR CUDA runtime wrappers not found")
-    else ()
-        message(STATUS "Using MLIR CUDA wrappers from:" ${MLIR_CUDA_RUNTIME_WRAPPERS})
-    endif ()
 endmacro(detect_cuda_libs)

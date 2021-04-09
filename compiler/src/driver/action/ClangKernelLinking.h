@@ -15,11 +15,6 @@
 
 namespace spnc {
 
-  struct LibraryInfo {
-    std::string libraryName;
-    std::string libraryLocation;
-  };
-
   ///
   /// Action to turn an object (*.o) into a Kernel (shared object, *.so) using clang,
   // and running the linking to external libraries.
@@ -32,7 +27,8 @@ namespace spnc {
     /// \param outputFile File to write resulting kernel (shared object) to.
     /// \param kernelFunctionName Name of the top-level SPN function inside the object file.
     ClangKernelLinking(ActionWithOutput<ObjectFile>& _input, SharedObject outputFile,
-                       std::shared_ptr<KernelInfo> info, llvm::ArrayRef<LibraryInfo> additionalLibraries = {});
+                       std::shared_ptr<KernelInfo> info, llvm::ArrayRef<std::string> additionalLibraries = {},
+                       llvm::ArrayRef<std::string> searchPaths = {});
 
     Kernel& execute() override;
 
@@ -46,7 +42,9 @@ namespace spnc {
 
     bool cached = false;
 
-    llvm::SmallVector<LibraryInfo, 3> additionalLibs;
+    llvm::SmallVector<std::string, 3> additionalLibs;
+
+    llvm::SmallVector<std::string, 3> libSearchPaths;
 
   };
 

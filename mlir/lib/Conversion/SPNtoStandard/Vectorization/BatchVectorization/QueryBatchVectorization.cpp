@@ -9,7 +9,7 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
-#include "../TargetInformation.h"
+#include "../../../LoSPNtoCPU/Target/TargetInformation.h"
 #include "mlir/Rewrite/PatternApplicator.h"
 #include "SPNtoStandard/Vectorization/BatchVectorizationPatterns.h"
 #include <cmath>
