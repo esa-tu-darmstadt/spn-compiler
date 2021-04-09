@@ -53,16 +53,13 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
         memEffect.getEffectsOnValue(blockArg, effects);
         for (auto e : effects) {
           if (isa<MemoryEffects::Read>(e.getEffect())) {
-            llvm::dbgs() << *U << " reads " << blockArg << "\n";
             isRead = true;
           }
           if (isa<MemoryEffects::Write>(e.getEffect())) {
-            llvm::dbgs() << *U << " writes to " << blockArg << "\n";
             isWritten = true;
           }
         }
       } else {
-        llvm::dbgs() << "Unspecified use: " << *U << "\n";
         // Pessimistically assume both read and written.
         isRead = true;
         isWritten = true;

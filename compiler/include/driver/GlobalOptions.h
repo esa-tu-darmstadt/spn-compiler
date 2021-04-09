@@ -59,6 +59,11 @@ namespace spnc {
     extern Option<bool> gpuSharedMem;
 
     ///
+    /// Option to pass additional search paths for libraries to the compiler.
+    /// Multiple paths can be provided as colon-separated list.
+    extern Option<std::string> searchPaths;
+
+    ///
     /// Flag to indicate whether temporary files created during compilation
     /// should be deleted after the compilation completes. Defaults to true.
     extern Option<bool> deleteTemporaryFiles;

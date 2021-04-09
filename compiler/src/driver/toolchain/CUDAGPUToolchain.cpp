@@ -61,9 +61,12 @@ std::unique_ptr<Job<Kernel> > CUDAGPUToolchain::constructJobFromFile(const std::
   auto sharedObject = FileSystem::createTempFile<FileType::SHARED_OBJECT>(false);
   SPDLOG_INFO("Compiling to shared object file {}", sharedObject.fileName());
   // The generated kernel must be linked against the MLIR CUDA runtime wrappers.
-  LibraryInfo cudaRuntimeWrappers{"cuda-runtime-wrappers", SPNC_CUDA_RUNTIME_WRAPPERS_DIR};
+  llvm::SmallVector<std::string, 3> additionalLibs;
+  additionalLibs.push_back("cuda-runtime-wrappers");
+  auto searchPaths = parseLibrarySearchPaths(spnc::option::searchPaths.get(*config));
+  searchPaths.push_back(SPNC_CUDA_RUNTIME_WRAPPERS_DIR);
   auto& linkSharedObject =
       job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo,
-                                                 std::initializer_list<LibraryInfo>{cudaRuntimeWrappers});
+                                                 additionalLibs, searchPaths);
   return std::move(job);
 }

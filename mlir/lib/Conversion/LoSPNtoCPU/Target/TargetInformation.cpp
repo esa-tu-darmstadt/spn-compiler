@@ -14,23 +14,7 @@
 #include "mlir/IR/BuiltinTypes.h"
 
 mlir::spn::TargetInformation::TargetInformation() {
-  llvm::dbgs() << "Host CPU name:" << llvm::sys::getHostCPUName().str() << "\n";
-  llvm::dbgs() << "Host process triple: " << llvm::sys::getProcessTriple() << "\n";
-  llvm::dbgs() << "Host default target triple: " << llvm::sys::getDefaultTargetTriple() << "\n";
-  llvm::dbgs() << "Host physical core count: " << llvm::sys::getHostNumPhysicalCores() << "\n";
   llvm::sys::getHostCPUFeatures(featureMap);
-  std::stringstream featureList;
-  bool initial = true;
-  for (auto& s : featureMap.keys()) {
-    if (featureMap.lookup(s)) {
-      if (!initial) {
-        featureList << ", ";
-      }
-      featureList << s.str();
-      initial = false;
-    }
-  }
-  llvm::dbgs() << "Host CPU feature list: " << featureList.str() << "\n";
 }
 
 mlir::spn::TargetInformation& mlir::spn::TargetInformation::nativeCPUTarget() {
