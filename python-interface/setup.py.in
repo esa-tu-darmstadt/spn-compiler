@@ -20,18 +20,12 @@ if not os.path.isfile(spncpyLib):
 with open("requirements.txt", "r") as rf:
     requirements = rf.readlines()
 
-readme = os.path.join(os.path.realpath(os.path.dirname(__file__)), "..", "README.md")
-with open(readme, "r", encoding="utf-8") as fh:
-    long_description = fh.read()
-
 setuptools.setup(
     name="spnc",
     version="0.1",
     author="Embedded Systems and Applications Group, TU Darmstadt",
     author_email="sommer@esa.tu-darmstadt.de",
     description="SPNC: A CPU- and GPU compiler for Sum-Product Networks",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
     url="https://github.com/esa-tu-darmstadt/spn-compiler",
     classifiers=[
         "Development Status :: 4 - Beta",
