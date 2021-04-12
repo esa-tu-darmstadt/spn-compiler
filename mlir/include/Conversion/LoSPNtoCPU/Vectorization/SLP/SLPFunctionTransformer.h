@@ -31,7 +31,7 @@ namespace mlir {
           Value transform(SLPNode* node, size_t vectorIndex);
           Value applyCreation(SLPNode* node, size_t vectorIndex, Operation* vectorOp, bool keepFirst = false);
 
-          Value extractMemRefOperand(Operation* op, Operation* position = nullptr);
+          Value extractMemRefOperand(Operation* op);
           Operation* broadcastFirstInsertRest(Operation* beforeOp,
                                               Type const& vectorType,
                                               SmallVector<Value, 4>& elements);

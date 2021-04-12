@@ -196,7 +196,7 @@ Value SLPFunctionTransformer::getOrCreateConstant(unsigned index, bool asIndex) 
   auto& createdConstants = asIndex ? createdIndexConstants : createdUnsignedConstants;
   if (!createdConstants.count(index)) {
     auto const& insertionPoint = builder.saveInsertionPoint();
-    auto attribute = asIndex ? builder.getIndexAttr(index) : builder.getUI32IntegerAttr(index);
+    auto const& attribute = asIndex ? builder.getIndexAttr(index) : builder.getIntegerAttr(builder.getI32Type(), index);
     builder.setInsertionPointToStart(&function.body().front());
     createdConstants[index] = builder.create<ConstantOp>(builder.getUnknownLoc(), attribute);
     builder.restoreInsertionPoint(insertionPoint);
@@ -204,7 +204,7 @@ Value SLPFunctionTransformer::getOrCreateConstant(unsigned index, bool asIndex) 
   return createdConstants[index];
 }
 
-Value SLPFunctionTransformer::extractMemRefOperand(Operation* op, Operation* position) {
+Value SLPFunctionTransformer::extractMemRefOperand(Operation* op) {
   Value base;
   ValueRange indices;
   if (auto batchRead = dyn_cast<SPNBatchRead>(op)) {
