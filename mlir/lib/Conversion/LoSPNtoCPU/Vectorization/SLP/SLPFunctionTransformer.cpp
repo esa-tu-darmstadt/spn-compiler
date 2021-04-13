@@ -88,7 +88,7 @@ Value SLPFunctionTransformer::transform(SLPNode* node, size_t vectorIndex) {
         }
       } else {
 
-        size_t initialOperandIndex = vectorIndex % node->getOperands().size();
+        size_t initialOperandIndex = vectorIndex % node->numOperands();
 
         size_t operandNodeIndex = initialOperandIndex;
         SLPNode* operandNode = (i == 0) ? node : node->getOperand(operandNodeIndex);
@@ -96,7 +96,7 @@ Value SLPFunctionTransformer::transform(SLPNode* node, size_t vectorIndex) {
 
         size_t nextVectorIndex = vectorsDone[operandNode];
         while (nextVectorIndex >= operandNode->numVectors()) {
-          operandNode = node->getOperand(operandNodeIndex % node->getOperands().size());
+          operandNode = node->getOperand(operandNodeIndex % node->numOperands());
           nextVectorIndex = vectorsDone[operandNode];
           // Check if we have looped through all operands already.
           if (operandNodeIndex++ == initialOperandIndex + node->numOperands()) {
@@ -177,6 +177,7 @@ Value SLPFunctionTransformer::applyCreation(SLPNode* node, size_t vectorIndex, O
       operation->replaceAllUsesWith(element);
 
     }
+    operation->dropAllUses();
     operation->remove();
   }
   return createdVectorOp->getResult(0);
