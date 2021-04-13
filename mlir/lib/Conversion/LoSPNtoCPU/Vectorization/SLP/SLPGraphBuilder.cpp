@@ -53,12 +53,6 @@ namespace {
     });
   }
 
-  bool escapesMultinode(Operation* operation) {
-    // TODO: check if some intermediate, temporary value of a multinode is used outside of it
-    assert(operation);
-    return false;
-  }
-
   std::vector<Operation*> getOperands(Operation* operation) {
     std::vector<Operation*> operands;
     operands.reserve(operation->getNumOperands());
@@ -107,8 +101,8 @@ void SLPGraphBuilder::buildGraph(std::vector<Operation*> const& operations, SLPN
     }
     for (size_t i = 0; i < operations.front()->getNumOperands(); ++i) {
       if (std::all_of(std::begin(allOperands), std::end(allOperands), [&](auto const& operandOperations) {
-        return operandOperations[i]->getName() == currentOpCode
-            && !escapesMultinode(operandOperations[i]);
+        // We don't need multinode-escaping checks since an escaping value can be 'fetched' with vector extractions.
+        return operandOperations[i]->getName() == currentOpCode;
       })) {
         for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
           currentNode->addOperationToLane(allOperands[lane][i], lane);

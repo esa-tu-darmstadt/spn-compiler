@@ -29,7 +29,7 @@ namespace mlir {
         private:
 
           Value transform(SLPNode* node, size_t vectorIndex);
-          Value applyCreation(SLPNode* node, size_t vectorIndex, Operation* vectorOp, bool keepFirst = false);
+          Value applyCreation(SLPNode* node, size_t vectorIndex, Operation* vectorOp);
 
           Value extractMemRefOperand(Operation* op);
           Operation* broadcastFirstInsertRest(Operation* beforeOp,
@@ -43,9 +43,6 @@ namespace mlir {
           OpBuilder builder;
           LoSPNVectorizationTypeConverter typeConverter;
 
-          /// Stores where operations can find their operands in case their defining operations
-          /// were deleted during vectorization.
-          llvm::DenseMap<Operation*, std::map<size_t, std::pair<Operation*, size_t>>> operandExtractions;
           llvm::DenseMap<std::tuple<Value, Value, unsigned>, Value> memRefLoads;
           llvm::DenseMap<unsigned, Value> createdIndexConstants;
           llvm::DenseMap<unsigned, Value> createdUnsignedConstants;

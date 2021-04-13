@@ -21,25 +21,8 @@ SLPFunctionTransformer::SLPFunctionTransformer(std::unique_ptr<SLPNode>&& graph,
 }
 
 void SLPFunctionTransformer::transform() {
-
   builder.setInsertionPoint(root->getOperation(0, 0));
-
   transform(root.get(), 0);
-
-  // Create extractions for operations that need values from the SLPGraph, but are located outside of it.
-  for (auto const& entry : operandExtractions) {
-    auto* op = entry.getFirst();
-    for (auto const& extraction : entry.getSecond()) {
-
-      auto const& vector = extraction.second.first->getResult(0);
-      auto const& position = getOrCreateConstant(extraction.second.second);
-
-      builder.setInsertionPoint(op);
-      auto element = builder.create<vector::ExtractElementOp>(op->getLoc(), vector, position);
-      op->setOperand(extraction.first, element);
-
-    }
-  }
 }
 
 Value SLPFunctionTransformer::transform(SLPNode* node, size_t vectorIndex) {
@@ -48,17 +31,21 @@ Value SLPFunctionTransformer::transform(SLPNode* node, size_t vectorIndex) {
 
   auto vectorType = typeConverter.convertType(node->getResultType());
 
-  auto const& vectorizableOps = node->getVector(vectorIndex);
-  vectorizedOps.insert(vectorizableOps.begin(), vectorizableOps.end());
-  auto const& firstOp = vectorizableOps.front();
+  auto const& vectorOps = node->getVector(vectorIndex);
+  vectorizedOps.insert(vectorOps.begin(), vectorOps.end());
+  auto const& firstOp = vectorOps.front();
   auto const& loc = firstOp->getLoc();
 
-  if (areBroadcastable(vectorizableOps)) {
+  if (areBroadcastable(vectorOps)) {
     auto value = firstOp->getResult(0);
-    return applyCreation(node, vectorIndex, builder.create<vector::BroadcastOp>(loc, vectorType, value), true);
+    auto const& insertionPoint = builder.saveInsertionPoint();
+    builder.setInsertionPointAfter(firstOp);
+    auto broadcast = builder.create<vector::BroadcastOp>(loc, vectorType, value);
+    builder.restoreInsertionPoint(insertionPoint);
+    return applyCreation(node, vectorIndex, broadcast);
   }
 
-  if (areConsecutiveLoads(vectorizableOps)) {
+  if (areConsecutiveLoads(vectorOps)) {
     auto batchRead = static_cast<SPNBatchRead>(firstOp);
     auto const& base = batchRead.batchMem();
     auto const& batchIndex = batchRead.batchIndex();
@@ -69,9 +56,9 @@ Value SLPFunctionTransformer::transform(SLPNode* node, size_t vectorIndex) {
     return applyCreation(node, vectorIndex, builder.create<vector::LoadOp>(loc, vectorType, base, indices));
   }
 
-  if (canBeGathered(vectorizableOps)) {
+  if (canBeGathered(vectorOps)) {
     SmallVector<Value, 4> elements;
-    for (auto const& op : vectorizableOps) {
+    for (auto const& op : vectorOps) {
       elements.emplace_back(extractMemRefOperand(op));
     }
     return applyCreation(node, vectorIndex, broadcastFirstInsertRest(firstOp, vectorType, elements));
@@ -92,7 +79,7 @@ Value SLPFunctionTransformer::transform(SLPNode* node, size_t vectorIndex) {
           for (size_t lane = 0; lane < node->numLanes(); ++lane) {
             auto nodeInput = node->getNodeInput(nodeInputsDone[node]++);
             if (nodeInput.getType().isa<MemRefType>()) {
-              nodeInput = extractMemRefOperand(vectorizableOps[lane]);
+              nodeInput = extractMemRefOperand(vectorOps[lane]);
             }
             vectorElements.emplace_back(nodeInput);
           }
@@ -123,7 +110,7 @@ Value SLPFunctionTransformer::transform(SLPNode* node, size_t vectorIndex) {
           for (size_t lane = 0; lane < node->numLanes(); ++lane) {
             auto nodeInput = node->getNodeInput(nodeInputsDone[node]++);
             if (nodeInput.getType().isa<MemRefType>()) {
-              nodeInput = extractMemRefOperand(vectorizableOps[lane]);
+              nodeInput = extractMemRefOperand(vectorOps[lane]);
             }
             vectorElements.emplace_back(nodeInput);
           }
@@ -136,44 +123,59 @@ Value SLPFunctionTransformer::transform(SLPNode* node, size_t vectorIndex) {
       }
     }
 
-    auto vectorOp = Operation::create(loc,
-                                      firstOp->getName(),
-                                      vectorType,
-                                      operands,
-                                      firstOp->getAttrs(),
-                                      firstOp->getSuccessors(),
-                                      firstOp->getNumRegions());
-    return applyCreation(node, vectorIndex, builder.insert(vectorOp));
+    Operation* vectorOp;
+
+    if (dyn_cast<SPNMul>(firstOp)) {
+      vectorOp = builder.create<MulFOp>(loc, operands);
+    } else if (dyn_cast<SPNAdd>(firstOp)) {
+      vectorOp = builder.create<AddFOp>(loc, operands);
+    } else {
+      vectorOp = builder.insert(Operation::create(loc,
+                                                  firstOp->getName(),
+                                                  vectorType,
+                                                  operands,
+                                                  firstOp->getAttrs(),
+                                                  firstOp->getSuccessors(),
+                                                  firstOp->getNumRegions()));
+    }
+    return applyCreation(node, vectorIndex, vectorOp);
   }
 
   llvm::SmallVector<Value, 4> vectorElements;
-  for (auto op : vectorizableOps) {
+  for (auto op : vectorOps) {
     vectorElements.emplace_back(op->getResult(0));
   }
   return applyCreation(node, vectorIndex, broadcastFirstInsertRest(firstOp, vectorType, vectorElements));
 }
 
-Value SLPFunctionTransformer::applyCreation(SLPNode* node,
-                                            size_t vectorIndex,
-                                            Operation* createdVectorOp,
-                                            bool keepFirst) {
+Value SLPFunctionTransformer::applyCreation(SLPNode* node, size_t vectorIndex, Operation* createdVectorOp) {
+
+  bool isBroadcast = dyn_cast<vector::BroadcastOp>(createdVectorOp);
+
   for (size_t lane = 0; lane < node->numLanes(); ++lane) {
     auto* operation = node->getOperation(lane, vectorIndex);
+    if (isBroadcast && operation == node->getOperation(0, vectorIndex)) {
+      continue;
+    }
+    bool createExtraction = false;
     for (auto* use : operation->getUsers()) {
-      // Happens when creating broadcast operations.
-      if (use == createdVectorOp) {
-        continue;
-      }
-      for (size_t i = 0; i < use->getNumOperands(); ++i) {
-        if (use->getOperand(i) == operation->getResult(0) && !vectorizedOps.count(use)) {
-          operandExtractions[use][i] = std::make_pair(createdVectorOp, lane);
-          break;
-        }
+      if (vectorizedOps.find(use) == std::end(vectorizedOps)) {
+        createExtraction = true;
+        break;
       }
     }
-    operandExtractions.erase(operation);
-    if (lane == 0 && keepFirst) {
-      continue;
+
+    if (createExtraction) {
+
+      auto const& source = createdVectorOp->getResult(0);
+      auto const& position = getOrCreateConstant(lane, false);
+
+      auto const& insertionPoint = builder.saveInsertionPoint();
+      builder.setInsertionPointAfter(createdVectorOp);
+      auto element = builder.create<vector::ExtractElementOp>(builder.getUnknownLoc(), source, position);
+      builder.restoreInsertionPoint(insertionPoint);
+      operation->replaceAllUsesWith(element);
+
     }
     operation->remove();
   }

@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
                        return mlir::spn::createLoSPNNodeVectorizationPass();
                      });
 
-  mlir::registerPass("slp-vectorize-structure", "Run SLP vectorization of the structure for CPU target",
+  mlir::registerPass("slp-vectorize", "Run SLP vectorization of the structure for CPU target",
                      []() -> std::unique_ptr<mlir::Pass> {
                        return mlir::spn::createSLPVectorizationPass();
                      });
