@@ -104,10 +104,12 @@ void SLPGraphBuilder::buildGraph(std::vector<Operation*> const& operations, SLPN
         // We don't need multinode-escaping checks since an escaping value can be 'fetched' with vector extractions.
         return operandOperations[i]->getName() == currentOpCode;
       })) {
+        std::vector<Operation*> vectorOps;
         for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
-          currentNode->addOperationToLane(allOperands[lane][i], lane);
+          vectorOps.emplace_back(allOperands[lane][i]);
         }
-        buildGraph(currentNode->getVector(currentNode->numVectors() - 1), currentNode);
+        currentNode->addVector(vectorOps);
+        buildGraph(vectorOps, currentNode);
       } else {
         // TODO: here might be a good place to implement variable vector width
         std::vector<Operation*> operandOperations;

@@ -7,13 +7,13 @@
 #include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPass.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraphBuilder.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPFunctionTransformer.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
 #include "LoSPNtoCPU/Vectorization/TargetInformation.h"
-#include "LoSPNtoCPU/LoSPNtoCPUTypeConverter.h"
-#include "LoSPNtoCPU/Vectorization/LoSPNVectorizationTypeConverter.h"
-#include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Rewrite/PatternApplicator.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include <queue>
 
 using namespace mlir::spn::low::slp;
 
@@ -73,7 +73,54 @@ namespace {
     llvm::dbgs() << "}\n";
   }
 
-}
+  llvm::DenseMap<mlir::Operation*, SLPNode*> computeParentNodesMapping(SLPNode* root) {
+    llvm::DenseMap<mlir::Operation*, SLPNode*> parentMapping;
+    std::queue<SLPNode*> worklist;
+    worklist.emplace(root);
+    while (!worklist.empty()) {
+      auto* node = worklist.front();
+      worklist.pop();
+      for(auto& vector : node->getVectors()) {
+        for(auto* op : vector) {
+          parentMapping[op] = node;
+        }
+      }
+      for (auto const& operand : node->getOperands()) {
+        worklist.emplace(operand);
+      }
+    }
+    return parentMapping;
+  }
+
+  /// Define a custom PatternRewriter for use by the driver.
+  class MyPatternRewriter : public mlir::PatternRewriter {
+  public:
+    MyPatternRewriter(mlir::MLIRContext *ctx) : PatternRewriter(ctx) {}
+
+    /// Override the necessary PatternRewriter hooks here.
+  };
+
+/// Apply the custom driver to `op`.
+  void applyMyPatternDriver(mlir::Operation *op,
+                            mlir::FrozenRewritePatternList const& patterns) {
+    // Initialize the custom PatternRewriter.
+    MyPatternRewriter rewriter(op->getContext());
+
+    // Create the applicator and apply our cost model.
+    mlir::PatternApplicator applicator(patterns);
+    applicator.applyDefaultCostModel();
+
+    //auto resulttest = patterns.getNativePatterns().begin()->matchAndRewrite(op, rewriter);
+
+    // Try to match and apply a pattern.
+    mlir::LogicalResult result = applicator.matchAndRewrite(op, rewriter);
+    if (failed(result)) {
+      // ... No patterns were applied.
+    }
+    // ... A pattern was successfully applied.
+  }
+
+} // End anonymous namespace.
 
 void SLPVectorizationPass::runOnOperation() {
   llvm::StringRef funcName = getOperation().getName();
@@ -93,8 +140,31 @@ void SLPVectorizationPass::runOnOperation() {
   //printSeedTree(seeds.front());
   SLPGraphBuilder builder{3};
   auto graph = builder.build(seeds.front());
-  SLPFunctionTransformer transformer(std::move(graph), function);
-  transformer.transform();
+  //SLPFunctionTransformer transformer(std::move(graph), function);
+  //transformer.transform();
+  // ==== //
+
+  OwningRewritePatternList patterns;
+  auto const& parentMapping = computeParentNodesMapping(graph.get());
+  populateSLPVectorizationPatterns(patterns, &getContext(), parentMapping);
+  FrozenRewritePatternList frozenPatterns(std::move(patterns));
+  for(auto const& entry : parentMapping) {
+    if(dyn_cast<SPNConstant>(entry.first)) {
+      llvm::dbgs() << "constant op: " << entry.first << "\n";
+      entry.second->dump();
+      //applyMyPatternDriver(entry.first, frozenPatterns);
+    }
+    entry.first->dump();
+    bool erased;
+    auto success = applyOpPatternsAndFold(entry.first, frozenPatterns, &erased);
+
+    assert(success.succeeded());
+
+    if (success.failed()) {
+      signalPassFailure();
+    }
+  }
+
   getOperation()->dump();
 }
 

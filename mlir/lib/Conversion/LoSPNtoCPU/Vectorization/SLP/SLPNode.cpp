@@ -13,24 +13,19 @@ using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::low::slp;
 
-SLPNode::SLPNode(std::vector<Operation*> const& operations) : lanes{operations.size()}, operandNodes{}, nodeInputs{} {
-  for (size_t i = 0; i < operations.size(); ++i) {
-    lanes[i].emplace_back(operations[i]);
-  }
-}
-
-void SLPNode::addOperationToLane(Operation* operation, size_t const& lane) {
-  lanes[lane].emplace_back(operation);
+SLPNode::SLPNode(std::vector<Operation*> const& operations) {
+  assert(!operations.empty());
+  vectors.emplace_back(operations);
 }
 
 Operation* SLPNode::getOperation(size_t lane, size_t index) const {
   assert(lane <= numLanes() && index <= numVectors());
-  return lanes[lane][index];
+  return vectors[index][lane];
 }
 
 void SLPNode::setOperation(size_t lane, size_t index, Operation* operation) {
   assert(lane <= numLanes() && index <= numVectors());
-  lanes[lane][index] = operation;
+  vectors[index][lane] = operation;
 }
 
 bool SLPNode::isMultiNode() const {
@@ -38,35 +33,44 @@ bool SLPNode::isMultiNode() const {
 }
 
 bool SLPNode::isUniform() const {
-  return std::all_of(std::begin(lanes), std::end(lanes), [&](auto const& operations) {
-    return operations[0]->getName() == lanes[0][0]->getName();
+  return std::all_of(std::begin(vectors), std::end(vectors), [&](auto const& operations) {
+    return operations[0]->getName() == vectors[0][0]->getName();
   });
 }
 
 bool SLPNode::areRootOfNode(std::vector<Operation*> const& operations) const {
-  for (size_t lane = 0; lane < numLanes(); ++lane) {
-    if (operations[lane] != lanes[lane].front()) {
-      return false;
-    }
-  }
-  return true;
+  return vectors[0] == operations;
 }
 
 size_t SLPNode::numLanes() const {
-  return lanes.size();
+  return vectors[0].size();
 }
 
 size_t SLPNode::numVectors() const {
-  return lanes.front().size();
+  return vectors.size();
 }
 
-std::vector<Operation*> SLPNode::getVector(size_t index) const {
+void SLPNode::addVector(std::vector<Operation*> const& vectorOps) {
+  assert(vectorOps.size() == numLanes());
+  vectors.emplace_back(vectorOps);
+}
+
+std::vector<Operation*>& SLPNode::getVector(size_t index) {
   assert(index <= numVectors());
-  std::vector<Operation*> vector;
-  for (size_t lane = 0; lane < numLanes(); ++lane) {
-    vector.emplace_back(lanes[lane][index]);
+  return vectors[index];
+}
+
+std::vector<Operation*>& SLPNode::getVectorOf(Operation* op) {
+  for(auto& vector : vectors) {
+    if(std::find(std::begin(vector), std::end(vector), op) != std::end(vector)) {
+      return vector;
+    }
   }
-  return vector;
+  assert(false && "node does not contain the given operation");
+}
+
+std::vector<std::vector<Operation*>>& SLPNode::getVectors() {
+  return vectors;
 }
 
 SLPNode* SLPNode::addOperand(std::vector<Operation*> const& operations) {
@@ -98,10 +102,6 @@ void SLPNode::addNodeInput(Value const& value) {
 
 Value const& SLPNode::getNodeInput(size_t index) const {
   return nodeInputs[index];
-}
-
-Type SLPNode::getResultType() const {
-  return lanes[0][0]->getResult(0).getType();
 }
 
 void SLPNode::dump() const {

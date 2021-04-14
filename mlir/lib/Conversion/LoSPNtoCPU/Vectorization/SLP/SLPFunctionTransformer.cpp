@@ -29,7 +29,7 @@ Value SLPFunctionTransformer::transform(SLPNode* node, size_t vectorIndex) {
 
   vectorsDone[node]++;
 
-  auto vectorType = typeConverter.convertType(node->getResultType());
+  auto vectorType = typeConverter.convertType(node->getOperation(0, 0)->getResultTypes().front());
 
   auto const& vectorOps = node->getVector(vectorIndex);
   vectorizedOps.insert(vectorOps.begin(), vectorOps.end());

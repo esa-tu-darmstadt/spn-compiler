@@ -19,7 +19,6 @@ namespace mlir {
 
           explicit SLPNode(std::vector<Operation*> const& operations);
 
-          void addOperationToLane(Operation* operation, size_t const& lane);
           Operation* getOperation(size_t lane, size_t index) const;
           void setOperation(size_t lane, size_t index, Operation* operation);
 
@@ -30,7 +29,11 @@ namespace mlir {
           size_t numLanes() const;
 
           size_t numVectors() const;
-          std::vector<Operation*> getVector(size_t index) const;
+          void addVector(std::vector<Operation*> const& vectorOps);
+          std::vector<Operation*>& getVector(size_t index);
+          std::vector<Operation*>& getVectorOf(Operation* op);
+          std::vector<std::vector<Operation*>>& getVectors();
+
 
           SLPNode* addOperand(std::vector<Operation*> const& operations);
           SLPNode* getOperand(size_t index) const;
@@ -40,13 +43,11 @@ namespace mlir {
           void addNodeInput(Value const& value);
           Value const& getNodeInput(size_t index) const;
 
-          Type getResultType() const;
-
           void dump() const;
           void dumpGraph() const;
 
           friend bool operator==(SLPNode const& lhs, SLPNode const& rhs) {
-            return std::tie(lhs.lanes) == std::tie(rhs.lanes);
+            return std::tie(lhs.vectors) == std::tie(rhs.vectors);
           }
 
           friend bool operator!=(SLPNode const& lhs, SLPNode const& rhs) {
@@ -55,10 +56,7 @@ namespace mlir {
 
         private:
 
-          /// Stores lanes as lists of operations. An inner vector (i.e. a lane) only contains more than one operation
-          /// if this node is a multinode. Operations with smaller indices inside a lane are executed "after" the higher
-          /// ones in the source code.
-          std::vector<std::vector<Operation*>> lanes;
+          std::vector<std::vector<Operation*>> vectors;
 
           std::vector<std::unique_ptr<SLPNode>> operandNodes;
 
