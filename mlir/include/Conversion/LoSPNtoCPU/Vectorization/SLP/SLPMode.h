@@ -26,7 +26,7 @@ namespace mlir {
           FAILED
         };
 
-        Mode modeFromOperation(Operation const* operation);
+        Mode modeFromOperation(Operation* operation);
 
       }
     }
