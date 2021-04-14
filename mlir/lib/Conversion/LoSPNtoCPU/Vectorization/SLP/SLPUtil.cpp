@@ -4,38 +4,32 @@
 //
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
-#include "LoSPN/LoSPNOps.h"
 
 using namespace mlir;
 
-bool mlir::spn::low::slp::areConsecutiveLoads(Operation* op1, Operation* op2) {
-
-  if (op1 == op2) {
+bool mlir::spn::low::slp::areConsecutiveLoads(low::SPNBatchRead load1, low::SPNBatchRead load2) {
+  if (load1 == load2) {
     return false;
   }
-
-  auto loadOp1 = dyn_cast<low::SPNBatchRead>(op1);
-  auto loadOp2 = dyn_cast<low::SPNBatchRead>(op2);
-
-  if (!loadOp1 || !loadOp2) {
+  if (load1.batchMem() != load2.batchMem()) {
     return false;
   }
-
-  if (loadOp1.batchMem() != loadOp2.batchMem()) {
+  if (load1.batchIndex() != load2.batchIndex()) {
     return false;
   }
-
-  if (loadOp1.batchIndex() != loadOp2.batchIndex()) {
-    return false;
-  }
-
-  return loadOp1.sampleIndex() + 1 == loadOp2.sampleIndex();
+  return load1.sampleIndex() + 1 == load2.sampleIndex();
 }
 
 bool mlir::spn::low::slp::areConsecutiveLoads(std::vector<Operation*> const& loads) {
   for (size_t i = 0; i < loads.size() - 1; ++i) {
-    auto* loadOp1 = loads[i];
-    auto* loadOp2 = loads[i + 1];
+    auto loadOp1 = dyn_cast<low::SPNBatchRead>(loads[i]);
+    if (!loadOp1) {
+      return false;
+    }
+    auto loadOp2 = dyn_cast<low::SPNBatchRead>(loads[i + 1]);
+    if (!loadOp2) {
+      return false;
+    }
     if (!areConsecutiveLoads(loadOp1, loadOp2)) {
       return false;
     }
