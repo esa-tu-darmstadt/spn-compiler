@@ -7,6 +7,7 @@
 #include "llvm/Support/Debug.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraphBuilder.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
+#include "LoSPN/LoSPNOps.h"
 #include "LoSPN/LoSPNTraits.h"
 #include <set>
 
@@ -155,10 +156,6 @@ void SLPGraphBuilder::buildGraph(std::vector<Operation*> const& operations, SLPN
 }
 
 void SLPGraphBuilder::reorderOperands(SLPNode* multinode) const {
-  if (std::uintptr_t(multinode->getOperation(0, 0)) == 12345) {
-    multinode->dump();
-    llvm::dbgs() << "\n";
-  }
   auto const& numOperands = multinode->numOperands();
   std::vector<std::vector<Operation*>> finalOrder{multinode->numLanes()};
   std::vector<std::vector<Mode>> mode{multinode->numLanes()};
@@ -233,7 +230,8 @@ std::pair<Operation*, Mode> SLPGraphBuilder::getBest(Mode const& mode,
     best = candidates.front();
     for (auto& candidate : candidates) {
       if (mode == LOAD) {
-        if (areConsecutiveLoads(last, candidate)) {
+        auto load = dyn_cast<SPNBatchRead>(candidate);
+        if (load && areConsecutiveLoads(static_cast<SPNBatchRead>(last), load)) {
           bestCandidates.emplace_back(candidate);
         }
       } else if (candidate->getName() == last->getName()) {
@@ -287,8 +285,8 @@ int SLPGraphBuilder::getLookAheadScore(Operation* last, Operation* candidate, si
     if (last->getName() != candidate->getName()) {
       return 0;
     }
-    if (dyn_cast<LoadOp>(last)) {
-      return areConsecutiveLoads(last, candidate) ? 1 : 0;
+    if (dyn_cast<SPNBatchRead>(last)) {
+      return areConsecutiveLoads(static_cast<SPNBatchRead>(last), static_cast<SPNBatchRead>(candidate)) ? 1 : 0;
     }
     return 1;
   }
