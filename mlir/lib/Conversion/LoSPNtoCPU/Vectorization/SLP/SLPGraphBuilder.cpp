@@ -37,7 +37,7 @@ namespace {
       if (op->getNumResults() != 1) {
         return false;
       }
-      // MLIR disallows index types in vectors.
+      // MLIR does not allow index types in vectors.
       if (op->getResult(0).getType().isa<IndexType>()) {
         return false;
       }
@@ -46,11 +46,16 @@ namespace {
   }
 
   bool commutative(std::vector<Operation*> const& operations) {
-    return std::any_of(std::begin(operations), std::end(operations), [&](Operation* op) {
-      if (!op->hasTrait<OpTrait::IsCommutative>()) {
-        return false;
-      }
-      return true;
+    return std::all_of(std::begin(operations), std::end(operations), [&](Operation* op) {
+      return op->hasTrait<OpTrait::IsCommutative>();
+    });
+  }
+
+  bool escapesMultinode(Operation* op, SLPNode* currentNode) {
+    // TODO: determine if multinodes should stop building if an operation escapes it
+    // or if simply disallowing reordering in this lane might be better
+    return std::any_of(std::begin(op->getUsers()), std::end(op->getUsers()), [&](auto* user) {
+      return !currentNode->containsOperation(user);
     });
   }
 
@@ -102,8 +107,7 @@ void SLPGraphBuilder::buildGraph(std::vector<Operation*> const& operations, SLPN
     }
     for (size_t i = 0; i < operations.front()->getNumOperands(); ++i) {
       if (std::all_of(std::begin(allOperands), std::end(allOperands), [&](auto const& operandOperations) {
-        // We don't need multinode-escaping checks since an escaping value can be 'fetched' with vector extractions.
-        return operandOperations[i]->getName() == currentOpCode;
+        return operandOperations[i]->getName() == currentOpCode && !escapesMultinode(operandOperations[i], currentNode);
       })) {
         std::vector<Operation*> vectorOps;
         for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
@@ -185,7 +189,7 @@ void SLPGraphBuilder::reorderOperands(SLPNode* multinode) const {
       // Update output
       finalOrder[lane].emplace_back(bestResult.first);
       // Detect SPLAT mode
-      if (i == 1 && bestResult.first == last) {
+      if (i == 1 && OperationEquivalence::isEquivalentTo(bestResult.first, last)) {
         mode[lane][i] = SPLAT;
       } else {
         mode[lane].emplace_back(bestResult.second);
@@ -220,7 +224,7 @@ std::pair<Operation*, Mode> SLPGraphBuilder::getBest(Mode const& mode,
   } else if (mode == SPLAT) {
     // Look for other splat candidates
     for (auto& operand : candidates) {
-      if (operand == last) {
+      if (OperationEquivalence::isEquivalentTo(operand, last)) {
         best = operand;
         break;
       }
