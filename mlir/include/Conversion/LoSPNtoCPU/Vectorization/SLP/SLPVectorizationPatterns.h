@@ -6,10 +6,11 @@
 #ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPVECTORIZATIONPATTERNS_H
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPVECTORIZATIONPATTERNS_H
 
-#include "mlir/IR/PatternMatch.h"
 #include "SLPNode.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/IR/PatternMatch.h"
 #include "llvm/Support/Debug.h"
 
 namespace mlir {
@@ -23,11 +24,14 @@ namespace mlir {
         public:
           SLPVectorizationPattern(MLIRContext* context,
                                   PatternBenefit benefit,
-                                  llvm::DenseMap<Operation*, SLPNode*> const& parentNodes) : OpRewritePattern<SourceOp>{
-              context, benefit}, parentNodes{parentNodes} {}
+                                  llvm::DenseMap<Operation*, SLPNode*> const& parentNodes,
+                                  llvm::DenseMap<SLPNode*, llvm::SmallVector<Operation*>>& vectorsByNode)
+              : OpRewritePattern<SourceOp>{
+              context, benefit}, parentNodes{parentNodes}, vectorsByNode{vectorsByNode} {}
 
         protected:
           llvm::DenseMap<Operation*, SLPNode*> const& parentNodes;
+          llvm::DenseMap<SLPNode*, llvm::SmallVector<Operation*>>& vectorsByNode;
         };
 
         struct VectorizeBatchRead : public SLPVectorizationPattern<SPNBatchRead> {
@@ -62,21 +66,17 @@ namespace mlir {
 
           using SLPVectorizationPattern<SPNConstant>::SLPVectorizationPattern;
 
-          VectorizeConstant(MLIRContext* context,
-                            PatternBenefit benefit,
-                            const DenseMap<Operation*, SLPNode*>& parentNodes) : SLPVectorizationPattern{context, benefit, parentNodes} {
-            llvm::dbgs() << "Created vectorize constants pattern for SLP vectorization" << "\n";
-          }
-
           LogicalResult matchAndRewrite(SPNConstant op, PatternRewriter& rewriter) const override;
         };
 
         static void populateSLPVectorizationPatterns(OwningRewritePatternList& patterns,
                                                      MLIRContext* context,
-                                                     llvm::DenseMap<Operation*, SLPNode*> const& parentNodes) {
-          patterns.insert<VectorizeConstant>(context, 2, parentNodes);
-          //patterns.insert<VectorizeBatchRead>(context, 2, parentNodes);
-          //patterns.insert<VectorizeAdd, VectorizeMul, VectorizeLog>(context, 2, parentNodes);
+                                                     llvm::DenseMap<Operation*, SLPNode*> const& parentNodes,
+                                                     llvm::DenseMap<SLPNode*,
+                                                                    llvm::SmallVector<Operation*>>& vectorsByNode) {
+          patterns.insert<VectorizeConstant>(context, 2, parentNodes, vectorsByNode);
+          patterns.insert<VectorizeBatchRead>(context, 2, parentNodes, vectorsByNode);
+          patterns.insert<VectorizeAdd, VectorizeMul, VectorizeLog>(context, 2, parentNodes, vectorsByNode);
         }
 
       }

@@ -80,8 +80,8 @@ namespace {
     while (!worklist.empty()) {
       auto* node = worklist.front();
       worklist.pop();
-      for(auto& vector : node->getVectors()) {
-        for(auto* op : vector) {
+      for (auto& vector : node->getVectors()) {
+        for (auto* op : vector) {
           parentMapping[op] = node;
         }
       }
@@ -92,32 +92,29 @@ namespace {
     return parentMapping;
   }
 
-  /// Define a custom PatternRewriter for use by the driver.
-  class MyPatternRewriter : public mlir::PatternRewriter {
-  public:
-    MyPatternRewriter(mlir::MLIRContext *ctx) : PatternRewriter(ctx) {}
+  llvm::SmallVector<SLPNode*> postOrder(SLPNode* root) {
+    llvm::SmallVector<SLPNode*> order;
+    for (auto* operand : root->getOperands()) {
+      order.append(postOrder(operand));
+    }
+    order.emplace_back(root);
+    return order;
+  }
 
-    /// Override the necessary PatternRewriter hooks here.
+  /// A custom PatternRewriter that does not fold operations.
+  class NoFoldPatternRewriter : public mlir::PatternRewriter {
+  public:
+    explicit NoFoldPatternRewriter(mlir::MLIRContext* ctx) : PatternRewriter(ctx) {}
   };
 
-/// Apply the custom driver to `op`.
-  void applyMyPatternDriver(mlir::Operation *op,
-                            mlir::FrozenRewritePatternList const& patterns) {
-    // Initialize the custom PatternRewriter.
-    MyPatternRewriter rewriter(op->getContext());
-
-    // Create the applicator and apply our cost model.
+  void applyNoFoldPatternDriver(mlir::Operation* op, mlir::FrozenRewritePatternList const& patterns) {
+    NoFoldPatternRewriter rewriter(op->getContext());
     mlir::PatternApplicator applicator(patterns);
     applicator.applyDefaultCostModel();
-
-    //auto resulttest = patterns.getNativePatterns().begin()->matchAndRewrite(op, rewriter);
-
-    // Try to match and apply a pattern.
-    mlir::LogicalResult result = applicator.matchAndRewrite(op, rewriter);
-    if (failed(result)) {
-      // ... No patterns were applied.
+    auto result = applicator.matchAndRewrite(op, rewriter);
+    if (result.failed()) {
+      op->emitOpError("SLP pattern application failed");
     }
-    // ... A pattern was successfully applied.
   }
 
 } // End anonymous namespace.
@@ -137,30 +134,35 @@ void SLPVectorizationPass::runOnOperation() {
 
   auto seeds = seedAnalysis.getSeeds(width, seedAnalysis.getOpDepths(), SearchMode::UseBeforeDef);
   assert(!seeds.empty() && "couldn't find a seed!");
-  //printSeedTree(seeds.front());
+  // printSeedTree(seeds.front());
   SLPGraphBuilder builder{3};
   auto graph = builder.build(seeds.front());
+  // graph->dumpGraph();
   //SLPFunctionTransformer transformer(std::move(graph), function);
   //transformer.transform();
   // ==== //
 
   OwningRewritePatternList patterns;
   auto const& parentMapping = computeParentNodesMapping(graph.get());
-  populateSLPVectorizationPatterns(patterns, &getContext(), parentMapping);
+  llvm::DenseMap<SLPNode*, llvm::SmallVector<Operation*>> vectorsByNode;
+  populateSLPVectorizationPatterns(patterns, &getContext(), parentMapping, vectorsByNode);
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
-  for(auto const& entry : parentMapping) {
-    if(dyn_cast<SPNConstant>(entry.first)) {
-      llvm::dbgs() << "constant op: " << entry.first << "\n";
-      entry.second->dump();
-      //applyMyPatternDriver(entry.first, frozenPatterns);
+
+  // Traverse the SLP graph in postorder and apply the vectorization patterns.
+  for (auto* node : postOrder(graph.get())) {
+    vectorsByNode[node].resize_for_overwrite(node->numVectors());
+    for (auto const& vector : node->getVectors()) {
+      for (auto* op : vector) {
+        applyNoFoldPatternDriver(op, frozenPatterns);
+      }
     }
-    entry.first->dump();
-    bool erased;
-    auto success = applyOpPatternsAndFold(entry.first, frozenPatterns, &erased);
+  }
 
-    assert(success.succeeded());
-
-    if (success.failed()) {
+  // If an SLP node failed to vectorize completely, fail the pass.
+  for (auto const& entry: vectorsByNode) {
+    if (entry.first->numVectors() != entry.second.size()) {
+      llvm::dbgs() << "Failed to vectorize node:\n";
+      entry.first->dump();
       signalPassFailure();
     }
   }
