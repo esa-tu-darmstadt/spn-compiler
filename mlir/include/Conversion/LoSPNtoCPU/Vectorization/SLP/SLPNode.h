@@ -32,6 +32,7 @@ namespace mlir {
           size_t numVectors() const;
           void addVector(std::vector<Operation*> const& vectorOps);
           std::vector<Operation*>& getVector(size_t index);
+          size_t getVectorIndex(Operation* op) const;
           std::vector<Operation*>& getVectorOf(Operation* op);
           std::vector<std::vector<Operation*>>& getVectors();
 

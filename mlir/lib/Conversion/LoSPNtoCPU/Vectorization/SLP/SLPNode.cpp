@@ -66,13 +66,17 @@ std::vector<Operation*>& SLPNode::getVector(size_t index) {
   return vectors[index];
 }
 
-std::vector<Operation*>& SLPNode::getVectorOf(Operation* op) {
-  for (auto& vector : vectors) {
-    if (std::find(std::begin(vector), std::end(vector), op) != std::end(vector)) {
-      return vector;
+size_t SLPNode::getVectorIndex(Operation* op) const {
+  for (size_t i = 0; i < vectors.size(); ++i) {
+    if (std::find(std::begin(vectors[i]), std::end(vectors[i]), op) != std::end(vectors[i])) {
+      return i;
     }
   }
   assert(false && "node does not contain the given operation");
+}
+
+std::vector<Operation*>& SLPNode::getVectorOf(Operation* op) {
+  return vectors[getVectorIndex(op)];
 }
 
 std::vector<std::vector<Operation*>>& SLPNode::getVectors() {
