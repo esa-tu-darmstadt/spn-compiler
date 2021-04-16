@@ -38,6 +38,12 @@ bool SLPNode::isUniform() const {
   });
 }
 
+bool SLPNode::containsOperation(Operation* op) const {
+  return std::any_of(std::begin(vectors), std::end(vectors), [&](auto const& vectorOps) {
+    return std::find(std::begin(vectorOps), std::end(vectorOps), op) != std::end(vectorOps);
+  });
+}
+
 bool SLPNode::areRootOfNode(std::vector<Operation*> const& operations) const {
   return vectors[0] == operations;
 }
@@ -61,8 +67,8 @@ std::vector<Operation*>& SLPNode::getVector(size_t index) {
 }
 
 std::vector<Operation*>& SLPNode::getVectorOf(Operation* op) {
-  for(auto& vector : vectors) {
-    if(std::find(std::begin(vector), std::end(vector), op) != std::end(vector)) {
+  for (auto& vector : vectors) {
+    if (std::find(std::begin(vector), std::end(vector), op) != std::end(vector)) {
       return vector;
     }
   }

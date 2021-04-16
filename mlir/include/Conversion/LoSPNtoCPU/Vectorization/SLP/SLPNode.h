@@ -24,6 +24,7 @@ namespace mlir {
 
           bool isMultiNode() const;
           bool isUniform() const;
+          bool containsOperation(Operation* op) const;
           bool areRootOfNode(std::vector<Operation*> const& operations) const;
 
           size_t numLanes() const;
@@ -33,7 +34,6 @@ namespace mlir {
           std::vector<Operation*>& getVector(size_t index);
           std::vector<Operation*>& getVectorOf(Operation* op);
           std::vector<std::vector<Operation*>>& getVectors();
-
 
           SLPNode* addOperand(std::vector<Operation*> const& operations);
           SLPNode* getOperand(size_t index) const;
