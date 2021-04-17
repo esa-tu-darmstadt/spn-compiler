@@ -107,16 +107,6 @@ namespace {
     explicit NoFoldPatternRewriter(mlir::MLIRContext* ctx) : PatternRewriter(ctx) {}
   };
 
-  void applyNoFoldPatternDriver(mlir::Operation* op, mlir::FrozenRewritePatternList const& patterns) {
-    NoFoldPatternRewriter rewriter(op->getContext());
-    mlir::PatternApplicator applicator(patterns);
-    applicator.applyDefaultCostModel();
-    auto result = applicator.matchAndRewrite(op, rewriter);
-    if (result.failed()) {
-      op->emitOpError("SLP pattern application failed");
-    }
-  }
-
 } // End anonymous namespace.
 
 void SLPVectorizationPass::runOnOperation() {
@@ -149,14 +139,21 @@ void SLPVectorizationPass::runOnOperation() {
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
 
   // Traverse the SLP graph in postorder and apply the vectorization patterns.
+  NoFoldPatternRewriter rewriter(&getContext());
+  PatternApplicator applicator(frozenPatterns);
+  applicator.applyDefaultCostModel();
   for (auto* node : postOrder(graph.get())) {
+    node->dump();
     vectorsByNode[node].resize_for_overwrite(node->numVectors());
     for (auto const& vector : node->getVectors()) {
-      for (auto* op : vector) {
-        applyNoFoldPatternDriver(op, frozenPatterns);
+      auto result = applicator.matchAndRewrite(vector.front(), rewriter);
+      if (result.failed()) {
+        vector.front()->emitOpError("SLP pattern application failed");
       }
     }
   }
+
+  getOperation()->dump();
 
   // If an SLP node failed to vectorize completely, fail the pass.
   for (auto const& entry: vectorsByNode) {
@@ -166,8 +163,6 @@ void SLPVectorizationPass::runOnOperation() {
       signalPassFailure();
     }
   }
-
-  getOperation()->dump();
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createSLPVectorizationPass() {
