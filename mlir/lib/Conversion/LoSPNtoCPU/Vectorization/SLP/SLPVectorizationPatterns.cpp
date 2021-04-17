@@ -40,83 +40,40 @@ namespace {
     rewriter.setInsertionPointAfterValue(elements[0]);
     Value vectorOp = rewriter.create<vector::BroadcastOp>(vector[0]->getLoc(), vectorType, elements[0]);
     for (size_t i = 1; i < vector.size(); ++i) {
+      rewriter.setInsertionPointAfterValue(elements[i]);
       auto const& position = i/*getOrCreateConstant(i, false)*/;
       vectorOp = rewriter.create<vector::InsertElementOp>(vector[0]->getLoc(), elements[i], vectorOp, position);
     }
     rewriter.restoreInsertionPoint(insertionPoint);
     return vectorOp;
   }
-}
 
-LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead op, PatternRewriter& rewriter) const {
-
-  auto* node = parentNodes.lookup(op);
-  node->dump();
-
-  auto const& vectorIndex = node->getVectorIndex(op);
-  auto const& vector = node->getVector(vectorIndex);
-  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector.size()), op.getType());
-
-  if (!node->isUniform()) {
-    //vectorsByNode[node][vectorIndex] = broadcastFirstInsertRest(vector, vectorType, rewriter).getDefiningOp();
-    return success();
-  }
-  return success();
-}
-
-LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd op, PatternRewriter& rewriter) const {
-
-  auto* node = parentNodes.lookup(op);
-  node->dump();
-
-  auto const& vectorIndex = node->getVectorIndex(op);
-  auto const& vector = node->getVector(vectorIndex);
-  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector.size()), op.getType());
-
-  if (!node->isUniform()) {
-    //vectorsByNode[node][vectorIndex] = broadcastFirstInsertRest(vector, vectorType, rewriter).getDefiningOp();
-    return success();
-  }
-  return success();
-}
-
-LogicalResult VectorizeMul::matchAndRewrite(SPNMul op, PatternRewriter& rewriter) const {
-
-  auto* node = parentNodes.lookup(op);
-  node->dump();
-
-  auto const& vectorIndex = node->getVectorIndex(op);
-  auto const& vector = node->getVector(vectorIndex);
-  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector.size()), op.getType());
-
-  if (!node->isUniform()) {
-    //vectorsByNode[node][vectorIndex] = broadcastFirstInsertRest(vector, vectorType, rewriter).getDefiningOp();
-    return success();
-  }
-  return success();
-}
-
-LogicalResult VectorizeLog::matchAndRewrite(SPNLog op, PatternRewriter& rewriter) const {
-
-  auto* node = parentNodes.lookup(op);
-  node->dump();
-
-  auto const& vectorIndex = node->getVectorIndex(op);
-  auto const& vector = node->getVector(vectorIndex);
-  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector.size()), op.getType());
-
-  if (!node->isUniform()) {
-    //vectorsByNode[node][vectorIndex] = broadcastFirstInsertRest(vector, vectorType, rewriter).getDefiningOp();
-    return success();
+  template<typename V>
+  Operation* last(V const& vector) {
+    size_t maxIndex = 0;
+    for (size_t index = 0; index < vector.size(); ++index) {
+      if (vector[maxIndex]->isBeforeInBlock(vector[index])) {
+        maxIndex = index;
+      }
+    }
+    return vector[maxIndex];
   }
 
-  return success();
+  template<typename V>
+  Operation* first(V const& vector) {
+    size_t minIndex = 0;
+    for (size_t index = 0; index < vector.size(); ++index) {
+      if (!vector[minIndex]->isBeforeInBlock(vector[index])) {
+        minIndex = index;
+      }
+    }
+    return vector[minIndex];
+  }
 }
 
 LogicalResult VectorizeConstant::matchAndRewrite(SPNConstant op, PatternRewriter& rewriter) const {
 
   auto* node = parentNodes.lookup(op);
-  node->dump();
 
   auto const& vectorIndex = node->getVectorIndex(op);
   auto const& vector = node->getVector(vectorIndex);
@@ -134,23 +91,103 @@ LogicalResult VectorizeConstant::matchAndRewrite(SPNConstant op, PatternRewriter
     for (int i = 0; i < vectorType.getNumElements(); ++i) {
       array.push_back(static_cast<SPNConstant>(vector[i]).value().convertToFloat());
     }
-    constAttr = mlir::DenseElementsAttr::get(vectorType, (llvm::ArrayRef<float>) array);
+    constAttr = mlir::DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<float>>(array));
   } else {
     llvm::SmallVector<double, 4> array;
     for (int i = 0; i < vectorType.getNumElements(); ++i) {
       array.push_back(static_cast<SPNConstant>(vector[i]).value().convertToDouble());
     }
-    constAttr = mlir::DenseElementsAttr::get(vectorType, (llvm::ArrayRef<double>) array);
+    constAttr = mlir::DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<double>>(array));
   }
 
-  auto const& insertionPoint = rewriter.saveInsertionPoint();
-  rewriter.setInsertionPointAfter(vector.front());
+  rewriter.setInsertionPointAfter(first(vector));
   auto constValue = rewriter.create<mlir::ConstantOp>(op->getLoc(), constAttr);
-  rewriter.restoreInsertionPoint(insertionPoint);
 
   vectorsByNode[node][vectorIndex] = constValue;
 
   constValue->dump();
+
+  return success();
+}
+
+LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead op, PatternRewriter& rewriter) const {
+
+  auto* node = parentNodes.lookup(op);
+
+  auto const& vectorIndex = node->getVectorIndex(op);
+  auto const& vector = node->getVector(vectorIndex);
+  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector.size()), op.getType());
+
+  if (!node->isUniform() || !areConsecutiveLoads(vector)) {
+    vectorsByNode[node][vectorIndex] = broadcastFirstInsertRest(vector, vectorType, rewriter).getDefiningOp();
+  } else {
+
+    rewriter.setInsertionPointAfter(first(vector));
+
+    auto memIndex = rewriter.create<ConstantOp>(op->getLoc(), rewriter.getIndexAttr(op.sampleIndex()));
+    ValueRange indices{op.batchIndex(), memIndex};
+
+    auto vectorLoad = rewriter.create<vector::LoadOp>(op->getLoc(), vectorType, op.batchMem(), indices);
+
+    vectorsByNode[node][vectorIndex] = vectorLoad;
+
+    vectorLoad.dump();
+  }
+
+  for (auto* batchRead : vector) {
+    if (std::all_of(std::begin(batchRead->getUsers()), std::end(batchRead->getUsers()), [&](auto* user) {
+      return parentNodes.count(user);
+    })) {
+      batchRead->dropAllUses();
+      rewriter.eraseOp(batchRead);
+    }
+  }
+
+  return success();
+}
+
+LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd op, PatternRewriter& rewriter) const {
+
+  auto* node = parentNodes.lookup(op);
+
+  auto const& vectorIndex = node->getVectorIndex(op);
+  auto const& vector = node->getVector(vectorIndex);
+  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector.size()), op.getType());
+
+  if (!node->isUniform()) {
+    //vectorsByNode[node][vectorIndex] = broadcastFirstInsertRest(vector, vectorType, rewriter).getDefiningOp();
+    return success();
+  }
+  return success();
+}
+
+LogicalResult VectorizeMul::matchAndRewrite(SPNMul op, PatternRewriter& rewriter) const {
+
+  auto* node = parentNodes.lookup(op);
+
+  auto const& vectorIndex = node->getVectorIndex(op);
+  auto const& vector = node->getVector(vectorIndex);
+  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector.size()), op.getType());
+
+  if (!node->isUniform()) {
+    //vectorsByNode[node][vectorIndex] = broadcastFirstInsertRest(vector, vectorType, rewriter).getDefiningOp();
+    return success();
+  }
+  return success();
+}
+
+LogicalResult VectorizeLog::matchAndRewrite(SPNLog op, PatternRewriter& rewriter) const {
+
+  auto* node = parentNodes.lookup(op);
+
+  auto const& vectorIndex = node->getVectorIndex(op);
+  auto const& vector = node->getVector(vectorIndex);
+  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector.size()), op.getType());
+
+  if (!node->isUniform()) {
+    //vectorsByNode[node][vectorIndex] = broadcastFirstInsertRest(vector, vectorType, rewriter).getDefiningOp();
+    return success();
+  }
 
   return success();
 }
