@@ -9,7 +9,6 @@
 #include <set>
 #include "mlir/IR/Operation.h"
 #include "mlir/Pass/Pass.h"
-#include "SLPGraphBuilder.h"
 
 namespace mlir {
   namespace spn {

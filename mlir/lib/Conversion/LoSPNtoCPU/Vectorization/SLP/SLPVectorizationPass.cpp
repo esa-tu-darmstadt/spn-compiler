@@ -10,10 +10,8 @@
 #include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
 #include "LoSPNtoCPU/Vectorization/TargetInformation.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Rewrite/PatternApplicator.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include <queue>
 
 using namespace mlir::spn::low::slp;
@@ -129,8 +127,6 @@ void SLPVectorizationPass::runOnOperation() {
   SLPGraphBuilder builder{3};
   auto graph = builder.build(seeds.front());
   // graph->dumpGraph();
-  //SLPFunctionTransformer transformer(std::move(graph), function);
-  //transformer.transform();
   // ==== //
 
   OwningRewritePatternList patterns;
