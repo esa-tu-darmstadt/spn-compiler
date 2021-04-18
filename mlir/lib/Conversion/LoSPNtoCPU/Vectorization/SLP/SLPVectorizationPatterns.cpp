@@ -9,10 +9,10 @@
 #include "LoSPNtoCPU/Vectorization/TargetInformation.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/IR/BuiltinOps.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
 #include "LoSPN/LoSPNAttributes.h"
 
 using namespace mlir;
@@ -22,13 +22,6 @@ using namespace mlir::spn::low::slp;
 
 // Helper functions in anonymous namespace.
 namespace {
-
-  void broadcastIdentical(Value const& source, Type const& vectorType, PatternRewriter& rewriter) {
-    auto const& insertionPoint = rewriter.saveInsertionPoint();
-    rewriter.setInsertionPointAfterValue(source);
-    rewriter.create<vector::BroadcastOp>(source.getLoc(), vectorType, source);
-    rewriter.restoreInsertionPoint(insertionPoint);
-  }
 
   template<typename ValueIterator>
   Value broadcastFirstInsertRest(ValueIterator begin,
@@ -109,9 +102,14 @@ namespace {
 
 }
 
-LogicalResult VectorizeConstant::matchAndRewrite(SPNConstant op, PatternRewriter& rewriter) const {
+template<typename ConstantSourceOp>
+LogicalResult VectorizeConstantPattern<ConstantSourceOp>::matchAndRewrite(ConstantSourceOp op, PatternRewriter& rewriter) const {
 
-  auto* node = parentNodes.lookup(op);
+  if(!op->template hasTrait<OpTrait::ConstantLike>()) {
+    rewriter.notifyMatchFailure(op, "Constant vectorization pattern cannot be applied to this operation");
+  }
+
+  auto* node = this->parentNodes.lookup(op);
 
   auto const& vectorIndex = node->getVectorIndex(op);
   auto const& vector = node->getVector(vectorIndex);
@@ -120,13 +118,13 @@ LogicalResult VectorizeConstant::matchAndRewrite(SPNConstant op, PatternRewriter
   if (!node->isUniform()) {
     auto const& elements = results(std::begin(vector), std::end(vector));
     auto vectorVal = broadcastFirstInsertRest(std::begin(elements), std::end(elements), vectorType, rewriter);
-    vectorsByNode[node][vectorIndex] = vectorVal.getDefiningOp();
+    this->vectorsByNode[node][vectorIndex] = vectorVal.getDefiningOp();
     return success();
   }
 
   DenseElementsAttr constAttr;
 
-  if (vectorType.getElementType().cast<FloatType>().getWidth() == 32) {
+  if (vectorType.getElementType().template cast<FloatType>().getWidth() == 32) {
     llvm::SmallVector<float, 4> array;
     for (int i = 0; i < vectorType.getNumElements(); ++i) {
       array.push_back(static_cast<SPNConstant>(vector[i]).value().convertToFloat());
@@ -143,7 +141,7 @@ LogicalResult VectorizeConstant::matchAndRewrite(SPNConstant op, PatternRewriter
   rewriter.setInsertionPointAfter(firstOperation(std::begin(vector), std::end(vector)));
   auto constValue = rewriter.create<mlir::ConstantOp>(op->getLoc(), constAttr);
 
-  vectorsByNode[node][vectorIndex] = constValue;
+  this->vectorsByNode[node][vectorIndex] = constValue;
 
   return success();
 }

@@ -167,7 +167,7 @@ void SLPVectorizationPass::runOnOperation() {
       vectorsByNode[node].resize(node->numVectors());
       auto result = applicator.matchAndRewrite(it->front(), rewriter);
       if (result.failed()) {
-        it->front()->emitOpError("SLP pattern application failed");
+        it->front()->emitOpError("SLP pattern application failed (did you forget to specify the pattern?)");
       }
       ++it;
     }

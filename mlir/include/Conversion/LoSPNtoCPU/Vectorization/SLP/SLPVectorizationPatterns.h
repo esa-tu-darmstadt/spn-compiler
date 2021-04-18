@@ -34,39 +34,30 @@ namespace mlir {
           llvm::DenseMap<SLPNode*, llvm::SmallVector<Operation*>>& vectorsByNode;
         };
 
+        template<typename ConstantSourceOp>
+        struct VectorizeConstantPattern : public SLPVectorizationPattern<ConstantSourceOp> {
+          using SLPVectorizationPattern<ConstantSourceOp>::SLPVectorizationPattern;
+          LogicalResult matchAndRewrite(ConstantSourceOp op, PatternRewriter& rewriter) const override;
+        };
+
         struct VectorizeBatchRead : public SLPVectorizationPattern<SPNBatchRead> {
-
           using SLPVectorizationPattern<SPNBatchRead>::SLPVectorizationPattern;
-
           LogicalResult matchAndRewrite(SPNBatchRead op, PatternRewriter& rewriter) const override;
         };
 
-        struct VectorizeMul : public SLPVectorizationPattern<SPNMul> {
-
-          using SLPVectorizationPattern<SPNMul>::SLPVectorizationPattern;
-
-          LogicalResult matchAndRewrite(SPNMul op, PatternRewriter& rewriter) const override;
-        };
-
         struct VectorizeAdd : public SLPVectorizationPattern<SPNAdd> {
-
           using SLPVectorizationPattern<SPNAdd>::SLPVectorizationPattern;
-
           LogicalResult matchAndRewrite(SPNAdd op, PatternRewriter& rewriter) const override;
         };
 
-        struct VectorizeLog : public SLPVectorizationPattern<SPNLog> {
-
-          using SLPVectorizationPattern<SPNLog>::SLPVectorizationPattern;
-
-          LogicalResult matchAndRewrite(SPNLog op, PatternRewriter& rewriter) const override;
+        struct VectorizeMul : public SLPVectorizationPattern<SPNMul> {
+          using SLPVectorizationPattern<SPNMul>::SLPVectorizationPattern;
+          LogicalResult matchAndRewrite(SPNMul op, PatternRewriter& rewriter) const override;
         };
 
-        struct VectorizeConstant : public SLPVectorizationPattern<SPNConstant> {
-
-          using SLPVectorizationPattern<SPNConstant>::SLPVectorizationPattern;
-
-          LogicalResult matchAndRewrite(SPNConstant op, PatternRewriter& rewriter) const override;
+        struct VectorizeLog : public SLPVectorizationPattern<SPNLog> {
+          using SLPVectorizationPattern<SPNLog>::SLPVectorizationPattern;
+          LogicalResult matchAndRewrite(SPNLog op, PatternRewriter& rewriter) const override;
         };
 
         static void populateSLPVectorizationPatterns(OwningRewritePatternList& patterns,
@@ -74,7 +65,8 @@ namespace mlir {
                                                      llvm::DenseMap<Operation*, SLPNode*> const& parentNodes,
                                                      llvm::DenseMap<SLPNode*,
                                                                     llvm::SmallVector<Operation*>>& vectorsByNode) {
-          patterns.insert<VectorizeConstant>(context, 2, parentNodes, vectorsByNode);
+          patterns.insert<VectorizeConstantPattern<SPNConstant>>(context, 2, parentNodes, vectorsByNode);
+          patterns.insert<VectorizeConstantPattern<ConstantOp>>(context, 2, parentNodes, vectorsByNode);
           patterns.insert<VectorizeBatchRead>(context, 2, parentNodes, vectorsByNode);
           patterns.insert<VectorizeAdd, VectorizeMul, VectorizeLog>(context, 2, parentNodes, vectorsByNode);
         }
