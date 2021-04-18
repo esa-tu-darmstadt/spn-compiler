@@ -11,6 +11,7 @@
 #include "LoSPNtoCPU/Vectorization/TargetInformation.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Rewrite/PatternApplicator.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include <queue>
@@ -144,14 +145,30 @@ void SLPVectorizationPass::runOnOperation() {
   applicator.applyDefaultCostModel();
 
   // Marks operations that can be deleted.
-  // We delete them *after* SLP graph conversion to avoid running into NULL operands.
-  llvm::SmallPtrSet<Operation*, 4> erasableOps;
+  // We delete them *after* SLP graph conversion to avoid running into NULL operands during conversion.
+  llvm::SmallPtrSet<Operation*, 32> erasableOps;
   for (auto* node : postOrder(graph.get())) {
     node->dump();
-    vectorsByNode[node].resize_for_overwrite(node->numVectors());
-    // Also traverse nodes in postorder in case they are multinodes.
+
+    // Stores escaping uses for vector extractions that might be necessary later on.
+    llvm::DenseMap<Operation*, llvm::SmallPtrSet<Operation*, 8>> escapingUses;
+
+    // Also traverse nodes in postorder to properly handle multinodes.
     auto it = node->getVectors().rbegin();
     while (it != node->getVectors().rend()) {
+
+      // Gather escaping uses *now* because the conversion process adds more that *do not* need extractions.
+      for (size_t lane = 0; lane < it->size(); ++lane) {
+        auto* vectorOp = (*it)[lane];
+        for (auto* user : vectorOp->getUsers()) {
+          if (!parentMapping.count(user)) {
+            escapingUses[vectorOp].insert(user);
+          }
+        }
+      }
+
+      // Rewrite vector by applying any matching pattern.
+      vectorsByNode[node].resize(node->numVectors());
       auto result = applicator.matchAndRewrite(it->front(), rewriter);
       if (result.failed()) {
         it->front()->emitOpError("SLP pattern application failed");
@@ -159,16 +176,34 @@ void SLPVectorizationPass::runOnOperation() {
       ++it;
     }
 
-    it = node->getVectors().rbegin();
-    while (it != node->getVectors().rend()) {
-      for (auto* vectorOp : *it) {
-        if (std::all_of(std::begin(vectorOp->getUsers()), std::end(vectorOp->getUsers()), [&](auto* user) {
-          return parentMapping.count(user);
-        })) {
+    // Gather operations that can be erased and create vector extractions using those that need to stay.
+    for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
+      auto const& vector = node->getVector(vectorIndex);
+      for (size_t lane = 0; lane < vector.size(); ++lane) {
+        auto* vectorOp = vector[lane];
+        bool erasable = true;
+        for (auto& use : vectorOp->getUses()) {
+          auto* user = use.getOwner();
+          if (!parentMapping.count(user)) {
+            erasable = false;
+            // Filters out operations that were created during the conversion process.
+            if (!escapingUses[vectorOp].contains(user)) {
+              continue;
+            }
+            auto const& source = vectorsByNode[node][vectorIndex]->getResult(0);
+            rewriter.setInsertionPoint(user);
+            auto extractOp = rewriter.create<vector::ExtractElementOp>(vectorOp->getLoc(), source, lane);
+            auto const& oldOperand = user->getOperand(use.getOperandNumber());
+            user->setOperand(use.getOperandNumber(), extractOp);
+            if (oldOperand.getUses().empty() && !oldOperand.isa<BlockArgument>()) {
+              erasableOps.insert(oldOperand.getDefiningOp());
+            }
+          }
+        }
+        if (erasable) {
           erasableOps.insert(vectorOp);
         }
       }
-      ++it;
     }
   }
 
