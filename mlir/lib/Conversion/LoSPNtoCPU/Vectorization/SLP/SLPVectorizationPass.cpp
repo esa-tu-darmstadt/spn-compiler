@@ -142,15 +142,39 @@ void SLPVectorizationPass::runOnOperation() {
   NoFoldPatternRewriter rewriter(&getContext());
   PatternApplicator applicator(frozenPatterns);
   applicator.applyDefaultCostModel();
+
+  // Marks operations that can be deleted.
+  // We delete them *after* SLP graph conversion to avoid running into NULL operands.
+  llvm::SmallPtrSet<Operation*, 4> erasableOps;
   for (auto* node : postOrder(graph.get())) {
     node->dump();
     vectorsByNode[node].resize_for_overwrite(node->numVectors());
-    for (auto const& vector : node->getVectors()) {
-      auto result = applicator.matchAndRewrite(vector.front(), rewriter);
+    // Also traverse nodes in postorder in case they are multinodes.
+    auto it = node->getVectors().rbegin();
+    while (it != node->getVectors().rend()) {
+      auto result = applicator.matchAndRewrite(it->front(), rewriter);
       if (result.failed()) {
-        vector.front()->emitOpError("SLP pattern application failed");
+        it->front()->emitOpError("SLP pattern application failed");
       }
+      ++it;
     }
+
+    it = node->getVectors().rbegin();
+    while (it != node->getVectors().rend()) {
+      for (auto* vectorOp : *it) {
+        if (std::all_of(std::begin(vectorOp->getUsers()), std::end(vectorOp->getUsers()), [&](auto* user) {
+          return parentMapping.count(user);
+        })) {
+          erasableOps.insert(vectorOp);
+        }
+      }
+      ++it;
+    }
+  }
+
+  for (auto* op : erasableOps) {
+    op->dropAllUses();
+    rewriter.eraseOp(op);
   }
 
   getOperation()->dump();
@@ -163,6 +187,7 @@ void SLPVectorizationPass::runOnOperation() {
       signalPassFailure();
     }
   }
+
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createSLPVectorizationPass() {
