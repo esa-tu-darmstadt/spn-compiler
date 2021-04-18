@@ -6,6 +6,7 @@
 #include "LoSPNtoCPUConversion.h"
 #include "LoSPNtoCPU/LoSPNtoCPUConversionPasses.h"
 #include "LoSPNtoCPU/Vectorization/VectorOptimizationPasses.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPass.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/Dialect/Tensor/Transforms/Passes.h"
 #include <driver/GlobalOptions.h>
@@ -18,7 +19,12 @@ void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, m
     if (useShuffle) {
       pm->addPass(mlir::spn::createReplaceGatherWithShufflePass());
     }
-    pm->addPass(mlir::spn::createLoSPNNodeVectorizationPass());
+    auto vectorizationStrategy = spnc::option::vectorizationStrategy.get(*this->config);
+    if(vectorizationStrategy == spnc::option::VectorizationStrategy::SLP) {
+      pm->addNestedPass<mlir::FuncOp>(mlir::spn::createSLPVectorizationPass());
+    } else if(vectorizationStrategy == spnc::option::VectorizationStrategy::BATCH) {
+      pm->addPass(mlir::spn::createLoSPNNodeVectorizationPass());
+    }
     if (useShuffle) {
       // We need another run of the canonicalizer here to remove lo_spn.to_scalar
       // operations introduced by the replacement of gathers and that should

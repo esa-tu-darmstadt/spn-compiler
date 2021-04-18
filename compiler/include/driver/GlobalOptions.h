@@ -39,6 +39,14 @@ namespace spnc {
     /// Flag to indicate whether the code generated for the CPU should be vectorized.
     extern Option<bool> cpuVectorize;
 
+    /// Available vectorization strategies
+    enum VectorizationStrategy {
+      BATCH,
+      SLP
+    };
+
+    extern EnumOpt vectorizationStrategy;
+
     /// Available vector libraries
     enum VectorLibrary {
       SVML,

@@ -22,6 +22,12 @@ EnumOpt spnc::option::compilationTarget{"target",
 
 Option<bool> spnc::option::cpuVectorize{"cpu-vectorize", false};
 
+using spnc::option::VectorizationStrategy;
+EnumOpt spnc::option::vectorizationStrategy{"vectorization-strategy", BATCH,
+                                            {EnumVal(BATCH, "BATCH"),
+                                             EnumVal(SLP, "SLP")},
+                                            {depends(spnc::option::cpuVectorize, true)}};
+
 using spnc::option::VectorLibrary;
 EnumOpt spnc::option::vectorLibrary{"vector-library", NONE,
                                     {EnumVal(SVML, "SVML"),
