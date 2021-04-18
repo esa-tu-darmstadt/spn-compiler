@@ -144,7 +144,6 @@ void SLPVectorizationPass::runOnOperation() {
   // We delete them *after* SLP graph conversion to avoid running into NULL operands during conversion.
   llvm::SmallPtrSet<Operation*, 32> erasableOps;
   for (auto* node : postOrder(graph.get())) {
-    node->dump();
 
     // Stores escaping uses for vector extractions that might be necessary later on.
     llvm::DenseMap<Operation*, llvm::SmallPtrSet<Operation*, 8>> escapingUses;
