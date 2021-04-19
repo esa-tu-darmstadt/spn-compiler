@@ -16,17 +16,16 @@ namespace {
   DenseMap<Value, unsigned> getOpDepths(Operation* rootOp) {
     DenseMap<Value, unsigned> opDepths;
     rootOp->walk([&](Operation* op) {
-      if (!vectorizable(op)) {
-        return;
-      }
-      auto const& value = op->getResult(0);
-      if (!opDepths.count(value)) {
-        opDepths[value] = 0;
-      }
-      for (auto const& use : op->getUses()) {
-        if (!opDepths.count(use.get()) || opDepths[value] + 1 > opDepths[use.get()]) {
-          opDepths[use.get()] = opDepths[value] + 1;
+      unsigned depth = 0;
+      for (auto const& value : op->getOperands()) {
+        if (!opDepths.count(value)) {
+          opDepths[value] = 0;
+        } else {
+          depth = std::max(depth, opDepths[value] + 1);
         }
+      }
+      for (auto const& result : op->getResults()) {
+        opDepths[result] = depth;
       }
     });
     return opDepths;
@@ -41,7 +40,7 @@ vector_t SeedAnalysis::getSeed(unsigned width, SearchMode const& mode) const {
   for (auto const& entry : opDepths) {
     auto const& value = entry.first;
     auto const& depth = entry.second;
-    if (depth < log2(width)) {
+    if (!vectorizable(value) || depth < log2(width)) {
       continue;
     }
     bool needsNewSeed = true;
