@@ -66,18 +66,6 @@ void mlir::spn::low::slp::dumpSLPNode(mlir::spn::low::slp::SLPNode const& node) 
   }
 }
 
-void mlir::spn::low::slp::dumpSLPNodeVector(const mlir::spn::low::slp::NodeVector& nodeVector) {
-  for (size_t lane = 0; lane < nodeVector.numLanes(); ++lane) {
-    llvm::dbgs() << nodeVector[lane];
-    if (!nodeVector[lane].isa<BlockArgument>()) {
-      llvm::dbgs() << "(" << nodeVector[lane].getDefiningOp() << ")";
-    }
-    if (lane < nodeVector.numLanes() - 1) {
-      llvm::dbgs() << "\t|\t";
-    }
-  }
-}
-
 // Helper functions in an anonymous namespace.
 namespace {
   void dumpBlockArgOrDefiningAddress(Value const& val) {
@@ -94,6 +82,20 @@ namespace {
       llvm::dbgs() << "block arg #" << val.cast<BlockArgument>().getArgNumber();
     }
   }
+}
+
+void mlir::spn::low::slp::dumpSLPNodeVector(const mlir::spn::low::slp::NodeVector& nodeVector) {
+  for (size_t lane = 0; lane < nodeVector.numLanes(); ++lane) {
+    if (!nodeVector[lane].isa<BlockArgument>()) {
+      llvm::dbgs() << nodeVector[lane] << " (" << nodeVector[lane].getDefiningOp() << ")";
+    } else {
+      dumpBlockArgOrDefiningOpName(nodeVector[lane]);
+    }
+    if (lane < nodeVector.numLanes() - 1) {
+      llvm::dbgs() << "\t|\t";
+    }
+  }
+  llvm::dbgs() << "\n";
 }
 
 void mlir::spn::low::slp::dumpOpTree(const vector_t& values) {
