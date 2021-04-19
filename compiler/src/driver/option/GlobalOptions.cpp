@@ -40,21 +40,21 @@ Option<bool> spnc::option::deleteTemporaryFiles{"delete-temps", true};
 // TODO: Switch the default to false when we leave development mode.
 Option<bool> spnc::option::dumpIR{"dump-ir", true};
 
-Option<bool> spnc::option::determineOptimalRepresentation{"opt-repr", false};
+Option<bool> spnc::option::optRepresentation{"opt-repr", false};
 
 using spnc::option::RepresentationOption;
 EnumOpt spnc::option::representationFormat{"opt-repr-format",
                                            {EnumVal(FLOATING_POINT, "floating point representation"),
                                             EnumVal(FIXED_POINT, "fixed point representation")},
-                                           {depends(spnc::option::determineOptimalRepresentation, true)}};
+                                           {depends(spnc::option::optRepresentation, true)}};
 
 using spnc::option::RepresentationErrorKind;
 EnumOpt spnc::option::optimalRepresentationErrorKind{"opt-repr-err-kind",
                                                      {EnumVal(ERR_ABSOLUTE, "absolute error"),
                                                       EnumVal(ERR_RELATIVE, "relative error"),
                                                       EnumVal(ERR_ABS_LOG, "absolute logarithmic error")},
-                                                      {depends(spnc::option::determineOptimalRepresentation, true)}};
+                                                      {depends(spnc::option::optRepresentation, true)}};
 
 Option<double> spnc::option::optimalRepresentationErrorThreshold{"opt-repr-err-threshold",
                                                                  0.1,
-                                                                 {depends(spnc::option::determineOptimalRepresentation, true)}};
+                                                                 {depends(spnc::option::optRepresentation, true)}};

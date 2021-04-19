@@ -7,7 +7,6 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/IR/Attributes.h"
-// #include "HiSPNtoLoSPN/ArithmeticPrecisionAnalysis.h"
 #include "SPN/SPNPasses.h"
 #include "SPNPassDetails.h"
 #include "../TypeAnalysis/TypePinningPatterns.h"

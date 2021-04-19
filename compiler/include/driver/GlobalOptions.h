@@ -70,7 +70,7 @@ namespace spnc {
 
     ///
     /// Flag to indicate whether an optimal representation for SPN evaluation shall be determined.
-    extern Option<bool> determineOptimalRepresentation;
+    extern Option<bool> optRepresentation;
 
     /// Available representation options.
     enum RepresentationOption {

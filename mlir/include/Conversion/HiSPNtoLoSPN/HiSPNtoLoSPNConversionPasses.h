@@ -15,7 +15,8 @@ namespace mlir {
         public PassWrapper<HiSPNtoLoSPNNodeConversionPass, OperationPass<ModuleOp>> {
 
     public:
-      HiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation) : computeLogSpace{useLogSpaceComputation} {}
+      HiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation, bool useOptimalRepresentation) :
+          computeLogSpace{useLogSpaceComputation}, optimizeRepresentation{useOptimalRepresentation} {}
 
     protected:
 
@@ -24,16 +25,19 @@ namespace mlir {
     private:
 
       bool computeLogSpace;
+      bool optimizeRepresentation;
 
     };
 
-    std::unique_ptr<Pass> createHiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation);
+    std::unique_ptr<Pass> createHiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation,
+                                                               bool useOptimalRepresentation);
 
     struct HiSPNtoLoSPNQueryConversionPass :
         public PassWrapper<HiSPNtoLoSPNQueryConversionPass, OperationPass<ModuleOp>> {
 
     public:
-      HiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation) : computeLogSpace{useLogSpaceComputation} {}
+      HiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation, bool useOptimalRepresentation) :
+          computeLogSpace{useLogSpaceComputation}, optimizeRepresentation{useOptimalRepresentation} {}
 
     protected:
 
@@ -42,10 +46,12 @@ namespace mlir {
     private:
 
       bool computeLogSpace;
+      bool optimizeRepresentation;
 
     };
 
-    std::unique_ptr<Pass> createHiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation);
+    std::unique_ptr<Pass> createHiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation,
+                                                                bool useOptimalRepresentation);
 
   }
 }

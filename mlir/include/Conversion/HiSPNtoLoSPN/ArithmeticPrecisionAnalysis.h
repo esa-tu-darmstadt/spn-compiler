@@ -16,34 +16,7 @@
 
 namespace mlir {
   namespace spn {
-
-    enum class data_representation { EM_FIXED_POINT, EM_FLOATING_POINT };
-
-    ///
-    /// Analysis performing an arithmetic error estimation
-    /// on a graph to determine the best datatype to use
-    /// for computation.
-    /// Note: Currently, the data representation is fixed to: floating point.
-    class ArithmeticPrecisionAnalysis {
-
-    public:
-
-      ArithmeticPrecisionAnalysis()
-          : est_data_representation(data_representation::EM_FLOATING_POINT),
-            est_error_model(mlir::spn::high::error_model::absolute_error), calc(nullptr) {}
-
-      /// Constructor. Note that this will be primarily used as an analysis.
-      /// \param root Operation pointer which will be treated as SPN-graph root.
-      explicit ArithmeticPrecisionAnalysis(Operation* root);
-
-      /// Retrieve the smallest type of the corresponding error model which can represent the SPN result within the
-      /// given error margin -OR- if not possible: the biggest type available (e.g. Float64Type).
-      /// \param bool True if computation is done within log-space.
-      /// \return mlir::Type "Optimal" type to represent the given SPN's value(s).
-      mlir::Type getComputationType(bool useLogSpace);
-
-    private:
-
+    namespace detail {
       /// This struct allows to store different value characteristics: accurate-, defective-, max-, min-value and depth.
       struct ErrorEstimationValue {
         /// Accurate value.
@@ -105,6 +78,39 @@ namespace mlir {
         double calculateDefectiveSum(ErrorEstimationValue& v1, ErrorEstimationValue& v2) override;
         int calculateMagnitudeBits(double max, double min) override;
       };
+    }
+  }
+}
+
+namespace mlir {
+  namespace spn {
+
+    enum class data_representation { EM_FIXED_POINT, EM_FLOATING_POINT };
+
+    ///
+    /// Analysis performing an arithmetic error estimation
+    /// on a graph to determine the best datatype to use
+    /// for computation.
+    /// Note: Currently, the data representation is fixed to: floating point.
+    class ArithmeticPrecisionAnalysis {
+
+    public:
+
+      ArithmeticPrecisionAnalysis()
+          : est_data_representation(data_representation::EM_FLOATING_POINT),
+            est_error_model(mlir::spn::high::error_model::absolute_error), calc(nullptr) {}
+
+      /// Constructor. Note that this will be primarily used as an analysis.
+      /// \param root Operation pointer which will be treated as SPN-graph root.
+      explicit ArithmeticPrecisionAnalysis(Operation* root);
+
+      /// Retrieve the smallest type of the corresponding error model which can represent the SPN result within the
+      /// given error margin -OR- if not possible: the biggest type available (e.g. Float64Type).
+      /// \param bool True if computation is done within log-space.
+      /// \return mlir::Type "Optimal" type to represent the given SPN's value(s).
+      mlir::Type getComputationType(bool useLogSpace);
+
+    private:
 
       /// Process provided pointer to a SPN node and update internal counts / results.
       /// \param graphRoot Pointer to the defining operation, representing a SPN node.
@@ -126,8 +132,8 @@ namespace mlir {
       /// \param operands SmallVector<ErrorEstimationValue> The corresponding operation's operands (e.g. addends).
       /// \param isSum Boolean If set to true will treat operands as addends, otherwise as multiplicands.
       /// \return SmallVector<ErrorEstimationValue> with a single element, representing the whole Sum or Product.
-      llvm::SmallVector<ArithmeticPrecisionAnalysis::ErrorEstimationValue>
-        estimateErrorBinaryOperation(SmallVector<ErrorEstimationValue> operands, bool isSum);
+      llvm::SmallVector<spn::detail::ErrorEstimationValue>
+        estimateErrorBinaryOperation(SmallVector<spn::detail::ErrorEstimationValue> operands, bool isSum);
 
       /// Estimate the error introduced by the given (weighted) addition operation w.r.t. the current format.
       /// \param op Pointer to the defining operation, representing a SPN node.
@@ -186,13 +192,13 @@ namespace mlir {
       static constexpr double BASE_TWO = 2.0;
 
       /// Pointer to this analysis' data representation dependant (error) calculator.
-      std::shared_ptr<ErrorEstimationCalculator> calc = nullptr;
+      std::shared_ptr<spn::detail::ErrorEstimationCalculator> calc = nullptr;
 
       /// Calculation of Gaussian minimum probability value outside of 99% := exp(-0.5 * std::pow(2.575829303549,2.0)).
       static constexpr double GAUSS_99 = 0.036245200715160;
 
       /// For each operation store value's characteristics: accurate, defective, max, min, maximum depth within the SPN.
-      std::map<mlir::Operation*, ErrorEstimationValue> spn_node_values;
+      std::map<mlir::Operation*, spn::detail::ErrorEstimationValue> spn_node_values;
 
       /// The global extreme-values of the SPN are used when determining the needed I(nteger) / E(xponent) values
       double spn_node_value_global_maximum = std::numeric_limits<double>::min();
@@ -204,11 +210,11 @@ namespace mlir {
       int format_bits_magnitude = std::numeric_limits<int>::min();
 
       /// Tuples which model different floating point formats, like e.g. fp32 / single precision
-      const std::vector<ValueFormat> Float_Formats{
-          ValueFormat{5, 10, Float16Type::get},
-          ValueFormat{8, 7, BFloat16Type::get},
-          ValueFormat{8, 23, Float32Type::get},
-          ValueFormat{11, 52, Float64Type::get}
+      const std::vector<mlir::spn::detail::ValueFormat> Float_Formats{
+          spn::detail::ValueFormat{5, 10, Float16Type::get},
+          spn::detail::ValueFormat{8, 7, BFloat16Type::get},
+          spn::detail::ValueFormat{8, 23, Float32Type::get},
+          spn::detail::ValueFormat{11, 52, Float64Type::get}
       };
 
     };

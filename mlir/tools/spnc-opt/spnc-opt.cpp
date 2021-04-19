@@ -64,6 +64,10 @@ static llvm::cl::opt<bool> logSpace("use-log-space",
                                     llvm::cl::desc("Use log-space computation"),
                                     llvm::cl::init(false));
 
+static llvm::cl::opt<bool> optRepresentation("opt-repr",
+                                             llvm::cl::desc("Determine and use optimal number representation"),
+                                             llvm::cl::init(false));
+
 ///
 /// spnc-opt: Custom tool to run SPN-dialect specific and generic passes on MLIR files.
 int main(int argc, char** argv) {
@@ -78,12 +82,12 @@ int main(int argc, char** argv) {
 
   mlir::registerPass("convert-hispn-query-to-lospn", "Convert queries from HiSPN to LoSPN dialect",
                      []() -> std::unique_ptr<mlir::Pass> {
-                       return mlir::spn::createHiSPNtoLoSPNQueryConversionPass(logSpace);
+                       return mlir::spn::createHiSPNtoLoSPNQueryConversionPass(logSpace, optRepresentation);
                      });
 
   mlir::registerPass("convert-hispn-node-to-lospn", "Convert nodes from HiSPN to LoSPN dialect",
                      []() -> std::unique_ptr<mlir::Pass> {
-                       return mlir::spn::createHiSPNtoLoSPNNodeConversionPass(logSpace);
+                       return mlir::spn::createHiSPNtoLoSPNNodeConversionPass(logSpace, optRepresentation);
                      });
 
   mlir::registerPass("convert-lospn-structure-to-cpu", "Convert structure from LoSPN to CPU target",

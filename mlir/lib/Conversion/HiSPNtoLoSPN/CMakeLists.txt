@@ -2,6 +2,7 @@ add_mlir_conversion_library(MLIRHiSPNtoLoSPNTransforms
         NodePatterns.cpp
         QueryPatterns.cpp
         HiSPNtoLoSPNConversionPasses.cpp
+        Analysis/ArithmeticPrecisionAnalysis.cpp
 
         ADDITIONAL_HEADER_DIRS
         ${PROJECT_SOURCE_DIR}/mlir/include/Conversion

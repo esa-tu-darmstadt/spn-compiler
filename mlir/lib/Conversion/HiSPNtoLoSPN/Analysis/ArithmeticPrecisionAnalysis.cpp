@@ -8,6 +8,7 @@
 #include "HiSPNtoLoSPN/ArithmeticPrecisionAnalysis.h"
 
 using namespace mlir::spn;
+using namespace mlir::spn::detail;
 using namespace mlir::spn::high;
 
 ArithmeticPrecisionAnalysis::ArithmeticPrecisionAnalysis(Operation* rootNode) {
@@ -105,11 +106,11 @@ void ArithmeticPrecisionAnalysis::analyzeGraph(Operation* graphRoot) {
   switch (est_data_representation) {
     case data_representation::EM_FLOATING_POINT:
       // Make floating-point calculator.
-      calc = std::shared_ptr<ErrorEstimationCalculator>(new FloatingPointCalculator(epsilon));
+      calc = std::shared_ptr<ErrorEstimationCalculator>(new detail::FloatingPointCalculator(epsilon));
       break;
     case data_representation::EM_FIXED_POINT:
       // Make fixed-point calculator.
-      calc = std::shared_ptr<ErrorEstimationCalculator>(new FixedPointCalculator(epsilon));
+      calc = std::shared_ptr<ErrorEstimationCalculator>(new detail::FixedPointCalculator(epsilon));
       break;
   }
 
@@ -121,18 +122,11 @@ void ArithmeticPrecisionAnalysis::analyzeGraph(Operation* graphRoot) {
 }
 
 void ArithmeticPrecisionAnalysis::estimateLeastMagnitudeBits() {
-  // Find global extreme values
+  // Collect global extreme values
   for (auto entry : spn_node_values) {
     auto value = entry.second;
-    // ToDo: Question what's the desired behavior in cases like:
-    //  (spn_node_value_global_maximum == 0.0) -AND/OR- (spn_node_value_global_minimum == 1.0)?
-    // ToDo: RFC on filtering out these special cases.
-    if (value.max < 1.0) {
-      spn_node_value_global_maximum = std::max(spn_node_value_global_maximum, value.max);
-    }
-    if (value.min > 0.0) {
-      spn_node_value_global_minimum = std::min(spn_node_value_global_minimum, value.min);
-    }
+    spn_node_value_global_maximum = std::max(spn_node_value_global_maximum, value.max);
+    spn_node_value_global_minimum = std::min(spn_node_value_global_minimum, value.min);
   }
 
   format_bits_magnitude = calc->calculateMagnitudeBits(spn_node_value_global_maximum, spn_node_value_global_minimum);
@@ -229,7 +223,7 @@ void ArithmeticPrecisionAnalysis::traverseSubgraph(Operation* subgraphRoot) {
   }
 }
 
-llvm::SmallVector<ArithmeticPrecisionAnalysis::ErrorEstimationValue>
+llvm::SmallVector<ErrorEstimationValue>
     ArithmeticPrecisionAnalysis::estimateErrorBinaryOperation(SmallVector<ErrorEstimationValue> operands, bool isSum) {
   int numOperands = operands.size();
 
@@ -444,16 +438,16 @@ mlir::Type ArithmeticPrecisionAnalysis::getComputationType(bool useLogSpace) {
   return selectedType;
 }
 
-inline double ArithmeticPrecisionAnalysis::FixedPointCalculator::calculateDefectiveLeaf(double value) {
+inline double mlir::spn::detail::FixedPointCalculator::calculateDefectiveLeaf(double value) {
   return (value + EPS);
 }
 
-inline double ArithmeticPrecisionAnalysis::FloatingPointCalculator::calculateDefectiveLeaf(double value) {
+inline double mlir::spn::detail::FloatingPointCalculator::calculateDefectiveLeaf(double value) {
   return (value * ERR_COEFFICIENT);
 }
 
-inline double ArithmeticPrecisionAnalysis::FixedPointCalculator::calculateDefectiveProduct(ErrorEstimationValue& v1,
-                                                                                           ErrorEstimationValue& v2) {
+inline double mlir::spn::detail::FixedPointCalculator::calculateDefectiveProduct(ErrorEstimationValue& v1,
+                                                                                 ErrorEstimationValue& v2) {
   // Calculate accurate value
   double defect = v1.accurate * v2.accurate;
   // Calculate deltas of the given operators (see equation (5) of ProbLP paper)
@@ -464,8 +458,8 @@ inline double ArithmeticPrecisionAnalysis::FixedPointCalculator::calculateDefect
   return defect;
 }
 
-inline double ArithmeticPrecisionAnalysis::FloatingPointCalculator::calculateDefectiveProduct(ErrorEstimationValue& v1,
-                                                                                              ErrorEstimationValue& v2) {
+inline double mlir::spn::detail::FloatingPointCalculator::calculateDefectiveProduct(ErrorEstimationValue& v1,
+                                                                                    ErrorEstimationValue& v2) {
   // Calculate accurate value
   double defect = v1.accurate * v2.accurate;
   // Apply error coefficient for each past conversion step.
@@ -473,24 +467,24 @@ inline double ArithmeticPrecisionAnalysis::FloatingPointCalculator::calculateDef
   return defect;
 }
 
-inline double ArithmeticPrecisionAnalysis::FixedPointCalculator::calculateDefectiveSum(ErrorEstimationValue& v1,
-                                                                                       ErrorEstimationValue& v2) {
+inline double mlir::spn::detail::FixedPointCalculator::calculateDefectiveSum(ErrorEstimationValue& v1,
+                                                                             ErrorEstimationValue& v2) {
   // Calculate defective value directly
   return (v1.defective + v2.defective);
 }
 
-inline double ArithmeticPrecisionAnalysis::FloatingPointCalculator::calculateDefectiveSum(ErrorEstimationValue& v1,
-                                                                                          ErrorEstimationValue& v2) {
+inline double mlir::spn::detail::FloatingPointCalculator::calculateDefectiveSum(ErrorEstimationValue& v1,
+                                                                                ErrorEstimationValue& v2) {
   int max_depth = std::max(v1.depth, v2.depth) + 1;
   // Apply error coefficient for the longest conversion chain.
   return ((v1.accurate + v2.accurate) * std::pow(ERR_COEFFICIENT, max_depth));
 }
 
-inline int ArithmeticPrecisionAnalysis::FixedPointCalculator::calculateMagnitudeBits(double max, double min) {
+inline int mlir::spn::detail::FixedPointCalculator::calculateMagnitudeBits(double max, double min) {
   return ((int) std::ceil(std::log2(max)));
 }
 
-inline int ArithmeticPrecisionAnalysis::FloatingPointCalculator::calculateMagnitudeBits(double max, double min) {
+inline int mlir::spn::detail::FloatingPointCalculator::calculateMagnitudeBits(double max, double min) {
   // Overflow and underflow has to be taken into account.
   // Calculate minimum number of bits (then bias) for 2's complement to determine the number of exponent bits.
   double bias = std::ceil(std::abs(std::log2(std::ceil(std::abs(std::log2(min))))));
