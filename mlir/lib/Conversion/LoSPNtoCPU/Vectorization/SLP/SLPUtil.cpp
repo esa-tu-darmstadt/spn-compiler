@@ -12,7 +12,7 @@
 using namespace mlir;
 
 bool mlir::spn::low::slp::vectorizable(Operation* op) {
-  // (MLIR does not allow index types in vectors)
+  // MLIR does not allow index types in vectors.
   return op->hasTrait<OpTrait::spn::low::VectorizableOp>() && op->hasTrait<OpTrait::OneResult>()
       && !op->getResult(0).getType().isa<IndexType>();
 }
@@ -98,7 +98,7 @@ namespace {
 
 void mlir::spn::low::slp::dumpOpTree(const vector_t& values) {
   DenseMap<Value, unsigned> nodes;
-  SmallVector<std::tuple<Value, Value, size_t>> edges;
+  SmallVector<std::tuple<Value, Value, unsigned>> edges;
 
   std::stack<Value> worklist;
   for (auto const& value : values) {
@@ -113,7 +113,7 @@ void mlir::spn::low::slp::dumpOpTree(const vector_t& values) {
     }
     nodes[value] = nodes.size();
     if (auto* definingOp = value.getDefiningOp()) {
-      for (size_t i = 0; i < definingOp->getNumOperands(); ++i) {
+      for (unsigned i = 0; i < definingOp->getNumOperands(); ++i) {
         auto const& operand = definingOp->getOperand(i);
         edges.emplace_back(std::make_tuple(value, operand, i));
         worklist.push(operand);
@@ -127,7 +127,7 @@ void mlir::spn::low::slp::dumpOpTree(const vector_t& values) {
   for (auto const& entry : nodes) {
     auto const& value = entry.first;
     auto const& id = entry.second;
-    llvm::dbgs() << "node_" << id << "[label=\"";
+    llvm::dbgs() << "\tnode_" << id << "[label=\"";
     if (auto* definingOp = value.getDefiningOp()) {
       llvm::dbgs() << definingOp->getName().getStringRef() << "\\n" << definingOp;
       if (auto constantOp = dyn_cast<ConstantOp>(definingOp)) {
@@ -147,8 +147,8 @@ void mlir::spn::low::slp::dumpOpTree(const vector_t& values) {
     llvm::dbgs() << "\", fillcolor=\"#a0522d\"];\n";
   }
   for (auto const& edge : edges) {
-    llvm::dbgs() << "node_" << std::get<0>(edge) << " -> node_" << std::get<1>(edge) << "[label=\""
-                 << std::to_string(std::get<2>(edge)) << "\"];\n";
+    llvm::dbgs() << "\tnode_" << nodes[std::get<0>(edge)] << " -> node_" << nodes[std::get<1>(edge)] << "[label=\""
+                 << std::get<2>(edge) << "\"];\n";
   }
   llvm::dbgs() << "}\n";
 }

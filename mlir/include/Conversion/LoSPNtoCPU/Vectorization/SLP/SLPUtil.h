@@ -15,11 +15,6 @@ namespace mlir {
     namespace low {
       namespace slp {
 
-        void dumpOpTree(vector_t const& values);
-        void dumpSLPGraph(SLPNode const& root);
-        void dumpSLPNode(SLPNode const& node);
-        void dumpSLPNodeVector(NodeVector const& nodeVector);
-
         bool vectorizable(Operation* op);
         bool vectorizable(Value const& value);
 
@@ -108,6 +103,11 @@ namespace mlir {
           }
           return firstUser;
         }
+
+        void dumpOpTree(vector_t const& values);
+        void dumpSLPGraph(SLPNode const& root);
+        void dumpSLPNode(SLPNode const& node);
+        void dumpSLPNodeVector(NodeVector const& nodeVector);
 
       }
     }
