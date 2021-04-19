@@ -158,7 +158,7 @@ void SLPGraphBuilder::reorderOperands(SLPNode* multinode) const {
       finalOrder[lane].emplace_back(bestResult.first);
       // Detect SPLAT mode
       if (i == 1 && bestResult.first == last) {
-        mode[lane][i] = SPLAT;
+        mode[lane].emplace_back(SPLAT);
       } else {
         mode[lane].emplace_back(bestResult.second);
       }
