@@ -13,56 +13,76 @@ namespace mlir {
     namespace low {
       namespace slp {
 
+        typedef SmallVector<Value, 4> vector_t;
+
+        class NodeVector {
+
+          friend class SLPNode;
+
+        public:
+
+          explicit NodeVector(vector_t const& values);
+          explicit NodeVector(SmallVector<Operation*, 4> const& operations);
+
+          bool isUniform() const;
+          bool containsBlockArg() const;
+          bool contains(Value const& value) const;
+
+          size_t numLanes() const;
+
+          size_t numOperands() const;
+          NodeVector* getOperand(size_t index) const;
+
+          vector_t::const_iterator begin() const;
+          vector_t::const_iterator end() const;
+
+          Value const& getElement(size_t lane) const;
+          Value const& operator[](size_t lane) const;
+
+        private:
+          vector_t values;
+          SmallVector<std::shared_ptr<NodeVector>> operands;
+        };
+
         class SLPNode {
 
         public:
 
-          explicit SLPNode(std::vector<Operation*> const& operations);
+          explicit SLPNode(vector_t const& values);
+          explicit SLPNode(SmallVector<Operation*, 4> const& operations);
 
-          Operation* getOperation(size_t lane, size_t index) const;
-          void setOperation(size_t lane, size_t index, Operation* operation);
+          Value getValue(size_t lane, size_t index) const;
+          void setValue(size_t lane, size_t index, Value const& newValue);
 
-          bool isMultiNode() const;
           bool isUniform() const;
-          bool containsOperation(Operation* op) const;
-          bool areRootOfNode(std::vector<Operation*> const& operations) const;
+          bool contains(Value const& value) const;
+
+          bool isRootOfNode(NodeVector const& vector) const;
 
           size_t numLanes() const;
-
           size_t numVectors() const;
-          void addVector(std::vector<Operation*> const& vectorOps);
-          std::vector<Operation*>& getVector(size_t index);
-          size_t getVectorIndex(Operation* op) const;
-          std::vector<Operation*>& getVectorOf(Operation* op);
-          std::vector<std::vector<Operation*>>& getVectors();
 
-          SLPNode* addOperand(std::vector<Operation*> const& operations);
+          NodeVector* addVector(vector_t const& values, NodeVector* definingVector);
+          NodeVector* addVector(SmallVector<Operation*, 4> const& operations);
+          NodeVector* getVector(size_t index) const;
+
+          SLPNode* addOperand(vector_t const& values, NodeVector* definingVector);
           SLPNode* getOperand(size_t index) const;
           std::vector<SLPNode*> getOperands() const;
           size_t numOperands() const;
-
-          void addNodeInput(Value const& value);
-          Value const& getNodeInput(size_t index) const;
-
-          void dump() const;
-          void dumpGraph() const;
-
-          friend bool operator==(SLPNode const& lhs, SLPNode const& rhs) {
-            return std::tie(lhs.vectors) == std::tie(rhs.vectors);
+/*
+          bool operator==(SLPNode const& other) {
+            return std::tie(vectors) == std::tie(other.vectors);
           }
 
-          friend bool operator!=(SLPNode const& lhs, SLPNode const& rhs) {
-            return !(lhs == rhs);
+          bool operator!=(SLPNode const& other) {
+            return !(*this == other);
           }
+*/
 
         private:
-
-          std::vector<std::vector<Operation*>> vectors;
-
-          std::vector<std::unique_ptr<SLPNode>> operandNodes;
-
-          std::vector<Value> nodeInputs;
-
+          SmallVector<std::shared_ptr<NodeVector>> vectors;
+          SmallVector<std::unique_ptr<SLPNode>> operandNodes;
         };
       }
     }

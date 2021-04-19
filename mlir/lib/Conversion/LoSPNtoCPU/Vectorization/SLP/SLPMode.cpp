@@ -7,12 +7,15 @@
 #include "LoSPNtoCPU/Vectorization/SLP/SLPMode.h"
 
 using namespace mlir;
-using namespace mlir::spn::low::slp;
 
-Mode mlir::spn::low::slp::modeFromOperation(Operation* operation) {
-  if (operation->hasTrait<OpTrait::ConstantLike>()) {
+mlir::spn::low::slp::Mode mlir::spn::low::slp::modeFromValue(Value const& value) {
+  if (value.isa<BlockArgument>()) {
+    return SPLAT;
+  }
+  auto* definingOp = value.getDefiningOp();
+  if (definingOp->hasTrait<OpTrait::ConstantLike>()) {
     return CONST;
-  } else if (dyn_cast<mlir::spn::low::SPNBatchRead>(operation)) {
+  } else if (dyn_cast<mlir::spn::low::SPNBatchRead>(definingOp)) {
     return LOAD;
   }
   return OPCODE;

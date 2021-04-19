@@ -3,12 +3,14 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
-#include "llvm/Support/FormatVariadic.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/IR/BlockAndValueMapping.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Support/FormatVariadic.h"
+#include <queue>
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -29,16 +31,6 @@ namespace {
       vectorOp = rewriter.create<vector::InsertElementOp>(begin->getLoc(), *begin, vectorOp, position++);
     }
     return vectorOp;
-  }
-
-  template<typename OperationIterator>
-  SmallVector<Value, 4> results(OperationIterator begin, OperationIterator end) {
-    SmallVector<Value, 4> elements;
-    while (begin != end) {
-      elements.emplace_back((*begin)->getResult(0));
-      ++begin;
-    }
-    return elements;
   }
 
   template<typename AttributeIterator>
@@ -75,52 +67,183 @@ namespace {
     return DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<double>>(array));
   }
 
+  llvm::SmallVector<SLPNode*> postOrder(SLPNode* root) {
+    llvm::SmallVector<SLPNode*> order;
+    for (auto* operand : root->getOperands()) {
+      assert(std::find(std::begin(order), std::end(order), operand) == std::end(order));
+      order.append(postOrder(operand));
+    }
+    order.emplace_back(root);
+    return order;
+  }
+
+  llvm::DenseMap<NodeVector*, llvm::SmallPtrSet<size_t, 4>> getEscapingLanesMap(SLPNode* root) {
+    llvm::DenseMap<NodeVector*, llvm::DenseMap<mlir::Value, unsigned>> outsideUses;
+    for (auto* node : postOrder(root)) {
+      for (size_t i = 0; i < node->numVectors(); ++i) {
+        auto* vector = node->getVector(i);
+        for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
+          auto const& element = vector->getElement(lane);
+          // Skip duplicate (splat) values.
+          if (outsideUses[vector].count(element)) {
+            continue;
+          }
+          outsideUses[vector][element] = std::distance(std::begin(element.getUses()), std::end(element.getUses()));
+          for (size_t j = 0; j < vector->numOperands(); ++j) {
+            auto* operand = vector->getOperand(j);
+            outsideUses[operand][operand->getElement(lane)]--;
+          }
+        }
+      }
+    }
+
+    llvm::DenseMap<NodeVector*, llvm::SmallPtrSet<size_t, 4>> escapingLanes;
+    for (auto const& entry : outsideUses) {
+      auto* vector = entry.first;
+      for (auto const& useAndCount : entry.second) {
+        auto const& value = useAndCount.first;
+        auto const& count = useAndCount.second;
+        if (count > 0) {
+          for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
+            if (vector->getElement(lane) == value) {
+              escapingLanes[vector].insert(lane);
+              break;
+            }
+          }
+        }
+      }
+    }
+    return escapingLanes;
+  }
+
+  DenseMap<NodeVector*, Operation*> emptyVectorizedOpsMap(SLPNode* root) {
+    DenseMap<NodeVector*, Operation*> vectorizedOps;
+    std::queue<SLPNode*> worklist;
+    worklist.emplace(root);
+    while (!worklist.empty()) {
+      auto* node = worklist.front();
+      worklist.pop();
+      for (size_t i = 0; i < node->numVectors(); ++i) {
+        vectorizedOps[node->getVector(i)] = nullptr;
+      }
+      for (auto const& operand : node->getOperands()) {
+        worklist.emplace(operand);
+      }
+    }
+    return vectorizedOps;
+  }
+
+}
+
+SLPVectorPatternRewriter::SLPVectorPatternRewriter(mlir::MLIRContext* ctx) : PatternRewriter{ctx} {}
+
+LogicalResult SLPVectorPatternRewriter::rewrite(SLPNode* root) {
+
+  OwningRewritePatternList patterns;
+  auto vectorizedOps = emptyVectorizedOpsMap(root);
+  std::shared_ptr<NodeVector> currentVector;
+  populateSLPVectorizationPatterns(patterns, context, currentVector, vectorizedOps);
+  FrozenRewritePatternList frozenPatterns(std::move(patterns));
+
+  PatternApplicator applicator{frozenPatterns};
+  applicator.applyDefaultCostModel();
+
+  // Marks operations that can be deleted.
+  // We delete them *after* SLP graph conversion to avoid running into NULL operands during conversion.
+  SmallPtrSet<Operation*, 32> erasableOps;
+
+  // Stores escaping uses for vector extractions that might be necessary later on.
+  auto const& escapingLanes = getEscapingLanesMap(root);
+
+  // Traverse the SLP graph in postorder and apply the vectorization patterns.
+  for (auto* node : postOrder(root)) {
+
+    // Also traverse nodes in postorder to properly handle multinodes.
+    for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
+      auto* vector = node->getVector(vectorIndex);
+      currentVector.reset(vector);
+      // Rewrite vector by applying any matching pattern.
+      if (vector->containsBlockArg()) {
+        // TODO: BroadcastInsert
+      } else {
+        auto* vectorOp = vector->begin()->getDefiningOp();
+        if (failed(applicator.matchAndRewrite(vectorOp, *this))) {
+          vectorOp->emitOpError("SLP pattern application failed (did you forget to specify the pattern?)");
+        }
+      }
+    }
+
+    // Gather operations that can be erased and create vector extractions using those that need to stay.
+    for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
+      auto* vector = node->getVector(vectorIndex);
+      for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
+        auto const& vectorValue = vector->getElement(lane);
+        if (vectorValue.isa<BlockArgument>()) {
+          continue;
+        }
+        erasableOps.insert(vectorValue.getDefiningOp());
+        if (escapingLanes.lookup(vector).contains(lane)) {
+          auto const& source = vectorizedOps[vector]->getResult(0);
+          // TODO: set insertion point right before the first outside user
+          setInsertionPointAfterValue(source);
+          auto extractOp = create<vector::ExtractElementOp>(vectorValue.getLoc(), source, lane);
+          vectorValue.replaceAllUsesWith(extractOp.result());
+        }
+      }
+    }
+  }
+
+  for (auto* op : erasableOps) {
+    op->dropAllUses();
+    eraseOp(op);
+  }
+
+  // If an SLP node failed to vectorize completely, fail the pass.
+  for (auto const& entry: vectorizedOps) {
+    if (!entry.second) {
+      llvm::dbgs() << "Failed to vectorize vector:\n";
+      dumpSLPNodeVector(*entry.first);
+      return failure();
+    }
+  }
+
+  return success();
 }
 
 LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternRewriter& rewriter) const {
 
-  auto* node = this->parentNodes.lookup(constantOp);
+  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), constantOp.getType());
 
-  auto const& vectorIndex = node->getVectorIndex(constantOp);
-  auto const& vector = node->getVector(vectorIndex);
-  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector.size()), constantOp.getType());
+  rewriter.setInsertionPoint(firstUser(vector->begin(), vector->end()));
 
-  rewriter.setInsertionPoint(firstUser(std::begin(vector), std::end(vector)));
-
-  if (!node->isUniform()) {
-    auto const& elements = results(std::begin(vector), std::end(vector));
-    auto vectorVal = broadcastFirstInsertRest(std::begin(elements), std::end(elements), vectorType, rewriter);
-    this->vectorsByNode[node][vectorIndex] = vectorVal.getDefiningOp();
+  if (!vector->isUniform()) {
+    auto vectorVal = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
+    vectorizedOps[vector.get()] = vectorVal.getDefiningOp();
     return success();
   }
 
   SmallVector<Attribute, 4> constants;
-  for (auto* vectorOp : vector) {
-    constants.emplace_back(static_cast<ConstantOp>(vectorOp).getValue());
+  for (auto const& value : *vector) {
+    constants.emplace_back(value.getDefiningOp<ConstantOp>().value());
   }
   auto const& elements = denseFloatingPoints(std::begin(constants), std::end(constants), vectorType);
 
   auto constVector = rewriter.create<mlir::ConstantOp>(constantOp->getLoc(), elements);
 
-  this->vectorsByNode[node][vectorIndex] = constVector;
+  vectorizedOps[vector.get()] = constVector;
 
   return success();
 }
 
 LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, PatternRewriter& rewriter) const {
 
-  auto* node = parentNodes.lookup(batchReadOp);
+  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), batchReadOp.getType());
 
-  auto const& vectorIndex = node->getVectorIndex(batchReadOp);
-  auto const& vector = node->getVector(vectorIndex);
-  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector.size()), batchReadOp.getType());
+  rewriter.setInsertionPoint(firstUser(vector->begin(), vector->end()));
 
-  rewriter.setInsertionPoint(firstUser(std::begin(vector), std::end(vector)));
-
-  if (!node->isUniform() || !areConsecutiveLoads(vector)) {
-    auto const& elements = results(std::begin(vector), std::end(vector));
-    auto vectorVal = broadcastFirstInsertRest(std::begin(elements), std::end(elements), vectorType, rewriter);
-    vectorsByNode[node][vectorIndex] = vectorVal.getDefiningOp();
+  if (!vector->isUniform() || !consecutiveLoads(vector->begin(), vector->end())) {
+    auto vectorVal = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
+    vectorizedOps[vector.get()] = vectorVal.getDefiningOp();
   } else {
 
     auto batchReadLoc = batchReadOp->getLoc();
@@ -128,7 +251,7 @@ LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, Patt
     ValueRange indices{batchReadOp.batchIndex(), memIndex};
     auto vectorLoad = rewriter.create<vector::LoadOp>(batchReadLoc, vectorType, batchReadOp.batchMem(), indices);
 
-    vectorsByNode[node][vectorIndex] = vectorLoad;
+    vectorizedOps[vector.get()] = vectorLoad;
   }
 
   return success();
@@ -136,129 +259,101 @@ LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, Patt
 
 LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewriter) const {
 
-  auto* node = parentNodes.lookup(addOp);
+  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), addOp.getType());
+  auto const& firstValue = firstOccurrence(vector->begin(), vector->end());
 
-  auto const& vectorIndex = node->getVectorIndex(addOp);
-  auto const& vector = node->getVector(vectorIndex);
-  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector.size()), addOp.getType());
+  if (firstValue.isa<BlockArgument>()) {
+    rewriter.setInsertionPointAfterValue(firstValue);
+  } else {
+    rewriter.setInsertionPoint(firstValue.getDefiningOp());
+  }
 
-  rewriter.setInsertionPoint(firstOperation(std::begin(vector), std::end(vector)));
-
-  if (!node->isUniform()) {
-    auto const& elements = results(std::begin(vector), std::end(vector));
-    auto vectorVal = broadcastFirstInsertRest(std::begin(elements), std::end(elements), vectorType, rewriter);
-    vectorsByNode[node][vectorIndex] = vectorVal.getDefiningOp();
+  if (!vector->isUniform()) {
+    auto vectorVal = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
+    vectorizedOps[vector.get()] = vectorVal.getDefiningOp();
     return success();
   }
 
   llvm::SmallVector<Value, 2> operands;
 
   for (unsigned i = 0; i < addOp.getNumOperands(); ++i) {
-    Value operand;
-    if (std::any_of(std::begin(vector), std::end(vector), [&](auto* vectorOp) {
-      Value vectorOperand = addOp.getOperand(i);
-      return vectorOperand.isa<BlockArgument>() || !parentNodes.count(vectorOperand.getDefiningOp());
-    })) {
-      llvm::SmallVector<Value, 4> elements;
-      for (auto* vectorOp : vector) {
-        elements.emplace_back(vectorOp->getOperand(i));
-      }
-      operand = broadcastFirstInsertRest(std::begin(elements), std::end(elements), vectorType, rewriter);
-    } else {
-      auto* operandOp = addOp.getOperand(i).getDefiningOp();
-      auto* operandNode = parentNodes.lookup(operandOp);
-      if (!vectorsByNode.count(operandNode) || vectorsByNode[operandNode].size() != operandNode->numVectors()) {
-        return rewriter.notifyMatchFailure(addOp, "operation's LHS has not yet been (fully) vectorized");
-      }
-      operand = vectorsByNode[operandNode][operandNode->getVectorIndex(operandOp)]->getResult(0);
+    auto* operandOp = vectorizedOps[vector->getOperand(i)];
+    if (!operandOp) {
+      return rewriter.notifyMatchFailure(addOp, "operation's operands have not yet been (fully) vectorized");
     }
-    operands.emplace_back(operand);
+    operands.emplace_back(operandOp->getResult(0));
   }
 
   auto vectorAddOp = rewriter.create<AddFOp>(addOp->getLoc(), vectorType, operands);
 
-  vectorsByNode[node][vectorIndex] = vectorAddOp;
+  vectorizedOps[vector.get()] = vectorAddOp;
 
   return success();
 }
 
 LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewriter) const {
 
-  auto* node = parentNodes.lookup(mulOp);
+  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), mulOp.getType());
+  auto const& firstValue = firstOccurrence(vector->begin(), vector->end());
 
-  auto const& vectorIndex = node->getVectorIndex(mulOp);
-  auto const& vector = node->getVector(vectorIndex);
-  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector.size()), mulOp.getType());
+  if (firstValue.isa<BlockArgument>()) {
+    rewriter.setInsertionPointAfterValue(firstValue);
+  } else {
+    rewriter.setInsertionPoint(firstValue.getDefiningOp());
+  }
 
-  rewriter.setInsertionPoint(firstOperation(std::begin(vector), std::end(vector)));
-
-  if (!node->isUniform()) {
-    auto const& elements = results(std::begin(vector), std::end(vector));
-    auto vectorVal = broadcastFirstInsertRest(std::begin(elements), std::end(elements), vectorType, rewriter);
-    vectorsByNode[node][vectorIndex] = vectorVal.getDefiningOp();
+  if (!vector->isUniform()) {
+    auto vectorVal = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
+    vectorizedOps[vector.get()] = vectorVal.getDefiningOp();
     return success();
   }
 
   llvm::SmallVector<Value, 2> operands;
 
   for (unsigned i = 0; i < mulOp.getNumOperands(); ++i) {
-    Value operand;
-    if (std::any_of(std::begin(vector), std::end(vector), [&](auto* vectorOp) {
-      Value vectorOperand = mulOp.getOperand(i);
-      return vectorOperand.isa<BlockArgument>() || !parentNodes.count(vectorOperand.getDefiningOp());
-    })) {
-      llvm::SmallVector<Value, 4> elements;
-      for (auto* vectorOp : vector) {
-        elements.emplace_back(vectorOp->getOperand(i));
-      }
-      operand = broadcastFirstInsertRest(std::begin(elements), std::end(elements), vectorType, rewriter);
-    } else {
-      auto* operandOp = mulOp.getOperand(i).getDefiningOp();
-      auto* operandNode = parentNodes.lookup(operandOp);
-      if (!vectorsByNode.count(operandNode) || vectorsByNode[operandNode].size() != operandNode->numVectors()) {
-        return rewriter.notifyMatchFailure(mulOp, "operation's LHS has not yet been (fully) vectorized");
-      }
-      operand = vectorsByNode[operandNode][operandNode->getVectorIndex(operandOp)]->getResult(0);
+    auto* operandOp = vectorizedOps[vector->getOperand(i)];
+    if (!operandOp) {
+      return rewriter.notifyMatchFailure(mulOp, "operation's operands have not yet been (fully) vectorized");
     }
-    operands.emplace_back(operand);
+    operands.emplace_back(operandOp->getResult(0));
   }
 
-  auto vectorMulOp = rewriter.create<MulFOp>(mulOp->getLoc(), vectorType, operands);
+  auto vectorAddOp = rewriter.create<MulFOp>(mulOp->getLoc(), vectorType, operands);
 
-  vectorsByNode[node][vectorIndex] = vectorMulOp;
+  vectorizedOps[vector.get()] = vectorAddOp;
 
   return success();
 }
 
 LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, PatternRewriter& rewriter) const {
 
-  auto* node = parentNodes.lookup(gaussianOp);
+  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), gaussianOp.getType());
+  auto const& firstValue = firstOccurrence(vector->begin(), vector->end());
 
-  auto const& vectorIndex = node->getVectorIndex(gaussianOp);
-  auto const& vector = node->getVector(vectorIndex);
-  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector.size()), gaussianOp.getType());
+  if (firstValue.isa<BlockArgument>()) {
+    rewriter.setInsertionPointAfterValue(firstValue);
+  } else {
+    rewriter.setInsertionPoint(firstValue.getDefiningOp());
+  }
 
-  rewriter.setInsertionPoint(firstOperation(std::begin(vector), std::end(vector)));
-
-  if (!node->isUniform()) {
-    auto const& elements = results(std::begin(vector), std::end(vector));
-    auto vectorVal = broadcastFirstInsertRest(std::begin(elements), std::end(elements), vectorType, rewriter);
-    vectorsByNode[node][vectorIndex] = vectorVal.getDefiningOp();
+  if (!vector->isUniform()) {
+    auto vectorVal = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
+    vectorizedOps[vector.get()] = vectorVal.getDefiningOp();
     return success();
   }
 
   DenseElementsAttr coefficients;
   if (vectorType.getElementType().cast<FloatType>().getWidth() == 32) {
     SmallVector<float, 4> array;
-    for (auto* vectorOp : vector) {
-      float stddev = static_cast<SPNGaussianLeaf>(vectorOp).stddev().convertToFloat();
+    for (auto const& value : *vector) {
+      float stddev = static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddev().convertToFloat();
       array.emplace_back(1.0f / (stddev * std::sqrt(2.0f * M_PIf32)));
     }
     coefficients = DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<float>>(array));
   } else {
     SmallVector<double, 4> array;
-    for (auto* vectorOp : vector) {
-      double stddev = static_cast<SPNGaussianLeaf>(vectorOp).stddev().convertToDouble();
+    for (auto const& value : *vector) {
+      double stddev = static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddev().convertToDouble();
       array.emplace_back(1.0 / (stddev * std::sqrt(2.0 * M_PI)));
     }
     coefficients = DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<double>>(array));
@@ -266,36 +361,24 @@ LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, Pat
 
   // Gather means in a dense floating point attribute vector.
   SmallVector<Attribute, 4> meanAttributes;
-  for (auto* vectorOp : vector) {
-    meanAttributes.emplace_back(static_cast<SPNGaussianLeaf>(vectorOp).meanAttr());
+  for (auto const& value : *vector) {
+    meanAttributes.emplace_back(static_cast<SPNGaussianLeaf>(value.getDefiningOp()).meanAttr());
   }
   auto const& means = denseFloatingPoints(std::begin(meanAttributes), std::end(meanAttributes), vectorType);
 
   // Gather standard deviations in a dense floating point attribute vector.
   SmallVector<Attribute, 4> stddevAttributes;
-  for (auto* vectorOp : vector) {
-    stddevAttributes.emplace_back(static_cast<SPNGaussianLeaf>(vectorOp).stddevAttr());
+  for (auto const& value : *vector) {
+    stddevAttributes.emplace_back(static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddevAttr());
   }
   auto const& stddevs = denseFloatingPoints(std::begin(stddevAttributes), std::end(stddevAttributes), vectorType);
 
   // Grab the input vector.
-  Value inputVector;
-  if (std::any_of(std::begin(vector), std::end(vector), [&](auto* vectorOp) {
-    return static_cast<SPNGaussianLeaf>(vectorOp).index().template isa<BlockArgument>();
-  })) {
-    llvm::SmallVector<Value, 4> elements;
-    for (auto* vectorOp : vector) {
-      elements.emplace_back(static_cast<SPNGaussianLeaf>(vectorOp).index());
-    }
-    inputVector = broadcastFirstInsertRest(std::begin(elements), std::end(elements), vectorType, rewriter);
-  } else {
-    auto* inputOp = gaussianOp.index().getDefiningOp();
-    auto* inputNode = parentNodes.lookup(inputOp);
-    if (!vectorsByNode.count(inputNode) || vectorsByNode[inputNode].size() != inputNode->numVectors()) {
-      return rewriter.notifyMatchFailure(gaussianOp, "operation's input node has not yet been (fully) vectorized");
-    }
-    inputVector = vectorsByNode[inputNode][inputNode->getVectorIndex(inputOp)]->getResult(0);
+  auto* inputOp = vectorizedOps[vector->getOperand(0)];
+  if (!inputOp) {
+    return rewriter.notifyMatchFailure(gaussianOp, "operation's operands have not yet been (fully) vectorized");
   }
+  Value inputVector = inputOp->getResult(0);
 
   // Calculate Gaussian distribution using e^(-0.5 * ((x - mean) / stddev)^2)) / (stddev * sqrt(2 * PI))
   auto const& gaussianLoc = gaussianOp->getLoc();
@@ -318,7 +401,7 @@ LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, Pat
   auto coefficientVector = rewriter.create<ConstantOp>(gaussianLoc, coefficients);
   gaussianVector = rewriter.create<MulFOp>(gaussianLoc, coefficientVector, gaussianVector);
 
-  vectorsByNode[node][vectorIndex] = gaussianVector.getDefiningOp();
+  vectorizedOps[vector.get()] = gaussianVector.getDefiningOp();
 
   return success();
 }

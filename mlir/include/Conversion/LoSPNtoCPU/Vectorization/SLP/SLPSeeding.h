@@ -7,14 +7,13 @@
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPSEEDING_H
 
 #include "mlir/IR/Operation.h"
+#include "SLPNode.h"
 #include <map>
 
 namespace mlir {
   namespace spn {
     namespace low {
       namespace slp {
-
-        typedef std::vector<Operation*> seed_t;
 
         enum SearchMode {
           ///
@@ -31,16 +30,10 @@ namespace mlir {
 
           explicit SeedAnalysis(Operation* rootOp);
 
-          std::map<Operation*, unsigned int> getOpDepths() const;
-
-          std::vector<seed_t> getSeeds(size_t const& op,
-                                       std::map<Operation*, unsigned int> const& depthsOf,
-                                       SearchMode const& mode) const;
+          vector_t getSeed(unsigned width, SearchMode const& mode) const;
 
         private:
-
           Operation* rootOp;
-
         };
       }
     }

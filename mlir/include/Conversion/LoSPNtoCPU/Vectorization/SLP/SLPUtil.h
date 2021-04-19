@@ -8,20 +8,98 @@
 
 #include "mlir/IR/Operation.h"
 #include "LoSPN/LoSPNOps.h"
+#include "SLPNode.h"
 
 namespace mlir {
   namespace spn {
     namespace low {
       namespace slp {
 
-        bool areConsecutiveLoads(low::SPNBatchRead load1, low::SPNBatchRead load2);
-        bool areConsecutiveLoads(std::vector<Operation*> const& loads);
+        void dumpOpTree(vector_t const& values);
+        void dumpSLPGraph(SLPNode const& root);
+        void dumpSLPNode(SLPNode const& node);
+        void dumpSLPNodeVector(NodeVector const& nodeVector);
 
-        template<typename OperationIterator>
-        Operation* firstUser(OperationIterator begin, OperationIterator end) {
+        bool vectorizable(Operation* op);
+        bool vectorizable(Value const& value);
+
+        bool isBeforeInBlock(Operation* lhs, Operation* rhs);
+        bool isBeforeInBlock(Value const& lhs, Value const& rhs);
+
+        bool consecutiveLoads(Value const& lhs, Value const& rhs);
+
+        template<typename ValueIterator>
+        bool vectorizable(ValueIterator begin, ValueIterator end) {
+          if (begin->template isa<BlockArgument>()) {
+            return false;
+          }
+          auto const& name = begin->getDefiningOp()->getName();
+          ++begin;
+          while (begin != end) {
+            if (!vectorizable(*begin) || begin->getDefiningOp()->getName() != name) {
+              return false;
+            }
+            ++begin;
+          }
+          return true;
+        }
+
+        template<typename ValueIterator>
+        bool commutative(ValueIterator begin, ValueIterator end) {
+          while (begin != end) {
+            if (begin->template isa<BlockArgument>()
+                || !begin->getDefiningOp()->template hasTrait<OpTrait::IsCommutative>()) {
+              return false;
+            }
+            ++begin;
+          }
+          return true;
+        }
+
+        template<typename ValueIterator>
+        bool consecutiveLoads(ValueIterator begin, ValueIterator end) {
+          Value previous = *begin;
+          if (++begin == end || previous.isa<BlockArgument>() || !dyn_cast<SPNBatchRead>(previous.getDefiningOp())) {
+            return false;
+          }
+          while (begin != end) {
+            Value current = *begin;
+            if (!consecutiveLoads(previous, current)) {
+              return false;
+            }
+            previous = current;
+            ++begin;
+          }
+          return true;
+        }
+
+        template<typename Iterator>
+        typename std::iterator_traits<Iterator>::value_type firstOccurrence(Iterator begin, Iterator end) {
+          typename std::iterator_traits<Iterator>::value_type first = *begin;
+          while (++begin != end) {
+            if (isBeforeInBlock(first, *begin)) {
+              first = *begin;
+            }
+          }
+          return first;
+        }
+
+        template<typename Iterator>
+        typename std::iterator_traits<Iterator>::value_type lastOccurrence(Iterator begin, Iterator end) {
+          typename std::iterator_traits<Iterator>::value_type first = *begin;
+          while (++begin != end) {
+            if (!isBeforeInBlock(first, *begin)) {
+              first = *begin;
+            }
+          }
+          return first;
+        }
+
+        template<typename UsableIterator>
+        Operation* firstUser(UsableIterator begin, UsableIterator end) {
           Operation* firstUser = nullptr;
           while (begin != end) {
-            for (auto* user : (*begin)->getUsers()) {
+            for (auto* user : begin->getUsers()) {
               if (!firstUser || user->isBeforeInBlock(firstUser)) {
                 firstUser = user;
               }
@@ -29,57 +107,6 @@ namespace mlir {
             ++begin;
           }
           return firstUser;
-        }
-
-        template<typename OperationIterator>
-        Operation* firstOperation(OperationIterator begin, OperationIterator end) {
-          Operation* firstOp = *begin;
-          while (++begin != end) {
-            if (!firstOp->isBeforeInBlock(*begin)) {
-              firstOp = *begin;
-            }
-          }
-          return firstOp;
-        }
-
-        template<typename OperationIterator>
-        Operation* lastOperation(OperationIterator begin, OperationIterator end) {
-          Operation* lastOp = *begin;
-          while (++begin != end) {
-            if (lastOp->isBeforeInBlock(*begin)) {
-              lastOp = *begin;
-            }
-          }
-          return lastOp;
-        }
-
-        template<typename ValueIterator>
-        Value firstValue(ValueIterator begin, ValueIterator end) {
-          Value firstVal = *begin;
-          while (begin != end) {
-            if (begin->template isa<BlockArgument>()) {
-              return *begin;
-            }
-            if (!firstVal.getDefiningOp()->isBeforeInBlock(*begin)) {
-              firstVal = *begin;
-            }
-            ++begin;
-          }
-          return firstVal;
-        }
-
-        template<typename ValueIterator>
-        Value lastValue(ValueIterator begin, ValueIterator end) {
-          Value lastVal = *begin;
-          while (++begin != end) {
-            if (begin->template isa<BlockArgument>()) {
-              continue;
-            } else if (lastVal.isa<BlockArgument>()
-                || lastVal.getDefiningOp()->isBeforeInBlock(begin->getDefiningOp())) {
-              lastVal = *begin;
-            }
-          }
-          return lastVal;
         }
 
       }

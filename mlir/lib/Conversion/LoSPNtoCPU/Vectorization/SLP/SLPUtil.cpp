@@ -4,35 +4,211 @@
 //
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include <queue>
+#include <stack>
 
 using namespace mlir;
 
-bool mlir::spn::low::slp::areConsecutiveLoads(low::SPNBatchRead load1, low::SPNBatchRead load2) {
-  if (load1 == load2) {
-    return false;
-  }
-  if (load1.batchMem() != load2.batchMem()) {
-    return false;
-  }
-  if (load1.batchIndex() != load2.batchIndex()) {
-    return false;
-  }
-  return load1.sampleIndex() + 1 == load2.sampleIndex();
+bool mlir::spn::low::slp::vectorizable(Operation* op) {
+  // (MLIR does not allow index types in vectors)
+  return op->hasTrait<OpTrait::spn::low::VectorizableOp>() && op->hasTrait<OpTrait::OneResult>()
+      && !op->getResult(0).getType().isa<IndexType>();
 }
 
-bool mlir::spn::low::slp::areConsecutiveLoads(std::vector<Operation*> const& loads) {
-  for (size_t i = 0; i < loads.size() - 1; ++i) {
-    auto loadOp1 = dyn_cast<low::SPNBatchRead>(loads[i]);
-    if (!loadOp1) {
-      return false;
-    }
-    auto loadOp2 = dyn_cast<low::SPNBatchRead>(loads[i + 1]);
-    if (!loadOp2) {
-      return false;
-    }
-    if (!areConsecutiveLoads(loadOp1, loadOp2)) {
-      return false;
-    }
+bool mlir::spn::low::slp::vectorizable(Value const& value) {
+  // Block arguments don't have defining ops (they can still be put in a vector by other means).
+  if (value.isa<BlockArgument>()) {
+    return false;
+  }
+  return vectorizable(value.getDefiningOp());
+}
+
+bool mlir::spn::low::slp::isBeforeInBlock(Operation* lhs, Operation* rhs) {
+  return lhs->isBeforeInBlock(rhs);
+}
+
+bool mlir::spn::low::slp::isBeforeInBlock(Value const& lhs, Value const& rhs) {
+  if (lhs.isa<BlockArgument>()) {
+    return !rhs.isa<BlockArgument>();
+  } else if (rhs.isa<BlockArgument>()) {
+    return false;
+  }
+  return lhs.getDefiningOp()->isBeforeInBlock(rhs.getDefiningOp());
+}
+
+bool mlir::spn::low::slp::consecutiveLoads(Value const& lhs, Value const& rhs) {
+  if (lhs == rhs || lhs.isa<BlockArgument>() || rhs.isa<BlockArgument>()) {
+    return false;
+  }
+  auto lhsLoad = dyn_cast<SPNBatchRead>(lhs.getDefiningOp());
+  auto rhsLoad = dyn_cast<SPNBatchRead>(rhs.getDefiningOp());
+  if (!lhsLoad || !rhsLoad) {
+    return false;
+  }
+  if (lhsLoad.batchMem() != rhsLoad.batchMem()) {
+    return false;
+  }
+  if (lhsLoad.batchIndex() != rhsLoad.batchIndex()) {
+    return false;
+  }
+  if (lhsLoad.sampleIndex() + 1 != rhsLoad.sampleIndex()) {
+    return false;
   }
   return true;
+}
+
+void mlir::spn::low::slp::dumpSLPNode(mlir::spn::low::slp::SLPNode const& node) {
+  for (size_t i = node.numVectors(); i-- > 0;) {
+    dumpSLPNodeVector(*node.getVector(i));
+    llvm::dbgs() << "\n";
+  }
+}
+
+void mlir::spn::low::slp::dumpSLPNodeVector(const mlir::spn::low::slp::NodeVector& nodeVector) {
+  for (size_t lane = 0; lane < nodeVector.numLanes(); ++lane) {
+    llvm::dbgs() << nodeVector[lane];
+    if (!nodeVector[lane].isa<BlockArgument>()) {
+      llvm::dbgs() << "(" << nodeVector[lane].getDefiningOp() << ")";
+    }
+    if (lane < nodeVector.numLanes() - 1) {
+      llvm::dbgs() << "\t|\t";
+    }
+  }
+}
+
+// Helper functions in an anonymous namespace.
+namespace {
+  void dumpBlockArgOrDefiningAddress(Value const& val) {
+    if (auto* definingOp = val.getDefiningOp()) {
+      llvm::dbgs() << definingOp;
+    } else {
+      llvm::dbgs() << "block arg #" << val.cast<BlockArgument>().getArgNumber();
+    }
+  }
+  void dumpBlockArgOrDefiningOpName(Value const& val) {
+    if (auto* definingOp = val.getDefiningOp()) {
+      llvm::dbgs() << definingOp->getName();
+    } else {
+      llvm::dbgs() << "block arg #" << val.cast<BlockArgument>().getArgNumber();
+    }
+  }
+}
+
+void mlir::spn::low::slp::dumpOpTree(const vector_t& values) {
+  DenseMap<Value, unsigned> nodes;
+  SmallVector<std::tuple<Value, Value, size_t>> edges;
+
+  std::stack<Value> worklist;
+  for (auto const& value : values) {
+    worklist.push(value);
+  }
+
+  while (!worklist.empty()) {
+    auto value = worklist.top();
+    worklist.pop();
+    if (nodes.count(value)) {
+      continue;
+    }
+    nodes[value] = nodes.size();
+    if (auto* definingOp = value.getDefiningOp()) {
+      for (size_t i = 0; i < definingOp->getNumOperands(); ++i) {
+        auto const& operand = definingOp->getOperand(i);
+        edges.emplace_back(std::make_tuple(value, operand, i));
+        worklist.push(operand);
+      }
+    }
+  }
+
+  llvm::dbgs() << "digraph debug_graph {\n";
+  llvm::dbgs() << "rankdir = BT;\n";
+  llvm::dbgs() << "node[shape=box];\n";
+  for (auto const& entry : nodes) {
+    auto const& value = entry.first;
+    auto const& id = entry.second;
+    llvm::dbgs() << "node_" << id << "[label=\"";
+    if (auto* definingOp = value.getDefiningOp()) {
+      llvm::dbgs() << definingOp->getName().getStringRef() << "\\n" << definingOp;
+      if (auto constantOp = dyn_cast<ConstantOp>(definingOp)) {
+        if (constantOp.value().getType().isIntOrIndex()) {
+          llvm::dbgs() << "\\nvalue: " << std::to_string(constantOp.value().dyn_cast<IntegerAttr>().getInt());
+        } else if (constantOp.value().getType().isIntOrFloat()) {
+          llvm::dbgs() << "\\nvalue: " << std::to_string(constantOp.value().dyn_cast<FloatAttr>().getValueAsDouble());
+        }
+      } else if (auto batchReadOp = dyn_cast<SPNBatchRead>(definingOp)) {
+        llvm::dbgs() << "\\nbatch mem: " << batchReadOp.batchMem().dyn_cast<BlockArgument>().getArgNumber();
+        llvm::dbgs() << "\\nbatch index: " << batchReadOp.batchMem().dyn_cast<BlockArgument>().getArgNumber();
+        llvm::dbgs() << "\\nsample index: " << batchReadOp.sampleIndex();
+      }
+    } else {
+      dumpBlockArgOrDefiningAddress(value);
+    }
+    llvm::dbgs() << "\", fillcolor=\"#a0522d\"];\n";
+  }
+  for (auto const& edge : edges) {
+    llvm::dbgs() << "node_" << std::get<0>(edge) << " -> node_" << std::get<1>(edge) << "[label=\""
+                 << std::to_string(std::get<2>(edge)) << "\"];\n";
+  }
+  llvm::dbgs() << "}\n";
+}
+
+void mlir::spn::low::slp::dumpSLPGraph(SLPNode const& root) {
+
+  llvm::dbgs() << "digraph debug_graph {\n";
+  llvm::dbgs() << "rankdir = BT;\n";
+  llvm::dbgs() << "node[shape=box];\n";
+
+  std::queue<SLPNode const*> worklist;
+  worklist.emplace(&root);
+
+  while (!worklist.empty()) {
+    auto const* node = worklist.front();
+    worklist.pop();
+
+    llvm::dbgs() << "node_" << node << "[label=<\n";
+    llvm::dbgs() << "\t<TABLE ALIGN=\"CENTER\" BORDER=\"0\" CELLSPACING=\"10\" CELLPADDING=\"0\">\n";
+    for (size_t i = node->numVectors(); i-- > 0;) {
+      llvm::dbgs() << "\t\t<TR>\n";
+      for (size_t lane = 0; lane < node->numLanes(); ++lane) {
+        auto value = node->getValue(lane, i);
+        llvm::dbgs() << "\t\t\t<TD>";
+        llvm::dbgs() << "<B>";
+        dumpBlockArgOrDefiningOpName(value);
+        llvm::dbgs() << "</B>";
+        // --- Additional operation information ---
+        if (auto* definingOp = value.getDefiningOp()) {
+          llvm::dbgs() << "<BR/><FONT COLOR=\"#bbbbbb\">";
+          llvm::dbgs() << "(" << definingOp << ")";
+          if (auto constOp = dyn_cast<ConstantOp>(definingOp)) {
+            llvm::dbgs() << "<BR/>value: " << constOp.getValue();
+          } else if (auto lowConstOp = dyn_cast<SPNConstant>(definingOp)) {
+            llvm::dbgs() << "<BR/>value: " << lowConstOp.value().convertToDouble();
+          } else if (auto readOp = dyn_cast<SPNBatchRead>(definingOp)) {
+            llvm::dbgs() << "<BR/>mem: ";
+            dumpBlockArgOrDefiningAddress(readOp.batchMem());
+            llvm::dbgs() << "<BR/>batch: ";
+            dumpBlockArgOrDefiningAddress(readOp.batchIndex());
+            llvm::dbgs() << "<BR/>sample: " << readOp.sampleIndex();
+          }
+          llvm::dbgs() << "</FONT>";
+        }
+        // --- ================================ ---
+        llvm::dbgs() << "</TD>";
+        if (lane < node->numLanes() - 1) {
+          llvm::dbgs() << "<VR/>";
+        }
+        llvm::dbgs() << "\n";
+      }
+      llvm::dbgs() << "\t\t</TR>\n";
+    }
+    llvm::dbgs() << "\t</TABLE>\n";
+    llvm::dbgs() << ">];\n";
+
+    for (auto const& operand : node->getOperands()) {
+      llvm::dbgs() << "node_" << node << "->" << "node_" << operand << ";\n";
+      worklist.emplace(operand);
+    }
+  }
+  llvm::dbgs() << "}\n";
 }

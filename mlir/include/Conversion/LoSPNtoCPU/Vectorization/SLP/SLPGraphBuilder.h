@@ -22,19 +22,17 @@ namespace mlir {
 
           explicit SLPGraphBuilder(size_t maxLookAhead);
 
-          std::unique_ptr<SLPNode> build(seed_t const& seed) const;
+          std::unique_ptr<SLPNode> build(vector_t const& seed) const;
 
         private:
 
-          void buildGraph(std::vector<Operation*> const& operations, SLPNode* currentNode) const;
+          void buildGraph(NodeVector* vector, SLPNode* currentNode) const;
 
           void reorderOperands(SLPNode* multinode) const;
 
-          std::pair<Operation*, Mode> getBest(Mode const& mode,
-                                              Operation* last,
-                                              std::vector<Operation*>& candidates) const;
+          std::pair<Value, Mode> getBest(Mode const& mode, Value const& last, SmallVector<Value>& candidates) const;
 
-          int getLookAheadScore(Operation* last, Operation* candidate, size_t const& maxLevel) const;
+          int getLookAheadScore(Value const& last, Value const& candidate, unsigned maxLevel) const;
 
           size_t const maxLookAhead;
 

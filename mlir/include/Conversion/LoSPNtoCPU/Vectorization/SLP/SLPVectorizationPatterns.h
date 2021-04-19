@@ -6,11 +6,15 @@
 #ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPVECTORIZATIONPATTERNS_H
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPVECTORIZATIONPATTERNS_H
 
+#include <utility>
+
 #include "SLPNode.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/Rewrite/FrozenRewritePatternList.h"
+#include "mlir/Rewrite/PatternApplicator.h"
 #include "llvm/Support/Debug.h"
 
 namespace mlir {
@@ -18,20 +22,27 @@ namespace mlir {
     namespace low {
       namespace slp {
 
+        /// A custom PatternRewriter for rewriting SLP node vectors.
+        class SLPVectorPatternRewriter : public mlir::PatternRewriter {
+        public:
+          explicit SLPVectorPatternRewriter(mlir::MLIRContext* ctx);
+          LogicalResult rewrite(SLPNode* root);
+        };
+
         template<typename SourceOp>
         class SLPVectorizationPattern : public OpRewritePattern<SourceOp> {
 
         public:
           SLPVectorizationPattern(MLIRContext* context,
                                   PatternBenefit benefit,
-                                  llvm::DenseMap<Operation*, SLPNode*> const& parentNodes,
-                                  llvm::DenseMap<SLPNode*, llvm::SmallVector<Operation*>>& vectorsByNode)
-              : OpRewritePattern<SourceOp>{
-              context, benefit}, parentNodes{parentNodes}, vectorsByNode{vectorsByNode} {}
+                                  std::shared_ptr<NodeVector> vector,
+                                  DenseMap<NodeVector*, Operation*>& vectorizedOps) : OpRewritePattern<SourceOp>{
+              context, benefit}, vector{std::move(vector)}, vectorizedOps{vectorizedOps} {}
 
         protected:
-          llvm::DenseMap<Operation*, SLPNode*> const& parentNodes;
-          llvm::DenseMap<SLPNode*, llvm::SmallVector<Operation*>>& vectorsByNode;
+          /// The current vector being transformed.
+          std::shared_ptr<NodeVector> vector;
+          llvm::DenseMap<NodeVector*, Operation*>& vectorizedOps;
         };
 
         struct VectorizeConstant : public SLPVectorizationPattern<ConstantOp> {
@@ -61,13 +72,12 @@ namespace mlir {
 
         static void populateSLPVectorizationPatterns(OwningRewritePatternList& patterns,
                                                      MLIRContext* context,
-                                                     llvm::DenseMap<Operation*, SLPNode*> const& parentNodes,
-                                                     llvm::DenseMap<SLPNode*,
-                                                                    llvm::SmallVector<Operation*>>& vectorsByNode) {
-          patterns.insert<VectorizeConstant>(context, 2, parentNodes, vectorsByNode);
-          patterns.insert<VectorizeBatchRead>(context, 2, parentNodes, vectorsByNode);
-          patterns.insert<VectorizeAdd, VectorizeMul>(context, 2, parentNodes, vectorsByNode);
-          patterns.insert<VectorizeGaussian>(context, 2, parentNodes, vectorsByNode);
+                                                     std::shared_ptr<NodeVector> const& vector,
+                                                     llvm::DenseMap<NodeVector*, Operation*>& vectorizedOps) {
+          patterns.insert<VectorizeConstant>(context, 2, vector, vectorizedOps);
+          patterns.insert<VectorizeBatchRead>(context, 2, vector, vectorizedOps);
+          patterns.insert<VectorizeAdd, VectorizeMul>(context, 2, vector, vectorizedOps);
+          patterns.insert<VectorizeGaussian>(context, 2, vector, vectorizedOps);
         }
 
       }
