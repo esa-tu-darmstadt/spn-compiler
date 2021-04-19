@@ -8,9 +8,20 @@
 using namespace spnc::interface;
 
 // Definitions of the static members of class Options.
-std::unordered_map<std::string, Opt*> Options::options;
-std::vector<std::unique_ptr<OptModifier>> Options::allModifiers;
-std::vector<OptModifier*> Options::activeModifiers;
+std::unordered_map<std::string, Opt*>& Options::options(){
+  static std::unordered_map<std::string, Opt*>* _options = new std::unordered_map<std::string, Opt*>();
+  return *_options;
+};
+
+std::vector<std::unique_ptr<OptModifier>>& Options::allModifiers(){
+  static std::vector<std::unique_ptr<OptModifier>>* _modifiers = new std::vector<std::unique_ptr<OptModifier>>();
+  return *_modifiers;
+};
+
+std::vector<OptModifier*>& Options::activeModifiers(){
+  static std::vector<OptModifier*>* _modifiers = new std::vector<OptModifier*>();
+  return *_modifiers;
+};
 
 /// Parse a value from string.
 /// \tparam Value Type of the value to parse.
@@ -61,7 +72,7 @@ bool spnc::interface::detail::OptionParsers::parse(const std::string& value) {
 void Options::registerCLOptions(CLI::App& app) {
   // Add positional, 'unnamed' spn file option
   app.add_option("spn")->check(CLI::ExistingFile);
-  for (auto& o : options) {
+  for (auto& o : options()) {
     std::string opt_name;
     // Adding the same option name prefixed with "--" will result in the option being NON-positional and having a lname.
     opt_name.append(o.first).append(",--").append(o.first);

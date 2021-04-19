@@ -5,7 +5,7 @@
 
 #include <mlir/IR/BlockAndValueMapping.h>
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
-#include "TargetInformation.h"
+#include "../Target/TargetInformation.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/SCF/SCF.h"

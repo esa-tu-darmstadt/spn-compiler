@@ -1,4 +1,4 @@
-add_library(spnc-rt SHARED
+add_library(spnc-rt
         src/runtime.cpp
         src/Executable.cpp)
 

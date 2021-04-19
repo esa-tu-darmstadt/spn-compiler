@@ -1,9 +1,10 @@
+add_subdirectory(Target)
+
 add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
         StructurePatterns.cpp
         NodePatterns.cpp
         Vectorization/VectorizeStructurePatterns.cpp
         Vectorization/VectorizeNodePatterns.cpp
-        Vectorization/TargetInformation.cpp
         Vectorization/ReplaceGatherWithShuffle.cpp
         LoSPNtoCPUConversionPasses.cpp
 
@@ -19,4 +20,10 @@ add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
         MLIRTransforms
         MLIRMath
         MLIRLinalg
+
+        DEPENDS
+        cpu_targetinfo
         )
+
+target_link_libraries(MLIRLoSPNtoCPUTransforms PRIVATE cpu_targetinfo)
+
