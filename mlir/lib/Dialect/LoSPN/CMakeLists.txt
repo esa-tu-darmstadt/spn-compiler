@@ -3,6 +3,7 @@ add_mlir_dialect_library(MLIRLoSPN
         LoSPNOps.cpp
         LoSPNAttributes.cpp
         Passes/LoSPNBufferize.cpp
+        Passes/LoSPNGraphStatsCollection.cpp
         Bufferize/LoSPNBufferizationPatterns.cpp
         Analysis/SPNGraphStatistics.cpp
         Analysis/SPNNodeLevel.cpp
