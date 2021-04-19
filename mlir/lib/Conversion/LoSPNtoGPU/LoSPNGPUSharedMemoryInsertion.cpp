@@ -247,7 +247,6 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
     // threads resume computation.
     rewriter.setInsertionPoint(rootBlock->getTerminator());
     rewriter.create<gpu::BarrierOp>(loc);
-    gpuFunc->dump();
     rewriter.finalizeRootUpdate(gpuFunc);
     return mlir::success();
   }

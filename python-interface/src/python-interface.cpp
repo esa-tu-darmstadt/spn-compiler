@@ -47,6 +47,12 @@ PYBIND11_MODULE(spncpy, m) {
       .def(py::init())
       .def("compileQuery", [](const spn_compiler& compiler, const std::string& inputFile, const options_t& options) {
         return spn_compiler::compileQuery(inputFile, options);
+      })
+      .def("isTargetSupported", [](const std::string& target){
+        return spn_compiler::isTargetSupported(target);
+      })
+      .def("isFeatureAvailable", [](const std::string& feature){
+        return spn_compiler::isFeatureSupported(feature);
       });
 
 }

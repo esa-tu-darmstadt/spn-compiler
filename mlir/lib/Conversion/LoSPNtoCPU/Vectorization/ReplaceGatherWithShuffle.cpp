@@ -264,7 +264,6 @@ void ReplaceGatherWithShufflePass::runOnOperation() {
   module->walk([&frozenPatterns](FuncOp func) {
     applyOpPatternsAndFold(func, frozenPatterns);
   });
-  module->dump();
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createReplaceGatherWithShufflePass() {

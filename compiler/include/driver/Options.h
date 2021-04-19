@@ -190,10 +190,10 @@ namespace spnc {
       /// \param mods Option modifiers attached to the given option.
       static void addOption(const std::string& key, Opt* opt,
                             std::initializer_list<OptModifier*> mods) {
-        options.emplace(key, opt);
+        options().emplace(key, opt);
         for (auto m : mods) {
           m->initialize(opt);
-          activeModifiers.push_back(m);
+          activeModifiers().push_back(m);
         }
       }
 
@@ -201,7 +201,7 @@ namespace spnc {
       /// Print all available options.
       static void dump() {
         std::cout << "Available options: " << std::endl;
-        for (auto& k : options) {
+        for (auto& k : options()) {
           std::cout << k.first << std::endl;
         }
       }
@@ -216,10 +216,10 @@ namespace spnc {
           auto value = o.second;
           // Try to find the correct option parser for the given identifier.
           // The map avoids linear search for each specified option.
-          if (!options.count(key)) {
+          if (!options().count(key)) {
             SPNC_FATAL_ERROR("Unknown compile option {}", key);
           }
-          auto parser = options.at(key);
+          auto parser = options().at(key);
           // Try to parse the option value using the corresponding parser.
           auto parseResult = parser->parse(key, value);
           if (!parseResult) {
@@ -229,7 +229,7 @@ namespace spnc {
         }
         // Verify all constraints.
         bool verified = true;
-        for (auto m : activeModifiers) {
+        for (auto m : activeModifiers()) {
           verified &= m->verify(*config);
         }
         if (!verified) {
@@ -245,22 +245,22 @@ namespace spnc {
       template<class Modifier>
       static Modifier* registerModifier(std::unique_ptr<Modifier> mod) {
         Modifier* ptr = mod.get();
-        allModifiers.push_back(std::move(mod));
+        allModifiers().push_back(std::move(mod));
         return ptr;
       }
 
       // DANGER ZONE: Correct static initialization order required.
       ///
       /// Mapping of string identifier to Option (parser).
-      static std::unordered_map<std::string, Opt*> options;
+      static std::unordered_map<std::string, Opt*>& options();
 
       ///
       /// All available, registered modifiers.
-      static std::vector<std::unique_ptr<OptModifier>> allModifiers;
+      static std::vector<std::unique_ptr<OptModifier>>& allModifiers();
 
       ///
       /// Modifiers attached to registered options.
-      static std::vector<OptModifier*> activeModifiers;
+      static std::vector<OptModifier*>& activeModifiers();
 
       /// Register command-line options to a provided CLI11 app.
       /// \param app Reference to which the options will be registered / added.

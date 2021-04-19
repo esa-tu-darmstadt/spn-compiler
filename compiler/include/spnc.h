@@ -24,6 +24,20 @@ namespace spnc {
     /// \return Generated Kernel.
     static Kernel compileQuery(const std::string& inputFile, const options_t& options);
 
+    ///
+    /// Query the compiler for information about supported targets.
+    /// \param target Name of the target.
+    /// \return true if the compilation for the target is supported,
+    ///         false otherwise.
+    static bool isTargetSupported(const std::string& target);
+
+    ///
+    /// Query the compiler for information about supported feature.
+    /// \param feature Name of the feature.
+    /// \return true if the compilation with the feature is supported,
+    ///         false otherwise.
+    static bool isFeatureSupported(const std::string& feature);
+
   };
 }
 

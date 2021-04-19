@@ -3,8 +3,7 @@ add_mlir_conversion_library(MLIRSPNtoStandardTransforms
         SPNtoStandardConversionPass.cpp
         Vectorization/BatchVectorization/BatchVectorizationPatterns.cpp
         Vectorization/BatchVectorization/QueryBatchVectorization.cpp
-        Vectorization/TargetInformation.cpp
-
+        
         ADDITIONAL_HEADER_DIRS
         ${PROJECT_SOURCE_DIR}/mlir/include/Conversion
 
@@ -16,4 +15,9 @@ add_mlir_conversion_library(MLIRSPNtoStandardTransforms
         MLIRStandard
         MLIRSupport
         MLIRTransforms
+
+        DEPENDS
+        cpu_targetinfo
         )
+
+        target_link_libraries(MLIRSPNtoStandardTransforms PRIVATE cpu_targetinfo)
