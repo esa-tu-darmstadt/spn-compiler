@@ -12,17 +12,18 @@
 using namespace mlir;
 
 bool mlir::spn::low::slp::vectorizable(Operation* op) {
-  // MLIR does not allow index types in vectors.
-  return op->hasTrait<OpTrait::spn::low::VectorizableOp>() && op->hasTrait<OpTrait::OneResult>()
-      && !op->getResult(0).getType().isa<IndexType>();
+  return (op->hasTrait<OpTrait::spn::low::VectorizableOp>() || op->hasTrait<OpTrait::ConstantLike>())
+      && op->hasTrait<OpTrait::OneResult>() && op->getResult(0).getType().isIntOrFloat();
 }
 
 bool mlir::spn::low::slp::vectorizable(Value const& value) {
   // Block arguments don't have defining ops (they can still be put in a vector by other means).
-  if (value.isa<BlockArgument>()) {
-    return false;
+  if (auto* definingOp = value.getDefiningOp()) {
+    if (!vectorizable(definingOp)) {
+      return false;
+    }
   }
-  return vectorizable(value.getDefiningOp());
+  return value.getType().isIntOrFloat();
 }
 
 bool mlir::spn::low::slp::isBeforeInBlock(Operation* lhs, Operation* rhs) {
