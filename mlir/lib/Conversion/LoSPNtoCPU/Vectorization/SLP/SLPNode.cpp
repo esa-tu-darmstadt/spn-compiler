@@ -39,12 +39,6 @@ bool NodeVector::isUniform() const {
   });
 }
 
-bool NodeVector::containsBlockArg() const {
-  return std::any_of(std::begin(values), std::end(values), [&](Value const& value) {
-    return value.isa<BlockArgument>();
-  });
-}
-
 bool NodeVector::contains(Value const& value) const {
   return std::find(std::begin(values), std::end(values), value) != std::end(values);
 }

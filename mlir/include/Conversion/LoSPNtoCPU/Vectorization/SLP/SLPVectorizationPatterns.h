@@ -15,6 +15,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Rewrite/FrozenRewritePatternList.h"
 #include "mlir/Rewrite/PatternApplicator.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
 
 namespace mlir {
@@ -35,14 +36,16 @@ namespace mlir {
         public:
           SLPVectorizationPattern(MLIRContext* context,
                                   PatternBenefit benefit,
-                                  std::shared_ptr<NodeVector> vector,
-                                  DenseMap<NodeVector*, Operation*>& vectorizedOps) : OpRewritePattern<SourceOp>{
-              context, benefit}, vector{std::move(vector)}, vectorizedOps{vectorizedOps} {}
+                                  NodeVector* const& vector,
+                                  DenseMap<NodeVector*, Operation*>& vectorizedOps,
+                                  SmallPtrSet<NodeVector*, 32>& erasableOps) : OpRewritePattern<SourceOp>{
+              context, benefit}, vector{vector}, vectorizedOps{vectorizedOps}, erasableOps{erasableOps} {}
 
         protected:
           /// The current vector being transformed.
-          std::shared_ptr<NodeVector> vector;
-          llvm::DenseMap<NodeVector*, Operation*>& vectorizedOps;
+          NodeVector* const& vector;
+          DenseMap<NodeVector*, Operation*>& vectorizedOps;
+          SmallPtrSet<NodeVector*, 32>& erasableOps;
         };
 
         struct VectorizeConstant : public SLPVectorizationPattern<ConstantOp> {
@@ -72,12 +75,13 @@ namespace mlir {
 
         static void populateSLPVectorizationPatterns(OwningRewritePatternList& patterns,
                                                      MLIRContext* context,
-                                                     std::shared_ptr<NodeVector> const& vector,
-                                                     llvm::DenseMap<NodeVector*, Operation*>& vectorizedOps) {
-          patterns.insert<VectorizeConstant>(context, 2, vector, vectorizedOps);
-          patterns.insert<VectorizeBatchRead>(context, 2, vector, vectorizedOps);
-          patterns.insert<VectorizeAdd, VectorizeMul>(context, 2, vector, vectorizedOps);
-          patterns.insert<VectorizeGaussian>(context, 2, vector, vectorizedOps);
+                                                     NodeVector* const& vector,
+                                                     DenseMap<NodeVector*, Operation*>& vectorizedOps,
+                                                     SmallPtrSet<NodeVector*, 32>& erasableOps) {
+          patterns.insert<VectorizeConstant>(context, 2, vector, vectorizedOps, erasableOps);
+          patterns.insert<VectorizeBatchRead>(context, 2, vector, vectorizedOps, erasableOps);
+          patterns.insert<VectorizeAdd, VectorizeMul>(context, 2, vector, vectorizedOps, erasableOps);
+          patterns.insert<VectorizeGaussian>(context, 2, vector, vectorizedOps, erasableOps);
         }
 
       }

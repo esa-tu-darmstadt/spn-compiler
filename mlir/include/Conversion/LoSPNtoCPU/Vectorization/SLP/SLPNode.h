@@ -25,7 +25,6 @@ namespace mlir {
           explicit NodeVector(SmallVector<Operation*, 4> const& operations);
 
           bool isUniform() const;
-          bool containsBlockArg() const;
           bool contains(Value const& value) const;
 
           size_t numLanes() const;
