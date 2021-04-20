@@ -35,16 +35,6 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
   auto diagHandler = setupDiagnosticHandler(ctx.get());
   auto cpuVectorize = spnc::option::cpuVectorize.get(*config);
   SPDLOG_INFO("CPU Vectorization enabled: {}", cpuVectorize);
-  if(cpuVectorize) {
-    auto vectorizationStrategy = spnc::option::vectorizationStrategy.get(*config);
-    std::string strategyName;
-    switch (vectorizationStrategy) {
-      case spnc::option::VectorizationStrategy::BATCH: strategyName = "BATCH"; break;
-      case spnc::option::VectorizationStrategy::SLP: strategyName = "SLP"; break;
-      default:SPNC_FATAL_ERROR("Unknown vectorization strategy");
-    }
-    SPDLOG_INFO("CPU Vectorization strategy: {}", strategyName);
-  }
   auto targetMachine = createTargetMachine(cpuVectorize);
   auto kernelInfo = std::make_shared<KernelInfo>();
   kernelInfo->target = KernelTarget::CPU;
@@ -65,7 +55,7 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
     //spnPipelineResult = &joinAction;
   }
   auto& lospnTransform = job->insertAction<LoSPNTransformations>(hispn2lospn, ctx, diagHandler, kernelInfo);
-  auto& lospn2cpu = job->insertAction<LoSPNtoCPUConversion>(lospnTransform, ctx, diagHandler);
+  auto& lospn2cpu = job->insertAction<LoSPNtoCPUConversion>(lospnTransform, ctx, diagHandler, kernelInfo);
   auto& cpu2llvm = job->insertAction<CPUtoLLVMConversion>(lospn2cpu, ctx, diagHandler);
 
   // Convert the MLIR module to a LLVM-IR module.

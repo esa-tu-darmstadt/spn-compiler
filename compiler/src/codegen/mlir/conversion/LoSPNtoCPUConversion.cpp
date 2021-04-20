@@ -19,12 +19,10 @@ void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, m
     if (useShuffle) {
       pm->addPass(mlir::spn::createReplaceGatherWithShufflePass());
     }
-    auto vectorizationStrategy = spnc::option::vectorizationStrategy.get(*this->config);
-    if(vectorizationStrategy == spnc::option::VectorizationStrategy::SLP) {
+    if (kernelInfo->batchSize == 1) {
       pm->addNestedPass<mlir::FuncOp>(mlir::spn::createSLPVectorizationPass());
-    } else if(vectorizationStrategy == spnc::option::VectorizationStrategy::BATCH) {
-      pm->addPass(mlir::spn::createLoSPNNodeVectorizationPass());
     }
+    pm->addPass(mlir::spn::createLoSPNNodeVectorizationPass());
     if (useShuffle) {
       // We need another run of the canonicalizer here to remove lo_spn.to_scalar
       // operations introduced by the replacement of gathers and that should
