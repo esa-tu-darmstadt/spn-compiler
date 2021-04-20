@@ -22,7 +22,6 @@ jobs:
       - name: Install dependencies
         run: |
           source venv/bin/activate
-          env | grep VIRTUAL_ENV | wc -l
           cd xspn
           python3 -m pip install --upgrade pip
           pip install -r requirements.txt

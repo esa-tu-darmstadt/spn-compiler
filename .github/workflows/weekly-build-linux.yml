@@ -5,7 +5,7 @@ on:
       - feature/add-ci-pipeline
 
 jobs:
-  build-and-test-xspn:
+  weekly-build-xspn:
     runs-on: self-hosted
     steps:
       - name: Pull xspn
@@ -22,10 +22,10 @@ jobs:
       - name: Install dependencies
         run: |
           source venv/bin/activate
-          env | grep VIRTUAL_ENV | wc -l
           cd xspn
           python3 -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install wheel setuptools
 
       - name: Test
         run: |
@@ -45,7 +45,7 @@ jobs:
           name: xspn-weekly.whl
           path: xspn/dist/xspn*.whl
 
-  build-and-test-spnc:
+  weekly-build-spnc:
     runs-on: self-hosted
     steps:
       - name: Install Prerequisites
@@ -151,6 +151,7 @@ jobs:
         run: |
           cd spn-compiler/python-interface
           source $GITHUB_WORKSPACE/python/venv/bin/activate
+          pip install wheel setuptools
           python setup.py bdist_wheel
 
       - name: Upload spnc
