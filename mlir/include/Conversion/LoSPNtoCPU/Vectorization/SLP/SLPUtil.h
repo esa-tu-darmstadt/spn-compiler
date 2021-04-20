@@ -72,7 +72,7 @@ namespace mlir {
         typename std::iterator_traits<Iterator>::value_type firstOccurrence(Iterator begin, Iterator end) {
           typename std::iterator_traits<Iterator>::value_type first = *begin;
           while (++begin != end) {
-            if (isBeforeInBlock(first, *begin)) {
+            if (!isBeforeInBlock(first, *begin)) {
               first = *begin;
             }
           }
@@ -81,13 +81,13 @@ namespace mlir {
 
         template<typename Iterator>
         typename std::iterator_traits<Iterator>::value_type lastOccurrence(Iterator begin, Iterator end) {
-          typename std::iterator_traits<Iterator>::value_type first = *begin;
+          typename std::iterator_traits<Iterator>::value_type last = *begin;
           while (++begin != end) {
-            if (!isBeforeInBlock(first, *begin)) {
-              first = *begin;
+            if (isBeforeInBlock(last, *begin)) {
+              last = *begin;
             }
           }
-          return first;
+          return last;
         }
 
         template<typename UsableIterator>
