@@ -13,7 +13,7 @@
 
 using namespace mlir::spn::low::slp;
 
-void SLPVectorizationPass::runOnOperation() {
+void SLPVectorizationPass::runOnFunction() {
   llvm::StringRef funcName = getOperation().getName();
   if (!funcName.contains("task_")) {
     return;

@@ -6,10 +6,8 @@
 #include "LoSPNtoCPUConversion.h"
 #include "LoSPNtoCPU/LoSPNtoCPUConversionPasses.h"
 #include "LoSPNtoCPU/Vectorization/VectorOptimizationPasses.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPass.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/Dialect/Tensor/Transforms/Passes.h"
-#include <driver/GlobalOptions.h>
 
 void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   bool vectorize = spnc::option::cpuVectorize.get(*this->config);
@@ -18,9 +16,6 @@ void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, m
     auto useShuffle = spnc::option::replaceGatherWithShuffle.get(*this->config);
     if (useShuffle) {
       pm->addPass(mlir::spn::createReplaceGatherWithShufflePass());
-    }
-    if (kernelInfo->batchSize == 1) {
-      pm->addNestedPass<mlir::FuncOp>(mlir::spn::createSLPVectorizationPass());
     }
     pm->addPass(mlir::spn::createLoSPNNodeVectorizationPass());
     if (useShuffle) {

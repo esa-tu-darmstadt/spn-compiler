@@ -12,24 +12,8 @@
 namespace spnc {
 
   struct LoSPNtoCPUConversion : public MLIRPipelineBase<LoSPNtoCPUConversion> {
-
-  public:
-
-    LoSPNtoCPUConversion(ActionWithOutput<mlir::ModuleOp>& _input,
-                         std::shared_ptr<mlir::MLIRContext> ctx,
-                         std::shared_ptr<mlir::ScopedDiagnosticHandler> handler,
-                         std::shared_ptr<KernelInfo> kernelInformation) :
-        MLIRPipelineBase<LoSPNtoCPUConversion>(_input, std::move(ctx), std::move(handler)),
-        kernelInfo{std::move(kernelInformation)} {}
-
-    void initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx);
-
-  private:
-
-    std::shared_ptr<KernelInfo> kernelInfo;
-
     using MLIRPipelineBase<LoSPNtoCPUConversion>::MLIRPipelineBase;
-
+    void initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx);
   };
 }
 

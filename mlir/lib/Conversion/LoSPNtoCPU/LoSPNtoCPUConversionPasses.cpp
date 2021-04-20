@@ -10,9 +10,11 @@
 #include "LoSPNtoCPU/NodePatterns.h"
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
 #include "LoSPNtoCPU/Vectorization/LoSPNVectorizationTypeConverter.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPass.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
+#include "mlir/Pass/PassManager.h"
 
 void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   ConversionTarget target(getContext());
@@ -30,17 +32,29 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   target.addIllegalOp<mlir::spn::low::SPNTask, mlir::spn::low::SPNBody>();
 
   OwningRewritePatternList patterns;
+  // Stores functions that can be SLP-vectorized.
+  SmallPtrSet<FuncOp, 2> singleBatchFunctions;
   if (vectorize) {
     // Try to vectorize tasks if vectorization was requested.
     mlir::spn::populateLoSPNCPUVectorizationStructurePatterns(patterns, &getContext(), typeConverter);
   }
-  mlir::spn::populateLoSPNtoCPUStructurePatterns(patterns, &getContext(), typeConverter);
+  mlir::spn::populateLoSPNtoCPUStructurePatterns(patterns, &getContext(), typeConverter, singleBatchFunctions);
 
-  auto op = getOperation();
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
-  if (failed(applyPartialConversion(op, target, frozenPatterns))) {
+  if (failed(applyPartialConversion(getOperation(), target, frozenPatterns))) {
     signalPassFailure();
   }
+
+  if (vectorize && !singleBatchFunctions.empty()) {
+    OpPassManager dynamicPipeline("SLP pipeline");
+    dynamicPipeline.addPass(mlir::spn::createSLPVectorizationPass());
+    for (auto const& function : singleBatchFunctions) {
+      if (failed(runPipeline(dynamicPipeline, function))) {
+        signalPassFailure();
+      }
+    }
+  }
+
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoCPUStructureConversionPass(bool enableVectorization) {

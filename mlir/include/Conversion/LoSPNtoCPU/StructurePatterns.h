@@ -10,6 +10,7 @@
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/ADT/SmallPtrSet.h"
 
 namespace mlir {
   namespace spn {
@@ -34,11 +35,19 @@ namespace mlir {
 
     struct SingleTaskLowering : OpConversionPattern<low::SPNTask> {
 
+      SingleTaskLowering(TypeConverter& typeConverter,
+                         MLIRContext* context,
+                         SmallPtrSet<FuncOp, 2>& singleBatchFunctions)
+          : OpConversionPattern<low::SPNTask>(typeConverter, context), singleBatchFunctions{singleBatchFunctions} {}
+
       using OpConversionPattern<low::SPNTask>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNTask op,
                                     ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
+
+    private:
+      SmallPtrSet<FuncOp, 2>& singleBatchFunctions;
     };
 
     struct BodyLowering : OpConversionPattern<low::SPNBody> {
@@ -50,9 +59,12 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
-    static void populateLoSPNtoCPUStructurePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
-                                                    TypeConverter& typeConverter) {
-      patterns.insert<KernelLowering, BatchTaskLowering, SingleTaskLowering>(typeConverter, context);
+    static void populateLoSPNtoCPUStructurePatterns(OwningRewritePatternList& patterns,
+                                                    MLIRContext* context,
+                                                    TypeConverter& typeConverter,
+                                                    SmallPtrSet<FuncOp, 2>& singleBatchFunctions) {
+      patterns.insert<KernelLowering, BatchTaskLowering>(typeConverter, context);
+      patterns.insert<SingleTaskLowering>(typeConverter, context, singleBatchFunctions);
       patterns.insert<BodyLowering>(typeConverter, context);
     }
   }
