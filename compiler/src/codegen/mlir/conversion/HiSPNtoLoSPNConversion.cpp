@@ -6,12 +6,18 @@
 #include "HiSPNtoLoSPNConversion.h"
 #include "HiSPNtoLoSPN/HiSPNtoLoSPNConversionPasses.h"
 #include "LoSPN/LoSPNOps.h"
+#include "LoSPN/LoSPNPasses.h"
 #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
 #include "driver/GlobalOptions.h"
 
 
 void spnc::HiSPNtoLoSPNConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   auto useLogSpace = spnc::option::logSpace.get(*config);
+  auto collectGraphStats = spnc::option::collectGraphStats.get(*config);
   pm->addPass(mlir::spn::createHiSPNtoLoSPNNodeConversionPass(useLogSpace));
   pm->addPass(mlir::spn::createHiSPNtoLoSPNQueryConversionPass(useLogSpace));
+  if (collectGraphStats) {
+    auto graphStatsFile = spnc::option::graphStatsFile.get(*config);
+    pm->addPass(mlir::spn::low::createLoSPNGraphStatsCollectionPass(graphStatsFile));
+  }
 }

@@ -9,7 +9,6 @@
 #include "codegen/mlir/conversion/LoSPNtoCPUConversion.h"
 #include "codegen/mlir/conversion/CPUtoLLVMConversion.h"
 #include "codegen/mlir/conversion/MLIRtoLLVMIRConversion.h"
-#include "codegen/mlir/analysis/CollectGraphStatistics.h"
 #include <driver/action/ClangKernelLinking.h>
 #include <codegen/mlir/frontend/MLIRDeserializer.h>
 #include <codegen/mlir/transformation/LoSPNTransformations.h>
@@ -42,18 +41,7 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
   auto& deserialized = job->insertAction<MLIRDeserializer>(std::move(binarySPNFile), ctx, kernelInfo);
   auto& hispn2lospn = job->insertAction<HiSPNtoLoSPNConversion>(deserialized, ctx, diagHandler);
   auto& lospnTransform = job->insertAction<LoSPNTransformations>(hispn2lospn, ctx, diagHandler, kernelInfo);
-  ActionWithOutput<ModuleOp>* lospnTransformResult = &lospnTransform;
-  // If requested via the configuration, collect graph statistics.
-  if (spnc::option::collectGraphStats.get(*config)) {
-    auto deleteTmps = spnc::option::deleteTemporaryFiles.get(*config);
-    // Collect graph statistics on transformed / canonicalized MLIR.
-    auto statsFile = StatsFile(spnc::option::graphStatsFile.get(*config), deleteTmps);
-    auto& graphStats = job->insertAction<CollectGraphStatistics>(lospnTransform, std::move(statsFile));
-    // Join the two actions happening on the transformed module (Graph-Stats & SPN-to-Standard-MLIR lowering).
-    auto& joinAction = job->insertAction<JoinAction<mlir::ModuleOp, StatsFile>>(lospnTransform, graphStats);
-    lospnTransformResult = &joinAction;
-  }
-  auto& lospn2cpu = job->insertAction<LoSPNtoCPUConversion>(*lospnTransformResult, ctx, diagHandler);
+  auto& lospn2cpu = job->insertAction<LoSPNtoCPUConversion>(lospnTransform, ctx, diagHandler);
   auto& cpu2llvm = job->insertAction<CPUtoLLVMConversion>(lospn2cpu, ctx, diagHandler);
 
   // Convert the MLIR module to a LLVM-IR module.

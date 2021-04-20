@@ -23,27 +23,38 @@ void SPNGraphStatistics::analyzeGraph(Operation* root) {
   llvm::SmallVector<Operation*, 10> ops_leaf_constant;
   llvm::SmallVector<Operation*, 10> ops_leaf_gaussian;
   llvm::SmallVector<Operation*, 10> ops_leaf_histogram;
-  // ToDo: Check if 'SPNLog' operation is of interest, too.
 
   if (auto module = dyn_cast<ModuleOp>(rootNode)) {
     module.walk([&](Operation* op) {
-      if (auto addOp = dyn_cast<SPNAdd>(op)) {
-        ops_inner_add.push_back(op);
-      } else if (auto mulOp = dyn_cast<SPNMul>(op)) {
-        ops_inner_mul.push_back(op);
-      } else if (auto categoricalOp = dyn_cast<SPNCategoricalLeaf>(op)) {
-        ops_leaf_categorical.push_back(op);
-      } else if (auto constOp = dyn_cast<SPNConstant>(op)) {
-        ops_leaf_constant.push_back(op);
-      } else if (auto gaussianOp = dyn_cast<SPNGaussianLeaf>(op)) {
-        ops_leaf_gaussian.push_back(op);
-      } else if (auto histOp = dyn_cast<SPNHistogramLeaf>(op)) {
-        ops_leaf_histogram.push_back(op);
+
+      if (auto leaf = dyn_cast<mlir::spn::low::LeafNodeInterface>(op)) {
+        // Handle leaf node.
+        if (auto categoricalOp = dyn_cast<SPNCategoricalLeaf>(op)) {
+          ops_leaf_categorical.push_back(op);
+        } else if (auto constOp = dyn_cast<SPNConstant>(op)) {
+          ops_leaf_constant.push_back(op);
+        } else if (auto gaussianOp = dyn_cast<SPNGaussianLeaf>(op)) {
+          ops_leaf_gaussian.push_back(op);
+        } else if (auto histOp = dyn_cast<SPNHistogramLeaf>(op)) {
+          ops_leaf_histogram.push_back(op);
+        } else {
+          // Unhandled leaf-node-type: Abort.
+          op->emitWarning() << "Encountered handled leaf-node-type, operation was a '" << op->getName() << "'";
+          assert(false);
+        }
+      } else {
+        // Handle inner node.
+        if (auto addOp = dyn_cast<SPNAdd>(op)) {
+          ops_inner_add.push_back(op);
+        } else if (auto mulOp = dyn_cast<SPNMul>(op)) {
+          ops_inner_mul.push_back(op);
+        } else {
+          // Unhandled leaf-node-type: ToDo ???
+          // ToDo: How should e.g. "lo_spn.batch_extract" / "unhandled" inner nodes be treated? Simply ignore?!
+          op->emitWarning() << "Unhandled inner node-type, operation was a '" << op->getName() << "'";
+        }
       }
     });
-  } else {
-    llvm::dbgs() << "SPNGraphStatistics::analyzeGraph expected: mlir::ModuleOp\n";
-    return;
   }
 
   if (!ops_inner_add.empty()) {
