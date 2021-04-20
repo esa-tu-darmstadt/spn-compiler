@@ -1,7 +1,39 @@
-name: build-and-test-spnc
-on: [push]
+name: dev-testing-linux
+on:
+  push:
+    branches:
+      - develop
+      - feature/add-ci-pipeline
+  pull_request:
+    branches:
+      - develop
+
 jobs:
-  build-and-test:
+  build-and-test-xspn:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+      - name: Python Setup
+        run: |
+          sudo apt update
+          sudo apt -y install python3 python3-venv python3-pip
+          python3 -m venv venv
+
+      - name: Install dependencies
+        run: |
+          source venv/bin/activate
+          env | grep VIRTUAL_ENV | wc -l
+          cd xspn
+          python3 -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Test
+        run: |
+          source venv/bin/activate
+          cd xspn
+          python -m pytest
+
+  build-and-test-spnc:
     runs-on: self-hosted
     steps:
       - name: Install Prerequisites
@@ -91,7 +123,7 @@ jobs:
         run: |
           mkdir -p python
           cd python
-          python -m venv venv
+          python3 -m venv venv
           cd $GITHUB_WORKSPACE/spn-compiler/xspn
           source $GITHUB_WORKSPACE/python/venv/bin/activate
           pip install .
