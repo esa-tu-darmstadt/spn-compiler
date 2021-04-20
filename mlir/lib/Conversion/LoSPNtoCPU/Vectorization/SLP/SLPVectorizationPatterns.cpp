@@ -141,8 +141,13 @@ LogicalResult SLPVectorPatternRewriter::rewrite(SLPNode* root) {
   DenseMap<NodeVector*, Operation*> vectorizedOps;
 
   // Marks operations as potentially erasable (potentially because they might have escaping uses).
-  // We delete them *after* SLP graph conversion to avoid running into NULL operands during conversion.
   SmallPtrSet<NodeVector*, 32> erasableOps;
+
+  // Stores escaping uses for vector extractions that might be necessary later on.
+  auto const& escapingLanes = getEscapingLanesMap(root);
+
+  // Prevent extracting/removing values more than once (happens in splat mode, if they appear in multiple vectors, ...).
+  SmallPtrSet<Value, 4> finishedValues;
 
   OwningRewritePatternList patterns;
   populateSLPVectorizationPatterns(patterns, context, vector, vectorizedOps, erasableOps);
@@ -151,19 +156,12 @@ LogicalResult SLPVectorPatternRewriter::rewrite(SLPNode* root) {
   PatternApplicator applicator{frozenPatterns};
   applicator.applyDefaultCostModel();
 
-  // Stores escaping uses for vector extractions that might be necessary later on.
-  auto const& escapingLanes = getEscapingLanesMap(root);
-
-  // No need to extract/remove values more than once in case they appear more than once (e.g. in splat mode).
-  SmallPtrSet<Value, 4> finishedValues;
-
   // Traverse the SLP graph in postorder and apply the vectorization patterns.
   for (auto* node : postOrder(root)) {
 
     // Also traverse nodes in postorder to properly handle multinodes.
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
-      // Rewrite vector by applying any matching pattern.
       if (!valuesVectorizable(vector->begin(), vector->end())) {
         continue;
       }

@@ -28,10 +28,10 @@ void SLPVectorizationPass::runOnOperation() {
 
   auto const& seed = seedAnalysis.getSeed(width, SearchMode::UseBeforeDef);
   assert(!seed.empty() && "couldn't find a seed!");
-  dumpOpTree(seed);
+  // dumpOpTree(seed);
   SLPGraphBuilder builder{3};
   auto graph = builder.build(seed);
-  dumpSLPGraph(*graph);
+  // dumpSLPGraph(*graph);
   // ==== //
 
   SLPVectorPatternRewriter rewriter(&getContext());
