@@ -37,25 +37,28 @@ vector_t SeedAnalysis::getSeed(unsigned width, SearchMode const& mode) const {
   llvm::StringMap<SmallVector<vector_t>> seedsByOpName;
   auto const& opDepths = getOpDepths(rootOp);
 
-  for (auto const& entry : opDepths) {
-    auto const& value = entry.first;
-    auto const& depth = entry.second;
-    if (!vectorizable(value) || depth < log2(width)) {
-      continue;
+  rootOp->walk([&](Operation* op) {
+    if (!vectorizable(op)) {
+      return;
+    }
+    auto const& value = op->getResult(0);
+    auto const& depth = opDepths.lookup(value);
+    if (depth < log2(width)) {
+      return;
     }
     bool needsNewSeed = true;
-    for (auto& seed : seedsByOpName[value.getDefiningOp()->getName().getStringRef()]) {
+    for (auto& seed : seedsByOpName[op->getName().getStringRef()]) {
       if (seed.size() < width && opDepths.lookup(seed.front()) == depth) {
-        seed.emplace_back(entry.first);
+        seed.emplace_back(value);
         needsNewSeed = false;
         break;
       }
     }
     if (needsNewSeed) {
       vector_t seed{value};
-      seedsByOpName[value.getDefiningOp()->getName().getStringRef()].emplace_back(seed);
+      seedsByOpName[op->getName().getStringRef()].emplace_back(seed);
     }
-  }
+  });
 
   SmallVector<vector_t> seeds;
   // Flatten the map that maps opcode to seeds.
