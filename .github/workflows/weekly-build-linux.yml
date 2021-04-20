@@ -1,8 +1,7 @@
 name: weekly-build-linux
 on:
-  push:
-    branches:
-      - feature/add-ci-pipeline
+  schedule:
+    - cron: "40 16,18 * * *"
 
 jobs:
   weekly-build-xspn:
