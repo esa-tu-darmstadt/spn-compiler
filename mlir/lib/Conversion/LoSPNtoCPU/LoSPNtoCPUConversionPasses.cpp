@@ -46,7 +46,7 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   }
 
   if (vectorize && !singleBatchFunctions.empty()) {
-    OpPassManager dynamicPipeline("SLP pipeline");
+    OpPassManager dynamicPipeline("func");
     dynamicPipeline.addPass(mlir::spn::createSLPVectorizationPass());
     for (auto const& function : singleBatchFunctions) {
       if (failed(runPipeline(dynamicPipeline, function))) {
