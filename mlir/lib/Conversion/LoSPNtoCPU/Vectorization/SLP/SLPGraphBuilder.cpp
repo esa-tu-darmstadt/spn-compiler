@@ -255,6 +255,12 @@ std::pair<Value, Mode> SLPGraphBuilder::getBest(Mode const& mode,
 
 int SLPGraphBuilder::getLookAheadScore(Value const& last, Value const& candidate, unsigned maxLevel) const {
   if (maxLevel == 0) {
+    if (last == candidate) {
+      return 1;
+    }
+    if (last.isa<BlockArgument>() || candidate.isa<BlockArgument>()) {
+      return 0;
+    }
     if (last.getDefiningOp()->getName() != candidate.getDefiningOp()->getName()) {
       return 0;
     }
