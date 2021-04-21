@@ -123,7 +123,7 @@ jobs:
         run: |
           cd spn-compiler/python-interface
           source $GITHUB_WORKSPACE/python/venv/bin/activate
-          python setup.py bdist_wheel
+          python setup.py bdist_wheel --plat-name linux_x86_64
 
       - name: Upload release
         uses: "marvinpinto/action-automatic-releases@latest"
