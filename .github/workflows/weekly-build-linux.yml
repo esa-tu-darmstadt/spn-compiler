@@ -1,48 +1,10 @@
 name: weekly-build-linux
 on:
-  schedule:
-    - cron: "40 16,18 * * *"
+  push:
+    branches:
+      - feature/add-ci-pipeline
 
 jobs:
-  weekly-build-xspn:
-    runs-on: self-hosted
-    steps:
-      - name: Pull xspn
-        uses: actions/checkout@v2
-        with:
-          ref: develop
-
-      - name: Python Setup
-        run: |
-          sudo apt update
-          sudo apt -y install python3 python3-venv python3-pip
-          python3 -m venv venv
-
-      - name: Install dependencies
-        run: |
-          source venv/bin/activate
-          cd xspn
-          python3 -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install wheel setuptools
-
-      - name: Test
-        run: |
-          source venv/bin/activate
-          cd xspn
-          python -m pytest
-
-      - name: Package
-        run: |
-          source venv/bin/activate
-          cd xspn
-          python setup.py bdist_wheel
-
-      - name: Upload xspn
-        uses: actions/upload-artifact@v2
-        with:
-          name: xspn-weekly.whl
-          path: xspn/dist/xspn*.whl
 
   weekly-build-spnc:
     runs-on: self-hosted
@@ -131,14 +93,25 @@ jobs:
           cd spn-compiler/build
           make check-spnc-mlir
 
-      - name: Install xspn
+      - name: Setup Python venv
         run: |
           mkdir -p python
           cd python
           python3 -m venv venv
-          cd $GITHUB_WORKSPACE/spn-compiler/xspn
+
+      - name: Test xspn
+        run: |
+          cd spn-compiler/xspn
           source $GITHUB_WORKSPACE/python/venv/bin/activate
-          pip install .
+          pip install -r requirements.txt
+          pip install wheel setuptools
+          python -m pytest
+
+      - name: Package xspn
+        run: |
+          cd spn-compiler/xspn
+          source $GITHUB_WORKSPACE/python/venv/bin/activate
+          python setup.py bdist_wheel
 
       - name: Test Python interface
         run: |
@@ -150,11 +123,15 @@ jobs:
         run: |
           cd spn-compiler/python-interface
           source $GITHUB_WORKSPACE/python/venv/bin/activate
-          pip install wheel setuptools
           python setup.py bdist_wheel
 
-      - name: Upload spnc
-        uses: actions/upload-artifact@v2
+      - name: Upload release
+        uses: "marvinpinto/action-automatic-releases@latest"
         with:
-          name: spnc-weekly.whl
-          path: spn-compiler/python-interface/dist/spnc*.whl
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "weekly"
+          prerelease: true
+          title: "Weekly Development Build"
+          files: |
+            spn-compiler/python-interface/dist/spnc*.whl
+            spn-compiler/xspn/dist/xspn*.whl
