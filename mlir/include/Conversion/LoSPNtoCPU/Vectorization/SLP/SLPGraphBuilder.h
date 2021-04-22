@@ -7,7 +7,6 @@
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPGRAPHBUILDER_H
 
 #include "mlir/IR/Operation.h"
-#include "SLPMode.h"
 #include "SLPNode.h"
 #include "SLPSeeding.h"
 
@@ -25,6 +24,20 @@ namespace mlir {
           std::unique_ptr<SLPNode> build(vector_t const& seed) const;
 
         private:
+
+          enum Mode {
+            // look for a constant
+            CONST,
+            // look for a consecutive load to that in the previous lane
+            LOAD,
+            // look for an operation of the same opcode
+            OPCODE,
+            // look for the exact same operation
+            SPLAT,
+            // vectorization has failed, give higher priority to others
+            FAILED
+          };
+          static Mode modeFromValue(Value const& value);
 
           void buildGraph(NodeVector* vector, SLPNode* currentNode) const;
 

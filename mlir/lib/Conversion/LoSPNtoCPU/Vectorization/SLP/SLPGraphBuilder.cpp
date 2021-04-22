@@ -180,9 +180,9 @@ void SLPGraphBuilder::reorderOperands(SLPNode* multinode) const {
   }
 }
 
-std::pair<Value, Mode> SLPGraphBuilder::getBest(Mode const& mode,
-                                                Value const& last,
-                                                SmallVector<Value>& candidates) const {
+std::pair<Value, SLPGraphBuilder::Mode> SLPGraphBuilder::getBest(Mode const& mode,
+                                                                 Value const& last,
+                                                                 SmallVector<Value>& candidates) const {
   Value best;
   Mode resultMode = mode;
   SmallVector<Value> bestCandidates;
@@ -281,4 +281,17 @@ int SLPGraphBuilder::getLookAheadScore(Value const& last, Value const& candidate
     }
   }
   return scoreSum;
+}
+
+SLPGraphBuilder::Mode SLPGraphBuilder::modeFromValue(Value const& value) {
+  if (value.isa<BlockArgument>()) {
+    return SPLAT;
+  }
+  auto* definingOp = value.getDefiningOp();
+  if (definingOp->hasTrait<OpTrait::ConstantLike>()) {
+    return CONST;
+  } else if (dyn_cast<mlir::spn::low::SPNBatchRead>(definingOp)) {
+    return LOAD;
+  }
+  return OPCODE;
 }

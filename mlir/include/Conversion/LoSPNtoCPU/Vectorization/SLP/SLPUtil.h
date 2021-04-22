@@ -97,11 +97,6 @@ namespace mlir {
           Operation* firstUser = nullptr;
           while (begin != end) {
             for (auto* user : begin->getUsers()) {
-              if (firstUser) {
-                // TODO: proper dominance analysis
-                firstUser->dump();
-              }
-              user->dump();
               if (!firstUser || user->isBeforeInBlock(firstUser)) {
                 firstUser = user;
               }
