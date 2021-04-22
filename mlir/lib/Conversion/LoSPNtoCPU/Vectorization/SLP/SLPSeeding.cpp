@@ -74,6 +74,11 @@ vector_t SeedAnalysis::getSeed(unsigned width, SearchMode const& mode) const {
       seeds.emplace_back(seed);
     }
   }
+
+  if (seeds.empty()) {
+    return {};
+  }
+
   // Sort the seeds such that either the seeds closest to the beginning of the function come first (DefBeforeUse),
   // or those closest to the return statement (UseBeforeDef).
   std::sort(seeds.begin(), seeds.end(), [&](auto const& seed1, auto const& seed2) {
