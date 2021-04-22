@@ -30,13 +30,11 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   target.addIllegalOp<mlir::spn::low::SPNTask, mlir::spn::low::SPNBody>();
 
   OwningRewritePatternList patterns;
-  // Stores functions that can be SLP-vectorized.
-  SmallPtrSet<FuncOp, 2> singleBatchFunctions;
   if (vectorize) {
     // Try to vectorize tasks if vectorization was requested.
     mlir::spn::populateLoSPNCPUVectorizationStructurePatterns(patterns, &getContext(), typeConverter);
   }
-  mlir::spn::populateLoSPNtoCPUStructurePatterns(patterns, &getContext(), typeConverter, singleBatchFunctions);
+  mlir::spn::populateLoSPNtoCPUStructurePatterns(patterns, &getContext(), typeConverter);
 
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
   if (failed(applyPartialConversion(getOperation(), target, frozenPatterns))) {

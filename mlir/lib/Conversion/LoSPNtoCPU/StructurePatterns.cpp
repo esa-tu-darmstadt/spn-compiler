@@ -90,7 +90,6 @@ mlir::LogicalResult mlir::spn::SingleTaskLowering::matchAndRewrite(mlir::spn::lo
   auto taskFunc = rewriter.create<FuncOp>(op->getLoc(), Twine("task_", std::to_string(taskCount++)).str(),
                                           funcType);
   auto taskBlock = taskFunc.addEntryBlock();
-  singleBatchFunctions.insert(taskFunc);
   rewriter.setInsertionPointToStart(taskBlock);
 
   // Collect the values replacing the block values of old block inside the task.

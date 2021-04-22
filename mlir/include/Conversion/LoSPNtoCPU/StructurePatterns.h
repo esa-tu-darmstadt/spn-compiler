@@ -35,19 +35,11 @@ namespace mlir {
 
     struct SingleTaskLowering : OpConversionPattern<low::SPNTask> {
 
-      SingleTaskLowering(TypeConverter& typeConverter,
-                         MLIRContext* context,
-                         SmallPtrSet<FuncOp, 2>& singleBatchFunctions)
-          : OpConversionPattern<low::SPNTask>(typeConverter, context), singleBatchFunctions{singleBatchFunctions} {}
-
       using OpConversionPattern<low::SPNTask>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNTask op,
                                     ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
-
-    private:
-      SmallPtrSet<FuncOp, 2>& singleBatchFunctions;
     };
 
     struct BodyLowering : OpConversionPattern<low::SPNBody> {
@@ -61,10 +53,9 @@ namespace mlir {
 
     static void populateLoSPNtoCPUStructurePatterns(OwningRewritePatternList& patterns,
                                                     MLIRContext* context,
-                                                    TypeConverter& typeConverter,
-                                                    SmallPtrSet<FuncOp, 2>& singleBatchFunctions) {
+                                                    TypeConverter& typeConverter) {
       patterns.insert<KernelLowering, BatchTaskLowering>(typeConverter, context);
-      patterns.insert<SingleTaskLowering>(typeConverter, context, singleBatchFunctions);
+      patterns.insert<SingleTaskLowering>(typeConverter, context);
       patterns.insert<BodyLowering>(typeConverter, context);
     }
   }
