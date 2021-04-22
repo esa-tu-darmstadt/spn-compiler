@@ -17,12 +17,11 @@ namespace {
     DenseMap<Value, unsigned> opDepths;
     rootOp->walk([&](Operation* op) {
       unsigned depth = 0;
-      for (auto const& value : op->getOperands()) {
-        if (!opDepths.count(value)) {
-          opDepths[value] = 0;
-        } else {
-          depth = std::max(depth, opDepths[value] + 1);
+      for (auto const& operand : op->getOperands()) {
+        if (!opDepths.count(operand)) {
+          opDepths[operand] = 0;
         }
+        depth = std::max(depth, opDepths[operand] + 1);
       }
       for (auto const& result : op->getResults()) {
         opDepths[result] = depth;
@@ -62,6 +61,7 @@ vector_t SeedAnalysis::getSeed(unsigned width, SearchMode const& mode) const {
       vector_t seed{value};
       seedsByOpName[op->getName().getStringRef()].emplace_back(seed);
     }
+    return WalkResult::advance();
   });
 
   SmallVector<vector_t> seeds;
