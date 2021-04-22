@@ -39,16 +39,20 @@ vector_t SeedAnalysis::getSeed(unsigned width, SearchMode const& mode) const {
 
   rootOp->walk([&](Operation* op) {
     if (!vectorizable(op)) {
-      return;
+      return WalkResult::advance();
     }
-    auto const& value = op->getResult(0);
+    auto value = op->getResult(0);
     auto const& depth = opDepths.lookup(value);
     if (depth < log2(width)) {
-      return;
+      return WalkResult::advance();
     }
     bool needsNewSeed = true;
     for (auto& seed : seedsByOpName[op->getName().getStringRef()]) {
       if (seed.size() < width && opDepths.lookup(seed.front()) == depth) {
+        // Cannot use values for seeds that are defined in different scopes.
+        if (seed.front().getParentRegion() != value.getParentRegion()) {
+          continue;
+        }
         seed.emplace_back(value);
         needsNewSeed = false;
         break;

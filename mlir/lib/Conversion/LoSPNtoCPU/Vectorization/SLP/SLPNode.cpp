@@ -4,6 +4,7 @@
 //
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPNode.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
 #include "LoSPN/LoSPNOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 
@@ -12,7 +13,7 @@ using namespace mlir::spn;
 using namespace mlir::spn::low;
 using namespace mlir::spn::low::slp;
 
-// === NodeVector ===
+// === NodeVector === //
 
 NodeVector::NodeVector(vector_t const& values) {
   assert(!values.empty());
@@ -41,6 +42,18 @@ bool NodeVector::isUniform() const {
 
 bool NodeVector::contains(Value const& value) const {
   return std::find(std::begin(values), std::end(values), value) != std::end(values);
+}
+
+bool NodeVector::containsBlockArgs() const {
+  return std::any_of(std::begin(values), std::end(values), [&](Value const& value) {
+    return value.isa<BlockArgument>();
+  });
+}
+
+bool NodeVector::vectorizable() const {
+  return std::all_of(std::begin(values), std::end(values), [&](Value const& value) {
+    return low::slp::vectorizable(value);
+  });
 }
 
 size_t NodeVector::numLanes() const {
@@ -73,7 +86,7 @@ Value const& NodeVector::operator[](size_t lane) const {
   return values[lane];
 }
 
-// === SLPNode ===
+// === SLPNode === //
 
 SLPNode::SLPNode(SmallVector<Operation*, 4> const& operations) {
   addVector(operations);
@@ -158,4 +171,57 @@ std::vector<SLPNode*> SLPNode::getOperands() const {
 
 size_t SLPNode::numOperands() const {
   return operandNodes.size();
+}
+
+// === Utilities === //
+
+SmallVector<SLPNode*> SLPNode::postOrder(SLPNode* root) {
+  SmallVector<SLPNode*> order;
+  for (auto* operand : root->getOperands()) {
+    assert(std::find(std::begin(order), std::end(order), operand) == std::end(order));
+    order.append(postOrder(operand));
+  }
+  order.emplace_back(root);
+  return order;
+}
+
+/// Traverse the entire graph starting at root and gather lanes of each node vector that has escaping uses.
+DenseMap<NodeVector*, SmallVector<size_t, 4>> SLPNode::escapingLanesMap(SLPNode* root) {
+  DenseMap<NodeVector*, DenseMap<mlir::Value, unsigned>> outsideUses;
+  for (auto* node : postOrder(root)) {
+    for (size_t i = 0; i < node->numVectors(); ++i) {
+      auto* vector = node->getVector(i);
+      for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
+        auto const& element = vector->getElement(lane);
+        // Skip duplicate (splat) values.
+        if (outsideUses[vector].count(element)) {
+          continue;
+        }
+        outsideUses[vector][element] = std::distance(std::begin(element.getUses()), std::end(element.getUses()));
+        for (size_t j = 0; j < vector->numOperands(); ++j) {
+          auto* operand = vector->getOperand(j);
+          assert(outsideUses[operand][operand->getElement(lane)] > 0);
+          outsideUses[operand][operand->getElement(lane)]--;
+        }
+      }
+    }
+  }
+
+  DenseMap<NodeVector*, SmallVector<size_t, 4>> escapingLanes;
+  for (auto const& entry : outsideUses) {
+    auto* vector = entry.first;
+    for (auto const& useAndCount : entry.second) {
+      auto const& value = useAndCount.first;
+      auto const& count = useAndCount.second;
+      if (count > 0) {
+        for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
+          if (vector->getElement(lane) == value) {
+            escapingLanes[vector].emplace_back(lane);
+            break;
+          }
+        }
+      }
+    }
+  }
+  return escapingLanes;
 }

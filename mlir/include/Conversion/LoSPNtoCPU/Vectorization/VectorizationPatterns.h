@@ -14,10 +14,51 @@
 namespace mlir {
   namespace spn {
 
-    struct VectorizeBatchTask : OpConversionPattern<low::SPNTask> {
+    struct VectorizeTask : public OpConversionPattern<low::SPNTask> {
 
+    public:
+      VectorizeTask(TypeConverter& typeConverter,
+                    MLIRContext* context,
+                    PatternBenefit benefit,
+                    bool requireAllOpsVectorizable) : OpConversionPattern<
+          low::SPNTask>(typeConverter, context, benefit), requireAllOpsVectorizable{requireAllOpsVectorizable} {}
+
+    protected:
+      LogicalResult createFunctionIfVectorizable(low::SPNTask task,
+                                                 ArrayRef <Value> operands,
+                                                 ConversionPatternRewriter& rewriter,
+                                                 FuncOp* function) const;
+
+    private:
       using OpConversionPattern<low::SPNTask>::OpConversionPattern;
+      bool requireAllOpsVectorizable;
+    };
 
+    struct VectorizeSingleTask : public VectorizeTask {
+
+    public:
+      VectorizeSingleTask(TypeConverter& typeConverter, MLIRContext* context, PatternBenefit benefit) : VectorizeTask(
+          typeConverter,
+          context,
+          benefit,
+          false) {}
+
+    protected:
+      LogicalResult matchAndRewrite(low::SPNTask task,
+                                    ArrayRef <Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
+    struct VectorizeBatchTask : public VectorizeTask {
+
+    public:
+      VectorizeBatchTask(TypeConverter& typeConverter, MLIRContext* context, PatternBenefit benefit) : VectorizeTask(
+          typeConverter,
+          context,
+          benefit,
+          true) {}
+
+    protected:
       LogicalResult matchAndRewrite(low::SPNTask op,
                                     ArrayRef <Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
@@ -26,7 +67,7 @@ namespace mlir {
     static void populateLoSPNCPUVectorizationStructurePatterns(OwningRewritePatternList& patterns,
                                                                MLIRContext* context,
                                                                TypeConverter& typeConverter) {
-      patterns.insert<VectorizeBatchTask>(typeConverter, context, 5);
+      patterns.insert<VectorizeSingleTask, VectorizeBatchTask>(typeConverter, context, 5);
     }
 
     struct VectorizeBatchRead : public OpConversionPattern<low::SPNBatchRead> {

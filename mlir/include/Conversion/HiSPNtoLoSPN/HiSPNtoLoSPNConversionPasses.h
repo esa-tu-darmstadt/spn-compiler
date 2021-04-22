@@ -12,40 +12,38 @@ namespace mlir {
   namespace spn {
 
     struct HiSPNtoLoSPNNodeConversionPass : public PassWrapper<HiSPNtoLoSPNNodeConversionPass,
-                                                               OperationPass < ModuleOp>> {
+                                                               OperationPass<ModuleOp>> {
 
     public:
-    explicit HiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation) : computeLogSpace{useLogSpaceComputation} {}
+      explicit HiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation) : computeLogSpace{useLogSpaceComputation} {}
 
     protected:
-    void runOnOperation()
-    override;
+      void runOnOperation() override;
 
     private:
-    bool computeLogSpace;
+      bool computeLogSpace;
 
-  };
+    };
 
-  std::unique_ptr<Pass> createHiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation);
+    std::unique_ptr<Pass> createHiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation);
 
-  struct HiSPNtoLoSPNQueryConversionPass : public PassWrapper<HiSPNtoLoSPNQueryConversionPass,
-                                                              OperationPass < ModuleOp>> {
+    struct HiSPNtoLoSPNQueryConversionPass : public PassWrapper<HiSPNtoLoSPNQueryConversionPass,
+                                                                OperationPass<ModuleOp>> {
 
-  public:
-  explicit HiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation) : computeLogSpace{useLogSpaceComputation} {}
+    public:
+      explicit HiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation) : computeLogSpace{useLogSpaceComputation} {}
 
-  protected:
-  void runOnOperation()
-  override;
+    protected:
+      void runOnOperation() override;
 
-  private:
-  bool computeLogSpace;
+    private:
+      bool computeLogSpace;
 
-};
+    };
 
-std::unique_ptr<Pass> createHiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation);
+    std::unique_ptr<Pass> createHiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation);
 
-}
+  }
 }
 
 #endif //SPNC_MLIR_INCLUDE_CONVERSION_HISPNTOLOSPN_HISPNTOLOSPNCONVERSIONPASSES_H

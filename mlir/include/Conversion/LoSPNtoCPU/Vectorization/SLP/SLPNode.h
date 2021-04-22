@@ -26,6 +26,8 @@ namespace mlir {
 
           bool isUniform() const;
           bool contains(Value const& value) const;
+          bool containsBlockArgs() const;
+          bool vectorizable() const;
 
           size_t numLanes() const;
 
@@ -69,6 +71,10 @@ namespace mlir {
           SLPNode* getOperand(size_t index) const;
           std::vector<SLPNode*> getOperands() const;
           size_t numOperands() const;
+
+          static SmallVector<SLPNode*> postOrder(SLPNode* root);
+          static DenseMap<NodeVector*, SmallVector<size_t, 4>> escapingLanesMap(SLPNode* root);
+
 /*
           bool operator==(SLPNode const& other) {
             return std::tie(vectors) == std::tie(other.vectors);

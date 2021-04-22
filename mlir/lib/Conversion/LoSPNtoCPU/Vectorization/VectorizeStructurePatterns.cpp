@@ -3,13 +3,179 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#include <mlir/IR/BlockAndValueMapping.h>
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
 #include "LoSPNtoCPU/Vectorization/TargetInformation.h"
-#include "llvm/Support/FormatVariadic.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPSeeding.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPGraphBuilder.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "llvm/Support/FormatVariadic.h"
+
+mlir::LogicalResult mlir::spn::VectorizeTask::createFunctionIfVectorizable(low::SPNTask task,
+                                                                           ArrayRef<Value> operands,
+                                                                           ConversionPatternRewriter& rewriter,
+                                                                           FuncOp* function) const {
+  static int taskCount = 0;
+
+  assert(operands.back().getType().isa<MemRefType>());
+  auto computationType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
+  auto hwVectorWidth = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
+
+  if (hwVectorWidth <= 1) {
+    return rewriter.notifyMatchFailure(task,
+                                       llvm::formatv(
+                                           "No vectorization possible for data-type {} on the requested target",
+                                           computationType));
+  }
+
+  if (requireAllOpsVectorizable) {
+    // Check if all nodes can be vectorized before trying to do so.
+    auto allVectorizable = task.body().walk([hwVectorWidth](low::LoSPNVectorizable vOp) {
+      if (!vOp.isVectorizable(hwVectorWidth)) {
+        vOp.emitRemark() << "Operation cannot be vectorized with vector width " << hwVectorWidth;
+        return WalkResult::interrupt();
+      }
+      return WalkResult::advance();
+    });
+
+    if (allVectorizable.wasInterrupted()) {
+      return rewriter.notifyMatchFailure(task, "Not all nested operations can be vectorized, aborting vectorization");
+    }
+  }
+
+  // Let the user know which vector width will be used.
+  task->emitRemark() << "Attempting to vectorize with vector width " << hwVectorWidth << " for data-type "
+                     << computationType;
+
+  // Emit a warning if the target vector width does not divide the requested batch size.
+  // This will cause a part of each batch (batchSize % vectorWidth elements) to be processed
+  // by the scalar epilog loop instead of the vectorized loop.
+  if ((task.batchSize() % hwVectorWidth) != 0) {
+    task.emitWarning() << "The target vector width " << hwVectorWidth << " does not divide the requested batch size "
+                       << task.batchSize() << "; This can result in degraded performance. "
+                       << "Choose the batch size as a multiple of the vector width " << hwVectorWidth;
+  }
+
+  rewriter.setInsertionPointToStart(task->getParentOfType<mlir::ModuleOp>().getBody());
+  SmallVector<Type, 5> inputTypes;
+  for (auto operand : operands) {
+    inputTypes.push_back(operand.getType());
+  }
+  auto funcType = FunctionType::get(rewriter.getContext(), inputTypes, {});
+  *function = rewriter.create<FuncOp>(task->getLoc(), Twine("vec_task_", std::to_string(taskCount++)).str(), funcType);
+  return success();
+}
+
+mlir::LogicalResult mlir::spn::VectorizeSingleTask::matchAndRewrite(mlir::spn::low::SPNTask task,
+                                                                    llvm::ArrayRef<mlir::Value> operands,
+                                                                    mlir::ConversionPatternRewriter& rewriter) const {
+
+  if (task.batchSize() > 1) {
+    return rewriter.notifyMatchFailure(task,
+                                       "Specialized for single batch vectorization, does not match for batchSize > 1");
+  }
+
+  auto restore = rewriter.saveInsertionPoint();
+
+  FuncOp taskFunc;
+  if (failed(createFunctionIfVectorizable(task, operands, rewriter, &taskFunc))) {
+    return failure();
+  }
+
+  assert(operands.back().getType().isa<MemRefType>());
+  auto computationType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
+  auto hwVectorWidth = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
+
+  auto taskBlock = taskFunc.addEntryBlock();
+  rewriter.setInsertionPointToStart(taskBlock);
+  rewriter.mergeBlocks(&task.body().front(), taskBlock, /*task.body().front().getArguments()*/{});
+
+  // Apply SLP vectorization.
+  task->emitRemark() << "Computing new seed for SLP vectorization...";
+  low::slp::SeedAnalysis seedAnalysis{taskFunc};
+  auto const& seed = seedAnalysis.getSeed(hwVectorWidth, low::slp::SearchMode::UseBeforeDef);
+  assert(!seed.empty() && "couldn't find a seed!");
+  low::slp::dumpOpTree(seed);
+  seed.front().getDefiningOp()->getBlock()->dump();
+  low::slp::SLPGraphBuilder builder{3};
+  auto graph = builder.build(seed);
+
+  task->emitRemark() << "Transforming SLP graph back into vectorized ops...";
+  // Maps individual SLP node vectors to finished vector operations.
+  DenseMap<low::slp::NodeVector*, Operation*> vectorizedOps;
+  // Marks operations as potentially erasable (potentially because they might have escaping uses).
+  SmallPtrSet<low::slp::NodeVector*, 32> erasableOps;
+  // Stores escaping uses for vector extractions that might be necessary later on.
+  auto const& escapingLanes = low::slp::SLPNode::escapingLanesMap(graph.get());
+  // Prevent extracting/removing values more than once (happens in splat mode, if they appear in multiple vectors, ...).
+  SmallPtrSet<Value, 4> finishedValues;
+  // The current vector being transformed.
+  low::slp::NodeVector* vector = nullptr;
+
+  OwningRewritePatternList patterns;
+  populateSLPVectorizationPatterns(patterns, *typeConverter, rewriter.getContext(), vector, vectorizedOps, erasableOps);
+  FrozenRewritePatternList frozenPatterns(std::move(patterns));
+
+  // Traverse the SLP graph in postorder and apply the vectorization patterns.
+  for (auto* node : low::slp::SLPNode::postOrder(graph.get())) {
+
+    // Also traverse nodes in postorder to properly handle multinodes.
+    for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
+      vector = node->getVector(vectorIndex);
+      // This assumes that there exist other vectors that use the current node vector directly (or don't need it), e.g.
+      // batch reads that get lowered to vector loads instead of using a vector of indices as input.
+      if (!vector->vectorizable()) {
+        continue;
+      }
+      if (vector->containsBlockArgs()) {
+        auto const& type = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
+        auto const& insertionPoint = rewriter.saveInsertionPoint();
+        rewriter.setInsertionPoint(low::slp::firstUser(vector->begin(), vector->end()));
+        auto vectorOp = low::slp::broadcastFirstInsertRest(vector->begin(), vector->end(), type, rewriter);
+        rewriter.restoreInsertionPoint(insertionPoint);
+        vectorizedOps[vector] = vectorOp.getDefiningOp();
+      } else {
+        auto* vectorOp = vector->begin()->getDefiningOp();
+        if (failed(applyOpPatternsAndFold(vectorOp, frozenPatterns))) {
+          vectorOp->emitOpError("SLP pattern application failed (did you forget to specify the pattern?)");
+        }
+      }
+    }
+
+    // Create vector extractions for escaping uses & erase superfluous operations.
+    for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
+      vector = node->getVector(vectorIndex);
+      if (vectorizedOps.count(vector) && erasableOps.count(vector)) {
+        for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
+          auto const& vectorValue = vector->getElement(lane);
+          if (finishedValues.contains(vectorValue)) {
+            continue;
+          }
+          auto const& lanesToExtract = escapingLanes.lookup(vector);
+          if (std::find(std::begin(lanesToExtract), std::end(lanesToExtract), lane) != std::end(lanesToExtract)) {
+            auto const& source = vectorizedOps[vector]->getResult(0);
+            rewriter.setInsertionPoint(low::slp::firstOccurrence(std::begin(vectorValue.getUsers()),
+                                                                 std::end(vectorValue.getUsers())));
+            auto extractOp = rewriter.create<mlir::vector::ExtractElementOp>(vectorValue.getLoc(), source, lane);
+            vectorValue.replaceAllUsesWith(extractOp.result());
+          } else {
+            vectorValue.dropAllUses();
+          }
+          finishedValues.insert(vectorValue);
+          rewriter.eraseOp(vectorValue.getDefiningOp());
+        }
+      }
+    }
+  }
+
+  rewriter.restoreInsertionPoint(restore);
+  rewriter.replaceOpWithNewOp<mlir::CallOp>(task, taskFunc, operands);
+  return success();
+
+}
 
 mlir::LogicalResult mlir::spn::VectorizeBatchTask::matchAndRewrite(mlir::spn::low::SPNTask op,
                                                                    llvm::ArrayRef<mlir::Value> operands,
@@ -21,54 +187,17 @@ mlir::LogicalResult mlir::spn::VectorizeBatchTask::matchAndRewrite(mlir::spn::lo
                                        "Specialized for batch vectorization, does not match for batchSize == 1");
   }
 
+  auto restore = rewriter.saveInsertionPoint();
+
+  FuncOp taskFunc;
+  if (failed(createFunctionIfVectorizable(op, operands, rewriter, &taskFunc))) {
+    return failure();
+  }
+
   assert(operands.back().getType().isa<MemRefType>());
   auto computationType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
   auto hwVectorWidth = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
 
-  if (hwVectorWidth <= 1) {
-    return rewriter.notifyMatchFailure(op,
-                                       llvm::formatv(
-                                           "No vectorization possible for data-type {} on the requested target",
-                                           computationType));
-  }
-
-  // Check if all nodes can be vectorized before trying to do so.
-  auto allVectorizable = op.body().walk([hwVectorWidth](low::LoSPNVectorizable vOp) {
-    if (!vOp.isVectorizable(hwVectorWidth)) {
-      vOp.emitRemark() << "Operation cannot be vectorized with vector width " << hwVectorWidth;
-      return WalkResult::interrupt();
-    }
-    return WalkResult::advance();
-  });
-
-  if (allVectorizable.wasInterrupted()) {
-    return rewriter.notifyMatchFailure(op, "Not all nested operations can be vectorized, aborting vectorization");
-  }
-
-  // Let the user know which vector width will be used.
-  op->emitRemark() << "Attempting to vectorize with vector width " << hwVectorWidth
-                   << " for data-type " << computationType;
-
-  // Emit a warning if the target vector width does not divide the requested batch size.
-  // This will cause a part of each batch (batchSize % vectorWidth elements) to be processed
-  // by the scalar epilog loop instead of the vectorized loop.
-  if ((op.batchSize() % hwVectorWidth) != 0) {
-    op.emitWarning() << "The target vector width " << hwVectorWidth
-                     << " does not divide the requested batch size " << op.batchSize()
-                     << "; This can result in degraded performance. "
-                     << "Choose the batch size as a multiple of the vector width "
-                     << hwVectorWidth;
-  }
-
-  auto restore = rewriter.saveInsertionPoint();
-  rewriter.setInsertionPointToStart(op->getParentOfType<mlir::ModuleOp>().getBody());
-  SmallVector<Type, 5> inputTypes;
-  for (auto operand : operands) {
-    inputTypes.push_back(operand.getType());
-  }
-  auto funcType = FunctionType::get(rewriter.getContext(), inputTypes, {});
-  auto taskFunc = rewriter.create<FuncOp>(op->getLoc(), Twine("vec_task_", std::to_string(taskCount++)).str(),
-                                          funcType);
   auto taskBlock = taskFunc.addEntryBlock();
   rewriter.setInsertionPointToStart(taskBlock);
   auto numSamples = rewriter.create<DimOp>(op.getLoc(), taskBlock->getArgument(0), 0);
@@ -97,7 +226,7 @@ mlir::LogicalResult mlir::spn::VectorizeBatchTask::matchAndRewrite(mlir::spn::lo
     if (isa<low::SPNReturn>(&node)) {
       continue;
     }
-    auto copy = rewriter.clone(node, mapVectorTaskArgs);
+    rewriter.clone(node, mapVectorTaskArgs);
   }
 
   // Mark all operations contained in the vectorized loop as vectorized.

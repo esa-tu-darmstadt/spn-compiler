@@ -6,9 +6,11 @@
 #ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPUTIL_H
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPUTIL_H
 
-#include "mlir/IR/Operation.h"
-#include "LoSPN/LoSPNOps.h"
 #include "SLPNode.h"
+#include "LoSPN/LoSPNOps.h"
+#include "mlir/IR/Operation.h"
+#include "mlir/IR/PatternMatch.h"
+#include "mlir/Dialect/Vector/VectorOps.h"
 
 namespace mlir {
   namespace spn {
@@ -95,6 +97,11 @@ namespace mlir {
           Operation* firstUser = nullptr;
           while (begin != end) {
             for (auto* user : begin->getUsers()) {
+              if (firstUser) {
+                // TODO: proper dominance analysis
+                firstUser->dump();
+              }
+              user->dump();
               if (!firstUser || user->isBeforeInBlock(firstUser)) {
                 firstUser = user;
               }
@@ -102,6 +109,19 @@ namespace mlir {
             ++begin;
           }
           return firstUser;
+        }
+
+        template<typename ValueIterator>
+        Value broadcastFirstInsertRest(ValueIterator begin,
+                                       ValueIterator end,
+                                       VectorType const& vectorType,
+                                       PatternRewriter& rewriter) {
+          Value vectorOp = rewriter.create<vector::BroadcastOp>(begin->getLoc(), vectorType, *begin);
+          unsigned position = 1;
+          while (++begin != end) {
+            vectorOp = rewriter.create<vector::InsertElementOp>(begin->getLoc(), *begin, vectorOp, position++);
+          }
+          return vectorOp;
         }
 
         void dumpOpTree(vector_t const& values);

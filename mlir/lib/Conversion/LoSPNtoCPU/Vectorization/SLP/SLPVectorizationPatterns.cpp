@@ -18,19 +18,6 @@ using namespace mlir::spn::low::slp;
 // Helper functions in anonymous namespace.
 namespace {
 
-  template<typename ValueIterator>
-  Value broadcastFirstInsertRest(ValueIterator begin,
-                                 ValueIterator end,
-                                 VectorType const& vectorType,
-                                 PatternRewriter& rewriter) {
-    Value vectorOp = rewriter.create<vector::BroadcastOp>(begin->getLoc(), vectorType, *begin);
-    unsigned position = 1;
-    while (++begin != end) {
-      vectorOp = rewriter.create<vector::InsertElementOp>(begin->getLoc(), *begin, vectorOp, position++);
-    }
-    return vectorOp;
-  }
-
   template<typename AttributeIterator>
   DenseElementsAttr denseFloatingPoints(AttributeIterator begin, AttributeIterator end, VectorType const& vectorType) {
     if (vectorType.getElementType().cast<FloatType>().getWidth() == 32) {
@@ -65,149 +52,11 @@ namespace {
     return DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<double>>(array));
   }
 
-  llvm::SmallVector<SLPNode*> postOrder(SLPNode* root) {
-    llvm::SmallVector<SLPNode*> order;
-    for (auto* operand : root->getOperands()) {
-      assert(std::find(std::begin(order), std::end(order), operand) == std::end(order));
-      order.append(postOrder(operand));
-    }
-    order.emplace_back(root);
-    return order;
-  }
-
-  DenseMap<NodeVector*, SmallVector<size_t, 4>> getEscapingLanesMap(SLPNode* root) {
-    DenseMap<NodeVector*, DenseMap<mlir::Value, unsigned>> outsideUses;
-    for (auto* node : postOrder(root)) {
-      for (size_t i = 0; i < node->numVectors(); ++i) {
-        auto* vector = node->getVector(i);
-        for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-          auto const& element = vector->getElement(lane);
-          // Skip duplicate (splat) values.
-          if (outsideUses[vector].count(element)) {
-            continue;
-          }
-          outsideUses[vector][element] = std::distance(std::begin(element.getUses()), std::end(element.getUses()));
-          for (size_t j = 0; j < vector->numOperands(); ++j) {
-            auto* operand = vector->getOperand(j);
-            assert(outsideUses[operand][operand->getElement(lane)] > 0);
-            outsideUses[operand][operand->getElement(lane)]--;
-          }
-        }
-      }
-    }
-
-    DenseMap<NodeVector*, SmallVector<size_t, 4>> escapingLanes;
-    for (auto const& entry : outsideUses) {
-      auto* vector = entry.first;
-      for (auto const& useAndCount : entry.second) {
-        auto const& value = useAndCount.first;
-        auto const& count = useAndCount.second;
-        if (count > 0) {
-          for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-            if (vector->getElement(lane) == value) {
-              escapingLanes[vector].emplace_back(lane);
-              break;
-            }
-          }
-        }
-      }
-    }
-    return escapingLanes;
-  }
-
-  bool containsBlockArgs(NodeVector* vector) {
-    return std::any_of(vector->begin(), vector->end(), [&](Value const& value) {
-      return value.isa<BlockArgument>();
-    });
-  }
-
-  template<typename ValueIterator>
-  bool valuesVectorizable(ValueIterator begin, ValueIterator end) {
-    return std::all_of(begin, end, [&](Value const& value) {
-      return vectorizable(value);
-    });
-  }
-
 }
 
-SLPVectorPatternRewriter::SLPVectorPatternRewriter(mlir::MLIRContext* ctx) : PatternRewriter{ctx} {}
-
-LogicalResult SLPVectorPatternRewriter::rewrite(SLPNode* root) {
-
-  // The current vector being transformed.
-  NodeVector* vector = nullptr;
-
-  // Maps individual SLP node vectors to finished vector operations.
-  DenseMap<NodeVector*, Operation*> vectorizedOps;
-
-  // Marks operations as potentially erasable (potentially because they might have escaping uses).
-  SmallPtrSet<NodeVector*, 32> erasableOps;
-
-  // Stores escaping uses for vector extractions that might be necessary later on.
-  auto const& escapingLanes = getEscapingLanesMap(root);
-
-  // Prevent extracting/removing values more than once (happens in splat mode, if they appear in multiple vectors, ...).
-  SmallPtrSet<Value, 4> finishedValues;
-
-  OwningRewritePatternList patterns;
-  populateSLPVectorizationPatterns(patterns, context, vector, vectorizedOps, erasableOps);
-  FrozenRewritePatternList frozenPatterns(std::move(patterns));
-
-  PatternApplicator applicator{frozenPatterns};
-  applicator.applyDefaultCostModel();
-
-  // Traverse the SLP graph in postorder and apply the vectorization patterns.
-  for (auto* node : postOrder(root)) {
-
-    // Also traverse nodes in postorder to properly handle multinodes.
-    for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
-      vector = node->getVector(vectorIndex);
-      if (!valuesVectorizable(vector->begin(), vector->end())) {
-        continue;
-      }
-      if (containsBlockArgs(vector)) {
-        auto const& elementType = vector->getElement(0).getType();
-        auto const& type = VectorType::get(static_cast<unsigned>(vector->numLanes()), elementType);
-        setInsertionPoint(firstUser(vector->begin(), vector->end()));
-        auto vectorOp = broadcastFirstInsertRest(vector->begin(), vector->end(), type, *this);
-        vectorizedOps[vector] = vectorOp.getDefiningOp();
-      } else {
-        auto* vectorOp = vector->begin()->getDefiningOp();
-        if (failed(applicator.matchAndRewrite(vectorOp, *this))) {
-          vectorOp->emitOpError("SLP pattern application failed (did you forget to specify the pattern?)");
-        }
-      }
-    }
-
-    // Create vector extractions for escaping uses & erase superfluous operations.
-    for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
-      vector = node->getVector(vectorIndex);
-      if (vectorizedOps.count(vector) && erasableOps.count(vector)) {
-        for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-          auto const& vectorValue = vector->getElement(lane);
-          if (finishedValues.contains(vectorValue)) {
-            continue;
-          }
-          auto const& lanesToExtract = escapingLanes.lookup(vector);
-          if (std::find(std::begin(lanesToExtract), std::end(lanesToExtract), lane) != std::end(lanesToExtract)) {
-            auto const& source = vectorizedOps[vector]->getResult(0);
-            setInsertionPoint(firstOccurrence(std::begin(vectorValue.getUsers()), std::end(vectorValue.getUsers())));
-            auto extractOp = create<vector::ExtractElementOp>(vectorValue.getLoc(), source, lane);
-            vectorValue.replaceAllUsesWith(extractOp.result());
-          } else {
-            vectorValue.dropAllUses();
-          }
-          finishedValues.insert(vectorValue);
-          eraseOp(vectorValue.getDefiningOp());
-        }
-      }
-    }
-  }
-
-  return success();
-}
-
-LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternRewriter& rewriter) const {
+LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp,
+                                                 ArrayRef<Value> operands,
+                                                 ConversionPatternRewriter& rewriter) const {
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), constantOp.getType());
 
@@ -233,7 +82,9 @@ LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternR
   return success();
 }
 
-LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, PatternRewriter& rewriter) const {
+LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp,
+                                                  ArrayRef<Value> operands,
+                                                  ConversionPatternRewriter& rewriter) const {
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), batchReadOp.getType());
 
@@ -256,8 +107,10 @@ LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, Patt
   return success();
 }
 
-LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewriter) const {
-
+LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp,
+                                            ArrayRef<Value> operands,
+                                            ConversionPatternRewriter& rewriter) const {
+/*
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), addOp.getType());
 
   rewriter.setInsertionPoint(firstUser(vector->begin(), vector->end()));
@@ -281,12 +134,14 @@ LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewri
 
   vectorizedOps[vector] = vectorAddOp;
   erasableOps.insert(vector);
-
+*/
   return success();
 }
 
-LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewriter) const {
-
+LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp,
+                                            ArrayRef<Value> operands,
+                                            ConversionPatternRewriter& rewriter) const {
+/*
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), mulOp.getType());
 
   rewriter.setInsertionPoint(firstUser(vector->begin(), vector->end()));
@@ -310,11 +165,13 @@ LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewri
 
   vectorizedOps[vector] = vectorAddOp;
   erasableOps.insert(vector);
-
+*/
   return success();
 }
 
-LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, PatternRewriter& rewriter) const {
+LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp,
+                                                 ArrayRef<Value> operands,
+                                                 ConversionPatternRewriter& rewriter) const {
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), gaussianOp.getType());
   auto const& firstValue = firstOccurrence(vector->begin(), vector->end());

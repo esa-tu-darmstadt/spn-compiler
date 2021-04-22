@@ -10,11 +10,9 @@
 #include "LoSPNtoCPU/NodePatterns.h"
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
 #include "LoSPNtoCPU/Vectorization/LoSPNVectorizationTypeConverter.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPass.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
-#include "mlir/Pass/PassManager.h"
 
 void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   ConversionTarget target(getContext());
@@ -43,16 +41,6 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
   if (failed(applyPartialConversion(getOperation(), target, frozenPatterns))) {
     signalPassFailure();
-  }
-
-  if (vectorize && !singleBatchFunctions.empty()) {
-    OpPassManager dynamicPipeline("func");
-    dynamicPipeline.addPass(mlir::spn::createSLPVectorizationPass());
-    for (auto const& function : singleBatchFunctions) {
-      if (failed(runPipeline(dynamicPipeline, function))) {
-        signalPassFailure();
-      }
-    }
   }
 
 }
