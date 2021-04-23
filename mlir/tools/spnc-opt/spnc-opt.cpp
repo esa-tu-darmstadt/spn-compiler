@@ -64,10 +64,6 @@ static llvm::cl::opt<bool> logSpace("use-log-space",
                                     llvm::cl::desc("Use log-space computation"),
                                     llvm::cl::init(false));
 
-static llvm::cl::opt<bool> collectGraphStats("collect-graph-stats",
-                                             llvm::cl::desc("Collect graph statistics"),
-                                             llvm::cl::init(false));
-
 static llvm::cl::opt<std::string> graphStatsFile{"graph-stats-file",
                                                  llvm::cl::desc("Graph statistics output file"),
                                                  llvm::cl::value_desc("filename"),
@@ -110,7 +106,7 @@ int main(int argc, char** argv) {
                        return mlir::spn::createLoSPNNodeVectorizationPass();
                      });
 
-  mlir::registerPass("collect-lospn-graph-stats", "Collect graph statistics",
+  mlir::registerPass("collect-graph-stats", "Collect graph statistics",
                      []() -> std::unique_ptr<mlir::Pass> {
                        return mlir::spn::low::createLoSPNGraphStatsCollectionPass(graphStatsFile);
                      });

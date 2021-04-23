@@ -63,13 +63,6 @@ def LeafNodeInterface : OpInterface<"LeafNodeInterface"> {
   Interface common to all LoSPN leaf nodes.
   }];
 
-  // ToDo: Should there be at least one method?
-  /*
-  let methods = [
-  InterfaceMethod<"Get the feature index.", "unsigned", "getFeatureIndex">,
-  ];
-  */
-
 }
 
 #endif // LoSPN_INTERFACES
