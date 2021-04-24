@@ -18,19 +18,19 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   ConversionTarget target(getContext());
 
   target.addLegalDialect<StandardOpsDialect>();
-  target.addLegalDialect<mlir::scf::SCFDialect>();
-  target.addLegalDialect<mlir::vector::VectorDialect>();
+  target.addLegalDialect<scf::SCFDialect>();
+  target.addLegalDialect<vector::VectorDialect>();
   target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
   target.addLegalOp<FuncOp>();
 
   LoSPNtoCPUTypeConverter typeConverter;
 
-  target.addLegalDialect<mlir::spn::low::LoSPNDialect>();
-  target.addIllegalOp<mlir::spn::low::SPNKernel>();
-  target.addIllegalOp<mlir::spn::low::SPNBody>();
+  target.addLegalDialect<spn::low::LoSPNDialect>();
+  target.addIllegalOp<spn::low::SPNKernel>();
+  target.addIllegalOp<spn::low::SPNBody>();
 
   OwningRewritePatternList patterns;
-  mlir::spn::populateLoSPNtoCPUStructurePatterns(patterns, &getContext(), typeConverter);
+  spn::populateLoSPNtoCPUStructurePatterns(patterns, &getContext(), typeConverter);
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
 
   // We split this pass into two conversion pattern applications because the single task vectorization relies on
@@ -40,13 +40,13 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
     signalPassFailure();
   }
 
-  target.addIllegalOp<mlir::spn::low::SPNTask>();
+  target.addIllegalOp<spn::low::SPNTask>();
 
   patterns = OwningRewritePatternList();
   if (vectorize) {
-    mlir::spn::populateLoSPNtoCPUVectorizationTaskPatterns(patterns, &getContext(), typeConverter);
+    spn::populateLoSPNtoCPUVectorizationTaskPatterns(patterns, &getContext(), typeConverter);
   } else {
-    mlir::spn::populateLoSPNtoCPUTaskPatterns(patterns, &getContext(), typeConverter);
+    spn::populateLoSPNtoCPUTaskPatterns(patterns, &getContext(), typeConverter);
   }
   frozenPatterns = FrozenRewritePatternList(std::move(patterns));
 
