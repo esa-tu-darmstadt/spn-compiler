@@ -27,16 +27,29 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
 
   target.addLegalDialect<mlir::spn::low::LoSPNDialect>();
   target.addIllegalOp<mlir::spn::low::SPNKernel>();
-  target.addIllegalOp<mlir::spn::low::SPNTask, mlir::spn::low::SPNBody>();
+  target.addIllegalOp<mlir::spn::low::SPNBody>();
 
   OwningRewritePatternList patterns;
-  if (vectorize) {
-    // Try to vectorize tasks if vectorization was requested.
-    mlir::spn::populateLoSPNCPUVectorizationStructurePatterns(patterns, &getContext(), typeConverter);
-  }
   mlir::spn::populateLoSPNtoCPUStructurePatterns(patterns, &getContext(), typeConverter);
-
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
+
+  // We split this pass into two conversion pattern applications because the single task vectorization relies on
+  // the structure being converted beforehand. Otherwise, the SPNBatchReads wouldn't be converted into vector loads
+  // since they aren't contained in the SPNBody region like the other operations.
+  if (failed(applyPartialConversion(getOperation(), target, frozenPatterns))) {
+    signalPassFailure();
+  }
+
+  target.addIllegalOp<mlir::spn::low::SPNTask>();
+
+  patterns = OwningRewritePatternList();
+  if (vectorize) {
+    mlir::spn::populateLoSPNtoCPUVectorizationTaskPatterns(patterns, &getContext(), typeConverter);
+  } else {
+    mlir::spn::populateLoSPNtoCPUTaskPatterns(patterns, &getContext(), typeConverter);
+  }
+  frozenPatterns = FrozenRewritePatternList(std::move(patterns));
+
   if (failed(applyPartialConversion(getOperation(), target, frozenPatterns))) {
     signalPassFailure();
   }

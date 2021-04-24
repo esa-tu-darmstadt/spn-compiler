@@ -5,7 +5,6 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -54,9 +53,11 @@ namespace {
 
 }
 
-LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp,
-                                                 ArrayRef<Value> operands,
-                                                 ConversionPatternRewriter& rewriter) const {
+LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternRewriter& rewriter) const {
+
+  if (vectorizedOps.count(vector)) {
+    return rewriter.notifyMatchFailure(constantOp, "operation's vector has already been created");
+  }
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), constantOp.getType());
 
@@ -64,7 +65,7 @@ LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp,
 
   if (!vector->isUniform()) {
     auto vectorVal = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
-    vectorizedOps[vector] = vectorVal.getDefiningOp();
+    vectorizedOps[vector] = vectorVal;
     return success();
   }
 
@@ -82,9 +83,11 @@ LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp,
   return success();
 }
 
-LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp,
-                                                  ArrayRef<Value> operands,
-                                                  ConversionPatternRewriter& rewriter) const {
+LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, PatternRewriter& rewriter) const {
+
+  if (vectorizedOps.count(vector)) {
+    return rewriter.notifyMatchFailure(batchReadOp, "operation's vector has already been created");
+  }
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), batchReadOp.getType());
 
@@ -92,7 +95,7 @@ LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp,
 
   if (!vector->isUniform() || !consecutiveLoads(vector->begin(), vector->end())) {
     auto vectorVal = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
-    vectorizedOps[vector] = vectorVal.getDefiningOp();
+    vectorizedOps[vector] = vectorVal;
   } else {
 
     auto batchReadLoc = batchReadOp->getLoc();
@@ -107,71 +110,77 @@ LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp,
   return success();
 }
 
-LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp,
-                                            ArrayRef<Value> operands,
-                                            ConversionPatternRewriter& rewriter) const {
-/*
+LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewriter) const {
+
+  if (vectorizedOps.count(vector)) {
+    return rewriter.notifyMatchFailure(addOp, "operation's vector has already been created");
+  }
+
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), addOp.getType());
 
   rewriter.setInsertionPoint(firstUser(vector->begin(), vector->end()));
 
   if (!vector->isUniform()) {
     auto vectorVal = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
-    vectorizedOps[vector] = vectorVal.getDefiningOp();
+    vectorizedOps[vector] = vectorVal;
     return success();
   }
 
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < addOp.getNumOperands(); ++i) {
-    auto* operandOp = vectorizedOps[vector->getOperand(i)];
-    if (!operandOp) {
-      return rewriter.notifyMatchFailure(addOp, "operation's operands have not yet been (fully) vectorized");
+    if (!vectorizedOps.count(vector->getOperand(i))) {
+      return rewriter.notifyMatchFailure(addOp, "operation's operands have not yet been vectorized");
     }
-    operands.emplace_back(operandOp->getResult(0));
+    auto const& operand = vectorizedOps[vector->getOperand(i)];
+    operands.emplace_back(operand);
   }
 
   auto vectorAddOp = rewriter.create<AddFOp>(addOp->getLoc(), vectorType, operands);
 
   vectorizedOps[vector] = vectorAddOp;
   erasableOps.insert(vector);
-*/
+
   return success();
 }
 
-LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp,
-                                            ArrayRef<Value> operands,
-                                            ConversionPatternRewriter& rewriter) const {
-/*
+LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewriter) const {
+
+  if (vectorizedOps.count(vector)) {
+    return rewriter.notifyMatchFailure(mulOp, "operation's vector has already been created");
+  }
+
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), mulOp.getType());
 
   rewriter.setInsertionPoint(firstUser(vector->begin(), vector->end()));
 
   if (!vector->isUniform()) {
     auto vectorVal = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
-    vectorizedOps[vector] = vectorVal.getDefiningOp();
+    vectorizedOps[vector] = vectorVal;
     return success();
   }
 
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < mulOp.getNumOperands(); ++i) {
-    auto* operandOp = vectorizedOps[vector->getOperand(i)];
-    if (!operandOp) {
-      return rewriter.notifyMatchFailure(mulOp, "operation's operands have not yet been (fully) vectorized");
+    if (!vectorizedOps.count(vector->getOperand(i))) {
+      return rewriter.notifyMatchFailure(mulOp, "operation's operands have not yet been vectorized");
     }
-    operands.emplace_back(operandOp->getResult(0));
+    auto const& operand = vectorizedOps[vector->getOperand(i)];
+    operands.emplace_back(operand);
   }
 
   auto vectorAddOp = rewriter.create<MulFOp>(mulOp->getLoc(), vectorType, operands);
 
   vectorizedOps[vector] = vectorAddOp;
   erasableOps.insert(vector);
-*/
+
   return success();
 }
 
-LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp,
-                                                 ArrayRef<Value> operands,
-                                                 ConversionPatternRewriter& rewriter) const {
+LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, PatternRewriter& rewriter) const {
+
+  if (vectorizedOps.count(vector)) {
+    return rewriter.notifyMatchFailure(gaussianOp, "operation's vector has already been created");
+  }
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), gaussianOp.getType());
   auto const& firstValue = firstOccurrence(vector->begin(), vector->end());
@@ -184,7 +193,7 @@ LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp,
 
   if (!vector->isUniform()) {
     auto vectorVal = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
-    vectorizedOps[vector] = vectorVal.getDefiningOp();
+    vectorizedOps[vector] = vectorVal;
     return success();
   }
 
@@ -220,11 +229,10 @@ LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp,
   auto const& stddevs = denseFloatingPoints(std::begin(stddevAttributes), std::end(stddevAttributes), vectorType);
 
   // Grab the input vector.
-  auto* inputOp = vectorizedOps[vector->getOperand(0)];
-  if (!inputOp) {
-    return rewriter.notifyMatchFailure(gaussianOp, "operation's operands have not yet been (fully) vectorized");
+  if (!vectorizedOps.count(vector->getOperand(0))) {
+    return rewriter.notifyMatchFailure(gaussianOp, "input vector has not yet been vectorized");
   }
-  Value inputVector = inputOp->getResult(0);
+  Value const& inputVector = vectorizedOps[vector->getOperand(0)];
 
   // Calculate Gaussian distribution using e^(-0.5 * ((x - mean) / stddev)^2)) / (stddev * sqrt(2 * PI))
   auto const& gaussianLoc = gaussianOp->getLoc();
@@ -241,13 +249,13 @@ LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp,
   // e^(-0.5 * ((x - mean) / stddev)^2))
   auto halfVector = rewriter.create<ConstantOp>(gaussianLoc, denseFloatingPoints(-0.5, vectorType));
   gaussianVector = rewriter.create<MulFOp>(gaussianLoc, vectorType, halfVector, gaussianVector);
-  gaussianVector = rewriter.create<math::ExpOp>(gaussianLoc, gaussianVector);
+  gaussianVector = rewriter.create<math::ExpOp>(gaussianLoc, vectorType, gaussianVector);
 
   // e^(-0.5 * ((x - mean) / stddev)^2)) / (stddev * sqrt(2 * PI))
   auto coefficientVector = rewriter.create<ConstantOp>(gaussianLoc, coefficients);
   gaussianVector = rewriter.create<MulFOp>(gaussianLoc, coefficientVector, gaussianVector);
 
-  vectorizedOps[vector] = gaussianVector.getDefiningOp();
+  vectorizedOps[vector] = gaussianVector;
   erasableOps.insert(vector);
 
   return success();

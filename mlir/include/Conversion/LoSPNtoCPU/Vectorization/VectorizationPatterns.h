@@ -9,7 +9,6 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
-#include "llvm/Support/Debug.h"
 
 namespace mlir {
   namespace spn {
@@ -24,8 +23,8 @@ namespace mlir {
           low::SPNTask>(typeConverter, context, benefit), requireAllOpsVectorizable{requireAllOpsVectorizable} {}
 
     protected:
-      LogicalResult createFunctionIfVectorizable(low::SPNTask task,
-                                                 ArrayRef <Value> operands,
+      LogicalResult createFunctionIfVectorizable(low::SPNTask& task,
+                                                 llvm::ArrayRef<Value> const& operands,
                                                  ConversionPatternRewriter& rewriter,
                                                  FuncOp* function) const;
 
@@ -64,9 +63,9 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
-    static void populateLoSPNCPUVectorizationStructurePatterns(OwningRewritePatternList& patterns,
-                                                               MLIRContext* context,
-                                                               TypeConverter& typeConverter) {
+    static void populateLoSPNtoCPUVectorizationTaskPatterns(OwningRewritePatternList& patterns,
+                                                            MLIRContext* context,
+                                                            TypeConverter& typeConverter) {
       patterns.insert<VectorizeSingleTask, VectorizeBatchTask>(typeConverter, context, 5);
     }
 

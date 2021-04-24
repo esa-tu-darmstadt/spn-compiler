@@ -11,11 +11,10 @@
 #include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/IR/BlockAndValueMapping.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/Support/FormatVariadic.h"
 
-mlir::LogicalResult mlir::spn::VectorizeTask::createFunctionIfVectorizable(low::SPNTask task,
-                                                                           ArrayRef<Value> operands,
+mlir::LogicalResult mlir::spn::VectorizeTask::createFunctionIfVectorizable(low::SPNTask& task,
+                                                                           ArrayRef<Value> const& operands,
                                                                            ConversionPatternRewriter& rewriter,
                                                                            FuncOp* function) const {
   static int taskCount = 0;
@@ -50,15 +49,7 @@ mlir::LogicalResult mlir::spn::VectorizeTask::createFunctionIfVectorizable(low::
   task->emitRemark() << "Attempting to vectorize with vector width " << hwVectorWidth << " for data-type "
                      << computationType;
 
-  // Emit a warning if the target vector width does not divide the requested batch size.
-  // This will cause a part of each batch (batchSize % vectorWidth elements) to be processed
-  // by the scalar epilog loop instead of the vectorized loop.
-  if ((task.batchSize() % hwVectorWidth) != 0) {
-    task.emitWarning() << "The target vector width " << hwVectorWidth << " does not divide the requested batch size "
-                       << task.batchSize() << "; This can result in degraded performance. "
-                       << "Choose the batch size as a multiple of the vector width " << hwVectorWidth;
-  }
-
+  auto const& insertionPoint = rewriter.saveInsertionPoint();
   rewriter.setInsertionPointToStart(task->getParentOfType<mlir::ModuleOp>().getBody());
   SmallVector<Type, 5> inputTypes;
   for (auto operand : operands) {
@@ -66,6 +57,7 @@ mlir::LogicalResult mlir::spn::VectorizeTask::createFunctionIfVectorizable(low::
   }
   auto funcType = FunctionType::get(rewriter.getContext(), inputTypes, {});
   *function = rewriter.create<FuncOp>(task->getLoc(), Twine("vec_task_", std::to_string(taskCount++)).str(), funcType);
+  rewriter.restoreInsertionPoint(insertionPoint);
   return success();
 }
 
@@ -78,23 +70,32 @@ mlir::LogicalResult mlir::spn::VectorizeSingleTask::matchAndRewrite(mlir::spn::l
                                        "Specialized for single batch vectorization, does not match for batchSize > 1");
   }
 
-  auto restore = rewriter.saveInsertionPoint();
+  auto const& callPoint = rewriter.saveInsertionPoint();
 
   FuncOp taskFunc;
   if (failed(createFunctionIfVectorizable(task, operands, rewriter, &taskFunc))) {
     return failure();
   }
 
-  assert(operands.back().getType().isa<MemRefType>());
-  auto computationType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
-  auto hwVectorWidth = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
-
   auto taskBlock = taskFunc.addEntryBlock();
   rewriter.setInsertionPointToStart(taskBlock);
-  rewriter.mergeBlocks(&task.body().front(), taskBlock, /*task.body().front().getArguments()*/{});
+
+  // Collect the values replacing the block values of old block inside the task.
+  // The first argument is the batch index, in this case (for a single execution),
+  // we can simply set it to constant zero.
+  // The other arguments are the arguments of the entry block of this function.
+  SmallVector<Value, 5> blockReplacementArgs;
+  blockReplacementArgs.push_back(rewriter.create<ConstantOp>(task.getLoc(), rewriter.getIndexAttr(0)));
+  for (auto bArg : taskBlock->getArguments()) {
+    blockReplacementArgs.push_back(bArg);
+  }
+  // Inline the content of the Task into the function.
+  rewriter.mergeBlocks(&task.body().front(), taskBlock, blockReplacementArgs);
 
   // Apply SLP vectorization.
   task->emitRemark() << "Computing new seed for SLP vectorization...";
+  auto computationType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
+  auto hwVectorWidth = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
   low::slp::SeedAnalysis seedAnalysis{taskFunc};
   auto const& seed = seedAnalysis.getSeed(hwVectorWidth, low::slp::SearchMode::UseBeforeDef);
   assert(!seed.empty() && "couldn't find a seed!");
@@ -102,22 +103,31 @@ mlir::LogicalResult mlir::spn::VectorizeSingleTask::matchAndRewrite(mlir::spn::l
   seed.front().getDefiningOp()->getBlock()->dump();
   low::slp::SLPGraphBuilder builder{3};
   auto graph = builder.build(seed);
+  low::slp::dumpSLPGraph(*graph);
 
   task->emitRemark() << "Transforming SLP graph back into vectorized ops...";
   // Maps individual SLP node vectors to finished vector operations.
-  DenseMap<low::slp::NodeVector*, Operation*> vectorizedOps;
+  DenseMap<low::slp::NodeVector*, Value> vectorizedOps;
   // Marks operations as potentially erasable (potentially because they might have escaping uses).
   SmallPtrSet<low::slp::NodeVector*, 32> erasableOps;
   // Stores escaping uses for vector extractions that might be necessary later on.
   auto const& escapingLanes = low::slp::SLPNode::escapingLanesMap(graph.get());
   // Prevent extracting/removing values more than once (happens in splat mode, if they appear in multiple vectors, ...).
-  SmallPtrSet<Value, 4> finishedValues;
+  SmallPtrSet<Value, 32> finishedValues;
   // The current vector being transformed.
   low::slp::NodeVector* vector = nullptr;
 
   OwningRewritePatternList patterns;
-  populateSLPVectorizationPatterns(patterns, *typeConverter, rewriter.getContext(), vector, vectorizedOps, erasableOps);
+  populateSLPVectorizationPatterns(patterns, rewriter.getContext(), vector, vectorizedOps, erasableOps);
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
+
+  // Use a custom pattern driver that does *not* perform folding automatically (which the other rewrite drivers
+  // such as applyOpPatternsAndFold() would do). Folding would mess up identified SLP-vectorizable constants, which
+  // aren't necessarily located at the front of the function's body yet. The drivers delete those that aren't at the
+  // front (including those we identified as SLP-vectorizable!) and create new ones there, resulting in our constant
+  // SLP-vectorization patterns not being applied to them and messing up operand handling further down the SLP graph.
+  PatternApplicator applicator(frozenPatterns);
+  applicator.applyDefaultCostModel();
 
   // Traverse the SLP graph in postorder and apply the vectorization patterns.
   for (auto* node : low::slp::SLPNode::postOrder(graph.get())) {
@@ -136,10 +146,10 @@ mlir::LogicalResult mlir::spn::VectorizeSingleTask::matchAndRewrite(mlir::spn::l
         rewriter.setInsertionPoint(low::slp::firstUser(vector->begin(), vector->end()));
         auto vectorOp = low::slp::broadcastFirstInsertRest(vector->begin(), vector->end(), type, rewriter);
         rewriter.restoreInsertionPoint(insertionPoint);
-        vectorizedOps[vector] = vectorOp.getDefiningOp();
+        vectorizedOps[vector] = vectorOp;
       } else {
         auto* vectorOp = vector->begin()->getDefiningOp();
-        if (failed(applyOpPatternsAndFold(vectorOp, frozenPatterns))) {
+        if (failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
           vectorOp->emitOpError("SLP pattern application failed (did you forget to specify the pattern?)");
         }
       }
@@ -156,13 +166,13 @@ mlir::LogicalResult mlir::spn::VectorizeSingleTask::matchAndRewrite(mlir::spn::l
           }
           auto const& lanesToExtract = escapingLanes.lookup(vector);
           if (std::find(std::begin(lanesToExtract), std::end(lanesToExtract), lane) != std::end(lanesToExtract)) {
-            auto const& source = vectorizedOps[vector]->getResult(0);
+            auto const& source = vectorizedOps[vector];
             rewriter.setInsertionPoint(low::slp::firstOccurrence(std::begin(vectorValue.getUsers()),
                                                                  std::end(vectorValue.getUsers())));
             auto extractOp = rewriter.create<mlir::vector::ExtractElementOp>(vectorValue.getLoc(), source, lane);
             vectorValue.replaceAllUsesWith(extractOp.result());
           } else {
-            vectorValue.dropAllUses();
+            vectorValue.replaceAllUsesWith(vectorizedOps[vector]);
           }
           finishedValues.insert(vectorValue);
           rewriter.eraseOp(vectorValue.getDefiningOp());
@@ -171,8 +181,8 @@ mlir::LogicalResult mlir::spn::VectorizeSingleTask::matchAndRewrite(mlir::spn::l
     }
   }
 
-  rewriter.restoreInsertionPoint(restore);
-  rewriter.replaceOpWithNewOp<mlir::CallOp>(task, taskFunc, operands);
+  rewriter.restoreInsertionPoint(callPoint);
+  rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands).dump();
   return success();
 
 }
@@ -197,6 +207,15 @@ mlir::LogicalResult mlir::spn::VectorizeBatchTask::matchAndRewrite(mlir::spn::lo
   assert(operands.back().getType().isa<MemRefType>());
   auto computationType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
   auto hwVectorWidth = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
+
+  // Emit a warning if the target vector width does not divide the requested batch size.
+  // This will cause a part of each batch (batchSize % vectorWidth elements) to be processed
+  // by the scalar epilog loop instead of the vectorized loop.
+  if ((op.batchSize() % hwVectorWidth) != 0) {
+    op.emitWarning() << "The target vector width " << hwVectorWidth << " does not divide the requested batch size "
+                     << op.batchSize() << "; This can result in degraded performance. "
+                     << "Choose the batch size as a multiple of the vector width " << hwVectorWidth;
+  }
 
   auto taskBlock = taskFunc.addEntryBlock();
   rewriter.setInsertionPointToStart(taskBlock);

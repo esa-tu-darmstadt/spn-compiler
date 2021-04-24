@@ -7,7 +7,6 @@
 #include "LoSPNtoCPU/StructurePatterns.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/IR/BuiltinOps.h"
 
 mlir::LogicalResult mlir::spn::KernelLowering::matchAndRewrite(mlir::spn::low::SPNKernel op,
                                                                llvm::ArrayRef<mlir::Value> operands,
@@ -80,6 +79,7 @@ mlir::LogicalResult mlir::spn::SingleTaskLowering::matchAndRewrite(mlir::spn::lo
   if (op.batchSize() != 1) {
     return rewriter.notifyMatchFailure(op, "Match only single (batchSize == 1) execution");
   }
+
   auto restore = rewriter.saveInsertionPoint();
   rewriter.setInsertionPointToStart(op->getParentOfType<mlir::ModuleOp>().getBody());
   SmallVector<Type, 5> inputTypes;
@@ -87,8 +87,7 @@ mlir::LogicalResult mlir::spn::SingleTaskLowering::matchAndRewrite(mlir::spn::lo
     inputTypes.push_back(operand.getType());
   }
   auto funcType = FunctionType::get(rewriter.getContext(), inputTypes, {});
-  auto taskFunc = rewriter.create<FuncOp>(op->getLoc(), Twine("task_", std::to_string(taskCount++)).str(),
-                                          funcType);
+  auto taskFunc = rewriter.create<FuncOp>(op->getLoc(), Twine("task_", std::to_string(taskCount++)).str(), funcType);
   auto taskBlock = taskFunc.addEntryBlock();
   rewriter.setInsertionPointToStart(taskBlock);
 
