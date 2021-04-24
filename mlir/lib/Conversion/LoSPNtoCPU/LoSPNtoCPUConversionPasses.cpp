@@ -41,6 +41,7 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   }
 
   target.addIllegalOp<spn::low::SPNTask>();
+  target.addLegalOp<math::ExpOp>();
 
   patterns = OwningRewritePatternList();
   if (vectorize) {
