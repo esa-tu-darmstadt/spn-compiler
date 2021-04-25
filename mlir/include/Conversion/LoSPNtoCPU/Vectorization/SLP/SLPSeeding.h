@@ -30,7 +30,7 @@ namespace mlir {
 
           explicit SeedAnalysis(Operation* rootOp);
 
-          vector_t getSeed(unsigned width, SearchMode const& mode) const;
+          ArrayRef<Value> getSeed(unsigned width, SearchMode const& mode) const;
 
         private:
           Operation* rootOp;

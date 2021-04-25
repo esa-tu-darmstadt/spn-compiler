@@ -13,16 +13,14 @@ namespace mlir {
     namespace low {
       namespace slp {
 
-        typedef SmallVector<Value, 4> vector_t;
-
         class NodeVector {
 
           friend class SLPNode;
 
         public:
 
-          explicit NodeVector(vector_t const& values);
-          explicit NodeVector(SmallVector<Operation*, 4> const& operations);
+          explicit NodeVector(ArrayRef<Value> const& values);
+          explicit NodeVector(ArrayRef<Operation*> const& operations);
 
           bool isUniform() const;
           bool contains(Value const& value) const;
@@ -34,14 +32,14 @@ namespace mlir {
           size_t numOperands() const;
           NodeVector* getOperand(size_t index) const;
 
-          vector_t::const_iterator begin() const;
-          vector_t::const_iterator end() const;
+          SmallVectorImpl<Value>::const_iterator begin() const;
+          SmallVectorImpl<Value>::const_iterator end() const;
 
           Value const& getElement(size_t lane) const;
           Value const& operator[](size_t lane) const;
 
         private:
-          vector_t values;
+          SmallVector<Value, 4> values;
           SmallVector<std::shared_ptr<NodeVector>> operands;
         };
 
@@ -49,8 +47,8 @@ namespace mlir {
 
         public:
 
-          explicit SLPNode(vector_t const& values);
-          explicit SLPNode(SmallVector<Operation*, 4> const& operations);
+          explicit SLPNode(ArrayRef<Value> const& values);
+          explicit SLPNode(ArrayRef<Operation*> const& operations);
 
           Value getValue(size_t lane, size_t index) const;
           void setValue(size_t lane, size_t index, Value const& newValue);
@@ -63,11 +61,11 @@ namespace mlir {
           size_t numLanes() const;
           size_t numVectors() const;
 
-          NodeVector* addVector(vector_t const& values, NodeVector* definingVector);
-          NodeVector* addVector(SmallVector<Operation*, 4> const& operations);
+          NodeVector* addVector(ArrayRef<Value> const& values, NodeVector* definingVector);
+          NodeVector* addVector(ArrayRef<Operation*> const& operations);
           NodeVector* getVector(size_t index) const;
 
-          SLPNode* addOperand(vector_t const& values, NodeVector* definingVector);
+          SLPNode* addOperand(ArrayRef<Value> const& values, NodeVector* definingVector);
           SLPNode* getOperand(size_t index) const;
           std::vector<SLPNode*> getOperands() const;
           size_t numOperands() const;

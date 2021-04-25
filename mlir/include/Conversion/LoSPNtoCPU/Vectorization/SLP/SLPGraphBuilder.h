@@ -21,7 +21,7 @@ namespace mlir {
 
           explicit SLPGraphBuilder(size_t maxLookAhead);
 
-          std::unique_ptr<SLPNode> build(vector_t const& seed) const;
+          std::unique_ptr<SLPNode> build(ArrayRef<Value> const& seed) const;
 
         private:
 

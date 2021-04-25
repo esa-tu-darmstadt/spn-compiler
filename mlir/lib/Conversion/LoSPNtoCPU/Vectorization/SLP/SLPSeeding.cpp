@@ -31,9 +31,9 @@ namespace {
   }
 }
 
-vector_t SeedAnalysis::getSeed(unsigned width, SearchMode const& mode) const {
+llvm::ArrayRef<Value> SeedAnalysis::getSeed(unsigned width, SearchMode const& mode) const {
 
-  llvm::StringMap<SmallVector<vector_t>> seedsByOpName;
+  llvm::StringMap<SmallVector<SmallVector<Value, 4>>> seedsByOpName;
   auto const& opDepths = getOpDepths(rootOp);
 
   rootOp->walk([&](Operation* op) {
@@ -58,13 +58,13 @@ vector_t SeedAnalysis::getSeed(unsigned width, SearchMode const& mode) const {
       }
     }
     if (needsNewSeed) {
-      vector_t seed{value};
+      SmallVector<Value, 4> seed{value};
       seedsByOpName[op->getName().getStringRef()].emplace_back(seed);
     }
     return WalkResult::advance();
   });
 
-  SmallVector<vector_t> seeds;
+  SmallVector<SmallVector<Value, 4>> seeds;
   // Flatten the map that maps opcode to seeds.
   for (auto const& entry : seedsByOpName) {
     for (auto const& seed : entry.second) {

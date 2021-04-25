@@ -13,7 +13,7 @@ using namespace mlir::spn::low::slp;
 
 SLPGraphBuilder::SLPGraphBuilder(size_t maxLookAhead) : maxLookAhead{maxLookAhead} {}
 
-std::unique_ptr<SLPNode> SLPGraphBuilder::build(vector_t const& seed) const {
+std::unique_ptr<SLPNode> SLPGraphBuilder::build(ArrayRef<Value> const& seed) const {
   auto root = std::make_unique<SLPNode>(SLPNode{seed});
   buildGraph(root->getVector(0), root.get());
   return root;
@@ -90,7 +90,7 @@ void SLPGraphBuilder::buildGraph(NodeVector* vector, SLPNode* currentNode) const
       if (std::all_of(std::begin(allOperands), std::end(allOperands), [&](SmallVector<Value, 2> const& operands) {
         return operands[i].getDefiningOp()->getName() == currentOpCode && !escapesMultinode(operands[i], currentNode);
       })) {
-        vector_t vectorValues;
+        SmallVector<Value, 4> vectorValues;
         for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
           vectorValues.emplace_back(allOperands[lane][i]);
         }
@@ -98,7 +98,7 @@ void SLPGraphBuilder::buildGraph(NodeVector* vector, SLPNode* currentNode) const
         buildGraph(newVector, currentNode);
       } else {
         // TODO: here might be a good place to implement variable vector width
-        vector_t operandValues;
+        SmallVector<Value, 4> operandValues;
         for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
           operandValues.emplace_back(allOperands[lane][i]);
         }
@@ -116,7 +116,7 @@ void SLPGraphBuilder::buildGraph(NodeVector* vector, SLPNode* currentNode) const
     // 2. Non-Commutative
   else {
     for (size_t i = 0; i < arity; ++i) {
-      vector_t operandValues;
+      SmallVector<Value, 4> operandValues;
       for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
         auto operand = currentNode->getValue(lane, 0).getDefiningOp()->getOperand(i);
         operandValues.emplace_back(operand);

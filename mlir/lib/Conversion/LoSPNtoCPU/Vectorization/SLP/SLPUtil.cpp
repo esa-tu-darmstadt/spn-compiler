@@ -99,7 +99,7 @@ void mlir::spn::low::slp::dumpSLPNodeVector(const mlir::spn::low::slp::NodeVecto
   llvm::dbgs() << "\n";
 }
 
-void mlir::spn::low::slp::dumpOpTree(const vector_t& values) {
+void mlir::spn::low::slp::dumpOpTree(ArrayRef<Value> const& values) {
   DenseMap<Value, unsigned> nodes;
   SmallVector<std::tuple<Value, Value, unsigned>> edges;
 

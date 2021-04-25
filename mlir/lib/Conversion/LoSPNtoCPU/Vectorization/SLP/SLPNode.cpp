@@ -5,8 +5,6 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPNode.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
-#include "LoSPN/LoSPNOps.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -15,7 +13,7 @@ using namespace mlir::spn::low::slp;
 
 // === NodeVector === //
 
-NodeVector::NodeVector(vector_t const& values) {
+NodeVector::NodeVector(ArrayRef<Value> const& values) {
   assert(!values.empty());
   for (auto const& value : values) {
     assert(value.isa<BlockArgument>() || value.getDefiningOp()->hasTrait<OpTrait::OneResult>());
@@ -23,7 +21,7 @@ NodeVector::NodeVector(vector_t const& values) {
   }
 }
 
-NodeVector::NodeVector(SmallVector<Operation*, 4> const& operations) {
+NodeVector::NodeVector(ArrayRef<Operation*> const& operations) {
   assert(!operations.empty());
   for (auto* op : operations) {
     assert(op->hasTrait<OpTrait::OneResult>());
@@ -69,11 +67,11 @@ NodeVector* NodeVector::getOperand(size_t index) const {
   return operands[index].get();
 }
 
-vector_t::const_iterator NodeVector::begin() const {
+SmallVectorImpl<Value>::const_iterator NodeVector::begin() const {
   return values.begin();
 }
 
-vector_t::const_iterator NodeVector::end() const {
+SmallVectorImpl<Value>::const_iterator NodeVector::end() const {
   return values.end();
 }
 
@@ -88,12 +86,12 @@ Value const& NodeVector::operator[](size_t lane) const {
 
 // === SLPNode === //
 
-SLPNode::SLPNode(SmallVector<Operation*, 4> const& operations) {
-  addVector(operations);
+SLPNode::SLPNode(ArrayRef<Value> const& values) {
+  addVector(values, nullptr);
 }
 
-SLPNode::SLPNode(vector_t const& values) {
-  addVector(values, nullptr);
+SLPNode::SLPNode(ArrayRef<Operation*> const& operations) {
+  addVector(operations);
 }
 
 Value SLPNode::getValue(size_t lane, size_t index) const {
@@ -130,7 +128,7 @@ size_t SLPNode::numVectors() const {
   return vectors.size();
 }
 
-NodeVector* SLPNode::addVector(vector_t const& values, NodeVector* definingVector) {
+NodeVector* SLPNode::addVector(ArrayRef<Value> const& values, NodeVector* definingVector) {
   auto* newVector = vectors.emplace_back(std::make_shared<NodeVector>(values)).get();
   if (definingVector) {
     definingVector->operands.emplace_back(newVector);
@@ -138,7 +136,7 @@ NodeVector* SLPNode::addVector(vector_t const& values, NodeVector* definingVecto
   return newVector;
 }
 
-NodeVector* SLPNode::addVector(SmallVector<Operation*, 4> const& operations) {
+NodeVector* SLPNode::addVector(ArrayRef<Operation*> const& operations) {
   return vectors.emplace_back(std::make_shared<NodeVector>(operations)).get();
 }
 
@@ -147,7 +145,7 @@ NodeVector* SLPNode::getVector(size_t index) const {
   return vectors[index].get();
 }
 
-SLPNode* SLPNode::addOperand(vector_t const& values, NodeVector* definingVector) {
+SLPNode* SLPNode::addOperand(ArrayRef<Value> const& values, NodeVector* definingVector) {
   auto* operandNode = operandNodes.emplace_back(std::make_unique<SLPNode>(values)).get();
   if (definingVector) {
     definingVector->operands.emplace_back(operandNode->vectors.front());

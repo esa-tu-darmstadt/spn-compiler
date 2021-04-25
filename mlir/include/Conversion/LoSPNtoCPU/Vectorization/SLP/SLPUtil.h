@@ -119,7 +119,7 @@ namespace mlir {
           return vectorOp;
         }
 
-        void dumpOpTree(vector_t const& values);
+        void dumpOpTree(ArrayRef<Value> const& values);
         void dumpSLPGraph(SLPNode const& root);
         void dumpSLPNode(SLPNode const& node);
         void dumpSLPNodeVector(NodeVector const& nodeVector);
