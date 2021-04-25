@@ -129,11 +129,11 @@ size_t SLPNode::numVectors() const {
 }
 
 NodeVector* SLPNode::addVector(ArrayRef<Value> const& values, NodeVector* definingVector) {
-  auto* newVector = vectors.emplace_back(std::make_shared<NodeVector>(values)).get();
+  auto newVector = vectors.emplace_back(std::make_shared<NodeVector>(values));
   if (definingVector) {
     definingVector->operands.emplace_back(newVector);
   }
-  return newVector;
+  return newVector.get();
 }
 
 NodeVector* SLPNode::addVector(ArrayRef<Operation*> const& operations) {
@@ -146,11 +146,11 @@ NodeVector* SLPNode::getVector(size_t index) const {
 }
 
 SLPNode* SLPNode::addOperand(ArrayRef<Value> const& values, NodeVector* definingVector) {
-  auto* operandNode = operandNodes.emplace_back(std::make_unique<SLPNode>(values)).get();
+  auto const& operandNode = operandNodes.emplace_back(std::make_unique<SLPNode>(values));
   if (definingVector) {
     definingVector->operands.emplace_back(operandNode->vectors.front());
   }
-  return operandNode;
+  return operandNode.get();
 }
 
 SLPNode* SLPNode::getOperand(size_t index) const {
