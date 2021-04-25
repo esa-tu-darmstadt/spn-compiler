@@ -56,7 +56,7 @@ namespace {
 LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternRewriter& rewriter) const {
 
   if (vectorizedOps.count(vector)) {
-    return rewriter.notifyMatchFailure(constantOp, "operation's vector has already been created");
+    return constantOp->emitError("operation's vector has already been created");
   }
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), constantOp.getType());
@@ -86,7 +86,7 @@ LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternR
 LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, PatternRewriter& rewriter) const {
 
   if (vectorizedOps.count(vector)) {
-    return rewriter.notifyMatchFailure(batchReadOp, "operation's vector has already been created");
+    return batchReadOp->emitError("operation's vector has already been created");
   }
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), batchReadOp.getType());
@@ -113,7 +113,7 @@ LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, Patt
 LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewriter) const {
 
   if (vectorizedOps.count(vector)) {
-    return rewriter.notifyMatchFailure(addOp, "operation's vector has already been created");
+    return addOp->emitError("operation's vector has already been created");
   }
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), addOp.getType());
@@ -129,7 +129,7 @@ LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewri
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < addOp.getNumOperands(); ++i) {
     if (!vectorizedOps.count(vector->getOperand(i))) {
-      return rewriter.notifyMatchFailure(addOp, "operation's operands have not yet been vectorized");
+      return addOp->emitError("operand #" + std::to_string(i) + " has not yet been vectorized");
     }
     auto const& operand = vectorizedOps[vector->getOperand(i)];
     operands.emplace_back(operand);
@@ -146,7 +146,7 @@ LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewri
 LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewriter) const {
 
   if (vectorizedOps.count(vector)) {
-    return rewriter.notifyMatchFailure(mulOp, "operation's vector has already been created");
+    return mulOp->emitError("operation's vector has already been created");
   }
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), mulOp.getType());
@@ -162,7 +162,7 @@ LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewri
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < mulOp.getNumOperands(); ++i) {
     if (!vectorizedOps.count(vector->getOperand(i))) {
-      return rewriter.notifyMatchFailure(mulOp, "operation's operands have not yet been vectorized");
+      return mulOp->emitError("operand #" + std::to_string(i) + " has not yet been vectorized");
     }
     auto const& operand = vectorizedOps[vector->getOperand(i)];
     operands.emplace_back(operand);
@@ -179,7 +179,7 @@ LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewri
 LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, PatternRewriter& rewriter) const {
 
   if (vectorizedOps.count(vector)) {
-    return rewriter.notifyMatchFailure(gaussianOp, "operation's vector has already been created");
+    return gaussianOp->emitError("operation's vector has already been created");
   }
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), gaussianOp.getType());
@@ -230,7 +230,7 @@ LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, Pat
 
   // Grab the input vector.
   if (!vectorizedOps.count(vector->getOperand(0))) {
-    return rewriter.notifyMatchFailure(gaussianOp, "input vector has not yet been vectorized");
+    return gaussianOp->emitError("input vector has not yet been vectorized");
   }
   Value const& inputVector = vectorizedOps[vector->getOperand(0)];
 
