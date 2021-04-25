@@ -208,8 +208,9 @@ void mlir::spn::low::slp::dumpSLPGraph(SLPNode const& root) {
     llvm::dbgs() << "\t</TABLE>\n";
     llvm::dbgs() << ">];\n";
 
-    for (auto const& operand : node->getOperands()) {
-      llvm::dbgs() << "node_" << node << "->" << "node_" << operand << ";\n";
+    for (size_t i = 0; i < node->numOperands(); ++i) {
+      auto const& operand = node->getOperand(i);
+      llvm::dbgs() << "node_" << node << "->" << "node_" << operand << "[label=\"" << std::to_string(i) << "\"];\n";
       worklist.emplace(operand);
     }
   }
