@@ -254,30 +254,22 @@ std::pair<Value, SLPGraphBuilder::Mode> SLPGraphBuilder::getBest(Mode const& mod
 }
 
 int SLPGraphBuilder::getLookAheadScore(Value const& last, Value const& candidate, unsigned maxLevel) const {
-  if (maxLevel == 0) {
+  if (maxLevel == 0 || last.isa<BlockArgument>() || candidate.isa<BlockArgument>()) {
     if (last == candidate) {
       return 1;
     }
-    if (last.isa<BlockArgument>() || candidate.isa<BlockArgument>()) {
-      return 0;
+    if (last.getDefiningOp<SPNBatchRead>() && consecutiveLoads(last, candidate)) {
+      return 1;
     }
-    if (last.getDefiningOp()->getName() != candidate.getDefiningOp()->getName()) {
-      return 0;
+    if (!last.isa<BlockArgument>() && !candidate.isa<BlockArgument>()) {
+      return last.getDefiningOp()->getName() == candidate.getDefiningOp()->getName();
     }
-    if (last.getDefiningOp<SPNBatchRead>()) {
-      return consecutiveLoads(last, candidate) ? 1 : 0;
-    }
-    return 1;
+    return 0;
   }
   auto scoreSum = 0;
   for (auto& lastOperand : getOperands(last)) {
     for (auto& candidateOperand : getOperands(candidate)) {
-      // Can be null if the operand is a block argument.
-      if (!lastOperand || !candidateOperand) {
-        scoreSum += getLookAheadScore(last, candidate, 0);
-      } else {
-        scoreSum += getLookAheadScore(lastOperand, candidateOperand, maxLevel - 1);
-      }
+      scoreSum += getLookAheadScore(lastOperand, candidateOperand, maxLevel - 1);
     }
   }
   return scoreSum;
