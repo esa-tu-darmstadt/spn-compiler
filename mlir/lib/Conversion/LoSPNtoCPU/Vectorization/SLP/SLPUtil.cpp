@@ -63,8 +63,8 @@ bool mlir::spn::low::slp::consecutiveLoads(Value const& lhs, Value const& rhs) {
 void mlir::spn::low::slp::dumpSLPNode(mlir::spn::low::slp::SLPNode const& node) {
   for (size_t i = node.numVectors(); i-- > 0;) {
     dumpSLPNodeVector(*node.getVector(i));
-    llvm::dbgs() << "\n";
   }
+  llvm::dbgs() << "\n";
 }
 
 // Helper functions in an anonymous namespace.
