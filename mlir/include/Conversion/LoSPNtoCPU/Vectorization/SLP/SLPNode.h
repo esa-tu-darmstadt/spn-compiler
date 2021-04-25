@@ -73,16 +73,6 @@ namespace mlir {
           static SmallVector<SLPNode*> postOrder(SLPNode* root);
           static DenseMap<NodeVector*, SmallVector<size_t, 4>> escapingLanesMap(SLPNode* root);
 
-/*
-          bool operator==(SLPNode const& other) {
-            return std::tie(vectors) == std::tie(other.vectors);
-          }
-
-          bool operator!=(SLPNode const& other) {
-            return !(*this == other);
-          }
-*/
-
         private:
           SmallVector<std::shared_ptr<NodeVector>> vectors;
           SmallVector<std::unique_ptr<SLPNode>> operandNodes;
