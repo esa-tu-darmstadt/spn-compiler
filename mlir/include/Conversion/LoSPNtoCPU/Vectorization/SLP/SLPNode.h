@@ -7,6 +7,7 @@
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPNODE_H
 
 #include "mlir/IR/Operation.h"
+#include "llvm/ADT/SmallPtrSet.h"
 
 namespace mlir {
   namespace spn {
@@ -71,7 +72,7 @@ namespace mlir {
           size_t numOperands() const;
 
           static SmallVector<SLPNode*> postOrder(SLPNode* root);
-          static DenseMap<NodeVector*, SmallVector<size_t, 4>> escapingLanesMap(SLPNode* root);
+          static DenseMap<NodeVector*, std::shared_ptr<SmallPtrSetImpl<size_t>>> escapingLanesMap(SLPNode* root);
 
         private:
           SmallVector<std::shared_ptr<NodeVector>> vectors;

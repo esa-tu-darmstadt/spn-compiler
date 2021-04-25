@@ -99,11 +99,11 @@ mlir::LogicalResult mlir::spn::VectorizeSingleTask::matchAndRewrite(mlir::spn::l
   low::slp::SeedAnalysis seedAnalysis{taskFunc};
   auto const& seed = seedAnalysis.getSeed(hwVectorWidth, low::slp::SearchMode::UseBeforeDef);
   assert(!seed.empty() && "couldn't find a seed!");
-  low::slp::dumpOpTree(seed);
-  seed.front().getDefiningOp()->getBlock()->dump();
+  // low::slp::dumpOpTree(seed);
+  // seed.front().getDefiningOp()->getBlock()->dump();
   low::slp::SLPGraphBuilder builder{3};
   auto graph = builder.build(seed);
-  low::slp::dumpSLPGraph(*graph);
+  // low::slp::dumpSLPGraph(*graph);
 
   task->emitRemark() << "Transforming SLP graph back into vectorized ops...";
   // Maps individual SLP node vectors to finished vector operations.
@@ -164,8 +164,7 @@ mlir::LogicalResult mlir::spn::VectorizeSingleTask::matchAndRewrite(mlir::spn::l
           if (finishedValues.contains(vectorValue)) {
             continue;
           }
-          auto const& lanesToExtract = escapingLanes.lookup(vector);
-          if (std::find(std::begin(lanesToExtract), std::end(lanesToExtract), lane) != std::end(lanesToExtract)) {
+          if (escapingLanes.count(vector) && escapingLanes.lookup(vector)->contains(lane)) {
             auto const& source = vectorizedOps[vector];
             rewriter.setInsertionPoint(low::slp::firstOccurrence(std::begin(vectorValue.getUsers()),
                                                                  std::end(vectorValue.getUsers())));
@@ -182,7 +181,7 @@ mlir::LogicalResult mlir::spn::VectorizeSingleTask::matchAndRewrite(mlir::spn::l
   }
 
   rewriter.restoreInsertionPoint(callPoint);
-  rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands).dump();
+  rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
   return success();
 
 }

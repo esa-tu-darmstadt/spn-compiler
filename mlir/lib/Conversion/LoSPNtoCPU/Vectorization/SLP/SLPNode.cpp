@@ -184,7 +184,7 @@ SmallVector<SLPNode*> SLPNode::postOrder(SLPNode* root) {
 }
 
 /// Traverse the entire graph starting at root and gather lanes of each node vector that has escaping uses.
-DenseMap<NodeVector*, SmallVector<size_t, 4>> SLPNode::escapingLanesMap(SLPNode* root) {
+DenseMap<NodeVector*, std::shared_ptr<SmallPtrSetImpl<size_t>>> SLPNode::escapingLanesMap(SLPNode* root) {
   DenseMap<Value, unsigned> outsideUses;
   for (auto* node : postOrder(root)) {
     for (size_t i = node->numVectors(); i-- > 0;) {
@@ -205,13 +205,18 @@ DenseMap<NodeVector*, SmallVector<size_t, 4>> SLPNode::escapingLanesMap(SLPNode*
     }
   }
 
-  DenseMap<NodeVector*, SmallVector<size_t, 4>> escapingLanes;
+  DenseMap<NodeVector*, std::shared_ptr<SmallPtrSetImpl<size_t>>> escapingLanes;
   for (auto* node : postOrder(root)) {
     for (size_t i = 0; i < node->numVectors(); ++i) {
       auto* vector = node->getVector(i);
       for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
         if (outsideUses[vector->getElement(lane)] > 0) {
-          escapingLanes[vector].emplace_back(lane);
+          if (escapingLanes.count(vector)) {
+            escapingLanes[vector]->insert(lane);
+          } else {
+            SmallPtrSet<size_t, 4> lanes{lane};
+            escapingLanes[vector] = std::make_shared<SmallPtrSet<size_t, 4>>(lanes);
+          }
         }
       }
     }
