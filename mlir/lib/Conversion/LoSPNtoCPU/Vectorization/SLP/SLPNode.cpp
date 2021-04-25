@@ -185,38 +185,33 @@ SmallVector<SLPNode*> SLPNode::postOrder(SLPNode* root) {
 
 /// Traverse the entire graph starting at root and gather lanes of each node vector that has escaping uses.
 DenseMap<NodeVector*, SmallVector<size_t, 4>> SLPNode::escapingLanesMap(SLPNode* root) {
-  DenseMap<NodeVector*, DenseMap<mlir::Value, unsigned>> outsideUses;
+  DenseMap<Value, unsigned> outsideUses;
   for (auto* node : postOrder(root)) {
-    for (size_t i = 0; i < node->numVectors(); ++i) {
+    for (size_t i = node->numVectors(); i-- > 0;) {
       auto* vector = node->getVector(i);
       for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
         auto const& element = vector->getElement(lane);
         // Skip duplicate (splat) values.
-        if (outsideUses[vector].count(element)) {
+        if (outsideUses.count(element)) {
           continue;
         }
-        outsideUses[vector][element] = std::distance(std::begin(element.getUses()), std::end(element.getUses()));
+        outsideUses[element] = std::distance(std::begin(element.getUses()), std::end(element.getUses()));
         for (size_t j = 0; j < vector->numOperands(); ++j) {
           auto* operand = vector->getOperand(j);
-          assert(outsideUses[operand][operand->getElement(lane)] > 0);
-          outsideUses[operand][operand->getElement(lane)]--;
+          assert(outsideUses[operand->getElement(lane)] > 0);
+          outsideUses[operand->getElement(lane)]--;
         }
       }
     }
   }
 
   DenseMap<NodeVector*, SmallVector<size_t, 4>> escapingLanes;
-  for (auto const& entry : outsideUses) {
-    auto* vector = entry.first;
-    for (auto const& useAndCount : entry.second) {
-      auto const& value = useAndCount.first;
-      auto const& count = useAndCount.second;
-      if (count > 0) {
-        for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-          if (vector->getElement(lane) == value) {
-            escapingLanes[vector].emplace_back(lane);
-            break;
-          }
+  for (auto* node : postOrder(root)) {
+    for (size_t i = 0; i < node->numVectors(); ++i) {
+      auto* vector = node->getVector(i);
+      for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
+        if (outsideUses[vector->getElement(lane)] > 0) {
+          escapingLanes[vector].emplace_back(lane);
         }
       }
     }
