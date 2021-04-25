@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "SLPNode.h"
+#include "SLPConversion.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
@@ -27,21 +28,13 @@ namespace mlir {
         class SLPVectorizationPattern : public OpRewritePattern<SourceOp> {
 
         public:
-          SLPVectorizationPattern(MLIRContext* context,
-                                  NodeVector* const& vector,
-                                  DenseMap<NodeVector*, Value>& vectorizedOps,
-                                  SmallPtrSet<NodeVector*, 32>& erasableOps) : OpRewritePattern<SourceOp>{context},
-                                                                               vector{vector},
-                                                                               vectorizedOps{vectorizedOps},
-                                                                               erasableOps{erasableOps} {}
+          SLPVectorizationPattern(MLIRContext* context, NodeVector* const& vector, ConversionState& conversionState)
+              : OpRewritePattern<SourceOp>{context}, vector{vector}, conversionState{conversionState} {}
 
         protected:
           /// The current vector being transformed.
           NodeVector* const& vector;
-          /// Vector operations created for the SLP node vectors.
-          DenseMap<NodeVector*, Value>& vectorizedOps;
-
-          SmallPtrSet<NodeVector*, 32>& erasableOps;
+          ConversionState& conversionState;
         };
 
         struct VectorizeConstant : public SLPVectorizationPattern<ConstantOp> {
@@ -72,12 +65,11 @@ namespace mlir {
         static void populateSLPVectorizationPatterns(OwningRewritePatternList& patterns,
                                                      MLIRContext* context,
                                                      NodeVector* const& vector,
-                                                     DenseMap<NodeVector*, Value>& vectorizedOps,
-                                                     SmallPtrSet<NodeVector*, 32>& erasableOps) {
-          patterns.insert<VectorizeConstant>(context, vector, vectorizedOps, erasableOps);
-          patterns.insert<VectorizeBatchRead>(context, vector, vectorizedOps, erasableOps);
-          patterns.insert<VectorizeAdd, VectorizeMul>(context, vector, vectorizedOps, erasableOps);
-          patterns.insert<VectorizeGaussian>(context, vector, vectorizedOps, erasableOps);
+                                                     ConversionState& conversionState) {
+          patterns.insert<VectorizeConstant>(context, vector, conversionState);
+          patterns.insert<VectorizeBatchRead>(context, vector, conversionState);
+          patterns.insert<VectorizeAdd, VectorizeMul>(context, vector, conversionState);
+          patterns.insert<VectorizeGaussian>(context, vector, conversionState);
         }
 
       }

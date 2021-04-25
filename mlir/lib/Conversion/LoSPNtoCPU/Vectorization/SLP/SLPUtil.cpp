@@ -5,18 +5,20 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include <queue>
 #include <stack>
 
 using namespace mlir;
+using namespace mlir::spn;
+using namespace mlir::spn::low;
+using namespace mlir::spn::low::slp;
 
-bool mlir::spn::low::slp::vectorizable(Operation* op) {
+bool slp::vectorizable(Operation* op) {
   return (op->hasTrait<OpTrait::spn::low::VectorizableOp>() || op->hasTrait<OpTrait::ConstantLike>())
       && op->hasTrait<OpTrait::OneResult>() && op->getResult(0).getType().isIntOrFloat();
 }
 
-bool mlir::spn::low::slp::vectorizable(Value const& value) {
+bool slp::vectorizable(Value const& value) {
   // Block arguments don't have defining ops (they can still be put in a vector by other means).
   if (auto* definingOp = value.getDefiningOp()) {
     if (!vectorizable(definingOp)) {
@@ -26,20 +28,7 @@ bool mlir::spn::low::slp::vectorizable(Value const& value) {
   return value.getType().isIntOrFloat();
 }
 
-bool mlir::spn::low::slp::isBeforeInBlock(Operation* lhs, Operation* rhs) {
-  return lhs->isBeforeInBlock(rhs);
-}
-
-bool mlir::spn::low::slp::isBeforeInBlock(Value const& lhs, Value const& rhs) {
-  if (lhs.isa<BlockArgument>()) {
-    return !rhs.isa<BlockArgument>();
-  } else if (rhs.isa<BlockArgument>()) {
-    return false;
-  }
-  return lhs.getDefiningOp()->isBeforeInBlock(rhs.getDefiningOp());
-}
-
-bool mlir::spn::low::slp::consecutiveLoads(Value const& lhs, Value const& rhs) {
+bool slp::consecutiveLoads(Value const& lhs, Value const& rhs) {
   if (lhs == rhs || lhs.isa<BlockArgument>() || rhs.isa<BlockArgument>()) {
     return false;
   }
@@ -60,7 +49,7 @@ bool mlir::spn::low::slp::consecutiveLoads(Value const& lhs, Value const& rhs) {
   return true;
 }
 
-void mlir::spn::low::slp::dumpSLPNode(mlir::spn::low::slp::SLPNode const& node) {
+void slp::dumpSLPNode(SLPNode const& node) {
   for (size_t i = node.numVectors(); i-- > 0;) {
     dumpSLPNodeVector(*node.getVector(i));
   }
@@ -85,7 +74,7 @@ namespace {
   }
 }
 
-void mlir::spn::low::slp::dumpSLPNodeVector(const mlir::spn::low::slp::NodeVector& nodeVector) {
+void slp::dumpSLPNodeVector(NodeVector const& nodeVector) {
   for (size_t lane = 0; lane < nodeVector.numLanes(); ++lane) {
     if (!nodeVector[lane].isa<BlockArgument>()) {
       llvm::dbgs() << nodeVector[lane] << " (" << nodeVector[lane].getDefiningOp() << ")";
@@ -99,7 +88,7 @@ void mlir::spn::low::slp::dumpSLPNodeVector(const mlir::spn::low::slp::NodeVecto
   llvm::dbgs() << "\n";
 }
 
-void mlir::spn::low::slp::dumpOpTree(ArrayRef<Value> const& values) {
+void slp::dumpOpTree(ArrayRef<Value> const& values) {
   DenseMap<Value, unsigned> nodes;
   SmallVector<std::tuple<Value, Value, unsigned>> edges;
 
@@ -156,7 +145,7 @@ void mlir::spn::low::slp::dumpOpTree(ArrayRef<Value> const& values) {
   llvm::dbgs() << "}\n";
 }
 
-void mlir::spn::low::slp::dumpSLPGraph(SLPNode const& root) {
+void slp::dumpSLPGraph(SLPNode const& root) {
 
   llvm::dbgs() << "digraph debug_graph {\n";
   llvm::dbgs() << "rankdir = BT;\n";

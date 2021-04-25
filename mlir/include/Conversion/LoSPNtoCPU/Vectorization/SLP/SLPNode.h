@@ -23,13 +23,13 @@ namespace mlir {
           explicit NodeVector(ArrayRef<Value> const& values);
           explicit NodeVector(ArrayRef<Operation*> const& operations);
 
-          bool isUniform() const;
           bool contains(Value const& value) const;
           bool containsBlockArgs() const;
           bool vectorizable() const;
+          bool splattable() const;
+          bool isLeaf() const;
 
           size_t numLanes() const;
-
           size_t numOperands() const;
           NodeVector* getOperand(size_t index) const;
 
@@ -54,7 +54,6 @@ namespace mlir {
           Value getValue(size_t lane, size_t index) const;
           void setValue(size_t lane, size_t index, Value const& newValue);
 
-          bool isUniform() const;
           bool contains(Value const& value) const;
 
           bool isRootOfNode(NodeVector const& vector) const;
@@ -72,7 +71,6 @@ namespace mlir {
           size_t numOperands() const;
 
           static SmallVector<SLPNode*> postOrder(SLPNode* root);
-          static DenseMap<NodeVector*, std::shared_ptr<SmallPtrSetImpl<size_t>>> escapingLanesMap(SLPNode* root);
 
         private:
           SmallVector<std::shared_ptr<NodeVector>> vectors;

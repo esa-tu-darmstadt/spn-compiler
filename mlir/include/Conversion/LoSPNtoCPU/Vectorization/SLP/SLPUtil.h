@@ -20,9 +20,6 @@ namespace mlir {
         bool vectorizable(Operation* op);
         bool vectorizable(Value const& value);
 
-        bool isBeforeInBlock(Operation* lhs, Operation* rhs);
-        bool isBeforeInBlock(Value const& lhs, Value const& rhs);
-
         bool consecutiveLoads(Value const& lhs, Value const& rhs);
 
         template<typename ValueIterator>
@@ -68,42 +65,6 @@ namespace mlir {
             ++begin;
           }
           return true;
-        }
-
-        template<typename Iterator>
-        typename std::iterator_traits<Iterator>::value_type firstOccurrence(Iterator begin, Iterator end) {
-          typename std::iterator_traits<Iterator>::value_type first = *begin;
-          while (++begin != end) {
-            if (!isBeforeInBlock(first, *begin)) {
-              first = *begin;
-            }
-          }
-          return first;
-        }
-
-        template<typename Iterator>
-        typename std::iterator_traits<Iterator>::value_type lastOccurrence(Iterator begin, Iterator end) {
-          typename std::iterator_traits<Iterator>::value_type last = *begin;
-          while (++begin != end) {
-            if (isBeforeInBlock(last, *begin)) {
-              last = *begin;
-            }
-          }
-          return last;
-        }
-
-        template<typename UsableIterator>
-        Operation* firstUser(UsableIterator begin, UsableIterator end) {
-          Operation* firstUser = nullptr;
-          while (begin != end) {
-            for (auto* user : begin->getUsers()) {
-              if (!firstUser || user->isBeforeInBlock(firstUser)) {
-                firstUser = user;
-              }
-            }
-            ++begin;
-          }
-          return firstUser;
         }
 
         template<typename ValueIterator>

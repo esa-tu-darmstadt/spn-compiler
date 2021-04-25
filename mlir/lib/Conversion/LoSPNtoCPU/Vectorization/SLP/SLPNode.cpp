@@ -29,15 +29,6 @@ NodeVector::NodeVector(ArrayRef<Operation*> const& operations) {
   }
 }
 
-bool NodeVector::isUniform() const {
-  return std::all_of(std::begin(values), std::end(values), [&](Value const& value) {
-    if (value.isa<BlockArgument>()) {
-      return false;
-    }
-    return value.getDefiningOp()->getName() == values.front().getDefiningOp()->getName();
-  });
-}
-
 bool NodeVector::contains(Value const& value) const {
   return std::find(std::begin(values), std::end(values), value) != std::end(values);
 }
@@ -52,6 +43,21 @@ bool NodeVector::vectorizable() const {
   return std::all_of(std::begin(values), std::end(values), [&](Value const& value) {
     return low::slp::vectorizable(value);
   });
+}
+
+bool NodeVector::splattable() const {
+  if (containsBlockArgs()) {
+    return std::all_of(std::begin(values), std::end(values), [&](Value const& element) {
+      return element == values.front();
+    });
+  }
+  return std::all_of(std::begin(values), std::end(values), [&](Value const& element) {
+    return OperationEquivalence::isEquivalentTo(element.getDefiningOp(), values.front().getDefiningOp());
+  });
+}
+
+bool NodeVector::isLeaf() const {
+  return operands.empty();
 }
 
 size_t NodeVector::numLanes() const {
@@ -102,12 +108,6 @@ Value SLPNode::getValue(size_t lane, size_t index) const {
 void SLPNode::setValue(size_t lane, size_t index, Value const& newValue) {
   assert(lane <= numLanes() && index <= numVectors());
   vectors[index]->values[lane] = newValue;
-}
-
-bool SLPNode::isUniform() const {
-  return std::all_of(std::begin(vectors), std::end(vectors), [&](auto const& nodeVector) {
-    return nodeVector->isUniform();
-  });
 }
 
 bool SLPNode::contains(Value const& value) const {
@@ -181,45 +181,4 @@ SmallVector<SLPNode*> SLPNode::postOrder(SLPNode* root) {
   }
   order.emplace_back(root);
   return order;
-}
-
-/// Traverse the entire graph starting at root and gather lanes of each node vector that has escaping uses.
-DenseMap<NodeVector*, std::shared_ptr<SmallPtrSetImpl<size_t>>> SLPNode::escapingLanesMap(SLPNode* root) {
-  DenseMap<Value, unsigned> outsideUses;
-  for (auto* node : postOrder(root)) {
-    for (size_t i = node->numVectors(); i-- > 0;) {
-      auto* vector = node->getVector(i);
-      for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-        auto const& element = vector->getElement(lane);
-        // Skip duplicate (splat) values.
-        if (outsideUses.count(element)) {
-          continue;
-        }
-        outsideUses[element] = std::distance(std::begin(element.getUses()), std::end(element.getUses()));
-        for (size_t j = 0; j < vector->numOperands(); ++j) {
-          auto* operand = vector->getOperand(j);
-          assert(outsideUses[operand->getElement(lane)] > 0);
-          outsideUses[operand->getElement(lane)]--;
-        }
-      }
-    }
-  }
-
-  DenseMap<NodeVector*, std::shared_ptr<SmallPtrSetImpl<size_t>>> escapingLanes;
-  for (auto* node : postOrder(root)) {
-    for (size_t i = 0; i < node->numVectors(); ++i) {
-      auto* vector = node->getVector(i);
-      for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-        if (outsideUses[vector->getElement(lane)] > 0) {
-          if (escapingLanes.count(vector)) {
-            escapingLanes[vector]->insert(lane);
-          } else {
-            SmallPtrSet<size_t, 4> lanes{lane};
-            escapingLanes[vector] = std::make_shared<SmallPtrSet<size_t, 4>>(lanes);
-          }
-        }
-      }
-    }
-  }
-  return escapingLanes;
 }

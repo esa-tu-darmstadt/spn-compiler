@@ -8,7 +8,6 @@
 
 #include "mlir/IR/Operation.h"
 #include "SLPNode.h"
-#include <map>
 
 namespace mlir {
   namespace spn {

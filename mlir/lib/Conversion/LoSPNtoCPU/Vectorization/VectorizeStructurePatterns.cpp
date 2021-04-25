@@ -13,10 +13,15 @@
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "llvm/Support/FormatVariadic.h"
 
-mlir::LogicalResult mlir::spn::VectorizeTask::createFunctionIfVectorizable(low::SPNTask& task,
-                                                                           ArrayRef<Value> const& operands,
-                                                                           ConversionPatternRewriter& rewriter,
-                                                                           FuncOp* function) const {
+using namespace mlir;
+using namespace mlir::spn;
+using namespace mlir::spn::low;
+using namespace mlir::spn::low::slp;
+
+LogicalResult VectorizeTask::createFunctionIfVectorizable(SPNTask& task,
+                                                          ArrayRef<Value> const& operands,
+                                                          ConversionPatternRewriter& rewriter,
+                                                          FuncOp* function) const {
   static int taskCount = 0;
 
   assert(operands.back().getType().isa<MemRefType>());
@@ -50,7 +55,7 @@ mlir::LogicalResult mlir::spn::VectorizeTask::createFunctionIfVectorizable(low::
                      << computationType;
 
   auto const& insertionPoint = rewriter.saveInsertionPoint();
-  rewriter.setInsertionPointToStart(task->getParentOfType<mlir::ModuleOp>().getBody());
+  rewriter.setInsertionPointToStart(task->getParentOfType<ModuleOp>().getBody());
   SmallVector<Type, 5> inputTypes;
   for (auto operand : operands) {
     inputTypes.push_back(operand.getType());
@@ -61,13 +66,12 @@ mlir::LogicalResult mlir::spn::VectorizeTask::createFunctionIfVectorizable(low::
   return success();
 }
 
-mlir::LogicalResult mlir::spn::VectorizeSingleTask::matchAndRewrite(mlir::spn::low::SPNTask task,
-                                                                    llvm::ArrayRef<mlir::Value> operands,
-                                                                    mlir::ConversionPatternRewriter& rewriter) const {
+LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
+                                                   llvm::ArrayRef<Value> operands,
+                                                   ConversionPatternRewriter& rewriter) const {
 
   if (task.batchSize() > 1) {
-    return rewriter.notifyMatchFailure(task,
-                                       "Specialized for single batch vectorization, does not match for batchSize > 1");
+    return rewriter.notifyMatchFailure(task, "Single batch vectorization does not match for batchSize > 1");
   }
 
   auto const& callPoint = rewriter.saveInsertionPoint();
@@ -96,29 +100,26 @@ mlir::LogicalResult mlir::spn::VectorizeSingleTask::matchAndRewrite(mlir::spn::l
   task->emitRemark() << "Computing new seed for SLP vectorization...";
   auto computationType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
   auto hwVectorWidth = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
-  low::slp::SeedAnalysis seedAnalysis{taskFunc};
-  auto const& seed = seedAnalysis.getSeed(hwVectorWidth, low::slp::SearchMode::UseBeforeDef);
+  SeedAnalysis seedAnalysis{taskFunc};
+  auto const& seed = seedAnalysis.getSeed(hwVectorWidth, SearchMode::UseBeforeDef);
   assert(!seed.empty() && "couldn't find a seed!");
   // low::slp::dumpOpTree(seed);
   // seed.front().getDefiningOp()->getBlock()->dump();
-  low::slp::SLPGraphBuilder builder{3};
+  SLPGraphBuilder builder{3};
   auto graph = builder.build(seed);
   // low::slp::dumpSLPGraph(*graph);
 
   task->emitRemark() << "Transforming SLP graph back into vectorized ops...";
-  // Maps individual SLP node vectors to finished vector operations.
-  DenseMap<low::slp::NodeVector*, Value> vectorizedOps;
-  // Marks operations as potentially erasable (potentially because they might have escaping uses).
-  SmallPtrSet<low::slp::NodeVector*, 32> erasableOps;
-  // Stores escaping uses for vector extractions that might be necessary later on.
-  auto const& escapingLanes = low::slp::SLPNode::escapingLanesMap(graph.get());
+  // The current vector being transformed.
+  NodeVector* vector = nullptr;
+
+  ConversionState conversionState{graph.get()};
+
   // Prevent extracting/removing values more than once (happens in splat mode, if they appear in multiple vectors, ...).
   SmallPtrSet<Value, 32> finishedValues;
-  // The current vector being transformed.
-  low::slp::NodeVector* vector = nullptr;
 
   OwningRewritePatternList patterns;
-  populateSLPVectorizationPatterns(patterns, rewriter.getContext(), vector, vectorizedOps, erasableOps);
+  populateSLPVectorizationPatterns(patterns, rewriter.getContext(), vector, conversionState);
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
 
   // Use a custom pattern driver that does *not* perform folding automatically (which the other rewrite drivers
@@ -130,23 +131,25 @@ mlir::LogicalResult mlir::spn::VectorizeSingleTask::matchAndRewrite(mlir::spn::l
   applicator.applyDefaultCostModel();
 
   // Traverse the SLP graph in postorder and apply the vectorization patterns.
-  for (auto* node : low::slp::SLPNode::postOrder(graph.get())) {
+  for (auto* node : SLPNode::postOrder(graph.get())) {
 
     // Also traverse nodes in postorder to properly handle multinodes.
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
-      // This assumes that there exist other vectors that use the current node vector directly (or don't need it), e.g.
-      // batch reads that get lowered to vector loads instead of using a vector of indices as input.
+      dumpSLPNodeVector(*vector);
+      // Note: continuing here means that there exist other vectors that use the current node vector
+      // directly (or don't need it), e.g. batch reads that get lowered to vector loads instead of using
+      // a vector of indices as input.
       if (!vector->vectorizable()) {
         continue;
       }
       if (vector->containsBlockArgs()) {
         auto const& type = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
         auto const& insertionPoint = rewriter.saveInsertionPoint();
-        rewriter.setInsertionPoint(low::slp::firstUser(vector->begin(), vector->end()));
-        auto vectorOp = low::slp::broadcastFirstInsertRest(vector->begin(), vector->end(), type, rewriter);
+        rewriter.setInsertionPointAfterValue(conversionState.getInsertionPoint(vector));
+        auto vectorOp = broadcastFirstInsertRest(vector->begin(), vector->end(), type, rewriter);
         rewriter.restoreInsertionPoint(insertionPoint);
-        vectorizedOps[vector] = vectorOp;
+        conversionState.update(vector, vectorOp, CreationMode::BroadcastInsert);
       } else {
         auto* vectorOp = vector->begin()->getDefiningOp();
         if (failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
@@ -158,24 +161,31 @@ mlir::LogicalResult mlir::spn::VectorizeSingleTask::matchAndRewrite(mlir::spn::l
     // Create vector extractions for escaping uses & erase superfluous operations.
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
-      if (vectorizedOps.count(vector) && erasableOps.count(vector)) {
-        for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-          auto const& vectorValue = vector->getElement(lane);
-          if (finishedValues.contains(vectorValue)) {
-            continue;
-          }
-          if (escapingLanes.count(vector) && escapingLanes.lookup(vector)->contains(lane)) {
-            auto const& source = vectorizedOps[vector];
-            rewriter.setInsertionPoint(low::slp::firstOccurrence(std::begin(vectorValue.getUsers()),
-                                                                 std::end(vectorValue.getUsers())));
-            auto extractOp = rewriter.create<mlir::vector::ExtractElementOp>(vectorValue.getLoc(), source, lane);
-            vectorValue.replaceAllUsesWith(extractOp.result());
-          } else {
-            vectorValue.replaceAllUsesWith(vectorizedOps[vector]);
-          }
-          finishedValues.insert(vectorValue);
-          rewriter.eraseOp(vectorValue.getDefiningOp());
+      // See note above.
+      if (!conversionState.isConverted(vector)) {
+        continue;
+      }
+      auto const& creationMode = conversionState.getCreationMode(vector);
+      for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
+        auto const& vectorValue = vector->getElement(lane);
+        if (finishedValues.contains(vectorValue)) {
+          continue;
         }
+        if (creationMode == CreationMode::BroadcastInsert || (creationMode == CreationMode::Splat && lane == 0)) {
+          finishedValues.insert(vectorValue);
+          continue;
+        }
+        if (auto const& firstEscapingUse = conversionState.getFirstEscapingUse(vector, lane)) {
+          if (creationMode != CreationMode::Constant) {
+            rewriter.setInsertionPoint(firstEscapingUse->getDefiningOp());
+            auto const& source = conversionState.getValue(vector);
+            auto extractOp = rewriter.create<vector::ExtractElementOp>(vectorValue.getLoc(), source, lane);
+            vectorValue.replaceAllUsesWith(extractOp.result());
+          }
+        }
+        finishedValues.insert(vectorValue);
+        rewriter.eraseOp(vectorValue.getDefiningOp());
+
       }
     }
   }
@@ -186,14 +196,13 @@ mlir::LogicalResult mlir::spn::VectorizeSingleTask::matchAndRewrite(mlir::spn::l
 
 }
 
-mlir::LogicalResult mlir::spn::VectorizeBatchTask::matchAndRewrite(mlir::spn::low::SPNTask op,
-                                                                   llvm::ArrayRef<mlir::Value> operands,
-                                                                   mlir::ConversionPatternRewriter& rewriter) const {
+LogicalResult VectorizeBatchTask::matchAndRewrite(SPNTask op,
+                                                  llvm::ArrayRef<Value> operands,
+                                                  ConversionPatternRewriter& rewriter) const {
   static int taskCount = 0;
 
   if (op.batchSize() <= 1) {
-    return rewriter.notifyMatchFailure(op,
-                                       "Specialized for batch vectorization, does not match for batchSize == 1");
+    return rewriter.notifyMatchFailure(op, "Specialized for batch vectorization, does not match for batchSize == 1");
   }
 
   auto restore = rewriter.saveInsertionPoint();
@@ -219,14 +228,14 @@ mlir::LogicalResult mlir::spn::VectorizeBatchTask::matchAndRewrite(mlir::spn::lo
   auto taskBlock = taskFunc.addEntryBlock();
   rewriter.setInsertionPointToStart(taskBlock);
   auto numSamples = rewriter.create<DimOp>(op.getLoc(), taskBlock->getArgument(0), 0);
-  auto vectorWidthConst = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(hwVectorWidth));
-  auto remainder = rewriter.create<mlir::UnsignedRemIOp>(op.getLoc(), numSamples, vectorWidthConst);
-  auto ubVectorized = rewriter.create<mlir::SubIOp>(op.getLoc(), numSamples, remainder);
+  auto vectorWidthConst = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(hwVectorWidth));
+  auto remainder = rewriter.create<UnsignedRemIOp>(op.getLoc(), numSamples, vectorWidthConst);
+  auto ubVectorized = rewriter.create<SubIOp>(op.getLoc(), numSamples, remainder);
 
   // Create the vectorized loop, iterating from 0 to ubVectorized, in steps of hwVectorWidth.
-  auto lbVectorized = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
-  auto stepVectorized = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(hwVectorWidth));
-  auto vectorizedLoop = rewriter.create<mlir::scf::ForOp>(op.getLoc(), lbVectorized, ubVectorized, stepVectorized);
+  auto lbVectorized = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
+  auto stepVectorized = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(hwVectorWidth));
+  auto vectorizedLoop = rewriter.create<scf::ForOp>(op.getLoc(), lbVectorized, ubVectorized, stepVectorized);
   auto& vectorLoopBody = vectorizedLoop.getLoopBody().front();
 
   auto restoreTask = rewriter.saveInsertionPoint();
@@ -255,8 +264,8 @@ mlir::LogicalResult mlir::spn::VectorizeBatchTask::matchAndRewrite(mlir::spn::lo
   rewriter.restoreInsertionPoint(restoreTask);
 
   // Create the scalar epilog loop, iterating from ubVectorized to numSamples, in steps of 1.
-  auto stepScalar = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
-  auto scalarLoop = rewriter.create<mlir::scf::ForOp>(op.getLoc(), ubVectorized, numSamples, stepScalar);
+  auto stepScalar = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
+  auto scalarLoop = rewriter.create<scf::ForOp>(op.getLoc(), ubVectorized, numSamples, stepScalar);
   auto& scalarLoopBody = scalarLoop.getLoopBody().front();
 
   restoreTask = rewriter.saveInsertionPoint();
@@ -267,7 +276,7 @@ mlir::LogicalResult mlir::spn::VectorizeBatchTask::matchAndRewrite(mlir::spn::lo
     blockReplacementArgs.push_back(bArg);
   }
   rewriter.mergeBlockBefore(&op.body().front(), scalarLoopBody.getTerminator(), blockReplacementArgs);
-  scalarLoopBody.walk([&rewriter](low::SPNReturn ret) {
+  scalarLoopBody.walk([&rewriter](SPNReturn ret) {
     assert(ret.returnValues().empty() && "Task return should be empty");
     rewriter.eraseOp(ret);
   });
@@ -276,7 +285,7 @@ mlir::LogicalResult mlir::spn::VectorizeBatchTask::matchAndRewrite(mlir::spn::lo
   rewriter.create<ReturnOp>(op->getLoc());
   // Insert a call to the newly created task function.
   rewriter.restoreInsertionPoint(restore);
-  rewriter.replaceOpWithNewOp<mlir::CallOp>(op, taskFunc, operands);
+  rewriter.replaceOpWithNewOp<CallOp>(op, taskFunc, operands);
   return success();
 
 }
