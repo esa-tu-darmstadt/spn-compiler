@@ -136,7 +136,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     // Also traverse nodes in postorder to properly handle multinodes.
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
-      dumpSLPNodeVector(*vector);
+      // dumpSLPNodeVector(*vector);
       if (vector->containsBlockArgs()) {
         auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
         rewriter.setInsertionPointAfterValue(conversionState.getInsertionPoint(vector));
@@ -165,8 +165,8 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         if (finishedValues.contains(element)) {
           continue;
         }
+        finishedValues.insert(element);
         if (creationMode == CreationMode::BroadcastInsert || (creationMode == CreationMode::Splat && lane == 0)) {
-          finishedValues.insert(element);
           continue;
         }
         if (auto const& firstEscapingUse = conversionState.getFirstEscapingUse(vector, lane)) {
@@ -175,11 +175,11 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
             auto const& source = conversionState.getValue(vector);
             auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
             element.replaceAllUsesWith(extractOp.result());
+          } else {
+            continue;
           }
         }
-        finishedValues.insert(element);
         rewriter.eraseOp(element.getDefiningOp());
-
       }
     }
   }
