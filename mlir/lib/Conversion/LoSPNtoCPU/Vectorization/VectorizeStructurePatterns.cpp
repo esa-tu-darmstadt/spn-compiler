@@ -137,23 +137,21 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
       dumpSLPNodeVector(*vector);
-      // Note: continuing here means that there exist other vectors that use the current node vector
-      // directly (or don't need it), e.g. batch reads that get lowered to vector loads instead of using
-      // a vector of indices as input.
-      if (!vector->vectorizable()) {
-        continue;
-      }
       if (vector->containsBlockArgs()) {
-        auto const& type = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
-        auto const& insertionPoint = rewriter.saveInsertionPoint();
+        auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
         rewriter.setInsertionPointAfterValue(conversionState.getInsertionPoint(vector));
-        auto vectorOp = broadcastFirstInsertRest(vector->begin(), vector->end(), type, rewriter);
-        rewriter.restoreInsertionPoint(insertionPoint);
-        conversionState.update(vector, vectorOp, CreationMode::BroadcastInsert);
+        if (vector->splattable()) {
+          auto const& element = vector->getElement(0);
+          auto vectorOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
+          conversionState.update(vector, vectorOp, CreationMode::Splat);
+        } else {
+          auto vectorOp = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
+          conversionState.update(vector, vectorOp, CreationMode::BroadcastInsert);
+        }
       } else {
         auto* vectorOp = vector->begin()->getDefiningOp();
         if (failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
-          vectorOp->emitOpError("SLP pattern application failed (did you forget to specify the pattern?)");
+          vectorOp->emitOpError("SLP pattern application failed");
         }
       }
     }
@@ -161,30 +159,26 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     // Create vector extractions for escaping uses & erase superfluous operations.
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
-      // See note above.
-      if (!conversionState.isConverted(vector)) {
-        continue;
-      }
       auto const& creationMode = conversionState.getCreationMode(vector);
       for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-        auto const& vectorValue = vector->getElement(lane);
-        if (finishedValues.contains(vectorValue)) {
+        auto const& element = vector->getElement(lane);
+        if (finishedValues.contains(element)) {
           continue;
         }
         if (creationMode == CreationMode::BroadcastInsert || (creationMode == CreationMode::Splat && lane == 0)) {
-          finishedValues.insert(vectorValue);
+          finishedValues.insert(element);
           continue;
         }
         if (auto const& firstEscapingUse = conversionState.getFirstEscapingUse(vector, lane)) {
           if (creationMode != CreationMode::Constant) {
             rewriter.setInsertionPoint(firstEscapingUse->getDefiningOp());
             auto const& source = conversionState.getValue(vector);
-            auto extractOp = rewriter.create<vector::ExtractElementOp>(vectorValue.getLoc(), source, lane);
-            vectorValue.replaceAllUsesWith(extractOp.result());
+            auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
+            element.replaceAllUsesWith(extractOp.result());
           }
         }
-        finishedValues.insert(vectorValue);
-        rewriter.eraseOp(vectorValue.getDefiningOp());
+        finishedValues.insert(element);
+        rewriter.eraseOp(element.getDefiningOp());
 
       }
     }

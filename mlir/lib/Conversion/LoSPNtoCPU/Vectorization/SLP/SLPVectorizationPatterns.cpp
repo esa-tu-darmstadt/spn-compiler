@@ -88,8 +88,8 @@ LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, Patt
   if (!consecutiveLoads(vector->begin(), vector->end())) {
     if (vector->splattable()) {
       auto const& element = vector->getElement(0);
-      auto broadcast = rewriter.create<vector::BroadcastOp>(batchReadOp.getLoc(), vectorType, element);
-      conversionState.update(vector, broadcast, CreationMode::Splat);
+      auto vectorOperation = rewriter.create<vector::BroadcastOp>(batchReadOp.getLoc(), vectorType, element);
+      conversionState.update(vector, vectorOperation, CreationMode::Splat);
     } else {
       auto vectorOperation = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
       conversionState.update(vector, vectorOperation, CreationMode::BroadcastInsert);
@@ -101,6 +101,12 @@ LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, Patt
     auto vectorLoad = rewriter.create<vector::LoadOp>(batchReadLoc, vectorType, batchReadOp.batchMem(), indices);
     conversionState.update(vector, vectorLoad, CreationMode::ConsecutiveLoad);
   }
+
+  // Batch reads don't need their input vector operands. They're not vectorizable anyways (MemRefs and indices).
+  rewriter.eraseOp(conversionState.getValue(vector->getOperand(0)).getDefiningOp());
+  rewriter.eraseOp(conversionState.getValue(vector->getOperand(1)).getDefiningOp());
+
+  assert(conversionState.isConverted(vector));
 
   return success();
 }
@@ -218,7 +224,7 @@ LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, Pat
   auto const& stddevs = denseFloatingPoints(std::begin(stddevAttributes), std::end(stddevAttributes), vectorType);
 
   // Grab the input vector.
-  if (conversionState.isConverted(vector->getOperand(0))) {
+  if (!conversionState.isConverted(vector->getOperand(0))) {
     return gaussianOp.emitError("input vector has not yet been vectorized");
   }
   Value const& inputVector = conversionState.getValue(vector->getOperand(0));
