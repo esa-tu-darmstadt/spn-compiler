@@ -102,7 +102,7 @@ bool ConversionState::isConverted(NodeVector* vector) const {
 }
 
 Value ConversionState::getValue(NodeVector* vector) const {
-  assert(!isConverted(vector) && "vector has not yet been converted");
+  assert(isConverted(vector) && "vector has not yet been converted");
   return vectorData.lookup(vector).operation.getValue();
 }
 
@@ -112,5 +112,8 @@ CreationMode ConversionState::getCreationMode(NodeVector* vector) const {
 }
 
 Optional<Value> ConversionState::getFirstEscapingUse(NodeVector* vector, size_t lane) const {
+  if (!vectorData.lookup(vector).firstEscapingUses.count(lane)) {
+    return {None};
+  }
   return vectorData.lookup(vector).firstEscapingUses.lookup(lane);
 }

@@ -21,18 +21,6 @@ namespace mlir {
           Default
         };
 
-        // Storage for vector information (in anonymous namespace to hide it).
-        namespace {
-          struct NodeVectorData {
-            /// The operation that was created for this node vector.
-            Optional<Value> operation;
-            /// The way it was created.
-            Optional<CreationMode> mode;
-            /// The first (i.e. smaller Loc) escaping use for each lane.
-            DenseMap<size_t, Value> firstEscapingUses;
-          };
-        }
-
         class ConversionState {
 
         public:
@@ -48,6 +36,17 @@ namespace mlir {
           Optional<Value> getFirstEscapingUse(NodeVector* vector, size_t lane) const;
 
         private:
+
+          struct NodeVectorData {
+
+            /// The operation that was created for this node vector.
+            Optional<Value> operation{None};
+            /// The way it was created.
+            Optional<CreationMode> mode{None};
+            /// The first (i.e. smaller Loc) escaping use for each lane.
+            DenseMap<size_t, Value> firstEscapingUses;
+          };
+
           DenseMap<NodeVector*, NodeVectorData> vectorData;
           Value earliestInsertionPoint = nullptr;
         };
