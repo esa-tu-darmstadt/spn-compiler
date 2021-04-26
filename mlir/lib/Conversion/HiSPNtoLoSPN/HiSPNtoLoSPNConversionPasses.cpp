@@ -31,6 +31,9 @@ void HiSPNtoLoSPNNodeConversionPass::runOnOperation() {
   if (optimizeRepresentation) {
     auto& arithmeticAnalysis = getAnalysis<mlir::spn::ArithmeticPrecisionAnalysis>();
     typeConverter = std::make_unique<HiSPNTypeConverter>(arithmeticAnalysis.getComputationType(computeLogSpace));
+  } else if (computeLogSpace) {
+    typeConverter =
+        std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(mlir::FloatType::getF32(&getContext())));
   } else {
     typeConverter = std::make_unique<HiSPNTypeConverter>(mlir::Float64Type::get(&getContext()));
   }
@@ -71,6 +74,9 @@ void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
     auto arithmeticAnalysis = getCachedAnalysis<ArithmeticPrecisionAnalysis>();
     assert(arithmeticAnalysis && "The arithmetic analysis needs to be preserved after node conversion");
     typeConverter = std::make_unique<HiSPNTypeConverter>(arithmeticAnalysis->get().getComputationType(computeLogSpace));
+  } else if (computeLogSpace) {
+    typeConverter =
+        std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(mlir::FloatType::getF32(&getContext())));
   } else {
     typeConverter = std::make_unique<HiSPNTypeConverter>(mlir::Float64Type::get(&getContext()));
   }

@@ -355,7 +355,10 @@ void ArithmeticPrecisionAnalysis::estimateErrorProduct(mlir::spn::high::ProductN
 }
 
 void ArithmeticPrecisionAnalysis::estimateErrorCategorical(mlir::spn::high::CategoricalNode op) {
-  double value, max, min, defect;
+  double value;
+  double max = std::numeric_limits<double>::min();
+  double min = std::numeric_limits<double>::max();
+  double defect;
 
   for (auto& p : op.probabilitiesAttr().getValue()) {
     double val = p.dyn_cast<FloatAttr>().getValueAsDouble();
