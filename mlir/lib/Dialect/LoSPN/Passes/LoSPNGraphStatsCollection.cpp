@@ -8,8 +8,7 @@
 #include "LoSPN/LoSPNPasses.h"
 #include "LoSPN/Analysis/SPNGraphStatistics.h"
 #include "LoSPN/Analysis/SPNNodeLevel.h"
-// FixMe: Correct include!
-#include "../../../../../common/include/util/json.hpp"
+#include <util/json.hpp>
 
 using namespace mlir;
 using namespace mlir::spn;

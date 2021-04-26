@@ -23,3 +23,5 @@ add_mlir_dialect_library(MLIRLoSPN
         MLIRTransforms
         MLIRTransformUtils
         )
+
+include_directories(${PROJECT_SOURCE_DIR}/common/include)
