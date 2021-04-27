@@ -40,6 +40,17 @@ add_library(spnc
         ${CAPNP_SRCS}
         )
 
+set(CAPNP_HDR_DIRS "")
+if (CAPNP_HDRS)
+    # Append directories of all Cap'n'Proto headers.
+    foreach(HDR ${CAPNP_HDRS})
+        get_filename_component(hdr_dir ${HDR} DIRECTORY)
+        list(APPEND CAPNP_HDR_DIRS ${hdr_dir})
+    endforeach(HDR ${CAPNP_HDRS})
+endif(CAPNP_HDRS)
+    
+message(STATUS "Cap'n'Proto header directories: ${CAPNP_HDR_DIRS}")
+
 target_include_directories(spnc
         PUBLIC
         $<INSTALL_INTERFACE:include>
@@ -53,7 +64,7 @@ target_include_directories(spnc
         ${LLVM_INCLUDE_DIRS}
         ${MLIR_INCLUDE_DIRS}
         ${SPN_DIALECT_INCLUDE_DIRS}
-        ${CAPNP_HDRS}
+        ${CAPNP_HDR_DIRS}
         ${CAPNPC_OUTPUT_DIR})
 
 if (${CUDA_GPU_SUPPORT})
