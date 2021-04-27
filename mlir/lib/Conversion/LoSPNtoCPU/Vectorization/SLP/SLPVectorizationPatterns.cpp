@@ -55,18 +55,15 @@ namespace {
 
 LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternRewriter& rewriter) const {
 
-  if (conversionState.isConverted(vector)) {
-    return constantOp.emitError("operation's vector has already been created");
-  }
-
+  assert(!conversionState.isConverted(vector) && "vector has already been created");
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), constantOp.getType());
+  rewriter.setInsertionPointAfterValue(conversionState.getInsertionPoint(vector));
 
   SmallVector<Attribute, 4> constants;
   for (auto const& value : *vector) {
     constants.emplace_back(value.getDefiningOp<ConstantOp>().value());
   }
 
-  rewriter.setInsertionPointAfterValue(conversionState.getInsertionPoint(vector));
   auto const& elements = denseFloatingPoints(std::begin(constants), std::end(constants), vectorType);
   auto constVector = rewriter.create<mlir::ConstantOp>(constantOp.getLoc(), elements);
 
@@ -77,12 +74,8 @@ LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternR
 
 LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, PatternRewriter& rewriter) const {
 
-  if (conversionState.isConverted(vector)) {
-    return batchReadOp.emitError("operation's vector has already been created");
-  }
-
+  assert(!conversionState.isConverted(vector) && "vector has already been created");
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), batchReadOp.getType());
-
   rewriter.setInsertionPointAfterValue(conversionState.getInsertionPoint(vector));
 
   if (!consecutiveLoads(vector->begin(), vector->end())) {
@@ -109,12 +102,8 @@ LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, Patt
 
 LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewriter) const {
 
-  if (conversionState.isConverted(vector)) {
-    return addOp.emitError("operation's vector has already been created");
-  }
-
+  assert(!conversionState.isConverted(vector) && "vector has already been created");
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), addOp.getType());
-
   rewriter.setInsertionPointAfterValue(conversionState.getInsertionPoint(vector));
 
   if (vector->isLeaf()) {
@@ -127,9 +116,7 @@ LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewri
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < addOp.getNumOperands(); ++i) {
     auto* operand = vector->getOperand(i);
-    if (!conversionState.isConverted(operand)) {
-      return addOp.emitError("operand #" + std::to_string(i) + " has not yet been vectorized");
-    }
+    assert(conversionState.isConverted(operand) && "operand has not yet been vectorized");
     operands.emplace_back(conversionState.getValue(operand));
   }
 
@@ -141,12 +128,8 @@ LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewri
 
 LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewriter) const {
 
-  if (conversionState.isConverted(vector)) {
-    return mulOp.emitError("operation's vector has already been created");
-  }
-
+  assert(!conversionState.isConverted(vector) && "vector has already been created");
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), mulOp.getType());
-
   rewriter.setInsertionPointAfterValue(conversionState.getInsertionPoint(vector));
 
   if (vector->isLeaf()) {
@@ -159,9 +142,7 @@ LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewri
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < mulOp.getNumOperands(); ++i) {
     auto* operand = vector->getOperand(i);
-    if (!conversionState.isConverted(operand)) {
-      return mulOp.emitError("operand #" + std::to_string(i) + " has not yet been vectorized");
-    }
+    assert(conversionState.isConverted(operand) && "operand has not yet been vectorized");
     operands.emplace_back(conversionState.getValue(operand));
   }
 
@@ -173,12 +154,8 @@ LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewri
 
 LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, PatternRewriter& rewriter) const {
 
-  if (conversionState.isConverted(vector)) {
-    return gaussianOp.emitError("operation's vector has already been created");
-  }
-
+  assert(!conversionState.isConverted(vector) && "vector has already been created");
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), gaussianOp.getType());
-
   rewriter.setInsertionPointAfterValue(conversionState.getInsertionPoint(vector));
 
   if (vector->isLeaf()) {
@@ -220,9 +197,7 @@ LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, Pat
   auto const& stddevs = denseFloatingPoints(std::begin(stddevAttributes), std::end(stddevAttributes), vectorType);
 
   // Grab the input vector.
-  if (!conversionState.isConverted(vector->getOperand(0))) {
-    return gaussianOp.emitError("input vector has not yet been vectorized");
-  }
+  assert(conversionState.isConverted(vector->getOperand(0)) && "input vector has not yet been vectorized");
   Value const& inputVector = conversionState.getValue(vector->getOperand(0));
 
   // Calculate Gaussian distribution using e^(-0.5 * ((x - mean) / stddev)^2)) / (stddev * sqrt(2 * PI))
