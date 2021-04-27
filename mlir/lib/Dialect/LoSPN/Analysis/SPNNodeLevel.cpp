@@ -67,11 +67,10 @@ void SPNNodeLevel::traverseSubgraph(Operation* subgraphRoot, GraphLevelInfo info
     level = std::max(info.level, opLevels[subgraphRoot]);
   }
   opLevels[subgraphRoot] = level;
-  // FIXME: Add support for remaining / other leaf nodes -- i.e. find a "good way" to check for them.
-  if (auto leafNode = dyn_cast<SPNHistogramLeaf>(subgraphRoot)) {
-    // Special treatment of leaf nodes: Stop the recursion
-    // and store depth information.
 
+  // Special treatment of leaf nodes: Stop the recursion
+  // and store depth information.
+  if (auto leaf = dyn_cast<LeafNodeInterface>(subgraphRoot)) {
     // Maintain a histogram of the levels of leaf nodes.
     // This will allows us to compute the average & median level later on.
     if (!leafLevels.count(level)) {
@@ -84,6 +83,7 @@ void SPNNodeLevel::traverseSubgraph(Operation* subgraphRoot, GraphLevelInfo info
     ++numLeafNodes;
   } else {
     // Recurse to child nodes
+    // Note: This branch will implicitly stop recursion on constant nodes.
     for (auto op : subgraphRoot->getOperands()) {
       traverseSubgraph(op.getDefiningOp(), {level + 1});
     }

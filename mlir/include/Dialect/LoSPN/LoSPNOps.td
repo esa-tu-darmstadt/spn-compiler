@@ -236,8 +236,7 @@ def SPNYield : LoSPNBodyOp<"yield", [Terminator, DeclareOpInterfaceMethods<LoSPN
 
 }
 
-def SPNConstant : LoSPNBodyOp<"constant", [ConstantLike, NoSideEffect, DeclareOpInterfaceMethods<LoSPNVectorizable>,
-                                           DeclareOpInterfaceMethods<LeafNodeInterface>]> {
+def SPNConstant : LoSPNBodyOp<"constant", [ConstantLike, NoSideEffect, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "Represents a simple constant value";
 

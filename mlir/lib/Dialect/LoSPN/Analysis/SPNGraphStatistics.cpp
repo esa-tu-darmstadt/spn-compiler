@@ -31,8 +31,6 @@ void SPNGraphStatistics::analyzeGraph(Operation* root) {
         // Handle leaf node.
         if (auto categoricalOp = dyn_cast<SPNCategoricalLeaf>(op)) {
           ops_leaf_categorical.push_back(op);
-        } else if (auto constOp = dyn_cast<SPNConstant>(op)) {
-          ops_leaf_constant.push_back(op);
         } else if (auto gaussianOp = dyn_cast<SPNGaussianLeaf>(op)) {
           ops_leaf_gaussian.push_back(op);
         } else if (auto histOp = dyn_cast<SPNHistogramLeaf>(op)) {
@@ -42,16 +40,15 @@ void SPNGraphStatistics::analyzeGraph(Operation* root) {
           op->emitWarning() << "Encountered handled leaf-node-type, operation was a '" << op->getName() << "'";
           assert(false);
         }
+      } else if (auto constOp = dyn_cast<SPNConstant>(op)) {
+        // Handle constant nodes.
+        ops_leaf_constant.push_back(op);
       } else {
         // Handle inner node.
         if (auto addOp = dyn_cast<SPNAdd>(op)) {
           ops_inner_add.push_back(op);
         } else if (auto mulOp = dyn_cast<SPNMul>(op)) {
           ops_inner_mul.push_back(op);
-        } else {
-          // Unhandled leaf-node-type: ToDo ???
-          // ToDo: How should e.g. "lo_spn.batch_extract" / "unhandled" inner nodes be treated? Simply ignore?!
-          op->emitWarning() << "Unhandled inner node-type, operation was a '" << op->getName() << "'";
         }
       }
     });

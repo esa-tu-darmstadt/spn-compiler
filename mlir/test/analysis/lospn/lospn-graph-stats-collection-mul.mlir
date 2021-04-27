@@ -32,17 +32,17 @@ module  {
 }
 
 // CHECK: {
-// CHECK: "averageDepth":2.0,
-// CHECK: "categoricalCount":0,
-// CHECK: "constantCount":0,
-// CHECK: "featureCount":2,
-// CHECK: "gaussianCount":0,
-// CHECK: "histogramCount":2,
-// CHECK: "innerCount":1,
-// CHECK: "leafCount":2,
-// CHECK: "maxDepth":2,
-// CHECK: "medianDepth":1.5,
-// CHECK: "minDepth":2,
-// CHECK: "productCount":1,
-// CHECK: "sumCount":0
+// CHECK-DAG: "averageDepth":2.0
+// CHECK-DAG: "categoricalCount":0
+// CHECK-DAG: "constantCount":0
+// CHECK-DAG: "featureCount":2
+// CHECK-DAG: "gaussianCount":0
+// CHECK-DAG: "histogramCount":2
+// CHECK-DAG: "innerCount":1
+// CHECK-DAG: "leafCount":2
+// CHECK-DAG: "maxDepth":2
+// CHECK-DAG: "medianDepth":1.5
+// CHECK-DAG: "minDepth":2
+// CHECK-DAG: "productCount":1
+// CHECK-DAG: "sumCount":0
 // CHECK: }
