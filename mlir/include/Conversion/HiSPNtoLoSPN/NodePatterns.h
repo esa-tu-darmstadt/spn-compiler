@@ -115,7 +115,7 @@ namespace mlir {
                                            ConversionPatternRewriter& rewriter) const;
     };
 
-    static void populateHiSPNtoLoSPNNodePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
+    static inline void populateHiSPNtoLoSPNNodePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                  TypeConverter& typeConverter) {
       patterns.insert<ProductNodeLowering, SumNodeLowering>(typeConverter, context);
       patterns.insert<HistogramNodeLowering, CategoricalNodeLowering, GaussianNodeLowering>(typeConverter, context);

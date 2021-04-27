@@ -29,7 +29,9 @@ namespace {
       patterns.insert<TypePinWeightedSum, TypePinProduct, TypePinSum>(context, pinnedType);
       auto op = getOperation();
       FrozenRewritePatternList frozenPatterns(std::move(patterns));
-      applyPatternsAndFoldGreedily(op.getBodyRegion(), frozenPatterns);
+      if(failed(applyPatternsAndFoldGreedily(op.getBodyRegion(), frozenPatterns))){
+        signalPassFailure();
+      }
     }
 
   };

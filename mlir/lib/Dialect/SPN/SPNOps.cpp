@@ -50,7 +50,7 @@ namespace mlir {
     static mlir::LogicalResult verify(WeightedSumOp op) {
       auto numAddends = std::distance(op.operands().begin(), op.operands().end());
       auto numWeights = op.weights().size();
-      if (numWeights != numAddends) {
+      if (numWeights != static_cast<unsigned>(numAddends)) {
         return op.emitOpError("Number of weights must match the number of addends!");
       }
       if (numAddends <= 0) {

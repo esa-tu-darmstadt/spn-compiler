@@ -161,7 +161,7 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
-    static void populateLoSPNtoCPUNodePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
+    static inline void populateLoSPNtoCPUNodePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                TypeConverter& typeConverter) {
       patterns.insert<BatchReadLowering, BatchWriteLowering, CopyLowering>(typeConverter, context);
       patterns.insert<LogLowering, ReturnLowering, ConstantLowering>(typeConverter, context);
