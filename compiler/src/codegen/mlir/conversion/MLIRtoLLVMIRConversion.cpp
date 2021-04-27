@@ -17,8 +17,8 @@ MLIRtoLLVMIRConversion::MLIRtoLLVMIRConversion(spnc::ActionWithOutput<mlir::Modu
                                                std::shared_ptr<mlir::MLIRContext> context,
                                                std::shared_ptr<llvm::TargetMachine> targetMachine,
                                                bool optimizeOutput)
-    : ActionSingleInput<mlir::ModuleOp, llvm::Module>{_input}, optimize{optimizeOutput},
-      ctx{std::move(context)}, machine{std::move(targetMachine)}, llvmCtx{} {}
+    : ActionSingleInput<mlir::ModuleOp, llvm::Module>{_input}, cached{false}, optimize{optimizeOutput},
+    ctx{std::move(context)}, machine{std::move(targetMachine)}, llvmCtx{} {}
 
 llvm::Module& spnc::MLIRtoLLVMIRConversion::execute() {
   if (!cached) {

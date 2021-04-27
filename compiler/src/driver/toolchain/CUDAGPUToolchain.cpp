@@ -65,8 +65,7 @@ std::unique_ptr<Job<Kernel> > CUDAGPUToolchain::constructJobFromFile(const std::
   additionalLibs.push_back("cuda-runtime-wrappers");
   auto searchPaths = parseLibrarySearchPaths(spnc::option::searchPaths.get(*config));
   searchPaths.push_back(SPNC_CUDA_RUNTIME_WRAPPERS_DIR);
-  auto& linkSharedObject =
-      job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo,
+  (void) job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo,
                                                  additionalLibs, searchPaths);
-  return std::move(job);
+  return job;
 }

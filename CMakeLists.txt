@@ -25,6 +25,8 @@ if (${CUDA_GPU_SUPPORT})
     cuda_setup()
 endif (${CUDA_GPU_SUPPORT})
 
+set(SPNC_CXX_WARNING_LEVEL "-Wall")
+
 add_subdirectory(common)
 # Ensure processing of ./execute before ./compiler
 # Reason: tests in ./compiler depend on CMake variables set in ./execute

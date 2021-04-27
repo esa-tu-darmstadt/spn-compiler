@@ -129,6 +129,8 @@ llvm_map_components_to_libnames(llvm_libs bitwriter native passes)
 target_link_libraries(spnc PRIVATE spnc-common ${llvm_libs} ${mlir_libs} spdlog::spdlog
         CapnProto::capnp cpu_targetinfo)
 
+target_compile_options(spnc PRIVATE ${SPNC_CXX_WARNING_LEVEL})
+
 mlir_check_link_libraries(spnc)
 
 doxygen_doc(TARGET_NAME spnc

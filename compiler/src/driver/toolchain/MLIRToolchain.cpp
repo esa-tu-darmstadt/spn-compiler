@@ -120,7 +120,7 @@ std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(bo
   std::shared_ptr<llvm::TargetMachine> machine{target->createTargetMachine(targetTriple,
                                                                            cpu, features.getString(), {},
                                                                            llvm::Reloc::PIC_)};
-  return std::move(machine);
+  return machine;
 }
 
 llvm::SmallVector<std::string> spnc::MLIRToolchain::parseLibrarySearchPaths(std::string paths){

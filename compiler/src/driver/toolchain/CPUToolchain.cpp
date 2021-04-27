@@ -83,8 +83,8 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
     }
   }
   auto searchPaths = parseLibrarySearchPaths(spnc::option::searchPaths.get(*config));
-  auto& linkSharedObject =
+  (void)
       job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo, 
                                                 additionalLibs, searchPaths);
-  return std::move(job);
+  return job;
 }
