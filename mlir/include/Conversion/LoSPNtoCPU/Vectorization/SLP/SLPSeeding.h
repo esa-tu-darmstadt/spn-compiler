@@ -27,12 +27,13 @@ namespace mlir {
 
         public:
 
-          explicit SeedAnalysis(Operation* rootOp);
+          SeedAnalysis(Operation* rootOp, unsigned width);
 
-          ArrayRef<Value> getSeed(unsigned width, SearchMode const& mode) const;
+          void fillSeed(SmallVectorImpl<Value>& seed, SearchMode const& mode) const;
 
         private:
           Operation* rootOp;
+          unsigned const width;
         };
       }
     }

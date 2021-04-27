@@ -9,7 +9,7 @@
 using namespace mlir;
 using namespace mlir::spn::low::slp;
 
-SeedAnalysis::SeedAnalysis(Operation* rootOp) : rootOp{rootOp} {}
+SeedAnalysis::SeedAnalysis(Operation* rootOp, unsigned width) : rootOp{rootOp}, width{width} {}
 
 // Helper functions in anonymous namespace.
 namespace {
@@ -31,8 +31,7 @@ namespace {
   }
 }
 
-llvm::ArrayRef<Value> SeedAnalysis::getSeed(unsigned width, SearchMode const& mode) const {
-
+void SeedAnalysis::fillSeed(SmallVectorImpl<Value>& seed, SearchMode const& mode) const {
   llvm::StringMap<SmallVector<SmallVector<Value, 4>>> seedsByOpName;
   auto const& opDepths = getOpDepths(rootOp);
 
@@ -46,13 +45,13 @@ llvm::ArrayRef<Value> SeedAnalysis::getSeed(unsigned width, SearchMode const& mo
       return WalkResult::advance();
     }
     bool needsNewSeed = true;
-    for (auto& seed : seedsByOpName[op->getName().getStringRef()]) {
-      if (seed.size() < width && opDepths.lookup(seed.front()) == depth) {
+    for (auto& potentialSeed : seedsByOpName[op->getName().getStringRef()]) {
+      if (potentialSeed.size() < width && opDepths.lookup(potentialSeed.front()) == depth) {
         // Cannot use values for seeds that are defined in different scopes.
-        if (seed.front().getParentRegion() != value.getParentRegion()) {
+        if (potentialSeed.front().getParentRegion() != value.getParentRegion()) {
           continue;
         }
-        seed.emplace_back(value);
+        potentialSeed.emplace_back(value);
         needsNewSeed = false;
         break;
       }
@@ -65,18 +64,18 @@ llvm::ArrayRef<Value> SeedAnalysis::getSeed(unsigned width, SearchMode const& mo
   });
 
   SmallVector<SmallVector<Value, 4>> seeds;
-  // Flatten the map that maps opcode to seeds.
+  // Flatten the map that maps opcodes to seeds.
   for (auto const& entry : seedsByOpName) {
-    for (auto const& seed : entry.second) {
-      if (seed.size() != width) {
+    for (auto const& potentialSeed : entry.second) {
+      if (potentialSeed.size() != width) {
         continue;
       }
-      seeds.emplace_back(seed);
+      seeds.emplace_back(potentialSeed);
     }
   }
 
   if (seeds.empty()) {
-    return {};
+    return;
   }
 
   // Sort the seeds such that either the seeds closest to the beginning of the function come first (DefBeforeUse),
@@ -91,6 +90,6 @@ llvm::ArrayRef<Value> SeedAnalysis::getSeed(unsigned width, SearchMode const& mo
       assert(false);
     }
   });
-  return seeds.front();
 
+  seed.swap(seeds.front());
 }

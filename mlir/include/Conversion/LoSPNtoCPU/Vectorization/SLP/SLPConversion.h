@@ -14,11 +14,12 @@ namespace mlir {
       namespace slp {
 
         enum CreationMode {
+          Default,
           Constant,
           Splat,
           BroadcastInsert,
           ConsecutiveLoad,
-          Default
+          Skip
         };
 
         class ConversionState {
@@ -28,12 +29,14 @@ namespace mlir {
           explicit ConversionState(SLPNode* root);
 
           Value getInsertionPoint(NodeVector* vector) const;
-          void update(NodeVector* vector, Value const& operation, CreationMode const& mode);
           bool isConverted(NodeVector* vector) const;
+
+          void update(NodeVector* vector, Value const& operation, CreationMode const& mode);
+          void markSkipped(NodeVector* vector);
 
           Value getValue(NodeVector* vector) const;
           CreationMode getCreationMode(NodeVector* vector) const;
-          Optional<Value> getFirstEscapingUse(NodeVector* vector, size_t lane) const;
+          Optional<Value> getEarliestEscapingUse(NodeVector* vector, size_t lane) const;
 
         private:
 
@@ -43,8 +46,8 @@ namespace mlir {
             Optional<Value> operation{None};
             /// The way it was created.
             Optional<CreationMode> mode{None};
-            /// The first (i.e. smaller Loc) escaping use for each lane.
-            DenseMap<size_t, Value> firstEscapingUses;
+            /// The earliest (i.e. smallest Loc) escaping use for each lane.
+            DenseMap<size_t, Value> earliestEscapingUses;
           };
 
           DenseMap<NodeVector*, NodeVectorData> vectorData;

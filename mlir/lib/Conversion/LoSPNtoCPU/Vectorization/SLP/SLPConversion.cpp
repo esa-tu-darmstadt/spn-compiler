@@ -62,7 +62,7 @@ ConversionState::ConversionState(SLPNode* root) {
       for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
         auto const& element = vector->getElement(lane);
         if (outsideUses[element] > 0) {
-          vectorData[vector].firstEscapingUses.insert(std::make_pair(lane, firstUser(element)));
+          vectorData[vector].earliestEscapingUses.insert(std::make_pair(lane, firstUser(element)));
         }
       }
     }
@@ -73,7 +73,7 @@ Value ConversionState::getInsertionPoint(NodeVector* vector) const {
   Value insertionPoint = earliestInsertionPoint;
   for (size_t i = 0; i < vector->numOperands(); ++i) {
     auto* operand = vector->getOperand(i);
-    if (!vectorData.count(operand)) {
+    if (vectorData.lookup(operand).mode == CreationMode::Skip) {
       continue;
     }
     assert(vectorData.lookup(operand).operation.hasValue() && "operand has not yet been converted");
@@ -86,15 +86,21 @@ Value ConversionState::getInsertionPoint(NodeVector* vector) const {
 }
 
 void ConversionState::update(NodeVector* vector, Value const& operation, CreationMode const& mode) {
-  auto& data = vectorData[vector];
-  assert(!data.operation.hasValue() && !data.mode.hasValue() && "vector has been converted already");
-  data.operation = operation;
-  data.mode = mode;
+  assert(!vectorData[vector].operation.hasValue() && !vectorData[vector].mode.hasValue()
+             && "vector has been converted already");
+  vectorData[vector].operation = operation;
+  vectorData[vector].mode = mode;
   if (vector->isLeaf()) {
     if (isBeforeInBlock(earliestInsertionPoint, operation)) {
       earliestInsertionPoint = operation;
     }
   }
+}
+
+void ConversionState::markSkipped(NodeVector* vector) {
+  auto& data = vectorData[vector];
+  assert(!data.operation.hasValue() && !data.mode.hasValue() && "vector has been converted already");
+  data.mode = CreationMode::Skip;
 }
 
 bool ConversionState::isConverted(NodeVector* vector) const {
@@ -111,9 +117,9 @@ CreationMode ConversionState::getCreationMode(NodeVector* vector) const {
   return vectorData.lookup(vector).mode.getValue();
 }
 
-Optional<Value> ConversionState::getFirstEscapingUse(NodeVector* vector, size_t lane) const {
-  if (!vectorData.lookup(vector).firstEscapingUses.count(lane)) {
+Optional<Value> ConversionState::getEarliestEscapingUse(NodeVector* vector, size_t lane) const {
+  if (!vectorData.lookup(vector).earliestEscapingUses.count(lane)) {
     return {None};
   }
-  return vectorData.lookup(vector).firstEscapingUses.lookup(lane);
+  return vectorData.lookup(vector).earliestEscapingUses.lookup(lane);
 }

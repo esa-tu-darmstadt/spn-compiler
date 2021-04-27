@@ -66,6 +66,17 @@ LogicalResult VectorizeTask::createFunctionIfVectorizable(SPNTask& task,
   return success();
 }
 
+// Helper functions in anonymous namespace.
+namespace {
+
+  /// MLIR does not permit vectors of MemRefs or indices.
+  bool wouldBeIllegal(NodeVector* vector) {
+    return std::any_of(std::cbegin(*vector), std::cend(*vector), [&](Value const& element) {
+      return element.getType().isa<MemRefType>() || element.getType().isa<IndexType>();
+    });
+  }
+}
+
 LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
                                                    llvm::ArrayRef<Value> operands,
                                                    ConversionPatternRewriter& rewriter) const {
@@ -98,16 +109,17 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
   // Apply SLP vectorization.
   task->emitRemark() << "Computing new seed for SLP vectorization...";
+  //task->getParentOfType<ModuleOp>()->dump();
   auto computationType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
   auto hwVectorWidth = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
-  SeedAnalysis seedAnalysis{taskFunc};
-  auto const& seed = seedAnalysis.getSeed(hwVectorWidth, SearchMode::UseBeforeDef);
+  SeedAnalysis seedAnalysis{taskFunc, hwVectorWidth};
+  SmallVector<Value, 4> seed;
+  seedAnalysis.fillSeed(seed, SearchMode::UseBeforeDef);
   assert(!seed.empty() && "couldn't find a seed!");
-  // low::slp::dumpOpTree(seed);
-  // seed.front().getDefiningOp()->getBlock()->dump();
+  //low::slp::dumpOpTree(seed);
   SLPGraphBuilder builder{3};
   auto graph = builder.build(seed);
-  // low::slp::dumpSLPGraph(*graph);
+  //low::slp::dumpSLPGraph(*graph);
 
   task->emitRemark() << "Transforming SLP graph back into vectorized ops...";
   // The current vector being transformed.
@@ -137,21 +149,24 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
       // dumpSLPNodeVector(*vector);
-      if (vector->containsBlockArgs()) {
+      auto* vectorOp = vector->begin()->getDefiningOp();
+      if (vector->containsBlockArgs() || failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
+        // This assumes that the node vectors using these illegal vectors know what they're doing and don't need them.
+        // For example, SPNBatchReads being replaced with vector::LoadOps or broadcastInserts instead of using their
+        // vectorized operands.
+        if (wouldBeIllegal(vector)) {
+          conversionState.markSkipped(vector);
+          continue;
+        }
         auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
         rewriter.setInsertionPointAfterValue(conversionState.getInsertionPoint(vector));
         if (vector->splattable()) {
           auto const& element = vector->getElement(0);
-          auto vectorOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
-          conversionState.update(vector, vectorOp, CreationMode::Splat);
+          auto vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
+          conversionState.update(vector, vectorizedOp, CreationMode::Splat);
         } else {
-          auto vectorOp = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
-          conversionState.update(vector, vectorOp, CreationMode::BroadcastInsert);
-        }
-      } else {
-        auto* vectorOp = vector->begin()->getDefiningOp();
-        if (failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
-          vectorOp->emitOpError("SLP pattern application failed");
+          auto vectorizedOp = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
+          conversionState.update(vector, vectorizedOp, CreationMode::BroadcastInsert);
         }
       }
     }
@@ -160,6 +175,9 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
       auto const& creationMode = conversionState.getCreationMode(vector);
+      if (creationMode == CreationMode::Skip) {
+        continue;
+      }
       for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
         auto const& element = vector->getElement(lane);
         if (finishedValues.contains(element)) {
@@ -169,9 +187,9 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         if (creationMode == CreationMode::BroadcastInsert || (creationMode == CreationMode::Splat && lane == 0)) {
           continue;
         }
-        if (auto const& firstEscapingUse = conversionState.getFirstEscapingUse(vector, lane)) {
+        if (auto const& earliestEscapingUse = conversionState.getEarliestEscapingUse(vector, lane)) {
           if (creationMode != CreationMode::Constant) {
-            rewriter.setInsertionPoint(firstEscapingUse->getDefiningOp());
+            rewriter.setInsertionPoint(earliestEscapingUse->getDefiningOp());
             auto const& source = conversionState.getValue(vector);
             auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
             element.replaceAllUsesWith(extractOp.result());

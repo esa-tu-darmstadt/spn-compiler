@@ -102,10 +102,6 @@ LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, Patt
     conversionState.update(vector, vectorLoad, CreationMode::ConsecutiveLoad);
   }
 
-  // Batch reads don't need their input vector operands. They're not vectorizable anyways (MemRefs and indices).
-  rewriter.eraseOp(conversionState.getValue(vector->getOperand(0)).getDefiningOp());
-  rewriter.eraseOp(conversionState.getValue(vector->getOperand(1)).getDefiningOp());
-
   assert(conversionState.isConverted(vector));
 
   return success();
