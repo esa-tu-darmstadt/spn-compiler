@@ -175,7 +175,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       if (creationMode == CreationMode::Skip) {
         continue;
       }
-      // Users that have already been moved to the correct place (no need to move them more than once for each vector).
       for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
         auto const& element = vector->getElement(lane);
         if (finishedValues.contains(element)) {
@@ -190,7 +189,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
             continue;
           }
           auto const& source = conversionManager.getValue(vector);
-          rewriter.setInsertionPoint(conversionManager.moveEscapingUsersBehind(vector, source));
+          rewriter.setInsertionPoint(conversionManager.moveEscapingUsersBehind(vector));
           auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
           element.replaceAllUsesWith(extractOp.result());
         }
