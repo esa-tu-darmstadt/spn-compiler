@@ -49,9 +49,9 @@ ConversionManager::ConversionManager(SLPNode* root) {
           escapingUsers[element].assign(std::begin(element.getUsers()), std::end(element.getUsers()));
         }
         for (auto const& operand : element.getDefiningOp()->getOperands()) {
-          if (!operand.isa<BlockArgument>() && escapingUsers.count(operand)) {
+          if (!operand.isa<BlockArgument>()) {
             auto& users = escapingUsers[operand];
-            users.erase(std::remove(std::begin(users), std::end(users), element.getDefiningOp()));
+            users.erase(std::remove(std::begin(users), std::end(users), element.getDefiningOp()), std::end(users));
           }
         }
       }
