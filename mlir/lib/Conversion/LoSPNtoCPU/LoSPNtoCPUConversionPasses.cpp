@@ -46,9 +46,9 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   patterns = OwningRewritePatternList();
   if (vectorize) {
     spn::populateLoSPNtoCPUVectorizationTaskPatterns(patterns, &getContext(), typeConverter);
-  } else {
-    spn::populateLoSPNtoCPUTaskPatterns(patterns, &getContext(), typeConverter);
   }
+  spn::populateLoSPNtoCPUTaskPatterns(patterns, &getContext(), typeConverter);
+
   frozenPatterns = FrozenRewritePatternList(std::move(patterns));
 
   if (failed(applyPartialConversion(getOperation(), target, frozenPatterns))) {

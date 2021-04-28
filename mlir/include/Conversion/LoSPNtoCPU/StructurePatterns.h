@@ -61,7 +61,7 @@ namespace mlir {
     static void populateLoSPNtoCPUTaskPatterns(OwningRewritePatternList& patterns,
                                                MLIRContext* context,
                                                TypeConverter& typeConverter) {
-      patterns.insert<SingleTaskLowering, BatchTaskLowering>(typeConverter, context);
+      patterns.insert<SingleTaskLowering, BatchTaskLowering>(typeConverter, context, 1);
     }
   }
 }
