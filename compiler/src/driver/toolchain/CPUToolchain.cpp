@@ -51,7 +51,7 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
     auto statsFile = StatsFile(spnc::option::graphStatsFile.get(*config), deleteTmps);
     auto& graphStats = job->insertAction<CollectGraphStatistics>(hispn2lospn, std::move(statsFile));
     // Join the two actions happening on the transformed module (Graph-Stats & SPN-to-Standard-MLIR lowering).
-    auto& joinAction = job->insertAction<JoinAction<mlir::ModuleOp, StatsFile>>(hispn2lospn, graphStats);
+    auto& mergeAction = job->insertAction<JoinAction<mlir::ModuleOp, StatsFile>>(hispn2lospn, graphStats);
     //spnPipelineResult = &joinAction;
   }
   auto& lospnTransform = job->insertAction<LoSPNTransformations>(hispn2lospn, ctx, diagHandler, kernelInfo);
