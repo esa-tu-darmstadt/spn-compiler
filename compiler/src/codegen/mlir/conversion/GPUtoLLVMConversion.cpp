@@ -55,7 +55,7 @@ inline void emit_cuda_error(const llvm::Twine& message, const char* buffer,
     }                                                                          \
   }
 
-mlir::OwnedBlob spnc::GPUtoLLVMConversion::compilePtxToCubin(const std::string ptx, mlir::Location loc,
+mlir::OwnedBlob spnc::GPUtoLLVMConversion::compilePtxToCubin(const std::string& ptx, mlir::Location loc,
                                                              llvm::StringRef name) {
   // This code is mostly copy & pasta from mlir-cuda-runner.cpp
 

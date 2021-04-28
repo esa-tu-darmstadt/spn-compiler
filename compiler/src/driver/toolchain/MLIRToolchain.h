@@ -25,7 +25,7 @@ namespace spnc {
 
     static std::shared_ptr<llvm::TargetMachine> createTargetMachine(bool cpuVectorize);
 
-    static llvm::SmallVector<std::string> parseLibrarySearchPaths(std::string paths);
+    static llvm::SmallVector<std::string> parseLibrarySearchPaths(const std::string& paths);
 
   };
 

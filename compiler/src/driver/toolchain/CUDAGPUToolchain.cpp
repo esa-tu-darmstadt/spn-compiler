@@ -25,7 +25,7 @@ using namespace spnc;
 using namespace mlir;
 
 std::unique_ptr<Job<Kernel> > CUDAGPUToolchain::constructJobFromFile(const std::string& inputFile,
-                                                                     std::shared_ptr<interface::Configuration> config) {
+                                                const std::shared_ptr<interface::Configuration>& config) {
   // Uncomment the following two lines to get detailed output during MLIR dialect conversion;
   //llvm::DebugFlag = true;
   //llvm::setCurrentDebugType("dialect-conversion");

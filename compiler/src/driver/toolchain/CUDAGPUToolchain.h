@@ -20,7 +20,7 @@ namespace spnc {
     /// \param config Compilation option configuration.
     /// \return Job containing all necessary actions.
     static std::unique_ptr<Job<Kernel>> constructJobFromFile(const std::string& inputFile,
-                                                             std::shared_ptr<interface::Configuration> config);
+                                                             const std::shared_ptr<interface::Configuration>& config);
 
   };
 

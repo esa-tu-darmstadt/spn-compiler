@@ -123,7 +123,7 @@ std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(bo
   return machine;
 }
 
-llvm::SmallVector<std::string> spnc::MLIRToolchain::parseLibrarySearchPaths(std::string paths){
+llvm::SmallVector<std::string> spnc::MLIRToolchain::parseLibrarySearchPaths(const std::string& paths){
   llvm::SmallVector<std::string> searchPaths;
   std::istringstream tokenStream(paths);
   std::string token;
