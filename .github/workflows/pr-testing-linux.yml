@@ -135,7 +135,7 @@ jobs:
           sh wrap-clang-tidy.sh
 
       - name: Run clang-tidy-pr-comments action
-        uses: platisd/clang-tidy-pr-comments@master
+        uses: sommerlukas/clang-tidy-pr-comments@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           clang_tidy_fixes: spn-compiler/build/fixes-clang-tidy.yaml
