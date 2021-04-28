@@ -3,7 +3,6 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#include "math.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "SPNtoStandard/SPNtoStandardPatterns.h"
@@ -14,7 +13,7 @@
 // Should not be necessary on modern platforms,
 // but still defined for compatibility.
 #define _USE_MATH_DEFINES
-#include <math.h>
+#include <cmath>
 
 mlir::LogicalResult mlir::spn::ConstantOpLowering::matchAndRewrite(mlir::spn::ConstantOp op,
                                                                    llvm::ArrayRef<mlir::Value> operands,

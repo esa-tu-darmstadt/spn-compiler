@@ -4,7 +4,7 @@
 //
 
 #include "LoSPNtoCPU/NodePatterns.h"
-#include "math.h"
+#include <cmath>
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "LoSPN/LoSPNAttributes.h"
 

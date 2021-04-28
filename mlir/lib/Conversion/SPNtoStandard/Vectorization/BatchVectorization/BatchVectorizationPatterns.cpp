@@ -4,7 +4,7 @@
 //
 
 #include "SPNtoStandard/Vectorization/BatchVectorizationPatterns.h"
-#include "math.h"
+#include <cmath>
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "llvm/Support/Debug.h"

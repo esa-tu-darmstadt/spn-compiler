@@ -90,7 +90,7 @@ namespace {
     for (auto v : loadedVectors) {
       vectors.push_back(v);
     }
-    unsigned numPermutationStage = static_cast<unsigned>(log2(vectorSize));
+    auto numPermutationStage = static_cast<unsigned>(log2(vectorSize));
     for (unsigned i = 0; i < numPermutationStage; ++i) {
       unsigned distance = 1 << i;
       llvm::SmallVector<mlir::Value, 8> newVectors;
