@@ -4,7 +4,6 @@
 //
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPConversion.h"
-#include "llvm/Support/Debug.h"
 
 using namespace mlir;
 using namespace mlir::spn::low::slp;
@@ -44,14 +43,9 @@ ConversionState::ConversionState(SLPNode* root) {
         if (!escapingUsers.count(element)) {
           escapingUsers[element].assign(std::begin(element.getUsers()), std::end(element.getUsers()));
         }
-        llvm::dbgs() << "element: " << element << "\n";
         for (auto const& operand : element.getDefiningOp()->getOperands()) {
-          if (!operand.isa<BlockArgument>()) {
-            llvm::dbgs() << "\toperand: " << operand << "\n";
+          if (!operand.isa<BlockArgument>() && escapingUsers.count(operand)) {
             auto& users = escapingUsers[operand];
-            for (auto* user : users) {
-              llvm::dbgs() << "\t\toperand user: " << *user << "\n";
-            }
             users.erase(std::remove(std::begin(users), std::end(users), element.getDefiningOp()));
           }
         }
