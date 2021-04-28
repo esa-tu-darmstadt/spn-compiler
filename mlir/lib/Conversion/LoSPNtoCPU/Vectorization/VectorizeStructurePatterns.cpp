@@ -82,7 +82,11 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
                                                    ConversionPatternRewriter& rewriter) const {
 
   if (task.batchSize() > 1) {
-    return rewriter.notifyMatchFailure(task, "Single batch vectorization does not match for batchSize > 1");
+    return rewriter.notifyMatchFailure(task, "SLP vectorization does not match for batchSize > 1");
+  }
+
+  if (task.body().getBlocks().size() > 1) {
+    return rewriter.notifyMatchFailure(task, "SLP vectorization only applicable to single basic blocks (yet)");
   }
 
   auto const& callPoint = rewriter.saveInsertionPoint();
@@ -101,14 +105,13 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   // The other arguments are the arguments of the entry block of this function.
   SmallVector<Value, 5> blockReplacementArgs;
   blockReplacementArgs.push_back(rewriter.create<ConstantOp>(task.getLoc(), rewriter.getIndexAttr(0)));
-  for (auto bArg : taskBlock->getArguments()) {
+  for (auto const& bArg : taskBlock->getArguments()) {
     blockReplacementArgs.push_back(bArg);
   }
-  // Inline the content of the Task into the function.
+  // Inline the content of the task into the function.
   rewriter.mergeBlocks(&task.body().front(), taskBlock, blockReplacementArgs);
 
   // Apply SLP vectorization.
-  task->emitRemark() << "Computing new seed for SLP vectorization...";
   //task->getParentOfType<ModuleOp>()->dump();
   auto computationType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
   auto hwVectorWidth = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
@@ -121,30 +124,24 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   auto graph = builder.build(seed);
   //low::slp::dumpSLPGraph(*graph);
 
-  task->emitRemark() << "Transforming SLP graph back into vectorized ops...";
   // The current vector being transformed.
   NodeVector* vector = nullptr;
-
   ConversionState conversionState{graph.get()};
-
   // Prevent extracting/removing values more than once (happens in splat mode, if they appear in multiple vectors, ...).
   SmallPtrSet<Value, 32> finishedValues;
-
-  OwningRewritePatternList patterns;
-  populateSLPVectorizationPatterns(patterns, rewriter.getContext(), vector, conversionState);
-  FrozenRewritePatternList frozenPatterns(std::move(patterns));
-
   // Use a custom pattern driver that does *not* perform folding automatically (which the other rewrite drivers
   // such as applyOpPatternsAndFold() would do). Folding would mess up identified SLP-vectorizable constants, which
   // aren't necessarily located at the front of the function's body yet. The drivers delete those that aren't at the
   // front (including those we identified as SLP-vectorizable!) and create new ones there, resulting in our constant
   // SLP-vectorization patterns not being applied to them and messing up operand handling further down the SLP graph.
+  OwningRewritePatternList patterns;
+  populateSLPVectorizationPatterns(patterns, rewriter.getContext(), vector, conversionState);
+  FrozenRewritePatternList frozenPatterns(std::move(patterns));
   PatternApplicator applicator(frozenPatterns);
   applicator.applyDefaultCostModel();
 
   // Traverse the SLP graph in postorder and apply the vectorization patterns.
   for (auto* node : SLPNode::postOrder(graph.get())) {
-
     // Also traverse nodes in postorder to properly handle multinodes.
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
@@ -172,12 +169,15 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     }
 
     // Create vector extractions for escaping uses & erase superfluous operations.
+    SmallVector<Operation*, 2> escapingUsers;
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
       auto const& creationMode = conversionState.getCreationMode(vector);
       if (creationMode == CreationMode::Skip) {
         continue;
       }
+      // Users that have already been moved to the correct place (no need to move them more than once for each vector).
+      SmallPtrSet<Operation*, 4> movedUsers;
       for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
         auto const& element = vector->getElement(lane);
         if (finishedValues.contains(element)) {
@@ -187,25 +187,34 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         if (creationMode == CreationMode::BroadcastInsert || (creationMode == CreationMode::Splat && lane == 0)) {
           continue;
         }
-        if (auto const& earliestEscapingUse = conversionState.getEarliestEscapingUse(vector, lane)) {
-          if (creationMode != CreationMode::Constant) {
-            rewriter.setInsertionPoint(earliestEscapingUse->getDefiningOp());
-            auto const& source = conversionState.getValue(vector);
-            auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
-            element.replaceAllUsesWith(extractOp.result());
-          } else {
+        if (conversionState.hasEscapingUsers(element, escapingUsers)) {
+          if (creationMode == CreationMode::Constant) {
             continue;
           }
+          // Move all escaping users behind the vector operation.
+          auto const& source = conversionState.getValue(vector);
+          Operation* latestUser = source.getDefiningOp();
+          for (auto* escapingUser : escapingUsers) {
+            if (movedUsers.contains(escapingUser)) {
+              continue;
+            }
+            movedUsers.insert(escapingUser);
+            if (escapingUser->isBeforeInBlock(source.getDefiningOp())) {
+              escapingUser->moveAfter(latestUser);
+              latestUser = escapingUser;
+            }
+          }
+          rewriter.setInsertionPoint(escapingUsers.front());
+          auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
+          element.replaceAllUsesWith(extractOp.result());
         }
         rewriter.eraseOp(element.getDefiningOp());
       }
     }
   }
-
   rewriter.restoreInsertionPoint(callPoint);
   rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
   return success();
-
 }
 
 LogicalResult VectorizeBatchTask::matchAndRewrite(SPNTask op,

@@ -36,22 +36,23 @@ namespace mlir {
 
           Value getValue(NodeVector* vector) const;
           CreationMode getCreationMode(NodeVector* vector) const;
-          Optional<Value> getEarliestEscapingUse(NodeVector* vector, size_t lane) const;
+          bool hasEscapingUsers(Value const& value, SmallVectorImpl<Operation*>& users) const;
 
         private:
 
           struct NodeVectorData {
-
             /// The operation that was created for this node vector.
             Optional<Value> operation{None};
             /// The way it was created.
             Optional<CreationMode> mode{None};
-            /// The earliest (i.e. smallest Loc) escaping use for each lane.
-            DenseMap<size_t, Value> earliestEscapingUses;
           };
-
           DenseMap<NodeVector*, NodeVectorData> vectorData;
-          Value earliestInsertionPoint = nullptr;
+
+          /// Stores escaping users for each value.
+          DenseMap<Value, SmallVector<Operation*, 2>> escapingUsers;
+
+          Value latestInsertion;
+
         };
       }
     }

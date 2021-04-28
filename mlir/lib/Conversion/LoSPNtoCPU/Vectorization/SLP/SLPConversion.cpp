@@ -4,6 +4,7 @@
 //
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPConversion.h"
+#include "llvm/Support/Debug.h"
 
 using namespace mlir;
 using namespace mlir::spn::low::slp;
@@ -19,58 +20,53 @@ namespace {
     return lhs.getDefiningOp()->isBeforeInBlock(rhs.getDefiningOp());
   }
 
-  Value firstUser(Value const& element) {
-    Operation* first = nullptr;
-    for (auto* user : element.getUsers()) {
-      if (!first || user->isBeforeInBlock(first)) {
-        first = user;
+  Value latestElement(NodeVector* vector) {
+    Value latestVal = vector->getElement(0);
+    for (size_t lane = 1; lane < vector->numLanes(); ++lane) {
+      if (isBeforeInBlock(latestVal, vector->getElement(lane))) {
+        latestVal = vector->getElement(lane);
       }
     }
-    return first->getResult(0);
+    return latestVal;
   }
 
 }
 
 ConversionState::ConversionState(SLPNode* root) {
-  DenseMap<Value, unsigned> outsideUses;
   for (auto* node : SLPNode::postOrder(root)) {
     for (size_t i = node->numVectors(); i-- > 0;) {
       auto* vector = node->getVector(i);
       for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
         auto const& element = vector->getElement(lane);
-        // Store the graph's last input to determine the earliest possible insertion point.
-        if (!earliestInsertionPoint || (vector->isLeaf() && isBeforeInBlock(earliestInsertionPoint, element))) {
-          earliestInsertionPoint = element;
-        }
-        // Skip duplicate (splat) values.
-        if (outsideUses.count(element)) {
+        if (element.isa<BlockArgument>()) {
           continue;
         }
-        outsideUses[element] = std::distance(std::begin(element.getUsers()), std::end(element.getUsers()));
-        for (size_t j = 0; j < vector->numOperands(); ++j) {
-          auto* operand = vector->getOperand(j);
-          assert(outsideUses[operand->getElement(lane)] > 0);
-          outsideUses[operand->getElement(lane)]--;
+        if (!escapingUsers.count(element)) {
+          escapingUsers[element].assign(std::begin(element.getUsers()), std::end(element.getUsers()));
+        }
+        llvm::dbgs() << "element: " << element << "\n";
+        for (auto const& operand : element.getDefiningOp()->getOperands()) {
+          if (!operand.isa<BlockArgument>()) {
+            llvm::dbgs() << "\toperand: " << operand << "\n";
+            auto& users = escapingUsers[operand];
+            for (auto* user : users) {
+              llvm::dbgs() << "\t\toperand user: " << *user << "\n";
+            }
+            users.erase(std::remove(std::begin(users), std::end(users), element.getDefiningOp()));
+          }
         }
       }
     }
   }
-
-  for (auto* node : SLPNode::postOrder(root)) {
-    for (size_t i = 0; i < node->numVectors(); ++i) {
-      auto* vector = node->getVector(i);
-      for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-        auto const& element = vector->getElement(lane);
-        if (outsideUses[element] > 0) {
-          vectorData[vector].earliestEscapingUses.insert(std::make_pair(lane, firstUser(element)));
-        }
-      }
-    }
+  for (auto& entry : escapingUsers) {
+    std::sort(std::begin(entry.second), std::end(entry.second), [&](Operation* lhs, Operation* rhs) {
+      return lhs->isBeforeInBlock(rhs);
+    });
   }
 }
 
 Value ConversionState::getInsertionPoint(NodeVector* vector) const {
-  Value insertionPoint = earliestInsertionPoint;
+  Value insertionPoint = latestInsertion;
   for (size_t i = 0; i < vector->numOperands(); ++i) {
     auto* operand = vector->getOperand(i);
     if (vectorData.lookup(operand).mode == CreationMode::Skip) {
@@ -78,11 +74,11 @@ Value ConversionState::getInsertionPoint(NodeVector* vector) const {
     }
     assert(vectorData.lookup(operand).operation.hasValue() && "operand has not yet been converted");
     auto const& operandValue = vectorData.lookup(operand).operation.getValue();
-    if (isBeforeInBlock(insertionPoint, operandValue)) {
+    if (!insertionPoint || isBeforeInBlock(insertionPoint, operandValue)) {
       insertionPoint = operandValue;
     }
   }
-  return insertionPoint;
+  return insertionPoint ? insertionPoint : latestElement(vector);
 }
 
 void ConversionState::update(NodeVector* vector, Value const& operation, CreationMode const& mode) {
@@ -90,17 +86,15 @@ void ConversionState::update(NodeVector* vector, Value const& operation, Creatio
              && "vector has been converted already");
   vectorData[vector].operation = operation;
   vectorData[vector].mode = mode;
-  if (vector->isLeaf()) {
-    if (isBeforeInBlock(earliestInsertionPoint, operation)) {
-      earliestInsertionPoint = operation;
-    }
+  if (!latestInsertion || isBeforeInBlock(latestInsertion, operation)) {
+    latestInsertion = operation;
   }
 }
 
 void ConversionState::markSkipped(NodeVector* vector) {
-  auto& data = vectorData[vector];
-  assert(!data.operation.hasValue() && !data.mode.hasValue() && "vector has been converted already");
-  data.mode = CreationMode::Skip;
+  assert(!vectorData[vector].operation.hasValue() && !vectorData[vector].mode.hasValue()
+             && "vector has been converted already");
+  vectorData[vector].mode = CreationMode::Skip;
 }
 
 bool ConversionState::isConverted(NodeVector* vector) const {
@@ -117,9 +111,10 @@ CreationMode ConversionState::getCreationMode(NodeVector* vector) const {
   return vectorData.lookup(vector).mode.getValue();
 }
 
-Optional<Value> ConversionState::getEarliestEscapingUse(NodeVector* vector, size_t lane) const {
-  if (!vectorData.lookup(vector).earliestEscapingUses.count(lane)) {
-    return {None};
+bool ConversionState::hasEscapingUsers(Value const& value, SmallVectorImpl<Operation*>& users) const {
+  if (!escapingUsers.count(value) || escapingUsers.lookup(value).empty()) {
+    return false;
   }
-  return vectorData.lookup(vector).earliestEscapingUses.lookup(lane);
+  users.assign(escapingUsers.lookup(value));
+  return true;
 }
