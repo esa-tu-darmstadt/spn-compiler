@@ -55,7 +55,7 @@ inline void emit_cuda_error(const llvm::Twine& message, const char* buffer,
     }                                                                          \
   }
 
-mlir::OwnedBlob spnc::GPUtoLLVMConversion::compilePtxToCubin(const std::string ptx, mlir::Location loc,
+mlir::OwnedBlob spnc::GPUtoLLVMConversion::compilePtxToCubin(const std::string& ptx, mlir::Location loc,
                                                              llvm::StringRef name) {
   // This code is mostly copy & pasta from mlir-cuda-runner.cpp
 
@@ -65,11 +65,11 @@ mlir::OwnedBlob spnc::GPUtoLLVMConversion::compilePtxToCubin(const std::string p
   RETURN_ON_CUDA_ERROR(cuInit(0), "cuInit");
 
   // Linking requires a device context.
-  CUdevice device;
+  CUdevice device = 0;
   RETURN_ON_CUDA_ERROR(cuDeviceGet(&device, 0), "cuDeviceGet");
-  CUcontext context;
+  CUcontext context = nullptr;
   RETURN_ON_CUDA_ERROR(cuCtxCreate(&context, 0, device), "cuCtxCreate");
-  CUlinkState linkState;
+  CUlinkState linkState = nullptr;
 
   CUjit_option jitOptions[] = {CU_JIT_ERROR_LOG_BUFFER,
                                CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES};
@@ -93,8 +93,8 @@ mlir::OwnedBlob spnc::GPUtoLLVMConversion::compilePtxToCubin(const std::string p
       ),
       "cuLinkAddData");
 
-  void* cubinData;
-  size_t cubinSize;
+  void* cubinData = nullptr;
+  size_t cubinSize = 0;
   RETURN_ON_CUDA_ERROR(cuLinkComplete(linkState, &cubinData, &cubinSize),
                        "cuLinkComplete");
 
@@ -285,7 +285,7 @@ mlir::ModuleOp& spnc::GPUtoLLVMConversion::execute() {
     auto gpuArch = getGPUArchitecture();
     GPUOptimizationOptions optimizationOptions{gpuArch, "+ptx60", true, printIR};
     kernelPm.addPass(mlir::createConvertGPUKernelToBlobPass(
-        [printIR, &gpuKernels, &optimizationOptions](mlir::Operation* gpuModule,
+        [&gpuKernels, &optimizationOptions](mlir::Operation* gpuModule,
                                                      llvm::LLVMContext& llvmContext,
                                                      llvm::StringRef name = "LLVMDialectModule") -> std::unique_ptr<llvm::Module> {
           return translateAndLinkGPUModule(gpuKernels, optimizationOptions, gpuModule, llvmContext, name);
@@ -327,7 +327,7 @@ std::string spnc::GPUtoLLVMConversion::getGPUArchitecture() {
   // one to retrieve information from.
 
   RETURN_ON_CUDA_ERROR(cuInit(0), "cuInit");
-  int numDevices;
+  int numDevices = 0;
   RETURN_ON_CUDA_ERROR(cuDeviceGetCount(&numDevices), "cuDeviceGetCount");
 
   if (numDevices == 0) {
@@ -338,17 +338,17 @@ std::string spnc::GPUtoLLVMConversion::getGPUArchitecture() {
   if (numDevices > 1) {
     SPDLOG_WARN("Found multiple CUDA devices, retrieving device information from first device");
   }
-  CUdevice device;
+  CUdevice device = 0;
   RETURN_ON_CUDA_ERROR(cuDeviceGet(&device, 0), "cuDeviceGet");
-  CUcontext context;
+  CUcontext context = nullptr;
   RETURN_ON_CUDA_ERROR(cuCtxCreate(&context, 0, device), "cuCtxCreate");
   char deviceName[1024] = {0};
   RETURN_ON_CUDA_ERROR(cuDeviceGetName(deviceName, sizeof(deviceName), device), "cuDeviceGetName");
   SPDLOG_INFO("Querying GPU device {} for information", deviceName);
-  int major;
+  int major = 0;
   RETURN_ON_CUDA_ERROR(cuDeviceGetAttribute(&major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR,
                                             device), "cuDeviceGetAttribute (Compute capability major)");
-  int minor;
+  int minor = 0;
   RETURN_ON_CUDA_ERROR(cuDeviceGetAttribute(&minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR,
                                             device), "cuDeviceGetAttribute (Compute capability minor)");
   std::string arch = "sm_" + std::to_string(major) + std::to_string(minor);

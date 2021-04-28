@@ -49,7 +49,7 @@ std::shared_ptr<mlir::ScopedDiagnosticHandler> spnc::MLIRToolchain::setupDiagnos
   // used by the compiler/toolchain.
   return std::make_shared<mlir::ScopedDiagnosticHandler>(ctx, [](Diagnostic& diag) {
     auto logger = spdlog::default_logger_raw();
-    spdlog::level::level_enum level;
+    spdlog::level::level_enum level = spdlog::level::level_enum::debug;
     std::string levelTxt;
     // Translate from MLIR severity to SPDLOG log-level.
     switch (diag.getSeverity()) {
@@ -120,10 +120,10 @@ std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(bo
   std::shared_ptr<llvm::TargetMachine> machine{target->createTargetMachine(targetTriple,
                                                                            cpu, features.getString(), {},
                                                                            llvm::Reloc::PIC_)};
-  return std::move(machine);
+  return machine;
 }
 
-llvm::SmallVector<std::string> spnc::MLIRToolchain::parseLibrarySearchPaths(std::string paths){
+llvm::SmallVector<std::string> spnc::MLIRToolchain::parseLibrarySearchPaths(const std::string& paths){
   llvm::SmallVector<std::string> searchPaths;
   std::istringstream tokenStream(paths);
   std::string token;

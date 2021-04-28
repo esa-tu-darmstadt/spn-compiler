@@ -34,7 +34,7 @@ unsigned int mlir::spn::CUDATargetInformation::maxSharedMemoryPerBlock(mlir::Loc
   // one to retrieve information from.
 
   RETURN_ON_CUDA_ERROR(cuInit(0), "cuInit");
-  int numDevices;
+  int numDevices = 0;
   RETURN_ON_CUDA_ERROR(cuDeviceGetCount(&numDevices), "cuDeviceGetCount");
 
   if (numDevices == 0) {
@@ -44,11 +44,11 @@ unsigned int mlir::spn::CUDATargetInformation::maxSharedMemoryPerBlock(mlir::Loc
   if (numDevices > 1) {
     mlir::emitWarning(loc, "Found multiple CUDA devices, retrieving device information from first device");
   }
-  CUdevice device;
+  CUdevice device = 0;
   RETURN_ON_CUDA_ERROR(cuDeviceGet(&device, 0), "cuDeviceGet");
-  CUcontext context;
+  CUcontext context = nullptr;
   RETURN_ON_CUDA_ERROR(cuCtxCreate(&context, 0, device), "cuCtxCreate");
-  int sharedMem;
+  int sharedMem = 0;
   RETURN_ON_CUDA_ERROR(cuDeviceGetAttribute(&sharedMem, CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_BLOCK,
                                             device), "cuDeviceGetAttribute (Max. shared memory)");
   mlir::emitRemark(loc, Twine("Device supports a maximum of ")

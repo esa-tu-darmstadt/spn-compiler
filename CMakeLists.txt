@@ -25,6 +25,48 @@ if (${CUDA_GPU_SUPPORT})
     cuda_setup()
 endif (${CUDA_GPU_SUPPORT})
 
+set(SPNC_CXX_WARNING_LEVEL "-Wall")
+
+#
+# clang-tidy setup
+#
+set(SPNC_CLANG_TIDY_CHECKS "bugprone-*,cppcoreguidelines-init-variables,modernize-*,-modernize-use-trailing-return-type,-modernize-avoid-c-arrays,performance-*,clang-analyzer-*,readibility-*")
+
+option(SPNC_ENABLE_CLANG_TIDY
+        "Run clang-tidy as part of the build process. May slow down your build. Requires clang-tidy to be on the PATH"
+        OFF
+        )
+
+if(${SPNC_ENABLE_CLANG_TIDY})
+    if(${CMAKE_EXPORT_COMPILE_COMMANDS})
+        find_program(CLANG_TIDY_EXE "clang-tidy")
+        if(CLANG_TIDY_EXE-NOTFOUND)
+            message(WARNING "clang-tidy not found")
+        else()
+            message(STATUS "Using clang tidy from ${CLANG_TIDY_EXE}")
+            set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-checks=${SPNC_CLANG_TIDY_CHECKS}")
+        endif()
+    else()
+        message(WARNING "CMAKE_EXPORT_COMPILE_COMMANDS must be enabled in order to run clang-tidy")
+    endif() 
+endif(${SPNC_ENABLE_CLANG_TIDY})
+
+if(${CMAKE_EXPORT_COMPILE_COMMANDS})
+    find_program(RUN_CLANG_TIDY_SCRIPT run-clang-tidy)
+    if(RUN_CLANG_TIDY_SCRIPT-NOTFOUND)
+        message(WARNING "run-clang-tidy not found, not generating clang-tidy wrapper script")
+    else()
+        message(STATUS "Using run-clang-tidy from ${RUN_CLANG_TIDY_SCRIPT}")
+        # Configure script with run-clang-tidy executable and checks.
+        configure_file(${PROJECT_SOURCE_DIR}/wrap-clang-tidy.sh.in 
+                        ${CMAKE_CURRENT_BINARY_DIR}/clang-tidy/wrap-clang-tidy.sh)
+        # Make script executable
+        file(COPY ${CMAKE_CURRENT_BINARY_DIR}/clang-tidy/wrap-clang-tidy.sh
+                DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
+                FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+    endif()
+endif()
+
 add_subdirectory(common)
 # Ensure processing of ./execute before ./compiler
 # Reason: tests in ./compiler depend on CMake variables set in ./execute

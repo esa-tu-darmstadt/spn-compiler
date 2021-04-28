@@ -24,7 +24,7 @@ namespace mlir {
 
     };
 
-    static void populateHiSPNtoLoSPNQueryPatterns(OwningRewritePatternList& patterns, MLIRContext* context,
+    static inline void populateHiSPNtoLoSPNQueryPatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                   TypeConverter& typeConverter) {
       patterns.insert<JointQueryLowering>(typeConverter, context);
     }

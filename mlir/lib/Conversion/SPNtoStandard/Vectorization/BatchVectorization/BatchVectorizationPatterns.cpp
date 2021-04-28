@@ -4,6 +4,7 @@
 //
 
 #include "SPNtoStandard/Vectorization/BatchVectorizationPatterns.h"
+#include <cmath>
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "llvm/Support/Debug.h"
@@ -122,7 +123,7 @@ namespace {
     auto symbolName = "vec_table_" + std::to_string(tableCount++);
     auto visibility = rewriter.getStringAttr("private");
     auto memrefType = mlir::MemRefType::get({(long) arrayValues.size()}, resultType);
-    auto globalMemref = rewriter.create<mlir::GlobalMemrefOp>(op.getLoc(), symbolName, visibility,
+    (void) rewriter.create<mlir::GlobalMemrefOp>(op.getLoc(), symbolName, visibility,
                                                               mlir::TypeAttr::get(memrefType), valArrayAttr, true);
     // Restore insertion point
     rewriter.restoreInsertionPoint(restore);
@@ -194,7 +195,7 @@ mlir::LogicalResult mlir::spn::BatchVectorizeHistogram::matchAndRewrite(mlir::sp
   // Flatten the map into an array by filling up empty indices with 0 values.
   SmallVector<Attribute, 256> valArray;
   for (int i = 0; i < maxUB; ++i) {
-    double indexVal;
+    double indexVal = NAN;
     if (values.count(i)) {
       indexVal = values[i];
     } else {

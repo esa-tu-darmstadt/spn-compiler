@@ -30,7 +30,7 @@ namespace spnc {
 
   private:
 
-    static mlir::OwnedBlob compilePtxToCubin(std::string ptx, mlir::Location loc,
+    static mlir::OwnedBlob compilePtxToCubin(const std::string& ptx, mlir::Location loc,
                                              llvm::StringRef name);
 
     struct GPUOptimizationOptions {

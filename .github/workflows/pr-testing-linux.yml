@@ -1,9 +1,8 @@
-name: dev-testing-linux
+name: pr-testing-linux
 on:
-  push:
+  pull_request:
     branches:
       - develop
-      - 'release/**'
       
 jobs:
   build-and-test-xspn:
@@ -35,7 +34,7 @@ jobs:
       - name: Install Prerequisites
         run: |
           sudo apt update
-          apt install -y git gcc clang cmake ninja-build zlib1g zlib1g-dev python3 lld doxygen graphviz autoconf automake libtool python3-venv python3-pip python3-dev pkg-config libelf-dev libelf1
+          apt install -y git gcc clang cmake ninja-build zlib1g zlib1g-dev python3 lld doxygen graphviz autoconf automake libtool python3-venv python3-pip python3-dev pkg-config libelf-dev libelf1 clang-tidy
 
       - name: Pull LLVM
         uses: actions/checkout@v2
@@ -107,7 +106,7 @@ jobs:
           cd spn-compiler
           mkdir -p build
           cd build
-          cmake -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/llvm/llvm-bin/lib/cmake/llvm;$GITHUB_WORKSPACE/llvm/llvm-bin/lib/cmake/mlir;$GITHUB_WORKSPACE/pybind11/install/share/cmake/pybind11;$GITHUB_WORKSPACE/spdlog/install/lib/cmake/spdlog;$GITHUB_WORKSPACE/capnproto/install" -DLLVM_ENABLE_LLD=ON -DLLVM_ENABLE_ASSERTIONS=ON -DSPNC_BUILD_DOC=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF ..
+          cmake -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/llvm/llvm-bin/lib/cmake/llvm;$GITHUB_WORKSPACE/llvm/llvm-bin/lib/cmake/mlir;$GITHUB_WORKSPACE/pybind11/install/share/cmake/pybind11;$GITHUB_WORKSPACE/spdlog/install/lib/cmake/spdlog;$GITHUB_WORKSPACE/capnproto/install" -DLLVM_ENABLE_LLD=ON -DLLVM_ENABLE_ASSERTIONS=ON -DSPNC_BUILD_DOC=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
           make -j
 
       - name: Test spnc
@@ -129,3 +128,19 @@ jobs:
           cd spn-compiler/python-interface
           source $GITHUB_WORKSPACE/python/venv/bin/activate
           python -m pytest
+
+      - name: Run clang-tidy
+        run: |
+          cd spn-compiler/build
+          sh wrap-clang-tidy.sh
+
+      - name: Run clang-tidy-pr-comments action
+        uses: sommerlukas/clang-tidy-pr-comments@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          clang_tidy_fixes: spn-compiler/build/fixes-clang-tidy.yaml
+          request_changes: false
+          repository_root: spn-compiler
+
+
+

@@ -43,7 +43,7 @@ namespace mlir {
                                       ConversionPatternRewriter& rewriter) const override;
       };
 
-      static void populateLoSPNBufferizationPatterns(OwningRewritePatternList& patterns, MLIRContext* context,
+      static inline void populateLoSPNBufferizationPatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                      TypeConverter& typeConverter) {
         patterns.insert<KernelBufferize, TaskBufferize>(typeConverter, context);
         patterns.insert<BatchExtractBufferize>(typeConverter, context);

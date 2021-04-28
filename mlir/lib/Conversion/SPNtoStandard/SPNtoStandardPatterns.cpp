@@ -13,7 +13,7 @@
 // Should not be necessary on modern platforms,
 // but still defined for compatibility.
 #define _USE_MATH_DEFINES
-#include <math.h>
+#include <cmath>
 
 mlir::LogicalResult mlir::spn::ConstantOpLowering::matchAndRewrite(mlir::spn::ConstantOp op,
                                                                    llvm::ArrayRef<mlir::Value> operands,
@@ -54,7 +54,7 @@ namespace {
     auto symbolName = "table_" + std::to_string(tableCount++);
     auto visibility = rewriter.getStringAttr("private");
     auto memrefType = mlir::MemRefType::get({(long) arrayValues.size()}, resultType);
-    auto globalMemref = rewriter.create<mlir::GlobalMemrefOp>(op.getLoc(), symbolName, visibility,
+    (void) rewriter.create<mlir::GlobalMemrefOp>(op.getLoc(), symbolName, visibility,
                                                               mlir::TypeAttr::get(memrefType), valArrayAttr, true);
     // Restore insertion point
     rewriter.restoreInsertionPoint(restore);
@@ -119,7 +119,7 @@ mlir::LogicalResult mlir::spn::HistogramOpLowering::matchAndRewrite(mlir::spn::H
   // Flatten the map into an array by filling up empty indices with 0 values.
   SmallVector<Attribute, 256> valArray;
   for (int i = 0; i < maxUB; ++i) {
-    double indexVal;
+    double indexVal = NAN;
     if (values.count(i)) {
       indexVal = values[i];
     } else {
