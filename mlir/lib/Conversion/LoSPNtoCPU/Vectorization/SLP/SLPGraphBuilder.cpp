@@ -86,7 +86,7 @@ void SLPGraphBuilder::buildGraph(NodeVector* vector, SLPNode* currentNode) const
     for (auto& operands : allOperands) {
       sortByOpcode(operands, currentOpCode);
     }
-    for (size_t i = 0; i < arity; ++i) {
+    for (unsigned i = 0; i < arity; ++i) {
       if (std::all_of(std::begin(allOperands), std::end(allOperands), [&](SmallVector<Value, 2> const& operands) {
         return operands[i].getDefiningOp()->getName() == currentOpCode && !escapesMultinode(operands[i], currentNode);
       })) {
@@ -258,8 +258,8 @@ int SLPGraphBuilder::getLookAheadScore(Value const& last, Value const& candidate
     if (last == candidate) {
       return 1;
     }
-    if (last.getDefiningOp<SPNBatchRead>() && consecutiveLoads(last, candidate)) {
-      return 1;
+    if (last.getDefiningOp<SPNBatchRead>()) {
+      return consecutiveLoads(last, candidate);
     }
     if (!last.isa<BlockArgument>() && !candidate.isa<BlockArgument>()) {
       return last.getDefiningOp()->getName() == candidate.getDefiningOp()->getName();
