@@ -140,6 +140,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           clang_tidy_fixes: spn-compiler/build/fixes-clang-tidy.yaml
           request_changes: false
+          repository_root: spn-compiler
 
 
 
