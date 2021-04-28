@@ -19,19 +19,24 @@ namespace {
     return lhs.getDefiningOp()->isBeforeInBlock(rhs.getDefiningOp());
   }
 
-  Value latestElement(NodeVector* vector) {
-    Value latestVal = vector->getElement(0);
-    for (size_t lane = 1; lane < vector->numLanes(); ++lane) {
-      if (isBeforeInBlock(latestVal, vector->getElement(lane))) {
-        latestVal = vector->getElement(lane);
-      }
+  Value latest(Value const& lhs, Value const& rhs) {
+    if (isBeforeInBlock(lhs, rhs)) {
+      return rhs;
     }
-    return latestVal;
+    return lhs;
+  }
+
+  Value latestElement(NodeVector* vector) {
+    Value latestElement = vector->getElement(0);
+    for (size_t lane = 1; lane < vector->numLanes(); ++lane) {
+      latestElement = latest(latestElement, vector->getElement(lane));
+    }
+    return latestElement;
   }
 
 }
 
-ConversionState::ConversionState(SLPNode* root) {
+ConversionManager::ConversionManager(SLPNode* root) {
   for (auto* node : SLPNode::postOrder(root)) {
     for (size_t i = node->numVectors(); i-- > 0;) {
       auto* vector = node->getVector(i);
@@ -59,8 +64,8 @@ ConversionState::ConversionState(SLPNode* root) {
   }
 }
 
-Value ConversionState::getInsertionPoint(NodeVector* vector) const {
-  Value insertionPoint = latestInsertion;
+Value ConversionManager::getInsertionPoint(NodeVector* vector) const {
+  Value latestVal = latestInsertion;
   for (size_t i = 0; i < vector->numOperands(); ++i) {
     auto* operand = vector->getOperand(i);
     if (vectorData.lookup(operand).mode == CreationMode::Skip) {
@@ -68,14 +73,17 @@ Value ConversionState::getInsertionPoint(NodeVector* vector) const {
     }
     assert(vectorData.lookup(operand).operation.hasValue() && "operand has not yet been converted");
     auto const& operandValue = vectorData.lookup(operand).operation.getValue();
-    if (!insertionPoint || isBeforeInBlock(insertionPoint, operandValue)) {
-      insertionPoint = operandValue;
+    if (!latestVal || isBeforeInBlock(latestVal, operandValue)) {
+      latestVal = operandValue;
     }
   }
-  return insertionPoint ? insertionPoint : latestElement(vector);
+  if (latestVal) {
+    return latest(latestVal, latestElement(vector));
+  }
+  return latestElement(vector);
 }
 
-void ConversionState::update(NodeVector* vector, Value const& operation, CreationMode const& mode) {
+void ConversionManager::update(NodeVector* vector, Value const& operation, CreationMode const& mode) {
   assert(!vectorData[vector].operation.hasValue() && !vectorData[vector].mode.hasValue()
              && "vector has been converted already");
   vectorData[vector].operation = operation;
@@ -85,30 +93,56 @@ void ConversionState::update(NodeVector* vector, Value const& operation, Creatio
   }
 }
 
-void ConversionState::markSkipped(NodeVector* vector) {
+void ConversionManager::markSkipped(NodeVector* vector) {
   assert(!vectorData[vector].operation.hasValue() && !vectorData[vector].mode.hasValue()
              && "vector has been converted already");
   vectorData[vector].mode = CreationMode::Skip;
 }
 
-bool ConversionState::isConverted(NodeVector* vector) const {
+bool ConversionManager::isConverted(NodeVector* vector) const {
   return vectorData.lookup(vector).operation.hasValue();
 }
 
-Value ConversionState::getValue(NodeVector* vector) const {
+Value ConversionManager::getValue(NodeVector* vector) const {
   assert(isConverted(vector) && "vector has not yet been converted");
   return vectorData.lookup(vector).operation.getValue();
 }
 
-CreationMode ConversionState::getCreationMode(NodeVector* vector) const {
+CreationMode ConversionManager::getCreationMode(NodeVector* vector) const {
   assert(vectorData.lookup(vector).mode.hasValue() && "vector has not yet been converted");
   return vectorData.lookup(vector).mode.getValue();
 }
 
-bool ConversionState::hasEscapingUsers(Value const& value, SmallVectorImpl<Operation*>& users) const {
-  if (!escapingUsers.count(value) || escapingUsers.lookup(value).empty()) {
-    return false;
+bool ConversionManager::hasEscapingUsers(Value const& value) const {
+  return escapingUsers.count(value) && !escapingUsers.lookup(value).empty();
+}
+
+Operation* ConversionManager::moveEscapingUsersBehind(NodeVector* vector, Value const& value) const {
+  SmallVector<Operation*> users;
+  Operation* earliestEscapingUser = nullptr;
+  for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
+    auto const& element = vector->getElement(lane);
+    for (auto* user : escapingUsers.lookup(element)) {
+      if (!earliestEscapingUser) {
+        earliestEscapingUser = user;
+      }
+      users.emplace_back(user);
+    }
   }
-  users.assign(escapingUsers.lookup(value));
-  return true;
+  for (size_t i = 0; i < users.size(); ++i) {
+    users.append(std::begin(users[i]->getUsers()), std::end(users[i]->getUsers()));
+  }
+  std::sort(std::begin(users), std::end(users), [&](Operation* lhs, Operation* rhs) {
+    return lhs->isBeforeInBlock(rhs);
+  });
+  users.erase(std::unique(std::begin(users), std::end(users)), std::end(users));
+
+  Operation* latestUser = value.getDefiningOp();
+  for (size_t i = 0; i < users.size(); ++i) {
+    if (users[i]->isBeforeInBlock(latestUser)) {
+      users[i]->moveAfter(latestUser);
+    }
+    latestUser = users[i];
+  }
+  return earliestEscapingUser;
 }

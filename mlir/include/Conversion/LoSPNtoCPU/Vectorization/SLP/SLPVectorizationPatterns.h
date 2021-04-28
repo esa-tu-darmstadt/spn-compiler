@@ -28,13 +28,13 @@ namespace mlir {
         class SLPVectorizationPattern : public OpRewritePattern<SourceOp> {
 
         public:
-          SLPVectorizationPattern(MLIRContext* context, NodeVector* const& vector, ConversionState& conversionState)
-              : OpRewritePattern<SourceOp>{context}, vector{vector}, conversionState{conversionState} {}
+          SLPVectorizationPattern(MLIRContext* context, NodeVector* const& vector, ConversionManager& conversionManager)
+              : OpRewritePattern<SourceOp>{context}, vector{vector}, conversionManager{conversionManager} {}
 
         protected:
           /// The current vector being transformed.
           NodeVector* const& vector;
-          ConversionState& conversionState;
+          ConversionManager& conversionManager;
         };
 
         struct VectorizeConstant : public SLPVectorizationPattern<ConstantOp> {
@@ -65,11 +65,11 @@ namespace mlir {
         static void populateSLPVectorizationPatterns(OwningRewritePatternList& patterns,
                                                      MLIRContext* context,
                                                      NodeVector* const& vector,
-                                                     ConversionState& conversionState) {
-          patterns.insert<VectorizeConstant>(context, vector, conversionState);
-          patterns.insert<VectorizeBatchRead>(context, vector, conversionState);
-          patterns.insert<VectorizeAdd, VectorizeMul>(context, vector, conversionState);
-          patterns.insert<VectorizeGaussian>(context, vector, conversionState);
+                                                     ConversionManager& conversionManager) {
+          patterns.insert<VectorizeConstant>(context, vector, conversionManager);
+          patterns.insert<VectorizeBatchRead>(context, vector, conversionManager);
+          patterns.insert<VectorizeAdd, VectorizeMul>(context, vector, conversionManager);
+          patterns.insert<VectorizeGaussian>(context, vector, conversionManager);
         }
 
       }

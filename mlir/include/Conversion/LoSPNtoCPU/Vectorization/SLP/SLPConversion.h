@@ -22,11 +22,11 @@ namespace mlir {
           Skip
         };
 
-        class ConversionState {
+        class ConversionManager {
 
         public:
 
-          explicit ConversionState(SLPNode* root);
+          explicit ConversionManager(SLPNode* root);
 
           Value getInsertionPoint(NodeVector* vector) const;
           bool isConverted(NodeVector* vector) const;
@@ -36,7 +36,9 @@ namespace mlir {
 
           Value getValue(NodeVector* vector) const;
           CreationMode getCreationMode(NodeVector* vector) const;
-          bool hasEscapingUsers(Value const& value, SmallVectorImpl<Operation*>& users) const;
+
+          bool hasEscapingUsers(Value const& value) const;
+          Operation* moveEscapingUsersBehind(NodeVector* vector, Value const& operation) const;
 
         private:
 

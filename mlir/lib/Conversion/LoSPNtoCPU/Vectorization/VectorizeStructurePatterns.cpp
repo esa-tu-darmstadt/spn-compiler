@@ -126,7 +126,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
   // The current vector being transformed.
   NodeVector* vector = nullptr;
-  ConversionState conversionState{graph.get()};
+  ConversionManager conversionManager{graph.get()};
   // Prevent extracting/removing values more than once (happens in splat mode, if they appear in multiple vectors, ...).
   SmallPtrSet<Value, 32> finishedValues;
   // Use a custom pattern driver that does *not* perform folding automatically (which the other rewrite drivers
@@ -135,7 +135,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   // front (including those we identified as SLP-vectorizable!) and create new ones there, resulting in our constant
   // SLP-vectorization patterns not being applied to them and messing up operand handling further down the SLP graph.
   OwningRewritePatternList patterns;
-  populateSLPVectorizationPatterns(patterns, rewriter.getContext(), vector, conversionState);
+  populateSLPVectorizationPatterns(patterns, rewriter.getContext(), vector, conversionManager);
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
   PatternApplicator applicator(frozenPatterns);
   applicator.applyDefaultCostModel();
@@ -152,32 +152,30 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         // For example, SPNBatchReads being replaced with vector::LoadOps or broadcastInserts instead of using their
         // vectorized operands.
         if (wouldBeIllegal(vector)) {
-          conversionState.markSkipped(vector);
+          conversionManager.markSkipped(vector);
           continue;
         }
         auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
-        rewriter.setInsertionPointAfterValue(conversionState.getInsertionPoint(vector));
+        rewriter.setInsertionPointAfterValue(conversionManager.getInsertionPoint(vector));
         if (vector->splattable()) {
           auto const& element = vector->getElement(0);
           auto vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
-          conversionState.update(vector, vectorizedOp, CreationMode::Splat);
+          conversionManager.update(vector, vectorizedOp, CreationMode::Splat);
         } else {
           auto vectorizedOp = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
-          conversionState.update(vector, vectorizedOp, CreationMode::BroadcastInsert);
+          conversionManager.update(vector, vectorizedOp, CreationMode::BroadcastInsert);
         }
       }
     }
 
     // Create vector extractions for escaping uses & erase superfluous operations.
-    SmallVector<Operation*, 2> escapingUsers;
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
-      auto const& creationMode = conversionState.getCreationMode(vector);
+      auto const& creationMode = conversionManager.getCreationMode(vector);
       if (creationMode == CreationMode::Skip) {
         continue;
       }
       // Users that have already been moved to the correct place (no need to move them more than once for each vector).
-      SmallPtrSet<Operation*, 4> movedUsers;
       for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
         auto const& element = vector->getElement(lane);
         if (finishedValues.contains(element)) {
@@ -187,24 +185,12 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         if (creationMode == CreationMode::BroadcastInsert || (creationMode == CreationMode::Splat && lane == 0)) {
           continue;
         }
-        if (conversionState.hasEscapingUsers(element, escapingUsers)) {
+        if (conversionManager.hasEscapingUsers(element)) {
           if (creationMode == CreationMode::Constant) {
             continue;
           }
-          // Move all escaping users behind the vector operation.
-          auto const& source = conversionState.getValue(vector);
-          Operation* latestUser = source.getDefiningOp();
-          for (auto* escapingUser : escapingUsers) {
-            if (movedUsers.contains(escapingUser)) {
-              continue;
-            }
-            movedUsers.insert(escapingUser);
-            if (escapingUser->isBeforeInBlock(source.getDefiningOp())) {
-              escapingUser->moveAfter(latestUser);
-              latestUser = escapingUser;
-            }
-          }
-          rewriter.setInsertionPoint(escapingUsers.front());
+          auto const& source = conversionManager.getValue(vector);
+          rewriter.setInsertionPoint(conversionManager.moveEscapingUsersBehind(vector, source));
           auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
           element.replaceAllUsesWith(extractOp.result());
         }
