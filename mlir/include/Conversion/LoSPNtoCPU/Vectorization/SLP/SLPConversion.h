@@ -38,7 +38,7 @@ namespace mlir {
           CreationMode getCreationMode(NodeVector* vector) const;
 
           bool hasEscapingUsers(Value const& value) const;
-          Operation* moveEscapingUsersBehind(NodeVector* vector, Value const& operation) const;
+          Operation* moveEscapingUsersBehind(NodeVector* vector) const;
 
         private:
 

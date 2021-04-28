@@ -117,7 +117,8 @@ bool ConversionManager::hasEscapingUsers(Value const& value) const {
   return escapingUsers.count(value) && !escapingUsers.lookup(value).empty();
 }
 
-Operation* ConversionManager::moveEscapingUsersBehind(NodeVector* vector, Value const& value) const {
+Operation* ConversionManager::moveEscapingUsersBehind(NodeVector* vector) const {
+  assert(isConverted(vector) && "vector has not yet been converted");
   SmallVector<Operation*> users;
   Operation* earliestEscapingUser = nullptr;
   for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
@@ -137,7 +138,7 @@ Operation* ConversionManager::moveEscapingUsersBehind(NodeVector* vector, Value 
   });
   users.erase(std::unique(std::begin(users), std::end(users)), std::end(users));
 
-  Operation* latestUser = value.getDefiningOp();
+  Operation* latestUser = vectorData.lookup(vector).operation->getDefiningOp();
   for (size_t i = 0; i < users.size(); ++i) {
     if (users[i]->isBeforeInBlock(latestUser)) {
       users[i]->moveAfter(latestUser);
