@@ -4,6 +4,7 @@
 //
 
 #include "LoSPNtoCPU/NodePatterns.h"
+#include "math.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "LoSPN/LoSPNAttributes.h"
 
@@ -420,7 +421,7 @@ mlir::LogicalResult mlir::spn::HistogramLowering::matchAndRewrite(mlir::spn::low
   // Flatten the map into an array by filling up empty indices with 0 values.
   SmallVector<Attribute, 256> valArray;
   for (int i = 0; i < maxUB; ++i) {
-    double indexVal;
+    double indexVal = NAN;
     if (values.count(i)) {
       indexVal = (computesLog) ? log(values[i]) : values[i];
     } else {

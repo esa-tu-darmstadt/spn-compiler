@@ -7,6 +7,7 @@
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
 #include "../Target/TargetInformation.h"
 #include "llvm/Support/FormatVariadic.h"
+#include "math.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Math/IR/Math.h"
@@ -565,7 +566,7 @@ mlir::LogicalResult mlir::spn::VectorizeHistogram::matchAndRewrite(mlir::spn::lo
   // Flatten the map into an array by filling up empty indices with 0 values.
   SmallVector<Attribute, 256> valArray;
   for (int i = 0; i < maxUB; ++i) {
-    double indexVal;
+    double indexVal = NAN;
     if (values.count(i)) {
       indexVal = (computesLog) ? log(values[i]) : values[i];
     } else {

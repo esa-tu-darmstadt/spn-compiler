@@ -4,6 +4,7 @@
 //
 
 #include "SPNtoStandard/Vectorization/BatchVectorizationPatterns.h"
+#include "math.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "llvm/Support/Debug.h"
@@ -194,7 +195,7 @@ mlir::LogicalResult mlir::spn::BatchVectorizeHistogram::matchAndRewrite(mlir::sp
   // Flatten the map into an array by filling up empty indices with 0 values.
   SmallVector<Attribute, 256> valArray;
   for (int i = 0; i < maxUB; ++i) {
-    double indexVal;
+    double indexVal = NAN;
     if (values.count(i)) {
       indexVal = values[i];
     } else {

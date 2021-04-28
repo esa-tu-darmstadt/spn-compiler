@@ -49,7 +49,7 @@ std::shared_ptr<mlir::ScopedDiagnosticHandler> spnc::MLIRToolchain::setupDiagnos
   // used by the compiler/toolchain.
   return std::make_shared<mlir::ScopedDiagnosticHandler>(ctx, [](Diagnostic& diag) {
     auto logger = spdlog::default_logger_raw();
-    spdlog::level::level_enum level;
+    spdlog::level::level_enum level = spdlog::level::level_enum::debug;
     std::string levelTxt;
     // Translate from MLIR severity to SPDLOG log-level.
     switch (diag.getSeverity()) {
