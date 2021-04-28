@@ -285,7 +285,7 @@ mlir::ModuleOp& spnc::GPUtoLLVMConversion::execute() {
     auto gpuArch = getGPUArchitecture();
     GPUOptimizationOptions optimizationOptions{gpuArch, "+ptx60", true, printIR};
     kernelPm.addPass(mlir::createConvertGPUKernelToBlobPass(
-        [printIR, &gpuKernels, &optimizationOptions](mlir::Operation* gpuModule,
+        [&gpuKernels, &optimizationOptions](mlir::Operation* gpuModule,
                                                      llvm::LLVMContext& llvmContext,
                                                      llvm::StringRef name = "LLVMDialectModule") -> std::unique_ptr<llvm::Module> {
           return translateAndLinkGPUModule(gpuKernels, optimizationOptions, gpuModule, llvmContext, name);

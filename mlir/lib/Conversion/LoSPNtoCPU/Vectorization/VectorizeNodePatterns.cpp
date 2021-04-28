@@ -570,7 +570,7 @@ mlir::LogicalResult mlir::spn::VectorizeHistogram::matchAndRewrite(mlir::spn::lo
       indexVal = (computesLog) ? log(values[i]) : values[i];
     } else {
       // Fill up with 0 if no value was defined by the histogram.
-      indexVal = (computesLog) ? -INFINITY : 0;
+      indexVal = (computesLog) ? static_cast<double>(-INFINITY) : 0;
     }
     // Construct attribute with constant value. Need to distinguish cases here due to different builder methods.
     if (resultType.isIntOrIndex()) {

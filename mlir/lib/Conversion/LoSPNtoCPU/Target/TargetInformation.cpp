@@ -55,7 +55,7 @@ unsigned int mlir::spn::TargetInformation::getHWVectorEntriesAVX2(mlir::Type typ
   if (auto floatType = type.dyn_cast<FloatType>()) {
     switch (floatType.getWidth()) {
       case 64: return 4;
-      case 32: return 8;
+      case 32:
         // Float16 can only be used for store/load but not for arithmetic on most AVX2 implementations.
       default: return 8;
     }
@@ -71,7 +71,7 @@ unsigned int mlir::spn::TargetInformation::getHWVectorEntriesAVX(mlir::Type type
   if (auto floatType = type.dyn_cast<FloatType>()) {
     switch (floatType.getWidth()) {
       case 64: return 4;
-      case 32: return 8;
+      case 32:
         // Float16 can only be used for store/load but not for arithmetic on most AVX2 implementations.
       default: return 8;
     }
@@ -87,7 +87,7 @@ unsigned int mlir::spn::TargetInformation::getHWVectorEntriesAVX512(mlir::Type t
   if (auto floatType = type.dyn_cast<FloatType>()) {
     switch (floatType.getWidth()) {
       case 64: return 8;
-      case 32: return 16;
+      case 32:
         // Float16 can only be used for store/load but not for arithmetic on most AVX2 implementations.
       default: return 16;
     }
