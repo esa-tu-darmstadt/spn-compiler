@@ -182,6 +182,19 @@ void slp::dumpSLPGraph(SLPNode const& root) {
             llvm::dbgs() << "<BR/>batch: ";
             dumpBlockArgOrDefiningAddress(readOp.batchIndex());
             llvm::dbgs() << "<BR/>sample: " << readOp.sampleIndex();
+          } else if (auto gaussianOp = dyn_cast<SPNGaussianLeaf>(definingOp)) {
+            llvm::dbgs() << "<BR/>index: ";
+            dumpBlockArgOrDefiningAddress(gaussianOp.index());
+            llvm::dbgs() << "<BR/>mean: " << gaussianOp.mean().convertToDouble();
+            llvm::dbgs() << "<BR/>stddev: " << gaussianOp.stddev().convertToDouble();
+          } else if (auto categoricalOp = dyn_cast<SPNCategoricalLeaf>(definingOp)) {
+            llvm::dbgs() << "<BR/>index: ";
+            dumpBlockArgOrDefiningAddress(categoricalOp.index());
+            llvm::dbgs() << "<BR/>probabilities: [ ";
+            for (auto const& probability : categoricalOp.probabilities()) {
+              llvm::dbgs() << probability << " ";
+            }
+            llvm::dbgs() << "]";
           }
           llvm::dbgs() << "</FONT>";
         }
