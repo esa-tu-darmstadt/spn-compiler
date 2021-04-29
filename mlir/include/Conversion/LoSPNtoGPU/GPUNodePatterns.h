@@ -134,7 +134,7 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
-    static void populateLoSPNtoGPUNodePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
+    static inline void populateLoSPNtoGPUNodePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                TypeConverter& typeConverter) {
       patterns.insert<BatchReadGPULowering, BatchWriteGPULowering, CopyGPULowering>(typeConverter, context);
       patterns.insert<LogGPULowering, ReturnGPULowering, ConstantGPULowering>(typeConverter, context);

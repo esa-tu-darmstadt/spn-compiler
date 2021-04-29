@@ -176,7 +176,7 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
       // Check that all input elements for all threads in the block fit into shared memory.
       auto elementType = inputMem.getType().cast<MemRefType>().getElementType();
       auto memRefType = MemRefType::get({numFeatures, constantBlockSize},
-                                        inputMem.getType().cast<MemRefType>().getElementType(),
+                                        elementType,
                                         {}, 3);
       auto memRefBytes = memRefType.getSizeInBits() / 8;
       if (memRefBytes > maxSharedMem) {
@@ -230,7 +230,7 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
         }
         // Load from global memory, transpose and store into shared memory.
         auto readGlobal = rewriter.create<LoadOp>(loc, inputMem, ValueRange{sampleIndex, featureIndex});
-        auto storeShared = rewriter.create<StoreOp>(loc, readGlobal, sharedMem,
+        (void) rewriter.create<StoreOp>(loc, readGlobal, sharedMem,
                                                     ValueRange{featureIndex, loop.getInductionVar()});
       }
 
@@ -240,7 +240,7 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
       patterns.insert<RewriteBatchReadtoSharedMem>(gpuFunc.getContext(), sharedMem);
       mlir::FrozenRewritePatternList frozenPatterns(std::move(patterns));
       for (auto& read : reads) {
-        applyOpPatternsAndFold(read, frozenPatterns);
+        (void) applyOpPatternsAndFold(read, frozenPatterns);
       }
     }
     // Insert a barrier (__syncthreads()) to make sure all memory loading is finished before the
@@ -260,7 +260,7 @@ void mlir::spn::LoSPNGPUSharedMemoryInsertionPass::runOnOperation() {
   mlir::FrozenRewritePatternList frozenPatterns(std::move(patterns));
   // Apply the pattern to all GPUFuncs in the module.
   module->walk([&frozenPatterns](gpu::GPUFuncOp gpuFunc) {
-    applyOpPatternsAndFold(gpuFunc, frozenPatterns);
+    (void) applyOpPatternsAndFold(gpuFunc, frozenPatterns);
   });
 }
 

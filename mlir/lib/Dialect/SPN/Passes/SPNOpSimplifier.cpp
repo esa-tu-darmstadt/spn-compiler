@@ -31,7 +31,9 @@ namespace {
       patterns.insert<BinarizeProductOp>(context);
       Operation* op = getOperation();
       FrozenRewritePatternList frozenPatterns(std::move(patterns));
-      applyPatternsAndFoldGreedily(op->getRegions(), frozenPatterns);
+      if(failed(applyPatternsAndFoldGreedily(op->getRegions(), frozenPatterns))){
+        signalPassFailure();
+      }
     }
 
   };

@@ -23,7 +23,7 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
-    static void populateLoSPNCPUVectorizationStructurePatterns(OwningRewritePatternList& patterns,
+    static inline void populateLoSPNCPUVectorizationStructurePatterns(OwningRewritePatternList& patterns,
                                                                MLIRContext* context,
                                                                TypeConverter& typeConverter) {
       patterns.insert<VectorizeBatchTask>(typeConverter, context, 5);
@@ -146,7 +146,7 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
-    static void populateLoSPNCPUVectorizationNodePatterns(OwningRewritePatternList& patterns,
+    static inline void populateLoSPNCPUVectorizationNodePatterns(OwningRewritePatternList& patterns,
                                                           MLIRContext* context,
                                                           TypeConverter& typeConverter) {
       patterns.insert<VectorizeBatchRead, VectorizeBatchWrite>(typeConverter, context, 2);

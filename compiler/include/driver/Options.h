@@ -235,7 +235,7 @@ namespace spnc {
         if (!verified) {
           SPNC_FATAL_ERROR("Could not verify configuration constraints!");
         }
-        return std::move(config);
+        return config;
       }
 
       /// Register a new modifier instance in this container, assumes ownership of the modifier.
@@ -447,7 +447,7 @@ namespace spnc {
 
     /// Helper-function to create and register a "required"-modifier.
     /// \return Non-owning pointer to the modifier.
-    static RequiredOpt* required() {
+    static inline RequiredOpt* required() {
       return Options::registerModifier(std::make_unique<RequiredOpt>());
     }
 

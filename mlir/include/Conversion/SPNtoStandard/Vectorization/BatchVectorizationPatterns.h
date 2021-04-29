@@ -60,7 +60,7 @@ namespace mlir {
     /// \param patterns Pattern list to fill.
     /// \param context MLIR context.
     /// \param typeConverter Type converter.
-    static void populateSPNBatchVectorizePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
+    static inline void populateSPNBatchVectorizePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                   TypeConverter& typeConverter) {
       patterns.insert<BatchVectorizeGaussian>(typeConverter, context, 2);
       patterns.insert<BatchVectorizeCategorical, BatchVectorizeHistogram>(typeConverter, context, 2);

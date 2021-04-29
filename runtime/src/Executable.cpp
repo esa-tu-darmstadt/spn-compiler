@@ -89,7 +89,7 @@ void Executable::executeGPU(size_t num_samples, void* inputs, void* outputs) {
 }
 
 void Executable::initialize() {
-  char* error;
+  char* error = nullptr;
   // Try to open the shared object file.
   handle = dlopen(kernel->fileName().c_str(), RTLD_LAZY);
   if (!handle) {

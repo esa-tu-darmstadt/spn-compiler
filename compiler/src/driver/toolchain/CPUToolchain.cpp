@@ -18,7 +18,7 @@ using namespace spnc;
 using namespace mlir;
 
 std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::string& inputFile,
-                                                                 std::shared_ptr<interface::Configuration> config) {
+                                              const std::shared_ptr<interface::Configuration>& config) {
   // Uncomment the following two lines to get detailed output during MLIR dialect conversion;
   //llvm::DebugFlag = true;
   //llvm::setCurrentDebugType("dialect-conversion");
@@ -48,7 +48,7 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
   auto& llvmConversion = job->insertAction<MLIRtoLLVMIRConversion>(cpu2llvm, ctx, targetMachine);
 
   // Translate the generated LLVM IR module to object code and write it to an object file.
-  auto objectFile = FileSystem::createTempFile<FileType::OBJECT>(false);
+  auto objectFile = FileSystem::createTempFile<FileType::OBJECT>(true);
   SPDLOG_INFO("Generating object file {}", objectFile.fileName());
   auto& emitObjectCode = job->insertAction<EmitObjectCode>(llvmConversion, std::move(objectFile), targetMachine);
 
@@ -69,8 +69,8 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
     }
   }
   auto searchPaths = parseLibrarySearchPaths(spnc::option::searchPaths.get(*config));
-  auto& linkSharedObject =
+  (void)
       job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo, 
                                                 additionalLibs, searchPaths);
-  return std::move(job);
+  return job;
 }

@@ -28,7 +28,6 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
   // Lower a task with batchSize > 1. The task is lowered to a function, containing a scalar loop iterating over the
   // samples in the batch. The content of the Task is merged into the newly created loop's body, the loop induction
   // variable replaces the batchIndex argument of the Task.
-  static int taskCount = 0;
   if (op.batchSize() == 1) {
     return rewriter.notifyMatchFailure(op, "Match only batched (batchSize > 1) execution");
   }
@@ -122,7 +121,7 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
   }
   auto checkInBounds = rewriter.create<mlir::CmpIOp>(op->getLoc(), CmpIPredicate::ult, batchIndex, numSamples);
   auto ifOp = rewriter.create<mlir::scf::IfOp>(op.getLoc(), checkInBounds, false);
-  auto terminator = rewriter.create<gpu::TerminatorOp>(op.getLoc());
+  (void) rewriter.create<gpu::TerminatorOp>(op.getLoc());
   rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
   rewriter.mergeBlockBefore(&op.body().front(), ifOp.thenRegion().front().getTerminator(), blockReplacementArgs);
   gpuLaunch.body().front().walk([&rewriter](low::SPNReturn ret) {

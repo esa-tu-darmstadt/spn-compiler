@@ -97,7 +97,7 @@ mlir::LogicalResult mlir::spn::VectorizeBatchTask::matchAndRewrite(mlir::spn::lo
     if (isa<low::SPNReturn>(&node)) {
       continue;
     }
-    auto copy = rewriter.clone(node, mapVectorTaskArgs);
+    (void) rewriter.clone(node, mapVectorTaskArgs);
   }
 
   // Mark all operations contained in the vectorized loop as vectorized.

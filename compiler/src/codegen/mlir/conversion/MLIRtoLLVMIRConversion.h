@@ -39,8 +39,8 @@ namespace spnc {
     /// \param conv Move source.
     MLIRtoLLVMIRConversion(MLIRtoLLVMIRConversion&& conv) noexcept:
         ActionSingleInput<mlir::ModuleOp, llvm::Module>{conv.input},
-        module{std::move(conv.module)}, ctx{std::move(conv.ctx)},
-        cached{conv.cached}, optimize{conv.optimize} {
+        module{std::move(conv.module)}, cached{conv.cached}, 
+        optimize{conv.optimize}, ctx{std::move(conv.ctx)} {
       conv.cached = false;
     }
 
@@ -69,7 +69,7 @@ namespace spnc {
 
     std::unique_ptr<llvm::Module> module;
 
-    bool cached = false;
+    bool cached;
 
     bool optimize;
 

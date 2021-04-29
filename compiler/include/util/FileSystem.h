@@ -9,6 +9,7 @@
 #include <functional>
 #include <iostream>
 #include <string>
+#include <stdlib.h>
 
 namespace spnc {
 
@@ -116,12 +117,10 @@ namespace spnc {
         break;
       default: fileExtension = "";
     }
-    /*
-     * We are currently using the "old" tmpnam-function from the C standard library.
-     * FIXME: Replace this with the C++17 filesystem header as soon as it becomes
-     * available on all relevant platforms, including Mac OS.
-     */
-    std::string tmpName = std::string{std::tmpnam(nullptr)} + fileExtension;
+    std::string tmpName = "/tmp/spncXXXXXX" + fileExtension;
+    auto suffixLength = fileExtension.length();
+    // Use the mkstemps function from the Posix standard to create a temporary files with file suffix.
+    mkstemps(&tmpName[0], suffixLength);
     return File<Type>{tmpName, deleteTmpOnExit};
   }
 
