@@ -57,4 +57,12 @@ def LoSPNVectorizable : OpInterface<"LoSPNVectorizable"> {
 
 }
 
+def LeafNodeInterface : OpInterface<"LeafNodeInterface"> {
+
+  let description = [{
+  Interface common to all LoSPN leaf nodes.
+  }];
+
+}
+
 #endif // LoSPN_INTERFACES

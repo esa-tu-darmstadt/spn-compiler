@@ -68,6 +68,11 @@ static llvm::cl::opt<bool> optRepresentation("opt-repr",
                                              llvm::cl::desc("Determine and use optimal number representation"),
                                              llvm::cl::init(false));
 
+static llvm::cl::opt<std::string> graphStatsFile{"graph-stats-file",
+                                                 llvm::cl::desc("Graph statistics output file"),
+                                                 llvm::cl::value_desc("filename"),
+                                                 llvm::cl::init("/tmp/stats.json")};
+
 ///
 /// spnc-opt: Custom tool to run SPN-dialect specific and generic passes on MLIR files.
 int main(int argc, char** argv) {
@@ -103,6 +108,11 @@ int main(int argc, char** argv) {
   mlir::registerPass("vectorize-lospn-nodes", "Vectorize LoSPN nodes for CPU target",
                      []() -> std::unique_ptr<mlir::Pass> {
                        return mlir::spn::createLoSPNNodeVectorizationPass();
+                     });
+
+  mlir::registerPass("collect-graph-stats", "Collect graph statistics",
+                     []() -> std::unique_ptr<mlir::Pass> {
+                       return mlir::spn::low::createLoSPNGraphStatsCollectionPass(graphStatsFile);
                      });
 
   llvm::InitLLVM y(argc, argv);
