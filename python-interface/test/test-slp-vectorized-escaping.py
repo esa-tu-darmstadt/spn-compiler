@@ -25,23 +25,23 @@ g9 = Gaussian(mean=0.09, stdev=0.75, scope=9)
 g10 = Gaussian(mean=0.10, stdev=1, scope=10)
 g11 = Gaussian(mean=0.11, stdev=1, scope=11)
 
-h0 = Histogram([0., 1., 2.], [0.1, 0.9], [1, 1], scope=0)
-h1 = Histogram([0., 1., 2.], [0.2, 0.8], [1, 1], scope=1)
-h2 = Histogram([0., 1., 2.], [0.3, 0.7], [1, 1], scope=2)
-h3 = Histogram([0., 1., 2.], [0.4, 0.6], [1, 1], scope=3)
-h4 = Histogram([0., 1., 2.], [0.5, 0.5], [1, 1], scope=4)
-h5 = Histogram([0., 1., 2.], [0.6, 0.4], [1, 1], scope=5)
-h6 = Histogram([0., 1., 2.], [0.7, 0.3], [1, 1], scope=6)
-h7 = Histogram([0., 1., 2.], [0.8, 0.2], [1, 1], scope=7)
+h0 = Histogram([0., 1., 2.], [0.1, 0.9], [1, 1], scope=12)
+h1 = Histogram([0., 1., 2.], [0.2, 0.8], [1, 1], scope=13)
+h2 = Histogram([0., 1., 2.], [0.3, 0.7], [1, 1], scope=14)
+h3 = Histogram([0., 1., 2.], [0.4, 0.6], [1, 1], scope=15)
+h4 = Histogram([0., 1., 2.], [0.5, 0.5], [1, 1], scope=16)
+h5 = Histogram([0., 1., 2.], [0.6, 0.4], [1, 1], scope=17)
+h6 = Histogram([0., 1., 2.], [0.7, 0.3], [1, 1], scope=18)
+h7 = Histogram([0., 1., 2.], [0.8, 0.2], [1, 1], scope=19)
 
-c0 = Categorical(p=[0.1, 0.1, 0.8], scope=0)
-c1 = Categorical(p=[0.2, 0.2, 0.6], scope=1)
-c2 = Categorical(p=[0.3, 0.3, 0.4], scope=2)
-c3 = Categorical(p=[0.4, 0.4, 0.2], scope=3)
-c4 = Categorical(p=[0.5, 0.4, 0.1], scope=4)
-c5 = Categorical(p=[0.6, 0.3, 0.1], scope=5)
-c6 = Categorical(p=[0.7, 0.2, 0.1], scope=6)
-c7 = Categorical(p=[0.8, 0.1, 0.1], scope=7)
+c0 = Categorical(p=[0.1, 0.1, 0.8], scope=20)
+c1 = Categorical(p=[0.2, 0.2, 0.6], scope=21)
+c2 = Categorical(p=[0.3, 0.3, 0.4], scope=22)
+c3 = Categorical(p=[0.4, 0.4, 0.2], scope=23)
+c4 = Categorical(p=[0.5, 0.4, 0.1], scope=24)
+c5 = Categorical(p=[0.6, 0.3, 0.1], scope=25)
+c6 = Categorical(p=[0.7, 0.2, 0.1], scope=26)
+c7 = Categorical(p=[0.8, 0.1, 0.1], scope=27)
 
 s0 = Sum(children=[g8, h4], weights=[0.5, 0.5])
 s1 = Sum(children=[g9, h5], weights=[0.5, 0.5])
@@ -112,26 +112,41 @@ samples = 30
 for i in range(samples):
 
     # Randomly sample input values from Gaussian (normal) distributions.
-    inputs = np.column_stack((np.random.normal(0.5, 1),
-                              np.random.normal(0.125, 0.25),
-                              np.random.normal(0.345, 0.24),
-                              np.random.normal(0.456, 0.1),
-                              np.random.normal(0.94, 0.48),
-                              np.random.normal(0.56, 0.42),
-                              np.random.normal(0.76, 0.14),
-                              np.random.normal(0.32, 0.58),
-                              np.random.normal(0.58, 0.219),
-                              np.random.normal(0.14, 0.52),
-                              np.random.normal(0.24, 0.42),
-                              np.random.normal(0.34, 0.1),
-                              np.random.normal(0.44, 0.9),
-                              np.random.normal(0.54, 0.7),
-                              np.random.normal(0.64, 0.5),
-                              np.random.normal(0.74, 0.4)))
+    inputs = np.column_stack((
+        # gaussian
+        np.random.normal(0.5, 1),
+        np.random.normal(0.125, 0.25),
+        np.random.normal(0.345, 0.24),
+        np.random.normal(0.456, 0.1),
+        np.random.normal(0.94, 0.48),
+        np.random.normal(0.56, 0.42),
+        np.random.normal(0.76, 0.14),
+        np.random.normal(0.32, 0.58),
+        np.random.normal(0.58, 0.219),
+        np.random.normal(0.14, 0.52),
+        np.random.normal(0.24, 0.42),
+        np.random.normal(0.34, 0.1),
+        # histogram
+        np.random.randint(2, size=1),
+        np.random.randint(2, size=1),
+        np.random.randint(2, size=1),
+        np.random.randint(2, size=1),
+        np.random.randint(2, size=1),
+        np.random.randint(2, size=1),
+        np.random.randint(2, size=1),
+        np.random.randint(2, size=1),
+        # categorical
+        np.random.randint(3, size=1),
+        np.random.randint(3, size=1),
+        np.random.randint(3, size=1),
+        np.random.randint(3, size=1),
+        np.random.randint(3, size=1),
+        np.random.randint(3, size=1),
+        np.random.randint(3, size=1),
+        np.random.randint(3, size=1))).astype("float64")
 
     # Execute the compiled Kernel.
     results = k.execute(1, inputs)
-
     # Compute the reference results using the inference from SPFlow.
     reference = log_likelihood(spn, inputs)
     reference = reference.reshape(1)
@@ -140,7 +155,7 @@ for i in range(samples):
 
     # Compare computed results and reference to make sure the computation by the compiled Kernel is correct.
     if not np.all(np.isclose(results, reference)):
-        raise RuntimeError("COMPUTATION FAILED: Results did not match reference!")
+        raise RuntimeError(f"COMPUTATION FAILED: Results did not match reference! (input: {inputs})")
 
 print("COMPUTATION OK")
 
