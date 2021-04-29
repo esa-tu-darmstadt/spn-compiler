@@ -23,6 +23,8 @@ if (${CPU_PARALLEL_RUNTIME})
     endif (OpenMP_CXX_FOUND)
 endif (${CPU_PARALLEL_RUNTIME})
 
+target_compile_options(spnc-rt PRIVATE ${SPNC_CXX_WARNING_LEVEL})
+
 doxygen_doc(TARGET_NAME spnc-rt
         SRC_DIRECTORIES
         ${CMAKE_CURRENT_SOURCE_DIR}/include

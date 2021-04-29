@@ -25,7 +25,7 @@ using namespace spnc;
 using namespace mlir;
 
 std::unique_ptr<Job<Kernel> > CUDAGPUToolchain::constructJobFromFile(const std::string& inputFile,
-                                                                     std::shared_ptr<interface::Configuration> config) {
+                                                const std::shared_ptr<interface::Configuration>& config) {
   // Uncomment the following two lines to get detailed output during MLIR dialect conversion;
   //llvm::DebugFlag = true;
   //llvm::setCurrentDebugType("dialect-conversion");
@@ -65,8 +65,7 @@ std::unique_ptr<Job<Kernel> > CUDAGPUToolchain::constructJobFromFile(const std::
   additionalLibs.push_back("cuda-runtime-wrappers");
   auto searchPaths = parseLibrarySearchPaths(spnc::option::searchPaths.get(*config));
   searchPaths.push_back(SPNC_CUDA_RUNTIME_WRAPPERS_DIR);
-  auto& linkSharedObject =
-      job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo,
+  (void) job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo,
                                                  additionalLibs, searchPaths);
-  return std::move(job);
+  return job;
 }

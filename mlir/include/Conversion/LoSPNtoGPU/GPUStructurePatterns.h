@@ -41,7 +41,7 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
-    static void populateLoSPNtoGPUStructurePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
+    static inline void populateLoSPNtoGPUStructurePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                     TypeConverter& typeConverter) {
       patterns.insert<KernelGPULowering, BatchTaskGPULowering>(typeConverter, context);
       patterns.insert<BodyGPULowering>(typeConverter, context);

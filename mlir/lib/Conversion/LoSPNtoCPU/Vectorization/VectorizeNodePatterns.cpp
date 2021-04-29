@@ -7,6 +7,7 @@
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
 #include "../Target/TargetInformation.h"
 #include "llvm/Support/FormatVariadic.h"
+#include <cmath>
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Math/IR/Math.h"
@@ -447,7 +448,7 @@ namespace {
     auto symbolName = tablePrefix + std::to_string(tableCount++);
     auto visibility = rewriter.getStringAttr("private");
     auto memrefType = mlir::MemRefType::get({(long) arrayValues.size()}, resultType);
-    auto globalMemref = rewriter.create<mlir::GlobalMemrefOp>(op.getLoc(), symbolName, visibility,
+    (void) rewriter.create<mlir::GlobalMemrefOp>(op.getLoc(), symbolName, visibility,
                                                               mlir::TypeAttr::get(memrefType), valArrayAttr, true);
     // Restore insertion point
     rewriter.restoreInsertionPoint(restore);
@@ -565,12 +566,12 @@ mlir::LogicalResult mlir::spn::VectorizeHistogram::matchAndRewrite(mlir::spn::lo
   // Flatten the map into an array by filling up empty indices with 0 values.
   SmallVector<Attribute, 256> valArray;
   for (int i = 0; i < maxUB; ++i) {
-    double indexVal;
+    double indexVal = NAN;
     if (values.count(i)) {
       indexVal = (computesLog) ? log(values[i]) : values[i];
     } else {
       // Fill up with 0 if no value was defined by the histogram.
-      indexVal = (computesLog) ? -INFINITY : 0;
+      indexVal = (computesLog) ? static_cast<double>(-INFINITY) : 0;
     }
     // Construct attribute with constant value. Need to distinguish cases here due to different builder methods.
     if (resultType.isIntOrIndex()) {

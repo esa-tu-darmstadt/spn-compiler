@@ -174,7 +174,7 @@ namespace mlir {
     /// \param patterns Pattern list to fill.
     /// \param context MLIR context.
     /// \param typeConverter Type converter.
-    static void populateSPNtoStandardConversionPatterns(OwningRewritePatternList& patterns, MLIRContext* context,
+    static inline void populateSPNtoStandardConversionPatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                         TypeConverter& typeConverter) {
       patterns.insert<ReturnOpLowering, ConstantOpLowering, FloatProductLowering, FLoatSumLowering>(context);
       patterns.insert<HistogramOpLowering, CategoricalOpLowering, GaussionOpLowering>(context);

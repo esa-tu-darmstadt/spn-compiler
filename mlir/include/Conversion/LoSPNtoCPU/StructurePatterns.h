@@ -50,7 +50,7 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
-    static void populateLoSPNtoCPUStructurePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
+    static inline void populateLoSPNtoCPUStructurePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
                                                     TypeConverter& typeConverter) {
       patterns.insert<KernelLowering, BatchTaskLowering, SingleTaskLowering>(typeConverter, context);
       patterns.insert<BodyLowering>(typeConverter, context);
