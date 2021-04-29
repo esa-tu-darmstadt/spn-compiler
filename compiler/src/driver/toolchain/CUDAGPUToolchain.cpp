@@ -9,7 +9,6 @@
 #include "codegen/mlir/conversion/LoSPNtoGPUConversion.h"
 #include "codegen/mlir/conversion/GPUtoLLVMConversion.h"
 #include "codegen/mlir/conversion/MLIRtoLLVMIRConversion.h"
-#include "codegen/mlir/analysis/CollectGraphStatistics.h"
 #include <driver/action/ClangKernelLinking.h>
 #include <codegen/mlir/frontend/MLIRDeserializer.h>
 #include <codegen/mlir/transformation/LoSPNTransformations.h>
