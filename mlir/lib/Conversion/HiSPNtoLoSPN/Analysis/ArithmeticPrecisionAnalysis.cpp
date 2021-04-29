@@ -494,7 +494,7 @@ inline int mlir::spn::detail::FloatingPointCalculator::calculateMagnitudeBits(do
   bias = std::max(bias, std::ceil(std::abs(std::log2(std::ceil(std::abs(std::log2(max)))))));
   // Calculate actual bias value; to account for special, "unusable" exponent values we do NOT subtract 1.
   bias = std::pow(2.0, bias);
-  int magnitudeBits = (int) std::ceil(std::log2(std::ceil(std::abs(std::log2(min))) + bias));
+  auto magnitudeBits = (int) std::ceil(std::log2(std::ceil(std::abs(std::log2(min))) + bias));
   magnitudeBits = std::max(magnitudeBits, (int) std::ceil(std::log2(std::ceil(std::abs(std::log2(max))) + bias)));
   return magnitudeBits;
 }
