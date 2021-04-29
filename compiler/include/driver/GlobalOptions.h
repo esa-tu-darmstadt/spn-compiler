@@ -77,31 +77,6 @@ namespace spnc {
     /// Flag to indicate whether an optimal representation for SPN evaluation shall be determined.
     extern Option<bool> optRepresentation;
 
-    /// Available representation options.
-    enum RepresentationOption {
-      FLOATING_POINT,
-      FIXED_POINT,
-    };
-
-    ///
-    /// Option to request the representation format.
-    extern EnumOpt representationFormat;
-
-    /// Available error kinds.
-    enum RepresentationErrorKind {
-      ERR_ABSOLUTE,
-      ERR_RELATIVE,
-      ERR_ABS_LOG,
-    };
-
-    ///
-    /// Option to set the kind of error that will be considered when determining the optimal representation.
-    extern EnumOpt optimalRepresentationErrorKind;
-
-    ///
-    /// Option to set the error threshold w.r.t. the optimal representation.
-    extern Option<double> optimalRepresentationErrorThreshold;
-
   }
 }
 
