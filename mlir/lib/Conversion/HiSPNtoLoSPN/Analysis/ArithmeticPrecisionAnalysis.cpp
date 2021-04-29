@@ -231,8 +231,12 @@ llvm::SmallVector<ErrorEstimationValue>
     // Nothing to do.
     return operands;
   } else if (numOperands == 2) {
-    double defective, accurate, max, min;
-    int depth;
+    double accurate = 0.0;
+    double defective = 0.0;
+    double max = 0.0;
+    double min = 0.0;
+    int depth = 0;
+
     if (isSum) {
       // Calculate defective sum of two weighted addends.
       defective = calc->calculateDefectiveSum(operands[0], operands[1]);
@@ -355,10 +359,10 @@ void ArithmeticPrecisionAnalysis::estimateErrorProduct(mlir::spn::high::ProductN
 }
 
 void ArithmeticPrecisionAnalysis::estimateErrorCategorical(mlir::spn::high::CategoricalNode op) {
-  double value;
+  double value = 0.0;
   double max = std::numeric_limits<double>::min();
   double min = std::numeric_limits<double>::max();
-  double defect;
+  double defect = 0.0;
 
   for (auto& p : op.probabilitiesAttr().getValue()) {
     double val = p.dyn_cast<FloatAttr>().getValueAsDouble();
@@ -396,10 +400,10 @@ void ArithmeticPrecisionAnalysis::estimateErrorGaussian(mlir::spn::high::Gaussia
 }
 
 void ArithmeticPrecisionAnalysis::estimateErrorHistogram(mlir::spn::high::HistogramNode op) {
-  double value;
+  double value = 0.0;
   double max = std::numeric_limits<double>::min();
   double min = std::numeric_limits<double>::max();
-  double defect;
+  double defect = 0.0;
 
   for (auto& b : op.bucketsAttr()) {
     auto val = b.cast<mlir::spn::high::Bucket>().val().getValueAsDouble();
