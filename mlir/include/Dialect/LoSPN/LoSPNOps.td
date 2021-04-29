@@ -253,7 +253,7 @@ def SPNLog : LoSPNBodyOp<"log", [NoSideEffect, DeclareOpInterfaceMethods<LoSPNVe
 
     let arguments = (ins LoSPNComputeType:$input);
 
-    let results = (outs F64:$logResult);
+    let results = (outs AnyFloat:$logResult);
 
     let hasFolder = 1;
 

@@ -13,9 +13,10 @@
 
 void spnc::HiSPNtoLoSPNConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   auto useLogSpace = spnc::option::logSpace.get(*config);
+  auto useOptimalRepresentation = spnc::option::optRepresentation.get(*config);
+  pm->addPass(mlir::spn::createHiSPNtoLoSPNNodeConversionPass(useLogSpace, useOptimalRepresentation));
+  pm->addPass(mlir::spn::createHiSPNtoLoSPNQueryConversionPass(useLogSpace, useOptimalRepresentation));
   auto collectGraphStats = spnc::option::collectGraphStats.get(*config);
-  pm->addPass(mlir::spn::createHiSPNtoLoSPNNodeConversionPass(useLogSpace));
-  pm->addPass(mlir::spn::createHiSPNtoLoSPNQueryConversionPass(useLogSpace));
   if (collectGraphStats) {
     auto graphStatsFile = spnc::option::graphStatsFile.get(*config);
     pm->addPass(mlir::spn::low::createLoSPNGraphStatsCollectionPass(graphStatsFile));

@@ -200,7 +200,9 @@ def ConstantOp : SPN_Op<"constant", [NoSideEffect, ConstantLike]> {
 
 def AbsoluteErrorAttr : I32EnumAttrCase<"absolute_error", 1>;
 def RelativeErrorAttr : I32EnumAttrCase<"relative_error", 2>;
-def ErrorModelAttr : I32EnumAttr<"error_model", "Arithmetic error kind", [AbsoluteErrorAttr, RelativeErrorAttr]> {
+def AbsoluteLogErrorAttr : I32EnumAttrCase<"absolute_log_error", 3>;
+def ErrorModelAttr : I32EnumAttr<"error_model", "Arithmetic error kind",
+    [AbsoluteErrorAttr, RelativeErrorAttr, AbsoluteLogErrorAttr]> {
     let cppNamespace = "mlir::spn";
 }
 

@@ -73,6 +73,10 @@ namespace spnc {
     /// passes in the toolchain.
     extern Option<bool> dumpIR;
 
+    ///
+    /// Flag to indicate whether an optimal representation for SPN evaluation shall be determined.
+    extern Option<bool> optRepresentation;
+
   }
 }
 
