@@ -5,10 +5,8 @@
 
 #include <util/FileSystem.h>
 #include <driver/GlobalOptions.h>
-#include <SPN/SPNDialect.h>
 #include <HiSPN/HiSPNDialect.h>
 #include <LoSPN/LoSPNDialect.h>
-#include <codegen/mlir/pipeline/SPNDialectPipeline.h>
 #include "MLIRToolchain.h"
 #include "mlir/InitAllDialects.h"
 #include <llvm/ADT/StringMap.h>
