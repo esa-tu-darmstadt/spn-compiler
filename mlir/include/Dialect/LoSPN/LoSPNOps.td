@@ -303,7 +303,9 @@ def BucketListAttr : TypedArrayAttrBase<HistBucketAttr, "histogram bucket list">
 ///
 /// Histogram as SPN leaf node.
 ///
-def SPNHistogramLeaf : LoSPNBodyOp<"histogram", [NoSideEffect, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
+def SPNHistogramLeaf : LoSPNBodyOp<"histogram", [NoSideEffect,
+                                                 DeclareOpInterfaceMethods<LoSPNVectorizable>,
+                                                 DeclareOpInterfaceMethods<LeafNodeInterface>]> {
     let summary = "histogram";
 
     let description =  [{
@@ -321,7 +323,9 @@ def SPNHistogramLeaf : LoSPNBodyOp<"histogram", [NoSideEffect, DeclareOpInterfac
 ///
 /// Categorical distribution as SPN leaf node.
 ///
-def SPNCategoricalLeaf : LoSPNBodyOp<"categorical", [NoSideEffect, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
+def SPNCategoricalLeaf : LoSPNBodyOp<"categorical", [NoSideEffect,
+                                                     DeclareOpInterfaceMethods<LoSPNVectorizable>,
+                                                     DeclareOpInterfaceMethods<LeafNodeInterface>]> {
 
     let summary = "categorical leaf distribution";
 
@@ -338,7 +342,8 @@ def SPNCategoricalLeaf : LoSPNBodyOp<"categorical", [NoSideEffect, DeclareOpInte
 /// Gaussian distribution as SPN leaf node.
 ///
 def SPNGaussianLeaf : LoSPNBodyOp<"gaussian", [NoSideEffect,
-                                DeclareOpInterfaceMethods<LoSPNVectorizable, ["isVectorizable"]>]> {
+                                               DeclareOpInterfaceMethods<LoSPNVectorizable, ["isVectorizable"]>,
+                                               DeclareOpInterfaceMethods<LeafNodeInterface>]> {
 
     let summary = "Gaussian leaf distribution";
 

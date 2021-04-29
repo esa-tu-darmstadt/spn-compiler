@@ -30,7 +30,7 @@ set(SPNC_CXX_WARNING_LEVEL "-Wall")
 #
 # clang-tidy setup
 #
-set(SPNC_CLANG_TIDY_CHECKS "bugprone-*,cppcoreguidelines-init-variables,modernize-*,-modernize-use-trailing-return-type,-modernize-avoid-c-arrays,performance-*,clang-analyzer-*,readibility-*")
+set(SPNC_CLANG_TIDY_CHECKS "bugprone-*,cppcoreguidelines-init-variables,modernize-*,-modernize-use-trailing-return-type,-modernize-avoid-c-arrays,performance-*,clang-analyzer-*,readibility-*,google-default-arguments,google-explicit-constructor,google-runtime-operator,misc-misplaced-const,misc-new-delete-overloads,misc-no-recursion,misc-non-copyable-objects,misc-throw-by-value-catch-by-reference,misc-unconventional-assign-operator,misc-uniqueptr-reset-release,cppcoreguidelines-interfaces-global-init,cppcoreguidelines-narrowing-conversions,cppcoreguidelines-pro-type-member-init,cppcoreguidelines-pro-type-static-cast-downcast,cppcoreguidelines-slicing")
 
 option(SPNC_ENABLE_CLANG_TIDY
         "Run clang-tidy as part of the build process. May slow down your build. Requires clang-tidy to be on the PATH"

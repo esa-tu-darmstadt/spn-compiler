@@ -3,13 +3,11 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#ifndef SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_SPN_ANALYSIS_SPNGRAPHSTATISTICS_H
-#define SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_SPN_ANALYSIS_SPNGRAPHSTATISTICS_H
+#ifndef SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_LOSPN_ANALYSIS_SPNGRAPHSTATISTICS_H
+#define SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_LOSPN_ANALYSIS_SPNGRAPHSTATISTICS_H
 
-#include "mlir/IR/Operation.h"
-#include "mlir/IR/OpDefinition.h"
-#include "SPN/SPNDialect.h"
 #include "llvm/ADT/StringMap.h"
+#include "LoSPN/LoSPNOps.h"
 
 namespace mlir {
   namespace spn {
@@ -59,8 +57,6 @@ namespace mlir {
 
       void analyzeGraph(Operation* root);
 
-      void traverseSubgraph(Operation* root);
-
       Operation* rootNode;
 
       int innerNodeCount = 0;
@@ -74,4 +70,4 @@ namespace mlir {
   }
 }
 
-#endif //SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_SPN_ANALYSIS_SPNGRAPHSTATISTICS_H
+#endif //SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_LOSPN_ANALYSIS_SPNGRAPHSTATISTICS_H

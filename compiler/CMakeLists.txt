@@ -34,7 +34,6 @@ add_library(spnc
         src/codegen/mlir/conversion/SPNtoStandardConversion.cpp
         src/codegen/mlir/conversion/CPUtoLLVMConversion.cpp
         src/codegen/mlir/conversion/MLIRtoLLVMIRConversion.cpp
-        src/codegen/mlir/analysis/CollectGraphStatistics.cpp
         src/codegen/mlir/transformation/LoSPNTransformations.cpp
         src/codegen/mlir/frontend/MLIRDeserializer.cpp
         ${CAPNP_SRCS}
@@ -55,9 +54,6 @@ target_include_directories(spnc
         PUBLIC
         $<INSTALL_INTERFACE:include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-
-        $<INSTALL_INTERFACE:include>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../common/include>
 
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
