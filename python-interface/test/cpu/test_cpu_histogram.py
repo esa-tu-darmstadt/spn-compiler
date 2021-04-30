@@ -1,3 +1,11 @@
+# ==============================================================================
+#  This file is part of the SPNC project under the Apache License v2.0 by the
+#  Embedded Systems and Applications Group, TU Darmstadt.
+#  For the full copyright and license information, please view the LICENSE
+#  file that was distributed with this source code.
+#  SPDX-License-Identifier: Apache-2.0
+# ==============================================================================
+
 import numpy as np
 
 from spn.structure.Base import Product, Sum
@@ -5,6 +13,7 @@ from spn.structure.leaves.histogram.Histograms import Histogram
 from spn.algorithms.Inference import log_likelihood
 
 from spnc.cpu import CPUCompiler
+
 
 def test_cpu_histogram():
     # Construct a minimal SPN.

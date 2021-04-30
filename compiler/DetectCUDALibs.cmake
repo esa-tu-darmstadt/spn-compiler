@@ -1,3 +1,11 @@
+# ==============================================================================
+#  This file is part of the SPNC project under the Apache License v2.0 by the
+#  Embedded Systems and Applications Group, TU Darmstadt.
+#  For the full copyright and license information, please view the LICENSE
+#  file that was distributed with this source code.
+#  SPDX-License-Identifier: Apache-2.0
+# ==============================================================================
+
 macro(detect_cuda_libs)
     # When compiling for CUDA GPUs, the LLVM IR generated for GPU kernels must be linked
     # with libdevice, a Nvidia-provided bitcode library with optimized device functions (e.g. log, exp).

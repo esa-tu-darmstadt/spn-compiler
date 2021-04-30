@@ -1,14 +1,17 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include "LoSPNtoGPU/GPUNodePatterns.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "LoSPN/LoSPNAttributes.h"
 
 mlir::LogicalResult mlir::spn::BatchReadGPULowering::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
-                                                                     llvm::ArrayRef<mlir::Value> operands,
+                                                                     llvm::ArrayRef <mlir::Value> operands,
                                                                      mlir::ConversionPatternRewriter& rewriter) const {
   if (op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");

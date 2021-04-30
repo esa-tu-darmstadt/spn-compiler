@@ -1,14 +1,17 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include <driver/Options.h>
 
 using namespace spnc::interface;
 
 // Definitions of the static members of class Options.
-std::unordered_map<std::string, Opt*>& Options::options(){
+std::unordered_map<std::string, Opt*>& Options::options() {
   static auto* _options = new std::unordered_map<std::string, Opt*>();
   return *_options;
 };
