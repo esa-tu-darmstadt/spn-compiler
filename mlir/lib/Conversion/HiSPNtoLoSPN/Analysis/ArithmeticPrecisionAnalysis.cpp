@@ -4,7 +4,7 @@
 //
 
 #include <llvm/Support/Debug.h>
-#include <SPN/SPNAttributes.h>
+#include <LoSPN/LoSPNAttributes.h>
 #include "HiSPNtoLoSPN/ArithmeticPrecisionAnalysis.h"
 
 using namespace mlir::spn;

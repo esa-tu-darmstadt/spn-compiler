@@ -28,10 +28,8 @@ add_library(spnc
         src/driver/action/ClangKernelLinking.cpp
         src/driver/toolchain/MLIRToolchain.cpp
         src/driver/toolchain/CPUToolchain.cpp
-        src/codegen/mlir/pipeline/SPNDialectPipeline.cpp
         src/codegen/mlir/conversion/HiSPNtoLoSPNConversion.cpp
         src/codegen/mlir/conversion/LoSPNtoCPUConversion.cpp
-        src/codegen/mlir/conversion/SPNtoStandardConversion.cpp
         src/codegen/mlir/conversion/CPUtoLLVMConversion.cpp
         src/codegen/mlir/conversion/MLIRtoLLVMIRConversion.cpp
         src/codegen/mlir/transformation/LoSPNTransformations.cpp
@@ -111,7 +109,6 @@ set(mlir_libs
         MLIRLoSPN
         MLIRHiSPNtoLoSPNTransforms
         MLIRLoSPNtoCPUTransforms
-        MLIRSPNtoStandardTransforms
         MLIRIR
         MLIRParser
         MLIRPass
