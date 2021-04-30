@@ -107,6 +107,7 @@ Finally, the query can be serialized into binary format:
 
 ```python
 from xspn.serialization.binary.BinarySerialization import BinarySerializer
+
 BinarySerializer("test.bin").serialize_to_file(query)
 ```
 
@@ -114,5 +115,11 @@ Serialized models can also be de-serialized to Python again:
 
 ```python
 from xspn.serialization.binary.BinarySerialization import BinaryDeserializer
+
 deserialized_query = BinaryDeserializer("test.bin").deserialize_from_file()
 ```
+
+### License ###
+
+SPNC is licensed under the Apache License v2.0, see the LICENSE file that was distributed with this source code for more
+information.
