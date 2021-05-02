@@ -342,7 +342,7 @@ namespace {
     auto visibility = rewriter.getStringAttr("private");
     auto memrefType = mlir::MemRefType::get({(long) arrayValues.size()}, resultType);
     (void) rewriter.create<mlir::GlobalMemrefOp>(op.getLoc(), symbolName, visibility,
-                                                              mlir::TypeAttr::get(memrefType), valArrayAttr, true);
+                                                 mlir::TypeAttr::get(memrefType), valArrayAttr, true);
     // Restore insertion point
     rewriter.restoreInsertionPoint(restore);
 

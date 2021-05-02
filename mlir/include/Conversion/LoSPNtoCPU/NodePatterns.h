@@ -165,7 +165,7 @@ namespace mlir {
     };
 
     static inline void populateLoSPNtoCPUNodePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
-                                               TypeConverter& typeConverter) {
+                                                      TypeConverter& typeConverter) {
       patterns.insert<BatchReadLowering, BatchWriteLowering, CopyLowering>(typeConverter, context);
       patterns.insert<LogLowering, ReturnLowering, ConstantLowering>(typeConverter, context);
       patterns.insert<MulLowering, AddLowering>(typeConverter, context);

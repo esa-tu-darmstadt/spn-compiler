@@ -69,6 +69,11 @@ namespace {
       return lhsOp->getName().getStringRef() < rhsOp->getName().getStringRef();
     });
   }
+
+  SmallVector<Value, 4> sortedByLoc() {
+    return SmallVector<Value, 4>{};
+  }
+
 } // end namespace
 
 void SLPGraphBuilder::buildGraph(NodeVector* vector, SLPNode* currentNode) const {
@@ -86,7 +91,14 @@ void SLPGraphBuilder::buildGraph(NodeVector* vector, SLPNode* currentNode) const
     for (auto& operands : allOperands) {
       sortByOpcode(operands, currentOpCode);
     }
+    // Determine lanes whose elements aren't allowed to be reordered. This is the case if they have escaping uses.
+    // DenseMap<unsigned, SmallPtrSet<unsigned, 4>> lockedLanes;
     for (unsigned i = 0; i < arity; ++i) {
+      bool canAppendToNode = true;
+      // for(size_t n = 0; n < allOperands.size(); ++n) {
+      // SmallVector<Value, 2> const& operands = allOperands[n];
+      // for(size_t )
+      // }
       if (std::all_of(std::begin(allOperands), std::end(allOperands), [&](SmallVector<Value, 2> const& operands) {
         return operands[i].getDefiningOp()->getName() == currentOpCode && !escapesMultinode(operands[i], currentNode);
       })) {

@@ -66,8 +66,8 @@ namespace mlir {
     };
 
     static inline void populateLoSPNtoCPUVectorizationTaskPatterns(OwningRewritePatternList& patterns,
-                                                                 MLIRContext* context,
-                                                                 TypeConverter& typeConverter) {
+                                                                   MLIRContext* context,
+                                                                   TypeConverter& typeConverter) {
       patterns.insert<VectorizeSingleTask, VectorizeBatchTask>(typeConverter, context, 5);
     }
 
