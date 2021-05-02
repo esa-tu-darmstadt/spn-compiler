@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #ifndef SPNC_CLANGKERNELLINKING_H
 #define SPNC_CLANGKERNELLINKING_H
@@ -15,11 +18,6 @@
 
 namespace spnc {
 
-  struct LibraryInfo {
-    std::string libraryName;
-    std::string libraryLocation;
-  };
-
   ///
   /// Action to turn an object (*.o) into a Kernel (shared object, *.so) using clang,
   // and running the linking to external libraries.
@@ -32,7 +30,8 @@ namespace spnc {
     /// \param outputFile File to write resulting kernel (shared object) to.
     /// \param kernelFunctionName Name of the top-level SPN function inside the object file.
     ClangKernelLinking(ActionWithOutput<ObjectFile>& _input, SharedObject outputFile,
-                       std::shared_ptr<KernelInfo> info, llvm::ArrayRef<LibraryInfo> additionalLibraries = {});
+                       std::shared_ptr<KernelInfo> info, llvm::ArrayRef<std::string> additionalLibraries = {},
+                       llvm::ArrayRef<std::string> searchPaths = {});
 
     Kernel& execute() override;
 
@@ -46,7 +45,9 @@ namespace spnc {
 
     bool cached = false;
 
-    llvm::SmallVector<LibraryInfo, 3> additionalLibs;
+    llvm::SmallVector<std::string, 3> additionalLibs;
+
+    llvm::SmallVector<std::string, 3> libSearchPaths;
 
   };
 

@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include "MLIRDeserializer.h"
 #include "xspn/xspn/serialization/binary/capnproto/spflow.capnp.h"
@@ -31,8 +34,8 @@ spnc::MLIRDeserializer::BinaryFileHandler::~BinaryFileHandler() noexcept {
 
 spnc::MLIRDeserializer::MLIRDeserializer(BinarySPN _inputFile, std::shared_ptr<::mlir::MLIRContext> _context,
                                          std::shared_ptr<KernelInfo> info) :
-    context{std::move(_context)}, builder{context.get()}, inputFile{std::move(_inputFile)},
-    kernelInfo{std::move(info)} {
+    kernelInfo{std::move(info)}, context{std::move(_context)}, builder{context.get()}, 
+    inputFile{std::move(_inputFile)} {
   module = std::make_unique<mlir::ModuleOp>(mlir::ModuleOp::create(builder.getUnknownLoc()));
 }
 
@@ -102,8 +105,10 @@ void spnc::MLIRDeserializer::deserializeJointQuery(JointProbability::Reader&& qu
       builder.create<mlir::spn::high::JointQuery>(builder.getUnknownLoc(), numFeaturesAttr,
                                                   featureTypeAttr, kernelNameAttr, batchSizeAttr,
                                                   builder.getI32IntegerAttr(static_cast<int32_t>(errorKind)),
-                                                  builder.getF64FloatAttr(maxError));
-  auto block = builder.createBlock(&queryOp.getRegion());
+                                                  builder.getF64FloatAttr(maxError),
+                                                  builder.getBoolAttr(query.getSupportMarginal()));
+  // Insertion is automatically set to beginning of new block.
+  (void) builder.createBlock(&queryOp.getRegion());
 
   deserializeModel(query.getModel());
 }
@@ -183,7 +188,7 @@ mlir::spn::high::HistogramNode spnc::MLIRDeserializer::deserializeHistogram(Hist
   auto densities = histogram.getDensities();
   SmallVector<bucket_t, 256> buckets;
   // Construct histogram from breaks and densities.
-  for (int i = 0; i < breaks.size() - 1; ++i) {
+  for (unsigned i = 0; i < breaks.size() - 1; ++i) {
     auto lb = breaks[i];
     auto ub = breaks[i + 1];
     auto d = densities[i];
@@ -226,8 +231,6 @@ mlir::Type spnc::MLIRDeserializer::translateTypeString(const std::string& text) 
   // Test for an integer type, given as [u]int(WIDTH).
   std::regex intRegex{R"(([u]?)int([1-9]+))"};
   if (std::regex_match(text, match, intRegex)) {
-    // match[1] captures an "u" if the type is unsigned, e.g. "uint8".
-    auto isUnsigned = match[1].length() != 0;
     // match[2] captures the width of the type.
     auto width = std::stoi(match[2]);
     return IntegerType::get(context.get(), width);

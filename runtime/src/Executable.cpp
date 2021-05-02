@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include <dlfcn.h>
 #include <iostream>
@@ -70,7 +73,6 @@ void Executable::executeBatch(size_t num_samples, void* inputs, void* outputs) {
     // Calculate the number of remaining samples, can be < batchSize for the last batch.
     size_t remainingSamples = num_samples - i;
     size_t samples = std::min(batchSize, remainingSamples);
-    std::cout << "Remaining samples: " << remainingSamples << " now computing: " << samples << std::endl;
     // Calculate pointer to first input of this batch, using information about the
     // number of features and number of bytes used to encode the feature.
     char* input_offset = &(input_ptr[i * kernel->numFeatures() * kernel->bytesPerFeature()]);
@@ -90,7 +92,7 @@ void Executable::executeGPU(size_t num_samples, void* inputs, void* outputs) {
 }
 
 void Executable::initialize() {
-  char* error;
+  char* error = nullptr;
   // Try to open the shared object file.
   handle = dlopen(kernel->fileName().c_str(), RTLD_LAZY);
   if (!handle) {

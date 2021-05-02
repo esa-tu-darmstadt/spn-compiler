@@ -1,3 +1,11 @@
+# ==============================================================================
+#  This file is part of the SPNC project under the Apache License v2.0 by the
+#  Embedded Systems and Applications Group, TU Darmstadt.
+#  For the full copyright and license information, please view the LICENSE
+#  file that was distributed with this source code.
+#  SPDX-License-Identifier: Apache-2.0
+# ==============================================================================
+
 import logging
 import os
 import numpy as np
@@ -39,7 +47,6 @@ class ListHandler:
 
     def getElement(self):
         element = self._list[self._index]
-        print(f"Filling list element {self._index}")
         self._index = self._index + 1
         return element
 
@@ -92,6 +99,7 @@ class BinarySerializer:
     def _serialize_joint(self, joint):
         joint_msg = spflow_capnp.JointProbability.new_message()
         joint_msg.model = self._serialize_model(joint.graph)
+        joint_msg.supportMarginal = joint.supportsMarginal()
         return joint_msg
 
 
@@ -130,7 +138,7 @@ class BinarySerializer:
             visited = set()
             self._binary_serialize(spn, True, visited, nodeList)
             numNodes += len(visited)
-        print(f"Serialized {numNodes} nodes to {self.fileName}")
+        print(f"INFO: Serialized {numNodes} nodes to {self.fileName}")
 
     def _binary_serialize(self, node, is_rootNode, visited_nodes, nodeList):
         if node.id not in visited_nodes:
@@ -255,7 +263,6 @@ class BinaryDeserializer:
         with open(self.fileName, "rb") as inFile:
             # Read header message first
             header = spflow_capnp.Header.read(inFile)
-            print(header.which())
             if header.which() == "query":
                 return self._deserialize_query(header.query)
             elif header.which() == "model":
@@ -274,7 +281,8 @@ class BinaryDeserializer:
             raise NotImplementedError(f"Cannot deserialize error kind {query.errorKind}")
         errorModel = ErrorModel(errorKind, maxError)
         model = self._deserialize_model(query.joint.model)
-        return JointProbability(model, batchSize, errorModel)
+        supportsMarginal = query.joint.supportMarginal
+        return JointProbability(model, batchSize, supportsMarginal, errorModel)
 
     def _deserialize_model(self, model):
         rootID = model.rootNode
@@ -314,7 +322,7 @@ class BinaryDeserializer:
             node_map[node.id] = deserialized
             if node.rootNode:
                 nodes.append(deserialized)
-        print(f"Deserialized {len(node_map)} nodes")
+        print(f"Deserialized {len(node_map)} nodes from {self.fileName}")
         return nodes
 
     def _deserialize_product(self, node, node_map):

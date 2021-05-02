@@ -1,3 +1,11 @@
+# ==============================================================================
+#  This file is part of the SPNC project under the Apache License v2.0 by the
+#  Embedded Systems and Applications Group, TU Darmstadt.
+#  For the full copyright and license information, please view the LICENSE
+#  file that was distributed with this source code.
+#  SPDX-License-Identifier: Apache-2.0
+# ==============================================================================
+
 macro(detect_cuda_libs)
     # When compiling for CUDA GPUs, the LLVM IR generated for GPU kernels must be linked
     # with libdevice, a Nvidia-provided bitcode library with optimized device functions (e.g. log, exp).
@@ -17,14 +25,4 @@ macro(detect_cuda_libs)
         endif ()
     endif ()
     message(STATUS "Using CUDA libdevice from: " ${SPNC_LIBDEVICE})
-
-    # When compiling for CUDA GPUs, the generated Kernel must be linked with the
-    # MLIR CUDA runtime wrappers for data-transfer, kernel-launch etc.
-    find_library(MLIR_CUDA_RUNTIME_WRAPPERS cuda-runtime-wrappers
-            HINTS ${LLVM_BUILD_LIBRARY_DIR})
-    if (NOT MLIR_CUDA_RUNTIME_WRAPPERS)
-        message(FATAL_ERROR "MLIR CUDA runtime wrappers not found")
-    else ()
-        message(STATUS "Using MLIR CUDA wrappers from:" ${MLIR_CUDA_RUNTIME_WRAPPERS})
-    endif ()
 endmacro(detect_cuda_libs)

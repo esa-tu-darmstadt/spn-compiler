@@ -1,17 +1,20 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
-#include "LoSPNtoCPU/Vectorization/TargetInformation.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPSeeding.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraphBuilder.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/IR/BlockAndValueMapping.h"
-#include "llvm/Support/FormatVariadic.h"
+#include "../Target/TargetInformation.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -231,7 +234,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 LogicalResult VectorizeBatchTask::matchAndRewrite(SPNTask op,
                                                   llvm::ArrayRef<Value> operands,
                                                   ConversionPatternRewriter& rewriter) const {
-  static int taskCount = 0;
 
   if (op.batchSize() <= 1) {
     return rewriter.notifyMatchFailure(op, "Specialized for batch vectorization, does not match for batchSize == 1");
@@ -285,7 +287,7 @@ LogicalResult VectorizeBatchTask::matchAndRewrite(SPNTask op,
     if (isa<low::SPNReturn>(&node)) {
       continue;
     }
-    rewriter.clone(node, mapVectorTaskArgs);
+    (void) rewriter.clone(node, mapVectorTaskArgs);
   }
 
   // Mark all operations contained in the vectorized loop as vectorized.

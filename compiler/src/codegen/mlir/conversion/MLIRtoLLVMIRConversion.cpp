@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include "MLIRtoLLVMIRConversion.h"
 #include <mlir/Target/LLVMIR.h>
@@ -17,8 +20,8 @@ MLIRtoLLVMIRConversion::MLIRtoLLVMIRConversion(spnc::ActionWithOutput<mlir::Modu
                                                std::shared_ptr<mlir::MLIRContext> context,
                                                std::shared_ptr<llvm::TargetMachine> targetMachine,
                                                bool optimizeOutput)
-    : ActionSingleInput<mlir::ModuleOp, llvm::Module>{_input}, optimize{optimizeOutput},
-      ctx{std::move(context)}, machine{std::move(targetMachine)}, llvmCtx{} {}
+    : ActionSingleInput<mlir::ModuleOp, llvm::Module>{_input}, cached{false}, optimize{optimizeOutput},
+    ctx{std::move(context)}, machine{std::move(targetMachine)}, llvmCtx{} {}
 
 llvm::Module& spnc::MLIRtoLLVMIRConversion::execute() {
   if (!cached) {

@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include <HiSPNtoLoSPN/QueryPatterns.h>
 #include "HiSPNtoLoSPN/ArithmeticPrecisionAnalysis.h"
@@ -27,11 +30,19 @@ void HiSPNtoLoSPNNodeConversionPass::runOnOperation() {
   // Use type analysis to determine data type for actual computation.
   // The concrete type determined by the analysis replaces the abstract
   // probability type used by the HiSPN dialect.
-  auto& arithmeticAnalysis = getAnalysis<mlir::spn::ArithmeticPrecisionAnalysis>();
-  HiSPNTypeConverter typeConverter(arithmeticAnalysis.getComputationType(computeLogSpace));
+  std::unique_ptr<HiSPNTypeConverter> typeConverter;
+  if (optimizeRepresentation) {
+    auto& arithmeticAnalysis = getAnalysis<mlir::spn::ArithmeticPrecisionAnalysis>();
+    typeConverter = std::make_unique<HiSPNTypeConverter>(arithmeticAnalysis.getComputationType(computeLogSpace));
+  } else if (computeLogSpace) {
+    typeConverter =
+        std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(mlir::FloatType::getF32(&getContext())));
+  } else {
+    typeConverter = std::make_unique<HiSPNTypeConverter>(mlir::Float64Type::get(&getContext()));
+  }
 
   OwningRewritePatternList patterns;
-  mlir::spn::populateHiSPNtoLoSPNNodePatterns(patterns, &getContext(), typeConverter);
+  mlir::spn::populateHiSPNtoLoSPNNodePatterns(patterns, &getContext(), *typeConverter);
 
   auto op = getOperation();
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
@@ -44,8 +55,9 @@ void HiSPNtoLoSPNNodeConversionPass::runOnOperation() {
   markAnalysesPreserved<ArithmeticPrecisionAnalysis>();
 }
 
-std::unique_ptr<mlir::Pass> mlir::spn::createHiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation) {
-  return std::make_unique<HiSPNtoLoSPNNodeConversionPass>(useLogSpaceComputation);
+std::unique_ptr<mlir::Pass> mlir::spn::createHiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation,
+                                                                            bool useOptimalRepresentation) {
+  return std::make_unique<HiSPNtoLoSPNNodeConversionPass>(useLogSpaceComputation, useOptimalRepresentation);
 }
 
 void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
@@ -60,12 +72,20 @@ void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
   // Use type analysis to determine data type for actual computation.
   // The concrete type determined by the analysis replaces the abstract
   // probability type used by the HiSPN dialect.
-  auto arithmeticAnalysis = getCachedAnalysis<ArithmeticPrecisionAnalysis>();
-  assert(arithmeticAnalysis && "The arithmetic analysis needs to be preserved after node conversion");
-  HiSPNTypeConverter typeConverter(arithmeticAnalysis->get().getComputationType(computeLogSpace));
+  std::unique_ptr<HiSPNTypeConverter> typeConverter;
+  if (optimizeRepresentation) {
+    auto arithmeticAnalysis = getCachedAnalysis<ArithmeticPrecisionAnalysis>();
+    assert(arithmeticAnalysis && "The arithmetic analysis needs to be preserved after node conversion");
+    typeConverter = std::make_unique<HiSPNTypeConverter>(arithmeticAnalysis->get().getComputationType(computeLogSpace));
+  } else if (computeLogSpace) {
+    typeConverter =
+        std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(mlir::FloatType::getF32(&getContext())));
+  } else {
+    typeConverter = std::make_unique<HiSPNTypeConverter>(mlir::Float64Type::get(&getContext()));
+  }
 
   OwningRewritePatternList patterns;
-  mlir::spn::populateHiSPNtoLoSPNQueryPatterns(patterns, &getContext(), typeConverter);
+  mlir::spn::populateHiSPNtoLoSPNQueryPatterns(patterns, &getContext(), *typeConverter);
 
   auto op = getOperation();
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
@@ -74,6 +94,7 @@ void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
   }
 }
 
-std::unique_ptr<mlir::Pass> mlir::spn::createHiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation) {
-  return std::make_unique<HiSPNtoLoSPNQueryConversionPass>(useLogSpaceComputation);
+std::unique_ptr<mlir::Pass> mlir::spn::createHiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation,
+                                                                             bool useOptimalRepresentation) {
+  return std::make_unique<HiSPNtoLoSPNQueryConversionPass>(useLogSpaceComputation, useOptimalRepresentation);
 }

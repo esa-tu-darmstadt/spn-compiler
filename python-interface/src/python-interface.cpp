@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -47,6 +50,12 @@ PYBIND11_MODULE(spncpy, m) {
       .def(py::init())
       .def("compileQuery", [](const spn_compiler& compiler, const std::string& inputFile, const options_t& options) {
         return spn_compiler::compileQuery(inputFile, options);
+      })
+      .def("isTargetSupported", [](const std::string& target){
+        return spn_compiler::isTargetSupported(target);
+      })
+      .def("isFeatureAvailable", [](const std::string& feature){
+        return spn_compiler::isFeatureSupported(feature);
       });
 
 }

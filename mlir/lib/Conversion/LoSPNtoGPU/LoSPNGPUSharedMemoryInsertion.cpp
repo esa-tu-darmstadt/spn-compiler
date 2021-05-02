@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2021 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include "mlir/Rewrite/FrozenRewritePatternList.h"
 #include "LoSPNtoGPU/LoSPNtoGPUConversionPasses.h"
@@ -175,7 +178,7 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
       // Check that all input elements for all threads in the block fit into shared memory.
       auto elementType = inputMem.getType().cast<MemRefType>().getElementType();
       auto memRefType = MemRefType::get({numFeatures, constantBlockSize},
-                                        inputMem.getType().cast<MemRefType>().getElementType(),
+                                        elementType,
                                         {}, 3);
       auto memRefBytes = memRefType.getSizeInBits() / 8;
       if (memRefBytes > maxSharedMem) {
@@ -229,7 +232,7 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
         }
         // Load from global memory, transpose and store into shared memory.
         auto readGlobal = rewriter.create<LoadOp>(loc, inputMem, ValueRange{sampleIndex, featureIndex});
-        auto storeShared = rewriter.create<StoreOp>(loc, readGlobal, sharedMem,
+        (void) rewriter.create<StoreOp>(loc, readGlobal, sharedMem,
                                                     ValueRange{featureIndex, loop.getInductionVar()});
       }
 
@@ -239,14 +242,13 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
       patterns.insert<RewriteBatchReadtoSharedMem>(gpuFunc.getContext(), sharedMem);
       mlir::FrozenRewritePatternList frozenPatterns(std::move(patterns));
       for (auto& read : reads) {
-        applyOpPatternsAndFold(read, frozenPatterns);
+        (void) applyOpPatternsAndFold(read, frozenPatterns);
       }
     }
     // Insert a barrier (__syncthreads()) to make sure all memory loading is finished before the
     // threads resume computation.
     rewriter.setInsertionPoint(rootBlock->getTerminator());
     rewriter.create<gpu::BarrierOp>(loc);
-    gpuFunc->dump();
     rewriter.finalizeRootUpdate(gpuFunc);
     return mlir::success();
   }
@@ -260,7 +262,7 @@ void mlir::spn::LoSPNGPUSharedMemoryInsertionPass::runOnOperation() {
   mlir::FrozenRewritePatternList frozenPatterns(std::move(patterns));
   // Apply the pattern to all GPUFuncs in the module.
   module->walk([&frozenPatterns](gpu::GPUFuncOp gpuFunc) {
-    applyOpPatternsAndFold(gpuFunc, frozenPatterns);
+    (void) applyOpPatternsAndFold(gpuFunc, frozenPatterns);
   });
 }
 

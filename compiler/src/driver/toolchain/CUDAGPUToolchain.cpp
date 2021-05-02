@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include "CUDAGPUToolchain.h"
 #include <driver/BaseActions.h>
@@ -9,7 +12,6 @@
 #include "codegen/mlir/conversion/LoSPNtoGPUConversion.h"
 #include "codegen/mlir/conversion/GPUtoLLVMConversion.h"
 #include "codegen/mlir/conversion/MLIRtoLLVMIRConversion.h"
-#include "codegen/mlir/analysis/CollectGraphStatistics.h"
 #include <driver/action/ClangKernelLinking.h>
 #include <codegen/mlir/frontend/MLIRDeserializer.h>
 #include <codegen/mlir/transformation/LoSPNTransformations.h>
@@ -25,7 +27,7 @@ using namespace spnc;
 using namespace mlir;
 
 std::unique_ptr<Job<Kernel> > CUDAGPUToolchain::constructJobFromFile(const std::string& inputFile,
-                                                                     std::shared_ptr<interface::Configuration> config) {
+                                                const std::shared_ptr<interface::Configuration>& config) {
   // Uncomment the following two lines to get detailed output during MLIR dialect conversion;
   //llvm::DebugFlag = true;
   //llvm::setCurrentDebugType("dialect-conversion");
@@ -61,9 +63,11 @@ std::unique_ptr<Job<Kernel> > CUDAGPUToolchain::constructJobFromFile(const std::
   auto sharedObject = FileSystem::createTempFile<FileType::SHARED_OBJECT>(false);
   SPDLOG_INFO("Compiling to shared object file {}", sharedObject.fileName());
   // The generated kernel must be linked against the MLIR CUDA runtime wrappers.
-  LibraryInfo cudaRuntimeWrappers{"cuda-runtime-wrappers", SPNC_CUDA_RUNTIME_WRAPPERS_DIR};
-  auto& linkSharedObject =
-      job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo,
-                                                 std::initializer_list<LibraryInfo>{cudaRuntimeWrappers});
-  return std::move(job);
+  llvm::SmallVector<std::string, 3> additionalLibs;
+  additionalLibs.push_back("cuda-runtime-wrappers");
+  auto searchPaths = parseLibrarySearchPaths(spnc::option::searchPaths.get(*config));
+  searchPaths.push_back(SPNC_CUDA_RUNTIME_WRAPPERS_DIR);
+  (void) job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo,
+                                                 additionalLibs, searchPaths);
+  return job;
 }

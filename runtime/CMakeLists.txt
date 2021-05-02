@@ -1,4 +1,12 @@
-add_library(spnc-rt SHARED
+# ==============================================================================
+#  This file is part of the SPNC project under the Apache License v2.0 by the
+#  Embedded Systems and Applications Group, TU Darmstadt.
+#  For the full copyright and license information, please view the LICENSE
+#  file that was distributed with this source code.
+#  SPDX-License-Identifier: Apache-2.0
+# ==============================================================================
+
+add_library(spnc-rt
         src/runtime.cpp
         src/Executable.cpp)
 
@@ -22,6 +30,8 @@ if (${CPU_PARALLEL_RUNTIME})
         target_link_libraries(spnc-rt PRIVATE OpenMP::OpenMP_CXX)
     endif (OpenMP_CXX_FOUND)
 endif (${CPU_PARALLEL_RUNTIME})
+
+target_compile_options(spnc-rt PRIVATE ${SPNC_CXX_WARNING_LEVEL})
 
 doxygen_doc(TARGET_NAME spnc-rt
         SRC_DIRECTORIES

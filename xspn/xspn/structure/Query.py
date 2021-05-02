@@ -1,5 +1,14 @@
+# ==============================================================================
+#  This file is part of the SPNC project under the Apache License v2.0 by the
+#  Embedded Systems and Applications Group, TU Darmstadt.
+#  For the full copyright and license information, please view the LICENSE
+#  file that was distributed with this source code.
+#  SPDX-License-Identifier: Apache-2.0
+# ==============================================================================
+
 from xspn.structure.Model import SPNModel
 from enum import IntEnum
+
 
 class ErrorKind(IntEnum):
     """Enumeration of different ways to compute arithmetic error during error analysis.
@@ -56,9 +65,14 @@ class JointProbability(Query):
 
     """
 
-    def __init__(self, model : SPNModel, batchSize = 1, rootError = ErrorModel(ErrorKind.ABSOLUTE, 0.02)):
+    def __init__(self, model: SPNModel, batchSize=1, supportMarginal=False,
+                 rootError=ErrorModel(ErrorKind.ABSOLUTE, 0.02)):
         Query.__init__(self, batchSize, rootError)
         self.graph = model
+        self.marginal = supportMarginal
 
     def models(self):
         return [self.graph]
+
+    def supportsMarginal(self):
+        return self.marginal

@@ -1,14 +1,17 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include "LoSPNtoGPU/GPUNodePatterns.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "LoSPN/LoSPNAttributes.h"
 
 mlir::LogicalResult mlir::spn::BatchReadGPULowering::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
-                                                                     llvm::ArrayRef<mlir::Value> operands,
+                                                                     llvm::ArrayRef <mlir::Value> operands,
                                                                      mlir::ConversionPatternRewriter& rewriter) const {
   if (op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
@@ -231,7 +234,13 @@ mlir::LogicalResult mlir::spn::GaussianGPULowering::matchAndRewrite(mlir::spn::l
   // e^(-(x-mean)^2 / 2*variance)
   auto exp = rewriter.create<mlir::math::ExpOp>(op.getLoc(), fraction);
   // e^(-(x - mean)^2/2*variance)) * 1/sqrt(2*PI*variance)
-  rewriter.replaceOpWithNewOp<mlir::MulFOp>(op, coefficientConst, exp);
+  Value gaussian = rewriter.create<mlir::MulFOp>(op->getLoc(), coefficientConst, exp);
+  if (op.supportMarginal()) {
+    auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), CmpFPredicate::UNO, index, index);
+    auto constOne = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, 1.0));
+    gaussian = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, gaussian);
+  }
+  rewriter.replaceOp(op, gaussian);
   return success();
 }
 
@@ -295,7 +304,13 @@ mlir::LogicalResult mlir::spn::GaussianLogGPULowering::matchAndRewrite(mlir::spn
   // - ( (x-mean)^2 / 2 * stddev^2 )
   auto fraction = rewriter.create<mlir::MulFOp>(op.getLoc(), numerator, denominatorConst);
   // -ln(stddev) - 1/2 ln(2*pi) - 1/2*(stddev^2) * (x - mean)^2
-  rewriter.replaceOpWithNewOp<mlir::AddFOp>(op, coefficientConst, fraction);
+  Value gaussian = rewriter.create<mlir::AddFOp>(op->getLoc(), coefficientConst, fraction);
+  if (op.supportMarginal()) {
+    auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), CmpFPredicate::UNO, index, index);
+    auto constOne = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, 0.0));
+    gaussian = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, gaussian);
+  }
+  rewriter.replaceOp(op, gaussian);
   return success();
 }
 

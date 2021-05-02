@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include "LoSPNtoGPU/GPUStructurePatterns.h"
 #include <mlir/IR/BlockAndValueMapping.h>
@@ -11,7 +14,7 @@
 #include "mlir/IR/BuiltinOps.h"
 
 mlir::LogicalResult mlir::spn::KernelGPULowering::matchAndRewrite(mlir::spn::low::SPNKernel op,
-                                                                  llvm::ArrayRef<mlir::Value> operands,
+                                                                  llvm::ArrayRef <mlir::Value> operands,
                                                                   mlir::ConversionPatternRewriter& rewriter) const {
   assert(operands.empty() && "Kernel should not take any operands");
   auto replaceFunc = rewriter.create<mlir::FuncOp>(op.getLoc(), op.getName(), op.getType());
@@ -28,7 +31,6 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
   // Lower a task with batchSize > 1. The task is lowered to a function, containing a scalar loop iterating over the
   // samples in the batch. The content of the Task is merged into the newly created loop's body, the loop induction
   // variable replaces the batchIndex argument of the Task.
-  static int taskCount = 0;
   if (op.batchSize() == 1) {
     return rewriter.notifyMatchFailure(op, "Match only batched (batchSize > 1) execution");
   }
@@ -53,16 +55,13 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
         memEffect.getEffectsOnValue(blockArg, effects);
         for (auto e : effects) {
           if (isa<MemoryEffects::Read>(e.getEffect())) {
-            llvm::dbgs() << *U << " reads " << blockArg << "\n";
             isRead = true;
           }
           if (isa<MemoryEffects::Write>(e.getEffect())) {
-            llvm::dbgs() << *U << " writes to " << blockArg << "\n";
             isWritten = true;
           }
         }
       } else {
-        llvm::dbgs() << "Unspecified use: " << *U << "\n";
         // Pessimistically assume both read and written.
         isRead = true;
         isWritten = true;
@@ -125,7 +124,7 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
   }
   auto checkInBounds = rewriter.create<mlir::CmpIOp>(op->getLoc(), CmpIPredicate::ult, batchIndex, numSamples);
   auto ifOp = rewriter.create<mlir::scf::IfOp>(op.getLoc(), checkInBounds, false);
-  auto terminator = rewriter.create<gpu::TerminatorOp>(op.getLoc());
+  (void) rewriter.create<gpu::TerminatorOp>(op.getLoc());
   rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
   rewriter.mergeBlockBefore(&op.body().front(), ifOp.thenRegion().front().getTerminator(), blockReplacementArgs);
   gpuLaunch.body().front().walk([&rewriter](low::SPNReturn ret) {

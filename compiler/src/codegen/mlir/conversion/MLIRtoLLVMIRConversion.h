@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_MLIRTOLLVMIRCONVERSION_H
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_MLIRTOLLVMIRCONVERSION_H
@@ -39,8 +42,8 @@ namespace spnc {
     /// \param conv Move source.
     MLIRtoLLVMIRConversion(MLIRtoLLVMIRConversion&& conv) noexcept:
         ActionSingleInput<mlir::ModuleOp, llvm::Module>{conv.input},
-        module{std::move(conv.module)}, ctx{std::move(conv.ctx)},
-        cached{conv.cached}, optimize{conv.optimize} {
+        module{std::move(conv.module)}, cached{conv.cached}, 
+        optimize{conv.optimize}, ctx{std::move(conv.ctx)} {
       conv.cached = false;
     }
 
@@ -69,7 +72,7 @@ namespace spnc {
 
     std::unique_ptr<llvm::Module> module;
 
-    bool cached = false;
+    bool cached;
 
     bool optimize;
 

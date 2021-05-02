@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #ifndef SPNC_COMPILER_INCLUDE_DRIVER_GLOBALOPTIONS_H
 #define SPNC_COMPILER_INCLUDE_DRIVER_GLOBALOPTIONS_H
@@ -59,6 +62,11 @@ namespace spnc {
     extern Option<bool> gpuSharedMem;
 
     ///
+    /// Option to pass additional search paths for libraries to the compiler.
+    /// Multiple paths can be provided as colon-separated list.
+    extern Option<std::string> searchPaths;
+
+    ///
     /// Flag to indicate whether temporary files created during compilation
     /// should be deleted after the compilation completes. Defaults to true.
     extern Option<bool> deleteTemporaryFiles;
@@ -67,6 +75,10 @@ namespace spnc {
     /// Flag to enable printing of IR after the individual steps and
     /// passes in the toolchain.
     extern Option<bool> dumpIR;
+
+    ///
+    /// Flag to indicate whether an optimal representation for SPN evaluation shall be determined.
+    extern Option<bool> optRepresentation;
 
   }
 }

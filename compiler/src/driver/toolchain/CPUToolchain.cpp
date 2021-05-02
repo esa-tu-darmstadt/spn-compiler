@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include "CPUToolchain.h"
 #include <driver/BaseActions.h>
@@ -9,7 +12,6 @@
 #include "codegen/mlir/conversion/LoSPNtoCPUConversion.h"
 #include "codegen/mlir/conversion/CPUtoLLVMConversion.h"
 #include "codegen/mlir/conversion/MLIRtoLLVMIRConversion.h"
-#include "codegen/mlir/analysis/CollectGraphStatistics.h"
 #include <driver/action/ClangKernelLinking.h>
 #include <codegen/mlir/frontend/MLIRDeserializer.h>
 #include <codegen/mlir/transformation/LoSPNTransformations.h>
@@ -19,7 +21,7 @@ using namespace spnc;
 using namespace mlir;
 
 std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::string& inputFile,
-                                                                 std::shared_ptr<interface::Configuration> config) {
+                                              const std::shared_ptr<interface::Configuration>& config) {
   // Uncomment the following two lines to get detailed output during MLIR dialect conversion;
   //llvm::DebugFlag = true;
   //llvm::setCurrentDebugType("dialect-conversion");
@@ -41,19 +43,6 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
   BinarySPN binarySPNFile{inputFile, false};
   auto& deserialized = job->insertAction<MLIRDeserializer>(std::move(binarySPNFile), ctx, kernelInfo);
   auto& hispn2lospn = job->insertAction<HiSPNtoLoSPNConversion>(deserialized, ctx, diagHandler);
-  // If requested via the configuration, collect graph statistics.
-  // TODO: Graph statistics collection is currently disabled, as it does not yet work
-  // with the LoSPN dialect.
-  // TODO: Move this to LoSPNTransformations
-  if (false && spnc::option::collectGraphStats.get(*config)) {
-    auto deleteTmps = spnc::option::deleteTemporaryFiles.get(*config);
-    // Collect graph statistics on transformed / canonicalized MLIR.
-    auto statsFile = StatsFile(spnc::option::graphStatsFile.get(*config), deleteTmps);
-    auto& graphStats = job->insertAction<CollectGraphStatistics>(hispn2lospn, std::move(statsFile));
-    // Join the two actions happening on the transformed module (Graph-Stats & SPN-to-Standard-MLIR lowering).
-    auto& joinAction = job->insertAction<JoinAction<mlir::ModuleOp, StatsFile>>(hispn2lospn, graphStats);
-    //spnPipelineResult = &joinAction;
-  }
   auto& lospnTransform = job->insertAction<LoSPNTransformations>(hispn2lospn, ctx, diagHandler, kernelInfo);
   auto& lospn2cpu = job->insertAction<LoSPNtoCPUConversion>(lospnTransform, ctx, diagHandler);
   auto& cpu2llvm = job->insertAction<CPUtoLLVMConversion>(lospn2cpu, ctx, diagHandler);
@@ -62,7 +51,7 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
   auto& llvmConversion = job->insertAction<MLIRtoLLVMIRConversion>(cpu2llvm, ctx, targetMachine);
 
   // Translate the generated LLVM IR module to object code and write it to an object file.
-  auto objectFile = FileSystem::createTempFile<FileType::OBJECT>(false);
+  auto objectFile = FileSystem::createTempFile<FileType::OBJECT>(true);
   SPDLOG_INFO("Generating object file {}", objectFile.fileName());
   auto& emitObjectCode = job->insertAction<EmitObjectCode>(llvmConversion, std::move(objectFile), targetMachine);
 
@@ -70,20 +59,21 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
   auto sharedObject = FileSystem::createTempFile<FileType::SHARED_OBJECT>(false);
   SPDLOG_INFO("Compiling to shared object file {}", sharedObject.fileName());
   // Add additional libraries to the link command if necessary.
-  llvm::SmallVector<LibraryInfo, 3> additionalLibs;
-
+  llvm::SmallVector<std::string, 3> additionalLibs;
   // Link vector libraries if specified by option.
   auto veclib = spnc::option::vectorLibrary.get(*config);
   if (veclib != spnc::option::VectorLibrary::NONE) {
     switch (veclib) {
-      case spnc::option::VectorLibrary::SVML:additionalLibs.push_back(LibraryInfo{"svml", ""});
+      case spnc::option::VectorLibrary::SVML: additionalLibs.push_back("svml");
         break;
-      case spnc::option::VectorLibrary::LIBMVEC:additionalLibs.push_back(LibraryInfo{"m", ""});
+      case spnc::option::VectorLibrary::LIBMVEC: additionalLibs.push_back("m");
         break;
       default:SPNC_FATAL_ERROR("Unknown vector library");
     }
   }
-  auto& linkSharedObject =
-      job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo, additionalLibs);
-  return std::move(job);
+  auto searchPaths = parseLibrarySearchPaths(spnc::option::searchPaths.get(*config));
+  (void)
+      job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo, 
+                                                additionalLibs, searchPaths);
+  return job;
 }

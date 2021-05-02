@@ -1,9 +1,13 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include "LoSPNtoCPU/NodePatterns.h"
+#include <cmath>
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "LoSPN/LoSPNAttributes.h"
 
@@ -231,7 +235,13 @@ mlir::LogicalResult mlir::spn::GaussianLowering::matchAndRewrite(mlir::spn::low:
   // e^(-(x-mean)^2 / 2*variance)
   auto exp = rewriter.create<mlir::math::ExpOp>(op.getLoc(), fraction);
   // e^(-(x - mean)^2/2*variance)) * 1/sqrt(2*PI*variance)
-  rewriter.replaceOpWithNewOp<mlir::MulFOp>(op, coefficientConst, exp);
+  Value gaussian = rewriter.create<mlir::MulFOp>(op->getLoc(), coefficientConst, exp);
+  if (op.supportMarginal()) {
+    auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), CmpFPredicate::UNO, index, index);
+    auto constOne = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, 1.0));
+    gaussian = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, gaussian);
+  }
+  rewriter.replaceOp(op, gaussian);
   return success();
 }
 
@@ -295,7 +305,13 @@ mlir::LogicalResult mlir::spn::GaussianLogLowering::matchAndRewrite(mlir::spn::l
   // - ( (x-mean)^2 / 2 * stddev^2 )
   auto fraction = rewriter.create<mlir::MulFOp>(op.getLoc(), numerator, denominatorConst);
   // -ln(stddev) - 1/2 ln(2*pi) - 1/2*(stddev^2) * (x - mean)^2
-  rewriter.replaceOpWithNewOp<mlir::AddFOp>(op, coefficientConst, fraction);
+  Value gaussian = rewriter.create<mlir::AddFOp>(op->getLoc(), coefficientConst, fraction);
+  if (op.supportMarginal()) {
+    auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), CmpFPredicate::UNO, index, index);
+    auto constOne = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, 0.0));
+    gaussian = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, gaussian);
+  }
+  rewriter.replaceOp(op, gaussian);
   return success();
 }
 
@@ -304,7 +320,8 @@ namespace {
   template<typename SourceOp>
   mlir::LogicalResult replaceOpWithGlobalMemref(SourceOp op, mlir::ConversionPatternRewriter& rewriter,
                                                 mlir::Value indexOperand, llvm::ArrayRef<mlir::Attribute> arrayValues,
-                                                mlir::Type resultType, const std::string& tablePrefix) {
+                                                mlir::Type resultType, const std::string& tablePrefix,
+                                                bool computesLog) {
     static int tableCount = 0;
     if (!resultType.isIntOrFloat()) {
       // Currently only handling Int and Float result types.
@@ -324,7 +341,7 @@ namespace {
     auto symbolName = tablePrefix + std::to_string(tableCount++);
     auto visibility = rewriter.getStringAttr("private");
     auto memrefType = mlir::MemRefType::get({(long) arrayValues.size()}, resultType);
-    auto globalMemref = rewriter.create<mlir::GlobalMemrefOp>(op.getLoc(), symbolName, visibility,
+    (void) rewriter.create<mlir::GlobalMemrefOp>(op.getLoc(), symbolName, visibility,
                                                               mlir::TypeAttr::get(memrefType), valArrayAttr, true);
     // Restore insertion point
     rewriter.restoreInsertionPoint(restore);
@@ -346,7 +363,17 @@ namespace {
     }
     // Replace the source operation with a load from the global memref,
     // using the source operation's input value as index.
-    rewriter.template replaceOpWithNewOp<mlir::LoadOp>(op, addressOf, mlir::ValueRange{index});
+    mlir::Value leaf = rewriter.template create<mlir::LoadOp>(op.getLoc(), addressOf, mlir::ValueRange{index});
+    if (op.supportMarginal()) {
+      assert(indexOperand.getType().template isa<mlir::FloatType>());
+      auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), mlir::CmpFPredicate::UNO,
+                                                 indexOperand, indexOperand);
+      auto marginalValue = (computesLog) ? 0.0 : 1.0;
+      auto constOne = rewriter.create<mlir::ConstantOp>(op.getLoc(),
+                                                        rewriter.getFloatAttr(resultType, marginalValue));
+      leaf = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, leaf);
+    }
+    rewriter.replaceOp(op, leaf);
     return mlir::success();
   }
 
@@ -397,12 +424,12 @@ mlir::LogicalResult mlir::spn::HistogramLowering::matchAndRewrite(mlir::spn::low
   // Flatten the map into an array by filling up empty indices with 0 values.
   SmallVector<Attribute, 256> valArray;
   for (int i = 0; i < maxUB; ++i) {
-    double indexVal;
+    double indexVal = NAN;
     if (values.count(i)) {
       indexVal = (computesLog) ? log(values[i]) : values[i];
     } else {
       // Fill up with 0 if no value was defined by the histogram.
-      indexVal = (computesLog) ? -INFINITY : 0;
+      indexVal = (computesLog) ? static_cast<double>(-INFINITY) : 0;
     }
     // Construct attribute with constant value. Need to distinguish cases here due to different builder methods.
     if (resultType.isIntOrIndex()) {
@@ -413,7 +440,7 @@ mlir::LogicalResult mlir::spn::HistogramLowering::matchAndRewrite(mlir::spn::low
   }
 
   return replaceOpWithGlobalMemref<low::SPNHistogramLeaf>(op, rewriter, operands[0], valArray,
-                                                          resultType, "histogram_");
+                                                          resultType, "histogram_", computesLog);
 }
 mlir::LogicalResult mlir::spn::CategoricalLowering::matchAndRewrite(mlir::spn::low::SPNCategoricalLeaf op,
                                                                     llvm::ArrayRef<mlir::Value> operands,
@@ -440,7 +467,7 @@ mlir::LogicalResult mlir::spn::CategoricalLowering::matchAndRewrite(mlir::spn::l
     }
   }
   return replaceOpWithGlobalMemref<low::SPNCategoricalLeaf>(op, rewriter, operands[0],
-                                                            values, resultType, "categorical_");
+                                                            values, resultType, "categorical_", computesLog);
 }
 
 mlir::LogicalResult mlir::spn::ResolveConvertToVector::matchAndRewrite(mlir::spn::low::SPNConvertToVector op,

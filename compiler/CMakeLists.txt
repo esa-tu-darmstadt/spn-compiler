@@ -1,3 +1,10 @@
+# ==============================================================================
+#  This file is part of the SPNC project under the Apache License v2.0 by the
+#  Embedded Systems and Applications Group, TU Darmstadt.
+#  For the full copyright and license information, please view the LICENSE
+#  file that was distributed with this source code.
+#  SPDX-License-Identifier: Apache-2.0
+# ==============================================================================
 
 find_package(MLIR REQUIRED CONFIG)
 message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
@@ -15,7 +22,7 @@ set(CAPNPC_SRC_PREFIX ${CMAKE_SOURCE_DIR})
 capnp_generate_cpp(CAPNP_SRCS CAPNP_HDRS ${CAPNPC_SRC_PREFIX}/xspn/xspn/serialization/binary/capnproto/spflow.capnp)
 message(STATUS "Capnproto headers: ${CAPNP_HDRS}")
 
-add_library(spnc SHARED
+add_library(spnc
         src/driver/option/Options.cpp
         src/Driver.cpp
         src/driver/util/Logging.cpp
@@ -28,32 +35,37 @@ add_library(spnc SHARED
         src/driver/action/ClangKernelLinking.cpp
         src/driver/toolchain/MLIRToolchain.cpp
         src/driver/toolchain/CPUToolchain.cpp
-        src/codegen/mlir/pipeline/SPNDialectPipeline.cpp
         src/codegen/mlir/conversion/HiSPNtoLoSPNConversion.cpp
         src/codegen/mlir/conversion/LoSPNtoCPUConversion.cpp
-        src/codegen/mlir/conversion/SPNtoStandardConversion.cpp
         src/codegen/mlir/conversion/CPUtoLLVMConversion.cpp
         src/codegen/mlir/conversion/MLIRtoLLVMIRConversion.cpp
-        src/codegen/mlir/analysis/CollectGraphStatistics.cpp
         src/codegen/mlir/transformation/LoSPNTransformations.cpp
         src/codegen/mlir/frontend/MLIRDeserializer.cpp
         ${CAPNP_SRCS}
         )
+
+set(CAPNP_HDR_DIRS "")
+if (CAPNP_HDRS)
+    # Append directories of all Cap'n'Proto headers.
+    foreach(HDR ${CAPNP_HDRS})
+        get_filename_component(hdr_dir ${HDR} DIRECTORY)
+        list(APPEND CAPNP_HDR_DIRS ${hdr_dir})
+    endforeach(HDR ${CAPNP_HDRS})
+endif(CAPNP_HDRS)
+
+message(STATUS "Cap'n'Proto header directories: ${CAPNP_HDR_DIRS}")
 
 target_include_directories(spnc
         PUBLIC
         $<INSTALL_INTERFACE:include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 
-        $<INSTALL_INTERFACE:include>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../common/include>
-
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${LLVM_INCLUDE_DIRS}
         ${MLIR_INCLUDE_DIRS}
         ${SPN_DIALECT_INCLUDE_DIRS}
-        ${CAPNP_HDRS}
+        ${CAPNP_HDR_DIRS}
         ${CAPNPC_OUTPUT_DIR})
 
 if (${CUDA_GPU_SUPPORT})
@@ -74,8 +86,8 @@ if (${CUDA_GPU_SUPPORT})
     # Additional libraries to link
     target_link_libraries(spnc PRIVATE ${CUDA_RUNTIME_LIBRARY} MLIRLoSPNtoGPUTransforms)
 
-    if (MLIR_CUDA_RUNTIME_WRAPPERS)
-        get_filename_component(MLIR_CUDA_RUNTIME_WRAPPERS_DIR ${MLIR_CUDA_RUNTIME_WRAPPERS} DIRECTORY)
+    if (MLIR_CUDA_WRAPPERS)
+        get_filename_component(MLIR_CUDA_RUNTIME_WRAPPERS_DIR ${MLIR_CUDA_WRAPPERS} DIRECTORY)
         message(STATUS "Directory containing the MLIR CUDA runtime wrappers: " ${MLIR_CUDA_RUNTIME_WRAPPERS_DIR})
         target_compile_definitions(spnc PRIVATE SPNC_CUDA_RUNTIME_WRAPPERS_DIR=\"${MLIR_CUDA_RUNTIME_WRAPPERS_DIR}\")
     endif ()
@@ -104,7 +116,6 @@ set(mlir_libs
         MLIRLoSPN
         MLIRHiSPNtoLoSPNTransforms
         MLIRLoSPNtoCPUTransforms
-        MLIRSPNtoStandardTransforms
         MLIRIR
         MLIRParser
         MLIRPass
@@ -116,7 +127,9 @@ set(mlir_libs
 
 llvm_map_components_to_libnames(llvm_libs bitwriter native passes)
 target_link_libraries(spnc PRIVATE spnc-common ${llvm_libs} ${mlir_libs} spdlog::spdlog
-        CapnProto::capnp)
+        CapnProto::capnp cpu_targetinfo)
+
+target_compile_options(spnc PRIVATE ${SPNC_CXX_WARNING_LEVEL})
 
 mlir_check_link_libraries(spnc)
 

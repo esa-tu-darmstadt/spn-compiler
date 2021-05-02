@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/VectorOptimizationPasses.h"
 #include "mlir/Rewrite/FrozenRewritePatternList.h"
@@ -90,9 +93,9 @@ namespace {
     for (auto v : loadedVectors) {
       vectors.push_back(v);
     }
-    unsigned numPermutationStage = log2(vectorSize);
+    auto numPermutationStage = static_cast<unsigned>(log2(vectorSize));
     for (unsigned i = 0; i < numPermutationStage; ++i) {
-      unsigned distance = pow(2, i);
+      unsigned distance = 1 << i;
       llvm::SmallVector<mlir::Value, 8> newVectors;
       unsigned index = 0;
       for (unsigned j = 0; j < vectorSize / (distance * 2); ++j) {
@@ -134,7 +137,7 @@ struct FuncReplaceGatherWithShuffle : public OpRewritePattern<FuncOp> {
     for (auto& arg : func.body().getArguments()) {
       if (arg.getType().isa<MemRefType>()) {
         auto eligible = true;
-        auto useCount = 0;
+        unsigned useCount = 0;
         unsigned minVectorWidth = std::numeric_limits<unsigned>::max();
         llvm::DenseSet<unsigned> indices;
         for (auto U : arg.getUsers()) {
@@ -245,7 +248,7 @@ struct FuncReplaceGatherWithShuffle : public OpRewritePattern<FuncOp> {
       patterns.insert<ReplaceBatchReadWithShuffle>(func.getContext(), replacements);
       mlir::FrozenRewritePatternList frozenPatterns(std::move(patterns));
       for (auto& read : reads) {
-        applyOpPatternsAndFold(read, frozenPatterns);
+        (void) applyOpPatternsAndFold(read, frozenPatterns);
       }
     }
     rewriter.finalizeRootUpdate(func);
@@ -262,9 +265,8 @@ void ReplaceGatherWithShufflePass::runOnOperation() {
   mlir::FrozenRewritePatternList frozenPatterns(std::move(patterns));
   // Apply the pattern to all GPUFuncs in the module.
   module->walk([&frozenPatterns](FuncOp func) {
-    applyOpPatternsAndFold(func, frozenPatterns);
+    (void) applyOpPatternsAndFold(func, frozenPatterns);
   });
-  module->dump();
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createReplaceGatherWithShufflePass() {

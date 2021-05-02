@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include "HiSPN/HiSPNOps.h"
 #include "HiSPN/HiSPNDialect.h"
@@ -22,6 +25,20 @@ namespace mlir {
           return std::distance(op.operands().begin(), op.operands().end());
         }
 
+      }
+
+      //===----------------------------------------------------------------------===//
+      // JointQuery
+      //===----------------------------------------------------------------------===//
+      static mlir::LogicalResult verify(JointQuery node) {
+        if (node.supportMarginal()) {
+          // Marginalization is triggered by feature values set to NaN,
+          // so the input must be a float type to represent that.
+          if (!node.getFeatureDataType().isa<FloatType>()) {
+            return node->emitOpError("Feature data type must be floating-point to support marginal");
+          }
+        }
+        return mlir::success();
       }
 
       //===----------------------------------------------------------------------===//

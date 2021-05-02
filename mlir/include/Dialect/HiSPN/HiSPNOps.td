@@ -1,3 +1,11 @@
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
+
 #ifndef HiSPN_OPS
 #define HiSPN_OPS
 
@@ -11,7 +19,9 @@ include "mlir/IR/RegionKindInterface.td"
 ///
 def AbsoluteErrorAttr : I32EnumAttrCase<"absolute_error", 1>;
 def RelativeErrorAttr : I32EnumAttrCase<"relative_error", 2>;
-def ErrorModelAttr : I32EnumAttr<"error_model", "Arithmetic error kind", [AbsoluteErrorAttr, RelativeErrorAttr]> {
+def AbsoluteLogErrorAttr : I32EnumAttrCase<"absolute_log_error", 3>;
+def ErrorModelAttr : I32EnumAttr<"error_model", "Arithmetic error kind",
+    [AbsoluteErrorAttr, RelativeErrorAttr, AbsoluteLogErrorAttr]> {
     let cppNamespace = "mlir::spn::high";
 }
 
@@ -35,10 +45,13 @@ def JointQuery : HiSPN_Op<"joint_query",
                     SymbolNameAttr:$kernelName,
                     UI32Attr:$batchSize,
                     ErrorModelAttr:$errorModel,
-                    F64Attr:$maxError
+                    F64Attr:$maxError,
+                    BoolAttr:$supportMarginal
                     );
 
     let regions = (region SizedRegion<1>:$graph);
+
+    let verifier = [{return ::mlir::spn::high::verify(*this); }];
 
 }
 

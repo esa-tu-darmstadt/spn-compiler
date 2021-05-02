@@ -1,13 +1,17 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include <spnc.h>
 #include <driver/toolchain/CPUToolchain.h>
 #include <driver/Options.h>
 #include <driver/GlobalOptions.h>
 #include <util/Logging.h>
+#include <TargetInformation.h>
 #if SPNC_CUDA_SUPPORT
 // Only include if CUDA GPU support was enabled.
 #include <driver/toolchain/CUDAGPUToolchain.h>
@@ -17,7 +21,6 @@ using namespace spnc;
 
 Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t& options) {
   SPDLOG_INFO("Welcome to the SPN compiler!");
-  interface::Options::dump();
   auto config = interface::Options::parse(options);
   std::unique_ptr<Job<Kernel>> job;
   if (spnc::option::compilationTarget.get(*config) == option::TargetMachine::CUDA) {
@@ -36,3 +39,35 @@ Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t&
 }
 
 
+bool spn_compiler::isTargetSupported(const std::string& target){
+  if(target == "CPU"){
+    return true;
+  }
+  if(target == "CUDA"){
+    #if SPNC_CUDA_SUPPORT
+    return true;
+    #else
+    return false;
+    #endif
+  }
+  return false;
+}
+
+bool spn_compiler::isFeatureSupported(const std::string& feature){
+  if(feature == "vectorize"){
+      auto& targetInfo = mlir::spn::TargetInformation::nativeCPUTarget();
+      return targetInfo.hasAVXSupport() || 
+              targetInfo.hasAVX2Support() || targetInfo.hasAVX512Support();
+  }
+  if(feature == "AVX"){
+    return mlir::spn::TargetInformation::nativeCPUTarget().hasAVXSupport();
+  }
+  if(feature == "AVX2"){
+    return mlir::spn::TargetInformation::nativeCPUTarget().hasAVX2Support();
+  }
+  if(feature == "AVX512"){
+    return mlir::spn::TargetInformation::nativeCPUTarget().hasAVX512Support();
+  }
+  // TODO Add query support for more features.
+  return false;
+}

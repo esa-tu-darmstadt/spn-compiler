@@ -1,9 +1,17 @@
+# ==============================================================================
+#  This file is part of the SPNC project under the Apache License v2.0 by the
+#  Embedded Systems and Applications Group, TU Darmstadt.
+#  For the full copyright and license information, please view the LICENSE
+#  file that was distributed with this source code.
+#  SPDX-License-Identifier: Apache-2.0
+# ==============================================================================
+
 import os
 
 from spn.structure.Base import Product, Sum
 from spn.structure.leaves.histogram.Histograms import Histogram
 from spn.structure.leaves.parametric.Parametric import Categorical, Gaussian
-from spn.structure.Base import get_number_of_nodes,get_number_of_edges
+from spn.structure.Base import get_number_of_nodes, get_number_of_edges
 from xspn.serialization.binary.BinarySerialization import BinarySerializer, BinaryDeserializer
 from xspn.structure.Model import SPNModel
 from xspn.structure.Query import JointProbability, ErrorKind
