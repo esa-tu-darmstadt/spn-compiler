@@ -55,7 +55,7 @@ namespace {
 
 LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternRewriter& rewriter) const {
 
-  assert(!conversionManager.isConverted(vector) && "vector has already been created");
+  assert(!conversionManager.wasConverted(vector) && "vector has already been created");
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), constantOp.getType());
   rewriter.setInsertionPointAfterValue(conversionManager.getInsertionPoint(vector));
 
@@ -67,14 +67,14 @@ LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternR
   auto const& elements = denseFloatingPoints(std::begin(constants), std::end(constants), vectorType);
   auto constVector = rewriter.create<mlir::ConstantOp>(constantOp.getLoc(), elements);
 
-  conversionManager.update(vector, constVector, CreationMode::Constant);
+  conversionManager.update(vector, constVector, ElementFlag::NoExtract);
 
   return success();
 }
 
 LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, PatternRewriter& rewriter) const {
 
-  assert(!conversionManager.isConverted(vector) && "vector has already been created");
+  assert(!conversionManager.wasConverted(vector) && "vector has already been created");
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), batchReadOp.getType());
   rewriter.setInsertionPointAfterValue(conversionManager.getInsertionPoint(vector));
 
@@ -82,86 +82,86 @@ LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, Patt
     if (vector->splattable()) {
       auto const& element = vector->getElement(0);
       auto vectorOperation = rewriter.create<vector::BroadcastOp>(batchReadOp.getLoc(), vectorType, element);
-      conversionManager.update(vector, vectorOperation, CreationMode::Splat);
+      conversionManager.update(vector, vectorOperation, ElementFlag::KeepFirst);
     } else {
       auto vectorOperation = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
-      conversionManager.update(vector, vectorOperation, CreationMode::BroadcastInsert);
+      conversionManager.update(vector, vectorOperation, ElementFlag::KeepAll);
     }
   } else {
     auto batchReadLoc = batchReadOp.getLoc();
     auto memIndex = rewriter.create<ConstantOp>(batchReadLoc, rewriter.getIndexAttr(batchReadOp.sampleIndex()));
     ValueRange indices{batchReadOp.batchIndex(), memIndex};
     auto vectorLoad = rewriter.create<vector::LoadOp>(batchReadLoc, vectorType, batchReadOp.batchMem(), indices);
-    conversionManager.update(vector, vectorLoad, CreationMode::ConsecutiveLoad);
+    conversionManager.update(vector, vectorLoad, ElementFlag::KeepNone);
   }
 
-  assert(conversionManager.isConverted(vector));
+  assert(conversionManager.wasConverted(vector));
 
   return success();
 }
 
 LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewriter) const {
 
-  assert(!conversionManager.isConverted(vector) && "vector has already been created");
+  assert(!conversionManager.wasConverted(vector) && "vector has already been created");
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), addOp.getType());
   rewriter.setInsertionPointAfterValue(conversionManager.getInsertionPoint(vector));
 
   if (vector->isLeaf()) {
     assert(!vector->splattable() && "addition vector should not be a leaf vector if it is splattable");
     auto vectorOperation = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
-    conversionManager.update(vector, vectorOperation, CreationMode::BroadcastInsert);
+    conversionManager.update(vector, vectorOperation, ElementFlag::KeepAll);
     return success();
   }
 
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < addOp.getNumOperands(); ++i) {
     auto* operand = vector->getOperand(i);
-    assert(conversionManager.isConverted(operand) && "operand has not yet been vectorized");
+    assert(conversionManager.wasConverted(operand) && "operand has not yet been vectorized");
     operands.emplace_back(conversionManager.getValue(operand));
   }
 
   auto vectorAdd = rewriter.create<AddFOp>(addOp.getLoc(), vectorType, operands);
-  conversionManager.update(vector, vectorAdd, CreationMode::Default);
+  conversionManager.update(vector, vectorAdd, ElementFlag::KeepNone);
 
   return success();
 }
 
 LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewriter) const {
 
-  assert(!conversionManager.isConverted(vector) && "vector has already been created");
+  assert(!conversionManager.wasConverted(vector) && "vector has already been created");
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), mulOp.getType());
   rewriter.setInsertionPointAfterValue(conversionManager.getInsertionPoint(vector));
 
   if (vector->isLeaf()) {
     assert(!vector->splattable() && "multiplication vector should not be a leaf vector if it is splattable");
     auto vectorOperation = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
-    conversionManager.update(vector, vectorOperation, CreationMode::BroadcastInsert);
+    conversionManager.update(vector, vectorOperation, ElementFlag::KeepAll);
     return success();
   }
 
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < mulOp.getNumOperands(); ++i) {
     auto* operand = vector->getOperand(i);
-    assert(conversionManager.isConverted(operand) && "operand has not yet been vectorized");
+    assert(conversionManager.wasConverted(operand) && "operand has not yet been vectorized");
     operands.emplace_back(conversionManager.getValue(operand));
   }
 
   auto vectorAdd = rewriter.create<MulFOp>(mulOp.getLoc(), vectorType, operands);
-  conversionManager.update(vector, vectorAdd, CreationMode::Default);
+  conversionManager.update(vector, vectorAdd, ElementFlag::KeepNone);
 
   return success();
 }
 
 LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, PatternRewriter& rewriter) const {
 
-  assert(!conversionManager.isConverted(vector) && "vector has already been created");
+  assert(!conversionManager.wasConverted(vector) && "vector has already been created");
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), gaussianOp.getType());
   rewriter.setInsertionPointAfterValue(conversionManager.getInsertionPoint(vector));
 
   if (vector->isLeaf()) {
     assert(!vector->splattable() && "gaussian vector should not be a leaf vector if it is splattable");
     auto vectorOperation = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
-    conversionManager.update(vector, vectorOperation, CreationMode::BroadcastInsert);
+    conversionManager.update(vector, vectorOperation, ElementFlag::KeepAll);
     return success();
   }
 
@@ -197,7 +197,7 @@ LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, Pat
   auto const& stddevs = denseFloatingPoints(std::begin(stddevAttributes), std::end(stddevAttributes), vectorType);
 
   // Grab the input vector.
-  assert(conversionManager.isConverted(vector->getOperand(0)) && "input vector has not yet been vectorized");
+  assert(conversionManager.wasConverted(vector->getOperand(0)) && "input vector has not yet been vectorized");
   Value const& inputVector = conversionManager.getValue(vector->getOperand(0));
 
   // Calculate Gaussian distribution using e^(-0.5 * ((x - mean) / stddev)^2)) / (stddev * sqrt(2 * PI))
@@ -221,7 +221,7 @@ LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, Pat
   auto coefficientVector = rewriter.create<ConstantOp>(gaussianLoc, coefficients);
   gaussianVector = rewriter.create<MulFOp>(gaussianLoc, coefficientVector, gaussianVector);
 
-  conversionManager.update(vector, gaussianVector, CreationMode::Default);
+  conversionManager.update(vector, gaussianVector, ElementFlag::KeepNone);
 
   return success();
 }

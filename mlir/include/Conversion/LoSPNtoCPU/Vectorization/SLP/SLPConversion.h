@@ -13,12 +13,11 @@ namespace mlir {
     namespace low {
       namespace slp {
 
-        enum CreationMode {
-          Default,
-          Constant,
-          Splat,
-          BroadcastInsert,
-          ConsecutiveLoad,
+        enum ElementFlag {
+          KeepNone,
+          KeepFirst,
+          KeepAll,
+          NoExtract,
           Skip
         };
 
@@ -29,16 +28,18 @@ namespace mlir {
           explicit ConversionManager(SLPNode* root);
 
           Value getInsertionPoint(NodeVector* vector) const;
-          bool isConverted(NodeVector* vector) const;
+          bool wasConverted(NodeVector* vector) const;
 
-          void update(NodeVector* vector, Value const& operation, CreationMode const& mode);
+          void update(NodeVector* vector, Value const& operation, ElementFlag const& flag);
           void markSkipped(NodeVector* vector);
 
           Value getValue(NodeVector* vector) const;
-          CreationMode getCreationMode(NodeVector* vector) const;
+          ElementFlag getElementFlag(NodeVector* vector) const;
 
           bool hasEscapingUsers(Value const& value) const;
-          Operation* moveEscapingUsersBehind(NodeVector* vector) const;
+          /// Recursively moves all users (and their users and so on) of the vector behind it.
+          void recursivelyMoveUsersAfter(NodeVector* vector) const;
+          Operation* getEarliestEscapingUser(Value const& value) const;
 
         private:
 
@@ -46,7 +47,7 @@ namespace mlir {
             /// The operation that was created for this node vector.
             Optional<Value> operation{None};
             /// The way it was created.
-            Optional<CreationMode> mode{None};
+            Optional<ElementFlag> flag{None};
           };
           DenseMap<NodeVector*, NodeVectorData> vectorData;
 

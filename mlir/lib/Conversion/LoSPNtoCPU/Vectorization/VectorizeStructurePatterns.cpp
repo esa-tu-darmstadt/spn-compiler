@@ -145,25 +145,50 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     // Also traverse nodes in postorder to properly handle multinodes.
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
+      // This assumes that node vectors using these illegal vectors as operands don't need them. For example,
+      // SPNBatchReads being replaced with vector::LoadOps or 'broadcastInserts' instead of using their
+      // vectorized operands.
+      if (wouldBeIllegal(vector)) {
+        conversionManager.markSkipped(vector);
+        continue;
+      }
       // dumpSLPNodeVector(*vector);
       auto* vectorOp = vector->begin()->getDefiningOp();
       if (vector->containsBlockArgs() || failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
-        // This assumes that the node vectors using these illegal vectors know what they're doing and don't need them.
-        // For example, SPNBatchReads being replaced with vector::LoadOps or broadcastInserts instead of using their
-        // vectorized operands.
-        if (wouldBeIllegal(vector)) {
-          conversionManager.markSkipped(vector);
-          continue;
-        }
+
         auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
         rewriter.setInsertionPointAfterValue(conversionManager.getInsertionPoint(vector));
+
+        // Create extractions from vectorized operands if present.
+        for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
+          auto const& element = vector->getElement(lane);
+          if (auto* elementOp = element.getDefiningOp()) {
+            for (size_t i = 0; i < vector->numOperands(); ++i) {
+              auto* operand = vector->getOperand(i);
+              // E.g. illegal operand vectors.
+              if (!conversionManager.wasConverted(operand)) {
+                continue;
+              }
+              auto const& source = conversionManager.getValue(operand);
+              auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
+              elementOp->setOperand(i, extractOp.result());
+              if (elementOp->isBeforeInBlock(extractOp)) {
+                elementOp->moveAfter(extractOp);
+                rewriter.setInsertionPointAfter(elementOp);
+              }
+            }
+          }
+          if (lane == 0 && vector->splattable()) {
+            break;
+          }
+        }
         if (vector->splattable()) {
           auto const& element = vector->getElement(0);
           auto vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
-          conversionManager.update(vector, vectorizedOp, CreationMode::Splat);
+          conversionManager.update(vector, vectorizedOp, ElementFlag::KeepFirst);
         } else {
           auto vectorizedOp = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
-          conversionManager.update(vector, vectorizedOp, CreationMode::BroadcastInsert);
+          conversionManager.update(vector, vectorizedOp, ElementFlag::KeepAll);
         }
       }
     }
@@ -171,25 +196,26 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     // Create vector extractions for escaping uses & erase superfluous operations.
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
-      auto const& creationMode = conversionManager.getCreationMode(vector);
-      if (creationMode == CreationMode::Skip) {
+      auto const& creationMode = conversionManager.getElementFlag(vector);
+      if (creationMode == ElementFlag::Skip) {
         continue;
       }
+      conversionManager.recursivelyMoveUsersAfter(vector);
       for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
         auto const& element = vector->getElement(lane);
         if (finishedValues.contains(element)) {
           continue;
         }
         finishedValues.insert(element);
-        if (creationMode == CreationMode::BroadcastInsert || (creationMode == CreationMode::Splat && lane == 0)) {
+        if (creationMode == ElementFlag::KeepAll || (creationMode == ElementFlag::KeepFirst && lane == 0)) {
           continue;
         }
         if (conversionManager.hasEscapingUsers(element)) {
-          if (creationMode == CreationMode::Constant) {
+          if (creationMode == ElementFlag::NoExtract) {
             continue;
           }
+          rewriter.setInsertionPoint(conversionManager.getEarliestEscapingUser(element));
           auto const& source = conversionManager.getValue(vector);
-          rewriter.setInsertionPoint(conversionManager.moveEscapingUsersBehind(vector));
           auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
           element.replaceAllUsesWith(extractOp.result());
         }
