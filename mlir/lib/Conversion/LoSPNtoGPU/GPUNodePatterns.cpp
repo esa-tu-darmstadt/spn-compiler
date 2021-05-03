@@ -10,8 +10,10 @@
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "LoSPN/LoSPNAttributes.h"
 
+#include <cmath>
+
 mlir::LogicalResult mlir::spn::BatchReadGPULowering::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
-                                                                     llvm::ArrayRef <mlir::Value> operands,
+                                                                     llvm::ArrayRef<mlir::Value> operands,
                                                                      mlir::ConversionPatternRewriter& rewriter) const {
   if (op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
@@ -312,6 +314,55 @@ mlir::LogicalResult mlir::spn::GaussianLogGPULowering::matchAndRewrite(mlir::spn
   }
   rewriter.replaceOp(op, gaussian);
   return success();
+}
+
+mlir::LogicalResult mlir::spn::CategoricalGPULowering::matchAndRewrite(mlir::spn::low::SPNCategoricalLeaf op,
+                                                                       llvm::ArrayRef<mlir::Value> operands,
+                                                                       mlir::ConversionPatternRewriter& rewriter) const {
+  // Check for single operand, i.e., the index value.
+  assert(operands.size() == 1);
+  Type resultType = op.getResult().getType();
+  bool computesLog = false;
+  if (auto logType = resultType.dyn_cast<low::LogType>()) {
+    resultType = logType.getBaseType();
+    computesLog = true;
+  }
+  // Convert input value from float to integer if necessary.
+  mlir::Value index = operands[0];
+  if (!index.getType().isIntOrIndex()) {
+    // If the input type is not an integer, but also not a float, we cannot convert it and this pattern fails.
+    if (!index.getType().isIntOrFloat()) {
+      return rewriter.notifyMatchFailure(op, "Cannot convert input of Categorical to integer");
+    }
+    index = rewriter.template create<mlir::FPToUIOp>(op.getLoc(), index, rewriter.getI64Type());
+  }
+  double defaultValue = (computesLog) ? static_cast<double>(-INFINITY) : 0;
+  // TODO Replace 'getFloatAttr' with a more generic solution, if we want to support integer computation.
+  Value falseVal = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, defaultValue));
+  auto probabilities = op.probabilitiesAttr().getValue();
+  for (unsigned i = 0; i < op.probabilities().size(); ++i) {
+    auto classVal = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getI64IntegerAttr(i));
+    auto cmp = rewriter.create<CmpIOp>(op.getLoc(), CmpIPredicate::eq, index, classVal);
+    auto probability = probabilities[i].dyn_cast<FloatAttr>().getValueAsDouble();
+    if (computesLog) {
+      probability = log(probability);
+    }
+    auto probVal = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, probability));
+    falseVal = rewriter.create<SelectOp>(op.getLoc(), cmp, probVal, falseVal);
+  }
+  auto indexOperand = operands[0];
+  Value leaf = falseVal;
+  if (op.supportMarginal()) {
+    assert(indexOperand.getType().template isa<mlir::FloatType>());
+    auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), mlir::CmpFPredicate::UNO,
+                                               indexOperand, indexOperand);
+    auto marginalValue = (computesLog) ? 0.0 : 1.0;
+    auto constOne = rewriter.create<mlir::ConstantOp>(op.getLoc(),
+                                                      rewriter.getFloatAttr(resultType, marginalValue));
+    leaf = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, leaf);
+  }
+  rewriter.replaceOp(op, leaf);
+  return mlir::success();
 }
 
 mlir::LogicalResult mlir::spn::ResolveStripLogGPU::matchAndRewrite(mlir::spn::low::SPNStripLog op,

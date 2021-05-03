@@ -128,6 +128,15 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
+    struct CategoricalGPULowering : public OpConversionPattern<low::SPNCategoricalLeaf> {
+
+      using OpConversionPattern<low::SPNCategoricalLeaf>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNCategoricalLeaf op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
     struct ResolveStripLogGPU : public OpConversionPattern<low::SPNStripLog> {
 
       using OpConversionPattern<low::SPNStripLog>::OpConversionPattern;
@@ -144,6 +153,7 @@ namespace mlir {
       patterns.insert<MulGPULowering, AddGPULowering>(typeConverter, context);
       patterns.insert<MulLogGPULowering, AddLogGPULowering>(typeConverter, context);
       patterns.insert<GaussianGPULowering, GaussianLogGPULowering>(typeConverter, context);
+      patterns.insert<CategoricalGPULowering>(typeConverter, context);
       patterns.insert<ResolveStripLogGPU>(typeConverter, context);
     }
   }
