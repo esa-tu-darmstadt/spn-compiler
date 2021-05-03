@@ -9,6 +9,7 @@
 #include "LoSPNtoGPU/GPUNodePatterns.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "LoSPN/LoSPNAttributes.h"
+#include "mlir/Dialect/SCF/SCF.h"
 
 #include <cmath>
 
@@ -363,6 +364,106 @@ mlir::LogicalResult mlir::spn::CategoricalGPULowering::matchAndRewrite(mlir::spn
   }
   rewriter.replaceOp(op, leaf);
   return mlir::success();
+}
+
+mlir::LogicalResult mlir::spn::HistogramGPULowering::matchAndRewrite(mlir::spn::low::SPNHistogramLeaf op,
+                                                                     llvm::ArrayRef<mlir::Value> operands,
+                                                                     mlir::ConversionPatternRewriter& rewriter) const {
+  // Check for single operand, i.e., the index value.
+  assert(operands.size() == 1);
+  Type resultType = op.getResult().getType();
+  bool computesLog = false;
+  if (auto logType = resultType.dyn_cast<low::LogType>()) {
+    resultType = logType.getBaseType();
+    computesLog = true;
+  }
+  // Convert input value from float to integer if necessary.
+  mlir::Value index = operands[0];
+  if (!index.getType().isIntOrIndex()) {
+    // If the input type is not an integer, but also not a float, we cannot convert it and this pattern fails.
+    if (!index.getType().isIntOrFloat()) {
+      return rewriter.notifyMatchFailure(op, "Cannot convert input of Categorical to integer");
+    }
+    index = rewriter.template create<mlir::FPToUIOp>(op.getLoc(), index, rewriter.getI64Type());
+  }
+  double defaultValue = (computesLog) ? static_cast<double>(-INFINITY) : 0;
+  // TODO Replace 'getFloatAttr' with a more generic solution, if we want to support integer computation.
+  Value falseVal = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, defaultValue));
+  SmallVector<low::Bucket> buckets;
+  for (auto& b : op.bucketsAttr()) {
+    auto bucket = b.cast<low::Bucket>();
+    buckets.push_back(bucket);
+  }
+
+  auto indexOperand = operands[0];
+  if (op.supportMarginal()) {
+    assert(indexOperand.getType().template isa<mlir::FloatType>());
+    auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), mlir::CmpFPredicate::UNO,
+                                               indexOperand, indexOperand);
+    auto marginalValue = (computesLog) ? 0.0 : 1.0;
+    auto restore = rewriter.saveInsertionPoint();
+    auto ifNaN = rewriter.create<scf::IfOp>(op.getLoc(), resultType, isNan, true);
+    rewriter.setInsertionPointToStart(&ifNaN.thenRegion().front());
+    Value constOne = rewriter.create<mlir::ConstantOp>(op.getLoc(),
+                                                       rewriter.getFloatAttr(resultType, marginalValue));
+    rewriter.create<scf::YieldOp>(op.getLoc(), constOne);
+    rewriter.setInsertionPointToStart(&ifNaN.elseRegion().front());
+    Value leaf = processBuckets(buckets, rewriter, index,
+                                falseVal, op.getLoc(), computesLog);
+    rewriter.create<scf::YieldOp>(op.getLoc(), leaf);
+    rewriter.restoreInsertionPoint(restore);
+    rewriter.replaceOp(op, ifNaN.getResult(0));
+  } else {
+    Value leaf = processBuckets(buckets, rewriter, index,
+                                falseVal, op.getLoc(), computesLog);
+    rewriter.replaceOp(op, leaf);
+  }
+  return mlir::success();
+}
+
+mlir::Value mlir::spn::HistogramGPULowering::processBuckets(llvm::ArrayRef<low::Bucket> buckets,
+                                                            ConversionPatternRewriter& rewriter,
+                                                            Value indexVal,
+                                                            Value defaultVal,
+                                                            Location loc,
+                                                            bool computesLog) const {
+  assert(!buckets.empty());
+  auto restore = rewriter.saveInsertionPoint();
+  if (buckets.size() == 1) {
+    // Check that the index is actually in range of this bucket.
+    auto lb = rewriter.create<ConstantOp>(loc,
+                                          rewriter.getIntegerAttr(indexVal.getType(), buckets.front().lb().getInt()));
+    auto ub = rewriter.create<ConstantOp>(loc,
+                                          rewriter.getIntegerAttr(indexVal.getType(), buckets.front().ub().getInt()));
+    auto lbCheck = rewriter.create<CmpIOp>(loc, CmpIPredicate::sge, indexVal, lb);
+    auto ubCheck = rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, indexVal, ub);
+    auto rangeCheck = rewriter.create<AndOp>(loc, lbCheck, ubCheck);
+    auto probability = buckets.front().val().getValueAsDouble();
+    if (computesLog) {
+      probability = std::log(probability);
+    }
+    auto probabilityVal = rewriter.create<ConstantOp>(loc, rewriter.getFloatAttr(defaultVal.getType(), probability));
+    auto selectVal = rewriter.create<SelectOp>(loc, rangeCheck, probabilityVal, defaultVal);
+    rewriter.restoreInsertionPoint(restore);
+    return selectVal;
+  } else {
+    auto pivot = llvm::divideCeil(buckets.size(), 2);
+    auto left = buckets.take_front(pivot);
+    auto right = buckets.drop_front(pivot);
+    auto border = rewriter.create<ConstantOp>(loc,
+                                              rewriter.getIntegerAttr(indexVal.getType(), right.front().lb().getInt()));
+    // Check if the index value is smaller then the first bucket of the right halve.
+    auto compare = rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, indexVal, border);
+    auto ifOp = rewriter.create<scf::IfOp>(loc, defaultVal.getType(), compare, true);
+    rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
+    auto leftVal = processBuckets(left, rewriter, indexVal, defaultVal, loc, computesLog);
+    rewriter.create<scf::YieldOp>(loc, leftVal);
+    rewriter.setInsertionPointToStart(&ifOp.elseRegion().front());
+    auto rightVal = processBuckets(right, rewriter, indexVal, defaultVal, loc, computesLog);
+    rewriter.create<scf::YieldOp>(loc, rightVal);
+    rewriter.restoreInsertionPoint(restore);
+    return ifOp.getResult(0);
+  }
 }
 
 mlir::LogicalResult mlir::spn::ResolveStripLogGPU::matchAndRewrite(mlir::spn::low::SPNStripLog op,

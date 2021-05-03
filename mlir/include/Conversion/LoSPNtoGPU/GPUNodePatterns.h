@@ -9,6 +9,7 @@
 #ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOGPU_NODEPATTERNS_H
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOGPU_NODEPATTERNS_H
 
+#include <LoSPN/LoSPNAttributes.h>
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
@@ -137,6 +138,20 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
+    struct HistogramGPULowering : public OpConversionPattern<low::SPNHistogramLeaf> {
+
+      using OpConversionPattern<low::SPNHistogramLeaf>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNHistogramLeaf op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+
+    private:
+
+      Value processBuckets(llvm::ArrayRef<low::Bucket> buckets, ConversionPatternRewriter& rewriter,
+                           Value indexVal, Value defaultVal, Location loc, bool computesLog) const;
+    };
+
     struct ResolveStripLogGPU : public OpConversionPattern<low::SPNStripLog> {
 
       using OpConversionPattern<low::SPNStripLog>::OpConversionPattern;
@@ -153,7 +168,7 @@ namespace mlir {
       patterns.insert<MulGPULowering, AddGPULowering>(typeConverter, context);
       patterns.insert<MulLogGPULowering, AddLogGPULowering>(typeConverter, context);
       patterns.insert<GaussianGPULowering, GaussianLogGPULowering>(typeConverter, context);
-      patterns.insert<CategoricalGPULowering>(typeConverter, context);
+      patterns.insert<CategoricalGPULowering, HistogramGPULowering>(typeConverter, context);
       patterns.insert<ResolveStripLogGPU>(typeConverter, context);
     }
   }
