@@ -129,7 +129,8 @@ size_t SLPNode::numVectors() const {
 }
 
 NodeVector* SLPNode::addVector(ArrayRef<Value> const& values, NodeVector* definingVector) {
-  auto newVector = vectors.emplace_back(std::make_shared<NodeVector>(values));
+  auto const& newVector = std::make_shared<NodeVector>(values);
+  vectors.emplace_back(newVector);
   if (definingVector) {
     definingVector->operands.emplace_back(newVector);
   }
@@ -137,7 +138,9 @@ NodeVector* SLPNode::addVector(ArrayRef<Value> const& values, NodeVector* defini
 }
 
 NodeVector* SLPNode::addVector(ArrayRef<Operation*> const& operations) {
-  return vectors.emplace_back(std::make_shared<NodeVector>(operations)).get();
+  auto const& newVector = std::make_shared<NodeVector>(operations);
+  vectors.emplace_back(newVector);
+  return newVector.get();
 }
 
 NodeVector* SLPNode::getVector(size_t index) const {
@@ -145,12 +148,11 @@ NodeVector* SLPNode::getVector(size_t index) const {
   return vectors[index].get();
 }
 
-SLPNode* SLPNode::addOperand(ArrayRef<Value> const& values, NodeVector* definingVector) {
-  auto const& operandNode = operandNodes.emplace_back(std::make_unique<SLPNode>(values));
+void SLPNode::addOperand(std::shared_ptr<SLPNode> operandNode, size_t vectorIndex, NodeVector* definingVector) {
+  auto const& node = operandNodes.emplace_back(std::move(operandNode));
   if (definingVector) {
-    definingVector->operands.emplace_back(operandNode->vectors.front());
+    definingVector->operands.emplace_back(node->vectors[vectorIndex]);
   }
-  return operandNode.get();
 }
 
 SLPNode* SLPNode::getOperand(size_t index) const {
@@ -176,8 +178,13 @@ size_t SLPNode::numOperands() const {
 SmallVector<SLPNode*> SLPNode::postOrder(SLPNode* root) {
   SmallVector<SLPNode*> order;
   for (auto* operand : root->getOperands()) {
-    assert(std::find(std::begin(order), std::end(order), operand) == std::end(order));
-    order.append(postOrder(operand));
+    if (std::find(std::begin(order), std::end(order), operand) == std::end(order)) {
+      for (auto* node : postOrder(operand)) {
+        if (std::find(std::begin(order), std::end(order), node) == std::end(order)) {
+          order.emplace_back(node);
+        }
+      }
+    }
   }
   order.emplace_back(root);
   return order;

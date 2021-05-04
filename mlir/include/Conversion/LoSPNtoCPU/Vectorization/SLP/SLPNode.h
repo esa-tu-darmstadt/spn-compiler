@@ -65,7 +65,7 @@ namespace mlir {
           NodeVector* addVector(ArrayRef<Operation*> const& operations);
           NodeVector* getVector(size_t index) const;
 
-          SLPNode* addOperand(ArrayRef<Value> const& values, NodeVector* definingVector);
+          void addOperand(std::shared_ptr<SLPNode> operandNode, size_t vectorIndex, NodeVector* definingVector);
           SLPNode* getOperand(size_t index) const;
           std::vector<SLPNode*> getOperands() const;
           size_t numOperands() const;
@@ -74,7 +74,7 @@ namespace mlir {
 
         private:
           SmallVector<std::shared_ptr<NodeVector>> vectors;
-          SmallVector<std::unique_ptr<SLPNode>> operandNodes;
+          SmallVector<std::shared_ptr<SLPNode>> operandNodes;
         };
       }
     }

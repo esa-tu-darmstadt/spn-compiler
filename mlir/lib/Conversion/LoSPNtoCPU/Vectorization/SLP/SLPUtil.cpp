@@ -53,7 +53,6 @@ void slp::dumpSLPNode(SLPNode const& node) {
   for (size_t i = node.numVectors(); i-- > 0;) {
     dumpSLPNodeVector(*node.getVector(i));
   }
-  llvm::dbgs() << "\n";
 }
 
 // Helper functions in an anonymous namespace.

@@ -13,8 +13,10 @@ using namespace mlir::spn::low::slp;
 
 SLPGraphBuilder::SLPGraphBuilder(size_t maxLookAhead) : maxLookAhead{maxLookAhead} {}
 
-std::unique_ptr<SLPNode> SLPGraphBuilder::build(ArrayRef<Value> const& seed) const {
-  auto root = std::make_unique<SLPNode>(SLPNode{seed});
+std::shared_ptr<SLPNode> SLPGraphBuilder::build(ArrayRef<Value> const& seed) {
+  auto root = std::make_shared<SLPNode>(seed);
+  nodes.emplace_back(root);
+  reorderWorklist.insert(root.get());
   buildGraph(root->getVector(0), root.get());
   return root;
 }
@@ -70,13 +72,9 @@ namespace {
     });
   }
 
-  SmallVector<Value, 4> sortedByLoc() {
-    return SmallVector<Value, 4>{};
-  }
-
 } // end namespace
 
-void SLPGraphBuilder::buildGraph(NodeVector* vector, SLPNode* currentNode) const {
+void SLPGraphBuilder::buildGraph(NodeVector* vector, SLPNode* currentNode) {
   // Stop growing graph
   if (!vectorizable(vector->begin(), vector->end())) {
     return;
@@ -94,7 +92,7 @@ void SLPGraphBuilder::buildGraph(NodeVector* vector, SLPNode* currentNode) const
     // Determine lanes whose elements aren't allowed to be reordered. This is the case if they have escaping uses.
     // DenseMap<unsigned, SmallPtrSet<unsigned, 4>> lockedLanes;
     for (unsigned i = 0; i < arity; ++i) {
-      bool canAppendToNode = true;
+      // bool canAppendToNode = true;
       // for(size_t n = 0; n < allOperands.size(); ++n) {
       // SmallVector<Value, 2> const& operands = allOperands[n];
       // for(size_t )
@@ -114,12 +112,15 @@ void SLPGraphBuilder::buildGraph(NodeVector* vector, SLPNode* currentNode) const
         for (size_t lane = 0; lane < currentNode->numLanes(); ++lane) {
           operandValues.emplace_back(allOperands[lane][i]);
         }
-        currentNode->addOperand(operandValues, vector);
+        auto operandAndVector = getOrCreateOperand(operandValues);
+        currentNode->addOperand(operandAndVector.first, operandAndVector.second, vector);
       }
     }
     // B. Normal Mode: Finished building multi-node
     if (currentNode->isRootOfNode(*vector)) {
-      reorderOperands(currentNode);
+      if (reorderWorklist.erase(currentNode)) {
+        reorderOperands(currentNode);
+      }
       for (auto* operandNode : currentNode->getOperands()) {
         buildGraph(operandNode->getVector(operandNode->numVectors() - 1), operandNode);
       }
@@ -133,14 +134,20 @@ void SLPGraphBuilder::buildGraph(NodeVector* vector, SLPNode* currentNode) const
         auto operand = currentNode->getValue(lane, 0).getDefiningOp()->getOperand(i);
         operandValues.emplace_back(operand);
       }
-      auto* operandNode = currentNode->addOperand(operandValues, vector);
-      buildGraph(operandNode->getVector(0), operandNode);
+      bool isNewOperand = false;
+      auto operandAndVector = getOrCreateOperand(operandValues, &isNewOperand);
+      currentNode->addOperand(operandAndVector.first, operandAndVector.second, vector);
+      if (isNewOperand) {
+        buildGraph(operandAndVector.first->getVector(0), operandAndVector.first.get());
+      }
     }
   }
 }
 
 void SLPGraphBuilder::reorderOperands(SLPNode* multinode) const {
   auto const& numOperands = multinode->numOperands();
+  llvm::dbgs() << "Reordering multinode " << multinode << " with " << numOperands << " operands ("
+               << multinode->numVectors() << " vectors)\n";
   SmallVector<SmallVector<Value, 4>> finalOrder{multinode->numLanes()};
   SmallVector<SmallVector<Mode, 4>> mode{multinode->numLanes()};
   // 1. Strip first lane
@@ -298,4 +305,36 @@ SLPGraphBuilder::Mode SLPGraphBuilder::modeFromValue(Value const& value) {
     return LOAD;
   }
   return OPCODE;
+}
+
+std::pair<std::shared_ptr<SLPNode>, size_t> SLPGraphBuilder::getOrCreateOperand(ArrayRef<Value> values,
+                                                                                bool* isNewOperand) {
+  for (auto const& node : nodes) {
+    if (node->numLanes() != values.size()) {
+      continue;
+    }
+    for (size_t i = 0; i < node->numVectors(); ++i) {
+      auto* vector = node->getVector(i);
+      bool equal = true;
+      for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
+        if (vector->getElement(lane) != values[lane]) {
+          equal = false;
+          break;
+        }
+      }
+      if (equal) {
+        if (isNewOperand) {
+          *isNewOperand = false;
+        }
+        return std::make_pair(node, i);
+      }
+    }
+  }
+  if (isNewOperand) {
+    *isNewOperand = true;
+  }
+  auto operandNode = std::make_shared<SLPNode>(values);
+  nodes.emplace_back(operandNode);
+  reorderWorklist.insert(operandNode.get());
+  return std::make_pair(operandNode, 0);
 }
