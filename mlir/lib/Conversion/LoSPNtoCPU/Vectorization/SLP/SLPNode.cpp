@@ -39,12 +39,6 @@ bool NodeVector::containsBlockArgs() const {
   });
 }
 
-bool NodeVector::vectorizable() const {
-  return std::all_of(std::begin(values), std::end(values), [&](Value const& value) {
-    return low::slp::vectorizable(value);
-  });
-}
-
 bool NodeVector::splattable() const {
   if (containsBlockArgs()) {
     return std::all_of(std::begin(values), std::end(values), [&](Value const& element) {
@@ -70,7 +64,7 @@ size_t NodeVector::numOperands() const {
 
 NodeVector* NodeVector::getOperand(size_t index) const {
   assert(index < operands.size());
-  return operands[index].get();
+  return operands[index];
 }
 
 SmallVectorImpl<Value>::const_iterator NodeVector::begin() const {
@@ -93,11 +87,11 @@ Value const& NodeVector::operator[](size_t lane) const {
 // === SLPNode === //
 
 SLPNode::SLPNode(ArrayRef<Value> const& values) {
-  addVector(values, nullptr);
+  vectors.emplace_back(std::make_unique<NodeVector>(values));
 }
 
 SLPNode::SLPNode(ArrayRef<Operation*> const& operations) {
-  addVector(operations);
+  vectors.emplace_back(std::make_unique<NodeVector>(operations));
 }
 
 Value SLPNode::getValue(size_t lane, size_t index) const {
@@ -129,17 +123,8 @@ size_t SLPNode::numVectors() const {
 }
 
 NodeVector* SLPNode::addVector(ArrayRef<Value> const& values, NodeVector* definingVector) {
-  auto const& newVector = std::make_shared<NodeVector>(values);
-  vectors.emplace_back(newVector);
-  if (definingVector) {
-    definingVector->operands.emplace_back(newVector);
-  }
-  return newVector.get();
-}
-
-NodeVector* SLPNode::addVector(ArrayRef<Operation*> const& operations) {
-  auto const& newVector = std::make_shared<NodeVector>(operations);
-  vectors.emplace_back(newVector);
+  auto const& newVector = vectors.emplace_back(std::make_unique<NodeVector>(values));
+  definingVector->operands.emplace_back(newVector.get());
   return newVector.get();
 }
 
@@ -148,11 +133,16 @@ NodeVector* SLPNode::getVector(size_t index) const {
   return vectors[index].get();
 }
 
-void SLPNode::addOperand(std::shared_ptr<SLPNode> operandNode, size_t vectorIndex, NodeVector* definingVector) {
-  auto const& node = operandNodes.emplace_back(std::move(operandNode));
-  if (definingVector) {
-    definingVector->operands.emplace_back(node->vectors[vectorIndex]);
-  }
+NodeVector* SLPNode::getVectorOrNull(ArrayRef<Value> const& values) const {
+  auto it = std::find_if(std::begin(vectors), std::end(vectors), [&](auto const& vector) {
+    return values.equals(vector->values);
+  });
+  return it != std::end(vectors) ? it->get() : nullptr;
+}
+
+void SLPNode::addOperand(std::shared_ptr<SLPNode> operandNode, NodeVector* operandVector, NodeVector* definingVector) {
+  operandNodes.emplace_back(std::move(operandNode));
+  definingVector->operands.emplace_back(operandVector);
 }
 
 SLPNode* SLPNode::getOperand(size_t index) const {
@@ -177,15 +167,23 @@ size_t SLPNode::numOperands() const {
 
 SmallVector<SLPNode*> SLPNode::postOrder(SLPNode* root) {
   SmallVector<SLPNode*> order;
-  for (auto* operand : root->getOperands()) {
-    if (std::find(std::begin(order), std::end(order), operand) == std::end(order)) {
-      for (auto* node : postOrder(operand)) {
-        if (std::find(std::begin(order), std::end(order), node) == std::end(order)) {
-          order.emplace_back(node);
+  // false = visit operands, true = insert into order
+  std::vector<std::pair<SLPNode*, bool>> worklist;
+  worklist.emplace_back(root, false);
+  while (!worklist.empty()) {
+    auto* node = worklist.back().first;
+    bool insert = worklist.back().second;
+    worklist.pop_back();
+    if (insert) {
+      order.emplace_back(node);
+    } else {
+      worklist.emplace_back(node, true);
+      for (auto* operand: node->getOperands()) {
+        if (std::find(std::begin(order), std::end(order), operand) == std::end(order)) {
+          worklist.emplace_back(operand, false);
         }
       }
     }
   }
-  order.emplace_back(root);
   return order;
 }

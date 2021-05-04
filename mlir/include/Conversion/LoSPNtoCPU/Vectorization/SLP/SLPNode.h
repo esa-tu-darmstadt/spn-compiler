@@ -25,7 +25,6 @@ namespace mlir {
 
           bool contains(Value const& value) const;
           bool containsBlockArgs() const;
-          bool vectorizable() const;
           bool splattable() const;
           bool isLeaf() const;
 
@@ -41,7 +40,7 @@ namespace mlir {
 
         private:
           SmallVector<Value, 4> values;
-          SmallVector<std::shared_ptr<NodeVector>> operands;
+          SmallVector<NodeVector*> operands;
         };
 
         class SLPNode {
@@ -62,10 +61,10 @@ namespace mlir {
           size_t numVectors() const;
 
           NodeVector* addVector(ArrayRef<Value> const& values, NodeVector* definingVector);
-          NodeVector* addVector(ArrayRef<Operation*> const& operations);
           NodeVector* getVector(size_t index) const;
+          NodeVector* getVectorOrNull(ArrayRef<Value> const& values) const;
 
-          void addOperand(std::shared_ptr<SLPNode> operandNode, size_t vectorIndex, NodeVector* definingVector);
+          void addOperand(std::shared_ptr<SLPNode> operandNode, NodeVector* operandVector, NodeVector* definingVector);
           SLPNode* getOperand(size_t index) const;
           std::vector<SLPNode*> getOperands() const;
           size_t numOperands() const;
@@ -73,7 +72,7 @@ namespace mlir {
           static SmallVector<SLPNode*> postOrder(SLPNode* root);
 
         private:
-          SmallVector<std::shared_ptr<NodeVector>> vectors;
+          SmallVector<std::unique_ptr<NodeVector>> vectors;
           SmallVector<std::shared_ptr<SLPNode>> operandNodes;
         };
       }

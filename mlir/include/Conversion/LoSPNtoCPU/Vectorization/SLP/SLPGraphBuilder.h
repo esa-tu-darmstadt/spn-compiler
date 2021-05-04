@@ -44,8 +44,8 @@ namespace mlir {
           int getLookAheadScore(Value const& last, Value const& candidate, unsigned maxLevel) const;
 
           static Mode modeFromValue(Value const& value);
-          std::pair<std::shared_ptr<SLPNode>, size_t> getOrCreateOperand(ArrayRef<Value> values,
-                                                                         bool* isNewOperand = nullptr);
+          std::pair<std::shared_ptr<SLPNode>, NodeVector*> getOrCreateOperand(ArrayRef<Value> values,
+                                                                              bool* isNewOperand = nullptr);
 
           size_t const maxLookAhead;
           SmallVector<std::shared_ptr<SLPNode>> nodes;

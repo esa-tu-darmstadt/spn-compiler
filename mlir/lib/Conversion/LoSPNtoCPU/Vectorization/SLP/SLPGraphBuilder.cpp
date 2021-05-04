@@ -307,27 +307,19 @@ SLPGraphBuilder::Mode SLPGraphBuilder::modeFromValue(Value const& value) {
   return OPCODE;
 }
 
-std::pair<std::shared_ptr<SLPNode>, size_t> SLPGraphBuilder::getOrCreateOperand(ArrayRef<Value> values,
-                                                                                bool* isNewOperand) {
+std::pair<std::shared_ptr<SLPNode>, NodeVector*> SLPGraphBuilder::getOrCreateOperand(ArrayRef<Value> values,
+                                                                                     bool* isNewOperand) {
   for (auto const& node : nodes) {
     if (node->numLanes() != values.size()) {
       continue;
     }
-    for (size_t i = 0; i < node->numVectors(); ++i) {
-      auto* vector = node->getVector(i);
-      bool equal = true;
-      for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-        if (vector->getElement(lane) != values[lane]) {
-          equal = false;
-          break;
-        }
+    auto* vector = node->getVectorOrNull(values);
+    if (vector) {
+      if (isNewOperand) {
+        *isNewOperand = false;
       }
-      if (equal) {
-        if (isNewOperand) {
-          *isNewOperand = false;
-        }
-        return std::make_pair(node, i);
-      }
+      llvm::dbgs() << "Duplicate found, skipping operand building & reordering...\n";
+      return std::make_pair(node, vector);
     }
   }
   if (isNewOperand) {
@@ -336,5 +328,5 @@ std::pair<std::shared_ptr<SLPNode>, size_t> SLPGraphBuilder::getOrCreateOperand(
   auto operandNode = std::make_shared<SLPNode>(values);
   nodes.emplace_back(operandNode);
   reorderWorklist.insert(operandNode.get());
-  return std::make_pair(operandNode, 0);
+  return std::make_pair(operandNode, operandNode->getVector(0));
 }
