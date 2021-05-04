@@ -12,13 +12,13 @@ from spn.structure.Base import Product, Sum
 from spn.structure.leaves.histogram.Histograms import Histogram
 from spn.algorithms.Inference import log_likelihood
 
-from spnc.cpu import CPUCompiler
+from spnc.gpu import CUDACompiler
 
 
 def test_cpu_histogram():
     # Construct a minimal SPN.
     h1 = Histogram([0., 1., 2.], [0.25, 0.75], [1, 1], scope=0)
-    h2 = Histogram([0., 3., 6., 8.], [0.45, 0.1, 0.55], [1, 1], scope=1)
+    h2 = Histogram([0., 3., 6., 8.], [0.35, 0.1, 0.55], [1, 1], scope=1)
     h3 = Histogram([0., 1., 2.], [0.33, 0.67], [1, 1], scope=0)
     h4 = Histogram([0., 5., 8.], [0.875, 0.125], [1, 1], scope=1)
 
@@ -28,15 +28,18 @@ def test_cpu_histogram():
 
     inputs = np.column_stack((
         np.random.randint(2, size=30),
-        np.random.randint(2, size=30),
+        np.random.randint(8, size=30),
     )).astype("float64")
 
-    if not CPUCompiler.isVectorizationSupported():
+    # Insert some NaN in random places into the input data.
+    inputs.ravel()[np.random.choice(inputs.size, 5, replace=False)] = np.nan
+
+    if not CUDACompiler.isAvailable():
         print("Test not supported by the compiler installation")
         return 0
 
     # Execute the compiled Kernel.
-    results = CPUCompiler(computeInLogSpace=False, vectorize=False).log_likelihood(spn, inputs, supportMarginal=False, batchSize=10)
+    results = CUDACompiler().log_likelihood(spn, inputs)
 
     # Compute the reference results using the inference from SPFlow.
     reference = log_likelihood(spn, inputs)
@@ -45,7 +48,7 @@ def test_cpu_histogram():
     # Check the computation results against the reference
     # Check in normal space if log-results are not very close to each other.
     assert np.all(np.isclose(results, reference)) or np.all(np.isclose(np.exp(results), np.exp(reference)))
-    
+
 
 if __name__ == "__main__":
     test_cpu_histogram()
