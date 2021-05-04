@@ -22,6 +22,7 @@ set(LIBS
         MLIRTranslation
         MLIRSupport
         MLIRExecutionEngine
+        cpu_targetinfo
         )
 
 add_llvm_executable(spnc-opt spnc-opt.cpp)
