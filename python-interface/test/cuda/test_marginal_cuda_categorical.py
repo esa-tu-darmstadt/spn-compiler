@@ -54,5 +54,5 @@ def test_cuda_marginal_categorical():
 
 
 if __name__ == "__main__":
-    test_cpu_categorical()
+    test_cuda_marginal_categorical()
     print("COMPUTATION OK")
