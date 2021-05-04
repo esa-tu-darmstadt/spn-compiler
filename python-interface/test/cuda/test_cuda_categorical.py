@@ -52,5 +52,5 @@ def test_cuda_categorical():
 
 
 if __name__ == "__main__":
-    test_gpu_categorical()
+    test_cuda_categorical()
     print("COMPUTATION OK")

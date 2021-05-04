@@ -4,24 +4,29 @@
 
 **SPNC** is a multi-target compiler for Sum-Product Networks, a class of machine learning models.
 
-Starting with release 0.0.4, **SPNC** is mostly completely implemented in `C++` and uses the [LLVM compiler framework](https://llvm.org/) 
+Starting with release 0.0.4, **SPNC** is mostly implemented in `C++` and uses
+the [LLVM compiler framework](https://llvm.org/)
 and [MLIR](https://mlir.llvm.org) for code generation for the different targets.
 
-Currently supported targets are CPUs (all architecture supported by LLVM, vectorization currently limited to X86) and CUDA GPUs.
+Currently supported targets are CPUs (all architectures supported by LLVM, vectorization currently limited to X86) and
+CUDA GPUs.
 
 
 ### Installation ###
 
-**SPNC** comprises two main parts: `xspn`, a small library to help with the serialization of SPFlow models, and `spnc`, which is the compiler itself.
+**SPNC** comprises two main parts: `xspn`, a small library to help with the serialization of SPFlow models, and `spnc`,
+which is the compiler itself.
 
-The easiest way to install both components is to use the pre-built Python packages (wheels) provided on the SPNC Github page. 
-While `xspn` is completely platform-independent, the pre-built wheels for `spnc` only works on Linux platforms. 
-See the [installation instructions](https://github.com/esa-tu-darmstadt/spn-compiler/wiki/Installation) for detailed 
-requirements. 
+The easiest way to install both components is to use the pre-built Python packages (wheels) provided on the SPNC
+Github [release page](https://github.com/esa-tu-darmstadt/spn-compiler/releases). While `xspn` is completely
+platform-independent, the pre-built wheel for `spnc` only works on Linux platforms. See
+the [installation instructions](https://github.com/esa-tu-darmstadt/spn-compiler/wiki/Installation-Manual) for detailed
+requirements.
 
-In case you want to use **SPNC** on a different platform or want to build **SPNC** from source,
-follow the [installation instructions](https://github.com/esa-tu-darmstadt/spn-compiler/wiki/Installation) to build 
-**SPNC** and all its dependencies from source. Currently, `spnc` is based on LLVM commit `f8d3f47e1fd09392aa30df83849b25acd8c59a25`.
+In case you want to use **SPNC** on a different platform or want to build **SPNC** from source, follow
+the [installation instructions](https://github.com/esa-tu-darmstadt/spn-compiler/wiki/Installation-Manual) to build
+**SPNC** and all its dependencies from source. Currently, `spnc` is based on LLVM
+commit `f8d3f47e1fd09392aa30df83849b25acd8c59a25`.
 
 ### Usage ###
 
@@ -119,7 +124,17 @@ from xspn.serialization.binary.BinarySerialization import BinaryDeserializer
 deserialized_query = BinaryDeserializer("test.bin").deserialize_from_file()
 ```
 
+### Contributing ###
+
+We welcome contributions through issues and pull requests. New contributors should have a look at
+the [Coding Guidelines](https://github.com/esa-tu-darmstadt/spn-compiler/wiki/Coding-Guidelines) and
+the [Developer's Manual](https://github.com/esa-tu-darmstadt/spn-compiler/wiki/Developer's-Manual).
+
+The Installation Manual also contains a section on a
+[setup tailored for developers](https://github.com/esa-tu-darmstadt/spn-compiler/wiki/Installation-Manual#for-developers)
+.
+
 ### License ###
 
-SPNC is licensed under the Apache License v2.0, see the LICENSE file that was distributed with this source code for more
-information.
+SPNC is licensed under the **Apache License v2.0**, see the *LICENSE* file that was distributed with this source code
+for more information.
