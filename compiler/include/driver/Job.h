@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #ifndef SPNC_JOB_H
 #define SPNC_JOB_H
@@ -10,6 +13,7 @@
 #include <memory>
 #include <type_traits>
 #include "Actions.h"
+#include "Kernel.h"
 
 namespace spnc {
 
@@ -23,6 +27,11 @@ namespace spnc {
 
   public:
 
+    /// Create a new job as a container for actions to be executed.
+    /// \param configuration CLI configuration, will automatically be attached to actions
+    ///                         inserted through insertAction/insertFinalAction.
+    explicit Job(std::shared_ptr<interface::Configuration> configuration) : config{std::move(configuration)} {}
+
     /// Create and insert an action into this Job. The Job controls the lifetime of the created action.
     /// \tparam A Type of the action to create.
     /// \tparam T Types of the arguments required for the action's constructor.
@@ -32,7 +41,9 @@ namespace spnc {
     A& insertAction(T&& ... args) {
       static_assert(std::is_base_of<ActionBase, A>::value, "Must be an action derived from ActionBase!");
       actions.push_back(std::make_unique<A>(std::forward<T>(args)...));
-      return *((A*) actions.back().get());
+      auto* action = ((A*) actions.back().get());
+      action->setConfiguration(config);
+      return *action;
     }
 
     /// Create and insert the final into this Job. The Job controls the lifetime of the created action.
@@ -46,6 +57,7 @@ namespace spnc {
       static_assert(std::is_base_of<ActionWithOutput<Output>, A>::value, "Must be an action with correct output!");
       auto a = std::make_unique<A>(std::forward<T>(args)...);
       finalAction = a.get();
+      a->setConfiguration(config);
       actions.push_back(std::move(a));
       return *((A*) actions.back().get());
     }
@@ -79,11 +91,29 @@ namespace spnc {
 
   private:
 
+    std::shared_ptr<interface::Configuration> config;
+
     std::vector<std::unique_ptr<ActionBase>> actions;
 
-    ActionWithOutput <Output>* finalAction;
+    ActionWithOutput<Output>* finalAction;
 
   };
+
+  ///
+  /// Simple struct to carry information about the generated kernel between different
+  /// steps of the tool-chain.
+  struct KernelInfo {
+    spnc::KernelQueryType queryType;
+    spnc::KernelTarget target;
+    unsigned batchSize;
+    unsigned numFeatures;
+    unsigned bytesPerFeature;
+    unsigned numResults;
+    unsigned bytesPerResult;
+    std::string dtype;
+    std::string kernelName;
+  };
+
 }
 
 #endif //SPNC_JOB_H

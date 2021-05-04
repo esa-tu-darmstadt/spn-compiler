@@ -1,0 +1,1 @@
+@RUN_CLANG_TIDY_SCRIPT@ -export-fixes fixes-clang-tidy.yaml -checks '@SPNC_CLANG_TIDY_CHECKS@'

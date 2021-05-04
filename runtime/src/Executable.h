@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #ifndef SPNC_EXECUTABLE_H
 #define SPNC_EXECUTABLE_H
@@ -13,7 +16,18 @@ using namespace spnc;
 
 namespace spnc_rt {
 
-  typedef void (* kernel_function_t)(size_t num_elements, void* inputs, double* output);
+  typedef void (* kernel_function)(void* input_ptr,
+                                   void* aligned_input_ptr,
+                                   int64_t input_offset,
+                                   int64_t input_size_dim1,
+                                   int64_t input_stride_dim1,
+                                   int64_t input_size_dim2,
+                                   int64_t input_stride_dim2,
+                                   void* output_ptr,
+                                   void* output_aligned_ptr,
+                                   int64_t output_offset,
+                                   int64_t output_size,
+                                   int64_t output_stride);
 
   ///
   /// Manages a Kernel by loading it from the shared object using libelf.
@@ -44,16 +58,22 @@ namespace spnc_rt {
     /// \param num_elements Number of queries in the batch.
     /// \param inputs Input SPN evidence.
     /// \param outputs SPN output probabilities.
-    void execute(size_t num_elements, void* inputs, double* outputs);
+    void execute(size_t num_elements, void* inputs, void* outputs);
 
   private:
     const Kernel* kernel;
 
     void* handle;
 
-    kernel_function_t kernel_func;
+    kernel_function kernel_func;
 
     void initialize();
+
+    void executeSingle(size_t num_samples, void* inputs, void* outputs);
+
+    void executeBatch(size_t num_samples, void* inputs, void* outputs);
+
+    void executeGPU(size_t num_samples, void* inputs, void* outputs);
 
   };
 

@@ -1,0 +1,4 @@
+spflow
+pycapnp
+pytest
+numpy

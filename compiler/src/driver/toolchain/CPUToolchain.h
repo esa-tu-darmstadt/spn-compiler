@@ -1,48 +1,32 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
-#ifndef SPNC_CPUTOOLCHAIN_H
-#define SPNC_CPUTOOLCHAIN_H
+#ifndef SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_CPUTOOLCHAIN_H
+#define SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_CPUTOOLCHAIN_H
 
-#include <llvm/IR/Module.h>
-#include <driver/Job.h>
-#include <driver/BaseActions.h>
-#include <driver/Options.h>
-#include <Kernel.h>
-
-using namespace spnc::interface;
+#include "MLIRToolchain.h"
 
 namespace spnc {
 
   ///
   /// Toolchain generating code for CPUs using LLVM.
-  /// The generated Kernel iterates over a batch of queries and computes the joint probability.
-  class CPUToolchain {
+  class CPUToolchain : MLIRToolchain {
 
   public:
-
     /// Construct a job reading the SPN from an input file.
     /// \param inputFile Input file.
     /// \param config Compilation option configuration.
     /// \return Job containing all necessary actions.
-    static std::unique_ptr<Job<Kernel>> constructJobFromFile(const std::string& inputFile, const Configuration& config);
-
-    /// Construct a job reading the SPN from an input string.
-    /// \param inputString Input string.
-    /// \param config Compilation option configuration.
-    /// \return Job containing all necessary actions.
-    static std::unique_ptr<Job<Kernel>> constructJobFromString(const std::string& inputString,
-                                                               const Configuration& config);
-
-  private:
-
-    static std::unique_ptr<Job<Kernel>> constructJob(std::unique_ptr<ActionWithOutput<std::string>> input,
-                                                     const Configuration& config);
+    static std::unique_ptr<Job<Kernel>> constructJobFromFile(const std::string& inputFile,
+                                                             const std::shared_ptr<interface::Configuration>& config);
 
   };
 
 }
 
-#endif //SPNC_CPUTOOLCHAIN_H
+#endif //SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_CPUTOOLCHAIN_H

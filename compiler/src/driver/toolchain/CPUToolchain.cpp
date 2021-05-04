@@ -1,82 +1,79 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
-#include <driver/BaseActions.h>
-#include <frontend/json/Parser.h>
-#include <graph-ir/transform/BinaryTreeTransform.h>
-#include <codegen/llvm-ir/CPU/LLVMCPUCodegen.h>
-#include <driver/action/LLVMWriteBitcode.h>
-#include <driver/action/LLVMStaticCompiler.h>
-#include <driver/action/LLVMLinker.h>
-#include <driver/action/DetectTracingLib.h>
-#include <driver/action/ClangKernelLinking.h>
-#include <graph-ir/util/GraphStatVisitor.h>
-#include <codegen/llvm-ir/pipeline/LLVMPipeline.h>
-#include <driver/GlobalOptions.h>
 #include "CPUToolchain.h"
+#include <driver/BaseActions.h>
+#include "codegen/mlir/conversion/HiSPNtoLoSPNConversion.h"
+#include "codegen/mlir/conversion/LoSPNtoCPUConversion.h"
+#include "codegen/mlir/conversion/CPUtoLLVMConversion.h"
+#include "codegen/mlir/conversion/MLIRtoLLVMIRConversion.h"
+#include <driver/action/ClangKernelLinking.h>
+#include <codegen/mlir/frontend/MLIRDeserializer.h>
+#include <codegen/mlir/transformation/LoSPNTransformations.h>
+#include <driver/action/EmitObjectCode.h>
 
 using namespace spnc;
+using namespace mlir;
 
 std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::string& inputFile,
-                                                                 const Configuration& config) {
-  // Construct file input action.
-  auto fileInput = std::make_unique<FileInputAction>(inputFile);
-  return constructJob(std::move(fileInput), config);
-}
-
-std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromString(const std::string& inputString,
-                                                                   const Configuration& config) {
-  // Construct string input action.
-  auto stringInput = std::make_unique<StringInputAction>(inputString);
-  return constructJob(std::move(stringInput), config);
-}
-
-std::unique_ptr<Job<Kernel>> CPUToolchain::constructJob(std::unique_ptr<ActionWithOutput<std::string>> input,
-                                                        const Configuration& config) {
-  auto deleteTmps = spnc::option::deleteTemporaryFiles.get(config);
-  std::unique_ptr<Job<Kernel>> job{new Job<Kernel>()};
-  // Construct parser to parse JSON from input.
-  auto graphIRContext = std::make_shared<GraphIRContext>();
-  auto& parser = job->insertAction<Parser>(*input, graphIRContext);
-  // Transform all operations into binary (two inputs) operations.
-  auto& binaryTreeTransform = job->insertAction<BinaryTreeTransform>(parser, graphIRContext);
-  // Invoke LLVM code-generation on transformed tree.
-  std::string kernelName = "spn_kernel";
-  std::shared_ptr<LLVMContext> llvmContext = std::make_shared<LLVMContext>();
-  auto& llvmCodeGen = job->insertAction<LLVMCPUCodegen>(binaryTreeTransform, kernelName, llvmContext);
-  ActionWithOutput<llvm::Module>* codegenResult = &llvmCodeGen;
-  // If requested via the configuration, collect graph statistics.
-  if (spnc::option::collectGraphStats.get(config)) {
-    // Collect graph statistics on transformed tree.
-    auto statsFile = StatsFile(spnc::option::graphStatsFile.get(config), deleteTmps);
-    auto& graphStats = job->insertAction<GraphStatVisitor>(binaryTreeTransform, std::move(statsFile));
-    // Join the two actions happening on the transformed tree (graph-stats & LLVM code-gen).
-    auto& joinAction = job->insertAction<JoinAction<llvm::Module, StatsFile>>(llvmCodeGen, graphStats);
-    codegenResult = &joinAction;
+                                              const std::shared_ptr<interface::Configuration>& config) {
+  // Uncomment the following two lines to get detailed output during MLIR dialect conversion;
+  //llvm::DebugFlag = true;
+  //llvm::setCurrentDebugType("dialect-conversion");
+  std::unique_ptr<Job<Kernel>> job = std::make_unique<Job<Kernel>>(config);
+  // Invoke MLIR code-generation on parsed tree.
+  auto ctx = std::make_shared<MLIRContext>();
+  initializeMLIRContext(*ctx);
+  // If IR should be dumped between steps/passes, we need to disable
+  // multi-threading in MLIR
+  if (spnc::option::dumpIR.get(*config)) {
+    ctx->enableMultithreading(false);
   }
-  // Run LLVM IR transformation pipeline on the generated module.
-  auto& llvmPipeline = job->insertAction<LLVMPipeline>(*codegenResult, llvmContext, config);
-  // Write generated LLVM module to bitcode-file.
-  auto bitCodeFile = FileSystem::createTempFile<FileType::LLVM_BC>(deleteTmps);
-  auto& writeBitcode = job->insertAction<LLVMWriteBitcode>(llvmPipeline, std::move(bitCodeFile));
-  ActionWithOutput<LLVMBitcode>* bitcode = &writeBitcode;
-  if (spnc::option::numericalTracing.get(config)) {
-    // Link tracing library (bitcode) into prepared bitcode-file (which yields another bitcode-file)
-    auto bitCodeFileLinked = FileSystem::createTempFile<FileType::LLVM_BC>(deleteTmps);
-    auto& bitCodeTraceLib = job->insertAction<DetectTracingLib>();
-    auto& linkBitcode = job->insertAction<LLVMLinker>(writeBitcode, bitCodeTraceLib, std::move(bitCodeFileLinked));
-    bitcode = &linkBitcode;
-  }
-  // Compile generated bitcode-file to object file.
-  auto objectFile = FileSystem::createTempFile<FileType::OBJECT>(deleteTmps);
-  auto& compileObject = job->insertAction<LLVMStaticCompiler>(*bitcode, std::move(objectFile));
+  auto diagHandler = setupDiagnosticHandler(ctx.get());
+  auto cpuVectorize = spnc::option::cpuVectorize.get(*config);
+  SPDLOG_INFO("CPU Vectorization enabled: {}", cpuVectorize);
+  auto targetMachine = createTargetMachine(cpuVectorize);
+  auto kernelInfo = std::make_shared<KernelInfo>();
+  kernelInfo->target = KernelTarget::CPU;
+  BinarySPN binarySPNFile{inputFile, false};
+  auto& deserialized = job->insertAction<MLIRDeserializer>(std::move(binarySPNFile), ctx, kernelInfo);
+  auto& hispn2lospn = job->insertAction<HiSPNtoLoSPNConversion>(deserialized, ctx, diagHandler);
+  auto& lospnTransform = job->insertAction<LoSPNTransformations>(hispn2lospn, ctx, diagHandler, kernelInfo);
+  auto& lospn2cpu = job->insertAction<LoSPNtoCPUConversion>(lospnTransform, ctx, diagHandler);
+  auto& cpu2llvm = job->insertAction<CPUtoLLVMConversion>(lospn2cpu, ctx, diagHandler);
+
+  // Convert the MLIR module to a LLVM-IR module.
+  auto& llvmConversion = job->insertAction<MLIRtoLLVMIRConversion>(cpu2llvm, ctx, targetMachine);
+
+  // Translate the generated LLVM IR module to object code and write it to an object file.
+  auto objectFile = FileSystem::createTempFile<FileType::OBJECT>(true);
+  SPDLOG_INFO("Generating object file {}", objectFile.fileName());
+  auto& emitObjectCode = job->insertAction<EmitObjectCode>(llvmConversion, std::move(objectFile), targetMachine);
+
   // Link generated object file into shared object.
   auto sharedObject = FileSystem::createTempFile<FileType::SHARED_OBJECT>(false);
   SPDLOG_INFO("Compiling to shared object file {}", sharedObject.fileName());
-  auto& linkSharedObject =
-      job->insertFinalAction<ClangKernelLinking>(compileObject, std::move(sharedObject), kernelName);
-  job->addAction(std::move(input));
-  return std::move(job);
+  // Add additional libraries to the link command if necessary.
+  llvm::SmallVector<std::string, 3> additionalLibs;
+  // Link vector libraries if specified by option.
+  auto veclib = spnc::option::vectorLibrary.get(*config);
+  if (veclib != spnc::option::VectorLibrary::NONE) {
+    switch (veclib) {
+      case spnc::option::VectorLibrary::SVML: additionalLibs.push_back("svml");
+        break;
+      case spnc::option::VectorLibrary::LIBMVEC: additionalLibs.push_back("m");
+        break;
+      default:SPNC_FATAL_ERROR("Unknown vector library");
+    }
+  }
+  auto searchPaths = parseLibrarySearchPaths(spnc::option::searchPaths.get(*config));
+  (void)
+      job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo, 
+                                                additionalLibs, searchPaths);
+  return job;
 }

@@ -1,59 +1,144 @@
-find_package(LLVM REQUIRED CONFIG)
+# ==============================================================================
+#  This file is part of the SPNC project under the Apache License v2.0 by the
+#  Embedded Systems and Applications Group, TU Darmstadt.
+#  For the full copyright and license information, please view the LICENSE
+#  file that was distributed with this source code.
+#  SPDX-License-Identifier: Apache-2.0
+# ==============================================================================
 
-message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
-message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+find_package(MLIR REQUIRED CONFIG)
+message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
 
-add_definitions(${LLVM_DEFINITIONS})
+if (${CUDA_GPU_SUPPORT})
+    include(DetectCUDALibs.cmake)
+    detect_cuda_libs()
+endif (${CUDA_GPU_SUPPORT})
 
-add_library(spnc SHARED
+find_package(CapnProto REQUIRED CONFIG)
+message(STATUS "Using capnproto version ${CapnProto_VERSION}")
+set(CAPNPC_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
+set(CAPNPC_SRC_PREFIX ${CMAKE_SOURCE_DIR})
+
+capnp_generate_cpp(CAPNP_SRCS CAPNP_HDRS ${CAPNPC_SRC_PREFIX}/xspn/xspn/serialization/binary/capnproto/spflow.capnp)
+message(STATUS "Capnproto headers: ${CAPNP_HDRS}")
+
+add_library(spnc
         src/driver/option/Options.cpp
         src/Driver.cpp
         src/driver/util/Logging.cpp
         src/driver/option/GlobalOptions.cpp
-        src/driver/toolchain/CPUToolchain.cpp
         src/driver/action/LLVMWriteBitcode.cpp
         src/driver/action/LLVMStaticCompiler.cpp
+        src/driver/action/EmitObjectCode.cpp
         src/driver/action/LLVMLinker.cpp
         src/driver/action/DetectTracingLib.cpp
         src/driver/action/ClangKernelLinking.cpp
-        src/graph-ir/GraphIRNode.cpp
-        src/graph-ir/InputVar.cpp
-        src/graph-ir/Histogram.cpp
-        src/graph-ir/WeightedSum.cpp
-        src/graph-ir/Sum.cpp
-        src/graph-ir/Product.cpp
-        src/frontend/json/Parser.cpp
-        src/graph-ir/transform/BaseVisitor.cpp
-        src/graph-ir/transform/IRTransformationPass.cpp
-        src/graph-ir/util/DotVisitor.cpp
-        src/graph-ir/util/GraphStatVisitor.cpp
-        src/graph-ir/transform/BinaryTreeTransform.cpp
-        src/codegen/llvm-ir/CPU/LLVMCPUCodegen.cpp
-        src/codegen/llvm-ir/CPU/body/CodeGenScalarBody.cpp
-        src/codegen/llvm-ir/CPU/loop/CodeGenSerialLoop.cpp
-        src/codegen/llvm-ir/pipeline/LLVMPipeline.cpp
-        src/codegen/llvm-ir/transform/NumericalValueTracingPass.cpp)
+        src/driver/toolchain/MLIRToolchain.cpp
+        src/driver/toolchain/CPUToolchain.cpp
+        src/codegen/mlir/conversion/HiSPNtoLoSPNConversion.cpp
+        src/codegen/mlir/conversion/LoSPNtoCPUConversion.cpp
+        src/codegen/mlir/conversion/CPUtoLLVMConversion.cpp
+        src/codegen/mlir/conversion/MLIRtoLLVMIRConversion.cpp
+        src/codegen/mlir/transformation/LoSPNTransformations.cpp
+        src/codegen/mlir/frontend/MLIRDeserializer.cpp
+        ${CAPNP_SRCS}
+        )
+
+set(CAPNP_HDR_DIRS "")
+if (CAPNP_HDRS)
+    # Append directories of all Cap'n'Proto headers.
+    foreach(HDR ${CAPNP_HDRS})
+        get_filename_component(hdr_dir ${HDR} DIRECTORY)
+        list(APPEND CAPNP_HDR_DIRS ${hdr_dir})
+    endforeach(HDR ${CAPNP_HDRS})
+endif(CAPNP_HDRS)
+
+message(STATUS "Cap'n'Proto header directories: ${CAPNP_HDR_DIRS}")
 
 target_include_directories(spnc
         PUBLIC
         $<INSTALL_INTERFACE:include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 
-        $<INSTALL_INTERFACE:include>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../common/include>
-
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${LLVM_INCLUDE_DIRS})
+        ${LLVM_INCLUDE_DIRS}
+        ${MLIR_INCLUDE_DIRS}
+        ${SPN_DIALECT_INCLUDE_DIRS}
+        ${CAPNP_HDR_DIRS}
+        ${CAPNPC_OUTPUT_DIR})
 
-llvm_map_components_to_libnames(llvm_libs bitwriter passes)
-target_link_libraries(spnc PRIVATE ${llvm_libs} spdlog::spdlog)
+if (${CUDA_GPU_SUPPORT})
+    #
+    # If support for CUDA GPUs is enabled, add additinal source files, header directores and libraries.
+    #
+
+    # Additional sources for CUDA GPU support
+    target_sources(spnc PRIVATE
+            src/codegen/mlir/conversion/GPUtoLLVMConversion.cpp
+            src/codegen/mlir/conversion/LoSPNtoGPUConversion.cpp
+            src/driver/toolchain/CUDAGPUToolchain.cpp
+            )
+
+    # Additional include directories.
+    target_include_directories(spnc PRIVATE ${CUDA_INCLUDE_DIRS})
+
+    # Additional libraries to link
+    target_link_libraries(spnc PRIVATE ${CUDA_RUNTIME_LIBRARY} MLIRLoSPNtoGPUTransforms)
+
+    if (MLIR_CUDA_WRAPPERS)
+        get_filename_component(MLIR_CUDA_RUNTIME_WRAPPERS_DIR ${MLIR_CUDA_WRAPPERS} DIRECTORY)
+        message(STATUS "Directory containing the MLIR CUDA runtime wrappers: " ${MLIR_CUDA_RUNTIME_WRAPPERS_DIR})
+        target_compile_definitions(spnc PRIVATE SPNC_CUDA_RUNTIME_WRAPPERS_DIR=\"${MLIR_CUDA_RUNTIME_WRAPPERS_DIR}\")
+    endif ()
+
+    if (SPNC_LIBDEVICE)
+        target_compile_definitions(spnc PRIVATE SPNC_LIBDEVICE_FILE=\"${SPNC_LIBDEVICE}\")
+    endif ()
+endif (${CUDA_GPU_SUPPORT})
+
+# Set a compiler definition for the CUDA GPU support for use
+# of conditional compilation inside source files
+if (${CUDA_GPU_SUPPORT})
+    target_compile_definitions(spnc PRIVATE SPNC_CUDA_SUPPORT=1)
+else (${CUDA_GPU_SUPPORT})
+    target_compile_definitions(spnc PRIVATE SPNC_CUDA_SUPPORT=0)
+endif (${CUDA_GPU_SUPPORT})
+
+get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
+
+set(mlir_libs
+        ${dialect_libs}
+        ${conversion_libs}
+        MLIROptLib
+        MLIRHiSPN
+        MLIRLoSPN
+        MLIRHiSPNtoLoSPNTransforms
+        MLIRLoSPNtoCPUTransforms
+        MLIRIR
+        MLIRParser
+        MLIRPass
+        MLIRTranslation
+        MLIRSupport
+        MLIRExecutionEngine
+        MLIRTargetNVVMIR
+        )
+
+llvm_map_components_to_libnames(llvm_libs bitwriter native passes)
+target_link_libraries(spnc PRIVATE spnc-common ${llvm_libs} ${mlir_libs} spdlog::spdlog
+        CapnProto::capnp cpu_targetinfo)
+
+target_compile_options(spnc PRIVATE ${SPNC_CXX_WARNING_LEVEL})
+
+mlir_check_link_libraries(spnc)
 
 doxygen_doc(TARGET_NAME spnc
         SRC_DIRECTORIES
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         DEPENDS
-        spnc-common
+        spnc-common mlir-doc
         EXCLUDES
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/frontend/json/json.hpp)
+        ../common/include/util/json.hpp)
+

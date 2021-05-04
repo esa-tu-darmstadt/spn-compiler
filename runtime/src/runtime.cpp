@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include "../include/spnc-runtime.h"
 #include <util/Logging.h>
@@ -36,7 +39,7 @@ spn_runtime& spn_runtime::instance() {
   return *_instance;
 }
 
-void spn_runtime::execute(const Kernel& kernel, size_t num_elements, void* inputs, double* outputs) {
+void spn_runtime::execute(const Kernel& kernel, size_t num_elements, void* inputs, void* outputs) {
   // Caching executables wrapping around kernels to avoid repeated loading via libelf.
   if (!cached_executables.count(kernel.unique_id())) {
     cached_executables.emplace(std::pair<size_t, std::unique_ptr<Executable>>{kernel.unique_id(),

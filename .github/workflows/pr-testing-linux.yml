@@ -1,0 +1,146 @@
+name: pr-testing-linux
+on:
+  pull_request:
+    branches:
+      - develop
+      
+jobs:
+  build-and-test-xspn:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+      - name: Python Setup
+        run: |
+          sudo apt update
+          sudo apt -y install python3 python3-venv python3-pip
+          python3 -m venv venv
+
+      - name: Install dependencies
+        run: |
+          source venv/bin/activate
+          cd xspn
+          python3 -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Test
+        run: |
+          source venv/bin/activate
+          cd xspn
+          python -m pytest
+
+  build-and-test-spnc:
+    runs-on: self-hosted
+    steps:
+      - name: Install Prerequisites
+        run: |
+          sudo apt update
+          apt install -y git gcc clang cmake ninja-build zlib1g zlib1g-dev python3 lld doxygen graphviz autoconf automake libtool python3-venv python3-pip python3-dev pkg-config libelf-dev libelf1 clang-tidy
+
+      - name: Pull LLVM
+        uses: actions/checkout@v2
+        with:
+          repository: llvm/llvm-project
+          ref: f8d3f47e1fd09392aa30df83849b25acd8c59a25
+          path: llvm/llvm-src
+
+      - name: Build LLVM
+        run: |
+          cd llvm
+          mkdir -p llvm-bin
+          cd llvm-bin
+          cmake -G Ninja -DLLVM_ENABLE_PROJECTS="mlir;clang;compiler-rt" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DLLVM_TARGETS_TO_BUILD="X86;NVPTX;AMDGPU" -DLLVM_ENABLE_LLD=ON -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_ENABLE_RTTI=ON -DCMAKE_C_COMPILER=/usr/bin/clang  -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DLLVM_OPTIMIZED_TABLEGEN=ON ../llvm-src/llvm/
+          ninja
+          echo "$GITHUB_WORKSPACE/llvm/llvm-bin/bin" >> $GITHUB_PATH
+
+      - name: Pull Pybind11
+        uses: actions/checkout@v2
+        with:
+          repository: pybind/pybind11
+          path: pybind11
+
+      - name: Build Pybind11
+        run: |
+          cd pybind11
+          mkdir -p build
+          cd build
+          cmake -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/pybind11/install -DPYTHON_EXECUTABLE:FILEPATH=/usr/bin/python3 ..
+          make -j
+          make install
+
+      - name: Pull spdlog
+        uses: actions/checkout@v2
+        with:
+          repository: gabime/spdlog
+          path: spdlog
+
+      - name: Build spdlog
+        run: |
+          cd spdlog
+          mkdir -p build
+          cd build
+          cmake -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/spdlog/install -DCMAKE_POSITION_INDEPENDENT_CODE=ON ..
+          make -j 
+          make install
+
+      - name: Pull capnproto
+        uses: actions/checkout@v2
+        with:
+          repository: sandstorm-io/capnproto
+          path: capnproto
+
+      - name: Build capnproto
+        run: |
+          cd capnproto/c++
+          autoreconf -i
+          ./configure --prefix=$GITHUB_WORKSPACE/capnproto/install --disable-shared --with-pic
+          make -j
+          make install
+
+      - name: Pull spnc
+        uses: actions/checkout@v2
+        with:
+          path: spn-compiler
+
+      - name: Build spnc
+        run: |
+          cd spn-compiler
+          mkdir -p build
+          cd build
+          cmake -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/llvm/llvm-bin/lib/cmake/llvm;$GITHUB_WORKSPACE/llvm/llvm-bin/lib/cmake/mlir;$GITHUB_WORKSPACE/pybind11/install/share/cmake/pybind11;$GITHUB_WORKSPACE/spdlog/install/lib/cmake/spdlog;$GITHUB_WORKSPACE/capnproto/install" -DLLVM_ENABLE_LLD=ON -DLLVM_ENABLE_ASSERTIONS=ON -DSPNC_BUILD_DOC=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+          make -j
+
+      - name: Test spnc
+        run: |
+          cd spn-compiler/build
+          make check-spnc-mlir
+
+      - name: Install xspn
+        run: |
+          mkdir -p python
+          cd python
+          python3 -m venv venv
+          cd $GITHUB_WORKSPACE/spn-compiler/xspn
+          source $GITHUB_WORKSPACE/python/venv/bin/activate
+          pip install .
+
+      - name: Test Python interface
+        run: |
+          cd spn-compiler/python-interface
+          source $GITHUB_WORKSPACE/python/venv/bin/activate
+          python -m pytest
+
+      - name: Run clang-tidy
+        run: |
+          cd spn-compiler/build
+          sh wrap-clang-tidy.sh
+
+      - name: Run clang-tidy-pr-comments action
+        uses: sommerlukas/clang-tidy-pr-comments@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          clang_tidy_fixes: spn-compiler/build/fixes-clang-tidy.yaml
+          request_changes: false
+          repository_root: spn-compiler
+
+
+

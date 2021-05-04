@@ -1,3 +1,11 @@
+# ==============================================================================
+#  This file is part of the SPNC project under the Apache License v2.0 by the
+#  Embedded Systems and Applications Group, TU Darmstadt.
+#  For the full copyright and license information, please view the LICENSE
+#  file that was distributed with this source code.
+#  SPDX-License-Identifier: Apache-2.0
+# ==============================================================================
+
 macro(doxygen_setup)
     option(SPNC_BUILD_DOC "Build Doxygen documentation" ON)
 
@@ -5,6 +13,11 @@ macro(doxygen_setup)
         find_package(Doxygen REQUIRED dot)
         if (${DOXYGEN_FOUND})
             message(STATUS "Found Doxygen ${DOXYGEN_VERSION}")
+            if (${DOXYGEN_VERSION} VERSION_GREATER_EQUAL "1.8.15")
+                set(DOXY_LAYOUT_FILE ${PROJECT_SOURCE_DIR}/docs/doxy-layout-1_8_15.xml)
+            else (${DOXYGEN_VERSION} VERSION_GREATER_EQUAL "1.8.15")
+                set(DOXY_LAYOUT_FILE ${PROJECT_SOURCE_DIR}/docs/doxy-layout-1_8_13.xml)
+            endif (${DOXYGEN_VERSION} VERSION_GREATER_EQUAL "1.8.15")
         else (${DOXYGEN_FOUND})
             message(STATUS "Doxygen required to generate documentation!")
         endif (${DOXYGEN_FOUND})
@@ -38,7 +51,8 @@ function(doxygen_doc)
     if (${SPNC_BUILD_DOC} AND ${DOXYGEN_FOUND})
         set(DOXY_BASE_DIR ${PROJECT_BINARY_DIR}/doc)
         set(DOXYGEN_OUTPUT_DIRECTORY ${DOXY_BASE_DIR}/${DOXY_TARGET_NAME})
-        set(DOXYGEN_LAYOUT_FILE ${PROJECT_SOURCE_DIR}/docs/DoxygenLayout.xml)
+        message(STATUS "Doxygen layout: ${DOXY_LAYOUT_FILE}")
+        set(DOXYGEN_LAYOUT_FILE ${DOXY_LAYOUT_FILE})
         set(DOXYGEN_EXCLUDE ${DOXY_EXCLUDES})
         # Generate own tag-file for use by targets depending on this one.
         set(DOXYGEN_GENERATE_TAGFILE ${DOXYGEN_OUTPUT_DIRECTORY}/${DOXY_TARGET_NAME}.tag)
