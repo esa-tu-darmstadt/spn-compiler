@@ -111,6 +111,7 @@ jobs:
           cd spn-compiler/xspn
           source $GITHUB_WORKSPACE/python/venv/bin/activate
           python setup.py bdist_wheel
+          pip install .
 
       - name: Test Python interface
         run: |
