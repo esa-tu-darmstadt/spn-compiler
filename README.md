@@ -1,5 +1,8 @@
 # SPN Compiler #
 
+[![Main Build](https://github.com/esa-tu-darmstadt/spn-compiler/actions/workflows/release-build-linux.yml/badge.svg)](https://github.com/esa-tu-darmstadt/spn-compiler/actions/workflows/release-build-linux.yml)
+[![Development Build](https://github.com/esa-tu-darmstadt/spn-compiler/actions/workflows/weekly-build-linux.yml/badge.svg)](https://github.com/esa-tu-darmstadt/spn-compiler/actions/workflows/weekly-build-linux.yml)
+
 ## About SPNC ##
 
 **SPNC** is a multi-target compiler for Sum-Product Networks, a class of machine learning models.
