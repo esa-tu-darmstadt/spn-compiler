@@ -34,7 +34,7 @@ namespace {
 void SeedAnalysis::fillSeed(SmallVectorImpl<Value>& seed, SearchMode const& mode) const {
   llvm::StringMap<SmallVector<SmallVector<Value, 4>>> seedsByOpName;
   auto const& opDepths = getOpDepths(rootOp);
-
+  rootOp->emitRemark("Computing seed out of " + std::to_string(opDepths.size()) + " operations...");
   rootOp->walk([&](Operation* op) {
     if (!vectorizable(op)) {
       return WalkResult::advance();

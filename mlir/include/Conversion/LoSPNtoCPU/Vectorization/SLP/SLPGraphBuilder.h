@@ -41,11 +41,10 @@ namespace mlir {
           void buildGraph(NodeVector* vector, SLPNode* currentNode);
           void reorderOperands(SLPNode* multinode) const;
           std::pair<Value, Mode> getBest(Mode const& mode, Value const& last, SmallVector<Value>& candidates) const;
-          int getLookAheadScore(Value const& last, Value const& candidate, unsigned maxLevel) const;
+          unsigned getLookAheadScore(Value const& last, Value const& candidate, unsigned maxLevel) const;
 
           static Mode modeFromValue(Value const& value);
-          std::pair<std::shared_ptr<SLPNode>, NodeVector*> getOrCreateOperand(ArrayRef<Value> values,
-                                                                              bool* isNewOperand = nullptr);
+          Optional<std::pair<size_t, NodeVector*>> nodeOrNone(ArrayRef<Value> const& values) const;
 
           size_t const maxLookAhead;
           SmallVector<std::shared_ptr<SLPNode>> nodes;
