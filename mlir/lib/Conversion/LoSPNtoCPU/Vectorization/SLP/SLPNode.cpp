@@ -165,11 +165,11 @@ size_t SLPNode::numOperands() const {
 
 // === Utilities === //
 
-SmallVector<SLPNode*> SLPNode::postOrder(SLPNode* root) {
-  SmallVector<SLPNode*> order;
+SmallVector<SLPNode const*> SLPNode::postOrder(SLPNode const& root) {
+  SmallVector<SLPNode const*> order;
   // false = visit operands, true = insert into order
-  std::vector<std::pair<SLPNode*, bool>> worklist;
-  worklist.emplace_back(root, false);
+  std::vector<std::pair<SLPNode const*, bool>> worklist;
+  worklist.emplace_back(&root, false);
   while (!worklist.empty()) {
     auto* node = worklist.back().first;
     bool insert = worklist.back().second;
@@ -177,10 +177,13 @@ SmallVector<SLPNode*> SLPNode::postOrder(SLPNode* root) {
     if (insert) {
       order.emplace_back(node);
     } else {
-      worklist.emplace_back(node, true);
-      for (auto* operand: node->getOperands()) {
-        if (std::find(std::begin(order), std::end(order), operand) == std::end(order)) {
-          worklist.emplace_back(operand, false);
+      if (std::find(std::begin(order), std::end(order), node) == std::end(order)) {
+        worklist.emplace_back(node, true);
+      }
+      for (auto const* operand: node->getOperands()) {
+        auto pair = std::make_pair(operand, false);
+        if (std::find(std::begin(worklist), std::end(worklist), pair) == std::end(worklist)) {
+          worklist.emplace_back(pair);
         }
       }
     }

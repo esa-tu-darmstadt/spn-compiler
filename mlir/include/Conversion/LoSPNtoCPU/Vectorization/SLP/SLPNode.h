@@ -69,7 +69,7 @@ namespace mlir {
           std::vector<SLPNode*> getOperands() const;
           size_t numOperands() const;
 
-          static SmallVector<SLPNode*> postOrder(SLPNode* root);
+          static SmallVector<SLPNode const*> postOrder(SLPNode const& root);
 
         private:
           SmallVector<std::unique_ptr<NodeVector>> vectors;

@@ -6,7 +6,6 @@
 #include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include <queue>
-#include <stack>
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -55,6 +54,17 @@ void slp::dumpSLPNode(SLPNode const& node) {
   }
 }
 
+size_t slp::numNodes(SLPNode const& root) {
+  return SLPNode::postOrder(root).size();
+}
+size_t slp::numVectors(SLPNode const& root) {
+  size_t n = 0;
+  for (auto* node : SLPNode::postOrder(root)) {
+    n += node->numVectors();
+  }
+  return n;
+}
+
 // Helper functions in an anonymous namespace.
 namespace {
   void dumpBlockArgOrDefiningAddress(Value const& val) {
@@ -91,14 +101,14 @@ void slp::dumpOpTree(ArrayRef<Value> const& values) {
   DenseMap<Value, unsigned> nodes;
   SmallVector<std::tuple<Value, Value, unsigned>> edges;
 
-  std::stack<Value> worklist;
+  std::vector<Value> worklist;
   for (auto const& value : values) {
-    worklist.push(value);
+    worklist.emplace_back(value);
   }
 
   while (!worklist.empty()) {
-    auto value = worklist.top();
-    worklist.pop();
+    auto value = worklist.back();
+    worklist.pop_back();
     if (nodes.count(value)) {
       continue;
     }
@@ -107,7 +117,7 @@ void slp::dumpOpTree(ArrayRef<Value> const& values) {
       for (unsigned i = 0; i < definingOp->getNumOperands(); ++i) {
         auto const& operand = definingOp->getOperand(i);
         edges.emplace_back(std::make_tuple(value, operand, i));
-        worklist.push(operand);
+        worklist.emplace_back(operand);
       }
     }
   }

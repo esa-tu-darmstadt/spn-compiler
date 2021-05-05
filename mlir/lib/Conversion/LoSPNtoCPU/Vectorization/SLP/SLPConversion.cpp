@@ -37,7 +37,7 @@ namespace {
 }
 
 ConversionManager::ConversionManager(SLPNode* root) {
-  for (auto* node : SLPNode::postOrder(root)) {
+  for (auto* node : SLPNode::postOrder(*root)) {
     for (size_t i = node->numVectors(); i-- > 0;) {
       auto* vector = node->getVector(i);
       for (size_t lane = 0; lane < vector->numLanes(); ++lane) {

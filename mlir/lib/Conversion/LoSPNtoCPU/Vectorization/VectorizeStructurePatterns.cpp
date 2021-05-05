@@ -116,17 +116,23 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
   // Apply SLP vectorization.
   //task->getParentOfType<ModuleOp>()->dump();
+  task->emitRemark() << "Beginning SLP vectorization";
   auto computationType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
   auto hwVectorWidth = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
   SeedAnalysis seedAnalysis{taskFunc, hwVectorWidth};
   SmallVector<Value, 4> seed;
+  task->emitRemark("Computing seed...");
   seedAnalysis.fillSeed(seed, SearchMode::UseBeforeDef);
   assert(!seed.empty() && "couldn't find a seed!");
   //low::slp::dumpOpTree(seed);
   SLPGraphBuilder builder{3};
+  task->emitRemark("Computing graph...");
   auto graph = builder.build(seed);
+  task->emitRemark("Number of SLP nodes in graph: " + std::to_string(numNodes(*graph)));
+  task->emitRemark("Number of SLP vectors in graph: " + std::to_string(numVectors(*graph)));
   //low::slp::dumpSLPGraph(*graph);
 
+  task->emitRemark("Converting graph...");
   // The current vector being transformed.
   NodeVector* vector = nullptr;
   ConversionManager conversionManager{graph.get()};
@@ -144,7 +150,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   applicator.applyDefaultCostModel();
 
   // Traverse the SLP graph in postorder and apply the vectorization patterns.
-  for (auto* node : SLPNode::postOrder(graph.get())) {
+  for (auto* node : SLPNode::postOrder(*graph)) {
     // Also traverse nodes in postorder to properly handle multinodes.
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
