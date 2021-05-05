@@ -48,7 +48,7 @@ namespace mlir {
 
           size_t const maxLookAhead;
           SmallVector<std::shared_ptr<SLPNode>> nodes;
-          SmallPtrSet<SLPNode*, 8> reorderWorklist;
+          SmallPtrSet<SLPNode*, 8> buildWorklist;
 
         };
       }

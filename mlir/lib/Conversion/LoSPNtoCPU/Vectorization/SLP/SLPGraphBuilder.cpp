@@ -16,7 +16,7 @@ SLPGraphBuilder::SLPGraphBuilder(size_t maxLookAhead) : maxLookAhead{maxLookAhea
 std::shared_ptr<SLPNode> SLPGraphBuilder::build(ArrayRef<Value> const& seed) {
   auto root = std::make_shared<SLPNode>(seed);
   nodes.emplace_back(root);
-  reorderWorklist.insert(root.get());
+  buildWorklist.insert(root.get());
   buildGraph(root->getVector(0), root.get());
   return root;
 }
@@ -113,17 +113,17 @@ void SLPGraphBuilder::buildGraph(NodeVector* vector, SLPNode* currentNode) {
         // TODO: here might be a good place to implement variable vector width
         auto operandNode = std::make_shared<SLPNode>(vectorValues);
         nodes.emplace_back(operandNode);
-        reorderWorklist.insert(operandNode.get());
+        buildWorklist.insert(operandNode.get());
         currentNode->addOperand(operandNode, operandNode->getVector(0), vector);
       }
     }
     // B. Normal Mode: Finished building multi-node
     if (currentNode->isRootOfNode(*vector)) {
-      if (reorderWorklist.erase(currentNode)) {
-        //reorderOperands(currentNode);
-      }
+      //reorderOperands(currentNode);
       for (auto* operandNode : currentNode->getOperands()) {
-        buildGraph(operandNode->getVector(operandNode->numVectors() - 1), operandNode);
+        if (buildWorklist.erase(operandNode)) {
+          buildGraph(operandNode->getVector(operandNode->numVectors() - 1), operandNode);
+        }
       }
     }
   }
@@ -141,7 +141,7 @@ void SLPGraphBuilder::buildGraph(NodeVector* vector, SLPNode* currentNode) {
       } else {
         auto operandNode = std::make_shared<SLPNode>(operandValues);
         nodes.emplace_back(operandNode);
-        reorderWorklist.insert(operandNode.get());
+        buildWorklist.insert(operandNode.get());
         currentNode->addOperand(operandNode, operandNode->getVector(0), vector);
         buildGraph(operandNode->getVector(0), operandNode.get());
       }
