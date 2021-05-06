@@ -18,6 +18,7 @@
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 
 void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   ConversionTarget target(getContext());
@@ -25,6 +26,7 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   target.addLegalDialect<StandardOpsDialect>();
   target.addLegalDialect<mlir::scf::SCFDialect>();
   target.addLegalDialect<mlir::vector::VectorDialect>();
+  target.addLegalDialect<mlir::memref::MemRefDialect>();
   target.addLegalOp<ModuleOp>();
   target.addLegalOp<FuncOp>();
 
@@ -63,6 +65,7 @@ void mlir::spn::LoSPNtoCPUNodeConversionPass::runOnOperation() {
   // as the Standard dialect currently does not have a copy operation.
   target.addLegalDialect<mlir::linalg::LinalgDialect>();
   target.addLegalDialect<mlir::vector::VectorDialect>();
+  target.addLegalDialect<mlir::memref::MemRefDialect>();
   target.addLegalOp<ModuleOp>();
   target.addLegalOp<FuncOp>();
 

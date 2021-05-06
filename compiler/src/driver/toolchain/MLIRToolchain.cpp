@@ -32,6 +32,7 @@ void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext& ctx) {
   ctx.loadDialect<mlir::spn::low::LoSPNDialect>();
   ctx.loadDialect<mlir::StandardOpsDialect>();
   ctx.loadDialect<mlir::scf::SCFDialect>();
+  ctx.loadDialect<mlir::memref::MemRefDialect>();
   ctx.loadDialect<mlir::LLVM::LLVMDialect>();
   ctx.loadDialect<mlir::vector::VectorDialect>();
   ctx.loadDialect<mlir::math::MathDialect>();

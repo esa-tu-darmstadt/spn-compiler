@@ -9,6 +9,7 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/Bufferize.h"
 #include "mlir/Pass/Pass.h"
@@ -31,6 +32,7 @@ namespace {
 
       target.addLegalDialect<LoSPNDialect>();
       target.addLegalDialect<StandardOpsDialect>();
+      target.addLegalDialect<mlir::memref::MemRefDialect>();
       target.addLegalOp<ModuleOp, FuncOp>();
 
       target.addIllegalOp<SPNBatchExtract, SPNBatchCollect>();
