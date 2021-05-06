@@ -132,7 +132,7 @@ def SumNode : HiSPNGraphOp<"sum", [NoSideEffect, SameOperandsAndResultType]> {
     let verifier = [{return ::mlir::spn::high::verify(*this); }];
 
     let builders = [
-        OpBuilderDAG<(ins "llvm::ArrayRef<Value>":$operands, "llvm::ArrayRef<double>":$weights)>
+        OpBuilder<(ins "llvm::ArrayRef<Value>":$operands, "llvm::ArrayRef<double>":$weights)>
     ];
 
 }
@@ -171,7 +171,7 @@ def HistogramNode : HiSPNGraphOp<"histogram",
     let verifier = [{ return ::mlir::spn::high::verify(*this); }];
 
     let builders = [
-        OpBuilderDAG<(ins "Value":$indexVal, "llvm::ArrayRef<std::tuple<int, int, double>>":$buckets)>
+        OpBuilder<(ins "Value":$indexVal, "llvm::ArrayRef<std::tuple<int, int, double>>":$buckets)>
     ];
 }
 
@@ -194,7 +194,7 @@ def CategoricalNode : HiSPNGraphOp<"categorical",
     let verifier = [{ return ::mlir::spn::high::verify(*this); }];
 
     let builders = [
-        OpBuilderDAG<(ins "Value":$indexVal, "llvm::ArrayRef<double>":$probabilities)>
+        OpBuilder<(ins "Value":$indexVal, "llvm::ArrayRef<double>":$probabilities)>
     ];
 }
 
@@ -215,7 +215,7 @@ def GaussianNode : HiSPNGraphOp<"gaussian",
     let results = (outs HiSPNProbabilityType);
 
     let builders = [
-        OpBuilderDAG<(ins "Value":$indexVal, "double":$mean, "double":$stddev)>
+        OpBuilder<(ins "Value":$indexVal, "double":$mean, "double":$stddev)>
     ];
 
 }

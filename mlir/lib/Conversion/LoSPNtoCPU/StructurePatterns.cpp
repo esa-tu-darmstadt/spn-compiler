@@ -11,6 +11,7 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 
 mlir::LogicalResult mlir::spn::KernelLowering::matchAndRewrite(mlir::spn::low::SPNKernel op,
                                                                llvm::ArrayRef<mlir::Value> operands,
@@ -46,7 +47,7 @@ mlir::LogicalResult mlir::spn::BatchTaskLowering::matchAndRewrite(mlir::spn::low
   auto taskBlock = taskFunc.addEntryBlock();
   rewriter.setInsertionPointToStart(taskBlock);
   auto const0 = rewriter.create<ConstantOp>(op->getLoc(), rewriter.getIndexAttr(0));
-  auto ub = rewriter.create<DimOp>(op.getLoc(), taskBlock->getArgument(0), 0);
+  auto ub = rewriter.create<memref::DimOp>(op.getLoc(), taskBlock->getArgument(0), 0);
   auto step = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
   auto loop = rewriter.create<scf::ForOp>(op.getLoc(), const0, ub, step);
   rewriter.create<ReturnOp>(op->getLoc());

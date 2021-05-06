@@ -12,6 +12,7 @@
 #include "llvm/Support/FormatVariadic.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/BuiltinOps.h"
 
 mlir::LogicalResult mlir::spn::VectorizeBatchTask::matchAndRewrite(mlir::spn::low::SPNTask op,
@@ -74,7 +75,7 @@ mlir::LogicalResult mlir::spn::VectorizeBatchTask::matchAndRewrite(mlir::spn::lo
                                           funcType);
   auto taskBlock = taskFunc.addEntryBlock();
   rewriter.setInsertionPointToStart(taskBlock);
-  auto numSamples = rewriter.create<DimOp>(op.getLoc(), taskBlock->getArgument(0), 0);
+  auto numSamples = rewriter.create<memref::DimOp>(op.getLoc(), taskBlock->getArgument(0), 0);
   auto vectorWidthConst = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(hwVectorWidth));
   auto remainder = rewriter.create<mlir::UnsignedRemIOp>(op.getLoc(), numSamples, vectorWidthConst);
   auto ubVectorized = rewriter.create<mlir::SubIOp>(op.getLoc(), numSamples, remainder);

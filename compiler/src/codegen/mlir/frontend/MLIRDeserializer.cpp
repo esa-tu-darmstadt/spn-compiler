@@ -17,6 +17,7 @@
 #include <mlir/IR/Verifier.h>
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "HiSPN/HiSPNEnums.h"
 #include "llvm/Support/Debug.h"
 #include "Kernel.h"
 #include <driver/GlobalOptions.h>
@@ -104,7 +105,9 @@ void spnc::MLIRDeserializer::deserializeJointQuery(JointProbability::Reader&& qu
   auto queryOp =
       builder.create<mlir::spn::high::JointQuery>(builder.getUnknownLoc(), numFeaturesAttr,
                                                   featureTypeAttr, kernelNameAttr, batchSizeAttr,
-                                                  builder.getI32IntegerAttr(static_cast<int32_t>(errorKind)),
+                                                  mlir::spn::high::error_modelAttr::get(
+                                                      module->getContext(),
+                                                      errorKind),
                                                   builder.getF64FloatAttr(maxError),
                                                   builder.getBoolAttr(query.getSupportMarginal()));
   // Insertion is automatically set to beginning of new block.

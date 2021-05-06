@@ -17,6 +17,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Support/MemoryBuffer.h"
 
 #include "HiSPN/HiSPNDialect.h"
 #include "LoSPN/LoSPNDialect.h"

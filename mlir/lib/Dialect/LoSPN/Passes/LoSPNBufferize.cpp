@@ -31,7 +31,7 @@ namespace {
 
       target.addLegalDialect<LoSPNDialect>();
       target.addLegalDialect<StandardOpsDialect>();
-      target.addLegalOp<ModuleOp, ModuleTerminatorOp, FuncOp>();
+      target.addLegalOp<ModuleOp, FuncOp>();
 
       target.addIllegalOp<SPNBatchExtract, SPNBatchCollect>();
       BufferizeTypeConverter typeConverter;
@@ -55,11 +55,11 @@ namespace {
         });
       });
 
-      OwningRewritePatternList patterns;
+      RewritePatternSet patterns(&getContext());
       mlir::spn::low::populateLoSPNBufferizationPatterns(patterns, &getContext(), typeConverter);
 
       auto op = getOperation();
-      FrozenRewritePatternList frozenPatterns(std::move(patterns));
+      FrozenRewritePatternSet frozenPatterns(std::move(patterns));
       if (failed(applyPartialConversion(op, target, frozenPatterns))) {
         signalPassFailure();
       }

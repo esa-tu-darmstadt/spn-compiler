@@ -7,4 +7,5 @@
 //==============================================================================
 
 #include "HiSPN/HiSPNEnums.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "HiSPN/HiSPNEnums.cpp.inc"

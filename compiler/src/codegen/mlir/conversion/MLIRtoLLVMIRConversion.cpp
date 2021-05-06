@@ -7,7 +7,7 @@
 //==============================================================================
 
 #include "MLIRtoLLVMIRConversion.h"
-#include <mlir/Target/LLVMIR.h>
+#include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include <llvm/Support/TargetSelect.h>
 #include <mlir/ExecutionEngine/ExecutionEngine.h>
 #include <mlir/ExecutionEngine/OptUtils.h>

@@ -17,7 +17,7 @@
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "mlir/Translation.h"
 #include "llvm/Support/TargetSelect.h"
-#include "mlir/Target/NVVMIR.h"
+#include "mlir/Target/LLVMIR/Dialect/All.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Linker/Linker.h"
 #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
@@ -32,6 +32,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Coroutines.h"
+#include "llvm/Support/SourceMgr.h"
 
 #ifndef SPNC_LIBDEVICE_FILE
 // The location of libdevice is usually auto-detected and set by CMake.
@@ -199,11 +200,11 @@ std::unique_ptr<llvm::Module> spnc::GPUtoLLVMConversion::translateAndLinkGPUModu
       mlir::LLVM::FastmathFlags::arcp | mlir::LLVM::FastmathFlags::afn;
   gpuModule->walk([fmf](mlir::Operation* op) {
     if (auto fmi = mlir::dyn_cast<mlir::LLVM::FastmathFlagsInterface>(op)) {
-      fmi->setAttr("fastmathFlags", mlir::LLVM::FMFAttr::get(fmf, fmi->getContext()));
+      fmi->setAttr("fastmathFlags", mlir::LLVM::FMFAttr::get(fmi->getContext(), fmf));
     }
   });
   // Translate the input MLIR GPU module to NVVM IR (LLVM IR + some extension).
-  auto llvmModule = mlir::translateModuleToNVVMIR(gpuModule, llvmContext, name);
+  auto llvmModule = mlir::translateModuleToLLVMIR(gpuModule, llvmContext, name);
   if (!llvmModule) {
     SPNC_FATAL_ERROR("Translation of GPU code to NVVM IR failed");
   }
@@ -287,7 +288,7 @@ mlir::ModuleOp& spnc::GPUtoLLVMConversion::execute() {
     const char gpuBinaryAnnotation[] = "nvvm.cubin";
     auto gpuArch = getGPUArchitecture();
     GPUOptimizationOptions optimizationOptions{gpuArch, "+ptx60", true, printIR};
-    kernelPm.addPass(mlir::createConvertGPUKernelToBlobPass(
+    /*kernelPm.addPass(mlir::createConvertGPUKernelToBlobPass(
         [&gpuKernels, &optimizationOptions](mlir::Operation* gpuModule,
                                                      llvm::LLVMContext& llvmContext,
                                                      llvm::StringRef name = "LLVMDialectModule") -> std::unique_ptr<llvm::Module> {
@@ -295,14 +296,14 @@ mlir::ModuleOp& spnc::GPUtoLLVMConversion::execute() {
         },
         GPUtoLLVMConversion::compilePtxToCubin,
         "nvptx64-nvidia-cuda", gpuArch, "+ptx60",
-        gpuBinaryAnnotation));
+        gpuBinaryAnnotation));*/
     auto& funcPm = pm.nest<mlir::FuncOp>();
     funcPm.addPass(mlir::createStdExpandOpsPass());
     funcPm.addPass(mlir::createGpuAsyncRegionPass());
-    funcPm.addPass(mlir::createAsyncRefCountingPass());
+    funcPm.addPass(mlir::createAsyncRuntimeRefCountingPass());
     // Convert the host-side GPU operations into runtime library calls.
     // This also lowers Standard-dialect operations to LLVM dialect.
-    pm.addPass(mlir::createGpuToLLVMConversionPass(gpuBinaryAnnotation));
+    pm.addPass(mlir::createGpuToLLVMConversionPass());
     pm.addPass(mlir::createAsyncToAsyncRuntimePass());
     pm.addPass(mlir::createConvertAsyncToLLVMPass());
     pm.addPass(mlir::createLowerToLLVMPass());

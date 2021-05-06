@@ -39,5 +39,5 @@ void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, m
   pm->nest<mlir::FuncOp>().addPass(mlir::createTensorBufferizePass());
   pm->nest<mlir::FuncOp>().addPass(mlir::createFinalizingBufferizePass());
   pm->nest<mlir::FuncOp>().addPass(mlir::createBufferDeallocationPass());
-  pm->addPass(mlir::createCopyRemovalPass());
+  //pm->addPass(mlir::createCopyRemovalPass());
 }

@@ -46,8 +46,8 @@ namespace mlir {
           return Base::get(baseType.getContext(), baseType);
         }
 
-        static LogType getChecked(Location loc, Type baseType) {
-          return Base::getChecked(loc, baseType);
+        static LogType getChecked(function_ref<InFlightDiagnostic()> emitError, Type baseType) {
+          return Base::getChecked(emitError, baseType.getContext(), baseType);
         }
 
         static LogicalResult verifyConstructionInvariants(Location loc, Type baseType) {

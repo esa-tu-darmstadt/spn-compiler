@@ -22,7 +22,7 @@ void mlir::spn::LoSPNtoGPUStructureConversionPass::runOnOperation() {
   target.addLegalDialect<StandardOpsDialect>();
   target.addLegalDialect<mlir::scf::SCFDialect>();
   target.addLegalDialect<mlir::gpu::GPUDialect>();
-  target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
+  target.addLegalOp<ModuleOp>();
   target.addLegalOp<FuncOp>();
 
   LoSPNtoGPUTypeConverter typeConverter;
@@ -31,11 +31,11 @@ void mlir::spn::LoSPNtoGPUStructureConversionPass::runOnOperation() {
   target.addIllegalOp<mlir::spn::low::SPNKernel>();
   target.addIllegalOp<mlir::spn::low::SPNTask, mlir::spn::low::SPNBody>();
 
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(&getContext());
   mlir::spn::populateLoSPNtoGPUStructurePatterns(patterns, &getContext(), typeConverter);
 
   auto op = getOperation();
-  FrozenRewritePatternList frozenPatterns(std::move(patterns));
+  FrozenRewritePatternSet frozenPatterns(std::move(patterns));
   if (failed(applyPartialConversion(op, target, frozenPatterns))) {
     signalPassFailure();
   }
@@ -55,18 +55,18 @@ void mlir::spn::LoSPNtoGPUNodeConversionPass::runOnOperation() {
   // as the Standard dialect currently does not have a copy operation.
   target.addLegalDialect<mlir::linalg::LinalgDialect>();
   target.addLegalDialect<mlir::gpu::GPUDialect>();
-  target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
+  target.addLegalOp<ModuleOp>();
   target.addLegalOp<FuncOp>();
 
   LoSPNtoGPUTypeConverter typeConverter;
 
   target.addIllegalDialect<mlir::spn::low::LoSPNDialect>();
 
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(&getContext());
   mlir::spn::populateLoSPNtoGPUNodePatterns(patterns, &getContext(), typeConverter);
 
   auto op = getOperation();
-  FrozenRewritePatternList frozenPatterns(std::move(patterns));
+  FrozenRewritePatternSet frozenPatterns(std::move(patterns));
   if (failed(applyFullConversion(op, target, frozenPatterns))) {
     signalPassFailure();
   }

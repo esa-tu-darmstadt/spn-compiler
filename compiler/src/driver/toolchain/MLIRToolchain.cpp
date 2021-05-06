@@ -17,7 +17,7 @@
 #include <llvm/Support/TargetSelect.h>
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetRegistry.h"
-#include "mlir/Target/LLVMIR.h"
+#include "mlir/Target/LLVMIR/Dialect/All.h"
 
 using namespace spnc;
 using namespace mlir;
