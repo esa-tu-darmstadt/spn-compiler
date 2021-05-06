@@ -16,4 +16,9 @@ def LoSPNBufferize : Pass<"lospn-bufferize", "ModuleOp"> {
   let constructor = "mlir::spn::low::createLoSPNBufferizePass()";
 }
 
+def LoSPNCopyRemoval : Pass<"lospn-copy-removal", "SPNKernel"> {
+  let summary = "Remove unnecessary copy operations in the LoSPN dialect";
+  let constructor = "mlir::spn::low::createLoSPNCopyRemovalPass()";
+}
+
 #endif // MLIR_DIALECT_LoSPN_PASSES

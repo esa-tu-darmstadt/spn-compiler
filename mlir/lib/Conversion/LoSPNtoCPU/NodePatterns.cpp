@@ -10,6 +10,7 @@
 #include <cmath>
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/SCF/SCF.h"
 #include "LoSPN/LoSPNAttributes.h"
 
 mlir::LogicalResult mlir::spn::BatchReadLowering::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
@@ -51,7 +52,19 @@ mlir::LogicalResult mlir::spn::CopyLowering::matchAndRewrite(mlir::spn::low::SPN
   assert(operands.size() == 2 && "Expecting two operands for Copy");
   assert(operands[0].getType().isa<MemRefType>());
   assert(operands[1].getType().isa<MemRefType>());
-  rewriter.replaceOpWithNewOp<linalg::CopyOp>(op, operands[0], operands[1]);
+  auto srcType = op.source().getType().cast<MemRefType>();
+  auto tgtType = op.target().getType().cast<MemRefType>();
+  if (srcType.getRank() != tgtType.getRank() || srcType.getRank() != 1) {
+    return rewriter.notifyMatchFailure(op, "Expecting one dimensional memories");
+  }
+  auto dim1 = rewriter.create<memref::DimOp>(op.getLoc(), op.source(), 0);
+  auto lb = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
+  auto step = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
+  auto outer = rewriter.create<scf::ForOp>(op.getLoc(), lb, dim1, step);
+  rewriter.setInsertionPointToStart(&outer.getLoopBody().front());
+  auto load = rewriter.create<memref::LoadOp>(op.getLoc(), op.source(), outer.getInductionVar());
+  (void) rewriter.create<memref::StoreOp>(op.getLoc(), load, op.target(), outer.getInductionVar());
+  rewriter.eraseOp(op);
   return success();
 }
 

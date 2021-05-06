@@ -97,6 +97,7 @@ void mlir::spn::LoSPNNodeVectorizationPass::runOnOperation() {
   // as the Standard dialect currently does not have a copy operation.
   target.addLegalDialect<mlir::linalg::LinalgDialect>();
   target.addLegalDialect<mlir::vector::VectorDialect>();
+  target.addLegalDialect<mlir::memref::MemRefDialect>();
   target.addLegalOp<ModuleOp>();
   target.addLegalOp<FuncOp>();
 

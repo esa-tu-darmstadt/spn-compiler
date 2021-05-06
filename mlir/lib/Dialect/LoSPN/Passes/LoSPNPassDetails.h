@@ -10,6 +10,7 @@
 #define SPNC_MLIR_LIB_DIALECT_LOSPN_PASSES_LOSPNPASSDETAILS_H
 
 #include "mlir/Pass/Pass.h"
+#include "LoSPN/LoSPNOps.h"
 
 namespace mlir {
   namespace spn {
