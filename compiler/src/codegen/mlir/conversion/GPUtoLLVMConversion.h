@@ -33,29 +33,6 @@ namespace spnc {
 
   private:
 
-    static mlir::OwnedBlob compilePtxToCubin(const std::string& ptx, mlir::Location loc,
-                                             llvm::StringRef name);
-
-    struct GPUOptimizationOptions {
-      std::string computeCapability;
-      std::string features;
-      bool flushDenormalsToZero;
-      bool printIRAfter;
-    };
-
-    static std::unique_ptr<llvm::Module> translateAndLinkGPUModule(llvm::ArrayRef<llvm::StringRef> kernelFuncs,
-                                                                   const GPUOptimizationOptions& options,
-                                                                   mlir::Operation* gpuModule,
-                                                                   llvm::LLVMContext& llvmContext,
-                                                                   llvm::StringRef name = "LLVMDialectModule"
-    );
-
-    static void linkWithLibdevice(llvm::Module* module, llvm::ArrayRef<llvm::StringRef> kernelFuncs);
-
-    static void optimizeNVVMIR(llvm::Module* module, const GPUOptimizationOptions& options);
-
-    static std::string getGPUArchitecture();
-
     bool cached = false;
 
     std::shared_ptr<mlir::MLIRContext> mlirContext;

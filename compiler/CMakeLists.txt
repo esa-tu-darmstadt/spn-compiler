@@ -75,6 +75,7 @@ if (${CUDA_GPU_SUPPORT})
 
     # Additional sources for CUDA GPU support
     target_sources(spnc PRIVATE
+            src/codegen/mlir/conversion/CUDA/CUDASerializeToCubin.cpp
             src/codegen/mlir/conversion/GPUtoLLVMConversion.cpp
             src/codegen/mlir/conversion/LoSPNtoGPUConversion.cpp
             src/driver/toolchain/CUDAGPUToolchain.cpp
@@ -122,7 +123,7 @@ set(mlir_libs
         MLIRTranslation
         MLIRSupport
         MLIRExecutionEngine
-        MLIRTargetNVVMIR
+        MLIRNVVMIR
         )
 
 llvm_map_components_to_libnames(llvm_libs bitwriter native passes)

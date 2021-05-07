@@ -8,7 +8,8 @@
 
 #include "LoSPNtoCPU/NodePatterns.h"
 #include <cmath>
-#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/SCF/SCF.h"
 #include "LoSPN/LoSPNAttributes.h"
 
 mlir::LogicalResult mlir::spn::BatchReadLowering::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
@@ -23,7 +24,7 @@ mlir::LogicalResult mlir::spn::BatchReadLowering::matchAndRewrite(mlir::spn::low
   assert(operands[0].getType().isa<MemRefType>());
   assert(operands[1].getType().isa<IndexType>());
   auto constSampleIndex = rewriter.create<ConstantOp>(op->getLoc(), rewriter.getIndexAttr(op.sampleIndex()));
-  rewriter.replaceOpWithNewOp<LoadOp>(op, operands[0], ValueRange{operands[1], constSampleIndex});
+  rewriter.replaceOpWithNewOp<memref::LoadOp>(op, operands[0], ValueRange{operands[1], constSampleIndex});
   return success();
 }
 
@@ -40,7 +41,7 @@ mlir::LogicalResult mlir::spn::BatchWriteLowering::matchAndRewrite(mlir::spn::lo
   assert(operands[1].getType().dyn_cast<MemRefType>().getElementType() == operands[0].getType()
              && "Result type and element type of MemRef must match");
   assert(operands[2].getType().isa<IndexType>());
-  rewriter.replaceOpWithNewOp<StoreOp>(op, operands[0], operands[1], operands[2]);
+  rewriter.replaceOpWithNewOp<memref::StoreOp>(op, operands[0], operands[1], operands[2]);
   return success();
 }
 
@@ -50,7 +51,19 @@ mlir::LogicalResult mlir::spn::CopyLowering::matchAndRewrite(mlir::spn::low::SPN
   assert(operands.size() == 2 && "Expecting two operands for Copy");
   assert(operands[0].getType().isa<MemRefType>());
   assert(operands[1].getType().isa<MemRefType>());
-  rewriter.replaceOpWithNewOp<linalg::CopyOp>(op, operands[0], operands[1]);
+  auto srcType = op.source().getType().cast<MemRefType>();
+  auto tgtType = op.target().getType().cast<MemRefType>();
+  if (srcType.getRank() != tgtType.getRank() || srcType.getRank() != 1) {
+    return rewriter.notifyMatchFailure(op, "Expecting one dimensional memories");
+  }
+  auto dim1 = rewriter.create<memref::DimOp>(op.getLoc(), op.source(), 0);
+  auto lb = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
+  auto step = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
+  auto outer = rewriter.create<scf::ForOp>(op.getLoc(), lb, dim1, step);
+  rewriter.setInsertionPointToStart(&outer.getLoopBody().front());
+  auto load = rewriter.create<memref::LoadOp>(op.getLoc(), op.source(), outer.getInductionVar());
+  (void) rewriter.create<memref::StoreOp>(op.getLoc(), load, op.target(), outer.getInductionVar());
+  rewriter.eraseOp(op);
   return success();
 }
 
@@ -341,13 +354,13 @@ namespace {
     auto symbolName = tablePrefix + std::to_string(tableCount++);
     auto visibility = rewriter.getStringAttr("private");
     auto memrefType = mlir::MemRefType::get({(long) arrayValues.size()}, resultType);
-    (void) rewriter.create<mlir::GlobalMemrefOp>(op.getLoc(), symbolName, visibility,
-                                                              mlir::TypeAttr::get(memrefType), valArrayAttr, true);
+    (void) rewriter.create<mlir::memref::GlobalOp>(op.getLoc(), symbolName, visibility,
+                                                   memrefType, valArrayAttr, true);
     // Restore insertion point
     rewriter.restoreInsertionPoint(restore);
 
     // Use GetGlobalMemref operation to access the global created above.
-    auto addressOf = rewriter.template create<mlir::GetGlobalMemrefOp>(op.getLoc(), memrefType, symbolName);
+    auto addressOf = rewriter.template create<mlir::memref::GetGlobalOp>(op.getLoc(), memrefType, symbolName);
     // Convert input value from float to integer if necessary.
     mlir::Value index = indexOperand;
     if (!index.getType().isIntOrIndex()) {
@@ -363,7 +376,7 @@ namespace {
     }
     // Replace the source operation with a load from the global memref,
     // using the source operation's input value as index.
-    mlir::Value leaf = rewriter.template create<mlir::LoadOp>(op.getLoc(), addressOf, mlir::ValueRange{index});
+    mlir::Value leaf = rewriter.template create<mlir::memref::LoadOp>(op.getLoc(), addressOf, mlir::ValueRange{index});
     if (op.supportMarginal()) {
       assert(indexOperand.getType().template isa<mlir::FloatType>());
       auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), mlir::CmpFPredicate::UNO,

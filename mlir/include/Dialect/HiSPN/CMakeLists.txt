@@ -7,8 +7,8 @@
 # ==============================================================================
 
 add_mlir_dialect(HiSPNOps hi_spn)
-add_mlir_doc(HiSPNDialect -gen-dialect-doc HiSPNDialect HiSPN/)
-add_mlir_doc(HiSPNOps -gen-op-doc HiSPNOps HiSPN/)
+add_mlir_doc(HiSPNDialect HiSPNDialect HiSPN/ -gen-dialect-doc)
+add_mlir_doc(HiSPNOps HiSPNOps HiSPN/ -gen-op-doc)
 
 set(LLVM_TARGET_DEFINITIONS HiSPNOps.td)
 mlir_tablegen(HiSPNAttributes.h.inc -gen-struct-attr-decls)

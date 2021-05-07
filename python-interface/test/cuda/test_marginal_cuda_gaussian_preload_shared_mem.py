@@ -18,8 +18,7 @@ from spnc.gpu import CUDACompiler
 
 
 @pytest.mark.skipif(not CUDACompiler.isAvailable(), reason="CUDA not supported")
-def test_cuda_marginal_gaussian():
-
+def test_cuda_marginal_gaussian_preload_shared_mem():
     # Construct a minimal SPN using two Gaussian leaves.
     g1 = Gaussian(mean=0.5, stdev=1, scope=0)
     g2 = Gaussian(mean=0.125, stdev=0.25, scope=1)
@@ -35,15 +34,15 @@ def test_cuda_marginal_gaussian():
 
     # Randomly sample input values from the two Gaussian (normal) distributions.
     inputs = np.column_stack((np.random.normal(0.5, 1, 30),
-                            np.random.normal(0.125, 0.25, 30),
-                            np.random.normal(0.345, 0.24, 30),
-                            np.random.normal(0.456, 0.1, 30),
-                            np.random.normal(0.94, 0.48, 30),
-                            np.random.normal(0.56, 0.42, 30),
-                            np.random.normal(0.76, 0.14, 30),
-                            np.random.normal(0.32, 0.8, 30),
-                            np.random.normal(0.58, 0.9, 30),
-                            np.random.normal(0.14, 0.2, 30))).astype("float32")
+                              np.random.normal(0.125, 0.25, 30),
+                              np.random.normal(0.345, 0.24, 30),
+                              np.random.normal(0.456, 0.1, 30),
+                              np.random.normal(0.94, 0.48, 30),
+                              np.random.normal(0.56, 0.42, 30),
+                              np.random.normal(0.76, 0.14, 30),
+                              np.random.normal(0.32, 0.8, 30),
+                              np.random.normal(0.58, 0.9, 30),
+                              np.random.normal(0.14, 0.2, 30))).astype("float32")
 
     inputs.ravel()[np.random.choice(inputs.size, 15, replace=False)] = np.nan
 
@@ -62,6 +61,7 @@ def test_cuda_marginal_gaussian():
     # Check in normal space if log-results are not very close to each other.
     assert np.all(np.isclose(results, reference)) or np.all(np.isclose(np.exp(results), np.exp(reference)))
 
+
 if __name__ == "__main__":
-    test_cuda_marginal_gaussian()
+    test_cuda_marginal_gaussian_preload_shared_mem()
     print("COMPUTATION OK")

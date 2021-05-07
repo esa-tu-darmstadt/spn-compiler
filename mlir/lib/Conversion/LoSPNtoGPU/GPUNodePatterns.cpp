@@ -7,9 +7,9 @@
 //==============================================================================
 
 #include "LoSPNtoGPU/GPUNodePatterns.h"
-#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "LoSPN/LoSPNAttributes.h"
 #include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 
 #include <cmath>
 
@@ -25,7 +25,7 @@ mlir::LogicalResult mlir::spn::BatchReadGPULowering::matchAndRewrite(mlir::spn::
   assert(operands[0].getType().isa<MemRefType>());
   assert(operands[1].getType().isa<IndexType>());
   auto constSampleIndex = rewriter.create<ConstantOp>(op->getLoc(), rewriter.getIndexAttr(op.sampleIndex()));
-  rewriter.replaceOpWithNewOp<LoadOp>(op, operands[0], ValueRange{operands[1], constSampleIndex});
+  rewriter.replaceOpWithNewOp<memref::LoadOp>(op, operands[0], ValueRange{operands[1], constSampleIndex});
   return success();
 }
 
@@ -42,7 +42,7 @@ mlir::LogicalResult mlir::spn::BatchWriteGPULowering::matchAndRewrite(mlir::spn:
   assert(operands[1].getType().dyn_cast<MemRefType>().getElementType() == operands[0].getType()
              && "Result type and element type of MemRef must match");
   assert(operands[2].getType().isa<IndexType>());
-  rewriter.replaceOpWithNewOp<StoreOp>(op, operands[0], operands[1], operands[2]);
+  rewriter.replaceOpWithNewOp<memref::StoreOp>(op, operands[0], operands[1], operands[2]);
   return success();
 }
 
@@ -52,7 +52,22 @@ mlir::LogicalResult mlir::spn::CopyGPULowering::matchAndRewrite(mlir::spn::low::
   assert(operands.size() == 2 && "Expecting two operands for Copy");
   assert(operands[0].getType().isa<MemRefType>());
   assert(operands[1].getType().isa<MemRefType>());
-  rewriter.replaceOpWithNewOp<linalg::CopyOp>(op, operands[0], operands[1]);
+  assert(operands.size() == 2 && "Expecting two operands for Copy");
+  assert(operands[0].getType().isa<MemRefType>());
+  assert(operands[1].getType().isa<MemRefType>());
+  auto srcType = op.source().getType().cast<MemRefType>();
+  auto tgtType = op.target().getType().cast<MemRefType>();
+  if (srcType.getRank() != tgtType.getRank() || srcType.getRank() != 1) {
+    return rewriter.notifyMatchFailure(op, "Expecting one dimensional memories");
+  }
+  auto dim1 = rewriter.create<memref::DimOp>(op.getLoc(), op.source(), 0);
+  auto lb = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
+  auto step = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
+  auto outer = rewriter.create<scf::ForOp>(op.getLoc(), lb, dim1, step);
+  rewriter.setInsertionPointToStart(&outer.getLoopBody().front());
+  auto load = rewriter.create<memref::LoadOp>(op.getLoc(), op.source(), outer.getInductionVar());
+  (void) rewriter.create<memref::StoreOp>(op.getLoc(), load, op.target(), outer.getInductionVar());
+  rewriter.eraseOp(op);
   return success();
 }
 

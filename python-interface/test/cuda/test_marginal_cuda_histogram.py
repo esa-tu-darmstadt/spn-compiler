@@ -8,6 +8,8 @@
 
 import numpy as np
 
+import pytest
+
 from spn.structure.Base import Product, Sum
 from spn.structure.leaves.histogram.Histograms import Histogram
 from spn.algorithms.Inference import log_likelihood
@@ -15,6 +17,7 @@ from spn.algorithms.Inference import log_likelihood
 from spnc.gpu import CUDACompiler
 
 
+@pytest.mark.skipif(not CUDACompiler.isAvailable(), reason="CUDA not supported")
 def test_cpu_histogram():
     # Construct a minimal SPN.
     h1 = Histogram([0., 1., 2.], [0.25, 0.75], [1, 1], scope=0)

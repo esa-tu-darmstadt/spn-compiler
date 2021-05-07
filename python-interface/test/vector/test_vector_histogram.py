@@ -14,7 +14,10 @@ from spn.algorithms.Inference import log_likelihood
 
 from spnc.cpu import CPUCompiler
 
+import pytest
 
+
+@pytest.mark.skipif(not CPUCompiler.isVectorizationSupported(), reason="CPU vectorization not supported")
 def test_vector_histogram():
     # Construct a minimal SPN.
     h1 = Histogram([0., 1., 2.], [0.25, 0.75], [1, 1], scope=0)

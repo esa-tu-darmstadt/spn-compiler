@@ -9,6 +9,7 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/Bufferize.h"
 #include "mlir/Pass/Pass.h"
@@ -31,7 +32,8 @@ namespace {
 
       target.addLegalDialect<LoSPNDialect>();
       target.addLegalDialect<StandardOpsDialect>();
-      target.addLegalOp<ModuleOp, ModuleTerminatorOp, FuncOp>();
+      target.addLegalDialect<mlir::memref::MemRefDialect>();
+      target.addLegalOp<ModuleOp, FuncOp>();
 
       target.addIllegalOp<SPNBatchExtract, SPNBatchCollect>();
       BufferizeTypeConverter typeConverter;
@@ -55,11 +57,11 @@ namespace {
         });
       });
 
-      OwningRewritePatternList patterns;
+      RewritePatternSet patterns(&getContext());
       mlir::spn::low::populateLoSPNBufferizationPatterns(patterns, &getContext(), typeConverter);
 
       auto op = getOperation();
-      FrozenRewritePatternList frozenPatterns(std::move(patterns));
+      FrozenRewritePatternSet frozenPatterns(std::move(patterns));
       if (failed(applyPartialConversion(op, target, frozenPatterns))) {
         signalPassFailure();
       }

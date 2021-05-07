@@ -8,6 +8,8 @@
 
 import numpy as np
 
+import pytest
+
 from spn.structure.Base import Product, Sum
 from spn.structure.leaves.parametric.Parametric import Categorical
 from spn.algorithms.Inference import log_likelihood
@@ -15,6 +17,7 @@ from spn.algorithms.Inference import log_likelihood
 from spnc.gpu import CUDACompiler
 
 
+@pytest.mark.skipif(not CUDACompiler.isAvailable(), reason="CUDA not supported")
 def test_cuda_categorical():
     # Construct a minimal SPN
     c1 = Categorical(p=[0.35, 0.55, 0.1], scope=0)

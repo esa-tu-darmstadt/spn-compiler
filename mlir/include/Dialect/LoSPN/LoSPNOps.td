@@ -30,7 +30,7 @@ def SPNKernel : LoSPN_Op<"kernel", [FunctionLike, Symbol, IsolatedFromAbove]> {
     let regions = (region AnyRegion:$body);
 
     let builders = [
-        OpBuilderDAG<(ins "StringRef":$name, "FunctionType":$type)>
+        OpBuilder<(ins "StringRef":$name, "FunctionType":$type)>
     ];
 
     let extraClassDeclaration = [{
@@ -222,7 +222,7 @@ def SPNStripLog : LoSPN_Op<"strip_log", [VectorizableOp, DeclareOpInterfaceMetho
     let results = (outs LoSPNComputeType:$out);
 
     let builders = [
-        OpBuilderDAG<(ins "Value":$input, "Type":$targetType)>
+        OpBuilder<(ins "Value":$input, "Type":$targetType)>
     ];
 }
 

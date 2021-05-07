@@ -12,6 +12,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "HiSPN/HiSPNEnums.h.inc"
 
 #endif //SPNC_MLIR_INCLUDE_DIALECT_HISPN_HISPNENUMS_H

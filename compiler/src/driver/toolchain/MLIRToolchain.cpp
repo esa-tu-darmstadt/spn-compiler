@@ -17,7 +17,7 @@
 #include <llvm/Support/TargetSelect.h>
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetRegistry.h"
-#include "mlir/Target/LLVMIR.h"
+#include "mlir/Target/LLVMIR/Dialect/All.h"
 
 using namespace spnc;
 using namespace mlir;
@@ -32,10 +32,10 @@ void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext& ctx) {
   ctx.loadDialect<mlir::spn::low::LoSPNDialect>();
   ctx.loadDialect<mlir::StandardOpsDialect>();
   ctx.loadDialect<mlir::scf::SCFDialect>();
+  ctx.loadDialect<mlir::memref::MemRefDialect>();
   ctx.loadDialect<mlir::LLVM::LLVMDialect>();
   ctx.loadDialect<mlir::vector::VectorDialect>();
   ctx.loadDialect<mlir::math::MathDialect>();
-  ctx.loadDialect<mlir::linalg::LinalgDialect>();
   ctx.loadDialect<mlir::gpu::GPUDialect>();
   ctx.loadDialect<mlir::NVVM::NVVMDialect>();
   ctx.appendDialectRegistry(registry);

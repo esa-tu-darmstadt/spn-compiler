@@ -9,9 +9,10 @@ import lit.util
 execute_external = (True)
 
 # Process paths related to the custom opt tool
-config.spnc_opt_tool_bin_path = os.path.normpath(config.spnc_opt_tool_bin_path)
+foo = os.path.normpath(config.spnc_opt_tool_bin_path)
+config.spnc_opt_tool_bin_path = foo
 spnc_opt_tool_bin_dir = os.path.abspath(os.path.dirname(config.spnc_opt_tool_bin_path))
-ld_lib_path = os.path.pathsep.join((spnc_opt_tool_bin_dir, config.environment.get('LD_LIBRARY_PATH','')))
+ld_lib_path = os.path.pathsep.join((spnc_opt_tool_bin_dir, config.environment.get('LD_LIBRARY_PATH', '')))
 
 # Set actual lit-config
 # Note: Setting config.test_exec_root is needed to ensure that test-output is
