@@ -33,3 +33,5 @@ cmake-build-*/
 **/.eggs
 **/*.egg-info
 .vscode/
+
+**/lit.site.cfg.py
