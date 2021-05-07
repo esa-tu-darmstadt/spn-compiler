@@ -166,7 +166,7 @@ size_t SLPNode::numOperands() const {
 
 // === Utilities === //
 
-SmallVector<SLPNode const*> SLPNode::postOrder(SLPNode const& root) {
+SmallVector<SLPNode const*> graph::postOrder(SLPNode const& root) {
   SmallVector<SLPNode const*> order;
   // false = visit operands, true = insert into order
   SmallVector<std::pair<SLPNode const*, bool>> worklist;

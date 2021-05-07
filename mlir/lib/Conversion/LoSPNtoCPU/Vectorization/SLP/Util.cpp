@@ -55,11 +55,11 @@ void slp::dumpSLPNode(SLPNode const& node) {
 }
 
 size_t slp::numNodes(SLPNode const& root) {
-  return SLPNode::postOrder(root).size();
+  return graph::postOrder(root).size();
 }
 size_t slp::numVectors(SLPNode const& root) {
   size_t n = 0;
-  for (auto* node : SLPNode::postOrder(root)) {
+  for (auto* node : graph::postOrder(root)) {
     n += node->numVectors();
   }
   return n;

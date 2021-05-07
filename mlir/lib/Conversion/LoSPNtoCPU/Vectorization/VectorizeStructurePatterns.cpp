@@ -150,7 +150,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   applicator.applyDefaultCostModel();
 
   // Traverse the SLP graph in postorder and apply the vectorization patterns.
-  for (auto* node : SLPGraph::postOrder(*graph)) {
+  for (auto* node : graph::postOrder(*graph)) {
     // Also traverse nodes in postorder to properly handle multinodes.
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
