@@ -7,8 +7,8 @@
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPGRAPHBUILDER_H
 
 #include "mlir/IR/Operation.h"
-#include "SLPNode.h"
-#include "SLPSeeding.h"
+#include "SLPGraph.h"
+#include "Seeding.h"
 
 namespace mlir {
   namespace spn {

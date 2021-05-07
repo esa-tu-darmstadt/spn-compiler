@@ -8,8 +8,8 @@
 
 #include <utility>
 
-#include "SLPNode.h"
-#include "SLPConversion.h"
+#include "SLPGraph.h"
+#include "GraphConversion.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"

@@ -3,7 +3,7 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#include "LoSPNtoCPU/Vectorization/SLP/SLPConversion.h"
+#include "LoSPNtoCPU/Vectorization/SLP/GraphConversion.h"
 
 using namespace mlir;
 using namespace mlir::spn::low::slp;

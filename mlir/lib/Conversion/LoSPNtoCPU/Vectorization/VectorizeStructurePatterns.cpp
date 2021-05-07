@@ -7,9 +7,9 @@
 //==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPSeeding.h"
+#include "LoSPNtoCPU/Vectorization/SLP/Seeding.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraphBuilder.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
+#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "mlir/Dialect/SCF/SCF.h"
@@ -150,7 +150,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   applicator.applyDefaultCostModel();
 
   // Traverse the SLP graph in postorder and apply the vectorization patterns.
-  for (auto* node : SLPNode::postOrder(*graph)) {
+  for (auto* node : SLPGraph::postOrder(*graph)) {
     // Also traverse nodes in postorder to properly handle multinodes.
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);

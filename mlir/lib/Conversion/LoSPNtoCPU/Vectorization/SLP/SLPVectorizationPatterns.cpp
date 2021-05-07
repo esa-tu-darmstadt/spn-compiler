@@ -4,7 +4,7 @@
 //
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
+#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "llvm/Support/FormatVariadic.h"

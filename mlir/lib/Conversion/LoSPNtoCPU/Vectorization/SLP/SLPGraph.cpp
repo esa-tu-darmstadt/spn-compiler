@@ -3,8 +3,8 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#include "LoSPNtoCPU/Vectorization/SLP/SLPNode.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPGraph.h"
+#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "llvm/ADT/SmallSet.h"
 
 using namespace mlir;

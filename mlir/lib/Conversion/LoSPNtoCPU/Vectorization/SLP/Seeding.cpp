@@ -3,8 +3,8 @@
 // Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
 //
 
-#include "LoSPNtoCPU/Vectorization/SLP/SLPSeeding.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
+#include "LoSPNtoCPU/Vectorization/SLP/Seeding.h"
+#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 
 using namespace mlir;
 using namespace mlir::spn::low::slp;
