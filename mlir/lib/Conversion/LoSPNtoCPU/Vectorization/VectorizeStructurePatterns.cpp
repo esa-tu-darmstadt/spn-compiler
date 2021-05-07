@@ -232,6 +232,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       }
     }
   }
+  task->emitRemark("Graph conversion complete.");
   rewriter.restoreInsertionPoint(callPoint);
   rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
   return success();

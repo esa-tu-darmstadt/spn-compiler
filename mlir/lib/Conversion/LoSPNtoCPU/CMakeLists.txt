@@ -14,6 +14,7 @@ add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
         Vectorization/VectorizeStructurePatterns.cpp
         Vectorization/VectorizeNodePatterns.cpp
         Vectorization/ReplaceGatherWithShuffle.cpp
+        Vectorization/SLP/CostModel.cpp
         Vectorization/SLP/SLPNode.cpp
         Vectorization/SLP/SLPSeeding.cpp
         Vectorization/SLP/SLPGraphBuilder.cpp
