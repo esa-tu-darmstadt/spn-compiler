@@ -186,8 +186,7 @@ SmallVector<SLPNode const*> SLPNode::postOrder(SLPNode const& root) {
     } else {
       worklist.emplace_back(node, true);
       for (auto const* operand: node->getOperands()) {
-        auto pair = std::make_pair(operand, false);
-        worklist.emplace_back(pair);
+        worklist.emplace_back(operand, false);
       }
     }
   }
