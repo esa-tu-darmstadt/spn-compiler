@@ -29,7 +29,7 @@ requirements.
 In case you want to use **SPNC** on a different platform or want to build **SPNC** from source, follow
 the [installation instructions](https://github.com/esa-tu-darmstadt/spn-compiler/wiki/Installation-Manual) to build
 **SPNC** and all its dependencies from source. Currently, `spnc` is based on LLVM
-commit `f8d3f47e1fd09392aa30df83849b25acd8c59a25`.
+commit `4a6ee23d832f823d71faf7d0dca1b6eec71df253`.
 
 ### Usage ###
 
