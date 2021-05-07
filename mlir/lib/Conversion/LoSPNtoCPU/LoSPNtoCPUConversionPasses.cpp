@@ -50,6 +50,12 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   }
 
 }
+void mlir::spn::LoSPNtoCPUStructureConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
+  registry.insert<StandardOpsDialect>();
+  registry.insert<mlir::scf::SCFDialect>();
+  registry.insert<mlir::vector::VectorDialect>();
+  registry.insert<mlir::memref::MemRefDialect>();
+}
 
 std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoCPUStructureConversionPass(bool enableVectorization) {
   return std::make_unique<LoSPNtoCPUStructureConversionPass>(enableVectorization);
@@ -61,9 +67,6 @@ void mlir::spn::LoSPNtoCPUNodeConversionPass::runOnOperation() {
   target.addLegalDialect<StandardOpsDialect>();
   target.addLegalDialect<mlir::scf::SCFDialect>();
   target.addLegalDialect<mlir::math::MathDialect>();
-  // Linalg is required here, because we lower spn.copy to linalg.copy
-  // as the Standard dialect currently does not have a copy operation.
-  target.addLegalDialect<mlir::linalg::LinalgDialect>();
   target.addLegalDialect<mlir::vector::VectorDialect>();
   target.addLegalDialect<mlir::memref::MemRefDialect>();
   target.addLegalOp<ModuleOp>();
@@ -82,6 +85,13 @@ void mlir::spn::LoSPNtoCPUNodeConversionPass::runOnOperation() {
     signalPassFailure();
   }
 }
+void mlir::spn::LoSPNtoCPUNodeConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
+  registry.insert<StandardOpsDialect>();
+  registry.insert<mlir::scf::SCFDialect>();
+  registry.insert<mlir::math::MathDialect>();
+  registry.insert<mlir::vector::VectorDialect>();
+  registry.insert<mlir::memref::MemRefDialect>();
+}
 
 std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoCPUNodeConversionPass() {
   return std::make_unique<LoSPNtoCPUNodeConversionPass>();
@@ -93,9 +103,6 @@ void mlir::spn::LoSPNNodeVectorizationPass::runOnOperation() {
   target.addLegalDialect<StandardOpsDialect>();
   target.addLegalDialect<mlir::scf::SCFDialect>();
   target.addLegalDialect<mlir::math::MathDialect>();
-  // Linalg is required here, because we lower spn.copy to linalg.copy
-  // as the Standard dialect currently does not have a copy operation.
-  target.addLegalDialect<mlir::linalg::LinalgDialect>();
   target.addLegalDialect<mlir::vector::VectorDialect>();
   target.addLegalDialect<mlir::memref::MemRefDialect>();
   target.addLegalOp<ModuleOp>();
@@ -138,6 +145,13 @@ void mlir::spn::LoSPNNodeVectorizationPass::runOnOperation() {
   if (failed(applyPartialConversion(op, target, frozenPatterns))) {
     signalPassFailure();
   }
+}
+void mlir::spn::LoSPNNodeVectorizationPass::getDependentDialects(mlir::DialectRegistry& registry) const {
+  registry.insert<StandardOpsDialect>();
+  registry.insert<mlir::scf::SCFDialect>();
+  registry.insert<mlir::math::MathDialect>();
+  registry.insert<mlir::vector::VectorDialect>();
+  registry.insert<mlir::memref::MemRefDialect>();
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNNodeVectorizationPass() {

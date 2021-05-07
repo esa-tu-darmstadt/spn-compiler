@@ -24,6 +24,9 @@ namespace mlir {
     protected:
       void runOnOperation() override;
 
+    public:
+      void getDependentDialects(DialectRegistry& registry) const override;
+
     private:
 
       bool vectorize;
@@ -38,6 +41,9 @@ namespace mlir {
     protected:
       void runOnOperation() override;
 
+    public:
+      void getDependentDialects(DialectRegistry& registry) const override;
+
     };
 
     std::unique_ptr<Pass> createLoSPNtoCPUNodeConversionPass();
@@ -47,6 +53,8 @@ namespace mlir {
     protected:
       void runOnOperation() override;
 
+    public:
+      void getDependentDialects(DialectRegistry& registry) const override;
     };
 
     std::unique_ptr<Pass> createLoSPNNodeVectorizationPass();

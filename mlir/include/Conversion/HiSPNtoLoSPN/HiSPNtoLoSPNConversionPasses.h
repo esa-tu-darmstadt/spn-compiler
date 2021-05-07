@@ -25,6 +25,9 @@ namespace mlir {
 
       void runOnOperation() override;
 
+    public:
+      void getDependentDialects(DialectRegistry& registry) const override;
+
     private:
 
       bool computeLogSpace;
@@ -45,6 +48,9 @@ namespace mlir {
     protected:
 
       void runOnOperation() override;
+
+    public:
+      void getDependentDialects(DialectRegistry& registry) const override;
 
     private:
 

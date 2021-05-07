@@ -55,6 +55,10 @@ void HiSPNtoLoSPNNodeConversionPass::runOnOperation() {
   markAnalysesPreserved<ArithmeticPrecisionAnalysis>();
 }
 
+void HiSPNtoLoSPNNodeConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
+  registry.insert<mlir::spn::low::LoSPNDialect>();
+}
+
 std::unique_ptr<mlir::Pass> mlir::spn::createHiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation,
                                                                             bool useOptimalRepresentation) {
   return std::make_unique<HiSPNtoLoSPNNodeConversionPass>(useLogSpaceComputation, useOptimalRepresentation);
@@ -92,6 +96,10 @@ void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
   if (failed(applyFullConversion(op, target, frozenPatterns))) {
     signalPassFailure();
   }
+}
+
+void HiSPNtoLoSPNQueryConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
+  registry.insert<mlir::spn::low::LoSPNDialect>();
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createHiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation,
