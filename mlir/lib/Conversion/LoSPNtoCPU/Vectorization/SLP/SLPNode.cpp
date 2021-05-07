@@ -5,6 +5,7 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPNode.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPUtil.h"
+#include "llvm/ADT/SmallSet.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -168,23 +169,25 @@ size_t SLPNode::numOperands() const {
 SmallVector<SLPNode const*> SLPNode::postOrder(SLPNode const& root) {
   SmallVector<SLPNode const*> order;
   // false = visit operands, true = insert into order
-  std::vector<std::pair<SLPNode const*, bool>> worklist;
+  SmallVector<std::pair<SLPNode const*, bool>> worklist;
+  llvm::SmallSet<SLPNode const*, 32> finishedNodes;
   worklist.emplace_back(&root, false);
   while (!worklist.empty()) {
+    if (finishedNodes.contains(worklist.back().first)) {
+      worklist.pop_back();
+      continue;
+    }
     auto* node = worklist.back().first;
     bool insert = worklist.back().second;
     worklist.pop_back();
     if (insert) {
       order.emplace_back(node);
+      finishedNodes.insert(node);
     } else {
-      if (std::find(std::begin(order), std::end(order), node) == std::end(order)) {
-        worklist.emplace_back(node, true);
-      }
+      worklist.emplace_back(node, true);
       for (auto const* operand: node->getOperands()) {
         auto pair = std::make_pair(operand, false);
-        if (std::find(std::begin(worklist), std::end(worklist), pair) == std::end(worklist)) {
-          worklist.emplace_back(pair);
-        }
+        worklist.emplace_back(pair);
       }
     }
   }
