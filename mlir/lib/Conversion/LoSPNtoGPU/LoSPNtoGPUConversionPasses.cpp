@@ -13,7 +13,6 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Math/IR/Math.h"
-#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 
@@ -43,6 +42,13 @@ void mlir::spn::LoSPNtoGPUStructureConversionPass::runOnOperation() {
   }
 }
 
+void mlir::spn::LoSPNtoGPUStructureConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
+  registry.insert<StandardOpsDialect>();
+  registry.insert<mlir::scf::SCFDialect>();
+  registry.insert<mlir::gpu::GPUDialect>();
+  registry.insert<mlir::memref::MemRefDialect>();
+}
+
 std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoGPUStructureConversionPass() {
   return std::make_unique<LoSPNtoGPUStructureConversionPass>();
 }
@@ -53,9 +59,6 @@ void mlir::spn::LoSPNtoGPUNodeConversionPass::runOnOperation() {
   target.addLegalDialect<StandardOpsDialect>();
   target.addLegalDialect<mlir::scf::SCFDialect>();
   target.addLegalDialect<mlir::math::MathDialect>();
-  // Linalg is required here, because we lower spn.copy to linalg.copy
-  // as the Standard dialect currently does not have a copy operation.
-  target.addLegalDialect<mlir::linalg::LinalgDialect>();
   target.addLegalDialect<mlir::gpu::GPUDialect>();
   target.addLegalDialect<mlir::memref::MemRefDialect>();
   target.addLegalOp<ModuleOp>();
@@ -73,6 +76,14 @@ void mlir::spn::LoSPNtoGPUNodeConversionPass::runOnOperation() {
   if (failed(applyFullConversion(op, target, frozenPatterns))) {
     signalPassFailure();
   }
+}
+
+void mlir::spn::LoSPNtoGPUNodeConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
+  registry.insert<StandardOpsDialect>();
+  registry.insert<mlir::scf::SCFDialect>();
+  registry.insert<mlir::math::MathDialect>();
+  registry.insert<mlir::gpu::GPUDialect>();
+  registry.insert<mlir::memref::MemRefDialect>();
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoGPUNodeConversionPass() {

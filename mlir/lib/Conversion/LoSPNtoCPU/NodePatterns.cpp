@@ -8,7 +8,6 @@
 
 #include "LoSPNtoCPU/NodePatterns.h"
 #include <cmath>
-#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "LoSPN/LoSPNAttributes.h"

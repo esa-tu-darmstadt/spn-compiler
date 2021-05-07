@@ -36,7 +36,6 @@ void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext& ctx) {
   ctx.loadDialect<mlir::LLVM::LLVMDialect>();
   ctx.loadDialect<mlir::vector::VectorDialect>();
   ctx.loadDialect<mlir::math::MathDialect>();
-  ctx.loadDialect<mlir::linalg::LinalgDialect>();
   ctx.loadDialect<mlir::gpu::GPUDialect>();
   ctx.loadDialect<mlir::NVVM::NVVMDialect>();
   ctx.appendDialectRegistry(registry);
