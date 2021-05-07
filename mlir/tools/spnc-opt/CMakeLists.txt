@@ -16,12 +16,6 @@ set(LIBS
         MLIRHiSPNtoLoSPNTransforms
         MLIRLoSPNtoCPUTransforms
         MLIROptLib
-        MLIRIR
-        MLIRParser
-        MLIRPass
-        MLIRTranslation
-        MLIRSupport
-        MLIRExecutionEngine
         cpu_targetinfo
         )
 
