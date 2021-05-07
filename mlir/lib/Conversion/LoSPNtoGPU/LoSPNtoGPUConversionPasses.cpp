@@ -15,6 +15,7 @@
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 
 void mlir::spn::LoSPNtoGPUStructureConversionPass::runOnOperation() {
   ConversionTarget target(getContext());
@@ -22,6 +23,7 @@ void mlir::spn::LoSPNtoGPUStructureConversionPass::runOnOperation() {
   target.addLegalDialect<StandardOpsDialect>();
   target.addLegalDialect<mlir::scf::SCFDialect>();
   target.addLegalDialect<mlir::gpu::GPUDialect>();
+  target.addLegalDialect<mlir::memref::MemRefDialect>();
   target.addLegalOp<ModuleOp>();
   target.addLegalOp<FuncOp>();
 
@@ -55,6 +57,7 @@ void mlir::spn::LoSPNtoGPUNodeConversionPass::runOnOperation() {
   // as the Standard dialect currently does not have a copy operation.
   target.addLegalDialect<mlir::linalg::LinalgDialect>();
   target.addLegalDialect<mlir::gpu::GPUDialect>();
+  target.addLegalDialect<mlir::memref::MemRefDialect>();
   target.addLegalOp<ModuleOp>();
   target.addLegalOp<FuncOp>();
 

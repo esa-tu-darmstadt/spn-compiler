@@ -135,7 +135,7 @@ class CUDACompiler:
         # the same location as the spncpy compiled module. 
         # We try to locate the library in this directory and load it.
         libraryDir = os.path.realpath(os.path.dirname(spncpy.__file__))
-        pattern = os.path.join(libraryDir, "libcuda-runtime-wrappers.so*")
+        pattern = os.path.join(libraryDir, "libmlir_cuda_runtime.so*")
         candidates = glob.glob(pattern)
         if not candidates:
             print(f"WARNING: Did not find MLIR CUDA runtime wrappers in {libraryDir}")

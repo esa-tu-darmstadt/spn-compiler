@@ -75,6 +75,7 @@ if (${CUDA_GPU_SUPPORT})
 
     # Additional sources for CUDA GPU support
     target_sources(spnc PRIVATE
+            src/codegen/mlir/conversion/CUDA/CUDASerializeToCubin.cpp
             src/codegen/mlir/conversion/GPUtoLLVMConversion.cpp
             src/codegen/mlir/conversion/LoSPNtoGPUConversion.cpp
             src/driver/toolchain/CUDAGPUToolchain.cpp
