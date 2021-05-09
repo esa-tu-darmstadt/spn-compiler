@@ -151,13 +151,14 @@ for i in range(samples):
     reference = log_likelihood(spn, inputs)
     reference = reference.reshape(1)
 
-    print(f"evaluation #{i}: result: {results}, reference: {reference}")
+    print(f"evaluation #{i}: result: {results}, reference: {reference}", end="\r")
 
     # Compare computed results and reference to make sure the computation by the compiled Kernel is correct.
     if not np.all(np.isclose(results, reference)):
-        raise RuntimeError(f"COMPUTATION FAILED: Results did not match reference! (input: {inputs})")
+        print("\n")
+        raise RuntimeError(f"COMPUTATION FAILED: Results did not match reference! Input:\n{inputs}")
 
-print("COMPUTATION OK")
+print("\nCOMPUTATION OK")
 
 # Remove the serialized SPN file and the compiled Kernel.
 os.remove(tempfile)

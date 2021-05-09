@@ -2,6 +2,7 @@ import numpy as np
 import os
 import spncpy as spnc
 import tempfile
+import time
 from datetime import datetime
 from spn.algorithms.Inference import log_likelihood
 from xspn.serialization.binary.BinarySerialization import BinaryDeserializer, BinarySerializer
@@ -38,7 +39,9 @@ k = compiler.compileQuery(tempfile, options)
 if not os.path.isfile(k.fileName()):
     raise RuntimeError("Compilation failed, not Kernel produced")
 
-samples = 50
+samples = 2500
+
+time_sum = 0
 
 for i in range(samples):
 
@@ -74,18 +77,22 @@ for i in range(samples):
     )).astype("float64")
 
     # Execute the compiled Kernel.
-    results = k.execute(1, inputs)
+    start = time.time()
+    result = k.execute(1, inputs)
+    time_sum = time_sum + time.time() - start
     # Compute the reference results using the inference from SPFlow.
     reference = log_likelihood(query.graph.root, inputs)
     reference = reference.reshape(1)
 
-    print(f"evaluation #{i}: result: {results}, reference: {reference}")
+    print(f"evaluation #{i}: result: {result[0]:16.8f}, reference: {reference[0]:16.8f}", end='\r')
 
     # Compare computed results and reference to make sure the computation by the compiled Kernel is correct.
-    if not np.all(np.isclose(results, reference)):
-        raise RuntimeError(f"COMPUTATION FAILED: Results did not match reference! (input: {inputs})")
+    if not np.all(np.isclose(result, reference)):
+        print("\n")
+        raise RuntimeError(f"COMPUTATION FAILED: Results did not match reference! Input:\n{inputs}")
 
-print("COMPUTATION OK")
+print(f"\nExecution took {time_sum} seconds.")
+print("\nCOMPUTATION OK")
 
 # Remove the serialized SPN file and the compiled Kernel.
 os.remove(tempfile)
