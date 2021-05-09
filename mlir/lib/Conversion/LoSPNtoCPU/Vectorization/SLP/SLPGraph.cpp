@@ -76,11 +76,11 @@ SmallVectorImpl<Value>::const_iterator NodeVector::end() const {
   return values.end();
 }
 
-Value const& NodeVector::getElement(size_t lane) const {
+Value NodeVector::getElement(size_t lane) const {
   return this->operator[](lane);
 }
 
-Value const& NodeVector::operator[](size_t lane) const {
+Value NodeVector::operator[](size_t lane) const {
   assert(lane < numLanes());
   return values[lane];
 }

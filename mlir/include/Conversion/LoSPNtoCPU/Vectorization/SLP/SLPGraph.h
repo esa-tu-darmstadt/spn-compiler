@@ -35,8 +35,8 @@ namespace mlir {
           SmallVectorImpl<Value>::const_iterator begin() const;
           SmallVectorImpl<Value>::const_iterator end() const;
 
-          Value const& getElement(size_t lane) const;
-          Value const& operator[](size_t lane) const;
+          Value getElement(size_t lane) const;
+          Value operator[](size_t lane) const;
 
         private:
           SmallVector<Value, 4> values;
