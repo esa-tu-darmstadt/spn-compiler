@@ -69,17 +69,6 @@ LogicalResult VectorizeTask::createFunctionIfVectorizable(SPNTask& task,
   return success();
 }
 
-// Helper functions in anonymous namespace.
-namespace {
-
-  /// MLIR does not permit vectors of MemRefs or indices.
-  bool wouldBeIllegal(NodeVector* vector) {
-    return std::any_of(std::cbegin(*vector), std::cend(*vector), [&](Value const& element) {
-      return element.getType().isa<MemRefType>() || element.getType().isa<IndexType>();
-    });
-  }
-}
-
 LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
                                                    llvm::ArrayRef<Value> operands,
                                                    ConversionPatternRewriter& rewriter) const {
@@ -128,14 +117,17 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   SLPGraphBuilder builder{3};
   task->emitRemark("Computing graph...");
   auto graph = builder.build(seed);
+  auto const& postOrder = graph::postOrder(*graph);
   task->emitRemark("Number of SLP nodes in graph: " + std::to_string(numNodes(*graph)));
   task->emitRemark("Number of SLP vectors in graph: " + std::to_string(numVectors(*graph)));
-  //low::slp::dumpSLPGraph(*graph);
+  low::slp::dumpSLPGraph(*graph);
 
   task->emitRemark("Converting graph...");
   // The current vector being transformed.
   NodeVector* vector = nullptr;
-  ConversionManager conversionManager{graph.get()};
+  task->getParentOfType<ModuleOp>()->dump();
+  ConversionManager conversionManager{postOrder};
+  task->getParentOfType<ModuleOp>()->dump();/*
   // Prevent extracting/removing values more than once (happens in splat mode, if they appear in multiple vectors, ...).
   SmallPtrSet<Value, 32> finishedValues;
   // Use a custom pattern driver that does *not* perform folding automatically (which the other rewrite drivers
@@ -148,25 +140,20 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
   PatternApplicator applicator(frozenPatterns);
   applicator.applyDefaultCostModel();
-
+  unsigned nodeCount = 0;
   // Traverse the SLP graph in postorder and apply the vectorization patterns.
-  for (auto* node : graph::postOrder(*graph)) {
+  for (auto* node : postOrder) {
     // Also traverse nodes in postorder to properly handle multinodes.
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
-      // This assumes that node vectors using these illegal vectors as operands don't need them. For example,
-      // SPNBatchReads being replaced with vector::LoadOps or 'broadcastInserts' instead of using their
-      // vectorized operands.
-      if (wouldBeIllegal(vector)) {
-        conversionManager.markSkipped(vector);
-        continue;
-      }
       // dumpSLPNodeVector(*vector);
+      task->emitRemark("Trying to apply a pattern...");
       auto* vectorOp = vector->begin()->getDefiningOp();
       if (vector->containsBlockArgs() || failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
 
+        task->emitRemark("No pattern applicable, creating extractions from vectorized operands...");
         auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
-        rewriter.setInsertionPointAfterValue(conversionManager.getInsertionPoint(vector));
+        conversionManager.setInsertionPointFor(vector, rewriter);
 
         // Create extractions from vectorized operands if present.
         for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
@@ -174,23 +161,16 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
           if (auto* elementOp = element.getDefiningOp()) {
             for (size_t i = 0; i < vector->numOperands(); ++i) {
               auto* operand = vector->getOperand(i);
-              // E.g. illegal operand vectors.
-              if (!conversionManager.wasConverted(operand)) {
-                continue;
-              }
               auto const& source = conversionManager.getValue(operand);
               auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
               elementOp->setOperand(i, extractOp.result());
-              if (elementOp->isBeforeInBlock(extractOp)) {
-                elementOp->moveAfter(extractOp);
-                rewriter.setInsertionPointAfter(elementOp);
-              }
             }
           }
           if (lane == 0 && vector->splattable()) {
             break;
           }
         }
+        task->emitRemark("Inserting extracted operand values...");
         if (vector->splattable()) {
           auto const& element = vector->getElement(0);
           auto vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
@@ -201,15 +181,14 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         }
       }
     }
-
+    task->emitRemark("Setting up for escaping uses...");
     // Create vector extractions for escaping uses & erase superfluous operations.
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
       auto const& creationMode = conversionManager.getElementFlag(vector);
-      if (creationMode == ElementFlag::Skip) {
-        continue;
-      }
-      conversionManager.recursivelyMoveUsersAfter(vector);
+      task->emitRemark("Moving users behind vector...");
+      //conversionManager.recursivelyMoveUsersAfter(vector);
+      task->emitRemark("Creating extractions...");
       for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
         auto const& element = vector->getElement(lane);
         if (finishedValues.contains(element)) {
@@ -231,10 +210,24 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         rewriter.eraseOp(element.getDefiningOp());
       }
     }
-  }
+    task->emitRemark("Converted node #" + std::to_string(++nodeCount));
+  }*/
   task->emitRemark("Graph conversion complete.");
   rewriter.restoreInsertionPoint(callPoint);
   rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
+  //task->getParentOfType<ModuleOp>()->dump();
+  taskFunc.body().walk([&](Operation* op) {
+    for (auto const& operand : op->getOperands()) {
+      if (auto* operandOp = operand.getDefiningOp()) {
+        if (op->isBeforeInBlock(operandOp)) {
+          op->dump();
+          op->emitError("DOMINATION PROBLEM");
+          return WalkResult::interrupt();
+        }
+      }
+    }
+    return WalkResult::advance();
+  });
   return success();
 }
 

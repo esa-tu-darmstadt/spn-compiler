@@ -57,7 +57,7 @@ LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternR
 
   assert(!conversionManager.wasConverted(vector) && "vector has already been created");
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), constantOp.getType());
-  rewriter.setInsertionPointAfterValue(conversionManager.getInsertionPoint(vector));
+  conversionManager.setInsertionPointFor(vector, rewriter);
 
   SmallVector<Attribute, 4> constants;
   for (auto const& value : *vector) {
@@ -76,7 +76,7 @@ LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, Patt
 
   assert(!conversionManager.wasConverted(vector) && "vector has already been created");
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), batchReadOp.getType());
-  rewriter.setInsertionPointAfterValue(conversionManager.getInsertionPoint(vector));
+  conversionManager.setInsertionPointFor(vector, rewriter);
 
   if (!consecutiveLoads(vector->begin(), vector->end())) {
     if (vector->splattable()) {
@@ -104,7 +104,7 @@ LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewri
 
   assert(!conversionManager.wasConverted(vector) && "vector has already been created");
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), addOp.getType());
-  rewriter.setInsertionPointAfterValue(conversionManager.getInsertionPoint(vector));
+  conversionManager.setInsertionPointFor(vector, rewriter);
 
   if (vector->isLeaf()) {
     assert(!vector->splattable() && "addition vector should not be a leaf vector if it is splattable");
@@ -130,7 +130,7 @@ LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewri
 
   assert(!conversionManager.wasConverted(vector) && "vector has already been created");
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), mulOp.getType());
-  rewriter.setInsertionPointAfterValue(conversionManager.getInsertionPoint(vector));
+  conversionManager.setInsertionPointFor(vector, rewriter);
 
   if (vector->isLeaf()) {
     assert(!vector->splattable() && "multiplication vector should not be a leaf vector if it is splattable");
@@ -156,7 +156,7 @@ LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, Pat
 
   assert(!conversionManager.wasConverted(vector) && "vector has already been created");
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), gaussianOp.getType());
-  rewriter.setInsertionPointAfterValue(conversionManager.getInsertionPoint(vector));
+  conversionManager.setInsertionPointFor(vector, rewriter);
 
   if (vector->isLeaf()) {
     assert(!vector->splattable() && "gaussian vector should not be a leaf vector if it is splattable");

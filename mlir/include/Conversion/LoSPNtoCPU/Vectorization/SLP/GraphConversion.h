@@ -7,6 +7,7 @@
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_GRAPHCONVERSION_H
 
 #include "SLPGraph.h"
+#include "mlir/IR/PatternMatch.h"
 
 namespace mlir {
   namespace spn {
@@ -17,28 +18,24 @@ namespace mlir {
           KeepNone,
           KeepFirst,
           KeepAll,
-          NoExtract,
-          Skip
+          NoExtract
         };
 
         class ConversionManager {
 
         public:
 
-          explicit ConversionManager(SLPNode* root);
+          explicit ConversionManager(ArrayRef<SLPNode const*> const& nodes);
 
-          Value getInsertionPoint(NodeVector* vector) const;
+          void setInsertionPointFor(NodeVector* vector, PatternRewriter& rewriter) const;
           bool wasConverted(NodeVector* vector) const;
 
           void update(NodeVector* vector, Value const& operation, ElementFlag const& flag);
-          void markSkipped(NodeVector* vector);
 
           Value getValue(NodeVector* vector) const;
           ElementFlag getElementFlag(NodeVector* vector) const;
 
           bool hasEscapingUsers(Value const& value) const;
-          /// Recursively moves all users (and their users and so on) of the vector behind it.
-          void recursivelyMoveUsersAfter(NodeVector* vector) const;
           Operation* getEarliestEscapingUser(Value const& value) const;
 
         private:
@@ -54,7 +51,8 @@ namespace mlir {
           /// Stores escaping users for each value.
           DenseMap<Value, SmallVector<Operation*, 2>> escapingUsers;
 
-          Value latestInsertion;
+          /// true = insert before, false = insert after
+          Optional<std::pair<Operation*, bool>> insertionPoint = None;
 
         };
       }
