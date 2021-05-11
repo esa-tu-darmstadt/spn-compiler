@@ -4,7 +4,6 @@
 //
 
 #include "LoSPNtoCPU/Vectorization/SLP/GraphConversion.h"
-#include "llvm/Support/Debug.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 using namespace mlir;
@@ -80,160 +79,36 @@ namespace {
     }
   }
 
-  std::pair<Operation*, bool> reorderOperations(Operation* latestInput,
-                                                SmallPtrSetImpl<Operation*> const& inputs,
-                                                Operation* earliestEscapingUser,
-                                                SmallPtrSetImpl<Operation*> const& users) {
-    DenseMap<Operation*, Optional<unsigned>> depths;
-    SmallVector<Operation*> worklist{std::begin(inputs), std::end(inputs)};
-    while (!worklist.empty()) {
-      auto* currentOp = worklist.pop_back_val();
-      if (currentOp->isBeforeInBlock(earliestEscapingUser) && currentOp != earliestEscapingUser) {
-        continue;
-      }
-      auto const& pair = depths.try_emplace(currentOp, None);
-      if (pair.second) {
-        for (auto const& operand : currentOp->getOperands()) {
-          if (auto* operandOp = operand.getDefiningOp()) {
-            worklist.emplace_back(operandOp);
-          }
-        }
+  void computeOrder(SLPNode* root, SmallVectorImpl<NodeVector*>& order) {
+    for (auto* node : graph::postOrder(root)) {
+      for (size_t i = node->numVectors(); i-- > 0;) {
+        order.emplace_back(node->getVector(i));
       }
     }
-    for (auto* user : users) {
-      if (depths.count(user)) {
-        worklist.emplace_back(user);
-        depths[user] = 0;
-      }
-    }
-    unsigned maxDepth = 0;
-    while (!worklist.empty()) {
-      auto* currentOp = worklist.pop_back_val();
-      if (latestInput->isBeforeInBlock(currentOp)) {
-        continue;
-      }
-      for (auto* user : currentOp->getUsers()) {
-        if (!depths.count(user)) {
-          continue;
-        }
-        unsigned userDepth = depths[currentOp].getValue() + 1;
-        if (!depths[user].hasValue() || userDepth > depths[user].getValue()) {
-          depths[user] = userDepth;
-          maxDepth = std::max(maxDepth, userDepth);
-          worklist.emplace_back(user);
-        }
-      }
-    }/*
-    llvm::dbgs() << "Depths:\n";
-    for (auto const& entry: depths) {
-      if(entry.second.hasValue()) {
-        llvm::dbgs() << "\t" << *entry.first << ": " << (entry.second.hasValue() ? entry.second : None) << "\n";
-      }
-    }*/
-    // Move leading inputs in front of the earliest escaping user.
-    SmallPtrSet<Operation*, 32> seenOps;
-    assert(worklist.empty());
-    for (auto const& entry : depths) {
-      if (!entry.second.hasValue()) {
-        worklist.emplace_back(entry.first);
-      }
-    }
-    for (size_t i = 0; i < worklist.size(); ++i) {
-      seenOps.insert(worklist[i]);
-      for (auto const& operand : worklist[i]->getOperands()) {
-        if (auto* operandOp = operand.getDefiningOp()) {
-          if (!seenOps.contains(operandOp) && depths.count(operandOp) && !depths.lookup(operandOp).hasValue()) {
-            worklist.emplace_back(operandOp);
-          }
-        }
-      }
-    }
-    std::sort(std::begin(worklist), std::end(worklist), [&](Operation* lhs, Operation* rhs) {
-      return lhs->isBeforeInBlock(rhs);
-    });/*
-    llvm::dbgs() << "Leading inputs:\n";
-    for (auto* op : worklist) {
-      llvm::dbgs() << "\t" << *op << "\n";
-    }*/
-    for (auto* op : worklist) {
-      op->moveBefore(earliestEscapingUser);
-    }
-    // Sort operations in between the earliest escaping user & the latest input.
-    SmallVector<SmallVector<Operation*>> opsSortedByDepth{maxDepth + 1};
-    for (auto const& entry : depths) {
-      if (entry.second.hasValue()) {
-        opsSortedByDepth[entry.second.getValue()].emplace_back(entry.first);
-      }
-    }
-    for (auto& ops: opsSortedByDepth) {
-      std::sort(std::begin(ops), std::end(ops), [&](Operation* lhs, Operation* rhs) {
-        return lhs->isBeforeInBlock(rhs);
-      });
-    }
-    Operation* latestOp = earliestEscapingUser;
-    for (unsigned depth = 0; depth <= maxDepth; ++depth) {
-      auto const& ops = opsSortedByDepth[depth];
-      for (auto* op : ops) {
-        op->moveAfter(latestOp);
-        latestOp = op;
-      }
-    }
-    // Move trailing users behind everything.
-    latestOp = latestInput;
-    worklist.clear();
-    seenOps.clear();
-    for (auto* user : users) {
-      if (!depths.count(user) && user->isBeforeInBlock(latestInput)) {
-        worklist.emplace_back(user);
-      }
-    }
-    for (size_t i = 0; i < worklist.size(); ++i) {
-      seenOps.insert(worklist[i]);
-      for (auto* user : worklist[i]->getUsers()) {
-        if (!seenOps.contains(user) && !depths.count(user) && user->isBeforeInBlock(latestInput)) {
-          worklist.emplace_back(user);
-        }
-      }
-    }
-    std::sort(std::begin(worklist), std::end(worklist), [&](Operation* lhs, Operation* rhs) {
-      return lhs->isBeforeInBlock(rhs);
-    });/*
-    llvm::dbgs() << "Trailing users:\n";
-    for (auto* op : worklist) {
-      llvm::dbgs() << "\t" << *op << "\n";
-    }*/
-    for (auto* user : worklist) {
-      user->moveAfter(latestOp);
-      latestOp = user;
-    }
-
-    return std::make_pair(earliestEscapingUser, true);
   }
 
 }
 
-ConversionManager::ConversionManager(SLPNode* root) : nodeOrder{graph::postOrder(root)} {
+ConversionManager::ConversionManager(SLPNode* root) {
+  computeOrder(root, order);
   Operation* earliestInput = nullptr;
   SmallPtrSet<Operation*, 32> inputs;
-  for (auto const* node : nodeOrder) {
-    for (size_t i = node->numVectors(); i-- > 0;) {
-      auto* vector = node->getVector(i);
-      for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-        auto const& element = vector->getElement(lane);
-        if (auto* elementOp = element.getDefiningOp()) {
-          if (!escapingUsers.count(element)) {
-            escapingUsers[element].assign(std::begin(element.getUsers()), std::end(element.getUsers()));
+  for (auto const* vector : order) {
+    for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
+      auto const& element = vector->getElement(lane);
+      if (auto* elementOp = element.getDefiningOp()) {
+        if (!escapingUsers.count(element)) {
+          escapingUsers[element].assign(std::begin(element.getUsers()), std::end(element.getUsers()));
+        }
+        for (auto const& operand : elementOp->getOperands()) {
+          auto& users = escapingUsers[operand];
+          users.erase(std::remove(std::begin(users), std::end(users), elementOp), std::end(users));
+        }
+        if (vector->numOperands() == 0) {
+          if (!earliestInput || elementOp->isBeforeInBlock(earliestInput)) {
+            earliestInput = elementOp;
           }
-          for (auto const& operand : elementOp->getOperands()) {
-            auto& users = escapingUsers[operand];
-            users.erase(std::remove(std::begin(users), std::end(users), elementOp), std::end(users));
-          }
-          if (vector->numOperands() == 0) {
-            if (!earliestInput || elementOp->isBeforeInBlock(earliestInput)) {
-              earliestInput = elementOp;
-            }
-            inputs.insert(elementOp);
-          }
+          inputs.insert(elementOp);
         }
       }
     }
@@ -247,9 +122,7 @@ ConversionManager::ConversionManager(SLPNode* root) : nodeOrder{graph::postOrder
   Operation* latestEscapingUser = nullptr;
   SmallPtrSet<Operation*, 32> users;
   for (auto& entry : escapingUsers) {
-    //llvm::dbgs() << entry.first << "\n";
     for (auto* escapingUser : entry.second) {
-      //llvm::dbgs() << "\t" << *escapingUser << "\n";
       if (!earliestEscapingUser || escapingUser->isBeforeInBlock(earliestEscapingUser)) {
         earliestEscapingUser = escapingUser;
       }
@@ -258,24 +131,11 @@ ConversionManager::ConversionManager(SLPNode* root) : nodeOrder{graph::postOrder
       }
       users.insert(escapingUser);
     }
-  }/*
-  llvm::dbgs() << "Latest input: " << *latestInput << "\n";
-  llvm::dbgs() << "Inputs:\n";
-  for (auto* input : inputs) {
-    llvm::dbgs() << "\t" << *input << "\n";
   }
-  llvm::dbgs() << "Earliest escaping user: " << *earliestEscapingUser << "\n";
-  llvm::dbgs() << "Escaping users:\n";
-  for (auto* user : users) {
-    llvm::dbgs() << "\t" << *user << "\n";
-  }*/
   earliestEscapingUser->emitRemark("Reordering operations...");
   reorderOperations(earliestInput, inputs, users);
-  insertionPoint = std::make_pair(earliestEscapingUser, true);
   earliestEscapingUser->emitRemark("Reordering done.");
-  //llvm::dbgs() << "Latest input post reorder: " << *latestInput << "\n";
-  //llvm::dbgs() << "Earliest escaping user post reorder: " << *earliestEscapingUser << "\n";
-  //insertionPoint->first->emitRemark() << "Conversion insertion point (" << (insertionPoint->second ? "before" : "after") << " this operation): " << *insertionPoint->first;
+  insertionPoint = std::make_pair(earliestEscapingUser, true);
 }
 
 void ConversionManager::setInsertionPointFor(NodeVector* vector, PatternRewriter& rewriter) const {
@@ -330,8 +190,8 @@ ElementFlag ConversionManager::getElementFlag(NodeVector* vector) const {
   return vectorData.lookup(vector).flag.getValue();
 }
 
-ArrayRef<SLPNode*> ConversionManager::conversionOrder() const {
-  return nodeOrder;
+ArrayRef<NodeVector*> ConversionManager::conversionOrder() const {
+  return order;
 }
 
 bool ConversionManager::hasEscapingUsers(Value const& value) const {

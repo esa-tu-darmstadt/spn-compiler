@@ -39,14 +39,14 @@ namespace mlir {
           Value getValue(NodeVector* vector) const;
           ElementFlag getElementFlag(NodeVector* vector) const;
 
-          ArrayRef<SLPNode*> conversionOrder() const;
+          ArrayRef<NodeVector*> conversionOrder() const;
 
           bool hasEscapingUsers(Value const& value) const;
           Operation* getEarliestEscapingUser(Value const& value) const;
 
         private:
 
-          SmallVector<SLPNode*> const nodeOrder;
+          SmallVector<NodeVector*> order;
 
           struct NodeVectorData {
             /// The operation that was created for this node vector.

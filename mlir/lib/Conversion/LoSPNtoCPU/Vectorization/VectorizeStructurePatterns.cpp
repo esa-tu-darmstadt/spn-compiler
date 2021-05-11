@@ -102,7 +102,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   }
   // Inline the content of the task into the function.
   rewriter.mergeBlocks(&task.body().front(), taskBlock, blockReplacementArgs);
-/*
+
   // Apply SLP vectorization.
   //task->getParentOfType<ModuleOp>()->dump();
   task->emitRemark() << "Beginning SLP vectorization";
@@ -116,16 +116,16 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   SLPGraphBuilder builder{3};
   task->emitRemark("Computing graph...");
   auto graph = builder.build(seed);
-  task->emitRemark("Number of SLP nodes in graph: " + std::to_string(numNodes(graph.get())));
-  task->emitRemark("Number of SLP vectors in graph: " + std::to_string(numVectors(graph.get())));
+  auto numNodes = slp::numNodes(graph.get());
+  auto numVectors = slp::numVectors(graph.get());
+  task->emitRemark("Number of SLP nodes in graph: " + std::to_string(numNodes));
+  task->emitRemark("Number of SLP vectors in graph: " + std::to_string(numVectors));
   //low::slp::dumpSLPGraph(graph.get());
 
   task->emitRemark("Converting graph...");
   // The current vector being transformed.
   NodeVector* vector = nullptr;
-  //task->getParentOfType<ModuleOp>()->dump();
   ConversionManager conversionManager{graph.get()};
-  //task->getParentOfType<ModuleOp>()->dump();
 
   // Prevent extracting/removing values more than once (happens in splat mode, if they appear in multiple vectors, ...).
   SmallPtrSet<Value, 32> finishedValues;
@@ -139,75 +139,74 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
   PatternApplicator applicator(frozenPatterns);
   applicator.applyDefaultCostModel();
-  unsigned nodeCount = 0;
-  // Traverse the SLP graph in postorder and apply the vectorization patterns.
-  for (auto* node : conversionManager.conversionOrder()) {
-    // Also traverse nodes in postorder to properly handle multinodes.
-    for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
-      vector = node->getVector(vectorIndex);
-      //dumpSLPNodeVector(*vector);
-      auto* vectorOp = vector->begin()->getDefiningOp();
-      if (vector->containsBlockArgs() || failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
-        auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
-        conversionManager.setInsertionPointFor(vector, rewriter);
-        // Create extractions from vectorized operands if present.
-        for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-          auto const& element = vector->getElement(lane);
-          if (auto* elementOp = element.getDefiningOp()) {
-            for (size_t i = 0; i < vector->numOperands(); ++i) {
-              auto* operand = vector->getOperand(i);
-              auto const& source = conversionManager.getValue(operand);
-              auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
-              elementOp->setOperand(i, extractOp.result());
-            }
-          }
-          if (lane == 0 && vector->splattable()) {
-            break;
+
+  // Track progress.
+  auto fivePercent = std::ceil(static_cast<double>(numVectors) * 0.05);
+  unsigned fivePercentCounter = 0;
+
+  // Traverse the SLP graph and apply the vectorization patterns.
+  auto const& order = conversionManager.conversionOrder();
+  for (size_t i = 0; i < order.size(); ++i) {
+    vector = order[i];
+    //dumpSLPNodeVector(*vector);
+    auto* vectorOp = vector->begin()->getDefiningOp();
+    if (vector->containsBlockArgs() || failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
+      auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
+      conversionManager.setInsertionPointFor(vector, rewriter);
+      // Create extractions from vectorized operands if present.
+      for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
+        auto const& element = vector->getElement(lane);
+        if (auto* elementOp = element.getDefiningOp()) {
+          for (size_t i = 0; i < vector->numOperands(); ++i) {
+            auto* operand = vector->getOperand(i);
+            auto const& source = conversionManager.getValue(operand);
+            auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
+            elementOp->setOperand(i, extractOp.result());
           }
         }
-        if (vector->splattable()) {
-          auto const& element = vector->getElement(0);
-          auto vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
-          conversionManager.update(vector, vectorizedOp, ElementFlag::KeepFirst);
-        } else {
-          auto vectorizedOp = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
-          conversionManager.update(vector, vectorizedOp, ElementFlag::KeepAll);
+        if (lane == 0 && vector->splattable()) {
+          break;
         }
+      }
+      if (vector->splattable()) {
+        auto const& element = vector->getElement(0);
+        auto vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
+        conversionManager.update(vector, vectorizedOp, ElementFlag::KeepFirst);
+      } else {
+        auto vectorizedOp = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
+        conversionManager.update(vector, vectorizedOp, ElementFlag::KeepAll);
       }
     }
     // Create vector extractions for escaping uses & erase superfluous operations.
-    for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
-      vector = node->getVector(vectorIndex);
-      auto const& creationMode = conversionManager.getElementFlag(vector);
-      for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-        auto const& element = vector->getElement(lane);
-        if (finishedValues.contains(element)) {
-          continue;
-        }
-        finishedValues.insert(element);
-        if (creationMode == ElementFlag::KeepAll || (creationMode == ElementFlag::KeepFirst && lane == 0)) {
-          continue;
-        }
-        if (conversionManager.hasEscapingUsers(element)) {
-          if (creationMode == ElementFlag::KeepNoneNoExtract) {
-            continue;
-          }
-          rewriter.setInsertionPoint(conversionManager.getEarliestEscapingUser(element));
-          auto const& source = conversionManager.getValue(vector);
-          auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
-          if (!source.getDefiningOp()->isBeforeInBlock(extractOp)) {
-            llvm::dbgs() << "source: " << source << "\nextract: " << extractOp << "\n";
-            assert(false && "extract before source");
-          }
-          element.replaceAllUsesWith(extractOp.result());
-        }
-        rewriter.eraseOp(element.getDefiningOp());
+    auto const& creationMode = conversionManager.getElementFlag(vector);
+    for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
+      auto const& element = vector->getElement(lane);
+      if (finishedValues.contains(element)) {
+        continue;
       }
+      finishedValues.insert(element);
+      if (creationMode == ElementFlag::KeepAll || (creationMode == ElementFlag::KeepFirst && lane == 0)) {
+        continue;
+      }
+      if (conversionManager.hasEscapingUsers(element)) {
+        if (creationMode == ElementFlag::KeepNoneNoExtract) {
+          continue;
+        }
+        rewriter.setInsertionPoint(conversionManager.getEarliestEscapingUser(element));
+        auto const& source = conversionManager.getValue(vector);
+        auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
+        if (!source.getDefiningOp()->isBeforeInBlock(extractOp)) {
+          llvm::dbgs() << "source: " << source << "\nextract: " << extractOp << "\n";
+          assert(false && "extract before source");
+        }
+        element.replaceAllUsesWith(extractOp.result());
+      }
+      rewriter.eraseOp(element.getDefiningOp());
     }
-    //task->getParentOfType<ModuleOp>()->dump();
-    task->emitRemark("Converted node #" + std::to_string(++nodeCount));
+    if (static_cast<double>(i) >= (fivePercentCounter * fivePercent)) {
+      task->emitRemark("Conversion progress: " + std::to_string(5 * fivePercentCounter++) + '%');
+    }
   }
-*/
   task->emitRemark("Graph conversion complete.");
   rewriter.restoreInsertionPoint(callPoint);
   rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
