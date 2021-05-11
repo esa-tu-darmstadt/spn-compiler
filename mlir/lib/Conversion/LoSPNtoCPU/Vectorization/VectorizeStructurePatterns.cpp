@@ -146,8 +146,8 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
   // Traverse the SLP graph and apply the vectorization patterns.
   auto const& order = conversionManager.conversionOrder();
-  for (size_t i = 0; i < order.size(); ++i) {
-    vector = order[i];
+  for (size_t n = 0; n < order.size(); ++n) {
+    vector = order[n];
     //dumpSLPNodeVector(*vector);
     auto* vectorOp = vector->begin()->getDefiningOp();
     if (vector->containsBlockArgs() || failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
@@ -160,6 +160,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
           for (size_t i = 0; i < vector->numOperands(); ++i) {
             auto* operand = vector->getOperand(i);
             auto const& source = conversionManager.getValue(operand);
+            // TODO: in case of broadcastInsert/splat, reuse original instead of extracting
             auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
             elementOp->setOperand(i, extractOp.result());
           }
@@ -203,7 +204,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       }
       rewriter.eraseOp(element.getDefiningOp());
     }
-    if (static_cast<double>(i) >= (fivePercentCounter * fivePercent)) {
+    if (static_cast<double>(n) >= (fivePercentCounter * fivePercent)) {
       task->emitRemark("Conversion progress: " + std::to_string(5 * fivePercentCounter++) + '%');
     }
   }
