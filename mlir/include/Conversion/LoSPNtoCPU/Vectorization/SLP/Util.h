@@ -20,8 +20,6 @@ namespace mlir {
         bool vectorizable(Operation* op);
         bool vectorizable(Value const& value);
 
-        bool consecutiveLoads(Value const& lhs, Value const& rhs);
-
         template<typename ValueIterator>
         bool vectorizable(ValueIterator begin, ValueIterator end) {
           if (begin->template isa<BlockArgument>()) {
@@ -38,6 +36,15 @@ namespace mlir {
           return true;
         }
 
+        bool ofVectorizableType(Value const& value);
+
+        template<typename ValueIterator>
+        bool ofVectorizableType(ValueIterator begin, ValueIterator end) {
+          return std::all_of(begin, end, [&](auto const& value) {
+            return ofVectorizableType(value);
+          });
+        }
+
         template<typename ValueIterator>
         bool commutative(ValueIterator begin, ValueIterator end) {
           while (begin != end) {
@@ -49,6 +56,8 @@ namespace mlir {
           }
           return true;
         }
+
+        bool consecutiveLoads(Value const& lhs, Value const& rhs);
 
         template<typename ValueIterator>
         bool consecutiveLoads(ValueIterator begin, ValueIterator end) {
@@ -80,11 +89,11 @@ namespace mlir {
           return vectorOp;
         }
 
-        size_t numNodes(SLPNode const& root);
-        size_t numVectors(SLPNode const& root);
+        size_t numNodes(SLPNode* root);
+        size_t numVectors(SLPNode* root);
 
         void dumpOpTree(ArrayRef<Value> const& values);
-        void dumpSLPGraph(SLPNode const& root);
+        void dumpSLPGraph(SLPNode* root);
         void dumpSLPNode(SLPNode const& node);
         void dumpSLPNodeVector(NodeVector const& nodeVector);
 

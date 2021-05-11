@@ -166,12 +166,12 @@ size_t SLPNode::numOperands() const {
 
 // === Utilities === //
 
-SmallVector<SLPNode const*> graph::postOrder(SLPNode const& root) {
-  SmallVector<SLPNode const*> order;
+SmallVector<SLPNode*> graph::postOrder(SLPNode* root) {
+  SmallVector<SLPNode*> order;
   // false = visit operands, true = insert into order
-  SmallVector<std::pair<SLPNode const*, bool>> worklist;
-  llvm::SmallSet<SLPNode const*, 32> finishedNodes;
-  worklist.emplace_back(&root, false);
+  SmallVector<std::pair<SLPNode*, bool>> worklist;
+  llvm::SmallSet<SLPNode*, 32> finishedNodes;
+  worklist.emplace_back(root, false);
   while (!worklist.empty()) {
     if (finishedNodes.contains(worklist.back().first)) {
       worklist.pop_back();
@@ -185,7 +185,7 @@ SmallVector<SLPNode const*> graph::postOrder(SLPNode const& root) {
       finishedNodes.insert(node);
     } else {
       worklist.emplace_back(node, true);
-      for (auto const* operand: node->getOperands()) {
+      for (auto* operand: node->getOperands()) {
         worklist.emplace_back(operand, false);
       }
     }

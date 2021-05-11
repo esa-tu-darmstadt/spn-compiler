@@ -67,7 +67,7 @@ LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternR
   auto const& elements = denseFloatingPoints(std::begin(constants), std::end(constants), vectorType);
   auto constVector = rewriter.create<mlir::ConstantOp>(constantOp.getLoc(), elements);
 
-  conversionManager.update(vector, constVector, ElementFlag::NoExtract);
+  conversionManager.update(vector, constVector, ElementFlag::KeepNoneNoExtract);
 
   return success();
 }

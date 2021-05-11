@@ -102,7 +102,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   }
   // Inline the content of the task into the function.
   rewriter.mergeBlocks(&task.body().front(), taskBlock, blockReplacementArgs);
-
+/*
   // Apply SLP vectorization.
   //task->getParentOfType<ModuleOp>()->dump();
   task->emitRemark() << "Beginning SLP vectorization";
@@ -110,24 +110,23 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   auto hwVectorWidth = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
   SeedAnalysis seedAnalysis{taskFunc, hwVectorWidth};
   SmallVector<Value, 4> seed;
-  task->emitRemark("Computing seed...");
   seedAnalysis.fillSeed(seed, SearchMode::UseBeforeDef);
   assert(!seed.empty() && "couldn't find a seed!");
   //low::slp::dumpOpTree(seed);
   SLPGraphBuilder builder{3};
   task->emitRemark("Computing graph...");
   auto graph = builder.build(seed);
-  auto const& postOrder = graph::postOrder(*graph);
-  task->emitRemark("Number of SLP nodes in graph: " + std::to_string(numNodes(*graph)));
-  task->emitRemark("Number of SLP vectors in graph: " + std::to_string(numVectors(*graph)));
-  low::slp::dumpSLPGraph(*graph);
+  task->emitRemark("Number of SLP nodes in graph: " + std::to_string(numNodes(graph.get())));
+  task->emitRemark("Number of SLP vectors in graph: " + std::to_string(numVectors(graph.get())));
+  //low::slp::dumpSLPGraph(graph.get());
 
   task->emitRemark("Converting graph...");
   // The current vector being transformed.
   NodeVector* vector = nullptr;
-  task->getParentOfType<ModuleOp>()->dump();
-  ConversionManager conversionManager{postOrder};
-  task->getParentOfType<ModuleOp>()->dump();/*
+  //task->getParentOfType<ModuleOp>()->dump();
+  ConversionManager conversionManager{graph.get()};
+  //task->getParentOfType<ModuleOp>()->dump();
+
   // Prevent extracting/removing values more than once (happens in splat mode, if they appear in multiple vectors, ...).
   SmallPtrSet<Value, 32> finishedValues;
   // Use a custom pattern driver that does *not* perform folding automatically (which the other rewrite drivers
@@ -142,19 +141,15 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   applicator.applyDefaultCostModel();
   unsigned nodeCount = 0;
   // Traverse the SLP graph in postorder and apply the vectorization patterns.
-  for (auto* node : postOrder) {
+  for (auto* node : conversionManager.conversionOrder()) {
     // Also traverse nodes in postorder to properly handle multinodes.
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
-      // dumpSLPNodeVector(*vector);
-      task->emitRemark("Trying to apply a pattern...");
+      //dumpSLPNodeVector(*vector);
       auto* vectorOp = vector->begin()->getDefiningOp();
       if (vector->containsBlockArgs() || failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
-
-        task->emitRemark("No pattern applicable, creating extractions from vectorized operands...");
         auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
         conversionManager.setInsertionPointFor(vector, rewriter);
-
         // Create extractions from vectorized operands if present.
         for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
           auto const& element = vector->getElement(lane);
@@ -170,7 +165,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
             break;
           }
         }
-        task->emitRemark("Inserting extracted operand values...");
         if (vector->splattable()) {
           auto const& element = vector->getElement(0);
           auto vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
@@ -181,14 +175,10 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         }
       }
     }
-    task->emitRemark("Setting up for escaping uses...");
     // Create vector extractions for escaping uses & erase superfluous operations.
     for (size_t vectorIndex = node->numVectors(); vectorIndex-- > 0;) {
       vector = node->getVector(vectorIndex);
       auto const& creationMode = conversionManager.getElementFlag(vector);
-      task->emitRemark("Moving users behind vector...");
-      //conversionManager.recursivelyMoveUsersAfter(vector);
-      task->emitRemark("Creating extractions...");
       for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
         auto const& element = vector->getElement(lane);
         if (finishedValues.contains(element)) {
@@ -199,30 +189,33 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
           continue;
         }
         if (conversionManager.hasEscapingUsers(element)) {
-          if (creationMode == ElementFlag::NoExtract) {
+          if (creationMode == ElementFlag::KeepNoneNoExtract) {
             continue;
           }
           rewriter.setInsertionPoint(conversionManager.getEarliestEscapingUser(element));
           auto const& source = conversionManager.getValue(vector);
           auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
+          if (!source.getDefiningOp()->isBeforeInBlock(extractOp)) {
+            llvm::dbgs() << "source: " << source << "\nextract: " << extractOp << "\n";
+            assert(false && "extract before source");
+          }
           element.replaceAllUsesWith(extractOp.result());
         }
         rewriter.eraseOp(element.getDefiningOp());
       }
     }
+    //task->getParentOfType<ModuleOp>()->dump();
     task->emitRemark("Converted node #" + std::to_string(++nodeCount));
-  }*/
+  }
+*/
   task->emitRemark("Graph conversion complete.");
   rewriter.restoreInsertionPoint(callPoint);
   rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
-  //task->getParentOfType<ModuleOp>()->dump();
   taskFunc.body().walk([&](Operation* op) {
     for (auto const& operand : op->getOperands()) {
       if (auto* operandOp = operand.getDefiningOp()) {
         if (op->isBeforeInBlock(operandOp)) {
-          op->dump();
-          op->emitError("DOMINATION PROBLEM");
-          return WalkResult::interrupt();
+          op->emitError("DOMINATION PROBLEM: ") << *op << "(operand: " << *operandOp << ")";
         }
       }
     }

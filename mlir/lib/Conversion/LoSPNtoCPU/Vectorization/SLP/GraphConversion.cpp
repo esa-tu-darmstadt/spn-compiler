@@ -5,7 +5,7 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/GraphConversion.h"
 #include "llvm/Support/Debug.h"
-#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 using namespace mlir;
 using namespace mlir::spn::low::slp;
@@ -13,119 +13,209 @@ using namespace mlir::spn::low::slp;
 // Helper functions in anonymous namespace.
 namespace {
 
-  std::pair<Operation*, bool> resolveInBetweenOperations(Operation* latestInput,
-                                                         SmallPtrSetImpl<Operation*>& inputs,
-                                                         Operation* earliestEscapingUser,
-                                                         SmallPtrSetImpl<Operation*>& users) {
-    // false = only serves as input/use, true = serves as both input and use
-    DenseMap<Operation*, bool> isOnUseInputPath;
-    // Determine inputs to move before the earliest escaping user.
-    SmallVector<Operation*> inputsToMove;
-    for (auto* input : inputs) {
-      SmallVector<Operation*, 16> worklist{input};
-      unsigned oldInputSize = inputsToMove.size();
-      while (!worklist.empty()) {
-        auto* currentOp = worklist.pop_back_val();
-        if (currentOp->isBeforeInBlock(earliestEscapingUser)) {
-          isOnUseInputPath[currentOp] = false;
-          continue;
-        }
-        if (users.contains(currentOp)) {
-          isOnUseInputPath[currentOp] = true;
-        }
-        if (isOnUseInputPath.lookup(currentOp)) {
-          for (auto* user : currentOp->getUsers()) {
-            if (user->isBeforeInBlock(latestInput)) {
-              isOnUseInputPath[user] = true;
-              worklist.emplace_back(user);
-            }
+  Value latest(Value const& lhs, Value const& rhs) {
+    if (lhs.isa<BlockArgument>()) {
+      return rhs.isa<BlockArgument>() ? lhs : rhs;
+    } else if (rhs.isa<BlockArgument>()) {
+      return lhs;
+    }
+    return lhs.getDefiningOp()->isBeforeInBlock(rhs.getDefiningOp()) ? rhs : lhs;
+  }
+
+  Value latestElement(NodeVector* vector) {
+    Value latestElement = nullptr;
+    for (auto const& value : *vector) {
+      if (!latestElement) {
+        latestElement = value;
+        continue;
+      }
+      latestElement = latest(latestElement, value);
+    }
+    return latestElement;
+  }
+
+  void reorderOperations(Operation* firstInput,
+                         SmallPtrSetImpl<Operation*> const& inputs,
+                         SmallPtrSetImpl<Operation*> const& users) {
+    DenseMap<Operation*, unsigned> depths;
+    SmallVector<Operation*> worklist;
+    for (auto* user : users) {
+      worklist.emplace_back(user);
+      depths[user] = 0;
+    }
+    unsigned maxDepth = 0;
+    while (!worklist.empty()) {
+      auto* currentOp = worklist.pop_back_val();
+      for (auto const& operand : currentOp->getOperands()) {
+        if (auto* operandOp = operand.getDefiningOp()) {
+          if (operandOp->isBeforeInBlock(firstInput)) {
+            continue;
           }
-          continue;
+          unsigned operandDepth = depths[currentOp] + 1;
+          if (operandDepth > depths[operandOp]) {
+            depths[operandOp] = operandDepth;
+            maxDepth = std::max(maxDepth, operandDepth);
+            worklist.emplace_back(operandOp);
+          }
         }
-        inputsToMove.emplace_back(currentOp);
+      }
+    }
+    // Sort operations in between the earliest escaping user & the latest input.
+    SmallVector<SmallVector<Operation*>> opsSortedByDepth{maxDepth + 1};
+    for (auto const& entry : depths) {
+      opsSortedByDepth[maxDepth - entry.second].emplace_back(entry.first);
+    }
+    for (auto& ops: opsSortedByDepth) {
+      std::sort(std::begin(ops), std::end(ops), [&](Operation* lhs, Operation* rhs) {
+        return lhs->isBeforeInBlock(rhs);
+      });
+    }
+    Operation* latestOp = firstInput;
+    for (unsigned depth = 0; depth <= maxDepth; ++depth) {
+      auto const& ops = opsSortedByDepth[depth];
+      for (auto* op : ops) {
+        op->moveAfter(latestOp);
+        latestOp = op;
+      }
+    }
+  }
+
+  std::pair<Operation*, bool> reorderOperations(Operation* latestInput,
+                                                SmallPtrSetImpl<Operation*> const& inputs,
+                                                Operation* earliestEscapingUser,
+                                                SmallPtrSetImpl<Operation*> const& users) {
+    DenseMap<Operation*, Optional<unsigned>> depths;
+    SmallVector<Operation*> worklist{std::begin(inputs), std::end(inputs)};
+    while (!worklist.empty()) {
+      auto* currentOp = worklist.pop_back_val();
+      if (currentOp->isBeforeInBlock(earliestEscapingUser) && currentOp != earliestEscapingUser) {
+        continue;
+      }
+      auto const& pair = depths.try_emplace(currentOp, None);
+      if (pair.second) {
         for (auto const& operand : currentOp->getOperands()) {
           if (auto* operandOp = operand.getDefiningOp()) {
             worklist.emplace_back(operandOp);
           }
         }
       }
-      if (isOnUseInputPath.lookup(input)) {
-        inputsToMove.pop_back_n(inputsToMove.size() - oldInputSize);
+    }
+    for (auto* user : users) {
+      if (depths.count(user)) {
+        worklist.emplace_back(user);
+        depths[user] = 0;
       }
     }
-    if (inputsToMove.empty()) {
-      return std::make_pair(earliestEscapingUser, true);
-    }
-    std::sort(std::begin(inputsToMove), std::end(inputsToMove), [&](Operation* lhs, Operation* rhs) {
-      return lhs->isBeforeInBlock(rhs);
-    });
-    inputsToMove.erase(std::unique(std::begin(inputsToMove), std::end(inputsToMove)), std::end(inputsToMove));
-
-    // Determine users to move after the latest input.
-    SmallVector<Operation*> usersToMove;
-    for (auto* user : users) {
-      if (isOnUseInputPath.lookup(user)) {
+    unsigned maxDepth = 0;
+    while (!worklist.empty()) {
+      auto* currentOp = worklist.pop_back_val();
+      if (latestInput->isBeforeInBlock(currentOp)) {
         continue;
       }
-      SmallVector<Operation*, 16> worklist{user};
-      SmallPtrSet<Operation*, 32> seenUsers;
-      while (!worklist.empty()) {
-        auto* currentOp = worklist.pop_back_val();
-        seenUsers.insert(currentOp);
-        if (latestInput->isBeforeInBlock(currentOp)) {
+      for (auto* user : currentOp->getUsers()) {
+        if (!depths.count(user)) {
           continue;
         }
-        usersToMove.emplace_back(currentOp);
-        for (auto* nextUser : currentOp->getUsers()) {
-          if (!seenUsers.contains(nextUser)) {
-            worklist.emplace_back(nextUser);
+        unsigned userDepth = depths[currentOp].getValue() + 1;
+        if (!depths[user].hasValue() || userDepth > depths[user].getValue()) {
+          depths[user] = userDepth;
+          maxDepth = std::max(maxDepth, userDepth);
+          worklist.emplace_back(user);
+        }
+      }
+    }/*
+    llvm::dbgs() << "Depths:\n";
+    for (auto const& entry: depths) {
+      if(entry.second.hasValue()) {
+        llvm::dbgs() << "\t" << *entry.first << ": " << (entry.second.hasValue() ? entry.second : None) << "\n";
+      }
+    }*/
+    // Move leading inputs in front of the earliest escaping user.
+    SmallPtrSet<Operation*, 32> seenOps;
+    assert(worklist.empty());
+    for (auto const& entry : depths) {
+      if (!entry.second.hasValue()) {
+        worklist.emplace_back(entry.first);
+      }
+    }
+    for (size_t i = 0; i < worklist.size(); ++i) {
+      seenOps.insert(worklist[i]);
+      for (auto const& operand : worklist[i]->getOperands()) {
+        if (auto* operandOp = operand.getDefiningOp()) {
+          if (!seenOps.contains(operandOp) && depths.count(operandOp) && !depths.lookup(operandOp).hasValue()) {
+            worklist.emplace_back(operandOp);
           }
         }
       }
     }
-    if (usersToMove.empty()) {
-      return std::make_pair(latestInput, false);
-    }
-    std::sort(std::begin(usersToMove), std::end(usersToMove), [&](Operation* lhs, Operation* rhs) {
+    std::sort(std::begin(worklist), std::end(worklist), [&](Operation* lhs, Operation* rhs) {
       return lhs->isBeforeInBlock(rhs);
-    });
-    usersToMove.erase(std::unique(std::begin(usersToMove), std::end(usersToMove)), std::end(usersToMove));
-
-    Operation* insertionPoint;
-
-    llvm::dbgs() << "inputs to move:\n";
-    for (auto* input : inputsToMove) {
-      llvm::dbgs() << "\t" << *input << "\n";
+    });/*
+    llvm::dbgs() << "Leading inputs:\n";
+    for (auto* op : worklist) {
+      llvm::dbgs() << "\t" << *op << "\n";
+    }*/
+    for (auto* op : worklist) {
+      op->moveBefore(earliestEscapingUser);
     }
-    llvm::dbgs() << "users to move:\n";
-    for (auto* user : usersToMove) {
-      llvm::dbgs() << "\t" << *user << "\n";
-    }
-
-    if (inputsToMove.size() < usersToMove.size()) {
-      llvm::dbgs() << "moving inputs...\n";
-      for (auto* input : inputsToMove) {
-        input->moveBefore(earliestEscapingUser);
+    // Sort operations in between the earliest escaping user & the latest input.
+    SmallVector<SmallVector<Operation*>> opsSortedByDepth{maxDepth + 1};
+    for (auto const& entry : depths) {
+      if (entry.second.hasValue()) {
+        opsSortedByDepth[entry.second.getValue()].emplace_back(entry.first);
       }
-      insertionPoint = inputsToMove.back();
-    } else {
-      llvm::dbgs() << "moving users...\n";
-      for (size_t i = 0; i < usersToMove.size(); ++i) {
-        usersToMove[i]->moveAfter(i == 0 ? latestInput : usersToMove[i - 1]);
+    }
+    for (auto& ops: opsSortedByDepth) {
+      std::sort(std::begin(ops), std::end(ops), [&](Operation* lhs, Operation* rhs) {
+        return lhs->isBeforeInBlock(rhs);
+      });
+    }
+    Operation* latestOp = earliestEscapingUser;
+    for (unsigned depth = 0; depth <= maxDepth; ++depth) {
+      auto const& ops = opsSortedByDepth[depth];
+      for (auto* op : ops) {
+        op->moveAfter(latestOp);
+        latestOp = op;
       }
-      insertionPoint = latestInput;
+    }
+    // Move trailing users behind everything.
+    latestOp = latestInput;
+    worklist.clear();
+    seenOps.clear();
+    for (auto* user : users) {
+      if (!depths.count(user) && user->isBeforeInBlock(latestInput)) {
+        worklist.emplace_back(user);
+      }
+    }
+    for (size_t i = 0; i < worklist.size(); ++i) {
+      seenOps.insert(worklist[i]);
+      for (auto* user : worklist[i]->getUsers()) {
+        if (!seenOps.contains(user) && !depths.count(user) && user->isBeforeInBlock(latestInput)) {
+          worklist.emplace_back(user);
+        }
+      }
+    }
+    std::sort(std::begin(worklist), std::end(worklist), [&](Operation* lhs, Operation* rhs) {
+      return lhs->isBeforeInBlock(rhs);
+    });/*
+    llvm::dbgs() << "Trailing users:\n";
+    for (auto* op : worklist) {
+      llvm::dbgs() << "\t" << *op << "\n";
+    }*/
+    for (auto* user : worklist) {
+      user->moveAfter(latestOp);
+      latestOp = user;
     }
 
-    return std::make_pair(insertionPoint, false);
-
+    return std::make_pair(earliestEscapingUser, true);
   }
 
 }
 
-ConversionManager::ConversionManager(ArrayRef<SLPNode const*> const& nodes) {
-  Operation* latestInput = nullptr;
+ConversionManager::ConversionManager(SLPNode* root) : nodeOrder{graph::postOrder(root)} {
+  Operation* earliestInput = nullptr;
   SmallPtrSet<Operation*, 32> inputs;
-  for (auto const* node : nodes) {
+  for (auto const* node : nodeOrder) {
     for (size_t i = node->numVectors(); i-- > 0;) {
       auto* vector = node->getVector(i);
       for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
@@ -139,17 +229,8 @@ ConversionManager::ConversionManager(ArrayRef<SLPNode const*> const& nodes) {
             users.erase(std::remove(std::begin(users), std::end(users), elementOp), std::end(users));
           }
           if (vector->numOperands() == 0) {
-            dumpSLPNodeVector(*vector);
-            for (size_t j = 0; j < vector->numLanes(); ++j) {
-              auto const& copy = vector->getElement(j);
-              if (auto* copyOp = copy.getDefiningOp()) {
-                for (auto const& oper : copyOp->getOperands()) {
-                  llvm::dbgs() << "\t" << oper << " (" << (oper.getDefiningOp() ? oper.getDefiningOp() : 0) << ")\n";
-                }
-              }
-            }
-            if (!latestInput || latestInput->isBeforeInBlock(elementOp)) {
-              latestInput = elementOp;
+            if (!earliestInput || elementOp->isBeforeInBlock(earliestInput)) {
+              earliestInput = elementOp;
             }
             inputs.insert(elementOp);
           }
@@ -157,62 +238,71 @@ ConversionManager::ConversionManager(ArrayRef<SLPNode const*> const& nodes) {
       }
     }
   }
-  if (!latestInput) {
+  if (!earliestInput) {
     // No non-block-argument-input => SLP graph insertion point can be at the beginning of the basic block (i.e. null).
     return;
   }
-  llvm::dbgs() << "latest input: " << *latestInput << "\n";
-  for (auto* input : inputs) {
-    llvm::dbgs() << "\t" << *input << "\n";
-  }
 
   Operation* earliestEscapingUser = nullptr;
+  Operation* latestEscapingUser = nullptr;
   SmallPtrSet<Operation*, 32> users;
   for (auto& entry : escapingUsers) {
-    // Sort already for later uses.
-    std::sort(std::begin(entry.second), std::end(entry.second), [&](Operation* lhs, Operation* rhs) {
-      return lhs->isBeforeInBlock(rhs);
-    });
+    //llvm::dbgs() << entry.first << "\n";
     for (auto* escapingUser : entry.second) {
+      //llvm::dbgs() << "\t" << *escapingUser << "\n";
       if (!earliestEscapingUser || escapingUser->isBeforeInBlock(earliestEscapingUser)) {
         earliestEscapingUser = escapingUser;
       }
+      if (!latestEscapingUser || latestEscapingUser->isBeforeInBlock(escapingUser)) {
+        latestEscapingUser = escapingUser;
+      }
       users.insert(escapingUser);
     }
+  }/*
+  llvm::dbgs() << "Latest input: " << *latestInput << "\n";
+  llvm::dbgs() << "Inputs:\n";
+  for (auto* input : inputs) {
+    llvm::dbgs() << "\t" << *input << "\n";
   }
-  if (users.empty()) {
-    insertionPoint = std::make_pair(latestInput, false);
-    return;
-  }
-  llvm::dbgs() << "earliest escaping user: " << *earliestEscapingUser << "\n";
+  llvm::dbgs() << "Earliest escaping user: " << *earliestEscapingUser << "\n";
+  llvm::dbgs() << "Escaping users:\n";
   for (auto* user : users) {
     llvm::dbgs() << "\t" << *user << "\n";
-  }
-  insertionPoint = resolveInBetweenOperations(latestInput, inputs, earliestEscapingUser, users);
-  llvm::dbgs() << "insertion point (" << (insertionPoint->second ? "before" : "after") << " this one): "
-               << *insertionPoint->first << "\n";
+  }*/
+  earliestEscapingUser->emitRemark("Reordering operations...");
+  reorderOperations(earliestInput, inputs, users);
+  insertionPoint = std::make_pair(earliestEscapingUser, true);
+  earliestEscapingUser->emitRemark("Reordering done.");
+  //llvm::dbgs() << "Latest input post reorder: " << *latestInput << "\n";
+  //llvm::dbgs() << "Earliest escaping user post reorder: " << *earliestEscapingUser << "\n";
+  //insertionPoint->first->emitRemark() << "Conversion insertion point (" << (insertionPoint->second ? "before" : "after") << " this operation): " << *insertionPoint->first;
 }
 
 void ConversionManager::setInsertionPointFor(NodeVector* vector, PatternRewriter& rewriter) const {
-  Operation* latestOp = nullptr;
+  Operation* latestOperandOp = nullptr;
   for (size_t i = 0; i < vector->numOperands(); ++i) {
     auto* operand = vector->getOperand(i);
     assert(vectorData.lookup(operand).operation.hasValue() && "operand has not yet been converted");
     auto* operandOp = vectorData.lookup(operand).operation->getDefiningOp();
-    if (!latestOp || latestOp->isBeforeInBlock(operandOp)) {
-      latestOp = operandOp;
+    if (!latestOperandOp || latestOperandOp->isBeforeInBlock(operandOp)) {
+      latestOperandOp = operandOp;
     }
   }
-  if (latestOp) {
-    rewriter.setInsertionPointAfter(latestOp);
-  } else if (insertionPoint.hasValue()) {
+  if (latestOperandOp) {
+    rewriter.setInsertionPointAfter(latestOperandOp);
+  } else if (!insertionPoint.hasValue()) {
+    rewriter.setInsertionPointToStart(vector->getElement(0).getParentBlock());
+  } else {
+    auto const& latest = latestElement(vector);
+    if (auto* latestElementOp = latest.getDefiningOp()) {
+      rewriter.setInsertionPointAfter(latestElementOp);
+      return;
+    }
     if (insertionPoint->second) {
       rewriter.setInsertionPoint(insertionPoint->first);
     } else {
       rewriter.setInsertionPointAfter(insertionPoint->first);
     }
-  } else {
-    rewriter.setInsertionPointToStart(vector->getElement(0).getParentBlock());
   }
 }
 
@@ -240,11 +330,21 @@ ElementFlag ConversionManager::getElementFlag(NodeVector* vector) const {
   return vectorData.lookup(vector).flag.getValue();
 }
 
+ArrayRef<SLPNode*> ConversionManager::conversionOrder() const {
+  return nodeOrder;
+}
+
 bool ConversionManager::hasEscapingUsers(Value const& value) const {
   return escapingUsers.count(value) && !escapingUsers.lookup(value).empty();
 }
 
 Operation* ConversionManager::getEarliestEscapingUser(Value const& value) const {
   assert(hasEscapingUsers(value) && "value does not have any escaping users");
-  return escapingUsers.lookup(value).front();
+  Operation* earliestEscapingUser = nullptr;
+  for (auto* escapingUser : escapingUsers.lookup(value)) {
+    if (!earliestEscapingUser || escapingUser->isBeforeInBlock(earliestEscapingUser)) {
+      earliestEscapingUser = escapingUser;
+    }
+  }
+  return earliestEscapingUser;
 }

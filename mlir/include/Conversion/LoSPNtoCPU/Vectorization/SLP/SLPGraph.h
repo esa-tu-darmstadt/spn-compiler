@@ -75,7 +75,7 @@ namespace mlir {
         };
 
         namespace graph {
-          SmallVector<SLPNode const*> postOrder(SLPNode const& root);
+          SmallVector<SLPNode*> postOrder(SLPNode* root);
         }
 
       }

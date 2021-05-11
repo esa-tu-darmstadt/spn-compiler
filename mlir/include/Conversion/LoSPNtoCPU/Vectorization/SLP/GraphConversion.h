@@ -15,17 +15,21 @@ namespace mlir {
       namespace slp {
 
         enum ElementFlag {
+          /// Erase all elements after conversion.
           KeepNone,
+          /// Erase all but the first element after conversion.
           KeepFirst,
+          /// Do not erase any element after conversion.
           KeepAll,
-          NoExtract
+          /// Erase all elements, but also do not create extract operations for them.
+          KeepNoneNoExtract
         };
 
         class ConversionManager {
 
         public:
 
-          explicit ConversionManager(ArrayRef<SLPNode const*> const& nodes);
+          explicit ConversionManager(SLPNode* root);
 
           void setInsertionPointFor(NodeVector* vector, PatternRewriter& rewriter) const;
           bool wasConverted(NodeVector* vector) const;
@@ -35,15 +39,19 @@ namespace mlir {
           Value getValue(NodeVector* vector) const;
           ElementFlag getElementFlag(NodeVector* vector) const;
 
+          ArrayRef<SLPNode*> conversionOrder() const;
+
           bool hasEscapingUsers(Value const& value) const;
           Operation* getEarliestEscapingUser(Value const& value) const;
 
         private:
 
+          SmallVector<SLPNode*> const nodeOrder;
+
           struct NodeVectorData {
             /// The operation that was created for this node vector.
             Optional<Value> operation{None};
-            /// The way it was created.
+            /// What to do with its elements after conversion.
             Optional<ElementFlag> flag{None};
           };
           DenseMap<NodeVector*, NodeVectorData> vectorData;

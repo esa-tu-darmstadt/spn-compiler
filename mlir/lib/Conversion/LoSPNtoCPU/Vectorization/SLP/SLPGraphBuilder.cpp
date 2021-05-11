@@ -109,9 +109,7 @@ void SLPGraphBuilder::buildGraph(NodeVector* vector, SLPNode* currentNode) {
       } else if (appendable(currentNode, currentOpCode, allOperands, i)) {
         auto* newVector = currentNode->addVector(vectorValues, vector);
         buildGraph(newVector, currentNode);
-      } else if (std::all_of(std::begin(vectorValues), std::end(vectorValues), [&](Value const& value) {
-        return vectorizable(value);
-      })) {
+      } else if (ofVectorizableType(std::begin(vectorValues), std::end(vectorValues))) {
         // TODO: here might be a good place to implement variable vector width
         auto operandNode = std::make_shared<SLPNode>(vectorValues);
         nodes.emplace_back(operandNode);
@@ -140,9 +138,7 @@ void SLPGraphBuilder::buildGraph(NodeVector* vector, SLPNode* currentNode) {
       auto const existingNode = nodeOrNone(operandValues);
       if (existingNode.hasValue()) {
         currentNode->addOperand(nodes[existingNode->first], existingNode->second, vector);
-      } else if (std::all_of(std::begin(operandValues), std::end(operandValues), [&](Value const& value) {
-        return vectorizable(value);
-      })) {
+      } else if (ofVectorizableType(std::begin(operandValues), std::end(operandValues))) {
         auto operandNode = std::make_shared<SLPNode>(operandValues);
         nodes.emplace_back(operandNode);
         buildWorklist.insert(operandNode.get());

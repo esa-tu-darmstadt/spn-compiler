@@ -14,7 +14,7 @@ using namespace mlir::spn::low::slp;
 
 bool slp::vectorizable(Operation* op) {
   return (op->hasTrait<OpTrait::spn::low::VectorizableOp>() || op->hasTrait<OpTrait::ConstantLike>())
-      && op->hasTrait<OpTrait::OneResult>() && op->getResult(0).getType().isIntOrFloat();
+      && op->hasTrait<OpTrait::OneResult>() && ofVectorizableType(op->getResult(0));
 }
 
 bool slp::vectorizable(Value const& value) {
@@ -24,6 +24,10 @@ bool slp::vectorizable(Value const& value) {
       return false;
     }
   }
+  return ofVectorizableType(value);
+}
+
+bool slp::ofVectorizableType(Value const& value) {
   return value.getType().isIntOrFloat();
 }
 
@@ -54,10 +58,10 @@ void slp::dumpSLPNode(SLPNode const& node) {
   }
 }
 
-size_t slp::numNodes(SLPNode const& root) {
+size_t slp::numNodes(SLPNode* root) {
   return graph::postOrder(root).size();
 }
-size_t slp::numVectors(SLPNode const& root) {
+size_t slp::numVectors(SLPNode* root) {
   size_t n = 0;
   for (auto* node : graph::postOrder(root)) {
     n += node->numVectors();
@@ -154,19 +158,13 @@ void slp::dumpOpTree(ArrayRef<Value> const& values) {
   llvm::dbgs() << "}\n";
 }
 
-void slp::dumpSLPGraph(SLPNode const& root) {
+void slp::dumpSLPGraph(SLPNode* root) {
 
   llvm::dbgs() << "digraph debug_graph {\n";
   llvm::dbgs() << "rankdir = BT;\n";
   llvm::dbgs() << "node[shape=box];\n";
 
-  std::queue<SLPNode const*> worklist;
-  worklist.emplace(&root);
-
-  while (!worklist.empty()) {
-    auto const* node = worklist.front();
-    worklist.pop();
-
+  for (auto* node : graph::postOrder(root)) {
     llvm::dbgs() << "node_" << node << "[label=<\n";
     llvm::dbgs() << "\t<TABLE ALIGN=\"CENTER\" BORDER=\"0\" CELLSPACING=\"10\" CELLPADDING=\"0\">\n";
     for (size_t i = node->numVectors(); i-- > 0;) {
@@ -222,7 +220,6 @@ void slp::dumpSLPGraph(SLPNode const& root) {
     for (size_t i = 0; i < node->numOperands(); ++i) {
       auto const& operand = node->getOperand(i);
       llvm::dbgs() << "node_" << node << "->" << "node_" << operand << "[label=\"" << std::to_string(i) << "\"];\n";
-      worklist.emplace(operand);
     }
   }
   llvm::dbgs() << "}\n";
