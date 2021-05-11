@@ -56,13 +56,18 @@ namespace {
 LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternRewriter& rewriter) const {
 
   assert(!conversionManager.wasConverted(vector) && "vector has already been created");
-  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), constantOp.getType());
-  conversionManager.setInsertionPointFor(vector, rewriter);
 
   SmallVector<Attribute, 4> constants;
   for (auto const& value : *vector) {
-    constants.emplace_back(value.getDefiningOp<ConstantOp>().value());
+    if (auto definingOp = value.getDefiningOp<ConstantOp>()) {
+      constants.emplace_back(definingOp.value());
+    } else {
+      return rewriter.notifyMatchFailure(constantOp, "Pattern only applicable to uniform constant vectors.");
+    }
   }
+
+  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), constantOp.getType());
+  conversionManager.setInsertionPointFor(vector, rewriter);
 
   auto const& elements = denseFloatingPoints(std::begin(constants), std::end(constants), vectorType);
   auto constVector = rewriter.create<mlir::ConstantOp>(constantOp.getLoc(), elements);
@@ -75,27 +80,19 @@ LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternR
 LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, PatternRewriter& rewriter) const {
 
   assert(!conversionManager.wasConverted(vector) && "vector has already been created");
+
+  if (!consecutiveLoads(vector->begin(), vector->end())) {
+    return rewriter.notifyMatchFailure(batchReadOp, "Pattern only applicable to consecutive loads.");
+  }
+
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), batchReadOp.getType());
   conversionManager.setInsertionPointFor(vector, rewriter);
 
-  if (!consecutiveLoads(vector->begin(), vector->end())) {
-    if (vector->splattable()) {
-      auto const& element = vector->getElement(0);
-      auto vectorOperation = rewriter.create<vector::BroadcastOp>(batchReadOp.getLoc(), vectorType, element);
-      conversionManager.update(vector, vectorOperation, ElementFlag::KeepFirst);
-    } else {
-      auto vectorOperation = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
-      conversionManager.update(vector, vectorOperation, ElementFlag::KeepAll);
-    }
-  } else {
-    auto batchReadLoc = batchReadOp.getLoc();
-    auto memIndex = rewriter.create<ConstantOp>(batchReadLoc, rewriter.getIndexAttr(batchReadOp.sampleIndex()));
-    ValueRange indices{batchReadOp.batchIndex(), memIndex};
-    auto vectorLoad = rewriter.create<vector::LoadOp>(batchReadLoc, vectorType, batchReadOp.batchMem(), indices);
-    conversionManager.update(vector, vectorLoad, ElementFlag::KeepNone);
-  }
-
-  assert(conversionManager.wasConverted(vector));
+  auto batchReadLoc = batchReadOp.getLoc();
+  auto memIndex = rewriter.create<ConstantOp>(batchReadLoc, rewriter.getIndexAttr(batchReadOp.sampleIndex()));
+  ValueRange indices{batchReadOp.batchIndex(), memIndex};
+  auto vectorLoad = rewriter.create<vector::LoadOp>(batchReadLoc, vectorType, batchReadOp.batchMem(), indices);
+  conversionManager.update(vector, vectorLoad, ElementFlag::KeepNone);
 
   return success();
 }
@@ -103,15 +100,13 @@ LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, Patt
 LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewriter) const {
 
   assert(!conversionManager.wasConverted(vector) && "vector has already been created");
-  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), addOp.getType());
-  conversionManager.setInsertionPointFor(vector, rewriter);
 
   if (vector->isLeaf()) {
-    assert(!vector->splattable() && "addition vector should not be a leaf vector if it is splattable");
-    auto vectorOperation = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
-    conversionManager.update(vector, vectorOperation, ElementFlag::KeepAll);
-    return success();
+    return rewriter.notifyMatchFailure(addOp, "Pattern not applicable to additions in leaf nodes.");
   }
+
+  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), addOp.getType());
+  conversionManager.setInsertionPointFor(vector, rewriter);
 
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < addOp.getNumOperands(); ++i) {
@@ -129,15 +124,13 @@ LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewri
 LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewriter) const {
 
   assert(!conversionManager.wasConverted(vector) && "vector has already been created");
-  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), mulOp.getType());
-  conversionManager.setInsertionPointFor(vector, rewriter);
 
   if (vector->isLeaf()) {
-    assert(!vector->splattable() && "multiplication vector should not be a leaf vector if it is splattable");
-    auto vectorOperation = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
-    conversionManager.update(vector, vectorOperation, ElementFlag::KeepAll);
-    return success();
+    return rewriter.notifyMatchFailure(mulOp, "Pattern not applicable to multiplications in leaf nodes.");
   }
+
+  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), mulOp.getType());
+  conversionManager.setInsertionPointFor(vector, rewriter);
 
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < mulOp.getNumOperands(); ++i) {
@@ -155,15 +148,13 @@ LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewri
 LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, PatternRewriter& rewriter) const {
 
   assert(!conversionManager.wasConverted(vector) && "vector has already been created");
-  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), gaussianOp.getType());
-  conversionManager.setInsertionPointFor(vector, rewriter);
 
   if (vector->isLeaf()) {
-    assert(!vector->splattable() && "gaussian vector should not be a leaf vector if it is splattable");
-    auto vectorOperation = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
-    conversionManager.update(vector, vectorOperation, ElementFlag::KeepAll);
-    return success();
+    return rewriter.notifyMatchFailure(gaussianOp, "Pattern not applicable to gaussian operations in leaf nodes.");
   }
+
+  auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), gaussianOp.getType());
+  conversionManager.setInsertionPointFor(vector, rewriter);
 
   DenseElementsAttr coefficients;
   if (vectorType.getElementType().cast<FloatType>().getWidth() == 32) {
