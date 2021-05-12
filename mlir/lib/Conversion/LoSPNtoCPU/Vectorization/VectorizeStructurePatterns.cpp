@@ -11,9 +11,10 @@
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraphBuilder.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
-#include "llvm/Support/FormatVariadic.h"
 #include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/BlockAndValueMapping.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "../Target/TargetInformation.h"
 
 using namespace mlir;
@@ -67,6 +68,27 @@ LogicalResult VectorizeTask::createFunctionIfVectorizable(SPNTask& task,
   *function = rewriter.create<FuncOp>(task->getLoc(), Twine("vec_task_", std::to_string(taskCount++)).str(), funcType);
   rewriter.restoreInsertionPoint(insertionPoint);
   return success();
+}
+
+// Helper functions in anonymous namespace.
+namespace {
+
+  Value broadcastFirstInsertRest(NodeVector* vector,
+                                 VectorType const& vectorType,
+                                 PatternRewriter& rewriter,
+                                 ConversionManager& conversionManager) {
+    Value vectorOp;
+    for (size_t i = 0; i < vector->numLanes(); ++i) {
+      auto const& element = vector->getElement(i);
+      if (i == 0) {
+        vectorOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
+      } else {
+        auto index = conversionManager.getConstant(vectorOp.getLoc(), rewriter.getI32IntegerAttr((int) i), rewriter);
+        vectorOp = rewriter.create<vector::InsertElementOp>(element.getLoc(), element, vectorOp, index);
+      }
+    }
+    return vectorOp;
+  }
 }
 
 LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
@@ -126,6 +148,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   // The current vector being transformed.
   NodeVector* vector = nullptr;
   ConversionManager conversionManager{graph.get()};
+  OperationFolder folder(task->getContext());
 
   // Prevent extracting/removing values more than once (happens in splat mode, if they appear in multiple vectors, ...).
   SmallPtrSet<Value, 32> finishedValues;
@@ -161,7 +184,8 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
             auto* operand = vector->getOperand(i);
             auto const& source = conversionManager.getValue(operand);
             // TODO: in case of broadcastInsert/splat, reuse original instead of extracting
-            auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
+            auto pos = conversionManager.getConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) lane), rewriter);
+            auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, pos);
             elementOp->setOperand(i, extractOp.result());
           }
         }
@@ -174,7 +198,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         auto vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
         conversionManager.update(vector, vectorizedOp, ElementFlag::KeepFirst);
       } else {
-        auto vectorizedOp = broadcastFirstInsertRest(vector->begin(), vector->end(), vectorType, rewriter);
+        auto vectorizedOp = broadcastFirstInsertRest(vector, vectorType, rewriter, conversionManager);
         conversionManager.update(vector, vectorizedOp, ElementFlag::KeepAll);
       }
     }
@@ -195,7 +219,8 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         }
         rewriter.setInsertionPoint(conversionManager.getEarliestEscapingUser(element));
         auto const& source = conversionManager.getValue(vector);
-        auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, lane);
+        auto pos = conversionManager.getConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) lane), rewriter);
+        auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, pos);
         if (!source.getDefiningOp()->isBeforeInBlock(extractOp)) {
           llvm::dbgs() << "source: " << source << "\nextract: " << extractOp << "\n";
           assert(false && "extract before source");

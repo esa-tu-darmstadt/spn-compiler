@@ -9,8 +9,6 @@
 #include "SLPGraph.h"
 #include "LoSPN/LoSPNOps.h"
 #include "mlir/IR/Operation.h"
-#include "mlir/IR/PatternMatch.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
 
 namespace mlir {
   namespace spn {
@@ -74,19 +72,6 @@ namespace mlir {
             ++begin;
           }
           return true;
-        }
-
-        template<typename ValueIterator>
-        Value broadcastFirstInsertRest(ValueIterator begin,
-                                       ValueIterator end,
-                                       VectorType const& vectorType,
-                                       PatternRewriter& rewriter) {
-          Value vectorOp = rewriter.create<vector::BroadcastOp>(begin->getLoc(), vectorType, *begin);
-          unsigned position = 1;
-          while (++begin != end) {
-            vectorOp = rewriter.create<vector::InsertElementOp>(begin->getLoc(), *begin, vectorOp, position++);
-          }
-          return vectorOp;
         }
 
         size_t numNodes(SLPNode* root);

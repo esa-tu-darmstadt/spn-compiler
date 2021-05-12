@@ -89,7 +89,7 @@ namespace {
 
 }
 
-ConversionManager::ConversionManager(SLPNode* root) {
+ConversionManager::ConversionManager(SLPNode* root) : folder{root->getValue(0, 0).getContext()} {
   computeOrder(root, order);
   Operation* earliestInput = nullptr;
   SmallPtrSet<Operation*, 32> inputs;
@@ -207,4 +207,8 @@ Operation* ConversionManager::getEarliestEscapingUser(Value const& value) const 
     }
   }
   return earliestEscapingUser;
+}
+
+Value ConversionManager::getConstant(Location const& loc, Attribute const& attribute, PatternRewriter& rewriter) {
+  return folder.getOrCreateConstant(rewriter, &attribute.getDialect(), attribute, attribute.getType(), loc);
 }

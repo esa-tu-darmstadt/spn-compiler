@@ -8,6 +8,7 @@
 
 #include "SLPGraph.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/Transforms/FoldUtils.h"
 
 namespace mlir {
   namespace spn {
@@ -44,6 +45,8 @@ namespace mlir {
           bool hasEscapingUsers(Value const& value) const;
           Operation* getEarliestEscapingUser(Value const& value) const;
 
+          Value getConstant(Location const& loc, Attribute const& attribute, PatternRewriter& rewriter);
+
         private:
 
           SmallVector<NodeVector*> order;
@@ -61,6 +64,9 @@ namespace mlir {
 
           /// true = insert before, false = insert after
           Optional<std::pair<Operation*, bool>> insertionPoint = None;
+
+          /// Helps avoid creating duplicate constants.
+          OperationFolder folder;
 
         };
       }

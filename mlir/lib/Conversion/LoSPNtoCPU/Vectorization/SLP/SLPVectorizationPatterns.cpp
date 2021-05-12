@@ -5,9 +5,8 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
+#include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
-#include "mlir/IR/BlockAndValueMapping.h"
-#include "llvm/Support/FormatVariadic.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -70,7 +69,7 @@ LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternR
   conversionManager.setInsertionPointFor(vector, rewriter);
 
   auto const& elements = denseFloatingPoints(std::begin(constants), std::end(constants), vectorType);
-  auto constVector = rewriter.create<mlir::ConstantOp>(constantOp.getLoc(), elements);
+  auto constVector = conversionManager.getConstant(constantOp.getLoc(), elements, rewriter);
 
   conversionManager.update(vector, constVector, ElementFlag::KeepNoneNoExtract);
 
@@ -88,10 +87,10 @@ LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, Patt
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), batchReadOp.getType());
   conversionManager.setInsertionPointFor(vector, rewriter);
 
-  auto batchReadLoc = batchReadOp.getLoc();
-  auto memIndex = rewriter.create<ConstantOp>(batchReadLoc, rewriter.getIndexAttr(batchReadOp.sampleIndex()));
-  ValueRange indices{batchReadOp.batchIndex(), memIndex};
-  auto vectorLoad = rewriter.create<vector::LoadOp>(batchReadLoc, vectorType, batchReadOp.batchMem(), indices);
+  auto loc = batchReadOp.getLoc();
+  auto sampleIndex = conversionManager.getConstant(loc, rewriter.getIndexAttr(batchReadOp.sampleIndex()), rewriter);
+  ValueRange indices{batchReadOp.batchIndex(), sampleIndex};
+  auto vectorLoad = rewriter.create<vector::LoadOp>(loc, vectorType, batchReadOp.batchMem(), indices);
   conversionManager.update(vector, vectorLoad, ElementFlag::KeepNone);
 
   return success();
@@ -195,21 +194,21 @@ LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, Pat
   auto const& gaussianLoc = gaussianOp.getLoc();
 
   // (x - mean)
-  auto meanVector = rewriter.create<ConstantOp>(gaussianLoc, means);
+  auto meanVector = conversionManager.getConstant(gaussianLoc, means, rewriter);
   Value gaussianVector = rewriter.create<SubFOp>(gaussianLoc, vectorType, inputVector, meanVector);
 
   // ((x - mean) / stddev)^2
-  auto stddevVector = rewriter.create<ConstantOp>(gaussianLoc, stddevs);
+  auto stddevVector = conversionManager.getConstant(gaussianLoc, stddevs, rewriter);
   gaussianVector = rewriter.create<DivFOp>(gaussianLoc, vectorType, gaussianVector, stddevVector);
   gaussianVector = rewriter.create<MulFOp>(gaussianLoc, vectorType, gaussianVector, gaussianVector);
 
   // e^(-0.5 * ((x - mean) / stddev)^2))
-  auto halfVector = rewriter.create<ConstantOp>(gaussianLoc, denseFloatingPoints(-0.5, vectorType));
+  auto halfVector = conversionManager.getConstant(gaussianLoc, denseFloatingPoints(-0.5, vectorType), rewriter);
   gaussianVector = rewriter.create<MulFOp>(gaussianLoc, vectorType, halfVector, gaussianVector);
   gaussianVector = rewriter.create<math::ExpOp>(gaussianLoc, vectorType, gaussianVector);
 
   // e^(-0.5 * ((x - mean) / stddev)^2)) / (stddev * sqrt(2 * PI))
-  auto coefficientVector = rewriter.create<ConstantOp>(gaussianLoc, coefficients);
+  auto coefficientVector = conversionManager.getConstant(gaussianLoc, coefficients, rewriter);
   gaussianVector = rewriter.create<MulFOp>(gaussianLoc, coefficientVector, gaussianVector);
 
   conversionManager.update(vector, gaussianVector, ElementFlag::KeepNone);
