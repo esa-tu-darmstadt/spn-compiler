@@ -143,8 +143,8 @@ void ConversionManager::setInsertionPointFor(NodeVector* vector) const {
   Operation* latestOperandOp = nullptr;
   for (size_t i = 0; i < vector->numOperands(); ++i) {
     auto* operand = vector->getOperand(i);
-    assert(vectorData.lookup(operand).operation.hasValue() && "operand has not yet been converted");
-    auto* operandOp = vectorData.lookup(operand).operation->getDefiningOp();
+    assert(vectorData.count(operand) && "operand has not yet been converted");
+    auto* operandOp = vectorData.lookup(operand).operation.getDefiningOp();
     if (!latestOperandOp || latestOperandOp->isBeforeInBlock(operandOp)) {
       latestOperandOp = operandOp;
     }
@@ -168,8 +168,7 @@ void ConversionManager::setInsertionPointFor(NodeVector* vector) const {
 }
 
 void ConversionManager::update(NodeVector* vector, Value const& operation, ElementFlag const& flag) {
-  assert(!vectorData[vector].operation.hasValue() && !vectorData[vector].flag.hasValue()
-             && "vector has been converted already");
+  assert(!wasConverted(vector) && "vector has been converted already");
   vectorData[vector].operation = operation;
   vectorData[vector].flag = flag;
   if (insertionPoint->first->isBeforeInBlock(operation.getDefiningOp())) {
@@ -178,17 +177,17 @@ void ConversionManager::update(NodeVector* vector, Value const& operation, Eleme
 }
 
 bool ConversionManager::wasConverted(NodeVector* vector) const {
-  return vectorData.lookup(vector).operation.hasValue();
+  return vectorData.count(vector);
 }
 
 Value ConversionManager::getValue(NodeVector* vector) const {
   assert(wasConverted(vector) && "vector has not yet been converted");
-  return vectorData.lookup(vector).operation.getValue();
+  return vectorData.lookup(vector).operation;
 }
 
 ElementFlag ConversionManager::getElementFlag(NodeVector* vector) const {
-  assert(vectorData.lookup(vector).flag.hasValue() && "vector has not yet been converted");
-  return vectorData.lookup(vector).flag.getValue();
+  assert(wasConverted(vector) && "vector has not yet been converted");
+  return vectorData.lookup(vector).flag;
 }
 
 ArrayRef<NodeVector*> ConversionManager::conversionOrder() const {

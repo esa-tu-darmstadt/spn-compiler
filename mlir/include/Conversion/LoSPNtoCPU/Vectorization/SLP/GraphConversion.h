@@ -53,9 +53,9 @@ namespace mlir {
 
           struct NodeVectorData {
             /// The operation that was created for this node vector.
-            Optional<Value> operation{None};
+            Value operation;
             /// What to do with its elements after conversion.
-            Optional<ElementFlag> flag{None};
+            ElementFlag flag;
           };
           DenseMap<NodeVector*, NodeVectorData> vectorData;
 
