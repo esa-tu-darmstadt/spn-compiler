@@ -66,10 +66,10 @@ LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternR
   }
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), constantOp.getType());
-  conversionManager.setInsertionPointFor(vector, rewriter);
+  conversionManager.setInsertionPointFor(vector);
 
   auto const& elements = denseFloatingPoints(std::begin(constants), std::end(constants), vectorType);
-  auto constVector = conversionManager.getConstant(constantOp.getLoc(), elements, rewriter);
+  auto constVector = conversionManager.getConstant(constantOp.getLoc(), elements);
 
   conversionManager.update(vector, constVector, ElementFlag::KeepNoneNoExtract);
 
@@ -85,10 +85,10 @@ LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, Patt
   }
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), batchReadOp.getType());
-  conversionManager.setInsertionPointFor(vector, rewriter);
+  conversionManager.setInsertionPointFor(vector);
 
   auto loc = batchReadOp.getLoc();
-  auto sampleIndex = conversionManager.getConstant(loc, rewriter.getIndexAttr(batchReadOp.sampleIndex()), rewriter);
+  auto sampleIndex = conversionManager.getConstant(loc, rewriter.getIndexAttr(batchReadOp.sampleIndex()));
   ValueRange indices{batchReadOp.batchIndex(), sampleIndex};
   auto vectorLoad = rewriter.create<vector::LoadOp>(loc, vectorType, batchReadOp.batchMem(), indices);
   conversionManager.update(vector, vectorLoad, ElementFlag::KeepNone);
@@ -105,7 +105,7 @@ LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewri
   }
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), addOp.getType());
-  conversionManager.setInsertionPointFor(vector, rewriter);
+  conversionManager.setInsertionPointFor(vector);
 
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < addOp.getNumOperands(); ++i) {
@@ -129,7 +129,7 @@ LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewri
   }
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), mulOp.getType());
-  conversionManager.setInsertionPointFor(vector, rewriter);
+  conversionManager.setInsertionPointFor(vector);
 
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < mulOp.getNumOperands(); ++i) {
@@ -153,7 +153,7 @@ LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, Pat
   }
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), gaussianOp.getType());
-  conversionManager.setInsertionPointFor(vector, rewriter);
+  conversionManager.setInsertionPointFor(vector);
 
   DenseElementsAttr coefficients;
   if (vectorType.getElementType().cast<FloatType>().getWidth() == 32) {
@@ -194,21 +194,21 @@ LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, Pat
   auto const& gaussianLoc = gaussianOp.getLoc();
 
   // (x - mean)
-  auto meanVector = conversionManager.getConstant(gaussianLoc, means, rewriter);
+  auto meanVector = conversionManager.getConstant(gaussianLoc, means);
   Value gaussianVector = rewriter.create<SubFOp>(gaussianLoc, vectorType, inputVector, meanVector);
 
   // ((x - mean) / stddev)^2
-  auto stddevVector = conversionManager.getConstant(gaussianLoc, stddevs, rewriter);
+  auto stddevVector = conversionManager.getConstant(gaussianLoc, stddevs);
   gaussianVector = rewriter.create<DivFOp>(gaussianLoc, vectorType, gaussianVector, stddevVector);
   gaussianVector = rewriter.create<MulFOp>(gaussianLoc, vectorType, gaussianVector, gaussianVector);
 
   // e^(-0.5 * ((x - mean) / stddev)^2))
-  auto halfVector = conversionManager.getConstant(gaussianLoc, denseFloatingPoints(-0.5, vectorType), rewriter);
+  auto halfVector = conversionManager.getConstant(gaussianLoc, denseFloatingPoints(-0.5, vectorType));
   gaussianVector = rewriter.create<MulFOp>(gaussianLoc, vectorType, halfVector, gaussianVector);
   gaussianVector = rewriter.create<math::ExpOp>(gaussianLoc, vectorType, gaussianVector);
 
   // e^(-0.5 * ((x - mean) / stddev)^2)) / (stddev * sqrt(2 * PI))
-  auto coefficientVector = conversionManager.getConstant(gaussianLoc, coefficients, rewriter);
+  auto coefficientVector = conversionManager.getConstant(gaussianLoc, coefficients);
   gaussianVector = rewriter.create<MulFOp>(gaussianLoc, coefficientVector, gaussianVector);
 
   conversionManager.update(vector, gaussianVector, ElementFlag::KeepNone);

@@ -30,9 +30,9 @@ namespace mlir {
 
         public:
 
-          explicit ConversionManager(SLPNode* root);
+          ConversionManager(SLPNode* root, PatternRewriter& rewriter);
 
-          void setInsertionPointFor(NodeVector* vector, PatternRewriter& rewriter) const;
+          void setInsertionPointFor(NodeVector* vector) const;
           bool wasConverted(NodeVector* vector) const;
 
           void update(NodeVector* vector, Value const& operation, ElementFlag const& flag);
@@ -45,7 +45,7 @@ namespace mlir {
           bool hasEscapingUsers(Value const& value) const;
           Operation* getEarliestEscapingUser(Value const& value) const;
 
-          Value getConstant(Location const& loc, Attribute const& attribute, PatternRewriter& rewriter);
+          Value getConstant(Location const& loc, Attribute const& attribute);
 
         private:
 
@@ -64,6 +64,9 @@ namespace mlir {
 
           /// true = insert before, false = insert after
           Optional<std::pair<Operation*, bool>> insertionPoint = None;
+
+          /// For creating constants & setting insertion points.
+          PatternRewriter& rewriter;
 
           /// Helps avoid creating duplicate constants.
           OperationFolder folder;

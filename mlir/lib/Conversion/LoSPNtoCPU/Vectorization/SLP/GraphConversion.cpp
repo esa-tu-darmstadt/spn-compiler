@@ -89,7 +89,8 @@ namespace {
 
 }
 
-ConversionManager::ConversionManager(SLPNode* root) : folder{root->getValue(0, 0).getContext()} {
+ConversionManager::ConversionManager(SLPNode* root, PatternRewriter& rewriter) : rewriter{rewriter}, folder{
+    root->getValue(0, 0).getContext()} {
   computeOrder(root, order);
   Operation* earliestInput = nullptr;
   SmallPtrSet<Operation*, 32> inputs;
@@ -138,7 +139,7 @@ ConversionManager::ConversionManager(SLPNode* root) : folder{root->getValue(0, 0
   insertionPoint = std::make_pair(earliestEscapingUser, true);
 }
 
-void ConversionManager::setInsertionPointFor(NodeVector* vector, PatternRewriter& rewriter) const {
+void ConversionManager::setInsertionPointFor(NodeVector* vector) const {
   Operation* latestOperandOp = nullptr;
   for (size_t i = 0; i < vector->numOperands(); ++i) {
     auto* operand = vector->getOperand(i);
@@ -209,6 +210,6 @@ Operation* ConversionManager::getEarliestEscapingUser(Value const& value) const 
   return earliestEscapingUser;
 }
 
-Value ConversionManager::getConstant(Location const& loc, Attribute const& attribute, PatternRewriter& rewriter) {
+Value ConversionManager::getConstant(Location const& loc, Attribute const& attribute) {
   return folder.getOrCreateConstant(rewriter, &attribute.getDialect(), attribute, attribute.getType(), loc);
 }

@@ -83,7 +83,7 @@ namespace {
       if (i == 0) {
         vectorOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
       } else {
-        auto index = conversionManager.getConstant(vectorOp.getLoc(), rewriter.getI32IntegerAttr((int) i), rewriter);
+        auto index = conversionManager.getConstant(vectorOp.getLoc(), rewriter.getI32IntegerAttr(static_cast<int>(i)));
         vectorOp = rewriter.create<vector::InsertElementOp>(element.getLoc(), element, vectorOp, index);
       }
     }
@@ -147,8 +147,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   task->emitRemark("Converting graph...");
   // The current vector being transformed.
   NodeVector* vector = nullptr;
-  ConversionManager conversionManager{graph.get()};
-  OperationFolder folder(task->getContext());
+  ConversionManager conversionManager{graph.get(), rewriter};
 
   // Prevent extracting/removing values more than once (happens in splat mode, if they appear in multiple vectors, ...).
   SmallPtrSet<Value, 32> finishedValues;
@@ -175,7 +174,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     auto* vectorOp = vector->begin()->getDefiningOp();
     if (vector->containsBlockArgs() || failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
       auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
-      conversionManager.setInsertionPointFor(vector, rewriter);
+      conversionManager.setInsertionPointFor(vector);
       // Create extractions from vectorized operands if present.
       for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
         auto const& element = vector->getElement(lane);
@@ -184,7 +183,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
             auto* operand = vector->getOperand(i);
             auto const& source = conversionManager.getValue(operand);
             // TODO: in case of broadcastInsert/splat, reuse original instead of extracting
-            auto pos = conversionManager.getConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) lane), rewriter);
+            auto pos = conversionManager.getConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) lane));
             auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, pos);
             elementOp->setOperand(i, extractOp.result());
           }
@@ -219,7 +218,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         }
         rewriter.setInsertionPoint(conversionManager.getEarliestEscapingUser(element));
         auto const& source = conversionManager.getValue(vector);
-        auto pos = conversionManager.getConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) lane), rewriter);
+        auto pos = conversionManager.getConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) lane));
         auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, pos);
         if (!source.getDefiningOp()->isBeforeInBlock(extractOp)) {
           llvm::dbgs() << "source: " << source << "\nextract: " << extractOp << "\n";
