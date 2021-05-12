@@ -21,7 +21,7 @@ namespace {
     return lhs.getDefiningOp()->isBeforeInBlock(rhs.getDefiningOp()) ? rhs : lhs;
   }
 
-  Value latestElement(NodeVector* vector) {
+  Value latestElement(ValueVector* vector) {
     Value latestElement = nullptr;
     for (auto const& value : *vector) {
       if (!latestElement) {
@@ -79,7 +79,7 @@ namespace {
     }
   }
 
-  void computeOrder(SLPNode* root, SmallVectorImpl<NodeVector*>& order) {
+  void computeOrder(SLPNode* root, SmallVectorImpl<ValueVector*>& order) {
     for (auto* node : graph::postOrder(root)) {
       for (size_t i = node->numVectors(); i-- > 0;) {
         order.emplace_back(node->getVector(i));
@@ -139,12 +139,12 @@ ConversionManager::ConversionManager(SLPNode* root, PatternRewriter& rewriter) :
   insertionPoint = std::make_pair(earliestEscapingUser, true);
 }
 
-void ConversionManager::setInsertionPointFor(NodeVector* vector) const {
+void ConversionManager::setInsertionPointFor(ValueVector* vector) const {
   Operation* latestOperandOp = nullptr;
   for (size_t i = 0; i < vector->numOperands(); ++i) {
     auto* operand = vector->getOperand(i);
-    assert(vectorData.count(operand) && "operand has not yet been converted");
-    auto* operandOp = vectorData.lookup(operand).operation.getDefiningOp();
+    assert(creationData.count(operand) && "operand has not yet been converted");
+    auto* operandOp = creationData.lookup(operand).operation.getDefiningOp();
     if (!latestOperandOp || latestOperandOp->isBeforeInBlock(operandOp)) {
       latestOperandOp = operandOp;
     }
@@ -167,30 +167,30 @@ void ConversionManager::setInsertionPointFor(NodeVector* vector) const {
   }
 }
 
-void ConversionManager::update(NodeVector* vector, Value const& operation, ElementFlag const& flag) {
+void ConversionManager::update(ValueVector* vector, Value const& operation, ElementFlag const& flag) {
   assert(!wasConverted(vector) && "vector has been converted already");
-  vectorData[vector].operation = operation;
-  vectorData[vector].flag = flag;
+  creationData[vector].operation = operation;
+  creationData[vector].flag = flag;
   if (insertionPoint->first->isBeforeInBlock(operation.getDefiningOp())) {
     insertionPoint = std::make_pair(operation.getDefiningOp(), false);
   }
 }
 
-bool ConversionManager::wasConverted(NodeVector* vector) const {
-  return vectorData.count(vector);
+bool ConversionManager::wasConverted(ValueVector* vector) const {
+  return creationData.count(vector);
 }
 
-Value ConversionManager::getValue(NodeVector* vector) const {
+Value ConversionManager::getValue(ValueVector* vector) const {
   assert(wasConverted(vector) && "vector has not yet been converted");
-  return vectorData.lookup(vector).operation;
+  return creationData.lookup(vector).operation;
 }
 
-ElementFlag ConversionManager::getElementFlag(NodeVector* vector) const {
+ElementFlag ConversionManager::getElementFlag(ValueVector* vector) const {
   assert(wasConverted(vector) && "vector has not yet been converted");
-  return vectorData.lookup(vector).flag;
+  return creationData.lookup(vector).flag;
 }
 
-ArrayRef<NodeVector*> ConversionManager::conversionOrder() const {
+ArrayRef<ValueVector*> ConversionManager::conversionOrder() const {
   return order;
 }
 

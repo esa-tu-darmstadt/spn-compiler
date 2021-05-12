@@ -18,18 +18,18 @@ namespace mlir {
         class CostModel {
         public:
           unsigned getScalarCost(Value const& value);
-          unsigned getVectorCost(NodeVector const* vector);
+          unsigned getVectorCost(ValueVector const* vector);
         protected:
           virtual unsigned computeScalarCost(Value const& value) = 0;
-          virtual unsigned computeVectorCost(NodeVector const* vector) = 0;
+          virtual unsigned computeVectorCost(ValueVector const* vector) = 0;
         private:
           DenseMap<Value, unsigned> cachedScalarCosts;
-          DenseMap<NodeVector const*, unsigned> cachedVectorCosts;
+          DenseMap<ValueVector const*, unsigned> cachedVectorCosts;
         };
 
         class UnitCostModel : public CostModel {
           unsigned computeScalarCost(Value const& value) override;
-          unsigned computeVectorCost(NodeVector const* vector) override;
+          unsigned computeVectorCost(ValueVector const* group) override;
         };
       }
     }

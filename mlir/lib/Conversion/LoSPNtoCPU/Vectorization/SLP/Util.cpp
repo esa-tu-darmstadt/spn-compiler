@@ -5,7 +5,6 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include <queue>
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -87,14 +86,14 @@ namespace {
   }
 }
 
-void slp::dumpSLPNodeVector(NodeVector const& nodeVector) {
-  for (size_t lane = 0; lane < nodeVector.numLanes(); ++lane) {
-    if (!nodeVector[lane].isa<BlockArgument>()) {
-      llvm::dbgs() << nodeVector[lane] << " (" << nodeVector[lane].getDefiningOp() << ")";
+void slp::dumpSLPNodeVector(ValueVector const& vector) {
+  for (size_t lane = 0; lane < vector.numLanes(); ++lane) {
+    if (!vector[lane].isa<BlockArgument>()) {
+      llvm::dbgs() << vector[lane] << " (" << vector[lane].getDefiningOp() << ")";
     } else {
-      dumpBlockArgOrDefiningOpName(nodeVector[lane]);
+      dumpBlockArgOrDefiningOpName(vector[lane]);
     }
-    if (lane < nodeVector.numLanes() - 1) {
+    if (lane < vector.numLanes() - 1) {
       llvm::dbgs() << "\t|\t";
     }
   }

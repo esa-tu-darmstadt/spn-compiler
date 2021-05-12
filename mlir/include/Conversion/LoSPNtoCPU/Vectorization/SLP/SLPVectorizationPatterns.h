@@ -28,12 +28,12 @@ namespace mlir {
         class SLPVectorizationPattern : public OpRewritePattern<SourceOp> {
 
         public:
-          SLPVectorizationPattern(MLIRContext* context, NodeVector* const& vector, ConversionManager& conversionManager)
+          SLPVectorizationPattern(MLIRContext* context, ValueVector* const& vector, ConversionManager& conversionManager)
               : OpRewritePattern<SourceOp>{context}, vector{vector}, conversionManager{conversionManager} {}
 
         protected:
           /// The current vector being transformed.
-          NodeVector* const& vector;
+          ValueVector* const& vector;
           ConversionManager& conversionManager;
         };
 
@@ -64,7 +64,7 @@ namespace mlir {
 
         static void populateSLPVectorizationPatterns(OwningRewritePatternList& patterns,
                                                      MLIRContext* context,
-                                                     NodeVector* const& vector,
+                                                     ValueVector* const& vector,
                                                      ConversionManager& conversionManager) {
           patterns.insert<VectorizeConstant>(context, vector, conversionManager);
           patterns.insert<VectorizeBatchRead>(context, vector, conversionManager);

@@ -32,15 +32,15 @@ namespace mlir {
 
           ConversionManager(SLPNode* root, PatternRewriter& rewriter);
 
-          void setInsertionPointFor(NodeVector* vector) const;
-          bool wasConverted(NodeVector* vector) const;
+          void setInsertionPointFor(ValueVector* vector) const;
+          bool wasConverted(ValueVector* vector) const;
 
-          void update(NodeVector* vector, Value const& operation, ElementFlag const& flag);
+          void update(ValueVector* vector, Value const& operation, ElementFlag const& flag);
 
-          Value getValue(NodeVector* vector) const;
-          ElementFlag getElementFlag(NodeVector* vector) const;
+          Value getValue(ValueVector* vector) const;
+          ElementFlag getElementFlag(ValueVector* vector) const;
 
-          ArrayRef<NodeVector*> conversionOrder() const;
+          ArrayRef<ValueVector*> conversionOrder() const;
 
           bool hasEscapingUsers(Value const& value) const;
           Operation* getEarliestEscapingUser(Value const& value) const;
@@ -49,15 +49,15 @@ namespace mlir {
 
         private:
 
-          SmallVector<NodeVector*> order;
+          SmallVector<ValueVector*> order;
 
-          struct NodeVectorData {
+          struct CreationData {
             /// The operation that was created for this node vector.
             Value operation;
             /// What to do with its elements after conversion.
             ElementFlag flag;
           };
-          DenseMap<NodeVector*, NodeVectorData> vectorData;
+          DenseMap<ValueVector*, CreationData> creationData;
 
           /// Stores escaping users for each value.
           DenseMap<Value, SmallVector<Operation*, 2>> escapingUsers;

@@ -80,7 +80,7 @@ namespace mlir {
         void dumpOpTree(ArrayRef<Value> const& values);
         void dumpSLPGraph(SLPNode* root);
         void dumpSLPNode(SLPNode const& node);
-        void dumpSLPNodeVector(NodeVector const& nodeVector);
+        void dumpSLPNodeVector(ValueVector const& vector);
 
       }
     }

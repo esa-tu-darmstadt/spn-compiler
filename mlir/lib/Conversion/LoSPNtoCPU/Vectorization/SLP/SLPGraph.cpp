@@ -14,7 +14,7 @@ using namespace mlir::spn::low::slp;
 
 // === NodeVector === //
 
-NodeVector::NodeVector(ArrayRef<Value> const& values) {
+ValueVector::ValueVector(ArrayRef<Value> const& values) {
   assert(!values.empty());
   for (auto const& value : values) {
     assert(value.isa<BlockArgument>() || value.getDefiningOp()->hasTrait<OpTrait::OneResult>());
@@ -22,7 +22,7 @@ NodeVector::NodeVector(ArrayRef<Value> const& values) {
   }
 }
 
-NodeVector::NodeVector(ArrayRef<Operation*> const& operations) {
+ValueVector::ValueVector(ArrayRef<Operation*> const& operations) {
   assert(!operations.empty());
   for (auto* op : operations) {
     assert(op->hasTrait<OpTrait::OneResult>());
@@ -30,17 +30,17 @@ NodeVector::NodeVector(ArrayRef<Operation*> const& operations) {
   }
 }
 
-bool NodeVector::contains(Value const& value) const {
+bool ValueVector::contains(Value const& value) const {
   return std::find(std::begin(values), std::end(values), value) != std::end(values);
 }
 
-bool NodeVector::containsBlockArgs() const {
+bool ValueVector::containsBlockArgs() const {
   return std::any_of(std::begin(values), std::end(values), [&](Value const& value) {
     return value.isa<BlockArgument>();
   });
 }
 
-bool NodeVector::splattable() const {
+bool ValueVector::splattable() const {
   if (containsBlockArgs()) {
     return std::all_of(std::begin(values), std::end(values), [&](Value const& element) {
       return element == values.front();
@@ -51,36 +51,36 @@ bool NodeVector::splattable() const {
   });
 }
 
-bool NodeVector::isLeaf() const {
+bool ValueVector::isLeaf() const {
   return operands.empty();
 }
 
-size_t NodeVector::numLanes() const {
+size_t ValueVector::numLanes() const {
   return values.size();
 }
 
-size_t NodeVector::numOperands() const {
+size_t ValueVector::numOperands() const {
   return operands.size();
 }
 
-NodeVector* NodeVector::getOperand(size_t index) const {
+ValueVector* ValueVector::getOperand(size_t index) const {
   assert(index < operands.size());
   return operands[index];
 }
 
-SmallVectorImpl<Value>::const_iterator NodeVector::begin() const {
+SmallVectorImpl<Value>::const_iterator ValueVector::begin() const {
   return values.begin();
 }
 
-SmallVectorImpl<Value>::const_iterator NodeVector::end() const {
+SmallVectorImpl<Value>::const_iterator ValueVector::end() const {
   return values.end();
 }
 
-Value NodeVector::getElement(size_t lane) const {
+Value ValueVector::getElement(size_t lane) const {
   return this->operator[](lane);
 }
 
-Value NodeVector::operator[](size_t lane) const {
+Value ValueVector::operator[](size_t lane) const {
   assert(lane < numLanes());
   return values[lane];
 }
@@ -88,11 +88,11 @@ Value NodeVector::operator[](size_t lane) const {
 // === SLPNode === //
 
 SLPNode::SLPNode(ArrayRef<Value> const& values) {
-  vectors.emplace_back(std::make_unique<NodeVector>(values));
+  vectors.emplace_back(std::make_unique<ValueVector>(values));
 }
 
 SLPNode::SLPNode(ArrayRef<Operation*> const& operations) {
-  vectors.emplace_back(std::make_unique<NodeVector>(operations));
+  vectors.emplace_back(std::make_unique<ValueVector>(operations));
 }
 
 Value SLPNode::getValue(size_t lane, size_t index) const {
@@ -111,7 +111,7 @@ bool SLPNode::contains(Value const& value) const {
   });
 }
 
-bool SLPNode::isRootOfNode(NodeVector const& vector) const {
+bool SLPNode::isRootOfNode(ValueVector const& vector) const {
   return vectors[0]->values == vector.values;
 }
 
@@ -123,25 +123,27 @@ size_t SLPNode::numVectors() const {
   return vectors.size();
 }
 
-NodeVector* SLPNode::addVector(ArrayRef<Value> const& values, NodeVector* definingVector) {
-  auto const& newVector = vectors.emplace_back(std::make_unique<NodeVector>(values));
+ValueVector* SLPNode::addVector(ArrayRef<Value> const& values, ValueVector* definingVector) {
+  auto const& newVector = vectors.emplace_back(std::make_unique<ValueVector>(values));
   definingVector->operands.emplace_back(newVector.get());
   return newVector.get();
 }
 
-NodeVector* SLPNode::getVector(size_t index) const {
+ValueVector* SLPNode::getVector(size_t index) const {
   assert(index <= numVectors());
   return vectors[index].get();
 }
 
-NodeVector* SLPNode::getVectorOrNull(ArrayRef<Value> const& values) const {
+ValueVector* SLPNode::getVectorOrNull(ArrayRef<Value> const& values) const {
   auto it = std::find_if(std::begin(vectors), std::end(vectors), [&](auto const& vector) {
     return values.equals(vector->values);
   });
   return it != std::end(vectors) ? it->get() : nullptr;
 }
 
-void SLPNode::addOperand(std::shared_ptr<SLPNode> operandNode, NodeVector* operandVector, NodeVector* definingVector) {
+void SLPNode::addOperand(std::shared_ptr<SLPNode> operandNode,
+                         ValueVector* operandVector,
+                         ValueVector* definingVector) {
   operandNodes.emplace_back(std::move(operandNode));
   definingVector->operands.emplace_back(operandVector);
 }

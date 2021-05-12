@@ -73,7 +73,7 @@ LogicalResult VectorizeTask::createFunctionIfVectorizable(SPNTask& task,
 // Helper functions in anonymous namespace.
 namespace {
 
-  Value broadcastFirstInsertRest(NodeVector* vector,
+  Value broadcastFirstInsertRest(ValueVector* vector,
                                  VectorType const& vectorType,
                                  PatternRewriter& rewriter,
                                  ConversionManager& conversionManager) {
@@ -146,7 +146,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
   task->emitRemark("Converting graph...");
   // The current vector being transformed.
-  NodeVector* vector = nullptr;
+  ValueVector* vector = nullptr;
   ConversionManager conversionManager{graph.get(), rewriter};
 
   // Prevent extracting/removing values more than once (happens in splat mode, if they appear in multiple vectors, ...).
