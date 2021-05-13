@@ -38,16 +38,19 @@ namespace mlir {
             FAILED
           };
 
-          void buildGraph(ValueVector* vector, SLPNode* currentNode);
+          void buildGraph(ValueVector* vector);
           void reorderOperands(SLPNode* multinode) const;
           std::pair<Value, Mode> getBest(Mode const& mode, Value const& last, SmallVector<Value>& candidates) const;
           unsigned getLookAheadScore(Value const& last, Value const& candidate, unsigned maxLevel) const;
 
           static Mode modeFromValue(Value const& value);
-          Optional<std::pair<size_t, ValueVector*>> nodeOrNone(ArrayRef<Value> const& values) const;
+          ValueVector* addValueVectorToNode(ArrayRef<Value> const& values,
+                                            std::shared_ptr<SLPNode> node,
+                                            ValueVector* usingVector = nullptr);
+          ValueVector* vectorOrNull(ArrayRef<Value> const& values) const;
 
           size_t const maxLookAhead;
-          SmallVector<std::shared_ptr<SLPNode>> nodes;
+          DenseMap<Value, SmallVector<ValueVector*>> vectorsByValue;
           SmallPtrSet<SLPNode*, 8> buildWorklist;
 
         };

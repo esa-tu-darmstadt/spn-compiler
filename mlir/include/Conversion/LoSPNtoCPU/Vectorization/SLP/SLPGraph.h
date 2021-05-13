@@ -14,14 +14,16 @@ namespace mlir {
     namespace low {
       namespace slp {
 
+        class SLPNode;
+
         class ValueVector {
 
-          friend class SLPNode;
+          friend SLPNode;
 
         public:
 
-          explicit ValueVector(ArrayRef<Value> const& values);
-          explicit ValueVector(ArrayRef<Operation*> const& operations);
+          ValueVector(ArrayRef<Value> const& values, std::shared_ptr<SLPNode> const& parentNode);
+          ValueVector(ArrayRef<Operation*> const& operations, std::shared_ptr<SLPNode> const& parentNode);
 
           bool contains(Value const& value) const;
           bool containsBlockArgs() const;
@@ -30,7 +32,10 @@ namespace mlir {
 
           size_t numLanes() const;
           size_t numOperands() const;
+
+          void addOperand(ValueVector* operandVector);
           ValueVector* getOperand(size_t index) const;
+          std::shared_ptr<SLPNode> getParentNode() const;
 
           SmallVectorImpl<Value>::const_iterator begin() const;
           SmallVectorImpl<Value>::const_iterator end() const;
@@ -41,33 +46,30 @@ namespace mlir {
         private:
           SmallVector<Value, 4> values;
           SmallVector<ValueVector*> operands;
+          std::weak_ptr<SLPNode> const parentNode;
         };
 
         class SLPNode {
 
         public:
 
-          explicit SLPNode(ArrayRef<Value> const& values);
-          explicit SLPNode(ArrayRef<Operation*> const& operations);
+          ValueVector* addVector(std::unique_ptr<ValueVector> vector);
+          ValueVector* getVector(size_t index) const;
 
           Value getValue(size_t lane, size_t index) const;
           void setValue(size_t lane, size_t index, Value const& newValue);
 
           bool contains(Value const& value) const;
 
-          bool isRootOfNode(ValueVector const& vector) const;
+          bool isVectorRoot(ValueVector const& vector) const;
 
           size_t numLanes() const;
           size_t numVectors() const;
+          size_t numOperands() const;
 
-          ValueVector* addVector(ArrayRef<Value> const& values, ValueVector* definingVector);
-          ValueVector* getVector(size_t index) const;
-          ValueVector* getVectorOrNull(ArrayRef<Value> const& values) const;
-
-          void addOperand(std::shared_ptr<SLPNode> operandNode, ValueVector* operandVector, ValueVector* definingVector);
+          void addOperand(std::shared_ptr<SLPNode> operandNode);
           SLPNode* getOperand(size_t index) const;
           std::vector<SLPNode*> getOperands() const;
-          size_t numOperands() const;
 
         private:
           SmallVector<std::unique_ptr<ValueVector>> vectors;

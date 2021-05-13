@@ -180,7 +180,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     auto* vectorOp = vector->begin()->getDefiningOp();
     auto matchingStart = std::chrono::high_resolution_clock::now();
     if (vector->containsBlockArgs() || failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
-      timeSpentMatching +=  std::chrono::high_resolution_clock::now() - matchingStart;
+      timeSpentMatching += std::chrono::high_resolution_clock::now() - matchingStart;
       auto operandExtracting = std::chrono::high_resolution_clock::now();
       auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
       conversionManager.setInsertionPointFor(vector);
@@ -251,18 +251,20 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   }
   std::chrono::duration<double> timeSpent = std::chrono::high_resolution_clock::now() - start;
   task->emitRemark("Graph conversion complete.");
-  task->emitRemark("Overall time spent (s): " + std::to_string(timeSpent.count()));
-  task->emitRemark("\tTime spent matching & applying patterns (s): " + std::to_string(timeSpentMatching.count()));
-  task->emitRemark("\tTime spent creating leaves (s): " + std::to_string(timeSpentCreatingLeaves.count()));
-  task->emitRemark("\tTime spent creating operand extractions (s): " + std::to_string(timeSpentExtractingOperands.count()));
-  task->emitRemark("\tTime spent creating escaping use extractions (s): " + std::to_string(timeSpentExtractingEscaping.count()));
+  task->emitRemark("Overall time spent [s]: " + std::to_string(timeSpent.count()));
+  task->emitRemark("\tTime spent matching & applying patterns [s]: " + std::to_string(timeSpentMatching.count()));
+  task->emitRemark("\tTime spent creating leaves [s]: " + std::to_string(timeSpentCreatingLeaves.count()));
+  task->emitRemark(
+      "\tTime spent creating operand extractions [s]: " + std::to_string(timeSpentExtractingOperands.count()));
+  task->emitRemark(
+      "\tTime spent creating escaping use extractions [s]: " + std::to_string(timeSpentExtractingEscaping.count()));
   rewriter.restoreInsertionPoint(callPoint);
   rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
   taskFunc.body().walk([&](Operation* op) {
     for (auto const& operand : op->getOperands()) {
       if (auto* operandOp = operand.getDefiningOp()) {
         if (op->isBeforeInBlock(operandOp)) {
-          op->emitError("DOMINATION PROBLEM: ") << *op << "(operand: " << *operandOp << ")";
+          op->emitError("DOMINATION PROBLEM: ") << *op << "  <->  operand: " << *operandOp;
         }
       }
     }
