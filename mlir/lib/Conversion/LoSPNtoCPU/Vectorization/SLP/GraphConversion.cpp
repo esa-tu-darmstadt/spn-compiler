@@ -11,28 +11,6 @@ using namespace mlir::spn::low::slp;
 
 // Helper functions in anonymous namespace.
 namespace {
-
-  Value latest(Value const& lhs, Value const& rhs) {
-    if (lhs.isa<BlockArgument>()) {
-      return rhs.isa<BlockArgument>() ? lhs : rhs;
-    } else if (rhs.isa<BlockArgument>()) {
-      return lhs;
-    }
-    return lhs.getDefiningOp()->isBeforeInBlock(rhs.getDefiningOp()) ? rhs : lhs;
-  }
-
-  Value latestElement(ValueVector* vector) {
-    Value latestElement = nullptr;
-    for (auto const& value : *vector) {
-      if (!latestElement) {
-        latestElement = value;
-        continue;
-      }
-      latestElement = latest(latestElement, value);
-    }
-    return latestElement;
-  }
-
   void reorderOperations(Operation* firstInput,
                          SmallPtrSetImpl<Operation*> const& inputs,
                          SmallPtrSetImpl<Operation*> const& users) {
@@ -139,6 +117,30 @@ ConversionManager::ConversionManager(SLPNode* root, PatternRewriter& rewriter) :
   insertionPoint = std::make_pair(earliestEscapingUser, true);
 }
 
+// Helper functions in anonymous namespace.
+namespace {
+  Value latest(Value const& lhs, Value const& rhs) {
+    if (lhs.isa<BlockArgument>()) {
+      return rhs.isa<BlockArgument>() ? lhs : rhs;
+    } else if (rhs.isa<BlockArgument>()) {
+      return lhs;
+    }
+    return lhs.getDefiningOp()->isBeforeInBlock(rhs.getDefiningOp()) ? rhs : lhs;
+  }
+
+  Value latestElement(ValueVector* vector) {
+    Value latestElement = nullptr;
+    for (auto const& value : *vector) {
+      if (!latestElement) {
+        latestElement = value;
+        continue;
+      }
+      latestElement = latest(latestElement, value);
+    }
+    return latestElement;
+  }
+}
+
 void ConversionManager::setInsertionPointFor(ValueVector* vector) const {
   Operation* latestOperandOp = nullptr;
   for (size_t i = 0; i < vector->numOperands(); ++i) {
@@ -207,6 +209,20 @@ Operation* ConversionManager::getEarliestEscapingUser(Value const& value) const 
     }
   }
   return earliestEscapingUser;
+}
+
+void ConversionManager::replaceEscapingUsersWith(Value const& value, Value const& newValue) {
+  assert(hasEscapingUsers(value) && "value does not have any escaping users");
+  for (auto* escapingUser : escapingUsers.lookup(value)) {
+    size_t index = 0;
+    for (auto const& operand : escapingUser->getOperands()) {
+      if (operand == value) {
+        break;
+      }
+      ++index;
+    }
+    escapingUser->setOperand(index, newValue);
+  }
 }
 
 Value ConversionManager::getConstant(Location const& loc, Attribute const& attribute) {

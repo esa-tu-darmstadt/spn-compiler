@@ -124,7 +124,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   }
   // Inline the content of the task into the function.
   rewriter.mergeBlocks(&task.body().front(), taskBlock, blockReplacementArgs);
-  llvm::DebugFlag = true;
+  //llvm::DebugFlag = true;
   // Apply SLP vectorization.
   //task->getParentOfType<ModuleOp>()->dump();
   task->emitRemark() << "Beginning SLP vectorization";
@@ -166,22 +166,13 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   auto fivePercent = std::ceil(static_cast<double>(numVectors) * 0.05);
   unsigned fivePercentCounter = 0;
 
-  auto start = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> timeSpentMatching{};
-  std::chrono::duration<double> timeSpentCreatingLeaves{};
-  std::chrono::duration<double> timeSpentExtractingOperands{};
-  std::chrono::duration<double> timeSpentExtractingEscaping{};
-
   // Traverse the SLP graph and apply the vectorization patterns.
   auto const& order = conversionManager.conversionOrder();
   for (size_t n = 0; n < order.size(); ++n) {
     vector = order[n];
     //dumpSLPNodeVector(*vector);
     auto* vectorOp = vector->begin()->getDefiningOp();
-    auto matchingStart = std::chrono::high_resolution_clock::now();
     if (vector->containsBlockArgs() || failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
-      timeSpentMatching += std::chrono::high_resolution_clock::now() - matchingStart;
-      auto operandExtracting = std::chrono::high_resolution_clock::now();
       auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
       conversionManager.setInsertionPointFor(vector);
       // Create extractions from vectorized operands if present.
@@ -201,8 +192,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
           break;
         }
       }
-      timeSpentExtractingOperands += std::chrono::high_resolution_clock::now() - operandExtracting;
-      auto leafCreating = std::chrono::high_resolution_clock::now();
       if (vector->splattable()) {
         auto const& element = vector->getElement(0);
         auto vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
@@ -211,12 +200,8 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         auto vectorizedOp = broadcastFirstInsertRest(vector, vectorType, rewriter, conversionManager);
         conversionManager.update(vector, vectorizedOp, ElementFlag::KeepAll);
       }
-      timeSpentCreatingLeaves += std::chrono::high_resolution_clock::now() - leafCreating;
-    } else {
-      timeSpentMatching += std::chrono::high_resolution_clock::now() - matchingStart;
     }
     // Create vector extractions for escaping uses & erase superfluous operations.
-    auto extractionEscaping = std::chrono::high_resolution_clock::now();
     auto const& creationMode = conversionManager.getElementFlag(vector);
     for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
       auto const& element = vector->getElement(lane);
@@ -239,37 +224,35 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
           llvm::dbgs() << "source: " << source << "\nextract: " << extractOp << "\n";
           assert(false && "extract before source");
         }
-        element.replaceAllUsesWith(extractOp.result());
+        conversionManager.replaceEscapingUsersWith(element, extractOp.result());
       }
       rewriter.eraseOp(element.getDefiningOp());
 
     }
-    timeSpentExtractingEscaping += std::chrono::high_resolution_clock::now() - extractionEscaping;
     if (static_cast<double>(n) >= (fivePercentCounter * fivePercent)) {
       task->emitRemark("Conversion progress: " + std::to_string(5 * fivePercentCounter++) + '%');
     }
   }
-  std::chrono::duration<double> timeSpent = std::chrono::high_resolution_clock::now() - start;
   task->emitRemark("Graph conversion complete.");
-  task->emitRemark("Overall time spent [s]: " + std::to_string(timeSpent.count()));
-  task->emitRemark("\tTime spent matching & applying patterns [s]: " + std::to_string(timeSpentMatching.count()));
-  task->emitRemark("\tTime spent creating leaves [s]: " + std::to_string(timeSpentCreatingLeaves.count()));
-  task->emitRemark(
-      "\tTime spent creating operand extractions [s]: " + std::to_string(timeSpentExtractingOperands.count()));
-  task->emitRemark(
-      "\tTime spent creating escaping use extractions [s]: " + std::to_string(timeSpentExtractingEscaping.count()));
   rewriter.restoreInsertionPoint(callPoint);
   rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
-  taskFunc.body().walk([&](Operation* op) {
+  if (taskFunc.body().walk([&](Operation* op) {
     for (auto const& operand : op->getOperands()) {
       if (auto* operandOp = operand.getDefiningOp()) {
         if (op->isBeforeInBlock(operandOp)) {
           op->emitError("DOMINATION PROBLEM: ") << *op << "  <->  operand: " << *operandOp;
+          return WalkResult::interrupt();
         }
       }
     }
     return WalkResult::advance();
-  });
+  }).wasInterrupted()) {
+    taskFunc->getParentOfType<ModuleOp>()->dump();
+    return failure();
+  }
+  if (llvm::DebugFlag) {
+    return failure();
+  }
   llvm::DebugFlag = false;
   return success();
 }

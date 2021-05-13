@@ -44,6 +44,7 @@ namespace mlir {
 
           bool hasEscapingUsers(Value const& value) const;
           Operation* getEarliestEscapingUser(Value const& value) const;
+          void replaceEscapingUsersWith(Value const& value, Value const& newValue);
 
           Value getConstant(Location const& loc, Attribute const& attribute);
 
