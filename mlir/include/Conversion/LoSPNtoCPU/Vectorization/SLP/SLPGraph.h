@@ -8,6 +8,7 @@
 
 #include "mlir/IR/Operation.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/SmallSet.h"
 
 namespace mlir {
   namespace spn {
@@ -77,7 +78,34 @@ namespace mlir {
         };
 
         namespace graph {
-          SmallVector<SLPNode*> postOrder(SLPNode* root);
+
+          template<typename Node>
+          SmallVector<Node*> postOrder(Node* root) {
+            SmallVector<Node*> order;
+            // false = visit operands, true = insert into order
+            SmallVector<std::pair<Node*, bool>> worklist;
+            llvm::SmallSet<Node*, 32> finishedNodes;
+            worklist.emplace_back(root, false);
+            while (!worklist.empty()) {
+              if (finishedNodes.contains(worklist.back().first)) {
+                worklist.pop_back();
+                continue;
+              }
+              auto* node = worklist.back().first;
+              bool insert = worklist.back().second;
+              worklist.pop_back();
+              if (insert) {
+                order.emplace_back(node);
+                finishedNodes.insert(node);
+              } else {
+                worklist.emplace_back(node, true);
+                for (size_t i = node->numOperands(); i-- > 0;) {
+                  worklist.emplace_back(node->getOperand(i), false);
+                }
+              }
+            }
+            return order;
+          }
         }
 
       }

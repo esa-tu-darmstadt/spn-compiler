@@ -60,11 +60,17 @@ namespace mlir {
           };
           DenseMap<ValueVector*, CreationData> creationData;
 
+          /// Stores insertion points for leaves & inner vectors of the SLP graph.
+          /// NOTE: we cannot use a single value that is updated after every created vector because this would require
+          /// Operation::isBeforeInBlock() in case the vector was a leaf vector and was created *behind* the last
+          /// vector (i.e. if lastVector.isBeforeInBlock(createdVector) then update lastVector to createdVector).
+          /// With the current MLIR implementation, Operation::isBeforeInBlock() recomputes the *entire* operation order
+          /// of the block in case either lastVector or createdVector are new, which createdVector would always be.
+          /// Depending on the size of the block and the number of created vectors, this can waste a lot (!!!) of time.
+          DenseMap<ValueVector*, ValueVector*> insertionPoints;
+
           /// Stores escaping users for each value.
           DenseMap<Value, SmallVector<Operation*, 2>> escapingUsers;
-
-          /// true = insert before, false = insert after
-          Optional<std::pair<Operation*, bool>> insertionPoint = None;
 
           /// For creating constants & setting insertion points.
           PatternRewriter& rewriter;

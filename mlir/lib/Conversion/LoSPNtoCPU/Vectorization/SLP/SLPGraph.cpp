@@ -5,7 +5,6 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraph.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
-#include "llvm/ADT/SmallSet.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -157,33 +156,4 @@ std::vector<SLPNode*> SLPNode::getOperands() const {
     operands.emplace_back(operand.get());
   }
   return operands;
-}
-
-// === Utilities === //
-
-SmallVector<SLPNode*> graph::postOrder(SLPNode* root) {
-  SmallVector<SLPNode*> order;
-  // false = visit operands, true = insert into order
-  SmallVector<std::pair<SLPNode*, bool>> worklist;
-  llvm::SmallSet<SLPNode*, 32> finishedNodes;
-  worklist.emplace_back(root, false);
-  while (!worklist.empty()) {
-    if (finishedNodes.contains(worklist.back().first)) {
-      worklist.pop_back();
-      continue;
-    }
-    auto* node = worklist.back().first;
-    bool insert = worklist.back().second;
-    worklist.pop_back();
-    if (insert) {
-      order.emplace_back(node);
-      finishedNodes.insert(node);
-    } else {
-      worklist.emplace_back(node, true);
-      for (auto* operand: node->getOperands()) {
-        worklist.emplace_back(operand, false);
-      }
-    }
-  }
-  return order;
 }

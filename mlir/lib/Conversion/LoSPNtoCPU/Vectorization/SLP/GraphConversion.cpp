@@ -11,6 +11,39 @@ using namespace mlir::spn::low::slp;
 
 // Helper functions in anonymous namespace.
 namespace {
+
+  bool later(Value const& lhs, Value const& rhs) {
+    if (lhs.isa<BlockArgument>()) {
+      return false;
+    } else if (rhs.isa<BlockArgument>()) {
+      return true;
+    }
+    return rhs.getDefiningOp()->isBeforeInBlock(lhs.getDefiningOp());
+  }
+
+  Value latestElement(ValueVector* vector) {
+    Value latestElement = nullptr;
+    for (auto const& value : *vector) {
+      if (!latestElement || later(value, latestElement)) {
+        latestElement = value;
+      }
+    }
+    return latestElement;
+  }
+
+  bool willBeFolded(ValueVector* vector) {
+    for (auto const& element : *vector) {
+      if (auto* definingOp = element.getDefiningOp()) {
+        if (!definingOp->hasTrait<OpTrait::ConstantLike>()) {
+          return false;
+        }
+      } else {
+        return false;
+      }
+    }
+    return true;
+  }
+
   void reorderOperations(Operation* firstInput,
                          SmallPtrSetImpl<Operation*> const& inputs,
                          SmallPtrSetImpl<Operation*> const& users) {
@@ -37,7 +70,7 @@ namespace {
         }
       }
     }
-    // Sort operations in between the earliest escaping user & the latest input.
+    // Sort operations in between the first input & the latest escaping user.
     SmallVector<SmallVector<Operation*>> opsSortedByDepth{maxDepth + 1};
     for (auto const& entry : depths) {
       opsSortedByDepth[maxDepth - entry.second].emplace_back(entry.first);
@@ -57,19 +90,10 @@ namespace {
     }
   }
 
-  void computeOrder(SLPNode* root, SmallVectorImpl<ValueVector*>& order) {
-    for (auto* node : graph::postOrder(root)) {
-      for (size_t i = node->numVectors(); i-- > 0;) {
-        order.emplace_back(node->getVector(i));
-      }
-    }
-  }
-
 }
 
-ConversionManager::ConversionManager(SLPNode* root, PatternRewriter& rewriter) : rewriter{rewriter}, folder{
-    root->getValue(0, 0).getContext()} {
-  computeOrder(root, order);
+ConversionManager::ConversionManager(SLPNode* root, PatternRewriter& rewriter) : order{
+    graph::postOrder(root->getVector(0))}, rewriter{rewriter}, folder{root->getValue(0, 0).getContext()} {
   Operation* earliestInput = nullptr;
   SmallPtrSet<Operation*, 32> inputs;
   for (auto const* vector : order) {
@@ -83,7 +107,7 @@ ConversionManager::ConversionManager(SLPNode* root, PatternRewriter& rewriter) :
           auto& users = escapingUsers[operand];
           users.erase(std::remove(std::begin(users), std::end(users), elementOp), std::end(users));
         }
-        if (vector->numOperands() == 0) {
+        if (vector->isLeaf()) {
           if (!earliestInput || elementOp->isBeforeInBlock(earliestInput)) {
             earliestInput = elementOp;
           }
@@ -92,80 +116,68 @@ ConversionManager::ConversionManager(SLPNode* root, PatternRewriter& rewriter) :
       }
     }
   }
-  if (!earliestInput) {
-    // No non-block-argument-input => SLP graph insertion point can be at the beginning of the basic block (i.e. null).
-    return;
-  }
-
-  Operation* earliestEscapingUser = nullptr;
-  Operation* latestEscapingUser = nullptr;
-  SmallPtrSet<Operation*, 32> users;
-  for (auto& entry : escapingUsers) {
-    for (auto* escapingUser : entry.second) {
-      if (!earliestEscapingUser || escapingUser->isBeforeInBlock(earliestEscapingUser)) {
-        earliestEscapingUser = escapingUser;
+  if (earliestInput) {
+    Operation* latestEscapingUser = nullptr;
+    SmallPtrSet<Operation*, 32> users;
+    for (auto& entry : escapingUsers) {
+      for (auto* escapingUser : entry.second) {
+        if (!latestEscapingUser || latestEscapingUser->isBeforeInBlock(escapingUser)) {
+          latestEscapingUser = escapingUser;
+        }
+        users.insert(escapingUser);
       }
-      if (!latestEscapingUser || latestEscapingUser->isBeforeInBlock(escapingUser)) {
-        latestEscapingUser = escapingUser;
-      }
-      users.insert(escapingUser);
     }
+    latestEscapingUser->emitRemark("Reordering operations...");
+    reorderOperations(earliestInput, inputs, users);
+    earliestInput->getBlock()->recomputeOpOrder();
+    latestEscapingUser->emitRemark("Reordering done.");
   }
-  earliestEscapingUser->emitRemark("Reordering operations...");
-  reorderOperations(earliestInput, inputs, users);
-  earliestEscapingUser->emitRemark("Reordering done.");
-  insertionPoint = std::make_pair(earliestEscapingUser, true);
-}
-
-// Helper functions in anonymous namespace.
-namespace {
-  Value latest(Value const& lhs, Value const& rhs) {
-    if (lhs.isa<BlockArgument>()) {
-      return rhs.isa<BlockArgument>() ? lhs : rhs;
-    } else if (rhs.isa<BlockArgument>()) {
-      return lhs;
-    }
-    return lhs.getDefiningOp()->isBeforeInBlock(rhs.getDefiningOp()) ? rhs : lhs;
-  }
-
-  Value latestElement(ValueVector* vector) {
-    Value latestElement = nullptr;
-    for (auto const& value : *vector) {
-      if (!latestElement) {
-        latestElement = value;
-        continue;
+  // Compute insertion points.
+  DenseMap<ValueVector*, Value> currentInsertionPoint;
+  DenseMap<Value, ValueVector*> lastVectorAfterValue;
+  Value currentLatest;
+  for (auto* vector : order) {
+    if (vector->isLeaf()) {
+      auto const& element = latestElement(vector);
+      currentInsertionPoint[vector] = element;
+      auto pair = lastVectorAfterValue.try_emplace(element, vector);
+      if (!pair.second) {
+        insertionPoints[vector] = pair.first->second;
+        pair.first->getSecond() = vector;
       }
-      latestElement = latest(latestElement, value);
+    } else {
+      Value latestOperand;
+      for (size_t i = 0; i < vector->numOperands(); ++i) {
+        auto* operand = vector->getOperand(i);
+        if (willBeFolded(operand)) {
+          continue;
+        }
+        auto const& nextLatest = currentInsertionPoint[operand];
+        if (!latestOperand || !later(latestOperand, nextLatest)) {
+          latestOperand = nextLatest;
+        }
+      }
+      if (latestOperand) {
+        insertionPoints[vector] = lastVectorAfterValue[latestOperand];
+        currentInsertionPoint[vector] = latestOperand;
+        lastVectorAfterValue[latestOperand] = vector;
+      } else {
+        insertionPoints[vector] = lastVectorAfterValue[currentLatest];
+        currentInsertionPoint[vector] = currentLatest;
+        lastVectorAfterValue[currentLatest] = vector;
+      }
     }
-    return latestElement;
+    if (!currentLatest || later(currentInsertionPoint[vector], currentLatest)) {
+      currentLatest = currentInsertionPoint[vector];
+    }
   }
 }
 
 void ConversionManager::setInsertionPointFor(ValueVector* vector) const {
-  Operation* latestOperandOp = nullptr;
-  for (size_t i = 0; i < vector->numOperands(); ++i) {
-    auto* operand = vector->getOperand(i);
-    assert(creationData.count(operand) && "operand has not yet been converted");
-    auto* operandOp = creationData.lookup(operand).operation.getDefiningOp();
-    if (!latestOperandOp || latestOperandOp->isBeforeInBlock(operandOp)) {
-      latestOperandOp = operandOp;
-    }
-  }
-  if (latestOperandOp) {
-    rewriter.setInsertionPointAfter(latestOperandOp);
-  } else if (!insertionPoint.hasValue()) {
-    rewriter.setInsertionPointToStart(vector->getElement(0).getParentBlock());
+  if (!insertionPoints.count(vector)) {
+    rewriter.setInsertionPointAfterValue(latestElement(vector));
   } else {
-    auto const& latest = latestElement(vector);
-    if (auto* latestElementOp = latest.getDefiningOp()) {
-      rewriter.setInsertionPointAfter(latestElementOp);
-      return;
-    }
-    if (insertionPoint->second) {
-      rewriter.setInsertionPoint(insertionPoint->first);
-    } else {
-      rewriter.setInsertionPointAfter(insertionPoint->first);
-    }
+    rewriter.setInsertionPointAfterValue(creationData.lookup(insertionPoints.lookup(vector)).operation);
   }
 }
 
@@ -173,9 +185,6 @@ void ConversionManager::update(ValueVector* vector, Value const& operation, Elem
   assert(!wasConverted(vector) && "vector has been converted already");
   creationData[vector].operation = operation;
   creationData[vector].flag = flag;
-  if (insertionPoint->first->isBeforeInBlock(operation.getDefiningOp())) {
-    insertionPoint = std::make_pair(operation.getDefiningOp(), false);
-  }
 }
 
 bool ConversionManager::wasConverted(ValueVector* vector) const {
