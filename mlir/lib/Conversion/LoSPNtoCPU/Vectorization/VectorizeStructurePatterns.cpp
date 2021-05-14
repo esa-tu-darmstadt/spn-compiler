@@ -163,7 +163,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   applicator.applyDefaultCostModel();
 
   // Track progress.
-  auto fivePercent = std::ceil(static_cast<double>(numVectors) * 0.05);
+  auto fivePercent = static_cast<double>(numVectors) * 0.05;
   unsigned fivePercentCounter = 0;
 
   // Traverse the SLP graph and apply the vectorization patterns.

@@ -53,7 +53,7 @@ bool slp::consecutiveLoads(Value const& lhs, Value const& rhs) {
 
 void slp::dumpSLPNode(SLPNode const& node) {
   for (size_t i = node.numVectors(); i-- > 0;) {
-    dumpSLPNodeVector(*node.getVector(i));
+    dumpSLPValueVector(*node.getVector(i));
   }
 }
 
@@ -86,7 +86,7 @@ namespace {
   }
 }
 
-void slp::dumpSLPNodeVector(ValueVector const& vector) {
+void slp::dumpSLPValueVector(ValueVector const& vector) {
   for (size_t lane = 0; lane < vector.numLanes(); ++lane) {
     if (!vector[lane].isa<BlockArgument>()) {
       llvm::dbgs() << vector[lane] << " (" << vector[lane].getDefiningOp() << ")";
