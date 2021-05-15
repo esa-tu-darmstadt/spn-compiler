@@ -163,14 +163,14 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   applicator.applyDefaultCostModel();
 
   // Track progress.
-  auto fivePercent = static_cast<double>(numVectors) * 0.05;
-  unsigned fivePercentCounter = 0;
+  double interval = numVectors >= 20 ? 0.05 : 1.0 / static_cast<double>(numVectors);
+  double progressThreshold = 0;
 
   // Traverse the SLP graph and apply the vectorization patterns.
   auto const& order = conversionManager.conversionOrder();
   for (size_t n = 0; n < order.size(); ++n) {
     vector = order[n];
-    //dumpSLPNodeVector(*vector);
+    //dumpSLPValueVector(*vector);
     auto* vectorOp = vector->begin()->getDefiningOp();
     if (vector->containsBlockArgs() || failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
       auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
@@ -229,8 +229,9 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       rewriter.eraseOp(element.getDefiningOp());
 
     }
-    if (static_cast<double>(n) >= (fivePercentCounter * fivePercent)) {
-      task->emitRemark("Conversion progress: " + std::to_string(5 * fivePercentCounter++) + '%');
+    if (static_cast<double>(n) / static_cast<double>(numVectors) >= progressThreshold) {
+      task->emitRemark("Conversion progress: " + std::to_string((int) std::round(100 * progressThreshold)) + '%');
+      progressThreshold += interval;
     }
   }
   task->emitRemark("Graph conversion complete.");
