@@ -132,6 +132,12 @@ ConversionManager::ConversionManager(SLPNode* root, PatternRewriter& rewriter) :
     earliestInput->getBlock()->recomputeOpOrder();
     latestEscapingUser->emitRemark("Reordering done.");
   }
+  for (auto& entry : escapingUsers) {
+    std::sort(std::begin(entry.second), std::end(entry.second), [&](Operation* lhs, Operation* rhs) {
+      return lhs->isBeforeInBlock(rhs);
+    });
+  }
+
   // Compute insertion points.
   DenseMap<ValueVector*, Value> currentInsertionPoint;
   DenseMap<Value, ValueVector*> lastVectorAfterValue;
@@ -181,7 +187,7 @@ void ConversionManager::setInsertionPointFor(ValueVector* vector) const {
   }
 }
 
-void ConversionManager::update(ValueVector* vector, Value const& operation, ElementFlag const& flag) {
+void ConversionManager::update(ValueVector* vector, Value const& operation, ElementFlag flag) {
   assert(!wasConverted(vector) && "vector has been converted already");
   creationData[vector].operation = operation;
   creationData[vector].flag = flag;
@@ -211,13 +217,7 @@ bool ConversionManager::hasEscapingUsers(Value const& value) const {
 
 Operation* ConversionManager::getEarliestEscapingUser(Value const& value) const {
   assert(hasEscapingUsers(value) && "value does not have any escaping users");
-  Operation* earliestEscapingUser = nullptr;
-  for (auto* escapingUser : escapingUsers.lookup(value)) {
-    if (!earliestEscapingUser || escapingUser->isBeforeInBlock(earliestEscapingUser)) {
-      earliestEscapingUser = escapingUser;
-    }
-  }
-  return earliestEscapingUser;
+  return escapingUsers.lookup(value).front();
 }
 
 void ConversionManager::replaceEscapingUsersWith(Value const& value, Value const& newValue) {

@@ -35,7 +35,7 @@ namespace mlir {
           void setInsertionPointFor(ValueVector* vector) const;
           bool wasConverted(ValueVector* vector) const;
 
-          void update(ValueVector* vector, Value const& operation, ElementFlag const& flag);
+          void update(ValueVector* vector, Value const& operation, ElementFlag flag);
 
           Value getValue(ValueVector* vector) const;
           ElementFlag getElementFlag(ValueVector* vector) const;
