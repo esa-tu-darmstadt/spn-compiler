@@ -13,7 +13,9 @@ using namespace mlir::spn::low::slp;
 namespace {
 
   bool later(Value const& lhs, Value const& rhs) {
-    if (lhs.isa<BlockArgument>()) {
+    if (lhs == rhs) {
+      return false;
+    } else if (lhs.isa<BlockArgument>()) {
       return false;
     } else if (rhs.isa<BlockArgument>()) {
       return true;
