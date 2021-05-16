@@ -43,10 +43,10 @@ namespace mlir {
           ArrayRef<ValueVector*> conversionOrder() const;
 
           bool hasEscapingUsers(Value const& value) const;
-          Operation* getEarliestEscapingUser(Value const& value) const;
-          void replaceEscapingUsersWith(Value const& value, Value const& newValue);
 
-          Value getConstant(Location const& loc, Attribute const& attribute);
+          Value getOrCreateConstant(Location const& loc, Attribute const& attribute);
+          Value getOrExtractValue(Value const& value);
+          void createExtractionFor(Value const& value);
 
         private:
 
@@ -59,14 +59,17 @@ namespace mlir {
             ElementFlag flag;
           };
           DenseMap<ValueVector*, CreationData> creationData;
+          DenseMap<Value, std::pair<ValueVector*, size_t>> vectorPositions;
 
-          /// Stores insertion points for leaves & inner vectors of the SLP graph.
-          /// NOTE: we cannot use a single value that is updated after every created vector because this would require
-          /// Operation::isBeforeInBlock() in case the vector was a leaf vector and was created *behind* the last
-          /// vector (i.e. if lastVector.isBeforeInBlock(createdVector) then update lastVector to createdVector).
-          /// With the current MLIR implementation, Operation::isBeforeInBlock() recomputes the *entire* operation order
-          /// of the block in case either lastVector or createdVector are new, which createdVector would always be.
-          /// Depending on the size of the block and the number of created vectors, this can waste a lot (!!!) of time.
+          /// Stores insertion points. An entry {k, v} means  that vector k will be inserted right after vector v.
+          /*
+           * NOTE: we cannot use a single value that is updated after every created vector because this would require
+           * Operation::isBeforeInBlock() in case the created vector was a leaf vector and was created *behind* the
+           * last vector (i.e. if lastVector.isBeforeInBlock(createdVector) then update lastVector to createdVector).
+           * With the current MLIR implementation, Operation::isBeforeInBlock() recomputes the *entire* operation order
+           * of the block in case either lastVector or createdVector are new, which createdVector would always be.
+           * Depending on the size of the block and the number of created vectors, this can waste a lot (!!!) of time.
+           */
           DenseMap<ValueVector*, ValueVector*> insertionPoints;
 
           /// Stores escaping users for each value.

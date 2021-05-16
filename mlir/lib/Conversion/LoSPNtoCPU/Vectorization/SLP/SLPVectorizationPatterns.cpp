@@ -54,8 +54,6 @@ namespace {
 
 LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternRewriter& rewriter) const {
 
-  assert(!conversionManager.wasConverted(vector) && "vector has already been created");
-
   SmallVector<Attribute, 4> constants;
   for (auto const& value : *vector) {
     if (auto definingOp = value.getDefiningOp<ConstantOp>()) {
@@ -69,7 +67,7 @@ LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternR
   conversionManager.setInsertionPointFor(vector);
 
   auto const& elements = denseFloatingPoints(std::begin(constants), std::end(constants), vectorType);
-  auto constVector = conversionManager.getConstant(constantOp.getLoc(), elements);
+  auto const& constVector = conversionManager.getOrCreateConstant(constantOp.getLoc(), elements);
 
   conversionManager.update(vector, constVector, ElementFlag::KeepNoneNoExtract);
 
@@ -77,8 +75,6 @@ LogicalResult VectorizeConstant::matchAndRewrite(ConstantOp constantOp, PatternR
 }
 
 LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, PatternRewriter& rewriter) const {
-
-  assert(!conversionManager.wasConverted(vector) && "vector has already been created");
 
   if (!consecutiveLoads(vector->begin(), vector->end())) {
     return rewriter.notifyMatchFailure(batchReadOp, "Pattern only applicable to consecutive loads.");
@@ -88,7 +84,7 @@ LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, Patt
   conversionManager.setInsertionPointFor(vector);
 
   auto loc = batchReadOp.getLoc();
-  auto sampleIndex = conversionManager.getConstant(loc, rewriter.getIndexAttr(batchReadOp.sampleIndex()));
+  auto sampleIndex = conversionManager.getOrCreateConstant(loc, rewriter.getIndexAttr(batchReadOp.sampleIndex()));
   ValueRange indices{batchReadOp.batchIndex(), sampleIndex};
   auto vectorLoad = rewriter.create<vector::LoadOp>(loc, vectorType, batchReadOp.batchMem(), indices);
   conversionManager.update(vector, vectorLoad, ElementFlag::KeepNone);
@@ -98,10 +94,8 @@ LogicalResult VectorizeBatchRead::matchAndRewrite(SPNBatchRead batchReadOp, Patt
 
 LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewriter) const {
 
-  assert(!conversionManager.wasConverted(vector) && "vector has already been created");
-
-  if (vector->isLeaf()) {
-    return rewriter.notifyMatchFailure(addOp, "Pattern not applicable to additions in leaf nodes.");
+  if (!vector->uniform()) {
+    return rewriter.notifyMatchFailure(addOp, "Pattern not applicable to non-uniform vectors.");
   }
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), addOp.getType());
@@ -109,9 +103,7 @@ LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewri
 
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < addOp.getNumOperands(); ++i) {
-    auto* operand = vector->getOperand(i);
-    assert(conversionManager.wasConverted(operand) && "operand has not yet been vectorized");
-    operands.emplace_back(conversionManager.getValue(operand));
+    operands.emplace_back(conversionManager.getValue(vector->getOperand(i)));
   }
 
   auto vectorAdd = rewriter.create<AddFOp>(addOp.getLoc(), vectorType, operands);
@@ -122,10 +114,8 @@ LogicalResult VectorizeAdd::matchAndRewrite(SPNAdd addOp, PatternRewriter& rewri
 
 LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewriter) const {
 
-  assert(!conversionManager.wasConverted(vector) && "vector has already been created");
-
-  if (vector->isLeaf()) {
-    return rewriter.notifyMatchFailure(mulOp, "Pattern not applicable to multiplications in leaf nodes.");
+  if (!vector->uniform()) {
+    return rewriter.notifyMatchFailure(mulOp, "Pattern not applicable to non-uniform vectors.");
   }
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), mulOp.getType());
@@ -133,9 +123,7 @@ LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewri
 
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < mulOp.getNumOperands(); ++i) {
-    auto* operand = vector->getOperand(i);
-    assert(conversionManager.wasConverted(operand) && "operand has not yet been vectorized");
-    operands.emplace_back(conversionManager.getValue(operand));
+    operands.emplace_back(conversionManager.getValue(vector->getOperand(i)));
   }
 
   auto vectorAdd = rewriter.create<MulFOp>(mulOp.getLoc(), vectorType, operands);
@@ -146,10 +134,8 @@ LogicalResult VectorizeMul::matchAndRewrite(SPNMul mulOp, PatternRewriter& rewri
 
 LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, PatternRewriter& rewriter) const {
 
-  assert(!conversionManager.wasConverted(vector) && "vector has already been created");
-
-  if (vector->isLeaf()) {
-    return rewriter.notifyMatchFailure(gaussianOp, "Pattern not applicable to gaussian operations in leaf nodes.");
+  if (!vector->uniform()) {
+    return rewriter.notifyMatchFailure(gaussianOp, "Pattern not applicable to non-uniform vectors.");
   }
 
   auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), gaussianOp.getType());
@@ -187,28 +173,27 @@ LogicalResult VectorizeGaussian::matchAndRewrite(SPNGaussianLeaf gaussianOp, Pat
   auto const& stddevs = denseFloatingPoints(std::begin(stddevAttributes), std::end(stddevAttributes), vectorType);
 
   // Grab the input vector.
-  assert(conversionManager.wasConverted(vector->getOperand(0)) && "input vector has not yet been vectorized");
   Value const& inputVector = conversionManager.getValue(vector->getOperand(0));
 
   // Calculate Gaussian distribution using e^(-0.5 * ((x - mean) / stddev)^2)) / (stddev * sqrt(2 * PI))
   auto const& gaussianLoc = gaussianOp.getLoc();
 
   // (x - mean)
-  auto meanVector = conversionManager.getConstant(gaussianLoc, means);
+  auto meanVector = conversionManager.getOrCreateConstant(gaussianLoc, means);
   Value gaussianVector = rewriter.create<SubFOp>(gaussianLoc, vectorType, inputVector, meanVector);
 
   // ((x - mean) / stddev)^2
-  auto stddevVector = conversionManager.getConstant(gaussianLoc, stddevs);
+  auto stddevVector = conversionManager.getOrCreateConstant(gaussianLoc, stddevs);
   gaussianVector = rewriter.create<DivFOp>(gaussianLoc, vectorType, gaussianVector, stddevVector);
   gaussianVector = rewriter.create<MulFOp>(gaussianLoc, vectorType, gaussianVector, gaussianVector);
 
   // e^(-0.5 * ((x - mean) / stddev)^2))
-  auto halfVector = conversionManager.getConstant(gaussianLoc, denseFloatingPoints(-0.5, vectorType));
+  auto halfVector = conversionManager.getOrCreateConstant(gaussianLoc, denseFloatingPoints(-0.5, vectorType));
   gaussianVector = rewriter.create<MulFOp>(gaussianLoc, vectorType, halfVector, gaussianVector);
   gaussianVector = rewriter.create<math::ExpOp>(gaussianLoc, vectorType, gaussianVector);
 
   // e^(-0.5 * ((x - mean) / stddev)^2)) / (stddev * sqrt(2 * PI))
-  auto coefficientVector = conversionManager.getConstant(gaussianLoc, coefficients);
+  auto coefficientVector = conversionManager.getOrCreateConstant(gaussianLoc, coefficients);
   gaussianVector = rewriter.create<MulFOp>(gaussianLoc, coefficientVector, gaussianVector);
 
   conversionManager.update(vector, gaussianVector, ElementFlag::KeepNone);

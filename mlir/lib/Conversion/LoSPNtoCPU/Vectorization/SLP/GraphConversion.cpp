@@ -4,13 +4,40 @@
 //
 
 #include "LoSPNtoCPU/Vectorization/SLP/GraphConversion.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Vector/VectorOps.h"
 
 using namespace mlir;
 using namespace mlir::spn::low::slp;
 
 // Helper functions in anonymous namespace.
 namespace {
+
+  SmallVector<ValueVector*> computeOrder(ValueVector* root) {
+    DenseMap<ValueVector*, unsigned> depths;
+    depths[root] = 0;
+    SmallVector<ValueVector*> worklist{root};
+    while (!worklist.empty()) {
+      auto* vector = worklist.pop_back_val();
+      for (auto* operand : vector->getOperands()) {
+        auto operandDepth = depths[vector] + 1;
+        if (depths[operand] < operandDepth) {
+          depths[operand] = operandDepth;
+          worklist.emplace_back(operand);
+        }
+      }
+    }
+    SmallVector<ValueVector*> order;
+    for (auto const& entry: depths) {
+      order.emplace_back(entry.first);
+    }
+    std::sort(std::begin(order), std::end(order), [&](ValueVector* lhs, ValueVector* rhs) {
+      if (depths[lhs] == depths[rhs]) {
+        return !lhs->isLeaf() && rhs->isLeaf();
+      }
+      return depths[lhs] > depths[rhs];
+    });
+    return order;
+  }
 
   bool later(Value const& lhs, Value const& rhs) {
     if (lhs == rhs || lhs.isa<BlockArgument>()) {
@@ -22,7 +49,7 @@ namespace {
   }
 
   Value latestElement(ValueVector* vector) {
-    Value latestElement = nullptr;
+    Value latestElement;
     for (auto const& value : *vector) {
       if (!latestElement || later(value, latestElement)) {
         latestElement = value;
@@ -93,25 +120,31 @@ namespace {
 }
 
 ConversionManager::ConversionManager(SLPNode* root, PatternRewriter& rewriter) : order{
-    graph::postOrder(root->getVector(0))}, rewriter{rewriter}, folder{root->getValue(0, 0).getContext()} {
-  Operation* earliestInput = nullptr;
+    computeOrder(root->getVector(0))}, rewriter{rewriter}, folder{
+    root->getValue(0, 0).getContext()} {
+
   SmallPtrSet<Operation*, 32> inputs;
-  for (auto const* vector : order) {
+  Operation* earliestInput = nullptr;
+
+  for (auto* vector : order) {
     for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
       auto const& element = vector->getElement(lane);
       if (auto* elementOp = element.getDefiningOp()) {
         if (!escapingUsers.count(element)) {
           escapingUsers[element].assign(std::begin(element.getUsers()), std::end(element.getUsers()));
         }
-        for (auto const& operand : elementOp->getOperands()) {
-          auto& users = escapingUsers[operand];
-          users.erase(std::remove(std::begin(users), std::end(users), elementOp), std::end(users));
-        }
         if (vector->isLeaf()) {
           if (!earliestInput || elementOp->isBeforeInBlock(earliestInput)) {
             earliestInput = elementOp;
           }
           inputs.insert(elementOp);
+        } else {
+          vectorPositions.try_emplace(element, vector, lane);
+          for (size_t i = 0; i < vector->numOperands(); ++i) {
+            auto const& operand = vector->getOperand(i)->getElement(lane);
+            auto& users = escapingUsers[operand];
+            users.erase(std::remove(std::begin(users), std::end(users), elementOp), std::end(users));
+          }
         }
       }
     }
@@ -121,6 +154,9 @@ ConversionManager::ConversionManager(SLPNode* root, PatternRewriter& rewriter) :
     SmallPtrSet<Operation*, 32> users;
     for (auto& entry : escapingUsers) {
       for (auto* escapingUser : entry.second) {
+        if (users.contains(escapingUser)) {
+          continue;
+        }
         if (!latestEscapingUser || latestEscapingUser->isBeforeInBlock(escapingUser)) {
           latestEscapingUser = escapingUser;
         }
@@ -132,8 +168,11 @@ ConversionManager::ConversionManager(SLPNode* root, PatternRewriter& rewriter) :
     earliestInput->getBlock()->recomputeOpOrder();
     latestEscapingUser->emitRemark("Reordering done.");
   }
+
+  // Sort escaping users so that we can create the extraction operation right in front of the first one.
   for (auto& entry : escapingUsers) {
-    std::sort(std::begin(entry.second), std::end(entry.second), [&](Operation* lhs, Operation* rhs) {
+    auto& users = entry.second;
+    std::sort(std::begin(users), std::end(users), [&](Operation* lhs, Operation* rhs) {
       return lhs->isBeforeInBlock(rhs);
     });
   }
@@ -215,13 +254,31 @@ bool ConversionManager::hasEscapingUsers(Value const& value) const {
   return escapingUsers.count(value) && !escapingUsers.lookup(value).empty();
 }
 
-Operation* ConversionManager::getEarliestEscapingUser(Value const& value) const {
-  assert(hasEscapingUsers(value) && "value does not have any escaping users");
-  return escapingUsers.lookup(value).front();
+Value ConversionManager::getOrCreateConstant(Location const& loc, Attribute const& attribute) {
+  return folder.getOrCreateConstant(rewriter, &attribute.getDialect(), attribute, attribute.getType(), loc);
 }
 
-void ConversionManager::replaceEscapingUsersWith(Value const& value, Value const& newValue) {
-  assert(hasEscapingUsers(value) && "value does not have any escaping users");
+Value ConversionManager::getOrExtractValue(Value const& value) {
+  auto const& vectorPosition = vectorPositions.lookup(value);
+  if (!vectorPosition.first) {
+    return value;
+  }
+  auto elementFlag = getElementFlag(vectorPosition.first);
+  if (elementFlag == ElementFlag::KeepAll || (elementFlag == ElementFlag::KeepFirst && vectorPosition.second == 0)) {
+    return value;
+  }
+  auto const& source = getValue(vectorPosition.first);
+  auto const& pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) vectorPosition.second));
+  return rewriter.create<vector::ExtractElementOp>(value.getLoc(), source, pos);
+}
+
+void ConversionManager::createExtractionFor(Value const& value) {
+  auto const& vectorPosition = vectorPositions.lookup(value);
+  auto const& source = getValue(vectorPosition.first);
+  auto pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) vectorPosition.second));
+
+  rewriter.setInsertionPoint(escapingUsers.lookup(value).front());
+  auto extractOp = rewriter.create<vector::ExtractElementOp>(value.getLoc(), source, pos);
   for (auto* escapingUser : escapingUsers.lookup(value)) {
     size_t index = 0;
     for (auto const& operand : escapingUser->getOperands()) {
@@ -230,10 +287,6 @@ void ConversionManager::replaceEscapingUsersWith(Value const& value, Value const
       }
       ++index;
     }
-    escapingUser->setOperand(index, newValue);
+    escapingUser->setOperand(index, extractOp.result());
   }
-}
-
-Value ConversionManager::getConstant(Location const& loc, Attribute const& attribute) {
-  return folder.getOrCreateConstant(rewriter, &attribute.getDialect(), attribute, attribute.getType(), loc);
 }

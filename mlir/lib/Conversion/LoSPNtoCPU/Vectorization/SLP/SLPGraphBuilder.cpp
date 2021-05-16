@@ -123,8 +123,8 @@ void SLPGraphBuilder::buildGraph(ValueVector* vector) {
     // B. Normal Mode: Finished building multi-node
     if (currentNode->isVectorRoot(*vector)) {
       //reorderOperands(currentNode);
-      for (auto* operandNode : currentNode->getOperands()) {
-        if (buildWorklist.erase(operandNode)) {
+      for (auto const& operandNode : currentNode->getOperands()) {
+        if (buildWorklist.erase(operandNode.get())) {
           buildGraph(operandNode->getVector(operandNode->numVectors() - 1));
         }
       }

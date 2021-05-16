@@ -26,23 +26,25 @@ namespace mlir {
           ValueVector(ArrayRef<Value> const& values, std::shared_ptr<SLPNode> const& parentNode);
           ValueVector(ArrayRef<Operation*> const& operations, std::shared_ptr<SLPNode> const& parentNode);
 
+          Value getElement(size_t lane) const;
+          void setElement(size_t lane, Value const& value);
+          Value operator[](size_t lane) const;
           bool contains(Value const& value) const;
-          bool containsBlockArgs() const;
-          bool splattable() const;
+
           bool isLeaf() const;
+          bool uniform() const;
+          bool splattable() const;
 
           size_t numLanes() const;
-          size_t numOperands() const;
-
-          void addOperand(ValueVector* operandVector);
-          ValueVector* getOperand(size_t index) const;
-          std::shared_ptr<SLPNode> getParentNode() const;
-
           SmallVectorImpl<Value>::const_iterator begin() const;
           SmallVectorImpl<Value>::const_iterator end() const;
 
-          Value getElement(size_t lane) const;
-          Value operator[](size_t lane) const;
+          size_t numOperands() const;
+          void addOperand(ValueVector* operandVector);
+          ValueVector* getOperand(size_t index) const;
+          ArrayRef<ValueVector*> getOperands() const;
+
+          std::shared_ptr<SLPNode> getParentNode() const;
 
         private:
           SmallVector<Value, 4> values;
@@ -70,7 +72,7 @@ namespace mlir {
 
           void addOperand(std::shared_ptr<SLPNode> operandNode);
           SLPNode* getOperand(size_t index) const;
-          std::vector<SLPNode*> getOperands() const;
+          ArrayRef<std::shared_ptr<SLPNode>> getOperands() const;
 
         private:
           SmallVector<std::unique_ptr<ValueVector>> vectors;
@@ -106,8 +108,8 @@ namespace mlir {
             }
             return order;
           }
-        }
 
+        }
       }
     }
   }

@@ -83,7 +83,7 @@ namespace {
       if (i == 0) {
         vectorOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
       } else {
-        auto index = conversionManager.getConstant(vectorOp.getLoc(), rewriter.getI32IntegerAttr(static_cast<int>(i)));
+        auto index = conversionManager.getOrCreateConstant(vectorOp.getLoc(), rewriter.getI32IntegerAttr((int) i));
         vectorOp = rewriter.create<vector::InsertElementOp>(element.getLoc(), element, vectorOp, index);
       }
     }
@@ -124,7 +124,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   }
   // Inline the content of the task into the function.
   rewriter.mergeBlocks(&task.body().front(), taskBlock, blockReplacementArgs);
-  //llvm::DebugFlag = true;
   // Apply SLP vectorization.
   //task->getParentOfType<ModuleOp>()->dump();
   task->emitRemark() << "Beginning SLP vectorization";
@@ -151,11 +150,13 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
   // Prevent extracting/removing values more than once (happens in splat mode, if they appear in multiple vectors, ...).
   SmallPtrSet<Value, 32> finishedValues;
-  // Use a custom pattern driver that does *not* perform folding automatically (which the other rewrite drivers
-  // such as applyOpPatternsAndFold() would do). Folding would mess up identified SLP-vectorizable constants, which
-  // aren't necessarily located at the front of the function's body yet. The drivers delete those that aren't at the
-  // front (including those we identified as SLP-vectorizable!) and create new ones there, resulting in our constant
-  // SLP-vectorization patterns not being applied to them and messing up operand handling further down the SLP graph.
+  /*
+   * NOTE: We use a custom pattern driver that does *not* perform folding automatically (which the other rewrite drivers
+   * such as applyOpPatternsAndFold() would do). Folding would mess up identified SLP-vectorizable constants, which
+   * aren't necessarily located at the front of the function's body yet. The drivers delete those that aren't at the
+   * front (including those we identified as SLP-vectorizable!) and create new ones there, resulting in our constant
+   + SLP-vectorization patterns not being applied to them and messing up operand handling further down the SLP graph.
+   */
   OwningRewritePatternList patterns;
   populateSLPVectorizationPatterns(patterns, rewriter.getContext(), vector, conversionManager);
   FrozenRewritePatternList frozenPatterns(std::move(patterns));
@@ -172,20 +173,19 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     vector = order[n];
     //dumpSLPValueVector(*vector);
     auto* vectorOp = vector->begin()->getDefiningOp();
-    if (vector->containsBlockArgs() || failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
+    if (failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
       auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
       conversionManager.setInsertionPointFor(vector);
       // Create extractions from vectorized operands if present.
       for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
         auto const& element = vector->getElement(lane);
         if (auto* elementOp = element.getDefiningOp()) {
-          for (size_t i = 0; i < vector->numOperands(); ++i) {
-            auto* operand = vector->getOperand(i);
-            auto const& source = conversionManager.getValue(operand);
-            // TODO: in case of broadcastInsert/splat, reuse original instead of extracting
-            auto pos = conversionManager.getConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) lane));
-            auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, pos);
-            elementOp->setOperand(i, extractOp.result());
+          if (vector->isLeaf()) {
+            vector->setElement(lane, conversionManager.getOrExtractValue(element));
+          } else {
+            for (size_t i = 0; i < elementOp->getNumOperands(); ++i) {
+              elementOp->setOperand(i, conversionManager.getOrExtractValue(elementOp->getOperand(i)));
+            }
           }
         }
         if (lane == 0 && vector->splattable()) {
@@ -216,18 +216,9 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         if (creationMode == ElementFlag::KeepNoneNoExtract) {
           continue;
         }
-        rewriter.setInsertionPoint(conversionManager.getEarliestEscapingUser(element));
-        auto const& source = conversionManager.getValue(vector);
-        auto pos = conversionManager.getConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) lane));
-        auto extractOp = rewriter.create<vector::ExtractElementOp>(element.getLoc(), source, pos);
-        if (!source.getDefiningOp()->isBeforeInBlock(extractOp)) {
-          llvm::dbgs() << "source: " << source << "\nextract: " << extractOp << "\n";
-          assert(false && "extract before source");
-        }
-        conversionManager.replaceEscapingUsersWith(element, extractOp.result());
+        conversionManager.createExtractionFor(element);
       }
       rewriter.eraseOp(element.getDefiningOp());
-
     }
     if (static_cast<double>(n) / static_cast<double>(numVectors) >= progressThreshold) {
       task->emitRemark("Conversion progress: " + std::to_string((int) std::round(100 * progressThreshold)) + '%');
@@ -237,24 +228,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   task->emitRemark("Graph conversion complete.");
   rewriter.restoreInsertionPoint(callPoint);
   rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
-  if (taskFunc.body().walk([&](Operation* op) {
-    for (auto const& operand : op->getOperands()) {
-      if (auto* operandOp = operand.getDefiningOp()) {
-        if (op->isBeforeInBlock(operandOp)) {
-          op->emitError("DOMINATION PROBLEM: ") << *op << "  <->  operand: " << *operandOp;
-          return WalkResult::interrupt();
-        }
-      }
-    }
-    return WalkResult::advance();
-  }).wasInterrupted()) {
-    taskFunc->getParentOfType<ModuleOp>()->dump();
-    return failure();
-  }
-  if (llvm::DebugFlag) {
-    return failure();
-  }
-  llvm::DebugFlag = false;
   return success();
 }
 

@@ -31,33 +31,74 @@ ValueVector::ValueVector(ArrayRef<Operation*> const& operations, std::shared_ptr
   }
 }
 
+Value ValueVector::getElement(size_t lane) const {
+  assert(lane < numLanes());
+  return values[lane];
+}
+
+void ValueVector::setElement(size_t lane, Value const& value) {
+  assert(lane < numLanes());
+  values[lane] = value;
+}
+
+Value ValueVector::operator[](size_t lane) const {
+  return getElement(lane);
+}
+
 bool ValueVector::contains(Value const& value) const {
   return std::find(std::begin(values), std::end(values), value) != std::end(values);
-}
-
-bool ValueVector::containsBlockArgs() const {
-  return std::any_of(std::begin(values), std::end(values), [&](Value const& value) {
-    return value.isa<BlockArgument>();
-  });
-}
-
-bool ValueVector::splattable() const {
-  if (containsBlockArgs()) {
-    return std::all_of(std::begin(values), std::end(values), [&](Value const& element) {
-      return element == values.front();
-    });
-  }
-  return std::all_of(std::begin(values), std::end(values), [&](Value const& element) {
-    return OperationEquivalence::isEquivalentTo(element.getDefiningOp(), values.front().getDefiningOp());
-  });
 }
 
 bool ValueVector::isLeaf() const {
   return operands.empty();
 }
 
+bool ValueVector::uniform() const {
+  Operation* firstOp = nullptr;
+  for (size_t i = 0; i < values.size(); ++i) {
+    if (auto* definingOp = values[i].getDefiningOp()) {
+      if (i == 0) {
+        firstOp = definingOp;
+        continue;
+      }
+      if (firstOp->getName() != definingOp->getName()) {
+        return false;
+      }
+    } else if (firstOp) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool ValueVector::splattable() const {
+  Operation* firstOp = nullptr;
+  for (size_t i = 0; i < values.size(); ++i) {
+    if (auto* definingOp = values[i].getDefiningOp()) {
+      if (i == 0) {
+        firstOp = definingOp;
+        continue;
+      }
+      if (!OperationEquivalence::isEquivalentTo(definingOp, firstOp)) {
+        return false;
+      }
+    } else if (firstOp || values[i] != values.front()) {
+      return false;
+    }
+  }
+  return true;
+}
+
 size_t ValueVector::numLanes() const {
   return values.size();
+}
+
+SmallVectorImpl<Value>::const_iterator ValueVector::begin() const {
+  return values.begin();
+}
+
+SmallVectorImpl<Value>::const_iterator ValueVector::end() const {
+  return values.end();
 }
 
 size_t ValueVector::numOperands() const {
@@ -73,28 +114,15 @@ ValueVector* ValueVector::getOperand(size_t index) const {
   return operands[index];
 }
 
+ArrayRef<ValueVector*> ValueVector::getOperands() const {
+  return operands;
+}
+
 std::shared_ptr<SLPNode> ValueVector::getParentNode() const {
   if (auto parentPtr = parentNode.lock()) {
     return parentPtr;
   }
   assert(false && "parent node has expired already");
-}
-
-SmallVectorImpl<Value>::const_iterator ValueVector::begin() const {
-  return values.begin();
-}
-
-SmallVectorImpl<Value>::const_iterator ValueVector::end() const {
-  return values.end();
-}
-
-Value ValueVector::getElement(size_t lane) const {
-  return this->operator[](lane);
-}
-
-Value ValueVector::operator[](size_t lane) const {
-  assert(lane < numLanes());
-  return values[lane];
 }
 
 // === SLPNode === //
@@ -149,11 +177,6 @@ SLPNode* SLPNode::getOperand(size_t index) const {
   return operandNodes[index].get();
 }
 
-std::vector<SLPNode*> SLPNode::getOperands() const {
-  std::vector<SLPNode*> operands;
-  operands.reserve(operands.size());
-  for (auto const& operand : operandNodes) {
-    operands.emplace_back(operand.get());
-  }
-  return operands;
+ArrayRef<std::shared_ptr<SLPNode>> SLPNode::getOperands() const {
+  return operandNodes;
 }
