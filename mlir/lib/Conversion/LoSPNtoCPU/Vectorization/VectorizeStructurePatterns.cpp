@@ -70,27 +70,6 @@ LogicalResult VectorizeTask::createFunctionIfVectorizable(SPNTask& task,
   return success();
 }
 
-// Helper functions in anonymous namespace.
-namespace {
-
-  Value broadcastFirstInsertRest(ValueVector* vector,
-                                 VectorType const& vectorType,
-                                 PatternRewriter& rewriter,
-                                 ConversionManager& conversionManager) {
-    Value vectorOp;
-    for (size_t i = 0; i < vector->numLanes(); ++i) {
-      auto const& element = vector->getElement(i);
-      if (i == 0) {
-        vectorOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
-      } else {
-        auto index = conversionManager.getOrCreateConstant(vectorOp.getLoc(), rewriter.getI32IntegerAttr((int) i));
-        vectorOp = rewriter.create<vector::InsertElementOp>(element.getLoc(), element, vectorOp, index);
-      }
-    }
-    return vectorOp;
-  }
-}
-
 LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
                                                    llvm::ArrayRef<Value> operands,
                                                    ConversionPatternRewriter& rewriter) const {
@@ -197,7 +176,16 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         auto vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
         conversionManager.update(vector, vectorizedOp, ElementFlag::KeepFirst);
       } else {
-        auto vectorizedOp = broadcastFirstInsertRest(vector, vectorType, rewriter, conversionManager);
+        Value vectorizedOp;
+        for (size_t i = 0; i < vector->numLanes(); ++i) {
+          auto const& element = vector->getElement(i);
+          if (i == 0) {
+            vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
+          } else {
+            auto index = conversionManager.getOrCreateConstant(element.getLoc(), rewriter.getI32IntegerAttr((int) i));
+            vectorizedOp = rewriter.create<vector::InsertElementOp>(element.getLoc(), element, vectorizedOp, index);
+          }
+        }
         conversionManager.update(vector, vectorizedOp, ElementFlag::KeepAll);
       }
     }

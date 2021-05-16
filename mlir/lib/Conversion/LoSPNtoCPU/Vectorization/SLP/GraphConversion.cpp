@@ -31,6 +31,7 @@ namespace {
       order.emplace_back(entry.first);
     }
     std::sort(std::begin(order), std::end(order), [&](ValueVector* lhs, ValueVector* rhs) {
+      // This additional comparison maximizes the re-use potential of leaf vectors.
       if (depths[lhs] == depths[rhs]) {
         return !lhs->isLeaf() && rhs->isLeaf();
       }
@@ -97,6 +98,7 @@ namespace {
         }
       }
     }
+
     // Sort operations in between the first input & the latest escaping user.
     SmallVector<SmallVector<Operation*>> opsSortedByDepth{maxDepth + 1};
     for (auto const& entry : depths) {
@@ -276,7 +278,6 @@ void ConversionManager::createExtractionFor(Value const& value) {
   auto const& vectorPosition = vectorPositions.lookup(value);
   auto const& source = getValue(vectorPosition.first);
   auto pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) vectorPosition.second));
-
   rewriter.setInsertionPoint(escapingUsers.lookup(value).front());
   auto extractOp = rewriter.create<vector::ExtractElementOp>(value.getLoc(), source, pos);
   for (auto* escapingUser : escapingUsers.lookup(value)) {
