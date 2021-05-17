@@ -74,8 +74,7 @@ namespace mlir {
           return true;
         }
 
-        size_t numNodes(SLPNode* root);
-        size_t numVectors(SLPNode* root);
+        size_t numVectors(ValueVector* root);
 
         void dumpOpTree(ArrayRef<Value> const& values);
         void dumpSLPGraph(SLPNode* root);

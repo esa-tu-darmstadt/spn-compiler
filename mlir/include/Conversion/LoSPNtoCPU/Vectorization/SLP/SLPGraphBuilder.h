@@ -21,7 +21,7 @@ namespace mlir {
 
           explicit SLPGraphBuilder(size_t maxLookAhead);
 
-          std::shared_ptr<SLPNode> build(ArrayRef<Value> const& seed);
+          std::shared_ptr<ValueVector> build(ArrayRef<Value> const& seed);
 
         private:
 
@@ -38,19 +38,27 @@ namespace mlir {
             FAILED
           };
 
-          void buildGraph(ValueVector* vector);
+          void buildGraph(std::shared_ptr<ValueVector> const& vector);
           void reorderOperands(SLPNode* multinode) const;
           std::pair<Value, Mode> getBest(Mode const& mode, Value const& last, SmallVector<Value>& candidates) const;
           unsigned getLookAheadScore(Value const& last, Value const& candidate, unsigned maxLevel) const;
 
-          static Mode modeFromValue(Value const& value);
-          ValueVector* addValueVectorToNode(ArrayRef<Value> const& values,
-                                            std::shared_ptr<SLPNode> node,
-                                            ValueVector* usingVector = nullptr);
-          ValueVector* vectorOrNull(ArrayRef<Value> const& values) const;
+          // === Utilities === //
+
+          Mode modeFromValue(Value const& value) const;
+          std::shared_ptr<ValueVector> appendVectorToNode(ArrayRef<Value> const& values,
+                                                          std::shared_ptr<SLPNode> const& node,
+                                                          std::shared_ptr<ValueVector> const& usingVector);
+          std::shared_ptr<SLPNode> addOperandToNode(ArrayRef<Value> const& operandValues,
+                                                    std::shared_ptr<SLPNode> const& node,
+                                                    std::shared_ptr<ValueVector> const& usingVector);
+          std::shared_ptr<ValueVector> vectorOrNull(ArrayRef<Value> const& values) const;
+
+          // ================= //
 
           size_t const maxLookAhead;
-          DenseMap<Value, SmallVector<ValueVector*>> vectorsByValue;
+          DenseMap<ValueVector*, std::shared_ptr<SLPNode>> nodesByVector;
+          DenseMap<Value, SmallVector<std::shared_ptr<ValueVector>>> vectorsByValue;
           SmallPtrSet<SLPNode*, 8> buildWorklist;
 
         };

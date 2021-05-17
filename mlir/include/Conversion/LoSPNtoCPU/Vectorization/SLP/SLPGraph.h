@@ -23,8 +23,8 @@ namespace mlir {
 
         public:
 
-          ValueVector(ArrayRef<Value> const& values, std::shared_ptr<SLPNode> const& parentNode);
-          ValueVector(ArrayRef<Operation*> const& operations, std::shared_ptr<SLPNode> const& parentNode);
+          explicit ValueVector(ArrayRef<Value> const& values);
+          explicit ValueVector(ArrayRef<Operation*> const& operations);
 
           Value getElement(size_t lane) const;
           void setElement(size_t lane, Value const& value);
@@ -40,24 +40,23 @@ namespace mlir {
           SmallVectorImpl<Value>::const_iterator end() const;
 
           size_t numOperands() const;
-          void addOperand(ValueVector* operandVector);
+          void addOperand(std::shared_ptr<ValueVector> operandVector);
           ValueVector* getOperand(size_t index) const;
-          ArrayRef<ValueVector*> getOperands() const;
-
-          std::shared_ptr<SLPNode> getParentNode() const;
+          SmallVector<ValueVector*, 2> getOperands() const;
 
         private:
           SmallVector<Value, 4> values;
-          SmallVector<ValueVector*> operands;
-          std::weak_ptr<SLPNode> const parentNode;
+          SmallVector<std::shared_ptr<ValueVector>> operandVectors;
         };
 
         class SLPNode {
 
         public:
 
-          ValueVector* addVector(std::unique_ptr<ValueVector> vector);
-          ValueVector* getVector(size_t index) const;
+          SLPNode(std::shared_ptr<ValueVector> vector);
+
+          void addVector(std::shared_ptr<ValueVector> vector);
+          std::shared_ptr<ValueVector> getVector(size_t index) const;
 
           Value getValue(size_t lane, size_t index) const;
           void setValue(size_t lane, size_t index, Value const& newValue);
@@ -75,7 +74,7 @@ namespace mlir {
           ArrayRef<std::shared_ptr<SLPNode>> getOperands() const;
 
         private:
-          SmallVector<std::unique_ptr<ValueVector>> vectors;
+          SmallVector<std::shared_ptr<ValueVector>> vectors;
           SmallVector<std::shared_ptr<SLPNode>> operandNodes;
         };
 

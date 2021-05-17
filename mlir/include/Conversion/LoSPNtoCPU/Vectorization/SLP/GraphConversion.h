@@ -30,7 +30,9 @@ namespace mlir {
 
         public:
 
-          ConversionManager(SLPNode* root, PatternRewriter& rewriter);
+          explicit ConversionManager(PatternRewriter& rewriter);
+
+          void initConversion(ValueVector* root);
 
           void setInsertionPointFor(ValueVector* vector) const;
           bool wasConverted(ValueVector* vector) const;

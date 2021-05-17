@@ -121,9 +121,10 @@ namespace {
 
 }
 
-ConversionManager::ConversionManager(SLPNode* root, PatternRewriter& rewriter) : order{
-    computeOrder(root->getVector(0))}, rewriter{rewriter}, folder{
-    root->getValue(0, 0).getContext()} {
+ConversionManager::ConversionManager(PatternRewriter& rewriter) : rewriter{rewriter}, folder{rewriter.getContext()} {}
+
+void ConversionManager::initConversion(ValueVector* root) {
+  order.assign(computeOrder(root));
 
   SmallPtrSet<Operation*, 32> inputs;
   Operation* earliestInput = nullptr;

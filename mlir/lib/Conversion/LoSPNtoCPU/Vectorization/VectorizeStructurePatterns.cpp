@@ -103,31 +103,18 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   }
   // Inline the content of the task into the function.
   rewriter.mergeBlocks(&task.body().front(), taskBlock, blockReplacementArgs);
-  // Apply SLP vectorization.
-  //task->getParentOfType<ModuleOp>()->dump();
-  task->emitRemark() << "Beginning SLP vectorization";
-  auto computationType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
-  auto hwVectorWidth = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
-  SeedAnalysis seedAnalysis{taskFunc, hwVectorWidth};
-  SmallVector<Value, 4> seed;
-  seedAnalysis.fillSeed(seed, SearchMode::UseBeforeDef);
-  assert(!seed.empty() && "couldn't find a seed!");
-  //low::slp::dumpOpTree(seed);
-  SLPGraphBuilder builder{3};
-  task->emitRemark("Computing graph...");
-  auto graph = builder.build(seed);
-  auto numNodes = slp::numNodes(graph.get());
-  auto numVectors = slp::numVectors(graph.get());
-  task->emitRemark("Number of SLP nodes in graph: " + std::to_string(numNodes));
-  task->emitRemark("Number of SLP vectors in graph: " + std::to_string(numVectors));
-  //low::slp::dumpSLPGraph(graph.get());
 
-  task->emitRemark("Converting graph...");
+  // Apply SLP vectorization.
+  task->emitRemark() << "Beginning SLP vectorization...";
+  auto computationType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
+  SLPGraphBuilder builder{3};
+  ConversionManager conversionManager{rewriter};
+  SeedAnalysis seeding{taskFunc, TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType)};
+
   // The current vector being transformed.
   ValueVector* vector = nullptr;
-  ConversionManager conversionManager{graph.get(), rewriter};
 
-  // Prevent extracting/removing values more than once (happens in splat mode, if they appear in multiple vectors, ...).
+  // Prevents extracting/removing values more than once (in splat mode, if they appear in multiple vectors, ...).
   SmallPtrSet<Value, 32> finishedValues;
   /*
    * NOTE: We use a custom pattern driver that does *not* perform folding automatically (which the other rewrite drivers
@@ -142,78 +129,96 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   PatternApplicator applicator(frozenPatterns);
   applicator.applyDefaultCostModel();
 
-  // Track progress.
-  double interval = numVectors >= 20 ? 0.05 : 1.0 / static_cast<double>(numVectors);
-  double progressThreshold = 0;
+  for (auto seed = seeding.next(Order::UseDef); !seed.empty(); seed = seeding.next(Order::UseDef)) {
+    //low::slp::dumpOpTree(seed);
+    task->emitRemark("Computing graph...");
+    auto graph = builder.build(seed);
+    conversionManager.initConversion(graph.get());
+    auto numVectors = slp::numVectors(graph.get());
+    task->emitRemark("Number of SLP vectors in graph: " + std::to_string(numVectors));
+    //low::slp::dumpSLPGraph(graph.get());
 
-  // Traverse the SLP graph and apply the vectorization patterns.
-  auto const& order = conversionManager.conversionOrder();
-  for (size_t n = 0; n < order.size(); ++n) {
-    vector = order[n];
-    //dumpSLPValueVector(*vector);
-    auto* vectorOp = vector->begin()->getDefiningOp();
-    if (failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
-      auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
-      conversionManager.setInsertionPointFor(vector);
-      // Create extractions from vectorized operands if present.
-      for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-        auto const& element = vector->getElement(lane);
-        if (auto* elementOp = element.getDefiningOp()) {
-          if (vector->isLeaf()) {
-            vector->setElement(lane, conversionManager.getOrExtractValue(element));
-          } else {
-            for (size_t i = 0; i < elementOp->getNumOperands(); ++i) {
-              elementOp->setOperand(i, conversionManager.getOrExtractValue(elementOp->getOperand(i)));
+    task->emitRemark("Converting graph...");
+
+    // Track progress.
+    double percent = 0.1;
+    double interval = (double) numVectors >= (1.0 / percent) ? percent : 1.0 / (double) numVectors;
+    double progressThreshold = 0;
+
+    // Traverse the SLP graph and apply the vectorization patterns.
+    auto const& order = conversionManager.conversionOrder();
+    for (size_t n = 0; n < order.size(); ++n) {
+      vector = order[n];
+      // Happens if the vector from a previously built graph is being re-used.
+      if (conversionManager.wasConverted(vector)) {
+        continue;
+      }
+      //dumpSLPValueVector(*vector);
+      auto* vectorOp = vector->begin()->getDefiningOp();
+      if (failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
+        auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
+        conversionManager.setInsertionPointFor(vector);
+        // Create extractions from vectorized operands if present.
+        for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
+          auto const& element = vector->getElement(lane);
+          if (auto* elementOp = element.getDefiningOp()) {
+            if (vector->isLeaf()) {
+              vector->setElement(lane, conversionManager.getOrExtractValue(element));
+            } else {
+              for (size_t i = 0; i < elementOp->getNumOperands(); ++i) {
+                elementOp->setOperand(i, conversionManager.getOrExtractValue(elementOp->getOperand(i)));
+              }
             }
           }
-        }
-        if (lane == 0 && vector->splattable()) {
-          break;
-        }
-      }
-      if (vector->splattable()) {
-        auto const& element = vector->getElement(0);
-        auto vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
-        conversionManager.update(vector, vectorizedOp, ElementFlag::KeepFirst);
-      } else {
-        Value vectorizedOp;
-        for (size_t i = 0; i < vector->numLanes(); ++i) {
-          auto const& element = vector->getElement(i);
-          if (i == 0) {
-            vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
-          } else {
-            auto index = conversionManager.getOrCreateConstant(element.getLoc(), rewriter.getI32IntegerAttr((int) i));
-            vectorizedOp = rewriter.create<vector::InsertElementOp>(element.getLoc(), element, vectorizedOp, index);
+          if (lane == 0 && vector->splattable()) {
+            break;
           }
         }
-        conversionManager.update(vector, vectorizedOp, ElementFlag::KeepAll);
+        if (vector->splattable()) {
+          auto const& element = vector->getElement(0);
+          auto vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
+          conversionManager.update(vector, vectorizedOp, ElementFlag::KeepFirst);
+        } else {
+          Value vectorizedOp;
+          for (size_t i = 0; i < vector->numLanes(); ++i) {
+            auto const& element = vector->getElement(i);
+            if (i == 0) {
+              vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
+            } else {
+              auto index = conversionManager.getOrCreateConstant(element.getLoc(), rewriter.getI32IntegerAttr((int) i));
+              vectorizedOp = rewriter.create<vector::InsertElementOp>(element.getLoc(), element, vectorizedOp, index);
+            }
+          }
+          conversionManager.update(vector, vectorizedOp, ElementFlag::KeepAll);
+        }
       }
-    }
-    // Create vector extractions for escaping uses & erase superfluous operations.
-    auto const& creationMode = conversionManager.getElementFlag(vector);
-    for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-      auto const& element = vector->getElement(lane);
-      if (finishedValues.contains(element)) {
-        continue;
-      }
-      finishedValues.insert(element);
-      if (creationMode == ElementFlag::KeepAll || (creationMode == ElementFlag::KeepFirst && lane == 0)) {
-        continue;
-      }
-      if (conversionManager.hasEscapingUsers(element)) {
-        if (creationMode == ElementFlag::KeepNoneNoExtract) {
+      // Create vector extractions for escaping uses & erase superfluous operations.
+      auto const& creationMode = conversionManager.getElementFlag(vector);
+      for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
+        auto const& element = vector->getElement(lane);
+        if (finishedValues.contains(element)) {
           continue;
         }
-        conversionManager.createExtractionFor(element);
+        finishedValues.insert(element);
+        if (creationMode == ElementFlag::KeepAll || (creationMode == ElementFlag::KeepFirst && lane == 0)) {
+          continue;
+        }
+        if (conversionManager.hasEscapingUsers(element)) {
+          if (creationMode == ElementFlag::KeepNoneNoExtract) {
+            continue;
+          }
+          conversionManager.createExtractionFor(element);
+        }
+        rewriter.eraseOp(element.getDefiningOp());
       }
-      rewriter.eraseOp(element.getDefiningOp());
+      if (static_cast<double>(n) / static_cast<double>(numVectors) >= progressThreshold) {
+        task->emitRemark("Conversion progress: " + std::to_string((int) std::round(100 * progressThreshold)) + '%');
+        progressThreshold += interval;
+      }
     }
-    if (static_cast<double>(n) / static_cast<double>(numVectors) >= progressThreshold) {
-      task->emitRemark("Conversion progress: " + std::to_string((int) std::round(100 * progressThreshold)) + '%');
-      progressThreshold += interval;
-    }
+    seeding.markAllUnavailable(graph.get());
   }
-  task->emitRemark("Graph conversion complete.");
+  task->emitRemark("SLP vectorization complete.");
   rewriter.restoreInsertionPoint(callPoint);
   rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
   return success();

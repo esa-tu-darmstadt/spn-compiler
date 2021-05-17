@@ -13,8 +13,7 @@ using namespace mlir::spn::low::slp;
 
 // === NodeVector === //
 
-ValueVector::ValueVector(ArrayRef<Value> const& values, std::shared_ptr<SLPNode> const& parentNode) : parentNode{
-    parentNode} {
+ValueVector::ValueVector(ArrayRef<Value> const& values) {
   assert(!values.empty());
   for (auto const& value : values) {
     assert(value.isa<BlockArgument>() || value.getDefiningOp()->hasTrait<OpTrait::OneResult>());
@@ -22,8 +21,7 @@ ValueVector::ValueVector(ArrayRef<Value> const& values, std::shared_ptr<SLPNode>
   }
 }
 
-ValueVector::ValueVector(ArrayRef<Operation*> const& operations, std::shared_ptr<SLPNode> const& parentNode)
-    : parentNode{parentNode} {
+ValueVector::ValueVector(ArrayRef<Operation*> const& operations) {
   assert(!operations.empty());
   for (auto* op : operations) {
     assert(op->hasTrait<OpTrait::OneResult>());
@@ -50,7 +48,7 @@ bool ValueVector::contains(Value const& value) const {
 }
 
 bool ValueVector::isLeaf() const {
-  return operands.empty();
+  return operandVectors.empty();
 }
 
 bool ValueVector::uniform() const {
@@ -102,38 +100,39 @@ SmallVectorImpl<Value>::const_iterator ValueVector::end() const {
 }
 
 size_t ValueVector::numOperands() const {
-  return operands.size();
+  return operandVectors.size();
 }
 
-void ValueVector::addOperand(ValueVector* operandVector) {
-  operands.emplace_back(operandVector);
+void ValueVector::addOperand(std::shared_ptr<ValueVector> operandVector) {
+  operandVectors.emplace_back(std::move(operandVector));
 }
 
 ValueVector* ValueVector::getOperand(size_t index) const {
-  assert(index < operands.size());
-  return operands[index];
+  assert(index < operandVectors.size());
+  return operandVectors[index].get();
 }
 
-ArrayRef<ValueVector*> ValueVector::getOperands() const {
-  return operands;
-}
-
-std::shared_ptr<SLPNode> ValueVector::getParentNode() const {
-  if (auto parentPtr = parentNode.lock()) {
-    return parentPtr;
+SmallVector<ValueVector*, 2> ValueVector::getOperands() const {
+  SmallVector<ValueVector*, 2> operands;
+  for(auto const& operand : operandVectors) {
+    operands.emplace_back(operand.get());
   }
-  assert(false && "parent node has expired already");
+  return operands;
 }
 
 // === SLPNode === //
 
-ValueVector* SLPNode::addVector(std::unique_ptr<ValueVector> vector) {
-  return vectors.emplace_back(std::move(vector)).get();
+SLPNode::SLPNode(std::shared_ptr<ValueVector> vector) {
+  vectors.emplace_back(std::move(vector));
 }
 
-ValueVector* SLPNode::getVector(size_t index) const {
+void SLPNode::addVector(std::shared_ptr<ValueVector> vector) {
+  vectors.emplace_back(std::move(vector));
+}
+
+std::shared_ptr<ValueVector> SLPNode::getVector(size_t index) const {
   assert(index <= numVectors());
-  return vectors[index].get();
+  return vectors[index];
 }
 
 Value SLPNode::getValue(size_t lane, size_t index) const {

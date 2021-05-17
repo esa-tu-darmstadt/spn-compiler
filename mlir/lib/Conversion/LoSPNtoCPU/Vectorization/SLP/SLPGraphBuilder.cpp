@@ -13,12 +13,12 @@ using namespace mlir::spn::low::slp;
 
 SLPGraphBuilder::SLPGraphBuilder(size_t maxLookAhead) : maxLookAhead{maxLookAhead} {}
 
-std::shared_ptr<SLPNode> SLPGraphBuilder::build(ArrayRef<Value> const& seed) {
-  auto root = std::make_shared<SLPNode>();
-  auto* vector = root->addVector(std::make_unique<ValueVector>(seed, root));
-  vectorsByValue[vector->getElement(0)].emplace_back(vector);
-  buildWorklist.insert(root.get());
-  buildGraph(vector);
+std::shared_ptr<ValueVector> SLPGraphBuilder::build(ArrayRef<Value> const& seed) {
+  auto root = std::make_shared<ValueVector>(seed);
+  auto rootNode = nodesByVector.try_emplace(root.get(), std::make_shared<SLPNode>(root)).first->second;
+  vectorsByValue[root->getElement(0)].emplace_back(root);
+  buildWorklist.insert(rootNode.get());
+  buildGraph(root);
   return root;
 }
 
@@ -73,10 +73,11 @@ namespace {
     });
   }
 
-  SmallVector<SmallVector<Value, 2>> getAllOperandsSorted(ValueVector* vector, OperationName const& currentOpCode) {
+  SmallVector<SmallVector<Value, 2>> getAllOperandsSorted(ValueVector const& vector,
+                                                          OperationName const& currentOpCode) {
     SmallVector<SmallVector<Value, 2>> allOperands;
-    allOperands.reserve(vector->numLanes());
-    for (auto const& value : *vector) {
+    allOperands.reserve(vector.numLanes());
+    for (auto const& value : vector) {
       allOperands.emplace_back(getOperands(value));
     }
     for (auto& operands : allOperands) {
@@ -87,36 +88,34 @@ namespace {
 
 } // end namespace
 
-void SLPGraphBuilder::buildGraph(ValueVector* vector) {
+void SLPGraphBuilder::buildGraph(std::shared_ptr<ValueVector> const& vector) {
   // Stop growing graph
   if (!vectorizable(vector->begin(), vector->end())) {
     return;
   }
-  auto currentNode = vector->getParentNode();
+  auto currentNode = nodesByVector[vector.get()];
   auto const& currentOpCode = vector->begin()->getDefiningOp()->getName();
   auto const& arity = vector->begin()->getDefiningOp()->getNumOperands();
   // Recursion call to grow graph further
   // 1. Commutative
   if (commutative(vector->begin(), vector->end())) {
     // A. Coarsening Mode
-    auto allOperands = getAllOperandsSorted(vector, currentOpCode);
+    auto allOperands = getAllOperandsSorted(*vector, currentOpCode);
     for (unsigned i = 0; i < arity; ++i) {
       SmallVector<Value, 4> vectorValues;
       for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
         vectorValues.emplace_back(allOperands[lane][i]);
       }
-      auto* existingVector = vectorOrNull(vectorValues);
+      auto existingVector = vectorOrNull(vectorValues);
       if (existingVector) {
         vector->addOperand(existingVector);
-        currentNode->addOperand(existingVector->getParentNode());
+        currentNode->addOperand(nodesByVector[existingVector.get()]);
       } else if (appendable(*currentNode, currentOpCode, allOperands, i)) {
-        auto* newVector = addValueVectorToNode(vectorValues, currentNode, vector);
+        auto newVector = appendVectorToNode(vectorValues, currentNode, vector);
         buildGraph(newVector);
       } else if (ofVectorizableType(std::begin(vectorValues), std::end(vectorValues))) {
         // TODO: here might be a good place to implement variable vector width
-        auto operandNode = std::make_shared<SLPNode>();
-        addValueVectorToNode(vectorValues, operandNode, vector);
-        currentNode->addOperand(operandNode);
+        auto operandNode = addOperandToNode(vectorValues, currentNode, vector);
         buildWorklist.insert(operandNode.get());
       }
     }
@@ -138,16 +137,14 @@ void SLPGraphBuilder::buildGraph(ValueVector* vector) {
         auto operand = currentNode->getValue(lane, 0).getDefiningOp()->getOperand(i);
         operandValues.emplace_back(operand);
       }
-      auto* existingVector = vectorOrNull(operandValues);
+      auto existingVector = vectorOrNull(operandValues);
       if (existingVector) {
         vector->addOperand(existingVector);
-        currentNode->addOperand(existingVector->getParentNode());
+        currentNode->addOperand(nodesByVector[existingVector.get()]);
       } else if (ofVectorizableType(std::begin(operandValues), std::end(operandValues))) {
-        auto operandNode = std::make_shared<SLPNode>();
-        auto* operandVector = addValueVectorToNode(operandValues, operandNode, vector);
-        currentNode->addOperand(operandNode);
+        auto operandNode = addOperandToNode(operandValues, currentNode, vector);
         buildWorklist.insert(operandNode.get());
-        buildGraph(operandVector);
+        buildGraph(operandNode->getVector(0));
       }
     }
   }
@@ -302,7 +299,9 @@ unsigned SLPGraphBuilder::getLookAheadScore(Value const& last, Value const& cand
   return scoreSum;
 }
 
-SLPGraphBuilder::Mode SLPGraphBuilder::modeFromValue(Value const& value) {
+// === Utilities === //
+
+SLPGraphBuilder::Mode SLPGraphBuilder::modeFromValue(Value const& value) const {
   if (value.isa<BlockArgument>()) {
     return SPLAT;
   }
@@ -315,19 +314,33 @@ SLPGraphBuilder::Mode SLPGraphBuilder::modeFromValue(Value const& value) {
   return OPCODE;
 }
 
-ValueVector* SLPGraphBuilder::addValueVectorToNode(ArrayRef<Value> const& values,
-                                                   std::shared_ptr<SLPNode> node,
-                                                   ValueVector* usingVector) {
-  auto* newVector = node->addVector(std::make_unique<ValueVector>(values, node));
-  usingVector->addOperand(newVector);
+std::shared_ptr<ValueVector> SLPGraphBuilder::appendVectorToNode(ArrayRef<Value> const& values,
+                                                                 std::shared_ptr<SLPNode> const& node,
+                                                                 std::shared_ptr<ValueVector> const& usingVector) {
+  auto newVector = std::make_shared<ValueVector>(values);
   vectorsByValue[values[0]].emplace_back(newVector);
+  nodesByVector[newVector.get()] = node;
+  node->addVector(newVector);
+  usingVector->addOperand(newVector);
   return newVector;
 }
 
-ValueVector* SLPGraphBuilder::vectorOrNull(ArrayRef<Value> const& values) const {
+std::shared_ptr<SLPNode> SLPGraphBuilder::addOperandToNode(ArrayRef<Value> const& operandValues,
+                                                           std::shared_ptr<SLPNode> const& node,
+                                                           std::shared_ptr<ValueVector> const& usingVector) {
+  auto newVector = std::make_shared<ValueVector>(operandValues);
+  auto operandNode = nodesByVector.try_emplace(newVector.get(), std::make_shared<SLPNode>(newVector)).first->second;
+  vectorsByValue[operandValues[0]].emplace_back(newVector);
+  nodesByVector[newVector.get()] = operandNode;
+  node->addOperand(operandNode);
+  usingVector->addOperand(newVector);
+  return operandNode;
+}
+
+std::shared_ptr<ValueVector> SLPGraphBuilder::vectorOrNull(ArrayRef<Value> const& values) const {
   if (vectorsByValue.count(values[0])) {
     auto const& vectors = vectorsByValue.lookup(values[0]);
-    auto const& it = std::find_if(std::begin(vectors), std::end(vectors), [&](auto* vector) {
+    auto const& it = std::find_if(std::begin(vectors), std::end(vectors), [&](auto const& vector) {
       if (vector->numLanes() != values.size()) {
         return false;
       }

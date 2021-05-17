@@ -9,12 +9,9 @@
 using namespace mlir;
 using namespace mlir::spn::low::slp;
 
-SeedAnalysis::SeedAnalysis(Operation* rootOp, unsigned width) : rootOp{rootOp}, width{width} {}
-
 // Helper functions in anonymous namespace.
 namespace {
-  DenseMap<Value, unsigned> getOpDepths(Operation* rootOp) {
-    DenseMap<Value, unsigned> opDepths;
+  void computeOpDepths(Operation* rootOp, DenseMap<Value, unsigned>& opDepths) {
     rootOp->walk([&](Operation* op) {
       unsigned depth = 0;
       for (auto const& operand : op->getOperands()) {
@@ -27,22 +24,32 @@ namespace {
         opDepths[result] = depth;
       }
     });
-    return opDepths;
+  }
+
+  void computeAvailableOps(Operation* rootOp, SmallVectorImpl<Operation*>& availableOps) {
+    rootOp->walk([&](Operation* op) {
+      if (!vectorizable(op)) {
+        return;
+      }
+      availableOps.emplace_back(op);
+    });
   }
 }
 
-void SeedAnalysis::fillSeed(SmallVectorImpl<Value>& seed, SearchMode const& mode) const {
+SeedAnalysis::SeedAnalysis(Operation* rootOp, unsigned width) : rootOp{rootOp}, width{width} {
+  computeAvailableOps(rootOp, availableOps);
+  computeOpDepths(rootOp, opDepths);
+}
+
+SmallVector<Value, 4> SeedAnalysis::next(Order const& mode) {
   llvm::StringMap<SmallVector<SmallVector<Value, 4>>> seedsByOpName;
-  auto const& opDepths = getOpDepths(rootOp);
-  rootOp->emitRemark("Computing seed out of " + std::to_string(opDepths.size()) + " operations...");
-  rootOp->walk([&](Operation* op) {
-    if (!vectorizable(op)) {
-      return WalkResult::advance();
-    }
+  rootOp->emitRemark("Computing seed out of " + std::to_string(availableOps.size()) + " operations...");
+  SmallVector<Value, 4> seed;
+  for (auto* op : availableOps) {
     auto value = op->getResult(0);
     auto const& depth = opDepths.lookup(value);
     if (depth < log2(width)) {
-      return WalkResult::advance();
+      continue;
     }
     bool needsNewSeed = true;
     for (auto& potentialSeed : seedsByOpName[op->getName().getStringRef()]) {
@@ -57,11 +64,10 @@ void SeedAnalysis::fillSeed(SmallVectorImpl<Value>& seed, SearchMode const& mode
       }
     }
     if (needsNewSeed) {
-      SmallVector<Value, 4> seed{value};
-      seedsByOpName[op->getName().getStringRef()].emplace_back(seed);
+      SmallVector<Value, 4> newSeed{value};
+      seedsByOpName[op->getName().getStringRef()].emplace_back(newSeed);
     }
-    return WalkResult::advance();
-  });
+  }
 
   SmallVector<SmallVector<Value, 4>> seeds;
   // Flatten the map that maps opcodes to seeds.
@@ -75,21 +81,32 @@ void SeedAnalysis::fillSeed(SmallVectorImpl<Value>& seed, SearchMode const& mode
   }
 
   if (seeds.empty()) {
-    return;
+    return seed;
   }
 
-  // Sort the seeds such that either the seeds closest to the beginning of the function come first (DefBeforeUse),
-  // or those closest to the return statement (UseBeforeDef).
+  // Sort the seeds such that either the seeds closest to the beginning of the function come first (DefUse),
+  // or those closest to the return statement (UseDef).
   std::sort(seeds.begin(), seeds.end(), [&](auto const& seed1, auto const& seed2) {
-    if (mode == DefBeforeUse) {
-      return opDepths.lookup(seed1.front()) < opDepths.lookup(seed2.front());
-    } else if (mode == UseBeforeDef) {
-      return opDepths.lookup(seed1.front()) > opDepths.lookup(seed2.front());
-    } else {
-      // Unused so far.
-      assert(false);
+    switch (mode) {
+      case DefUse: return opDepths.lookup(seed1.front()) < opDepths.lookup(seed2.front());
+      case UseDef: return opDepths.lookup(seed1.front()) > opDepths.lookup(seed2.front());
+        // Unused so far.
+      default: assert(false);
     }
   });
+  return seeds.front();
+}
 
-  seed.swap(seeds.front());
+void SeedAnalysis::markAllUnavailable(ValueVector* root) {
+  SmallPtrSet<Operation*, 32> graphOps;
+  for (auto* vector : graph::postOrder(root)) {
+    for (auto const& element : *vector) {
+      if (auto* definingOp = element.getDefiningOp()) {
+        graphOps.insert(definingOp);
+      }
+    }
+  }
+  availableOps.erase(std::remove_if(std::begin(availableOps), std::end(availableOps), [&](auto* op) {
+    return graphOps.contains(op);
+  }), std::end(availableOps));
 }

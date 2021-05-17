@@ -57,15 +57,8 @@ void slp::dumpSLPNode(SLPNode const& node) {
   }
 }
 
-size_t slp::numNodes(SLPNode* root) {
+size_t slp::numVectors(ValueVector* root) {
   return graph::postOrder(root).size();
-}
-size_t slp::numVectors(SLPNode* root) {
-  size_t n = 0;
-  for (auto* node : graph::postOrder(root)) {
-    n += node->numVectors();
-  }
-  return n;
 }
 
 // Helper functions in an anonymous namespace.

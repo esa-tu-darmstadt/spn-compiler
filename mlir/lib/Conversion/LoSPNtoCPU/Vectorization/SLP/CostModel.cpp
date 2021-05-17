@@ -18,8 +18,8 @@ unsigned CostModel::getScalarCost(Value const& value) {
   return entry.first->second;
 }
 
-unsigned CostModel::getVectorCost(ValueVector const* vector) {
-  auto const& entry = cachedVectorCosts.try_emplace(vector, 0);
+unsigned CostModel::getVectorCost(ValueVector const& vector) {
+  auto const& entry = cachedVectorCosts.try_emplace(&vector, 0);
   if (entry.second) {
     entry.first->getSecond() = computeVectorCost(vector);
   }
@@ -38,10 +38,10 @@ unsigned UnitCostModel::computeScalarCost(Value const& value) {
   return cost;
 }
 
-unsigned UnitCostModel::computeVectorCost(ValueVector const* vector) {
+unsigned UnitCostModel::computeVectorCost(ValueVector const& vector) {
   unsigned cost = 1;
-  for (size_t i = 0; i < vector->numOperands(); ++i) {
-    cost += getVectorCost(vector->getOperand(i));
+  for (size_t i = 0; i < vector.numOperands(); ++i) {
+    cost += getVectorCost(*vector.getOperand(i));
   }
   return cost;
 }

@@ -14,11 +14,11 @@ namespace mlir {
     namespace low {
       namespace slp {
 
-        enum SearchMode {
+        enum Order {
           ///
-          DefBeforeUse,
+          DefUse,
           ///
-          UseBeforeDef,
+          UseDef,
           /// TODO?
           Chain
         };
@@ -29,11 +29,15 @@ namespace mlir {
 
           SeedAnalysis(Operation* rootOp, unsigned width);
 
-          void fillSeed(SmallVectorImpl<Value>& seed, SearchMode const& mode) const;
+          SmallVector<Value, 4> next(Order const& mode);
+          void markAllUnavailable(ValueVector* root);
 
         private:
           Operation* rootOp;
           unsigned const width;
+          // We could also use a set here, but using a vector makes it deterministic.
+          SmallVector<Operation*> availableOps;
+          DenseMap<Value, unsigned> opDepths;
         };
       }
     }
