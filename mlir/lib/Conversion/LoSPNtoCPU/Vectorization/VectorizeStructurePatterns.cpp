@@ -133,17 +133,17 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     //low::slp::dumpOpTree(seed);
     task->emitRemark("Computing graph...");
     auto graph = builder.build(seed);
-    conversionManager.initConversion(graph.get());
     auto numVectors = slp::numVectors(graph.get());
     task->emitRemark("Number of SLP vectors in graph: " + std::to_string(numVectors));
     //low::slp::dumpSLPGraph(graph.get());
 
     task->emitRemark("Converting graph...");
+    conversionManager.initConversion(graph.get());
 
     // Track progress.
     double percent = 0.1;
     double interval = (double) numVectors >= (1.0 / percent) ? percent : 1.0 / (double) numVectors;
-    double progressThreshold = 0;
+    double progressThreshold = interval;
 
     // Traverse the SLP graph and apply the vectorization patterns.
     auto const& order = conversionManager.conversionOrder();
@@ -216,6 +216,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         progressThreshold += interval;
       }
     }
+    task->emitRemark("Conversion complete.");
     seeding.markAllUnavailable(graph.get());
   }
   task->emitRemark("SLP vectorization complete.");
