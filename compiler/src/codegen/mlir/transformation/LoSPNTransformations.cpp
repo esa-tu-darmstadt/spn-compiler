@@ -12,6 +12,7 @@
 #include "LoSPN/LoSPNOps.h"
 
 void spnc::LoSPNTransformations::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
+  pm->nest<mlir::spn::low::SPNKernel>().addPass(mlir::spn::low::createLoSPNPartitionerPass());
   pm->addPass(mlir::spn::low::createLoSPNBufferizePass());
   pm->addPass(mlir::createCanonicalizerPass());
   pm->nest<mlir::spn::low::SPNKernel>().addPass(mlir::spn::low::createLoSPNCopyRemovalPass());
