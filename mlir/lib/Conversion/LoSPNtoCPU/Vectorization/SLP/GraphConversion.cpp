@@ -166,10 +166,7 @@ void ConversionManager::initConversion(ValueVector* root) {
         users.insert(escapingUser);
       }
     }
-    latestEscapingUser->emitRemark("Reordering operations...");
     reorderOperations(earliestInput, inputs, users);
-    earliestInput->getBlock()->recomputeOpOrder();
-    latestEscapingUser->emitRemark("Reordering done.");
   }
 
   // Sort escaping users so that we can create the extraction operation right in front of the first one.
