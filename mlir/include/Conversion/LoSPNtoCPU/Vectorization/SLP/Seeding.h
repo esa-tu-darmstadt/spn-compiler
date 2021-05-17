@@ -8,6 +8,7 @@
 
 #include "mlir/IR/Operation.h"
 #include "SLPGraph.h"
+#include <unordered_set>
 
 namespace mlir {
   namespace spn {
@@ -35,9 +36,7 @@ namespace mlir {
         private:
           Operation* rootOp;
           unsigned const width;
-          // We could also use a set here, but using a vector makes it deterministic.
-          SmallVector<Operation*> availableOps;
-          DenseMap<Value, unsigned> opDepths;
+          std::unordered_set<Operation*> availableOps;
         };
       }
     }
