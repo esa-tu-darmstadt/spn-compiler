@@ -119,6 +119,18 @@ mlir::LogicalResult mlir::spn::BodyLowering::matchAndRewrite(mlir::spn::low::SPN
   assert(operands.size() == op.body().front().getNumArguments() &&
       "Expecting the number of operands to match the block arguments");
 
+  SmallVector<Value> argValues;
+  for (auto opArg : llvm::zip(operands, op.body().front().getArguments())) {
+    auto operand = std::get<0>(opArg);
+    auto arg = std::get<1>(opArg);
+    if (arg.getType().isa<low::LogType>()) {
+      auto convertLog = rewriter.create<low::SPNConvertLog>(op->getLoc(), operand);
+      argValues.push_back(convertLog);
+    } else {
+      argValues.push_back(operand);
+    }
+  }
+
   SmallVector<Value, 2> resultValues;
   op.body().front().walk([&](low::SPNYield yield) {
     for (auto res : yield.resultValues()) {
@@ -139,7 +151,7 @@ mlir::LogicalResult mlir::spn::BodyLowering::matchAndRewrite(mlir::spn::low::SPN
     }
     rewriter.eraseOp(yield);
   });
-  rewriter.mergeBlockBefore(&op.body().front(), op, operands);
+  rewriter.mergeBlockBefore(&op.body().front(), op, argValues);
   rewriter.replaceOp(op, resultValues);
   return success();
 }

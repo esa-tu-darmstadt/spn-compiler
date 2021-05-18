@@ -534,3 +534,15 @@ mlir::LogicalResult mlir::spn::ResolveStripLog::matchAndRewrite(mlir::spn::low::
   rewriter.replaceOp(op, operands[0]);
   return success();
 }
+
+mlir::LogicalResult mlir::spn::ResolveConvertLog::matchAndRewrite(mlir::spn::low::SPNConvertLog op,
+                                                                  llvm::ArrayRef<mlir::Value> operands,
+                                                                  mlir::ConversionPatternRewriter& rewriter) const {
+  assert(operands.size() == 1);
+  auto baseType = typeConverter->convertType(op.getResult().getType());
+  assert(operands[0].getType() == baseType);
+  // Simply replace the conversion by its input operand. All users of the conversion should be
+  // converted subsequently.
+  rewriter.replaceOp(op, operands[0]);
+  return success();
+}

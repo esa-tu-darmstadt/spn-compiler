@@ -293,6 +293,17 @@ void mlir::spn::low::SPNStripLog::build(::mlir::OpBuilder& odsBuilder,
 }
 
 //===----------------------------------------------------------------------===//
+// SPNConvertLog
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::low::SPNConvertLog::build(::mlir::OpBuilder& odsBuilder,
+                                          ::mlir::OperationState& odsState,
+                                          Value input) {
+  auto logType = mlir::spn::low::LogType::get(input.getType());
+  build(odsBuilder, odsState, logType, input);
+}
+
+//===----------------------------------------------------------------------===//
 // SPNMul
 //===----------------------------------------------------------------------===//
 
