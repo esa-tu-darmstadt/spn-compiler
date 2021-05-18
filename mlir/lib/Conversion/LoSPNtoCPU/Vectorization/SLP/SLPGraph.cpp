@@ -1,7 +1,10 @@
-//
-// This file is part of the SPNC project.
-// Copyright (c) 2020 Embedded Systems and Applications Group, TU Darmstadt. All rights reserved.
-//
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraph.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
@@ -114,7 +117,7 @@ ValueVector* ValueVector::getOperand(size_t index) const {
 
 SmallVector<ValueVector*, 2> ValueVector::getOperands() const {
   SmallVector<ValueVector*, 2> operands;
-  for(auto const& operand : operandVectors) {
+  for (auto const& operand : operandVectors) {
     operands.emplace_back(operand.get());
   }
   return operands;
