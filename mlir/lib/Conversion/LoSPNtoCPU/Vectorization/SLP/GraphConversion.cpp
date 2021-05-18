@@ -33,7 +33,7 @@ namespace {
     for (auto const& entry: depths) {
       order.emplace_back(entry.first);
     }
-    std::sort(std::begin(order), std::end(order), [&](ValueVector* lhs, ValueVector* rhs) {
+    llvm::sort(std::begin(order), std::end(order), [&](ValueVector* lhs, ValueVector* rhs) {
       // This additional comparison maximizes the re-use potential of leaf vectors.
       if (depths[lhs] == depths[rhs]) {
         return !lhs->isLeaf() && rhs->isLeaf();
@@ -108,7 +108,7 @@ namespace {
       opsSortedByDepth[maxDepth - entry.second].emplace_back(entry.first);
     }
     for (auto& ops: opsSortedByDepth) {
-      std::sort(std::begin(ops), std::end(ops), [&](Operation* lhs, Operation* rhs) {
+      llvm::sort(std::begin(ops), std::end(ops), [&](Operation* lhs, Operation* rhs) {
         return lhs->isBeforeInBlock(rhs);
       });
     }
@@ -179,7 +179,7 @@ void ConversionManager::initConversion(ValueVector* root) {
   // Sort escaping users so that we can create the extraction operation right in front of the first one.
   for (auto& entry : escapingUsers) {
     auto& users = entry.second;
-    std::sort(std::begin(users), std::end(users), [&](Operation* lhs, Operation* rhs) {
+    llvm::sort(std::begin(users), std::end(users), [&](Operation* lhs, Operation* rhs) {
       return lhs->isBeforeInBlock(rhs);
     });
   }

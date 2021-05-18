@@ -96,7 +96,7 @@ SmallVector<Value, 4> SeedAnalysis::next(Order const& mode) {
 
   // Sort the seeds such that either the seeds closest to the beginning of the function come first (DefUse),
   // or those closest to the return statement (UseDef).
-  std::sort(seeds.begin(), seeds.end(), [&](auto const& seed1, auto const& seed2) {
+  llvm::sort(seeds.begin(), seeds.end(), [&](auto const& seed1, auto const& seed2) {
     switch (mode) {
       case DefUse: return opDepths.lookup(seed1.front()) < opDepths.lookup(seed2.front());
       case UseDef: return opDepths.lookup(seed1.front()) > opDepths.lookup(seed2.front());

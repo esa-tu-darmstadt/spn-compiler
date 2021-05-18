@@ -54,7 +54,7 @@ namespace {
   }
 
   void sortByOpcode(SmallVector<Value, 2>& values, Optional<OperationName> const& smallestOpcode) {
-    std::sort(std::begin(values), std::end(values), [&](Value const& lhs, Value const& rhs) {
+    llvm::sort(std::begin(values), std::end(values), [&](Value const& lhs, Value const& rhs) {
       auto* lhsOp = lhs.getDefiningOp();
       auto* rhsOp = rhs.getDefiningOp();
       if (!lhsOp && !rhsOp) {
