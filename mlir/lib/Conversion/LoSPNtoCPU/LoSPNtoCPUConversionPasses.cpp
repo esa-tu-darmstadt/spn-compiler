@@ -24,7 +24,8 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   target.addLegalDialect<StandardOpsDialect>();
   target.addLegalDialect<scf::SCFDialect>();
   target.addLegalDialect<vector::VectorDialect>();
-  target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
+  target.addLegalDialect<mlir::memref::MemRefDialect>();
+  target.addLegalOp<ModuleOp>();
   target.addLegalOp<FuncOp>();
 
   LoSPNtoCPUTypeConverter typeConverter;
@@ -33,9 +34,9 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   target.addIllegalOp<spn::low::SPNKernel>();
   target.addIllegalOp<spn::low::SPNBody>();
 
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(&getContext());
   spn::populateLoSPNtoCPUStructurePatterns(patterns, &getContext(), typeConverter);
-  FrozenRewritePatternList frozenPatterns(std::move(patterns));
+  FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 
   // We split this pass into two conversion pattern applications because the single task vectorization relies on
   // the structure being converted beforehand. Otherwise, the SPNBatchReads wouldn't be converted into vector loads
@@ -47,13 +48,13 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   target.addIllegalOp<spn::low::SPNTask>();
   target.addLegalOp<math::ExpOp>();
 
-  patterns = OwningRewritePatternList();
+  OwningRewritePatternList taskPatterns(&getContext());
   if (vectorize) {
-    spn::populateLoSPNtoCPUVectorizationTaskPatterns(patterns, &getContext(), typeConverter);
+    spn::populateLoSPNtoCPUVectorizationTaskPatterns(taskPatterns, &getContext(), typeConverter);
   }
-  spn::populateLoSPNtoCPUTaskPatterns(patterns, &getContext(), typeConverter);
+  spn::populateLoSPNtoCPUTaskPatterns(taskPatterns, &getContext(), typeConverter);
 
-  frozenPatterns = FrozenRewritePatternList(std::move(patterns));
+  frozenPatterns = FrozenRewritePatternSet(std::move(taskPatterns));
 
   if (failed(applyPartialConversion(getOperation(), target, frozenPatterns))) {
     signalPassFailure();

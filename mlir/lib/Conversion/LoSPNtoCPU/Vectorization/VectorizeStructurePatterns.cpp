@@ -125,9 +125,9 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
    * front (including those we identified as SLP-vectorizable!) and create new ones there, resulting in our constant
    + SLP-vectorization patterns not being applied to them and messing up operand handling further down the SLP graph.
    */
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(task->getContext());
   populateSLPVectorizationPatterns(patterns, rewriter.getContext(), vector, conversionManager);
-  FrozenRewritePatternList frozenPatterns(std::move(patterns));
+  mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
   PatternApplicator applicator(frozenPatterns);
   applicator.applyDefaultCostModel();
 
