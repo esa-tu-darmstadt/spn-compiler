@@ -135,7 +135,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     auto graph = builder.build(seed);
     auto numVectors = slp::numVectors(graph.get());
     task->emitRemark("Number of SLP vectors in graph: " + std::to_string(numVectors));
-    //low::slp::dumpSLPGraph(graph.get());
 
     task->emitRemark("Converting graph...");
     conversionManager.initConversion(graph.get());

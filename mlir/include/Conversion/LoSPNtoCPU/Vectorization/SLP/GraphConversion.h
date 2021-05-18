@@ -75,7 +75,7 @@ namespace mlir {
           DenseMap<ValueVector*, ValueVector*> insertionPoints;
 
           /// Stores escaping users for each value.
-          DenseMap<Value, SmallVector<Operation*, 2>> escapingUsers;
+          DenseMap<Value, SmallVector<Operation*, 1>> escapingUsers;
 
           /// For creating constants & setting insertion points.
           PatternRewriter& rewriter;

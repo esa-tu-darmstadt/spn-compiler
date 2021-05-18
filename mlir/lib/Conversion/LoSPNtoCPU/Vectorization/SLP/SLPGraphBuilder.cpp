@@ -6,7 +6,6 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraphBuilder.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
-#include "llvm/ADT/SmallSet.h"
 
 using namespace mlir;
 using namespace mlir::spn::low::slp;

@@ -87,6 +87,7 @@ SmallVector<Value, 4> SeedAnalysis::next(Order const& mode) {
   }
 
   if (seeds.empty()) {
+    rootOp->emitRemark("No seed found.");
     return seed;
   }
 

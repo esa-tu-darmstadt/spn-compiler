@@ -129,6 +129,10 @@ void ConversionManager::initConversion(ValueVector* root) {
   SmallPtrSet<Operation*, 32> inputs;
   Operation* earliestInput = nullptr;
 
+  // Remove all temporary data from previous graphs.
+  escapingUsers.clear();
+  insertionPoints.clear();
+
   for (auto* vector : order) {
     for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
       auto const& element = vector->getElement(lane);
@@ -273,6 +277,7 @@ Value ConversionManager::getOrExtractValue(Value const& value) {
 }
 
 void ConversionManager::createExtractionFor(Value const& value) {
+  assert(hasEscapingUsers(value) && "value does not have escaping uses");
   auto const& vectorPosition = vectorPositions.lookup(value);
   auto const& source = getValue(vectorPosition.first);
   auto pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) vectorPosition.second));
@@ -288,4 +293,5 @@ void ConversionManager::createExtractionFor(Value const& value) {
     }
     escapingUser->setOperand(index, extractOp.result());
   }
+  escapingUsers.erase(value);
 }
