@@ -22,9 +22,15 @@ mlir::LogicalResult mlir::spn::BatchReadLowering::matchAndRewrite(mlir::spn::low
   // using the batchIndex and the constant sample index.
   assert(operands.size() == 2 && "Expecting two operands for BatchRead");
   assert(operands[0].getType().isa<MemRefType>());
+  auto memRefType = operands[0].getType().cast<MemRefType>();
   assert(operands[1].getType().isa<IndexType>());
-  auto constSampleIndex = rewriter.create<ConstantOp>(op->getLoc(), rewriter.getIndexAttr(op.sampleIndex()));
-  rewriter.replaceOpWithNewOp<memref::LoadOp>(op, operands[0], ValueRange{operands[1], constSampleIndex});
+  SmallVector<Value> indices;
+  indices.push_back(operands[1]);
+  if (memRefType.getRank() == 2) {
+    auto constSampleIndex = rewriter.create<ConstantOp>(op->getLoc(), rewriter.getIndexAttr(op.sampleIndex()));
+    indices.push_back(constSampleIndex);
+  }
+  rewriter.replaceOpWithNewOp<memref::LoadOp>(op, operands[0], indices);
   return success();
 }
 
