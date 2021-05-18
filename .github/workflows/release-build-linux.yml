@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           repository: llvm/llvm-project
-          ref: f8d3f47e1fd09392aa30df83849b25acd8c59a25
+          ref: 4a6ee23d832f823d71faf7d0dca1b6eec71df253
           path: llvm/llvm-src
 
       - name: Build LLVM
@@ -111,6 +111,7 @@ jobs:
           cd spn-compiler/xspn
           source $GITHUB_WORKSPACE/python/venv/bin/activate
           python setup.py bdist_wheel
+          pip install .
 
       - name: Test Python interface
         run: |

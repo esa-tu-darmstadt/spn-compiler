@@ -16,6 +16,7 @@
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "LoSPN/LoSPNAttributes.h"
 
 //
@@ -107,7 +108,7 @@ mlir::LogicalResult mlir::spn::VectorizeBatchRead::matchAndRewrite(mlir::spn::lo
   auto mask = broadcastVectorConstant(mlir::VectorType::get(op.vectorFactor(), rewriter.getI1Type()), true,
                                       rewriter, op->getLoc());
   // Re-interpret the MemRef to a single dimension for use with the gather-instruction.
-  auto numSamples = rewriter.create<DimOp>(op.getLoc(), operands[0], 0);
+  auto numSamples = rewriter.create<memref::DimOp>(op.getLoc(), operands[0], 0);
   auto constNumFeatures = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(numFeatures));
   auto size = rewriter.create<MulIOp>(op->getLoc(), numSamples, constNumFeatures);
   auto staticOffset = rewriter.getI32IntegerAttr(0);
@@ -116,11 +117,12 @@ mlir::LogicalResult mlir::spn::VectorizeBatchRead::matchAndRewrite(mlir::spn::lo
   dynamicSizes.push_back(size.result());
   SmallVector<OpFoldResult, 1> staticStrides;
   staticStrides.push_back(staticStride);
-  auto reinterpret = rewriter.create<MemRefReinterpretCastOp>(op.getLoc(),
-                                                              MemRefType::get({-1}, memRef.getElementType()),
-                                                              operands[0], staticOffset,
-                                                              dynamicSizes, staticStrides);
-  rewriter.replaceOpWithNewOp<vector::GatherOp>(op, vectorType, reinterpret, addresses, mask, passThru);
+  auto reinterpret = rewriter.create<memref::ReinterpretCastOp>(op.getLoc(),
+                                                                MemRefType::get({-1}, memRef.getElementType()),
+                                                                operands[0], staticOffset,
+                                                                dynamicSizes, staticStrides);
+  Value constIndex = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
+  rewriter.replaceOpWithNewOp<vector::GatherOp>(op, vectorType, reinterpret, constIndex, addresses, mask, passThru);
   return success();
 }
 
@@ -451,13 +453,13 @@ namespace {
     auto symbolName = tablePrefix + std::to_string(tableCount++);
     auto visibility = rewriter.getStringAttr("private");
     auto memrefType = mlir::MemRefType::get({(long) arrayValues.size()}, resultType);
-    (void) rewriter.create<mlir::GlobalMemrefOp>(op.getLoc(), symbolName, visibility,
-                                                 mlir::TypeAttr::get(memrefType), valArrayAttr, true);
+    (void) rewriter.create<mlir::memref::GlobalOp>(op.getLoc(), symbolName, visibility,
+                                                   memrefType, valArrayAttr, true);
     // Restore insertion point
     rewriter.restoreInsertionPoint(restore);
 
     // Use GetGlobalMemref operation to access the global created above.
-    auto addressOf = rewriter.template create<mlir::GetGlobalMemrefOp>(op.getLoc(), memrefType, symbolName);
+    auto addressOf = rewriter.template create<mlir::memref::GetGlobalOp>(op.getLoc(), memrefType, symbolName);
     auto vectorShape = inputType.template dyn_cast<mlir::VectorType>().getShape();
     // Convert the input to integer type if necessary.
     mlir::Value index = indexOperand;
@@ -479,8 +481,9 @@ namespace {
     auto mask = broadcastVectorConstant(mlir::VectorType::get(vectorShape, rewriter.getI1Type()), true,
                                         rewriter, op->getLoc());
     // Replace the source operation with a gather load from the global memref.
+    mlir::Value constIndex = rewriter.template create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
     mlir::Value leaf = rewriter.template create<mlir::vector::GatherOp>(op.getLoc(), vectorType, addressOf,
-                                                                        index, mask, passThru);
+                                                                        constIndex, index, mask, passThru);
     if (op.supportMarginal()) {
       assert(indexType.template isa<mlir::FloatType>());
       auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), mlir::CmpFPredicate::UNO,

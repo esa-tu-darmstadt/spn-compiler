@@ -8,7 +8,7 @@
 
 cmake_minimum_required(VERSION 3.13.4 FATAL_ERROR)
 
-project(spnc VERSION 0.0.4 LANGUAGES CXX C)
+project(spnc VERSION 0.1 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -38,7 +38,22 @@ set(SPNC_CXX_WARNING_LEVEL "-Wall")
 #
 # clang-tidy setup
 #
-set(SPNC_CLANG_TIDY_CHECKS "bugprone-*,cppcoreguidelines-init-variables,modernize-*,-modernize-use-trailing-return-type,-modernize-avoid-c-arrays,performance-*,clang-analyzer-*,readibility-*,google-default-arguments,google-explicit-constructor,google-runtime-operator,misc-misplaced-const,misc-new-delete-overloads,misc-no-recursion,misc-non-copyable-objects,misc-throw-by-value-catch-by-reference,misc-unconventional-assign-operator,misc-uniqueptr-reset-release,cppcoreguidelines-interfaces-global-init,cppcoreguidelines-narrowing-conversions,cppcoreguidelines-pro-type-member-init,cppcoreguidelines-pro-type-static-cast-downcast,cppcoreguidelines-slicing")
+string(CONCAT SPNC_CLANG_TIDY_CHECKS
+        "bugprone-*,"
+        "modernize-*,-modernize-use-trailing-return-type,-modernize-avoid-c-arrays,"
+        "performance-*,"
+        "clang-analyzer-*,"
+        "readibility-*,"
+        "google-default-arguments,google-explicit-constructor,google-runtime-operator,"
+        "misc-misplaced-const,misc-new-delete-overloads,misc-non-copyable-objects,"
+        "misc-throw-by-value-catch-by-reference,misc-unconventional-assign-operator,"
+        "misc-uniqueptr-reset-release,"
+        "cppcoreguidelines-init-variables,"
+        "cppcoreguidelines-interfaces-global-init,"
+        "cppcoreguidelines-narrowing-conversions,"
+        "cppcoreguidelines-pro-type-member-init,"
+        "cppcoreguidelines-pro-type-static-cast-downcast,"
+        "cppcoreguidelines-slicing")
 
 option(SPNC_ENABLE_CLANG_TIDY
         "Run clang-tidy as part of the build process. May slow down your build. Requires clang-tidy to be on the PATH"
@@ -48,22 +63,28 @@ option(SPNC_ENABLE_CLANG_TIDY
 if(${SPNC_ENABLE_CLANG_TIDY})
     if(${CMAKE_EXPORT_COMPILE_COMMANDS})
         find_program(CLANG_TIDY_EXE "clang-tidy")
-        if(CLANG_TIDY_EXE-NOTFOUND)
+        if (CLANG_TIDY_EXE-NOTFOUND)
             message(WARNING "clang-tidy not found")
-        else()
+        else ()
             message(STATUS "Using clang tidy from ${CLANG_TIDY_EXE}")
             set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-checks=${SPNC_CLANG_TIDY_CHECKS}")
-        endif()
-    else()
+        endif ()
+    else ()
         message(WARNING "CMAKE_EXPORT_COMPILE_COMMANDS must be enabled in order to run clang-tidy")
-    endif() 
-endif(${SPNC_ENABLE_CLANG_TIDY})
+    endif ()
+endif (${SPNC_ENABLE_CLANG_TIDY})
 
-if(${CMAKE_EXPORT_COMPILE_COMMANDS})
-    find_program(RUN_CLANG_TIDY_SCRIPT run-clang-tidy)
-    if(RUN_CLANG_TIDY_SCRIPT-NOTFOUND)
+option(SPNC_RUN_CLANG_TIDY_LOCATION
+        "Location of the run-clang-tidy script used as a hint to find the script"
+        "/usr/bin")
+
+if (${CMAKE_EXPORT_COMPILE_COMMANDS})
+    find_program(RUN_CLANG_TIDY_SCRIPT
+            NAMES run-clang-tidy run-clang-tidy.py
+            HINTS ${SPNC_RUN_CLANG_TIDY_LOCATION})
+    if (NOT RUN_CLANG_TIDY_SCRIPT)
         message(WARNING "run-clang-tidy not found, not generating clang-tidy wrapper script")
-    else()
+    else ()
         message(STATUS "Using run-clang-tidy from ${RUN_CLANG_TIDY_SCRIPT}")
         # Configure script with run-clang-tidy executable and checks.
         configure_file(${PROJECT_SOURCE_DIR}/wrap-clang-tidy.sh.in
@@ -76,13 +97,10 @@ if(${CMAKE_EXPORT_COMPILE_COMMANDS})
 endif()
 
 add_subdirectory(common)
-# Ensure processing of ./execute before ./compiler
-# Reason: tests in ./compiler depend on CMake variables set in ./execute
-add_subdirectory(execute)
 add_subdirectory(mlir)
 add_subdirectory(compiler)
-add_subdirectory(compiler-rt)
 add_subdirectory(runtime)
+add_subdirectory(execute)
 add_subdirectory(python-interface)
 
 doxygen_toplevel()

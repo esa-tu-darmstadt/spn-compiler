@@ -11,6 +11,7 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
 #include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/BuiltinOps.h"
 
 mlir::LogicalResult mlir::spn::KernelGPULowering::matchAndRewrite(mlir::spn::low::SPNKernel op,
@@ -72,7 +73,7 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
     SmallVector<Value, 1> dynamicSizes;
     for (int k = 0; k < inputType.getRank(); ++k) {
       if (inputType.isDynamicDim(k)) {
-        auto dymSize = rewriter.create<DimOp>(op.getLoc(), taskInput, k);
+        auto dymSize = rewriter.create<memref::DimOp>(op.getLoc(), taskInput, k);
         dynamicSizes.push_back(dymSize);
       }
     }
@@ -102,7 +103,7 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
   // first argument to the Task.
   auto inputMemRef = operands[0].getType().dyn_cast<MemRefType>();
   assert(inputMemRef && inputMemRef.hasRank() && inputMemRef.isDynamicDim(0));
-  auto numSamples = rewriter.create<DimOp>(op.getLoc(), operands[0], 0);
+  auto numSamples = rewriter.create<memref::DimOp>(op.getLoc(), operands[0], 0);
   // We assume 1D layout of threads and blocks and use the user-specified batchSize as blockSize.
   if ((op.batchSize() % 32) != 0) {
     op.emitWarning() << "Batch size should be a multiple of the warp-size (32)";

@@ -7,8 +7,8 @@ module  {
   "lo_spn.kernel"() ( {
   ^bb0(%arg0: memref<?x2xi32>, %arg1: memref<?xf64>):  // no predecessors
     %c0 = constant 0 : index
-    %0 = dim %arg0, %c0 : memref<?x2xi32>
-    %1 = alloc(%0) : memref<?xf64>
+    %0 = memref.dim %arg0, %c0 : memref<?x2xi32>
+    %1 = memref.alloc(%0) : memref<?xf64>
     "lo_spn.task"(%arg0, %1) ( {
     ^bb0(%arg2: index, %arg3: memref<?x2xi32>, %arg4: memref<?xf64>):  // no predecessors
       %4 = "lo_spn.batch_read"(%arg3, %arg2) {sampleIndex = 0 : ui32} : (memref<?x2xi32>, index) -> i32
@@ -24,8 +24,8 @@ module  {
       "lo_spn.batch_write"(%6, %arg4, %arg2) : (f64, memref<?xf64>, index) -> ()
       "lo_spn.return"() : () -> ()
     }) {batchSize = 1 : ui32} : (memref<?x2xi32>, memref<?xf64>) -> ()
-    %2 = tensor_load %1 : memref<?xf64>
-    %3 = tensor_to_memref %2 : memref<?xf64>
+    %2 = memref.tensor_load %1 : memref<?xf64>
+    %3 = memref.buffer_cast %2 : memref<?xf64>
     "lo_spn.copy"(%3, %arg1) : (memref<?xf64>, memref<?xf64>) -> ()
     "lo_spn.return"() : () -> ()
   }) {sym_name = "spn_kernel", type = (memref<?x2xi32>, memref<?xf64>) -> ()} : () -> ()

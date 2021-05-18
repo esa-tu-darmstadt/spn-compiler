@@ -16,6 +16,8 @@
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "../Target/TargetInformation.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/IR/BuiltinOps.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -254,10 +256,10 @@ LogicalResult VectorizeBatchTask::matchAndRewrite(SPNTask op,
 
   auto taskBlock = taskFunc.addEntryBlock();
   rewriter.setInsertionPointToStart(taskBlock);
-  auto numSamples = rewriter.create<DimOp>(op.getLoc(), taskBlock->getArgument(0), 0);
-  auto vectorWidthConst = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(hwVectorWidth));
-  auto remainder = rewriter.create<UnsignedRemIOp>(op.getLoc(), numSamples, vectorWidthConst);
-  auto ubVectorized = rewriter.create<SubIOp>(op.getLoc(), numSamples, remainder);
+  auto numSamples = rewriter.create<memref::DimOp>(op.getLoc(), taskBlock->getArgument(0), 0);
+  auto vectorWidthConst = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(hwVectorWidth));
+  auto remainder = rewriter.create<mlir::UnsignedRemIOp>(op.getLoc(), numSamples, vectorWidthConst);
+  auto ubVectorized = rewriter.create<mlir::SubIOp>(op.getLoc(), numSamples, remainder);
 
   // Create the vectorized loop, iterating from 0 to ubVectorized, in steps of hwVectorWidth.
   auto lbVectorized = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));

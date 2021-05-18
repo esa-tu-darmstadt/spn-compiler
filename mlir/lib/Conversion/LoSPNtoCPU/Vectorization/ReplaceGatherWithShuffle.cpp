@@ -7,7 +7,7 @@
 //==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/VectorOptimizationPasses.h"
-#include "mlir/Rewrite/FrozenRewritePatternList.h"
+#include "mlir/Rewrite/FrozenRewritePatternSet.h"
 #include "LoSPN/LoSPNOps.h"
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/Matchers.h"
@@ -244,9 +244,9 @@ struct FuncReplaceGatherWithShuffle : public OpRewritePattern<FuncOp> {
       }
       //
       // Replace all SPNBatchRead that used the original MemRef with the shuffled vectors.
-      OwningRewritePatternList patterns;
+      OwningRewritePatternList patterns(func->getContext());
       patterns.insert<ReplaceBatchReadWithShuffle>(func.getContext(), replacements);
-      mlir::FrozenRewritePatternList frozenPatterns(std::move(patterns));
+      mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
       for (auto& read : reads) {
         (void) applyOpPatternsAndFold(read, frozenPatterns);
       }
@@ -260,9 +260,9 @@ struct FuncReplaceGatherWithShuffle : public OpRewritePattern<FuncOp> {
 void ReplaceGatherWithShufflePass::runOnOperation() {
   auto module = getOperation();
   auto* context = &getContext();
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(context);
   patterns.insert<FuncReplaceGatherWithShuffle>(context);
-  mlir::FrozenRewritePatternList frozenPatterns(std::move(patterns));
+  mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
   // Apply the pattern to all GPUFuncs in the module.
   module->walk([&frozenPatterns](FuncOp func) {
     (void) applyOpPatternsAndFold(func, frozenPatterns);

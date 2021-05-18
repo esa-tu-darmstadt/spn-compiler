@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include "mlir/Rewrite/FrozenRewritePatternList.h"
+#include "mlir/Rewrite/FrozenRewritePatternSet.h"
 #include "LoSPNtoGPU/LoSPNtoGPUConversionPasses.h"
 #include "LoSPN/LoSPNOps.h"
 #include "mlir/IR/SymbolTable.h"
@@ -17,6 +17,7 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "Target/CUDATargetInformation.h"
 
 using namespace mlir;
@@ -38,7 +39,7 @@ public:
     auto threadID = rewriter.create<gpu::ThreadIdOp>(loc, rewriter.getIndexType(),
                                                      rewriter.getStringAttr("x"));
     auto featureIndex = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(op.sampleIndex()));
-    rewriter.replaceOpWithNewOp<LoadOp>(op, sharedMem, ValueRange{featureIndex, threadID});
+    rewriter.replaceOpWithNewOp<memref::LoadOp>(op, sharedMem, ValueRange{featureIndex, threadID});
     return success();
   }
 
@@ -231,16 +232,16 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
           rewriter.setInsertionPointToStart(&ifCheck.thenRegion().front());
         }
         // Load from global memory, transpose and store into shared memory.
-        auto readGlobal = rewriter.create<LoadOp>(loc, inputMem, ValueRange{sampleIndex, featureIndex});
-        (void) rewriter.create<StoreOp>(loc, readGlobal, sharedMem,
-                                                    ValueRange{featureIndex, loop.getInductionVar()});
+        auto readGlobal = rewriter.create<memref::LoadOp>(loc, inputMem, ValueRange{sampleIndex, featureIndex});
+        (void) rewriter.create<memref::StoreOp>(loc, readGlobal, sharedMem,
+                                                ValueRange{featureIndex, loop.getInductionVar()});
       }
 
       //
       // Process all SPNBatchRead that used the original global MemRef to instead load from the transposed shared mem.
-      OwningRewritePatternList patterns;
+      OwningRewritePatternList patterns(gpuFunc.getContext());
       patterns.insert<RewriteBatchReadtoSharedMem>(gpuFunc.getContext(), sharedMem);
-      mlir::FrozenRewritePatternList frozenPatterns(std::move(patterns));
+      mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
       for (auto& read : reads) {
         (void) applyOpPatternsAndFold(read, frozenPatterns);
       }
@@ -257,9 +258,9 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
 void mlir::spn::LoSPNGPUSharedMemoryInsertionPass::runOnOperation() {
   auto module = getOperation();
   auto* context = &getContext();
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(context);
   patterns.insert<FuncSharedMemoryInsertion>(context);
-  mlir::FrozenRewritePatternList frozenPatterns(std::move(patterns));
+  mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
   // Apply the pattern to all GPUFuncs in the module.
   module->walk([&frozenPatterns](gpu::GPUFuncOp gpuFunc) {
     (void) applyOpPatternsAndFold(gpuFunc, frozenPatterns);

@@ -8,6 +8,8 @@
 
 import numpy as np
 
+import pytest
+
 from spn.algorithms.Inference import log_likelihood
 from spn.structure.Base import Product
 from spn.structure.leaves.parametric.Parametric import Gaussian
@@ -15,6 +17,7 @@ from spn.structure.leaves.parametric.Parametric import Gaussian
 from spnc.gpu import CUDACompiler
 
 
+@pytest.mark.skipif(not CUDACompiler.isAvailable(), reason="CUDA not supported")
 def test_cuda_gaussian():
 
     # Construct a minimal SPN using two Gaussian leaves.

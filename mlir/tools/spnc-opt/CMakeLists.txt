@@ -16,12 +16,7 @@ set(LIBS
         MLIRHiSPNtoLoSPNTransforms
         MLIRLoSPNtoCPUTransforms
         MLIROptLib
-        MLIRIR
-        MLIRParser
-        MLIRPass
-        MLIRTranslation
-        MLIRSupport
-        MLIRExecutionEngine
+        cpu_targetinfo
         )
 
 add_llvm_executable(spnc-opt spnc-opt.cpp)

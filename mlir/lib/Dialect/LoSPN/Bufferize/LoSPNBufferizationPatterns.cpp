@@ -9,6 +9,7 @@
 #include "LoSPNBufferizationPatterns.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 
 mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::low::SPNTask op,
                                                                    llvm::ArrayRef<mlir::Value> operands,
@@ -24,7 +25,7 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
   // to the actual number of samples in the batch.
   // This value will be used for the allocation for the results of this task and
   // assumes that all inputs/outputs use the same number of samples.
-  auto batchDim = rewriter.create<mlir::DimOp>(op.getLoc(), operands[0], 0);
+  auto batchDim = rewriter.create<mlir::memref::DimOp>(op.getLoc(), operands[0], 0);
   SmallVector<Value, 1> dynSizes;
   dynSizes.push_back(batchDim);
   // Create a MemRef via allocation for each result. Instead of returning a Tensor, the task
@@ -34,8 +35,8 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
   for (auto r : op->getResults()) {
     assert(r.getType().isa<TensorType>());
     auto memRefType = typeConverter->convertType(r.getType());
-    auto alloc = rewriter.create<mlir::AllocOp>(op.getLoc(), memRefType,
-                                                dynSizes, ValueRange{}, IntegerAttr());
+    auto alloc = rewriter.create<mlir::memref::AllocOp>(op.getLoc(), memRefType,
+                                                        dynSizes, ValueRange{}, IntegerAttr());
     inputs.push_back(alloc);
     allocations.push_back(alloc);
   }

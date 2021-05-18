@@ -8,17 +8,17 @@
 
 import numpy as np
 
+import pytest
+
 from spn.structure.Base import Product, Sum
 from spn.structure.leaves.parametric.Parametric import Categorical
 from spn.algorithms.Inference import log_likelihood
 
-from spnc.cpu import CPUCompiler
-
-import pytest
+from spnc.gpu import CUDACompiler
 
 
-@pytest.mark.skipif(not CPUCompiler.isVectorizationSupported(), reason="CPU vectorization not supported")
-def test_log_vector_categorical():
+@pytest.mark.skipif(not CUDACompiler.isAvailable(), reason="CUDA not supported")
+def test_cuda_marginal_categorical():
     # Construct a minimal SPN
     c1 = Categorical(p=[0.35, 0.55, 0.1], scope=0)
     c2 = Categorical(p=[0.25, 0.625, 0.125], scope=1)
@@ -36,14 +36,16 @@ def test_log_vector_categorical():
         np.random.randint(3, size=30),
         np.random.randint(3, size=30),
         np.random.randint(3, size=30),
-    )).astype("int32")
+    )).astype("float64")
+    # Insert some NaN in random places into the input data.
+    inputs.ravel()[np.random.choice(inputs.size, 10, replace=False)] = np.nan
 
-    if not CPUCompiler.isVectorizationSupported():
+    if not CUDACompiler.isAvailable():
         print("Test not supported by the compiler installation")
         return 0
 
     # Execute the compiled Kernel.
-    results = CPUCompiler().log_likelihood(p, inputs, supportMarginal=False)
+    results = CUDACompiler().log_likelihood(p, inputs)
 
     # Compute the reference results using the inference from SPFlow.
     reference = log_likelihood(p, inputs)
@@ -52,8 +54,8 @@ def test_log_vector_categorical():
     # Check the computation results against the reference
     # Check in normal space if log-results are not very close to each other.
     assert np.all(np.isclose(results, reference)) or np.all(np.isclose(np.exp(results), np.exp(reference)))
-    
+
 
 if __name__ == "__main__":
-    test_log_vector_categorical()
+    test_cuda_marginal_categorical()
     print("COMPUTATION OK")

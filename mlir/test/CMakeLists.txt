@@ -14,8 +14,20 @@ set(SPNC_MLIR_TEST_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}" CACHE INTERNAL "")
 set(SPNC_OPT_TOOL_BINARY_PATH "${CMAKE_BINARY_DIR}/bin/spnc-opt" CACHE INTERNAL "")
 
 configure_lit_site_cfg(
-        ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.in
-        ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg)
+        ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.py.in
+        ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg.py
+
+        MAIN_CONFIG
+        ${CMAKE_CURRENT_SOURCE_DIR}/lit.cfg.py
+)
+
+configure_lit_site_cfg(
+        ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.py.in
+        ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.py
+
+        MAIN_CONFIG
+        ${CMAKE_CURRENT_SOURCE_DIR}/lit.cfg.py
+)
 
 # (Re-)Set llvm-lit arguments
 set(CHECK_SPNC_LIT_ARGS "")

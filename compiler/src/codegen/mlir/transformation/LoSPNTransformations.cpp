@@ -14,8 +14,10 @@
 void spnc::LoSPNTransformations::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   pm->addPass(mlir::spn::low::createLoSPNBufferizePass());
   pm->addPass(mlir::createCanonicalizerPass());
+  pm->nest<mlir::spn::low::SPNKernel>().addPass(mlir::spn::low::createLoSPNCopyRemovalPass());
   pm->addPass(mlir::createCSEPass());
 }
+
 void spnc::LoSPNTransformations::preProcess(mlir::ModuleOp* inputModule) {
   // Pre-processing before bufferization: Find the Kernel with the corresponding
   // name in the module and retrieve information about the data-type and shape

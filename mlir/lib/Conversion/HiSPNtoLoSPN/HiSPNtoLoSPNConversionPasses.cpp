@@ -21,7 +21,7 @@ void HiSPNtoLoSPNNodeConversionPass::runOnOperation() {
 
   target.addLegalDialect<high::HiSPNDialect>();
   target.addLegalDialect<low::LoSPNDialect>();
-  target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
+  target.addLegalOp<ModuleOp>();
 
   target.addIllegalOp<high::ProductNode, high::SumNode, high::HistogramNode,
                       high::CategoricalNode, high::GaussianNode,
@@ -41,11 +41,11 @@ void HiSPNtoLoSPNNodeConversionPass::runOnOperation() {
     typeConverter = std::make_unique<HiSPNTypeConverter>(mlir::Float64Type::get(&getContext()));
   }
 
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(&getContext());
   mlir::spn::populateHiSPNtoLoSPNNodePatterns(patterns, &getContext(), *typeConverter);
 
   auto op = getOperation();
-  FrozenRewritePatternList frozenPatterns(std::move(patterns));
+  FrozenRewritePatternSet frozenPatterns(std::move(patterns));
   if (failed(applyPartialConversion(op, target, frozenPatterns))) {
     signalPassFailure();
   }
@@ -53,6 +53,10 @@ void HiSPNtoLoSPNNodeConversionPass::runOnOperation() {
   // QueryConversionPass can use the information, even though the Graph's
   // nodes have already been converted.
   markAnalysesPreserved<ArithmeticPrecisionAnalysis>();
+}
+
+void HiSPNtoLoSPNNodeConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
+  registry.insert<mlir::spn::low::LoSPNDialect>();
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createHiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation,
@@ -64,7 +68,7 @@ void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
   ConversionTarget target(getContext());
 
   target.addLegalDialect<low::LoSPNDialect>();
-  target.addLegalOp<ModuleOp, ModuleTerminatorOp>();
+  target.addLegalOp<ModuleOp>();
   target.addLegalOp<FuncOp>();
 
   target.addIllegalDialect<high::HiSPNDialect>();
@@ -84,14 +88,18 @@ void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
     typeConverter = std::make_unique<HiSPNTypeConverter>(mlir::Float64Type::get(&getContext()));
   }
 
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(&getContext());
   mlir::spn::populateHiSPNtoLoSPNQueryPatterns(patterns, &getContext(), *typeConverter);
 
   auto op = getOperation();
-  FrozenRewritePatternList frozenPatterns(std::move(patterns));
+  FrozenRewritePatternSet frozenPatterns(std::move(patterns));
   if (failed(applyFullConversion(op, target, frozenPatterns))) {
     signalPassFailure();
   }
+}
+
+void HiSPNtoLoSPNQueryConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
+  registry.insert<mlir::spn::low::LoSPNDialect>();
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createHiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation,

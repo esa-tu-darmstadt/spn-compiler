@@ -34,7 +34,6 @@ add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
         MLIRSupport
         MLIRTransforms
         MLIRMath
-        MLIRLinalg
 
         DEPENDS
         cpu_targetinfo

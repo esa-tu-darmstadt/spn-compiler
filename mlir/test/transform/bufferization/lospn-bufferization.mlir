@@ -36,8 +36,8 @@ module  {
 // CHECK-LABEL:   "lo_spn.kernel"() ( {
 // CHECK:         ^bb0(%[[VAL_0:.*]]: memref<?x2xi32>, %[[VAL_1:.*]]: memref<?xf64>):
 // CHECK:           %[[VAL_2:.*]] = constant 0 : index
-// CHECK:           %[[VAL_3:.*]] = dim %[[VAL_0]], %[[VAL_2]] : memref<?x2xi32>
-// CHECK:           %[[VAL_4:.*]] = alloc(%[[VAL_3]]) : memref<?xf64>
+// CHECK:           %[[VAL_3:.*]] = memref.dim %[[VAL_0]], %[[VAL_2]] : memref<?x2xi32>
+// CHECK:           %[[VAL_4:.*]] = memref.alloc(%[[VAL_3]]) : memref<?xf64>
 // CHECK:           "lo_spn.task"(%[[VAL_0]], %[[VAL_4]]) ( {
 // CHECK:           ^bb0(%[[VAL_5:.*]]: index, %[[VAL_6:.*]]: memref<?x2xi32>, %[[VAL_7:.*]]: memref<?xf64>):
 // CHECK:             %[[VAL_8:.*]] = "lo_spn.batch_read"(%[[VAL_6]], %[[VAL_5]]) {sampleIndex = 0 : ui32} : (memref<?x2xi32>, index) -> i32
@@ -61,8 +61,8 @@ module  {
 // CHECK:             "lo_spn.batch_write"(%[[VAL_25:.*]], %[[VAL_7]], %[[VAL_5]]) : (f64, memref<?xf64>, index) -> ()
 // CHECK:             "lo_spn.return"() : () -> ()
 // CHECK:           }) {batchSize = 10 : ui32} : (memref<?x2xi32>, memref<?xf64>) -> ()
-// CHECK:           %[[VAL_26:.*]] = tensor_load %[[VAL_4]] : memref<?xf64>
-// CHECK:           %[[VAL_27:.*]] = tensor_to_memref %[[VAL_26]] : memref<?xf64>
+// CHECK:           %[[VAL_26:.*]] = memref.tensor_load %[[VAL_4]] : memref<?xf64>
+// CHECK:           %[[VAL_27:.*]] = memref.buffer_cast %[[VAL_26]] : memref<?xf64>
 // CHECK:           "lo_spn.copy"(%[[VAL_27]], %[[VAL_1]]) : (memref<?xf64>, memref<?xf64>) -> ()
 // CHECK:           "lo_spn.return"() : () -> ()
 // CHECK:         }) {sym_name = "spn_kernel", type = (memref<?x2xi32>, memref<?xf64>) -> ()} : () -> ()
