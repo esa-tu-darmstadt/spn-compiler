@@ -82,6 +82,11 @@ namespace mlir {
                   }
                 } else {
                   nodes.push_back(op);
+                  if (isa<SPNConstant>(op)) {
+                    // Constant operations do not have an operand, so they
+                    // should be used as seeds for the initial partitioning, too.
+                    inNodes.push_back(op);
+                  }
                 }
               });
             });
@@ -101,12 +106,28 @@ namespace mlir {
             ++index;
             partitions.push_back(PartitionInfo{p.get(), false});
           }
+          // Keep track of operations moved to new, partitioned task.
+          SmallVector<Operation*> movedOperations;
           for (auto& p : partitions) {
-            createTaskForPartition(p, rewriter, op.getLoc(), op.batchSize(), inputs, partitions);
+            createTaskForPartition(p, rewriter, op.getLoc(), op.batchSize(), inputs, partitions, movedOperations);
           }
           SmallVector<Value> newResults;
           for (auto res : taskResults) {
             newResults.push_back(inputs.lookup(res).first);
+          }
+          // Delete all the operations moved to new, partitioned tasks from the original
+          // task to avoid errors involving deleted, but used operations.
+          for (auto* movedOp : llvm::reverse(movedOperations)) {
+            if (!movedOp->getUsers().empty()) {
+              for (auto* U : movedOp->getUsers()) {
+                // SPNYield can savely be deleted, the body will stop existing after
+                // the original task is also deleted.
+                if (isa<SPNYield>(U)) {
+                  rewriter.eraseOp(U);
+                }
+              }
+            }
+            rewriter.eraseOp(movedOp);
           }
           //assert(false);
           rewriter.replaceOp(op, newResults);
@@ -123,7 +144,8 @@ namespace mlir {
 
         void createTaskForPartition(PartitionInfo partition, PatternRewriter& rewriter, Location loc,
                                     unsigned batchSize,
-                                    InputMap& inputs, llvm::ArrayRef<PartitionInfo> partitions) const {
+                                    InputMap& inputs, llvm::ArrayRef<PartitionInfo> partitions,
+                                    SmallVectorImpl<Operation*>& movedOperations) const {
           // First, collect all input values coming from either outside arguments of the original task or
           // from other partitions.
           InputMap nonPartitionInputs;
@@ -137,7 +159,8 @@ namespace mlir {
                   // If no mapping is present, the input must be produced by another partition.
                   auto otherPartition = findPartition(operand, partitions);
                   // Convert the partition producing the input to a task first.
-                  createTaskForPartition(otherPartition, rewriter, loc, batchSize, inputs, partitions);
+                  createTaskForPartition(otherPartition, rewriter, loc, batchSize, inputs,
+                                         partitions, movedOperations);
                   // Input should be present after conversion.
                   assert(inputs.count(operand));
                 }
@@ -207,7 +230,7 @@ namespace mlir {
             mapper.map(remapped.getFirst(), bodyBlock->getArgument(remapped.second));
           }
           for (auto operation : *partition.first) {
-            copyOperation(operation, rewriter, mapper);
+            copyOperation(operation, rewriter, mapper, movedOperations);
           }
           SmallVector<Value> bodyYields;
           unsigned resultIndex = 0;
@@ -224,18 +247,19 @@ namespace mlir {
             taskReturns.push_back(collect.getResult(0));
           }
           rewriter.create<SPNReturn>(loc, taskReturns);
-          task.dump();
           rewriter.restoreInsertionPoint(restore);
         }
 
-        void copyOperation(Operation* op, PatternRewriter& rewriter, BlockAndValueMapping& mapper) const {
+        void copyOperation(Operation* op, PatternRewriter& rewriter, BlockAndValueMapping& mapper,
+                           SmallVectorImpl<Operation*>& moved) const {
           for (auto operand : op->getOperands()) {
             if (!mapper.contains(operand)) {
               // Copy definition first to ensure legality of def-use-chains
-              copyOperation(operand.getDefiningOp(), rewriter, mapper);
+              copyOperation(operand.getDefiningOp(), rewriter, mapper, moved);
             }
-            (void) rewriter.clone(*op, mapper);
           }
+          (void) rewriter.clone(*op, mapper);
+          moved.push_back(op);
         }
 
         PartitionInfo findPartition(Value input, llvm::ArrayRef<PartitionInfo> partitions) const {
