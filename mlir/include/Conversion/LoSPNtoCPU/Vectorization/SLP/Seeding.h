@@ -33,7 +33,7 @@ namespace mlir {
 
           SeedAnalysis(Operation* rootOp, unsigned width);
 
-          SmallVector<Value, 4> next(Order const& mode);
+          SmallVector<Value, 4> next(Order const& order);
           void markAllUnavailable(ValueVector* root);
 
         private:

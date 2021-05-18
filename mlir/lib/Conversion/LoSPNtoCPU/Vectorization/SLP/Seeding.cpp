@@ -14,24 +14,23 @@ using namespace mlir::spn::low::slp;
 
 // Helper functions in anonymous namespace.
 namespace {
-  DenseMap<Value, unsigned> computeOpDepths(Operation* rootOp, std::unordered_set<Operation*> const& availableOps) {
+  DenseMap<Value, unsigned> computeOpDepths(std::unordered_set<Operation*> const& availableOps, unsigned* maxDepth) {
     DenseMap<Value, unsigned> opDepths;
-    rootOp->walk([&](Operation* op) {
-      if (!availableOps.count(op)) {
-        return WalkResult::advance();
-      }
-      unsigned depth = 0;
+    llvm::SmallVector<Operation*, 32> worklist{std::begin(availableOps), std::end(availableOps)};
+    while (!worklist.empty()) {
+      auto* op = worklist.pop_back_val();
+      auto depth = opDepths[op->getResult(0)];
       for (auto const& operand : op->getOperands()) {
-        if (!opDepths.count(operand)) {
-          opDepths[operand] = 0;
+        if (auto* definingOp = operand.getDefiningOp()) {
+          auto& operandDepth = opDepths[operand];
+          if (depth + 1 > operandDepth) {
+            operandDepth = depth + 1;
+            worklist.emplace_back(definingOp);
+            *maxDepth = std::max(*maxDepth, operandDepth);
+          }
         }
-        depth = std::max(depth, opDepths[operand] + 1);
       }
-      for (auto const& result : op->getResults()) {
-        opDepths[result] = depth;
-      }
-      return WalkResult::advance();
-    });
+    }
     return opDepths;
   }
 
@@ -49,11 +48,11 @@ SeedAnalysis::SeedAnalysis(Operation* rootOp, unsigned width) : rootOp{rootOp}, 
   computeAvailableOps(rootOp, availableOps);
 }
 
-SmallVector<Value, 4> SeedAnalysis::next(Order const& mode) {
-  auto opDepths = computeOpDepths(rootOp, availableOps);
+SmallVector<Value, 4> SeedAnalysis::next(Order const& order) {
+  unsigned maxDepth;
+  auto opDepths = computeOpDepths(availableOps, &maxDepth);
   llvm::StringMap<SmallVector<SmallVector<Value, 4>>> seedsByOpName;
   rootOp->emitRemark("Computing seed out of " + std::to_string(availableOps.size()) + " operations...");
-  SmallVector<Value, 4> seed;
   for (auto* op : availableOps) {
     auto value = op->getResult(0);
     auto const& depth = opDepths.lookup(value);
@@ -68,6 +67,19 @@ SmallVector<Value, 4> SeedAnalysis::next(Order const& mode) {
           continue;
         }
         potentialSeed.emplace_back(value);
+        if (potentialSeed.size() == width) {
+          bool isPerfect;
+          switch (order) {
+            case DefUse: isPerfect = depth == maxDepth;
+              break;
+            case UseDef: isPerfect = depth == log2(width);
+              break;
+            default: assert(false && "unknown seed order");
+          }
+          if (isPerfect) {
+            return potentialSeed;
+          }
+        }
         needsNewSeed = false;
         break;
       }
@@ -91,20 +103,28 @@ SmallVector<Value, 4> SeedAnalysis::next(Order const& mode) {
 
   if (seeds.empty()) {
     rootOp->emitRemark("No seed found.");
-    return seed;
+    return {};
   }
 
-  // Sort the seeds such that either the seeds closest to the beginning of the function come first (DefUse),
-  // or those closest to the return statement (UseDef).
-  llvm::sort(seeds.begin(), seeds.end(), [&](auto const& seed1, auto const& seed2) {
-    switch (mode) {
-      case DefUse: return opDepths.lookup(seed1.front()) < opDepths.lookup(seed2.front());
-      case UseDef: return opDepths.lookup(seed1.front()) > opDepths.lookup(seed2.front());
-        // Unused so far.
-      default: assert(false);
+  SmallVector<Value, 4>* seed = nullptr;
+  for (auto& potentialSeed : seeds) {
+    if (!seed) {
+      seed = &potentialSeed;
+      continue;
     }
-  });
-  return seeds.front();
+    bool isBetter;
+    switch (order) {
+      case DefUse: isBetter = opDepths.lookup(potentialSeed.front()) > opDepths.lookup(seed->front());
+        break;
+      case UseDef: isBetter = opDepths.lookup(potentialSeed.front()) < opDepths.lookup(seed->front());
+        break;
+      default: assert(false && "unknown seed order");
+    }
+    if (isBetter) {
+      seed = &potentialSeed;
+    }
+  }
+  return *seed;
 }
 
 void SeedAnalysis::markAllUnavailable(ValueVector* root) {
