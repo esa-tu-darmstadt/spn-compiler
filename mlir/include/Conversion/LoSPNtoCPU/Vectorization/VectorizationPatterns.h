@@ -37,7 +37,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNBatchRead>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNBatchRead op,
-                                    ArrayRef<Value> operands,
+                                    ArrayRef <Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -158,6 +158,15 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
+    struct ResolveVectorizedConvertLog : public OpConversionPattern<low::SPNConvertLog> {
+
+      using OpConversionPattern<low::SPNConvertLog>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNConvertLog op,
+                                    ArrayRef <Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
     static inline void populateLoSPNCPUVectorizationNodePatterns(OwningRewritePatternList& patterns,
                                                                  MLIRContext* context,
                                                                  TypeConverter& typeConverter) {
@@ -167,7 +176,7 @@ namespace mlir {
       patterns.insert<VectorizeAdd, VectorizeMul, VectorizeLog>(typeConverter, context, 2);
       patterns.insert<VectorizeLogAdd, VectorizeLogMul>(typeConverter, context, 2);
       patterns.insert<VectorizeConstant>(typeConverter, context, 2);
-      patterns.insert<ResolveVectorizedStripLog>(typeConverter, context, 2);
+      patterns.insert<ResolveVectorizedStripLog, ResolveVectorizedConvertLog>(typeConverter, context, 2);
     }
 
   }

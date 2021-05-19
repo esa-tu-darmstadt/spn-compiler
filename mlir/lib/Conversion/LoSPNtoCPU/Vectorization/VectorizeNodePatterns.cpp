@@ -637,3 +637,21 @@ mlir::LogicalResult mlir::spn::ResolveVectorizedStripLog::matchAndRewrite(low::S
   rewriter.replaceOp(op, operands[0]);
   return success();
 }
+
+mlir::LogicalResult mlir::spn::ResolveVectorizedConvertLog::matchAndRewrite(mlir::spn::low::SPNConvertLog op,
+                                                                            llvm::ArrayRef<mlir::Value> operands,
+                                                                            mlir::ConversionPatternRewriter& rewriter) const {
+  if (!op.checkVectorized()) {
+    return rewriter.notifyMatchFailure(op, "Pattern only resolves vectorized operation");
+  }
+  assert(operands.size() == 1);
+  auto vectorType = operands[0].getType().dyn_cast<VectorType>();
+  if (!vectorType) {
+    return rewriter.notifyMatchFailure(op, "Expected operand to have vector type");
+  }
+  if (vectorType.getElementType() != op.getResult().getType().cast<low::LogType>().getBaseType()) {
+    return rewriter.notifyMatchFailure(op, "Could not resolve ConvertLog trivially");
+  }
+  rewriter.replaceOp(op, operands[0]);
+  return success();
+}

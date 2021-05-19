@@ -125,6 +125,9 @@ mlir::LogicalResult mlir::spn::BodyLowering::matchAndRewrite(mlir::spn::low::SPN
     auto arg = std::get<1>(opArg);
     if (arg.getType().isa<low::LogType>()) {
       auto convertLog = rewriter.create<low::SPNConvertLog>(op->getLoc(), operand);
+      if (auto vectorOp = dyn_cast<low::LoSPNVectorizable>(operand.getDefiningOp())) {
+        convertLog.setVectorized(vectorOp.getVectorWidth());
+      }
       argValues.push_back(convertLog);
     } else {
       argValues.push_back(operand);
