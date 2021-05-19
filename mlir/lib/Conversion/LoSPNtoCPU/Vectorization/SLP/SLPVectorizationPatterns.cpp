@@ -22,7 +22,7 @@ SLPPatternApplicator::SLPPatternApplicator(SmallVectorImpl<std::unique_ptr<SLPVe
     : patterns{std::move(patterns)} {
   // Patterns with higher benefit should always be applied first.
   llvm::sort(std::begin(this->patterns), std::end(this->patterns), [&](auto const& lhs, auto const& rhs) {
-    return lhs->getBenefit() > rhs->getBenefit();
+    return lhs->getCost() < rhs->getCost();
   });
 }
 
@@ -89,7 +89,7 @@ namespace {
 
 // === SPNConstant === //
 
-unsigned VectorizeConstant::costIfMatches(ValueVector* vector) const {
+unsigned VectorizeConstant::getCost() const {
   return 0;
 }
 
@@ -147,7 +147,7 @@ void VectorizeMul::rewrite(ValueVector* vector, PatternRewriter& rewriter) const
 
 // === SPNGaussianLeaf === //
 
-unsigned VectorizeGaussian::costIfMatches(ValueVector* vector) const {
+unsigned VectorizeGaussian::getCost() const {
   return 6;
 }
 

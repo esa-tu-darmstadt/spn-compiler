@@ -43,10 +43,9 @@ namespace mlir {
 
         public:
 
-          SLPVectorizationPattern(ConversionManager& conversionManager, PatternBenefit const& benefit)
-              : conversionManager{conversionManager}, benefit{benefit} {}
+          SLPVectorizationPattern(ConversionManager& conversionManager) : conversionManager{conversionManager} {}
 
-          virtual unsigned costIfMatches(ValueVector* vector) const {
+          virtual unsigned getCost() const {
             return 1;
           }
 
@@ -57,23 +56,18 @@ namespace mlir {
             rewrite(vector, rewriter);
           }
 
-          PatternBenefit getBenefit() const {
-            return benefit;
-          }
-
         protected:
           virtual void rewrite(ValueVector* vector, PatternRewriter& rewriter) const = 0;
           ConversionManager& conversionManager;
-        private:
-          /// The expected benefit of matching this pattern.
-          PatternBenefit const benefit;
         };
 
         template<typename SourceOp>
         class OpSpecificSLPVectorizationPattern : public SLPVectorizationPattern {
         public:
-          OpSpecificSLPVectorizationPattern(ConversionManager& conversionManager, PatternBenefit const& benefit)
-              : SLPVectorizationPattern{conversionManager, benefit} {}
+
+          OpSpecificSLPVectorizationPattern(ConversionManager& conversionManager) : SLPVectorizationPattern{
+              conversionManager} {}
+
           LogicalResult matchVector(ValueVector* vector) const override {
             for (auto const& value : *vector) {
               if (!value.getDefiningOp<SourceOp>()) {
@@ -87,7 +81,7 @@ namespace mlir {
 
         struct VectorizeConstant : public OpSpecificSLPVectorizationPattern<ConstantOp> {
           using OpSpecificSLPVectorizationPattern<ConstantOp>::OpSpecificSLPVectorizationPattern;
-          unsigned costIfMatches(ValueVector* vector) const override;
+          unsigned getCost() const override;
           void rewrite(ValueVector* vector, PatternRewriter& rewriter) const override;
         };
 
@@ -109,17 +103,17 @@ namespace mlir {
 
         struct VectorizeGaussian : public OpSpecificSLPVectorizationPattern<SPNGaussianLeaf> {
           using OpSpecificSLPVectorizationPattern<SPNGaussianLeaf>::OpSpecificSLPVectorizationPattern;
-          unsigned costIfMatches(ValueVector* vector) const override;
+          unsigned getCost() const override;
           void rewrite(ValueVector* vector, PatternRewriter& rewriter) const override;
         };
 
         static void populateSLPVectorizationPatterns(SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>& patterns,
                                                      ConversionManager& conversionManager) {
-          patterns.emplace_back(std::make_unique<VectorizeConstant>(conversionManager, 1));
-          patterns.emplace_back(std::make_unique<VectorizeBatchRead>(conversionManager, 1));
-          patterns.emplace_back(std::make_unique<VectorizeAdd>(conversionManager, 1));
-          patterns.emplace_back(std::make_unique<VectorizeMul>(conversionManager, 1));
-          patterns.emplace_back(std::make_unique<VectorizeGaussian>(conversionManager, 1));
+          patterns.emplace_back(std::make_unique<VectorizeConstant>(conversionManager));
+          patterns.emplace_back(std::make_unique<VectorizeBatchRead>(conversionManager));
+          patterns.emplace_back(std::make_unique<VectorizeAdd>(conversionManager));
+          patterns.emplace_back(std::make_unique<VectorizeMul>(conversionManager));
+          patterns.emplace_back(std::make_unique<VectorizeGaussian>(conversionManager));
         }
 
       }
