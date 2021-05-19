@@ -71,6 +71,8 @@ llvm::SmallVector<std::unique_ptr<mlir::spn::low::Partition>> mlir::spn::low::Gr
     llvm::ArrayRef<Operation*> inNodes,
     llvm::ArrayRef<Value> externalInputs) {
   return initialPartitioning(nodes, inNodes, externalInputs);
+  // TODO: Special handling of constant operations. They can simply be duplicated if necessary and should
+  // never imply an edge crossing partitions.
 }
 
 llvm::SmallVector<std::unique_ptr<mlir::spn::low::Partition>> mlir::spn::low::GraphPartitioner::initialPartitioning(
@@ -87,6 +89,7 @@ llvm::SmallVector<std::unique_ptr<mlir::spn::low::Partition>> mlir::spn::low::Gr
     }
   }
   while (T.size() < nodes.size()) {
+    assert(!S.empty());
     auto cur = S.pop_back_val();
     T.push_back(cur);
     partitioned.insert(cur);

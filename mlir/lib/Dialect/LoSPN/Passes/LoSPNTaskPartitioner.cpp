@@ -82,7 +82,7 @@ namespace mlir {
                   }
                 } else {
                   nodes.push_back(op);
-                  if (isa<SPNConstant>(op)) {
+                  if (op->hasTrait<OpTrait::ConstantLike>()) {
                     // Constant operations do not have an operand, so they
                     // should be used as seeds for the initial partitioning, too.
                     inNodes.push_back(op);
