@@ -43,7 +43,8 @@ namespace mlir {
 
         public:
 
-          SLPVectorizationPattern(ConversionManager& conversionManager) : conversionManager{conversionManager} {}
+          explicit SLPVectorizationPattern(ConversionManager& conversionManager) : conversionManager{
+              conversionManager} {}
 
           virtual unsigned getCost() const {
             return 1;
@@ -65,7 +66,7 @@ namespace mlir {
         class OpSpecificSLPVectorizationPattern : public SLPVectorizationPattern {
         public:
 
-          OpSpecificSLPVectorizationPattern(ConversionManager& conversionManager) : SLPVectorizationPattern{
+          explicit OpSpecificSLPVectorizationPattern(ConversionManager& conversionManager) : SLPVectorizationPattern{
               conversionManager} {}
 
           LogicalResult matchVector(ValueVector* vector) const override {
