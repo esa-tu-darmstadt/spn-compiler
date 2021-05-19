@@ -65,9 +65,9 @@ namespace {
 
 }
 
-mlir::LogicalResult mlir::spn::VectorizeBatchRead::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
-                                                                   llvm::ArrayRef<mlir::Value> operands,
-                                                                   mlir::ConversionPatternRewriter& rewriter) const {
+mlir::LogicalResult mlir::spn::Vectorize1DBatchRead::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
+                                                                     llvm::ArrayRef<mlir::Value> operands,
+                                                                     mlir::ConversionPatternRewriter& rewriter) const {
   // Replace the vectorized version of a BatchRead with a Gather load from the input memref.
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized BatchRead");
@@ -76,6 +76,34 @@ mlir::LogicalResult mlir::spn::VectorizeBatchRead::matchAndRewrite(mlir::spn::lo
   assert(operands[0].getType().isa<MemRefType>());
   assert(operands[1].getType().isa<IndexType>());
   auto memRef = operands[0].getType().dyn_cast<MemRefType>();
+  assert(memRef.hasRank());
+  if (memRef.getRank() != 1) {
+    // This pattern only handles 1-dimensional memrefs. For 2D memrefs, a more generic implementation
+    // using gather operations is required, see Vectorize2DBatchRead.
+    return rewriter.notifyMatchFailure(op, "Pattern only matches 1D BatchReads");
+  }
+  auto vectorType = VectorType::get({op.vectorFactor()}, memRef.getElementType());
+  rewriter.replaceOpWithNewOp<vector::TransferReadOp>(op, vectorType, operands[0], operands[1]);
+  return success();
+}
+
+mlir::LogicalResult mlir::spn::Vectorize2DBatchRead::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
+                                                                     llvm::ArrayRef<mlir::Value> operands,
+                                                                     mlir::ConversionPatternRewriter& rewriter) const {
+  // Replace the vectorized version of a BatchRead with a Gather load from the input memref.
+  if (!op.checkVectorized()) {
+    return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized BatchRead");
+  }
+  assert(operands.size() == 2);
+  assert(operands[0].getType().isa<MemRefType>());
+  assert(operands[1].getType().isa<IndexType>());
+  auto memRef = operands[0].getType().dyn_cast<MemRefType>();
+  assert(memRef.hasRank());
+  if (memRef.getRank() != 2) {
+    // This pattern only handles 2-dimensional memrefs. For 1D memrefs, a more optimized implementation
+    // using regular (vector) loads instead of gathers is possible (see Vectorize1DBatchRead).
+    return rewriter.notifyMatchFailure(op, "Pattern only matches 2D BatchReads");
+  }
   // Assume that the second dimension (i.e., the number of features per sample is a static dimension).
   assert(!memRef.isDynamicDim(1));
   auto numFeatures = memRef.getDimSize(1);
