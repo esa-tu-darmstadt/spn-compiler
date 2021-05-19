@@ -17,7 +17,6 @@
 #include "llvm/Support/FormatVariadic.h"
 #include "../Target/TargetInformation.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/IR/BuiltinOps.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -113,23 +112,12 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   ConversionManager conversionManager{rewriter};
   SeedAnalysis seeding{taskFunc, TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType)};
 
-  // The current vector being transformed.
-  ValueVector* vector = nullptr;
-
   // Prevents extracting/removing values more than once (in splat mode, if they appear in multiple vectors, ...).
   SmallPtrSet<Value, 32> finishedValues;
-  /*
-   * NOTE: We use a custom pattern driver that does *not* perform folding automatically (which the other rewrite drivers
-   * such as applyOpPatternsAndFold() would do). Folding would mess up identified SLP-vectorizable constants, which
-   * aren't necessarily located at the front of the function's body yet. The drivers delete those that aren't at the
-   * front (including those we identified as SLP-vectorizable!) and create new ones there, resulting in our constant
-   + SLP-vectorization patterns not being applied to them and messing up operand handling further down the SLP graph.
-   */
-  OwningRewritePatternList patterns(task->getContext());
-  populateSLPVectorizationPatterns(patterns, rewriter.getContext(), vector, conversionManager);
-  mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
-  PatternApplicator applicator(frozenPatterns);
-  applicator.applyDefaultCostModel();
+
+  SmallVector<std::unique_ptr<SLPVectorizationPattern>, 10> patterns;
+  populateSLPVectorizationPatterns(patterns, conversionManager);
+  SLPPatternApplicator applicator{std::move(patterns)};
 
   for (auto seed = seeding.next(Order::UseDef); !seed.empty(); seed = seeding.next(Order::UseDef)) {
     //low::slp::dumpOpTree(seed);
@@ -142,21 +130,20 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     conversionManager.initConversion(graph.get());
 
     // Track progress.
+    double n = 0;
     double percent = 0.1;
     double interval = (double) numVectors >= (1.0 / percent) ? percent : 1.0 / (double) numVectors;
     double progressThreshold = interval;
 
     // Traverse the SLP graph and apply the vectorization patterns.
     auto const& order = conversionManager.conversionOrder();
-    for (size_t n = 0; n < order.size(); ++n) {
-      vector = order[n];
+    for (auto* vector : order) {
       // Happens if the vector from a previously built graph is being re-used.
       if (conversionManager.wasConverted(vector)) {
         continue;
       }
       //dumpSLPValueVector(*vector);
-      auto* vectorOp = vector->begin()->getDefiningOp();
-      if (failed(applicator.matchAndRewrite(vectorOp, rewriter))) {
+      if (failed(applicator.matchAndRewrite(vector, rewriter))) {
         auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
         conversionManager.setInsertionPointFor(vector);
         // Create extractions from vectorized operands if present.
@@ -212,7 +199,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         }
         rewriter.eraseOp(element.getDefiningOp());
       }
-      if (static_cast<double>(n) / static_cast<double>(numVectors) >= progressThreshold) {
+      if (static_cast<double>(n++) / static_cast<double>(numVectors) >= progressThreshold) {
         task->emitRemark("Conversion progress: " + std::to_string((int) std::round(100 * progressThreshold)) + '%');
         progressThreshold += interval;
       }
