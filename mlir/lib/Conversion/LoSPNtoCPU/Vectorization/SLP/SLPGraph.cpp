@@ -123,6 +123,18 @@ SmallVector<ValueVector*, 2> ValueVector::getOperands() const {
   return operands;
 }
 
+VectorType ValueVector::getVectorType() const {
+  return VectorType::get(static_cast<unsigned>(numLanes()), getElementType());
+}
+
+Type ValueVector::getElementType() const {
+  return getElement(0).getType();
+}
+
+Location ValueVector::getLoc() const {
+  return getElement(0).getLoc();
+}
+
 // === SLPNode === //
 
 SLPNode::SLPNode(std::shared_ptr<ValueVector> vector) {

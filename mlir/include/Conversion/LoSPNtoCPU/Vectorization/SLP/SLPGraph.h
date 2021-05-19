@@ -10,6 +10,7 @@
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPGRAPH_H
 
 #include "mlir/IR/Operation.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
 
@@ -46,6 +47,10 @@ namespace mlir {
           void addOperand(std::shared_ptr<ValueVector> operandVector);
           ValueVector* getOperand(size_t index) const;
           SmallVector<ValueVector*, 2> getOperands() const;
+
+          VectorType getVectorType() const;
+          Type getElementType() const;
+          Location getLoc() const;
 
         private:
           SmallVector<Value, 4> values;
