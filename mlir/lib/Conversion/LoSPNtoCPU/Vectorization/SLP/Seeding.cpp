@@ -14,26 +14,6 @@ using namespace mlir::spn::low::slp;
 
 // Helper functions in anonymous namespace.
 namespace {
-  DenseMap<Value, unsigned> computeOpDepths(std::unordered_set<Operation*> const& availableOps, unsigned* maxDepth) {
-    DenseMap<Value, unsigned> opDepths;
-    llvm::SmallVector<Operation*, 32> worklist{std::begin(availableOps), std::end(availableOps)};
-    while (!worklist.empty()) {
-      auto* op = worklist.pop_back_val();
-      auto depth = opDepths[op->getResult(0)];
-      for (auto const& operand : op->getOperands()) {
-        if (auto* definingOp = operand.getDefiningOp()) {
-          auto& operandDepth = opDepths[operand];
-          if (depth + 1 > operandDepth) {
-            operandDepth = depth + 1;
-            worklist.emplace_back(definingOp);
-            *maxDepth = std::max(*maxDepth, operandDepth);
-          }
-        }
-      }
-    }
-    return opDepths;
-  }
-
   void computeAvailableOps(Operation* rootOp, std::unordered_set<Operation*>& availableOps) {
     rootOp->walk([&](Operation* op) {
       if (!vectorizable(op)) {
@@ -44,13 +24,28 @@ namespace {
   }
 }
 
+// === SeedAnalysis === //
+
 SeedAnalysis::SeedAnalysis(Operation* rootOp, unsigned width) : rootOp{rootOp}, width{width} {
   computeAvailableOps(rootOp, availableOps);
 }
 
-SmallVector<Value, 4> SeedAnalysis::next(Order const& order) {
-  unsigned maxDepth;
-  auto opDepths = computeOpDepths(availableOps, &maxDepth);
+void SeedAnalysis::markAllUnavailable(ValueVector* root) {
+  for (auto* vector : graph::postOrder(root)) {
+    for (auto const& element : *vector) {
+      if (auto* definingOp = element.getDefiningOp()) {
+        availableOps.erase(definingOp);
+      }
+    }
+  }
+}
+
+// === TopDownSeedAnalysis === //
+
+TopDownAnalysis::TopDownAnalysis(Operation* rootOp, unsigned width) : SeedAnalysis{rootOp, width} {}
+
+SmallVector<Value, 4> TopDownAnalysis::next() const {
+  auto opDepths = computeOpDepths();
   llvm::StringMap<SmallVector<SmallVector<Value, 4>>> seedsByOpName;
   rootOp->emitRemark("Computing seed out of " + std::to_string(availableOps.size()) + " operations...");
   for (auto* op : availableOps) {
@@ -67,18 +62,8 @@ SmallVector<Value, 4> SeedAnalysis::next(Order const& order) {
           continue;
         }
         potentialSeed.emplace_back(value);
-        if (potentialSeed.size() == width) {
-          bool isPerfect;
-          switch (order) {
-            case DefUse: isPerfect = depth == maxDepth;
-              break;
-            case UseDef: isPerfect = depth == log2(width);
-              break;
-            default: assert(false && "unknown seed order");
-          }
-          if (isPerfect) {
-            return potentialSeed;
-          }
+        if (potentialSeed.size() == width && depth == log2(width)) {
+          return potentialSeed;
         }
         needsNewSeed = false;
         break;
@@ -112,27 +97,36 @@ SmallVector<Value, 4> SeedAnalysis::next(Order const& order) {
       seed = &potentialSeed;
       continue;
     }
-    bool isBetter;
-    switch (order) {
-      case DefUse: isBetter = opDepths.lookup(potentialSeed.front()) > opDepths.lookup(seed->front());
-        break;
-      case UseDef: isBetter = opDepths.lookup(potentialSeed.front()) < opDepths.lookup(seed->front());
-        break;
-      default: assert(false && "unknown seed order");
-    }
-    if (isBetter) {
+    if (opDepths.lookup(potentialSeed.front()) < opDepths.lookup(seed->front())) {
       seed = &potentialSeed;
     }
   }
   return *seed;
 }
 
-void SeedAnalysis::markAllUnavailable(ValueVector* root) {
-  for (auto* vector : graph::postOrder(root)) {
-    for (auto const& element : *vector) {
-      if (auto* definingOp = element.getDefiningOp()) {
-        availableOps.erase(definingOp);
+DenseMap<Value, unsigned> TopDownAnalysis::computeOpDepths() const {
+  DenseMap<Value, unsigned> opDepths;
+  llvm::SmallVector<Operation*, 32> worklist{std::begin(availableOps), std::end(availableOps)};
+  while (!worklist.empty()) {
+    auto* op = worklist.pop_back_val();
+    auto depth = opDepths[op->getResult(0)];
+    for (auto const& operand : op->getOperands()) {
+      if (auto* definingOp = operand.getDefiningOp()) {
+        auto& operandDepth = opDepths[operand];
+        if (depth + 1 > operandDepth) {
+          operandDepth = depth + 1;
+          worklist.emplace_back(definingOp);
+        }
       }
     }
   }
+  return opDepths;
+}
+
+// === BottomUpSeedAnalysis === //
+
+BottomUpAnalysis::BottomUpAnalysis(Operation* rootOp, unsigned width) : SeedAnalysis{rootOp, width} {}
+
+SmallVector<Value, 4> BottomUpAnalysis::next() const {
+  return {};
 }

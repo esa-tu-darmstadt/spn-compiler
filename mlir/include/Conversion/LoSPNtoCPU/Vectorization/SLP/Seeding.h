@@ -18,29 +18,36 @@ namespace mlir {
     namespace low {
       namespace slp {
 
-        enum Order {
-          ///
-          DefUse,
-          ///
-          UseDef,
-          /// TODO?
-          Chain
-        };
-
         class SeedAnalysis {
 
         public:
 
           SeedAnalysis(Operation* rootOp, unsigned width);
 
-          SmallVector<Value, 4> next(Order const& order);
           void markAllUnavailable(ValueVector* root);
 
-        private:
-          Operation* rootOp;
+          virtual SmallVector<Value, 4> next() const = 0;
+
+        protected:
+          Operation* const rootOp;
           unsigned const width;
           std::unordered_set<Operation*> availableOps;
         };
+
+        class TopDownAnalysis : public SeedAnalysis {
+        public:
+          TopDownAnalysis(Operation* rootOp, unsigned width);
+          SmallVector<Value, 4> next() const override;
+        private:
+          DenseMap<Value, unsigned> computeOpDepths() const;
+        };
+
+        class BottomUpAnalysis : public SeedAnalysis {
+        public:
+          BottomUpAnalysis(Operation* rootOp, unsigned width);
+          SmallVector<Value, 4> next() const override;
+        };
+
       }
     }
   }

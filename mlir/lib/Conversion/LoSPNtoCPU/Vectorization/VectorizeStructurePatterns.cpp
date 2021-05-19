@@ -107,19 +107,28 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
   // Apply SLP vectorization.
   task->emitRemark() << "Beginning SLP vectorization...";
-  auto computationType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
+  auto elementType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
   SLPGraphBuilder builder{3};
   ConversionManager conversionManager{rewriter};
-  SeedAnalysis seeding{taskFunc, TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType)};
+  std::unique_ptr<SeedAnalysis> seedAnalysis;
+  {
+    bool topDown = true;
+    auto width = TargetInformation::nativeCPUTarget().getHWVectorEntries(elementType);
+    if (topDown) {
+      seedAnalysis = std::make_unique<TopDownAnalysis>(taskFunc, width);
+    } else {
+      seedAnalysis = std::make_unique<BottomUpAnalysis>(taskFunc, width);
+    }
+  }
 
-  // Prevents extracting/removing values more than once (in splat mode, if they appear in multiple vectors, ...).
+  // Prevents extracting/erasing values more than once (in splat mode, if they appear in multiple vectors, ...).
   SmallPtrSet<Value, 32> finishedValues;
 
   SmallVector<std::unique_ptr<SLPVectorizationPattern>, 10> patterns;
   populateSLPVectorizationPatterns(patterns, conversionManager);
   SLPPatternApplicator applicator{std::move(patterns)};
 
-  for (auto seed = seeding.next(Order::UseDef); !seed.empty(); seed = seeding.next(Order::UseDef)) {
+  for (auto seed = seedAnalysis->next(); !seed.empty(); seed = seedAnalysis->next()) {
     //low::slp::dumpOpTree(seed);
     task->emitRemark("Computing graph...");
     auto graph = builder.build(seed);
@@ -144,7 +153,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       }
       //dumpSLPValueVector(*vector);
       if (failed(applicator.matchAndRewrite(vector, rewriter))) {
-        auto const& vectorType = VectorType::get(static_cast<unsigned>(vector->numLanes()), computationType);
+        auto const& vectorType = vector->getVectorType();
         conversionManager.setInsertionPointFor(vector);
         // Create extractions from vectorized operands if present.
         for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
@@ -205,7 +214,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       }
     }
     task->emitRemark("Conversion complete.");
-    seeding.markAllUnavailable(graph.get());
+    seedAnalysis->markAllUnavailable(graph.get());
   }
   task->emitRemark("SLP vectorization complete.");
   rewriter.restoreInsertionPoint(callPoint);
