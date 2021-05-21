@@ -111,8 +111,12 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   SLPGraphBuilder builder{3};
   ConversionManager conversionManager{rewriter};
   std::unique_ptr<SeedAnalysis> seedAnalysis;
+  taskFunc->walk([&](SPNLog log) {
+    dumpOpTree(log.getResult());
+    return WalkResult::interrupt();
+  });
   {
-    bool topDown = true;
+    bool topDown = false;
     auto width = TargetInformation::nativeCPUTarget().getHWVectorEntries(elementType);
     if (topDown) {
       seedAnalysis = std::make_unique<TopDownAnalysis>(taskFunc, width);

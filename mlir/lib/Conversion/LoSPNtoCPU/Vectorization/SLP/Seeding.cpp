@@ -8,26 +8,29 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/Seeding.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
+#include "llvm/ADT/BitVector.h"
+#include <queue>
 
 using namespace mlir;
 using namespace mlir::spn::low::slp;
 
-// Helper functions in anonymous namespace.
-namespace {
-  void computeAvailableOps(Operation* rootOp, std::unordered_set<Operation*>& availableOps) {
-    rootOp->walk([&](Operation* op) {
-      if (!vectorizable(op)) {
-        return;
-      }
-      availableOps.emplace(op);
-    });
-  }
-}
 
 // === SeedAnalysis === //
 
-SeedAnalysis::SeedAnalysis(Operation* rootOp, unsigned width) : rootOp{rootOp}, width{width} {
-  computeAvailableOps(rootOp, availableOps);
+SeedAnalysis::SeedAnalysis(Operation* rootOp, unsigned width) : rootOp{rootOp}, width{width} {}
+
+SmallVector<Value, 4> SeedAnalysis::next() {
+  if (exhausted) {
+    return {};
+  }
+  if (availableOps.empty()) {
+    computeAvailableOps();
+  }
+  auto seed = nextSeed();
+  if (seed.empty()) {
+    exhausted = true;
+  }
+  return seed;
 }
 
 void SeedAnalysis::markAllUnavailable(ValueVector* root) {
@@ -44,7 +47,16 @@ void SeedAnalysis::markAllUnavailable(ValueVector* root) {
 
 TopDownAnalysis::TopDownAnalysis(Operation* rootOp, unsigned width) : SeedAnalysis{rootOp, width} {}
 
-SmallVector<Value, 4> TopDownAnalysis::next() const {
+void TopDownAnalysis::computeAvailableOps() {
+  rootOp->walk([&](Operation* op) {
+    if (!vectorizable(op)) {
+      return;
+    }
+    availableOps.insert(op);
+  });
+}
+
+SmallVector<Value, 4> TopDownAnalysis::nextSeed() const {
   auto opDepths = computeOpDepths();
   llvm::StringMap<SmallVector<SmallVector<Value, 4>>> seedsByOpName;
   rootOp->emitRemark("Computing seed out of " + std::to_string(availableOps.size()) + " operations...");
@@ -127,6 +139,66 @@ DenseMap<Value, unsigned> TopDownAnalysis::computeOpDepths() const {
 
 BottomUpAnalysis::BottomUpAnalysis(Operation* rootOp, unsigned width) : SeedAnalysis{rootOp, width} {}
 
-SmallVector<Value, 4> BottomUpAnalysis::next() const {
+SmallVector<Value, 4> BottomUpAnalysis::nextSeed() const {
+  llvm::DenseMap<Operation*, llvm::BitVector> reachableLeaves;
+  auto root = findFirstRoot(reachableLeaves);
+  for (auto const& entry : reachableLeaves) {
+    llvm::dbgs() << entry.first->getName() << " (" << entry.first << "):\t";
+    for (size_t i = 0; i < entry.second.size(); ++i) {
+      llvm::dbgs() << (entry.second.test(i) ? "1" : "0");
+    }
+    llvm::dbgs() << "\n";
+  }
+  root->dump();
+  llvm::dbgs() << root << "\n";
   return {};
+}
+
+void BottomUpAnalysis::computeAvailableOps() {
+  rootOp->walk([&](LeafNodeInterface leaf) {
+    availableOps.insert(leaf);
+  });
+}
+
+Operation* BottomUpAnalysis::findFirstRoot(DenseMap<Operation*, llvm::BitVector>& reachableLeaves) const {
+  SmallPtrSet<Operation*, 32> uniqueWorklist;
+  std::queue<Operation*> worklist;
+  unsigned index = 0;
+  for (auto* op : availableOps) {
+    for (auto* user : op->getUsers()) {
+      auto it = reachableLeaves.try_emplace(user, availableOps.size());
+      auto& userReachable = it.first->second;
+      userReachable.set(index);
+      if (uniqueWorklist.insert(user).second) {
+        worklist.emplace(user);
+      }
+      if (userReachable.all()) {
+        return op;
+      }
+    }
+    ++index;
+  }
+  while (!worklist.empty()) {
+    auto* currentOp = worklist.front();
+    for (auto* user : currentOp->getUsers()) {
+      auto it = reachableLeaves.try_emplace(user, availableOps.size());
+      bool isNewUser = it.second;
+      auto& userReachable = it.first->second;
+      if (!isNewUser) {
+        if (userReachable == reachableLeaves[currentOp]) {
+          continue;
+        }
+      }
+      userReachable |= reachableLeaves[currentOp];
+      if (userReachable.all()) {
+        return user;
+      }
+      if (uniqueWorklist.insert(user).second) {
+        worklist.emplace(user);
+      }
+    }
+    worklist.pop();
+    uniqueWorklist.erase(currentOp);
+  }
+  llvm_unreachable("block contains unreachable operations");
 }

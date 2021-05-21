@@ -11,7 +11,6 @@
 
 #include "mlir/IR/Operation.h"
 #include "SLPGraph.h"
-#include <unordered_set>
 
 namespace mlir {
   namespace spn {
@@ -26,18 +25,26 @@ namespace mlir {
 
           void markAllUnavailable(ValueVector* root);
 
-          virtual SmallVector<Value, 4> next() const = 0;
+          virtual SmallVector<Value, 4> next();
 
         protected:
+
+          virtual void computeAvailableOps() = 0;
+          virtual SmallVector<Value, 4> nextSeed() const = 0;
+
           Operation* const rootOp;
           unsigned const width;
-          std::unordered_set<Operation*> availableOps;
+          SmallPtrSet<Operation*, 32> availableOps;
+        private:
+          bool exhausted = false;
         };
 
         class TopDownAnalysis : public SeedAnalysis {
         public:
           TopDownAnalysis(Operation* rootOp, unsigned width);
-          SmallVector<Value, 4> next() const override;
+          SmallVector<Value, 4> nextSeed() const override;
+        protected:
+          void computeAvailableOps() override;
         private:
           DenseMap<Value, unsigned> computeOpDepths() const;
         };
@@ -45,7 +52,11 @@ namespace mlir {
         class BottomUpAnalysis : public SeedAnalysis {
         public:
           BottomUpAnalysis(Operation* rootOp, unsigned width);
-          SmallVector<Value, 4> next() const override;
+          SmallVector<Value, 4> nextSeed() const override;
+        protected:
+          void computeAvailableOps() override;
+        private:
+          Operation* findFirstRoot(DenseMap<Operation*, llvm::BitVector>& reachableLeaves) const;
         };
 
       }
