@@ -15,25 +15,25 @@ using namespace mlir::spn::low::slp;
 // Helper functions in anonymous namespace.
 namespace {
 
-  SmallVector<ValueVector*> computeOrder(ValueVector* root) {
-    DenseMap<ValueVector*, unsigned> depths;
+  SmallVector<Superword*> computeOrder(Superword* root) {
+    DenseMap<Superword*, unsigned> depths;
     depths[root] = 0;
-    SmallVector<ValueVector*> worklist{root};
+    SmallVector<Superword*> worklist{root};
     while (!worklist.empty()) {
-      auto* vector = worklist.pop_back_val();
-      for (auto* operand : vector->getOperands()) {
-        auto operandDepth = depths[vector] + 1;
+      auto* superword = worklist.pop_back_val();
+      for (auto* operand : superword->getOperands()) {
+        auto operandDepth = depths[superword] + 1;
         if (depths[operand] < operandDepth) {
           depths[operand] = operandDepth;
           worklist.emplace_back(operand);
         }
       }
     }
-    SmallVector<ValueVector*> order;
+    SmallVector<Superword*> order;
     for (auto const& entry: depths) {
       order.emplace_back(entry.first);
     }
-    llvm::sort(std::begin(order), std::end(order), [&](ValueVector* lhs, ValueVector* rhs) {
+    llvm::sort(std::begin(order), std::end(order), [&](Superword* lhs, Superword* rhs) {
       // This additional comparison maximizes the re-use potential of leaf vectors.
       if (depths[lhs] == depths[rhs]) {
         return !lhs->isLeaf() && rhs->isLeaf();
@@ -52,9 +52,9 @@ namespace {
     return rhs.getDefiningOp()->isBeforeInBlock(lhs.getDefiningOp());
   }
 
-  Value latestElement(ValueVector* vector) {
+  Value latestElement(Superword* superword) {
     Value latestElement;
-    for (auto const& value : *vector) {
+    for (auto const& value : *superword) {
       if (!latestElement || later(value, latestElement)) {
         latestElement = value;
       }
@@ -62,8 +62,8 @@ namespace {
     return latestElement;
   }
 
-  bool willBeFolded(ValueVector* vector) {
-    for (auto const& element : *vector) {
+  bool willBeFolded(Superword* superword) {
+    for (auto const& element : *superword) {
       if (auto* definingOp = element.getDefiningOp()) {
         if (!definingOp->hasTrait<OpTrait::ConstantLike>()) {
           return false;
@@ -126,7 +126,7 @@ namespace {
 
 ConversionManager::ConversionManager(PatternRewriter& rewriter) : rewriter{rewriter}, folder{rewriter.getContext()} {}
 
-void ConversionManager::initConversion(ValueVector* root) {
+void ConversionManager::initConversion(Superword* root) {
   order.assign(computeOrder(root));
 
   SmallPtrSet<Operation*, 32> inputs;
@@ -136,22 +136,22 @@ void ConversionManager::initConversion(ValueVector* root) {
   escapingUsers.clear();
   insertionPoints.clear();
 
-  for (auto* vector : order) {
-    for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-      auto const& element = vector->getElement(lane);
+  for (auto* superword : order) {
+    for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
+      auto const& element = superword->getElement(lane);
       if (auto* elementOp = element.getDefiningOp()) {
         if (!escapingUsers.count(element)) {
           escapingUsers[element].assign(std::begin(element.getUsers()), std::end(element.getUsers()));
         }
-        if (vector->isLeaf()) {
+        if (superword->isLeaf()) {
           if (!earliestInput || elementOp->isBeforeInBlock(earliestInput)) {
             earliestInput = elementOp;
           }
           inputs.insert(elementOp);
         } else {
-          vectorPositions.try_emplace(element, vector, lane);
-          for (size_t i = 0; i < vector->numOperands(); ++i) {
-            auto const& operand = vector->getOperand(i)->getElement(lane);
+          superwordPositions.try_emplace(element, superword, lane);
+          for (size_t i = 0; i < superword->numOperands(); ++i) {
+            auto const& operand = superword->getOperand(i)->getElement(lane);
             auto& users = escapingUsers[operand];
             users.erase(std::remove(std::begin(users), std::end(users), elementOp), std::end(users));
           }
@@ -185,22 +185,22 @@ void ConversionManager::initConversion(ValueVector* root) {
   }
 
   // Compute insertion points.
-  DenseMap<ValueVector*, Value> currentInsertionPoint;
-  DenseMap<Value, ValueVector*> lastVectorAfterValue;
+  DenseMap<Superword*, Value> currentInsertionPoint;
+  DenseMap<Value, Superword*> lastWordAfterValue;
   Value currentLatest;
-  for (auto* vector : order) {
-    if (vector->isLeaf()) {
-      auto const& element = latestElement(vector);
-      currentInsertionPoint[vector] = element;
-      auto pair = lastVectorAfterValue.try_emplace(element, vector);
+  for (auto* superword : order) {
+    if (superword->isLeaf()) {
+      auto const& element = latestElement(superword);
+      currentInsertionPoint[superword] = element;
+      auto pair = lastWordAfterValue.try_emplace(element, superword);
       if (!pair.second) {
-        insertionPoints[vector] = pair.first->second;
-        pair.first->getSecond() = vector;
+        insertionPoints[superword] = pair.first->second;
+        pair.first->getSecond() = superword;
       }
     } else {
       Value latestOperand;
-      for (size_t i = 0; i < vector->numOperands(); ++i) {
-        auto* operand = vector->getOperand(i);
+      for (size_t i = 0; i < superword->numOperands(); ++i) {
+        auto* operand = superword->getOperand(i);
         if (willBeFolded(operand)) {
           continue;
         }
@@ -210,50 +210,50 @@ void ConversionManager::initConversion(ValueVector* root) {
         }
       }
       if (latestOperand) {
-        insertionPoints[vector] = lastVectorAfterValue[latestOperand];
-        currentInsertionPoint[vector] = latestOperand;
-        lastVectorAfterValue[latestOperand] = vector;
+        insertionPoints[superword] = lastWordAfterValue[latestOperand];
+        currentInsertionPoint[superword] = latestOperand;
+        lastWordAfterValue[latestOperand] = superword;
       } else {
-        insertionPoints[vector] = lastVectorAfterValue[currentLatest];
-        currentInsertionPoint[vector] = currentLatest;
-        lastVectorAfterValue[currentLatest] = vector;
+        insertionPoints[superword] = lastWordAfterValue[currentLatest];
+        currentInsertionPoint[superword] = currentLatest;
+        lastWordAfterValue[currentLatest] = superword;
       }
     }
-    if (!currentLatest || later(currentInsertionPoint[vector], currentLatest)) {
-      currentLatest = currentInsertionPoint[vector];
+    if (!currentLatest || later(currentInsertionPoint[superword], currentLatest)) {
+      currentLatest = currentInsertionPoint[superword];
     }
   }
 }
 
-void ConversionManager::setInsertionPointFor(ValueVector* vector) const {
-  if (!insertionPoints.count(vector)) {
-    rewriter.setInsertionPointAfterValue(latestElement(vector));
+void ConversionManager::setInsertionPointFor(Superword* superword) const {
+  if (!insertionPoints.count(superword)) {
+    rewriter.setInsertionPointAfterValue(latestElement(superword));
   } else {
-    rewriter.setInsertionPointAfterValue(creationData.lookup(insertionPoints.lookup(vector)).operation);
+    rewriter.setInsertionPointAfterValue(creationData.lookup(insertionPoints.lookup(superword)).operation);
   }
 }
 
-void ConversionManager::update(ValueVector* vector, Value const& operation, ElementFlag flag) {
-  assert(!wasConverted(vector) && "vector has been converted already");
-  creationData[vector].operation = operation;
-  creationData[vector].flag = flag;
+void ConversionManager::update(Superword* superword, Value const& operation, ElementFlag flag) {
+  assert(!wasConverted(superword) && "superword has been converted already");
+  creationData[superword].operation = operation;
+  creationData[superword].flag = flag;
 }
 
-bool ConversionManager::wasConverted(ValueVector* vector) const {
-  return creationData.count(vector);
+bool ConversionManager::wasConverted(Superword* superword) const {
+  return creationData.count(superword);
 }
 
-Value ConversionManager::getValue(ValueVector* vector) const {
-  assert(wasConverted(vector) && "vector has not yet been converted");
-  return creationData.lookup(vector).operation;
+Value ConversionManager::getValue(Superword* superword) const {
+  assert(wasConverted(superword) && "superword has not yet been converted");
+  return creationData.lookup(superword).operation;
 }
 
-ElementFlag ConversionManager::getElementFlag(ValueVector* vector) const {
-  assert(wasConverted(vector) && "vector has not yet been converted");
-  return creationData.lookup(vector).flag;
+ElementFlag ConversionManager::getElementFlag(Superword* superword) const {
+  assert(wasConverted(superword) && "superword has not yet been converted");
+  return creationData.lookup(superword).flag;
 }
 
-ArrayRef<ValueVector*> ConversionManager::conversionOrder() const {
+ArrayRef<Superword*> ConversionManager::conversionOrder() const {
   return order;
 }
 
@@ -266,24 +266,24 @@ Value ConversionManager::getOrCreateConstant(Location const& loc, Attribute cons
 }
 
 Value ConversionManager::getOrExtractValue(Value const& value) {
-  auto const& vectorPosition = vectorPositions.lookup(value);
-  if (!vectorPosition.first) {
+  auto const& wordPosition = superwordPositions.lookup(value);
+  if (!wordPosition.first) {
     return value;
   }
-  auto elementFlag = getElementFlag(vectorPosition.first);
-  if (elementFlag == ElementFlag::KeepAll || (elementFlag == ElementFlag::KeepFirst && vectorPosition.second == 0)) {
+  auto elementFlag = getElementFlag(wordPosition.first);
+  if (elementFlag == ElementFlag::KeepAll || (elementFlag == ElementFlag::KeepFirst && wordPosition.second == 0)) {
     return value;
   }
-  auto const& source = getValue(vectorPosition.first);
-  auto const& pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) vectorPosition.second));
+  auto const& source = getValue(wordPosition.first);
+  auto const& pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) wordPosition.second));
   return rewriter.create<vector::ExtractElementOp>(value.getLoc(), source, pos);
 }
 
 void ConversionManager::createExtractionFor(Value const& value) {
   assert(hasEscapingUsers(value) && "value does not have escaping uses");
-  auto const& vectorPosition = vectorPositions.lookup(value);
-  auto const& source = getValue(vectorPosition.first);
-  auto pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) vectorPosition.second));
+  auto const& wordPosition = superwordPositions.lookup(value);
+  auto const& source = getValue(wordPosition.first);
+  auto pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) wordPosition.second));
   rewriter.setInsertionPoint(escapingUsers.lookup(value).front());
   auto extractOp = rewriter.create<vector::ExtractElementOp>(value.getLoc(), source, pos);
   for (auto* escapingUser : escapingUsers.lookup(value)) {

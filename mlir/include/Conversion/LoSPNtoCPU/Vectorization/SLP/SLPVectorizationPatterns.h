@@ -32,10 +32,10 @@ namespace mlir {
         class SLPPatternApplicator {
         public:
           explicit SLPPatternApplicator(SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>&& patterns);
-          SLPVectorizationPattern* bestMatch(ValueVector* vector);
-          LogicalResult matchAndRewrite(ValueVector* vector, PatternRewriter& rewriter);
+          SLPVectorizationPattern* bestMatch(Superword* superword);
+          LogicalResult matchAndRewrite(Superword* superword, PatternRewriter& rewriter);
         private:
-          DenseMap<ValueVector*, SLPVectorizationPattern*> bestMatches;
+          DenseMap<Superword*, SLPVectorizationPattern*> bestMatches;
           SmallVector<std::unique_ptr<SLPVectorizationPattern>> patterns;
         };
 
@@ -50,15 +50,15 @@ namespace mlir {
             return 1;
           }
 
-          virtual LogicalResult matchVector(ValueVector* vector) const = 0;
+          virtual LogicalResult matchSuperword(Superword* superword) const = 0;
 
-          void rewriteVector(ValueVector* vector, PatternRewriter& rewriter) {
-            conversionManager.setInsertionPointFor(vector);
-            rewrite(vector, rewriter);
+          void rewriteSuperword(Superword* superword, PatternRewriter& rewriter) {
+            conversionManager.setInsertionPointFor(superword);
+            rewrite(superword, rewriter);
           }
 
         protected:
-          virtual void rewrite(ValueVector* vector, PatternRewriter& rewriter) const = 0;
+          virtual void rewrite(Superword* superword, PatternRewriter& rewriter) const = 0;
           ConversionManager& conversionManager;
         };
 
@@ -69,10 +69,10 @@ namespace mlir {
           explicit OpSpecificSLPVectorizationPattern(ConversionManager& conversionManager) : SLPVectorizationPattern{
               conversionManager} {}
 
-          LogicalResult matchVector(ValueVector* vector) const override {
-            for (auto const& value : *vector) {
+          LogicalResult matchSuperword(Superword* superword) const override {
+            for (auto const& value : *superword) {
               if (!value.getDefiningOp<SourceOp>()) {
-                // Pattern only applicable to uniform vectors of type SourceOp.
+                // Pattern only applicable to uniform superwords of type SourceOp.
                 return failure();
               }
             }
@@ -83,29 +83,29 @@ namespace mlir {
         struct VectorizeConstant : public OpSpecificSLPVectorizationPattern<ConstantOp> {
           using OpSpecificSLPVectorizationPattern<ConstantOp>::OpSpecificSLPVectorizationPattern;
           unsigned getCost() const override;
-          void rewrite(ValueVector* vector, PatternRewriter& rewriter) const override;
+          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
         };
 
         struct VectorizeBatchRead : public OpSpecificSLPVectorizationPattern<SPNBatchRead> {
           using OpSpecificSLPVectorizationPattern<SPNBatchRead>::OpSpecificSLPVectorizationPattern;
-          LogicalResult matchVector(ValueVector* vector) const override;
-          void rewrite(ValueVector* vector, PatternRewriter& rewriter) const override;
+          LogicalResult matchSuperword(Superword* superword) const override;
+          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
         };
 
         struct VectorizeAdd : public OpSpecificSLPVectorizationPattern<SPNAdd> {
           using OpSpecificSLPVectorizationPattern<SPNAdd>::OpSpecificSLPVectorizationPattern;
-          void rewrite(ValueVector* vector, PatternRewriter& rewriter) const override;
+          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
         };
 
         struct VectorizeMul : public OpSpecificSLPVectorizationPattern<SPNMul> {
           using OpSpecificSLPVectorizationPattern<SPNMul>::OpSpecificSLPVectorizationPattern;
-          void rewrite(ValueVector* vector, PatternRewriter& rewriter) const override;
+          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
         };
 
         struct VectorizeGaussian : public OpSpecificSLPVectorizationPattern<SPNGaussianLeaf> {
           using OpSpecificSLPVectorizationPattern<SPNGaussianLeaf>::OpSpecificSLPVectorizationPattern;
           unsigned getCost() const override;
-          void rewrite(ValueVector* vector, PatternRewriter& rewriter) const override;
+          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
         };
 
         static void populateSLPVectorizationPatterns(SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>& patterns,

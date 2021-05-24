@@ -77,12 +77,10 @@ namespace mlir {
           return true;
         }
 
-        size_t numVectors(ValueVector* root);
-
         void dumpOpTree(ArrayRef<Value> const& values);
         void dumpSLPGraph(SLPNode* root);
         void dumpSLPNode(SLPNode const& node);
-        void dumpSLPValueVector(ValueVector const& vector);
+        void dumpSuperword(Superword const& superword);
 
       }
     }

@@ -14,9 +14,9 @@ using namespace mlir::spn;
 using namespace mlir::spn::low;
 using namespace mlir::spn::low::slp;
 
-// === NodeVector === //
+// === Superword === //
 
-ValueVector::ValueVector(ArrayRef<Value> const& values) {
+Superword::Superword(ArrayRef<Value> const& values) {
   assert(!values.empty());
   for (auto const& value : values) {
     assert(value.isa<BlockArgument>() || value.getDefiningOp()->hasTrait<OpTrait::OneResult>());
@@ -24,7 +24,7 @@ ValueVector::ValueVector(ArrayRef<Value> const& values) {
   }
 }
 
-ValueVector::ValueVector(ArrayRef<Operation*> const& operations) {
+Superword::Superword(ArrayRef<Operation*> const& operations) {
   assert(!operations.empty());
   for (auto* op : operations) {
     assert(op->hasTrait<OpTrait::OneResult>());
@@ -32,29 +32,29 @@ ValueVector::ValueVector(ArrayRef<Operation*> const& operations) {
   }
 }
 
-Value ValueVector::getElement(size_t lane) const {
+Value Superword::getElement(size_t lane) const {
   assert(lane < numLanes());
   return values[lane];
 }
 
-void ValueVector::setElement(size_t lane, Value const& value) {
+void Superword::setElement(size_t lane, Value const& value) {
   assert(lane < numLanes());
   values[lane] = value;
 }
 
-Value ValueVector::operator[](size_t lane) const {
+Value Superword::operator[](size_t lane) const {
   return getElement(lane);
 }
 
-bool ValueVector::contains(Value const& value) const {
+bool Superword::contains(Value const& value) const {
   return std::find(std::begin(values), std::end(values), value) != std::end(values);
 }
 
-bool ValueVector::isLeaf() const {
-  return operandVectors.empty();
+bool Superword::isLeaf() const {
+  return operandWords.empty();
 }
 
-bool ValueVector::uniform() const {
+bool Superword::uniform() const {
   Operation* firstOp = nullptr;
   for (size_t i = 0; i < values.size(); ++i) {
     if (auto* definingOp = values[i].getDefiningOp()) {
@@ -72,7 +72,7 @@ bool ValueVector::uniform() const {
   return true;
 }
 
-bool ValueVector::splattable() const {
+bool Superword::splattable() const {
   Operation* firstOp = nullptr;
   for (size_t i = 0; i < values.size(); ++i) {
     if (auto* definingOp = values[i].getDefiningOp()) {
@@ -90,92 +90,92 @@ bool ValueVector::splattable() const {
   return true;
 }
 
-size_t ValueVector::numLanes() const {
+size_t Superword::numLanes() const {
   return values.size();
 }
 
-SmallVectorImpl<Value>::const_iterator ValueVector::begin() const {
+SmallVectorImpl<Value>::const_iterator Superword::begin() const {
   return values.begin();
 }
 
-SmallVectorImpl<Value>::const_iterator ValueVector::end() const {
+SmallVectorImpl<Value>::const_iterator Superword::end() const {
   return values.end();
 }
 
-size_t ValueVector::numOperands() const {
-  return operandVectors.size();
+size_t Superword::numOperands() const {
+  return operandWords.size();
 }
 
-void ValueVector::addOperand(std::shared_ptr<ValueVector> operandVector) {
-  operandVectors.emplace_back(std::move(operandVector));
+void Superword::addOperand(std::shared_ptr<Superword> operandWord) {
+  operandWords.emplace_back(std::move(operandWord));
 }
 
-ValueVector* ValueVector::getOperand(size_t index) const {
-  assert(index < operandVectors.size());
-  return operandVectors[index].get();
+Superword* Superword::getOperand(size_t index) const {
+  assert(index < operandWords.size());
+  return operandWords[index].get();
 }
 
-SmallVector<ValueVector*, 2> ValueVector::getOperands() const {
-  SmallVector<ValueVector*, 2> operands;
-  for (auto const& operand : operandVectors) {
+SmallVector<Superword*, 2> Superword::getOperands() const {
+  SmallVector<Superword*, 2> operands;
+  for (auto const& operand : operandWords) {
     operands.emplace_back(operand.get());
   }
   return operands;
 }
 
-VectorType ValueVector::getVectorType() const {
+VectorType Superword::getVectorType() const {
   return VectorType::get(static_cast<unsigned>(numLanes()), getElementType());
 }
 
-Type ValueVector::getElementType() const {
+Type Superword::getElementType() const {
   return getElement(0).getType();
 }
 
-Location ValueVector::getLoc() const {
+Location Superword::getLoc() const {
   return getElement(0).getLoc();
 }
 
 // === SLPNode === //
 
-SLPNode::SLPNode(std::shared_ptr<ValueVector> vector) {
-  vectors.emplace_back(std::move(vector));
+SLPNode::SLPNode(std::shared_ptr<Superword> superword) {
+  superwords.emplace_back(std::move(superword));
 }
 
-void SLPNode::addVector(std::shared_ptr<ValueVector> vector) {
-  vectors.emplace_back(std::move(vector));
+void SLPNode::addSuperword(std::shared_ptr<Superword> superword) {
+  superwords.emplace_back(std::move(superword));
 }
 
-std::shared_ptr<ValueVector> SLPNode::getVector(size_t index) const {
-  assert(index <= numVectors());
-  return vectors[index];
+std::shared_ptr<Superword> SLPNode::getSuperword(size_t index) const {
+  assert(index <= numSuperwords());
+  return superwords[index];
 }
 
 Value SLPNode::getValue(size_t lane, size_t index) const {
-  assert(lane <= numLanes() && index <= numVectors());
-  return vectors[index]->values[lane];
+  assert(lane <= numLanes() && index <= numSuperwords());
+  return superwords[index]->values[lane];
 }
 
 void SLPNode::setValue(size_t lane, size_t index, Value const& newValue) {
-  assert(lane <= numLanes() && index <= numVectors());
-  vectors[index]->values[lane] = newValue;
+  assert(lane <= numLanes() && index <= numSuperwords());
+  superwords[index]->values[lane] = newValue;
 }
 
 bool SLPNode::contains(Value const& value) const {
-  return std::any_of(std::begin(vectors), std::end(vectors), [&](auto const& nodeVector) {
-    return nodeVector->contains(value);
+  return std::any_of(std::begin(superwords), std::end(superwords), [&](auto const& superword) {
+    return superword->contains(value);
   });
 }
 
-bool SLPNode::isVectorRoot(ValueVector const& vector) const {
-  return vectors[0]->values == vector.values;
+bool SLPNode::isSuperwordRoot(Superword const& superword) const {
+  return superwords[0]->values == superword.values;
 }
 
 size_t SLPNode::numLanes() const {
-  return vectors[0]->numLanes();
+  return superwords[0]->numLanes();
 }
 
-size_t SLPNode::numVectors() const {
-  return vectors.size();
+size_t SLPNode::numSuperwords() const {
+  return superwords.size();
 }
 
 size_t SLPNode::numOperands() const {

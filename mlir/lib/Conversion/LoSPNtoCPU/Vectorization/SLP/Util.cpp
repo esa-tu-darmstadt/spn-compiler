@@ -55,13 +55,9 @@ bool slp::consecutiveLoads(Value const& lhs, Value const& rhs) {
 }
 
 void slp::dumpSLPNode(SLPNode const& node) {
-  for (size_t i = node.numVectors(); i-- > 0;) {
-    dumpSLPValueVector(*node.getVector(i));
+  for (size_t i = node.numSuperwords(); i-- > 0;) {
+    dumpSuperword(*node.getSuperword(i));
   }
-}
-
-size_t slp::numVectors(ValueVector* root) {
-  return graph::postOrder(root).size();
 }
 
 // Helper functions in an anonymous namespace.
@@ -82,14 +78,14 @@ namespace {
   }
 }
 
-void slp::dumpSLPValueVector(ValueVector const& vector) {
-  for (size_t lane = 0; lane < vector.numLanes(); ++lane) {
-    if (!vector[lane].isa<BlockArgument>()) {
-      llvm::dbgs() << vector[lane] << " (" << vector[lane].getDefiningOp() << ")";
+void slp::dumpSuperword(Superword const& superword) {
+  for (size_t lane = 0; lane < superword.numLanes(); ++lane) {
+    if (!superword[lane].isa<BlockArgument>()) {
+      llvm::dbgs() << superword[lane] << " (" << superword[lane].getDefiningOp() << ")";
     } else {
-      dumpBlockArgOrDefiningOpName(vector[lane]);
+      dumpBlockArgOrDefiningOpName(superword[lane]);
     }
-    if (lane < vector.numLanes() - 1) {
+    if (lane < superword.numLanes() - 1) {
       llvm::dbgs() << "\t|\t";
     }
   }
@@ -162,7 +158,7 @@ void slp::dumpSLPGraph(SLPNode* root) {
   for (auto* node : graph::postOrder(root)) {
     llvm::dbgs() << "node_" << node << "[label=<\n";
     llvm::dbgs() << "\t<TABLE ALIGN=\"CENTER\" BORDER=\"0\" CELLSPACING=\"10\" CELLPADDING=\"0\">\n";
-    for (size_t i = node->numVectors(); i-- > 0;) {
+    for (size_t i = node->numSuperwords(); i-- > 0;) {
       llvm::dbgs() << "\t\t<TR>\n";
       for (size_t lane = 0; lane < node->numLanes(); ++lane) {
         auto value = node->getValue(lane, i);

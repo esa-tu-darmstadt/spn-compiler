@@ -24,7 +24,7 @@ namespace mlir {
 
           explicit SLPGraphBuilder(size_t maxLookAhead);
 
-          std::shared_ptr<ValueVector> build(ArrayRef<Value> const& seed);
+          std::shared_ptr<Superword> build(ArrayRef<Value> const& seed);
 
         private:
 
@@ -41,7 +41,7 @@ namespace mlir {
             FAILED
           };
 
-          void buildGraph(std::shared_ptr<ValueVector> const& vector);
+          void buildGraph(std::shared_ptr<Superword> const& superword);
           void reorderOperands(SLPNode* multinode) const;
           std::pair<Value, Mode> getBest(Mode const& mode, Value const& last, SmallVector<Value>& candidates) const;
           unsigned getLookAheadScore(Value const& last, Value const& candidate, unsigned maxLevel) const;
@@ -49,19 +49,19 @@ namespace mlir {
           // === Utilities === //
 
           Mode modeFromValue(Value const& value) const;
-          std::shared_ptr<ValueVector> appendVectorToNode(ArrayRef<Value> const& values,
-                                                          std::shared_ptr<SLPNode> const& node,
-                                                          std::shared_ptr<ValueVector> const& usingVector);
+          std::shared_ptr<Superword> appendSuperwordToNode(ArrayRef<Value> const& values,
+                                                           std::shared_ptr<SLPNode> const& node,
+                                                           std::shared_ptr<Superword> const& usingSuperword);
           std::shared_ptr<SLPNode> addOperandToNode(ArrayRef<Value> const& operandValues,
                                                     std::shared_ptr<SLPNode> const& node,
-                                                    std::shared_ptr<ValueVector> const& usingVector);
-          std::shared_ptr<ValueVector> vectorOrNull(ArrayRef<Value> const& values) const;
+                                                    std::shared_ptr<Superword> const& usingSuperword);
+          std::shared_ptr<Superword> superwordOrNull(ArrayRef<Value> const& values) const;
 
           // ================= //
 
           size_t const maxLookAhead;
-          DenseMap<ValueVector*, std::shared_ptr<SLPNode>> nodesByVector;
-          DenseMap<Value, SmallVector<std::shared_ptr<ValueVector>>> vectorsByValue;
+          DenseMap<Superword*, std::shared_ptr<SLPNode>> nodeBySuperword;
+          DenseMap<Value, SmallVector<std::shared_ptr<Superword>>> superwordsByValue;
           SmallPtrSet<SLPNode*, 8> buildWorklist;
 
         };

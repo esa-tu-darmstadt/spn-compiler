@@ -15,10 +15,10 @@ using namespace mlir::spn::low::slp;
 
 SLPGraphBuilder::SLPGraphBuilder(size_t maxLookAhead) : maxLookAhead{maxLookAhead} {}
 
-std::shared_ptr<ValueVector> SLPGraphBuilder::build(ArrayRef<Value> const& seed) {
-  auto root = std::make_shared<ValueVector>(seed);
-  auto rootNode = nodesByVector.try_emplace(root.get(), std::make_shared<SLPNode>(root)).first->second;
-  vectorsByValue[root->getElement(0)].emplace_back(root);
+std::shared_ptr<Superword> SLPGraphBuilder::build(ArrayRef<Value> const& seed) {
+  auto root = std::make_shared<Superword>(seed);
+  auto rootNode = nodeBySuperword.try_emplace(root.get(), std::make_shared<SLPNode>(root)).first->second;
+  superwordsByValue[root->getElement(0)].emplace_back(root);
   buildWorklist.insert(rootNode.get());
   buildGraph(root);
   return root;
@@ -75,11 +75,11 @@ namespace {
     });
   }
 
-  SmallVector<SmallVector<Value, 2>> getAllOperandsSorted(ValueVector const& vector,
+  SmallVector<SmallVector<Value, 2>> getAllOperandsSorted(Superword const& superword,
                                                           OperationName const& currentOpCode) {
     SmallVector<SmallVector<Value, 2>> allOperands;
-    allOperands.reserve(vector.numLanes());
-    for (auto const& value : vector) {
+    allOperands.reserve(superword.numLanes());
+    for (auto const& value : superword) {
       allOperands.emplace_back(getOperands(value));
     }
     for (auto& operands : allOperands) {
@@ -90,43 +90,43 @@ namespace {
 
 } // end namespace
 
-void SLPGraphBuilder::buildGraph(std::shared_ptr<ValueVector> const& vector) {
+void SLPGraphBuilder::buildGraph(std::shared_ptr<Superword> const& superword) {
   // Stop growing graph
-  if (!vectorizable(vector->begin(), vector->end())) {
+  if (!vectorizable(superword->begin(), superword->end())) {
     return;
   }
-  auto currentNode = nodesByVector[vector.get()];
-  auto const& currentOpCode = vector->begin()->getDefiningOp()->getName();
-  auto const& arity = vector->begin()->getDefiningOp()->getNumOperands();
+  auto currentNode = nodeBySuperword[superword.get()];
+  auto const& currentOpCode = superword->begin()->getDefiningOp()->getName();
+  auto const& arity = superword->begin()->getDefiningOp()->getNumOperands();
   // Recursion call to grow graph further
   // 1. Commutative
-  if (commutative(vector->begin(), vector->end())) {
+  if (commutative(superword->begin(), superword->end())) {
     // A. Coarsening Mode
-    auto allOperands = getAllOperandsSorted(*vector, currentOpCode);
+    auto allOperands = getAllOperandsSorted(*superword, currentOpCode);
     for (unsigned i = 0; i < arity; ++i) {
-      SmallVector<Value, 4> vectorValues;
-      for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-        vectorValues.emplace_back(allOperands[lane][i]);
+      SmallVector<Value, 4> superwordValues;
+      for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
+        superwordValues.emplace_back(allOperands[lane][i]);
       }
-      auto existingVector = vectorOrNull(vectorValues);
-      if (existingVector) {
-        vector->addOperand(existingVector);
-        currentNode->addOperand(nodesByVector[existingVector.get()]);
+      auto existingSuperword = superwordOrNull(superwordValues);
+      if (existingSuperword) {
+        superword->addOperand(existingSuperword);
+        currentNode->addOperand(nodeBySuperword[existingSuperword.get()]);
       } else if (appendable(*currentNode, currentOpCode, allOperands, i)) {
-        auto newVector = appendVectorToNode(vectorValues, currentNode, vector);
-        buildGraph(newVector);
-      } else if (ofVectorizableType(std::begin(vectorValues), std::end(vectorValues))) {
+        auto newSuperword = appendSuperwordToNode(superwordValues, currentNode, superword);
+        buildGraph(newSuperword);
+      } else if (ofVectorizableType(std::begin(superwordValues), std::end(superwordValues))) {
         // TODO: here might be a good place to implement variable vector width
-        auto operandNode = addOperandToNode(vectorValues, currentNode, vector);
+        auto operandNode = addOperandToNode(superwordValues, currentNode, superword);
         buildWorklist.insert(operandNode.get());
       }
     }
     // B. Normal Mode: Finished building multi-node
-    if (currentNode->isVectorRoot(*vector)) {
+    if (currentNode->isSuperwordRoot(*superword)) {
       //reorderOperands(currentNode);
       for (auto const& operandNode : currentNode->getOperands()) {
         if (buildWorklist.erase(operandNode.get())) {
-          buildGraph(operandNode->getVector(operandNode->numVectors() - 1));
+          buildGraph(operandNode->getSuperword(operandNode->numSuperwords() - 1));
         }
       }
     }
@@ -139,14 +139,14 @@ void SLPGraphBuilder::buildGraph(std::shared_ptr<ValueVector> const& vector) {
         auto operand = currentNode->getValue(lane, 0).getDefiningOp()->getOperand(i);
         operandValues.emplace_back(operand);
       }
-      auto existingVector = vectorOrNull(operandValues);
-      if (existingVector) {
-        vector->addOperand(existingVector);
-        currentNode->addOperand(nodesByVector[existingVector.get()]);
+      auto existingSuperword = superwordOrNull(operandValues);
+      if (existingSuperword) {
+        superword->addOperand(existingSuperword);
+        currentNode->addOperand(nodeBySuperword[existingSuperword.get()]);
       } else if (ofVectorizableType(std::begin(operandValues), std::end(operandValues))) {
-        auto operandNode = addOperandToNode(operandValues, currentNode, vector);
+        auto operandNode = addOperandToNode(operandValues, currentNode, superword);
         buildWorklist.insert(operandNode.get());
-        buildGraph(operandNode->getVector(0));
+        buildGraph(operandNode->getSuperword(0));
       }
     }
   }
@@ -316,44 +316,45 @@ SLPGraphBuilder::Mode SLPGraphBuilder::modeFromValue(Value const& value) const {
   return OPCODE;
 }
 
-std::shared_ptr<ValueVector> SLPGraphBuilder::appendVectorToNode(ArrayRef<Value> const& values,
-                                                                 std::shared_ptr<SLPNode> const& node,
-                                                                 std::shared_ptr<ValueVector> const& usingVector) {
-  auto newVector = std::make_shared<ValueVector>(values);
-  vectorsByValue[values[0]].emplace_back(newVector);
-  nodesByVector[newVector.get()] = node;
-  node->addVector(newVector);
-  usingVector->addOperand(newVector);
-  return newVector;
+std::shared_ptr<Superword> SLPGraphBuilder::appendSuperwordToNode(ArrayRef<Value> const& values,
+                                                                  std::shared_ptr<SLPNode> const& node,
+                                                                  std::shared_ptr<Superword> const& usingSuperword) {
+  auto newSuperword = std::make_shared<Superword>(values);
+  superwordsByValue[values[0]].emplace_back(newSuperword);
+  nodeBySuperword[newSuperword.get()] = node;
+  node->addSuperword(newSuperword);
+  usingSuperword->addOperand(newSuperword);
+  return newSuperword;
 }
 
 std::shared_ptr<SLPNode> SLPGraphBuilder::addOperandToNode(ArrayRef<Value> const& operandValues,
                                                            std::shared_ptr<SLPNode> const& node,
-                                                           std::shared_ptr<ValueVector> const& usingVector) {
-  auto newVector = std::make_shared<ValueVector>(operandValues);
-  auto operandNode = nodesByVector.try_emplace(newVector.get(), std::make_shared<SLPNode>(newVector)).first->second;
-  vectorsByValue[operandValues[0]].emplace_back(newVector);
-  nodesByVector[newVector.get()] = operandNode;
+                                                           std::shared_ptr<Superword> const& usingSuperword) {
+  auto newSuperword = std::make_shared<Superword>(operandValues);
+  auto operandNode =
+      nodeBySuperword.try_emplace(newSuperword.get(), std::make_shared<SLPNode>(newSuperword)).first->second;
+  superwordsByValue[operandValues[0]].emplace_back(newSuperword);
+  nodeBySuperword[newSuperword.get()] = operandNode;
   node->addOperand(operandNode);
-  usingVector->addOperand(newVector);
+  usingSuperword->addOperand(newSuperword);
   return operandNode;
 }
 
-std::shared_ptr<ValueVector> SLPGraphBuilder::vectorOrNull(ArrayRef<Value> const& values) const {
-  if (vectorsByValue.count(values[0])) {
-    auto const& vectors = vectorsByValue.lookup(values[0]);
-    auto const& it = std::find_if(std::begin(vectors), std::end(vectors), [&](auto const& vector) {
-      if (vector->numLanes() != values.size()) {
+std::shared_ptr<Superword> SLPGraphBuilder::superwordOrNull(ArrayRef<Value> const& values) const {
+  if (superwordsByValue.count(values[0])) {
+    auto const& superwords = superwordsByValue.lookup(values[0]);
+    auto const& it = std::find_if(std::begin(superwords), std::end(superwords), [&](auto const& superword) {
+      if (superword->numLanes() != values.size()) {
         return false;
       }
-      for (size_t lane = 1; lane < vector->numLanes(); ++lane) {
-        if (vector->getElement(lane) != values[lane]) {
+      for (size_t lane = 1; lane < superword->numLanes(); ++lane) {
+        if (superword->getElement(lane) != values[lane]) {
           return false;
         }
       }
       return true;
     });
-    if (it != std::end(vectors)) {
+    if (it != std::end(superwords)) {
       return *it;
     }
   }

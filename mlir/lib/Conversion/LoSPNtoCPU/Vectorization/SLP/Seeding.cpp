@@ -32,7 +32,7 @@ SmallVector<Value, 4> SeedAnalysis::next() {
   return seed;
 }
 
-void SeedAnalysis::markAllUnavailable(ValueVector* root) {
+void SeedAnalysis::markAllUnavailable(Superword* root) {
   for (auto* vector : graph::postOrder(root)) {
     for (auto const& element : *vector) {
       if (auto* definingOp = element.getDefiningOp()) {

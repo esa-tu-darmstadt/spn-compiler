@@ -21,14 +21,14 @@ namespace mlir {
 
         class SLPNode;
 
-        class ValueVector {
+        class Superword {
 
           friend SLPNode;
 
         public:
 
-          explicit ValueVector(ArrayRef<Value> const& values);
-          explicit ValueVector(ArrayRef<Operation*> const& operations);
+          explicit Superword(ArrayRef<Value> const& values);
+          explicit Superword(ArrayRef<Operation*> const& operations);
 
           Value getElement(size_t lane) const;
           void setElement(size_t lane, Value const& value);
@@ -44,9 +44,9 @@ namespace mlir {
           SmallVectorImpl<Value>::const_iterator end() const;
 
           size_t numOperands() const;
-          void addOperand(std::shared_ptr<ValueVector> operandVector);
-          ValueVector* getOperand(size_t index) const;
-          SmallVector<ValueVector*, 2> getOperands() const;
+          void addOperand(std::shared_ptr<Superword> operandWord);
+          Superword* getOperand(size_t index) const;
+          SmallVector<Superword*, 2> getOperands() const;
 
           VectorType getVectorType() const;
           Type getElementType() const;
@@ -54,27 +54,27 @@ namespace mlir {
 
         private:
           SmallVector<Value, 4> values;
-          SmallVector<std::shared_ptr<ValueVector>> operandVectors;
+          SmallVector<std::shared_ptr<Superword>> operandWords;
         };
 
         class SLPNode {
 
         public:
 
-          SLPNode(std::shared_ptr<ValueVector> vector);
+          SLPNode(std::shared_ptr<Superword> superword);
 
-          void addVector(std::shared_ptr<ValueVector> vector);
-          std::shared_ptr<ValueVector> getVector(size_t index) const;
+          void addSuperword(std::shared_ptr<Superword> superword);
+          std::shared_ptr<Superword> getSuperword(size_t index) const;
 
           Value getValue(size_t lane, size_t index) const;
           void setValue(size_t lane, size_t index, Value const& newValue);
 
           bool contains(Value const& value) const;
 
-          bool isVectorRoot(ValueVector const& vector) const;
+          bool isSuperwordRoot(Superword const& superword) const;
 
           size_t numLanes() const;
-          size_t numVectors() const;
+          size_t numSuperwords() const;
           size_t numOperands() const;
 
           void addOperand(std::shared_ptr<SLPNode> operandNode);
@@ -82,7 +82,7 @@ namespace mlir {
           ArrayRef<std::shared_ptr<SLPNode>> getOperands() const;
 
         private:
-          SmallVector<std::shared_ptr<ValueVector>> vectors;
+          SmallVector<std::shared_ptr<Superword>> superwords;
           SmallVector<std::shared_ptr<SLPNode>> operandNodes;
         };
 

@@ -35,17 +35,17 @@ namespace mlir {
 
           explicit ConversionManager(PatternRewriter& rewriter);
 
-          void initConversion(ValueVector* root);
+          void initConversion(Superword* root);
 
-          void setInsertionPointFor(ValueVector* vector) const;
-          bool wasConverted(ValueVector* vector) const;
+          void setInsertionPointFor(Superword* superword) const;
+          bool wasConverted(Superword* superword) const;
 
-          void update(ValueVector* vector, Value const& operation, ElementFlag flag);
+          void update(Superword* superword, Value const& operation, ElementFlag flag);
 
-          Value getValue(ValueVector* vector) const;
-          ElementFlag getElementFlag(ValueVector* vector) const;
+          Value getValue(Superword* superword) const;
+          ElementFlag getElementFlag(Superword* superword) const;
 
-          ArrayRef<ValueVector*> conversionOrder() const;
+          ArrayRef<Superword*> conversionOrder() const;
 
           bool hasEscapingUsers(Value const& value) const;
 
@@ -55,27 +55,27 @@ namespace mlir {
 
         private:
 
-          SmallVector<ValueVector*> order;
+          SmallVector<Superword*> order;
 
           struct CreationData {
-            /// The operation that was created for this node vector.
+            /// The operation that was created for this superword.
             Value operation;
             /// What to do with its elements after conversion.
             ElementFlag flag;
           };
-          DenseMap<ValueVector*, CreationData> creationData;
-          DenseMap<Value, std::pair<ValueVector*, size_t>> vectorPositions;
+          DenseMap<Superword*, CreationData> creationData;
+          DenseMap<Value, std::pair<Superword*, size_t>> superwordPositions;
 
-          /// Stores insertion points. An entry {k, v} means  that vector k will be inserted right after vector v.
+          /// Stores insertion points. An entry {k, v} means that superword k will be inserted right after superword v.
           /*
-           * NOTE: we cannot use a single value that is updated after every created vector because this would require
-           * Operation::isBeforeInBlock() in case the created vector was a leaf vector and was created *behind* the
-           * last vector (i.e. if lastVector.isBeforeInBlock(createdVector) then update lastVector to createdVector).
+           * NOTE: we cannot use a single value that is updated after every created vector op because this would require
+           * Operation::isBeforeInBlock() in case the created vector op was a leaf op and was created *behind* the last
+           * vector op (i.e. if lastVectorOp.isBeforeInBlock(createdVectorOp) then lastVectorOp = createdVectorOp).
            * With the current MLIR implementation, Operation::isBeforeInBlock() recomputes the *entire* operation order
-           * of the block in case either lastVector or createdVector are new, which createdVector would always be.
-           * Depending on the size of the block and the number of created vectors, this can waste a lot (!!!) of time.
+           * of the block in case either lastVectorOp or createdVectorOp are new, which createdVectorOp would always be.
+           * Depending on the size of the block and the number of created vector ops, this can waste a lot (!!) of time.
            */
-          DenseMap<ValueVector*, ValueVector*> insertionPoints;
+          DenseMap<Superword*, Superword*> insertionPoints;
 
           /// Stores escaping users for each value.
           DenseMap<Value, SmallVector<Operation*, 1>> escapingUsers;
