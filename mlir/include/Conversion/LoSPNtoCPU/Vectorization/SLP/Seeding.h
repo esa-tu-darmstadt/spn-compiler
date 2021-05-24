@@ -9,8 +9,10 @@
 #ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SEEDING_H
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SEEDING_H
 
-#include "mlir/IR/Operation.h"
 #include "SLPGraph.h"
+#include "mlir/IR/Operation.h"
+#include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/BitVector.h"
 
 namespace mlir {
   namespace spn {
@@ -56,7 +58,7 @@ namespace mlir {
         protected:
           void computeAvailableOps() override;
         private:
-          Operation* findFirstRoot(DenseMap<Operation*, llvm::BitVector>& reachableLeaves) const;
+          Operation* findFirstRoot(llvm::StringMap<DenseMap<Operation*, llvm::BitVector>>& reachableLeaves) const;
         };
 
       }
