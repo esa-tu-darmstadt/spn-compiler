@@ -33,7 +33,7 @@ namespace mlir {
           // All operations in the Task relevant for partitioning
           SmallVector<Operation*> nodes;
           // All operations with no internal operands (in-degree 0)
-          SmallVector<Operation*> inNodes;
+          SmallPtrSet<Operation*, 10> inNodes;
           // All inputs considered external for the partitioning.
           SmallVector<Value> external;
           // Mapping from Value to a Tensor + index, either from an external
@@ -72,7 +72,7 @@ namespace mlir {
                 inputs[blockArg] = InputInfo{externalTensor, collect.sampleIndex()};
                 // All users of the entry block args potentially do not have outside operands.
                 for (auto* U : blockArg.getUsers()) {
-                  inNodes.push_back(U);
+                  inNodes.insert(U);
                 }
               }
               body.body().walk([&](Operation* op) {
@@ -85,7 +85,7 @@ namespace mlir {
                   if (op->hasTrait<OpTrait::ConstantLike>()) {
                     // Constant operations do not have an operand, so they
                     // should be used as seeds for the initial partitioning, too.
-                    inNodes.push_back(op);
+                    inNodes.insert(op);
                   }
                 }
               });
