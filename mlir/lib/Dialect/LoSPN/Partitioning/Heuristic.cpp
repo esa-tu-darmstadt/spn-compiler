@@ -47,6 +47,7 @@ Partition* Heuristic::getPartitionByID(unsigned int ID) {
 void Heuristic::moveNode(Operation* node, Partition* from, Partition* to) {
   from->removeNode(node);
   to->addNode(node);
+  partitionMap[node] = to->ID();
 }
 
 void SimpleMoveHeuristic::refinePartitioning() {
@@ -102,7 +103,7 @@ void SimpleMoveHeuristic::refinePartitioning() {
     }
 
     // Downward direction
-    llvm::Optional<int> downwardCost;
+    llvm::Optional<int> downwardCost = llvm::None;
     if (i != 0) {
       // Calculate the positive gain: All edges from operands of 'node' that are in partition i-1
       // will become internal edges.
