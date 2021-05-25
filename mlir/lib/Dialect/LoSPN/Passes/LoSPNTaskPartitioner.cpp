@@ -99,10 +99,7 @@ namespace mlir {
           SmallVector<PartitionInfo> partitions;
           unsigned index = 0;
           for (auto& p : partition) {
-            llvm::dbgs() << "Partition " << index << ":\n";
-            for (auto o : *p) {
-              o->dump();
-            }
+            p->dump();
             ++index;
             partitions.push_back(PartitionInfo{p.get(), false});
           }
@@ -117,18 +114,21 @@ namespace mlir {
           }
           // Delete all the operations moved to new, partitioned tasks from the original
           // task to avoid errors involving deleted, but used operations.
-          for (auto* movedOp : llvm::reverse(movedOperations)) {
+          /*for (auto* movedOp : llvm::reverse(movedOperations)) {
+            movedOp->dump();
             if (!movedOp->getUsers().empty()) {
+              llvm::dbgs() << "REMAINING USES\n";
               for (auto* U : movedOp->getUsers()) {
                 // SPNYield can savely be deleted, the body will stop existing after
                 // the original task is also deleted.
                 if (isa<SPNYield>(U)) {
                   rewriter.eraseOp(U);
                 }
+                U->dump();
               }
             }
             rewriter.eraseOp(movedOp);
-          }
+          }*/
           //assert(false);
           rewriter.replaceOp(op, newResults);
           return mlir::success();
@@ -158,6 +158,7 @@ namespace mlir {
                   // First, check the map for pre-existing entries.
                   // If no mapping is present, the input must be produced by another partition.
                   auto otherPartition = findPartition(operand, partitions);
+                  assert(otherPartition.first);
                   // Convert the partition producing the input to a task first.
                   createTaskForPartition(otherPartition, rewriter, loc, batchSize, inputs,
                                          partitions, movedOperations);
@@ -293,7 +294,7 @@ namespace mlir {
       protected:
 
         void runOnOperation() override {
-          GraphPartitioner partitioner{};
+          GraphPartitioner partitioner{2, SimpleMoveHeuristic::create};
           RewritePatternSet patterns(getOperation()->getContext());
           patterns.insert<PartitionTask>(getOperation()->getContext(), partitioner);
           mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));

@@ -18,6 +18,7 @@ add_mlir_dialect_library(MLIRLoSPN
         Analysis/SPNGraphStatistics.cpp
         Analysis/SPNNodeLevel.cpp
         Partitioning/GraphPartitioner.cpp
+        Partitioning/Heuristic.cpp
 
         ADDITIONAL_HEADER_DIRS
         ${PROJECT_SOURCE_DIR}/mlir/include/Dialect

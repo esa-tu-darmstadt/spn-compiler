@@ -15,22 +15,28 @@ using namespace mlir::spn::low;
 void mlir::spn::low::Partition::addNode(Operation* node) {
   nodes.insert(node);
   dirty = true;
+  if (!node->hasTrait<OpTrait::ConstantLike>()) {
+    ++numNodes;
+  }
 }
 
 void mlir::spn::low::Partition::removeNode(Operation* node) {
   nodes.erase(node);
   dirty = true;
+  if (!node->hasTrait<OpTrait::ConstantLike>()) {
+    --numNodes;
+  }
 }
 
 bool mlir::spn::low::Partition::contains(Operation* node) {
   return nodes.contains(node);
 }
 
-llvm::SmallPtrSetImpl<mlir::Operation*>::const_iterator mlir::spn::low::Partition::begin() {
+llvm::SmallPtrSetImpl<mlir::Operation*>::iterator mlir::spn::low::Partition::begin() {
   return nodes.begin();
 }
 
-llvm::SmallPtrSetImpl<mlir::Operation*>::const_iterator mlir::spn::low::Partition::end() {
+llvm::SmallPtrSetImpl<mlir::Operation*>::iterator mlir::spn::low::Partition::end() {
   return nodes.end();
 }
 
@@ -66,16 +72,28 @@ llvm::ArrayRef<Operation*> mlir::spn::low::Partition::hasExternalOutputs() {
   return exOut;
 }
 
-llvm::SmallVector<std::unique_ptr<mlir::spn::low::Partition>> mlir::spn::low::GraphPartitioner::partitionGraph(
+void mlir::spn::low::Partition::dump() const {
+  llvm::dbgs() << "Partition " << id << "(" << this << "):\n";
+  for (auto* o : nodes) {
+    o->dump();
+  }
+}
+
+GraphPartitioner::GraphPartitioner(unsigned int numberOfPartitions, HeuristicFactory heuristic) :
+    numPartitions{numberOfPartitions}, factory{std::move(heuristic)} {}
+
+Partitioning mlir::spn::low::GraphPartitioner::partitionGraph(
     llvm::ArrayRef<Operation*> nodes,
     llvm::ArrayRef<Operation*> inNodes,
     llvm::ArrayRef<Value> externalInputs) {
-  return initialPartitioning(nodes, inNodes, externalInputs);
+  auto partitioning = initialPartitioning(nodes, inNodes, externalInputs);
+  refinePartitioning(nodes, externalInputs, &partitioning);
+  return partitioning;
   // TODO: Special handling of constant operations. They can simply be duplicated if necessary and should
   // never imply an edge crossing partitions.
 }
 
-llvm::SmallVector<std::unique_ptr<mlir::spn::low::Partition>> mlir::spn::low::GraphPartitioner::initialPartitioning(
+Partitioning mlir::spn::low::GraphPartitioner::initialPartitioning(
     llvm::ArrayRef<Operation*> nodes,
     llvm::ArrayRef<Operation*> inNodes,
     llvm::ArrayRef<Value> externalInputs) const {
@@ -102,13 +120,12 @@ llvm::SmallVector<std::unique_ptr<mlir::spn::low::Partition>> mlir::spn::low::Gr
     }
   }
   // TODO Make this configurable
-  unsigned numPartitions = 5;
   auto nodesPerPartition = llvm::divideNearest(T.size(), numPartitions);
   llvm::dbgs() << "Nodes per Partition: " << nodesPerPartition << "\n";
-  SmallVector<std::unique_ptr<Partition>> partitioning;
+  Partitioning partitioning;
   unsigned nodeIndex = 0;
   for (unsigned i = 0; i < numPartitions; ++i) {
-    partitioning.push_back(std::make_unique<Partition>());
+    partitioning.push_back(std::make_unique<Partition>(i, nodesPerPartition));
     auto& curPar = partitioning.back();
     auto maxIndex = nodeIndex + nodesPerPartition;
     for (; (nodeIndex < maxIndex) && (nodeIndex < T.size()); ++nodeIndex) {
@@ -127,3 +144,12 @@ bool mlir::spn::low::GraphPartitioner::hasInDegreeZero(Operation* node,
   });
 }
 
+void GraphPartitioner::refinePartitioning(llvm::ArrayRef<Operation*> allNodes,
+                                          llvm::ArrayRef<Value> externalInputs,
+                                          Partitioning* allPartitions) {
+  if (!factory) {
+    return;
+  }
+  auto heuristic = factory(allNodes, externalInputs, allPartitions);
+  heuristic->refinePartitioning();
+}

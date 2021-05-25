@@ -11,6 +11,7 @@
 
 #include "LoSPN/LoSPNOps.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "Heuristic.h"
 
 namespace mlir {
   namespace spn {
@@ -20,19 +21,39 @@ namespace mlir {
 
       public:
 
+        Partition(unsigned ID, unsigned maximumSize) : id{ID}, numNodes{0}, maxSize{maximumSize} {
+          // Allow up to 1% or at least one node in slack.
+          unsigned slack = std::max(1u, static_cast<unsigned>(static_cast<double>(maxSize) * 0.01));
+          sizeBoundary = maxSize + slack;
+        };
+
         void addNode(Operation* node);
 
         void removeNode(Operation* node);
 
         bool contains(Operation* node);
 
-        SmallPtrSetImpl<Operation*>::const_iterator begin();
+        SmallPtrSetImpl<Operation*>::iterator begin();
 
-        SmallPtrSetImpl<Operation*>::const_iterator end();
+        SmallPtrSetImpl<Operation*>::iterator end();
 
         llvm::ArrayRef<Operation*> hasExternalInputs();
 
         llvm::ArrayRef<Operation*> hasExternalOutputs();
+
+        unsigned ID() const {
+          return id;
+        }
+
+        unsigned size() const {
+          return numNodes;
+        }
+
+        bool canAccept() const {
+          return numNodes < sizeBoundary;
+        }
+
+        void dump() const;
 
       private:
 
@@ -46,27 +67,41 @@ namespace mlir {
 
         void computeExternalConnections();
 
+        unsigned id;
+
+        unsigned numNodes;
+
+        unsigned maxSize;
+
+        unsigned sizeBoundary;
+
       };
 
       class GraphPartitioner {
 
       public:
 
-        // TODO
-        explicit GraphPartitioner() = default;
+        explicit GraphPartitioner(unsigned numberOfPartitions, HeuristicFactory heuristic = nullptr);
 
-        SmallVector<std::unique_ptr<Partition>> partitionGraph(llvm::ArrayRef<Operation*> nodes,
-                                                               llvm::ArrayRef<Operation*> inNodes,
-                                                               llvm::ArrayRef<Value> externalInputs);
+        Partitioning partitionGraph(llvm::ArrayRef<Operation*> nodes,
+                                    llvm::ArrayRef<Operation*> inNodes,
+                                    llvm::ArrayRef<Value> externalInputs);
 
       private:
 
-        SmallVector<std::unique_ptr<Partition>> initialPartitioning(llvm::ArrayRef<Operation*> nodes,
-                                                                    llvm::ArrayRef<Operation*> inNodes,
-                                                                    llvm::ArrayRef<Value> externalInputs) const;
+        Partitioning initialPartitioning(llvm::ArrayRef<Operation*> nodes,
+                                         llvm::ArrayRef<Operation*> inNodes,
+                                         llvm::ArrayRef<Value> externalInputs) const;
+
+        void refinePartitioning(llvm::ArrayRef<Operation*> allNodes, llvm::ArrayRef<Value> externalInputs,
+                                Partitioning* allPartitions);
 
         bool hasInDegreeZero(Operation* node, llvm::SmallPtrSetImpl<Operation*>& partitioned,
                              llvm::SmallPtrSetImpl<Value>& externalInputs) const;
+
+        unsigned numPartitions;
+
+        HeuristicFactory factory;
 
       };
 
