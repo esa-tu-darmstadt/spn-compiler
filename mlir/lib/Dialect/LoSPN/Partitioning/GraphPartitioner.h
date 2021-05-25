@@ -84,13 +84,13 @@ namespace mlir {
         explicit GraphPartitioner(unsigned numberOfPartitions, HeuristicFactory heuristic = nullptr);
 
         Partitioning partitionGraph(llvm::ArrayRef<Operation*> nodes,
-                                    llvm::ArrayRef<Operation*> inNodes,
+                                    llvm::SmallPtrSetImpl<Operation*>& inNodes,
                                     llvm::ArrayRef<Value> externalInputs);
 
       private:
 
         Partitioning initialPartitioning(llvm::ArrayRef<Operation*> nodes,
-                                         llvm::ArrayRef<Operation*> inNodes,
+                                         llvm::SmallPtrSetImpl<Operation*>& inNodes,
                                          llvm::ArrayRef<Value> externalInputs) const;
 
         void refinePartitioning(llvm::ArrayRef<Operation*> allNodes, llvm::ArrayRef<Value> externalInputs,

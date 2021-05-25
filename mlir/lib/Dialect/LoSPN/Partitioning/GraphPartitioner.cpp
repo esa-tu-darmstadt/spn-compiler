@@ -84,7 +84,7 @@ GraphPartitioner::GraphPartitioner(unsigned int numberOfPartitions, HeuristicFac
 
 Partitioning mlir::spn::low::GraphPartitioner::partitionGraph(
     llvm::ArrayRef<Operation*> nodes,
-    llvm::ArrayRef<Operation*> inNodes,
+    llvm::SmallPtrSetImpl<Operation*>& inNodes,
     llvm::ArrayRef<Value> externalInputs) {
   auto partitioning = initialPartitioning(nodes, inNodes, externalInputs);
   refinePartitioning(nodes, externalInputs, &partitioning);
@@ -95,13 +95,14 @@ Partitioning mlir::spn::low::GraphPartitioner::partitionGraph(
 
 Partitioning mlir::spn::low::GraphPartitioner::initialPartitioning(
     llvm::ArrayRef<Operation*> nodes,
-    llvm::ArrayRef<Operation*> inNodes,
+    llvm::SmallPtrSetImpl<Operation*>& inNodes,
     llvm::ArrayRef<Value> externalInputs) const {
   llvm::SmallPtrSet<Operation*, 32> partitioned;
   llvm::SmallVector<Operation*> S;
   llvm::SmallVector<Operation*, 0> T;
   llvm::SmallPtrSet<Value, 32> external(externalInputs.begin(), externalInputs.end());
-  for (auto I = inNodes.rbegin(); I != inNodes.rend(); ++I) {
+  llvm::SmallVector<Operation*> inputNodes(inNodes.begin(), inNodes.end());
+  for (auto I = inputNodes.rbegin(); I != inputNodes.rend(); ++I) {
     if (hasInDegreeZero(*I, partitioned, external)) {
       S.push_back(*I);
     }
@@ -120,7 +121,7 @@ Partitioning mlir::spn::low::GraphPartitioner::initialPartitioning(
     }
   }
   // TODO Make this configurable
-  auto nodesPerPartition = llvm::divideNearest(T.size(), numPartitions);
+  auto nodesPerPartition = llvm::divideCeil(T.size(), numPartitions);
   llvm::dbgs() << "Nodes per Partition: " << nodesPerPartition << "\n";
   Partitioning partitioning;
   unsigned nodeIndex = 0;
