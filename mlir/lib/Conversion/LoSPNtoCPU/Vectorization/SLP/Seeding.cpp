@@ -32,9 +32,9 @@ SmallVector<Value, 4> SeedAnalysis::next() {
   return seed;
 }
 
-void SeedAnalysis::markAllUnavailable(Superword* root) {
-  for (auto* vector : graph::postOrder(root)) {
-    for (auto const& element : *vector) {
+void SeedAnalysis::markAllUnavailable(ArrayRef<Superword*> const& superwords) {
+  for (auto* superword : superwords) {
+    for (auto const& element : *superword) {
       if (auto* definingOp = element.getDefiningOp()) {
         availableOps.erase(definingOp);
       }

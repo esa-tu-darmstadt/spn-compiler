@@ -219,7 +219,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       }
     }
     task->emitRemark("Conversion complete.");
-    seedAnalysis->markAllUnavailable(graph.get());
+    seedAnalysis->markAllUnavailable(order);
   }
   task->emitRemark("SLP vectorization complete.");
   rewriter.restoreInsertionPoint(callPoint);

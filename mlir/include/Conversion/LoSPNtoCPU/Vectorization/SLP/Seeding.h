@@ -25,7 +25,7 @@ namespace mlir {
 
           SeedAnalysis(Operation* rootOp, unsigned width);
 
-          void markAllUnavailable(Superword* root);
+          void markAllUnavailable(ArrayRef<Superword*> const& superwords);
 
           virtual SmallVector<Value, 4> next();
 
