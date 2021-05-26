@@ -111,17 +111,13 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   SLPGraphBuilder builder{3};
   ConversionManager conversionManager{rewriter};
   std::unique_ptr<SeedAnalysis> seedAnalysis;
-  taskFunc->walk([&](SPNLog log) {
-    dumpOpTree(log.getResult());
-    return WalkResult::interrupt();
-  });
   {
     bool topDown = false;
     auto width = TargetInformation::nativeCPUTarget().getHWVectorEntries(elementType);
     if (topDown) {
       seedAnalysis = std::make_unique<TopDownAnalysis>(taskFunc, width);
     } else {
-      seedAnalysis = std::make_unique<BottomUpAnalysis>(taskFunc, width);
+      seedAnalysis = std::make_unique<FirstRootAnalysis>(taskFunc, width);
     }
   }
 
@@ -131,6 +127,9 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   SmallVector<std::unique_ptr<SLPVectorizationPattern>, 10> patterns;
   populateSLPVectorizationPatterns(patterns, conversionManager);
   SLPPatternApplicator applicator{std::move(patterns)};
+
+  unsigned numRuns = 1;
+  unsigned run = 0;
 
   for (auto seed = seedAnalysis->next(); !seed.empty(); seed = seedAnalysis->next()) {
     //low::slp::dumpOpTree(seed);
@@ -143,6 +142,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
     auto numVectors = order.size();
     task->emitRemark("Number of SLP vectors in graph: " + std::to_string(numVectors));
+    task->emitRemark("Number of unique ops in graph:  " + std::to_string(numUniqueOps(order)));
 
     // Track progress.
     double n = 0;
@@ -220,6 +220,9 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     }
     task->emitRemark("Conversion complete.");
     seedAnalysis->markAllUnavailable(order);
+    if (++run >= numRuns) {
+      break;
+    }
   }
   task->emitRemark("SLP vectorization complete.");
   rewriter.restoreInsertionPoint(callPoint);

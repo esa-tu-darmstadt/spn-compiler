@@ -54,6 +54,18 @@ bool slp::consecutiveLoads(Value const& lhs, Value const& rhs) {
   return true;
 }
 
+size_t slp::numUniqueOps(ArrayRef<Superword*> const& superwords) {
+  SmallPtrSet<Operation*, 32> uniqueOps;
+  for (auto* superword: superwords) {
+    for (auto const& value : *superword) {
+      if (auto definingOp = value.getDefiningOp()) {
+        uniqueOps.insert(definingOp);
+      }
+    }
+  }
+  return uniqueOps.size();
+}
+
 void slp::dumpSLPNode(SLPNode const& node) {
   for (size_t i = node.numSuperwords(); i-- > 0;) {
     dumpSuperword(*node.getSuperword(i));

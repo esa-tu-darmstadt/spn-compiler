@@ -77,6 +77,8 @@ namespace mlir {
           return true;
         }
 
+        size_t numUniqueOps(ArrayRef<Superword*> const& superwords);
+
         void dumpOpTree(ArrayRef<Value> const& values);
         void dumpSLPGraph(SLPNode* root);
         void dumpSLPNode(SLPNode const& node);

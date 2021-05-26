@@ -38,7 +38,7 @@ namespace mlir {
           unsigned const width;
           SmallPtrSet<Operation*, 32> availableOps;
         private:
-          bool exhausted = false;
+          bool availableComputed = false;
         };
 
         class TopDownAnalysis : public SeedAnalysis {
@@ -47,13 +47,11 @@ namespace mlir {
           SmallVector<Value, 4> nextSeed() const override;
         protected:
           void computeAvailableOps() override;
-        private:
-          DenseMap<Value, unsigned> computeOpDepths() const;
         };
 
-        class BottomUpAnalysis : public SeedAnalysis {
+        class FirstRootAnalysis : public SeedAnalysis {
         public:
-          BottomUpAnalysis(Operation* rootOp, unsigned width);
+          FirstRootAnalysis(Operation* rootOp, unsigned width);
           SmallVector<Value, 4> nextSeed() const override;
         protected:
           void computeAvailableOps() override;

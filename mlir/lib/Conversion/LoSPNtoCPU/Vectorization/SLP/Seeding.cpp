@@ -19,16 +19,15 @@ using namespace mlir::spn::low::slp;
 SeedAnalysis::SeedAnalysis(Operation* rootOp, unsigned width) : rootOp{rootOp}, width{width} {}
 
 SmallVector<Value, 4> SeedAnalysis::next() {
-  if (exhausted) {
-    return {};
-  }
   if (availableOps.empty()) {
-    computeAvailableOps();
+    if (!availableComputed) {
+      computeAvailableOps();
+      availableComputed = true;
+    } else {
+      return {};
+    }
   }
   auto seed = nextSeed();
-  if (seed.empty()) {
-    exhausted = true;
-  }
   return seed;
 }
 
@@ -44,6 +43,70 @@ void SeedAnalysis::markAllUnavailable(ArrayRef<Superword*> const& superwords) {
 
 // === TopDownSeedAnalysis === //
 
+// Helper functions in anonymous namespace.
+namespace {
+
+  template<typename OpIterator>
+  DenseMap<Value, unsigned> computeOpDepths(OpIterator begin, OpIterator end) {
+    DenseMap<Value, unsigned> opDepths;
+    llvm::SmallVector<Operation*, 32> worklist{begin, end};
+    while (!worklist.empty()) {
+      auto* op = worklist.pop_back_val();
+      auto depth = opDepths[op->getResult(0)];
+      for (auto const& operand : op->getOperands()) {
+        if (auto* definingOp = operand.getDefiningOp()) {
+          auto& operandDepth = opDepths[operand];
+          if (depth + 1 > operandDepth) {
+            operandDepth = depth + 1;
+            worklist.emplace_back(definingOp);
+          }
+        }
+      }
+    }
+    return opDepths;
+  }
+
+  SmallVector<SmallVector<Value, 4>> computeSeedsByOpName(DenseMap<Value, unsigned int>& opDepths,
+                                                          unsigned width) {
+    llvm::StringMap<SmallVector<SmallVector<Value, 4>>> seedsByOpName;
+    for (auto& entry : opDepths) {
+      auto& value = entry.first;
+      auto const& depth = entry.second;
+      auto const& opName = value.getDefiningOp()->getName().getStringRef();
+      if (depth < log2(width)) {
+        continue;
+      }
+      bool needsNewSeed = true;
+      for (auto& potentialSeed : seedsByOpName[opName]) {
+        if (potentialSeed.size() < width && opDepths.lookup(potentialSeed.front()) == depth) {
+          // Cannot use values for seeds that are defined in different scopes.
+          if (potentialSeed.front().getParentRegion() != value.getParentRegion()) {
+            continue;
+          }
+          potentialSeed.emplace_back(value);
+          needsNewSeed = false;
+          break;
+        }
+      }
+      if (needsNewSeed) {
+        SmallVector<Value, 4> newSeed{value};
+        seedsByOpName[opName].emplace_back(newSeed);
+      }
+    }
+    SmallVector<SmallVector<Value, 4>> seeds;
+    // Flatten the map that maps opcodes to seeds.
+    for (auto const& entry : seedsByOpName) {
+      for (auto const& potentialSeed : entry.second) {
+        if (potentialSeed.size() != width) {
+          continue;
+        }
+        seeds.emplace_back(potentialSeed);
+      }
+    }
+    return seeds;
+  }
+}
+
 TopDownAnalysis::TopDownAnalysis(Operation* rootOp, unsigned width) : SeedAnalysis{rootOp, width} {}
 
 void TopDownAnalysis::computeAvailableOps() {
@@ -56,46 +119,9 @@ void TopDownAnalysis::computeAvailableOps() {
 }
 
 SmallVector<Value, 4> TopDownAnalysis::nextSeed() const {
-  auto opDepths = computeOpDepths();
-  llvm::StringMap<SmallVector<SmallVector<Value, 4>>> seedsByOpName;
+  auto opDepths = computeOpDepths(std::begin(availableOps), std::end(availableOps));
   rootOp->emitRemark("Computing seed out of " + std::to_string(availableOps.size()) + " operations...");
-  for (auto* op : availableOps) {
-    auto value = op->getResult(0);
-    auto const& depth = opDepths.lookup(value);
-    if (depth < log2(width)) {
-      continue;
-    }
-    bool needsNewSeed = true;
-    for (auto& potentialSeed : seedsByOpName[op->getName().getStringRef()]) {
-      if (potentialSeed.size() < width && opDepths.lookup(potentialSeed.front()) == depth) {
-        // Cannot use values for seeds that are defined in different scopes.
-        if (potentialSeed.front().getParentRegion() != value.getParentRegion()) {
-          continue;
-        }
-        potentialSeed.emplace_back(value);
-        if (potentialSeed.size() == width && depth == log2(width)) {
-          return potentialSeed;
-        }
-        needsNewSeed = false;
-        break;
-      }
-    }
-    if (needsNewSeed) {
-      SmallVector<Value, 4> newSeed{value};
-      seedsByOpName[op->getName().getStringRef()].emplace_back(newSeed);
-    }
-  }
-
-  SmallVector<SmallVector<Value, 4>> seeds;
-  // Flatten the map that maps opcodes to seeds.
-  for (auto const& entry : seedsByOpName) {
-    for (auto const& potentialSeed : entry.second) {
-      if (potentialSeed.size() != width) {
-        continue;
-      }
-      seeds.emplace_back(potentialSeed);
-    }
-  }
+  auto seeds = computeSeedsByOpName(opDepths, width);
 
   if (seeds.empty()) {
     rootOp->emitRemark("No seed found.");
@@ -115,55 +141,56 @@ SmallVector<Value, 4> TopDownAnalysis::nextSeed() const {
   return *seed;
 }
 
-DenseMap<Value, unsigned> TopDownAnalysis::computeOpDepths() const {
-  DenseMap<Value, unsigned> opDepths;
-  llvm::SmallVector<Operation*, 32> worklist{std::begin(availableOps), std::end(availableOps)};
-  while (!worklist.empty()) {
-    auto* op = worklist.pop_back_val();
-    auto depth = opDepths[op->getResult(0)];
-    for (auto const& operand : op->getOperands()) {
-      if (auto* definingOp = operand.getDefiningOp()) {
-        auto& operandDepth = opDepths[operand];
-        if (depth + 1 > operandDepth) {
-          operandDepth = depth + 1;
-          worklist.emplace_back(definingOp);
-        }
-      }
+// === FirstRootAnalysis === //
+
+// Helper functions in anonymous namespace.
+namespace {
+  llvm::BitVector leafCoverage(DenseMap<Operation*, llvm::BitVector>& reachableLeaves, ArrayRef<Value> const& seed) {
+    llvm::BitVector disjunction = reachableLeaves.lookup(seed.front().getDefiningOp());
+    for (size_t i = 1; i < seed.size(); ++i) {
+      disjunction |= reachableLeaves.lookup(seed[i].getDefiningOp());
     }
+    return disjunction;
   }
-  return opDepths;
 }
 
-// === BottomUpSeedAnalysis === //
+FirstRootAnalysis::FirstRootAnalysis(Operation* rootOp, unsigned width) : SeedAnalysis{rootOp, width} {}
 
-BottomUpAnalysis::BottomUpAnalysis(Operation* rootOp, unsigned width) : SeedAnalysis{rootOp, width} {}
-
-SmallVector<Value, 4> BottomUpAnalysis::nextSeed() const {
+SmallVector<Value, 4> FirstRootAnalysis::nextSeed() const {
+  rootOp->emitRemark("Computing seed out of " + std::to_string(availableOps.size()) + " operations...");
   llvm::StringMap<DenseMap<Operation*, llvm::BitVector>> reachableLeaves;
-  auto root = findFirstRoot(reachableLeaves);
-  for (auto const& nameEntry : reachableLeaves) {
-    llvm::dbgs() << nameEntry.first() << ":\n";
-    for (auto const& entry : nameEntry.second) {
-      llvm::dbgs() << "\t" << *entry.first << " (" << entry.first << "):\t";
-      for (size_t i = 0; i < entry.second.size(); ++i) {
-        llvm::dbgs() << (entry.second.test(i) ? "1" : "0");
+  auto* root = findFirstRoot(reachableLeaves);
+  auto opDepths = computeOpDepths(&root, &root + 1);
+  auto seeds = computeSeedsByOpName(opDepths, width);
+
+  if (seeds.empty()) {
+    rootOp->emitRemark("No seed found.");
+    return {};
+  }
+  SmallVector<Value, 4>* bestSeed;
+  unsigned bestLeafCoverage = 0;
+  for (size_t i = 0; i < seeds.size(); ++i) {
+    auto const& opName = seeds[i].front().getDefiningOp()->getName().getStringRef();
+    auto leavesCovered = leafCoverage(reachableLeaves[opName], seeds[i]);
+    if (!bestSeed || leavesCovered.count() > bestLeafCoverage) {
+      bestSeed = &seeds[i];
+      if (leavesCovered.all()) {
+        break;
       }
-      llvm::dbgs() << "\n";
+      bestLeafCoverage = leavesCovered.count();
     }
   }
-  root->dump();
-  llvm::dbgs() << root << "\n";
-  return {};
+  return *bestSeed;
 }
 
-void BottomUpAnalysis::computeAvailableOps() {
+void FirstRootAnalysis::computeAvailableOps() {
   rootOp->walk([&](LeafNodeInterface leaf) {
     availableOps.insert(leaf);
   });
 }
 
-Operation* BottomUpAnalysis::findFirstRoot(llvm::StringMap<DenseMap<Operation*,
-                                                                    llvm::BitVector>>& reachableLeaves) const {
+Operation* FirstRootAnalysis::findFirstRoot(llvm::StringMap<DenseMap<Operation*,
+                                                                     llvm::BitVector>>& reachableLeaves) const {
   SmallPtrSet<Operation*, 32> uniqueWorklist;
   std::queue<Operation*> worklist;
   unsigned index = 0;
