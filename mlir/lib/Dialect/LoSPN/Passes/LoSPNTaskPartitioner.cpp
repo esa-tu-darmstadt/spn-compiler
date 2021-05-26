@@ -103,6 +103,11 @@ namespace mlir {
             ++index;
             partitions.push_back(PartitionInfo{p.get(), false});
           }
+
+          // Post-processing of constants: If a constant has a use in a different partition,
+          // clone the constant to the other partition to avoid unnecessary edges crossing partitions.
+          postprocessConstants(partitions, rewriter);
+
           // Keep track of operations moved to new, partitioned task.
           SmallVector<Operation*> movedOperations;
           for (auto& p : partitions) {
@@ -283,6 +288,41 @@ namespace mlir {
             return type.cast<low::LogType>().getBaseType();
           }
           return type;
+        }
+
+        void postprocessConstants(llvm::ArrayRef<PartitionInfo> partitions, PatternRewriter& rewriter) const {
+          for (auto& p : partitions) {
+            for (auto* out : p.first->hasExternalOutputs()) {
+              if (out->hasTrait<OpTrait::ConstantLike>()) {
+                assert(out->getNumResults() == 1);
+                for (auto& use : out->getUses()) {
+                  if (!p.first->contains(use.getOwner())) {
+                    // This user is located in another partition.
+                    // Find the partition of the using operation.
+                    auto otherPart = findContainingPartition(use.getOwner(), partitions);
+                    assert(otherPart.first);
+                    // Clone the constant right before the using operation and add it to the same partition.
+                    auto restore = rewriter.saveInsertionPoint();
+                    rewriter.setInsertionPoint(use.getOwner());
+                    auto clonedOut = rewriter.clone(*out);
+                    otherPart.first->addNode(clonedOut);
+                    use.set(clonedOut->getResult(0));
+                    rewriter.restoreInsertionPoint(restore);
+                    p.first->invalidateExternal();
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        PartitionInfo findContainingPartition(Operation* op, llvm::ArrayRef<PartitionInfo> partitions) const {
+          for (auto& p : partitions) {
+            if (p.first->contains(op)) {
+              return p;
+            }
+          }
+          return PartitionInfo{nullptr, false};
         }
 
         GraphPartitioner& partitioner;

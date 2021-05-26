@@ -50,6 +50,10 @@ void Heuristic::moveNode(Operation* node, Partition* from, Partition* to) {
   partitionMap[node] = to->ID();
 }
 
+bool Heuristic::isConstant(Operation* op) const {
+  return op->hasTrait<OpTrait::ConstantLike>();
+}
+
 void SimpleMoveHeuristic::refinePartitioning() {
   llvm::SmallPtrSet<Value, 10> externalIn(external.begin(), external.end());
 
@@ -72,7 +76,7 @@ void SimpleMoveHeuristic::refinePartitioning() {
       int gain = 0;
       bool legal = true;
       for (auto* U : node->getUsers()) {
-        // TODO Handle SPNYield
+        // SPNYield is not part of the partitioning, simply ignore it.
         if (isa<SPNYield>(U)) {
           continue;
         }
@@ -92,8 +96,11 @@ void SimpleMoveHeuristic::refinePartitioning() {
       // Calculate the negative gain. All edges from operands of 'node' that are in partition i
       // will become external edges.
       for (auto operand : node->getOperands()) {
-        // TODO Handle constants
-        if (!externalIn.contains(operand) && getPartitionIDForNode(operand.getDefiningOp()) == i) {
+        if (externalIn.contains(operand)) {
+          continue;
+        }
+        auto defOp = operand.getDefiningOp();
+        if (!isConstant(defOp) && getPartitionIDForNode(defOp) == i) {
           --gain;
         }
       }
@@ -113,11 +120,12 @@ void SimpleMoveHeuristic::refinePartitioning() {
         if (externalIn.contains(operand)) {
           continue;
         }
-        auto partitionID = getPartitionIDForNode(operand.getDefiningOp());
-        if (partitionID == i - 1) {
+        auto defOp = operand.getDefiningOp();
+        auto partitionID = getPartitionIDForNode(defOp);
+        if (!isConstant(defOp) && partitionID == i - 1) {
           ++gain;
         }
-        if (partitionID == i) {
+        if (!isConstant(defOp) && partitionID == i) {
           // If we have an operand in the same partition, it's illegal to push the node downwards.
           legal = false;
           break;
@@ -128,6 +136,7 @@ void SimpleMoveHeuristic::refinePartitioning() {
       // stored/loaded to/from memory once for all users, the gain is only decremented by 1
       // if there's any user.
       auto usedInSame = llvm::any_of(node->getUsers(), [this, i](Operation* U) {
+        // SPNYield is not part of the partitioning, simply ignore it.
         return !isa<SPNYield>(U) && getPartitionIDForNode(U) == i;
       });
       if (usedInSame) {

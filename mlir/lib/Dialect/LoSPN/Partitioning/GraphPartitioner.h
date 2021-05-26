@@ -53,6 +53,10 @@ namespace mlir {
           return numNodes < sizeBoundary;
         }
 
+        void invalidateExternal() {
+          dirty = true;
+        }
+
         void dump() const;
 
       private:

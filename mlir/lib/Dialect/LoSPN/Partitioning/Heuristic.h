@@ -55,6 +55,8 @@ namespace mlir {
 
         void moveNode(Operation* node, Partition* from, Partition* to);
 
+        bool isConstant(Operation* op) const;
+
       };
 
       using HeuristicFactory =
