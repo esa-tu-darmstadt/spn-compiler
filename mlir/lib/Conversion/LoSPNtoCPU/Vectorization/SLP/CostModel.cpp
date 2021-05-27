@@ -11,40 +11,28 @@
 using namespace mlir;
 using namespace mlir::spn::low::slp;
 
-// === CostModel === //
-
-unsigned CostModel::getScalarCost(Value const& value) {
-  auto const& entry = cachedScalarCosts.try_emplace(value, 0);
-  if (entry.second) {
-    entry.first->getSecond() = computeScalarCost(value);
-  }
-  return entry.first->second;
-}
-
-unsigned CostModel::getSuperwordCost(Superword const& superword) {
-  auto const& entry = cachedSuperwordCosts.try_emplace(&superword, 0);
-  if (entry.second) {
-    entry.first->getSecond() = computeSuperwordCost(superword);
-  }
-  return entry.first->second;
-}
-
 // === UnitCostModel === //
 
-unsigned UnitCostModel::computeScalarCost(Value const& value) {
-  unsigned cost = 1;
-  if (auto* definingOp = value.getDefiningOp()) {
-    for (auto const& operand : definingOp->getOperands()) {
-      cost += getScalarCost(operand);
-    }
-  }
-  return cost;
+double UnitCostModel::computeScalarCost(Value const& value) {
+  return 1;
 }
 
-unsigned UnitCostModel::computeSuperwordCost(Superword const& superword) {
-  unsigned cost = 1;
-  for (size_t i = 0; i < superword.numOperands(); ++i) {
-    cost += getSuperwordCost(*superword.getOperand(i));
-  }
-  return cost;
+void UnitCostModel::visit(VectorizeConstant* pattern, Superword* superword) {
+  this->cost = 0;
+}
+
+void UnitCostModel::visit(VectorizeBatchRead* pattern, Superword* superword) {
+  this->cost = 1;
+}
+
+void UnitCostModel::visit(VectorizeAdd* pattern, Superword* superword) {
+  this->cost = 1;
+}
+
+void UnitCostModel::visit(VectorizeMul* pattern, Superword* superword) {
+  this->cost = 1;
+}
+
+void UnitCostModel::visit(VectorizeGaussian* pattern, Superword* superword) {
+  this->cost = 6;
 }

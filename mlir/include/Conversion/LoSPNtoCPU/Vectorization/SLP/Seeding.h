@@ -22,18 +22,13 @@ namespace mlir {
         class SeedAnalysis {
 
         public:
-
           SeedAnalysis(Operation* rootOp, unsigned width);
-
+          virtual ~SeedAnalysis() = default;
           void markAllUnavailable(ArrayRef<Superword*> const& superwords);
-
           virtual SmallVector<Value, 4> next();
-
         protected:
-
           virtual void computeAvailableOps() = 0;
           virtual SmallVector<Value, 4> nextSeed() const = 0;
-
           Operation* const rootOp;
           unsigned const width;
           SmallPtrSet<Operation*, 32> availableOps;

@@ -10,7 +10,7 @@
 #include "LoSPNtoCPU/Vectorization/SLP/Seeding.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraphBuilder.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPPatternMatch.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/BlockAndValueMapping.h"
@@ -112,7 +112,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   ConversionManager conversionManager{rewriter};
   std::unique_ptr<SeedAnalysis> seedAnalysis;
   {
-    bool topDown = false;
+    bool topDown = true;
     auto width = TargetInformation::nativeCPUTarget().getHWVectorEntries(elementType);
     if (topDown) {
       seedAnalysis = std::make_unique<TopDownAnalysis>(taskFunc, width);
@@ -126,7 +126,8 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
   SmallVector<std::unique_ptr<SLPVectorizationPattern>, 10> patterns;
   populateSLPVectorizationPatterns(patterns, conversionManager);
-  SLPPatternApplicator applicator{std::move(patterns)};
+  auto costModel = std::make_shared<UnitCostModel>();
+  SLPPatternApplicator applicator{costModel, std::move(patterns)};
 
   unsigned numRuns = 1;
   unsigned run = 0;

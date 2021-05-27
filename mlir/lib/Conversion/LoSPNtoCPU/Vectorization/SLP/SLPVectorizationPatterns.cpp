@@ -16,36 +16,14 @@ using namespace mlir::spn;
 using namespace mlir::spn::low;
 using namespace mlir::spn::low::slp;
 
-// === SLPPatternApplicator === //
+// === SLPVectorizationPattern === //
 
-SLPPatternApplicator::SLPPatternApplicator(SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>&& patterns)
-    : patterns{std::move(patterns)} {
-  // Patterns with higher benefit should always be applied first.
-  llvm::sort(std::begin(this->patterns), std::end(this->patterns), [&](auto const& lhs, auto const& rhs) {
-    return lhs->getCost() < rhs->getCost();
-  });
-}
+SLPVectorizationPattern::SLPVectorizationPattern(ConversionManager& conversionManager) : conversionManager{
+    conversionManager} {}
 
-SLPVectorizationPattern* SLPPatternApplicator::bestMatch(Superword* vector) {
-  auto it = bestMatches.try_emplace(vector, nullptr);
-  if (it.second) {
-    for (auto const& pattern : patterns) {
-      if (succeeded(pattern->matchSuperword(vector))) {
-        it.first->getSecond() = pattern.get();
-      }
-    }
-  }
-  return it.first->second;
-}
-
-LogicalResult SLPPatternApplicator::matchAndRewrite(Superword* vector, PatternRewriter& rewriter) {
-  auto* pattern = bestMatch(vector);
-  if (!pattern) {
-    return failure();
-  }
-  pattern->rewriteSuperword(vector, rewriter);
-  bestMatches.erase(vector);
-  return success();
+void SLPVectorizationPattern::rewriteSuperword(Superword* superword, PatternRewriter& rewriter) {
+  conversionManager.setInsertionPointFor(superword);
+  rewrite(superword, rewriter);
 }
 
 // Helper functions in anonymous namespace.
@@ -89,10 +67,6 @@ namespace {
 
 // === SPNConstant === //
 
-unsigned VectorizeConstant::getCost() const {
-  return 0;
-}
-
 void VectorizeConstant::rewrite(Superword* superword, PatternRewriter& rewriter) const {
   SmallVector<Attribute, 4> constants;
   for (auto const& value : *superword) {
@@ -103,9 +77,13 @@ void VectorizeConstant::rewrite(Superword* superword, PatternRewriter& rewriter)
   conversionManager.update(superword, constVector, ElementFlag::KeepNoneNoExtract);
 }
 
+void VectorizeConstant::accept(PatternVisitor& visitor, Superword* superword) {
+  visitor.visit(this, superword);
+}
+
 // === SPNBatchRead === //
 
-LogicalResult VectorizeBatchRead::matchSuperword(Superword* superword) const {
+LogicalResult VectorizeBatchRead::match(Superword* superword) const {
   if (!consecutiveLoads(superword->begin(), superword->end())) {
     // Pattern only applicable to consecutive loads.
     return failure();
@@ -123,6 +101,10 @@ void VectorizeBatchRead::rewrite(Superword* superword, PatternRewriter& rewriter
   conversionManager.update(superword, vectorLoad, ElementFlag::KeepNone);
 }
 
+void VectorizeBatchRead::accept(PatternVisitor& visitor, Superword* superword) {
+  visitor.visit(this, superword);
+}
+
 // === SPNAdd === //
 
 void VectorizeAdd::rewrite(Superword* superword, PatternRewriter& rewriter) const {
@@ -132,6 +114,10 @@ void VectorizeAdd::rewrite(Superword* superword, PatternRewriter& rewriter) cons
   }
   auto vectorAdd = rewriter.create<AddFOp>(superword->getLoc(), superword->getVectorType(), operands);
   conversionManager.update(superword, vectorAdd, ElementFlag::KeepNone);
+}
+
+void VectorizeAdd::accept(PatternVisitor& visitor, Superword* superword) {
+  visitor.visit(this, superword);
 }
 
 // === SPNMul === //
@@ -145,11 +131,11 @@ void VectorizeMul::rewrite(Superword* superword, PatternRewriter& rewriter) cons
   conversionManager.update(superword, vectorAdd, ElementFlag::KeepNone);
 }
 
-// === SPNGaussianLeaf === //
-
-unsigned VectorizeGaussian::getCost() const {
-  return 6;
+void VectorizeMul::accept(PatternVisitor& visitor, Superword* superword) {
+  visitor.visit(this, superword);
 }
+
+// === SPNGaussianLeaf === //
 
 void VectorizeGaussian::rewrite(Superword* superword, PatternRewriter& rewriter) const {
 
@@ -209,4 +195,8 @@ void VectorizeGaussian::rewrite(Superword* superword, PatternRewriter& rewriter)
   gaussianVector = rewriter.create<MulFOp>(superword->getLoc(), coefficientVector, gaussianVector);
 
   conversionManager.update(superword, gaussianVector, ElementFlag::KeepNone);
+}
+
+void VectorizeGaussian::accept(PatternVisitor& visitor, Superword* superword) {
+  visitor.visit(this, superword);
 }

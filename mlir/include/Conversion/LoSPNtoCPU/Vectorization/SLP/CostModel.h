@@ -10,29 +10,58 @@
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_COSTMODEL_H
 
 #include "SLPGraph.h"
+#include "SLPVectorizationPatterns.h"
 
 namespace mlir {
   namespace spn {
     namespace low {
       namespace slp {
 
-        // TODO: google "use weak_ptrs as cache"
-
-        class CostModel {
+        class CostModel : public PatternVisitor {
         public:
-          unsigned getScalarCost(Value const& value);
-          unsigned getSuperwordCost(Superword const& superword);
+
+          double getScalarCost(Value const& value) {
+            auto const& entry = cachedScalarCosts.try_emplace(value, 0);
+            if (entry.second) {
+              entry.first->second = computeScalarCost(value);
+            }
+            return entry.first->second;
+          }
+
+          double getScalarTreeCost(Value const& root) {
+            llvm_unreachable("TODO");
+          }
+
+          double getSuperwordCost(Superword* superword, SLPVectorizationPattern* pattern) {
+            auto it = cachedSuperwordCosts.try_emplace(superword, 0);
+            if (it.second) {
+              pattern->accept(*this, superword);
+              it.first->second = cost;
+            }
+            return it.first->second;
+          }
+
+          double getSuperwordTreeCost(Superword* root, SLPVectorizationPattern* pattern) {
+            llvm_unreachable("TODO");
+          }
+
         protected:
-          virtual unsigned computeScalarCost(Value const& value) = 0;
-          virtual unsigned computeSuperwordCost(Superword const& superword) = 0;
+          virtual double computeScalarCost(Value const& value) = 0;
+          double cost;
         private:
-          DenseMap<Value, unsigned> cachedScalarCosts;
-          DenseMap<Superword const*, unsigned> cachedSuperwordCosts;
+          DenseMap<Value, double> cachedScalarCosts;
+          DenseMap<Value, double> cachedScalarTreeCosts;
+          DenseMap<Superword*, double> cachedSuperwordCosts;
+          DenseMap<Superword*, double> cachedSuperwordTreeCosts;
         };
 
         class UnitCostModel : public CostModel {
-          unsigned computeScalarCost(Value const& value) override;
-          unsigned computeSuperwordCost(Superword const& superword) override;
+          double computeScalarCost(Value const& value) override;
+          void visit(VectorizeConstant* pattern, Superword* superword) override;
+          void visit(VectorizeBatchRead* pattern, Superword* superword) override;
+          void visit(VectorizeAdd* pattern, Superword* superword) override;
+          void visit(VectorizeMul* pattern, Superword* superword) override;
+          void visit(VectorizeGaussian* pattern, Superword* superword) override;
         };
       }
     }
