@@ -91,6 +91,7 @@ namespace mlir {
         public:
           SLPGraph(ArrayRef<Value> const& seed, unsigned lookAhead);
           Superword* getRoot() const;
+          DenseMap<Superword*, SmallPtrSet<Superword*, 4>> dependencyMap() const;
         private:
           std::shared_ptr<Superword> root;
           DenseMap<Value, SmallVector<std::shared_ptr<Superword>>> superwordsByValue;
@@ -99,10 +100,10 @@ namespace mlir {
 
         namespace graph {
 
-          template<typename Node>
-          SmallVector<Node*> postOrder(Node* root) {
-            SmallVector<Node*> order;
-            // false = visit operands, true = insert into order
+          /// Walks through the graph rooted at 'root' in post order and applies function 'f' to every node.
+          template<typename Node, typename Function>
+          void walk(Node* root, Function f) {
+            // false = visit operands, true = finished
             SmallVector<std::pair<Node*, bool>> worklist;
             llvm::SmallSet<Node*, 32> finishedNodes;
             worklist.emplace_back(root, false);
@@ -115,8 +116,8 @@ namespace mlir {
               bool insert = worklist.back().second;
               worklist.pop_back();
               if (insert) {
-                order.emplace_back(node);
                 finishedNodes.insert(node);
+                f(node);
               } else {
                 worklist.emplace_back(node, true);
                 for (size_t i = node->numOperands(); i-- > 0;) {
@@ -124,6 +125,14 @@ namespace mlir {
                 }
               }
             }
+          }
+
+          template<typename Node>
+          SmallVector<Node*> postOrder(Node* root) {
+            SmallVector<Node*> order;
+            walk(root, [&](Node* node) {
+              order.template emplace_back(node);
+            });
             return order;
           }
 

@@ -206,3 +206,18 @@ SLPGraph::SLPGraph(ArrayRef<Value> const& seed, unsigned lookAhead) : lookAhead{
 Superword* SLPGraph::getRoot() const {
   return root.get();
 }
+
+DenseMap<Superword*, SmallPtrSet<Superword*, 4>> SLPGraph::dependencyMap() const {
+  DenseMap<Superword*, SmallPtrSet<Superword*, 4>> dependencies;
+  graph::walk(root.get(), [&](Superword* superword) {
+    for (auto const& element : *superword) {
+      for (auto const& word : superwordsByValue.lookup(element)) {
+        if (superword == word.get()) {
+          continue;
+        }
+        dependencies[superword].insert(word.get());
+      }
+    }
+  });
+  return dependencies;
+}
