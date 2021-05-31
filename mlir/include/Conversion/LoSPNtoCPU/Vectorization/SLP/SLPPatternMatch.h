@@ -11,8 +11,6 @@
 
 #include "SLPVectorizationPatterns.h"
 #include "CostModel.h"
-#include "mlir/IR/PatternMatch.h"
-#include "mlir/Rewrite/PatternApplicator.h"
 
 namespace mlir {
   namespace spn {
@@ -21,38 +19,10 @@ namespace mlir {
 
         class SLPPatternApplicator {
         public:
-
           SLPPatternApplicator(std::shared_ptr<CostModel> costModel,
-                               SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>&& patterns) : costModel{
-              std::move(costModel)}, patterns{std::move(patterns)} {}
-
-          SLPVectorizationPattern* bestMatch(Superword* superword) {
-            auto it = bestMatches.try_emplace(superword, nullptr);
-            if (it.second) {
-              double bestCost = 0;
-              for (auto const& pattern : patterns) {
-                if (succeeded(pattern->match(superword))) {
-                  auto cost = costModel->getSuperwordCost(superword, pattern.get());
-                  if (!it.first->second || cost < bestCost) {
-                    it.first->second = pattern.get();
-                    bestCost = cost;
-                  }
-                }
-              }
-            }
-            return it.first->second;
-          }
-
-          LogicalResult matchAndRewrite(Superword* superword, PatternRewriter& rewriter) {
-            auto* pattern = bestMatch(superword);
-            if (!pattern) {
-              return failure();
-            }
-            pattern->rewriteSuperword(superword, rewriter);
-            bestMatches.erase(superword);
-            return success();
-          }
-
+                               SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>&& patterns);
+          SLPVectorizationPattern* bestMatch(Superword* superword);
+          void matchAndRewrite(Superword* superword, PatternRewriter& rewriter);
         private:
           std::shared_ptr<CostModel> costModel;
           DenseMap<Superword*, SLPVectorizationPattern*> bestMatches;
