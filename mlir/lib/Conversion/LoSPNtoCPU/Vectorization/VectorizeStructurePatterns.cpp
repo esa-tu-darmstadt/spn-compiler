@@ -10,12 +10,12 @@
 #include "LoSPNtoCPU/Vectorization/SLP/Seeding.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPPatternMatch.h"
+#include "../Target/TargetInformation.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/BlockAndValueMapping.h"
-#include "llvm/Support/FormatVariadic.h"
-#include "../Target/TargetInformation.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "llvm/Support/FormatVariadic.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -156,43 +156,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         continue;
       }
       //dumpSLPValueVector(*vector);
-      if (failed(applicator.matchAndRewrite(superword, rewriter))) {
-        auto const& vectorType = superword->getVectorType();
-        conversionManager.setInsertionPointFor(superword);
-        // Create extractions from vectorized operands if present.
-        for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
-          auto const& element = superword->getElement(lane);
-          if (auto* elementOp = element.getDefiningOp()) {
-            if (superword->isLeaf()) {
-              superword->setElement(lane, conversionManager.getOrExtractValue(element));
-            } else {
-              for (size_t i = 0; i < elementOp->getNumOperands(); ++i) {
-                elementOp->setOperand(i, conversionManager.getOrExtractValue(elementOp->getOperand(i)));
-              }
-            }
-          }
-          if (lane == 0 && superword->splattable()) {
-            break;
-          }
-        }
-        if (superword->splattable()) {
-          auto const& element = superword->getElement(0);
-          auto vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
-          conversionManager.update(superword, vectorizedOp, ElementFlag::KeepFirst);
-        } else {
-          Value vectorizedOp;
-          for (size_t i = 0; i < superword->numLanes(); ++i) {
-            auto const& element = superword->getElement(i);
-            if (i == 0) {
-              vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
-            } else {
-              auto index = conversionManager.getOrCreateConstant(element.getLoc(), rewriter.getI32IntegerAttr((int) i));
-              vectorizedOp = rewriter.create<vector::InsertElementOp>(element.getLoc(), element, vectorizedOp, index);
-            }
-          }
-          conversionManager.update(superword, vectorizedOp, ElementFlag::KeepAll);
-        }
-      }
+      applicator.matchAndRewrite(superword, rewriter);
       // Create vector extractions for escaping uses & erase superfluous operations.
       auto const& creationMode = conversionManager.getElementFlag(superword);
       for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
@@ -217,11 +181,13 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         progressThreshold += interval;
       }
     }
-    task->emitRemark("Conversion complete.");
-    seedAnalysis->markAllUnavailable(order);
-    // TODO: actually determine whether an SLP graph was constructed.
+    // TODO: determine whether an SLP graph was constructed.
     if (true) {
+      task->emitRemark("Conversion complete.");
       break;
+    } else {
+      task->emitRemark("Seed failed, trying with next one.");
+      seedAnalysis->notifySeedFailed(seed);
     }
   }
   task->emitRemark("SLP vectorization complete.");

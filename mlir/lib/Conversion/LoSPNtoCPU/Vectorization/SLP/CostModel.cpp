@@ -17,6 +17,17 @@ double UnitCostModel::computeScalarCost(Value const& value) {
   return 1;
 }
 
+void UnitCostModel::visit(BroadcastSuperword* pattern, Superword* superword) {
+  this->cost = getScalarTreeCost(superword->getElement(0)) + 1;
+}
+
+void UnitCostModel::visit(BroadcastInsertSuperword* pattern, Superword* superword) {
+  this->cost = static_cast<double>(superword->numLanes());
+  for (auto const& element : *superword) {
+    this->cost += getScalarTreeCost(element);
+  }
+}
+
 void UnitCostModel::visit(VectorizeConstant* pattern, Superword* superword) {
   this->cost = 0;
 }

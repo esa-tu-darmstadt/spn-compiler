@@ -11,6 +11,7 @@
 
 #include "SLPGraph.h"
 #include "SLPVectorizationPatterns.h"
+#include "LoSPN/LoSPNDialect.h"
 
 namespace mlir {
   namespace spn {
@@ -29,7 +30,7 @@ namespace mlir {
           }
 
           double getScalarTreeCost(Value const& root) {
-            llvm_unreachable("TODO");
+            llvm_unreachable("TODO: scalar visitor cost model for LoSPN ops");
           }
 
           double getSuperwordCost(Superword* superword, SLPVectorizationPattern* pattern) {
@@ -57,6 +58,8 @@ namespace mlir {
 
         class UnitCostModel : public CostModel {
           double computeScalarCost(Value const& value) override;
+          void visit(BroadcastSuperword* pattern, Superword* superword) override;
+          void visit(BroadcastInsertSuperword* pattern, Superword* superword) override;
           void visit(VectorizeConstant* pattern, Superword* superword) override;
           void visit(VectorizeBatchRead* pattern, Superword* superword) override;
           void visit(VectorizeAdd* pattern, Superword* superword) override;

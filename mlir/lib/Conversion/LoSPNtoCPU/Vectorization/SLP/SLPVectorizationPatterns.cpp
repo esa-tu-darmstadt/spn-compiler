@@ -28,6 +28,70 @@ void SLPVectorizationPattern::rewriteSuperword(Superword* superword, PatternRewr
 
 // Helper functions in anonymous namespace.
 namespace {
+  void createNecessaryExtractionsFor(Superword* superword, ConversionManager& conversionManager) {
+    // Create extractions from vectorized operands if present.
+    for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
+      auto const& element = superword->getElement(lane);
+      if (auto* elementOp = element.getDefiningOp()) {
+        if (superword->isLeaf()) {
+          superword->setElement(lane, conversionManager.getOrExtractValue(element));
+        } else {
+          for (size_t i = 0; i < elementOp->getNumOperands(); ++i) {
+            elementOp->setOperand(i, conversionManager.getOrExtractValue(elementOp->getOperand(i)));
+          }
+        }
+      }
+      if (lane == 0 && superword->splattable()) {
+        break;
+      }
+    }
+  }
+}
+
+// === Broadcast === //
+
+LogicalResult BroadcastSuperword::match(Superword* superword) const {
+  return success(superword->splattable());
+}
+
+void BroadcastSuperword::rewrite(Superword* superword, PatternRewriter& rewriter) const {
+  createNecessaryExtractionsFor(superword, conversionManager);
+  auto const& element = superword->getElement(0);
+  auto vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), superword->getVectorType(), element);
+  conversionManager.update(superword, vectorizedOp, ElementFlag::KeepFirst);
+}
+
+void BroadcastSuperword::accept(PatternVisitor& visitor, Superword* superword) {
+  visitor.visit(this, superword);
+}
+
+// === BroadcastInsert === //
+
+LogicalResult BroadcastInsertSuperword::match(Superword* superword) const {
+  return success();
+}
+
+void BroadcastInsertSuperword::rewrite(Superword* superword, PatternRewriter& rewriter) const {
+  createNecessaryExtractionsFor(superword, conversionManager);
+  Value vectorizedOp;
+  for (size_t i = 0; i < superword->numLanes(); ++i) {
+    auto const& element = superword->getElement(i);
+    if (i == 0) {
+      vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), superword->getVectorType(), element);
+    } else {
+      auto index = conversionManager.getOrCreateConstant(element.getLoc(), rewriter.getI32IntegerAttr((int) i));
+      vectorizedOp = rewriter.create<vector::InsertElementOp>(element.getLoc(), element, vectorizedOp, index);
+    }
+  }
+  conversionManager.update(superword, vectorizedOp, ElementFlag::KeepAll);
+}
+
+void BroadcastInsertSuperword::accept(PatternVisitor& visitor, Superword* superword) {
+  visitor.visit(this, superword);
+}
+
+// Helper functions in anonymous namespace.
+namespace {
 
   template<typename AttributeIterator>
   DenseElementsAttr denseFloatingPoints(AttributeIterator begin, AttributeIterator end, VectorType const& vectorType) {

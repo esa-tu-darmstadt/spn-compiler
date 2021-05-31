@@ -40,6 +40,20 @@ namespace mlir {
           ConversionManager& conversionManager;
         };
 
+        struct BroadcastSuperword : public SLPVectorizationPattern {
+          using SLPVectorizationPattern::SLPVectorizationPattern;
+          LogicalResult match(Superword* superword) const override;
+          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          void accept(PatternVisitor& visitor, Superword* superword) override;
+        };
+
+        struct BroadcastInsertSuperword : public SLPVectorizationPattern {
+          using SLPVectorizationPattern::SLPVectorizationPattern;
+          LogicalResult match(Superword* superword) const override;
+          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          void accept(PatternVisitor& visitor, Superword* superword) override;
+        };
+
         template<typename SourceOp>
         class OpSpecificSLPVectorizationPattern : public SLPVectorizationPattern {
         public:
@@ -93,6 +107,8 @@ namespace mlir {
 
         class PatternVisitor {
         public:
+          virtual void visit(BroadcastSuperword* pattern, Superword* superword) = 0;
+          virtual void visit(BroadcastInsertSuperword* pattern, Superword* superword) = 0;
           virtual void visit(VectorizeConstant* pattern, Superword* superword) = 0;
           virtual void visit(VectorizeBatchRead* pattern, Superword* superword) = 0;
           virtual void visit(VectorizeAdd* pattern, Superword* superword) = 0;
@@ -104,6 +120,8 @@ namespace mlir {
 
         static void populateSLPVectorizationPatterns(SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>& patterns,
                                                      ConversionManager& conversionManager) {
+          patterns.emplace_back(std::make_unique<BroadcastSuperword>(conversionManager));
+          patterns.emplace_back(std::make_unique<BroadcastInsertSuperword>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeConstant>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeBatchRead>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeAdd>(conversionManager));
