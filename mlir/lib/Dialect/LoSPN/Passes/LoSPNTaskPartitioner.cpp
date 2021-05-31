@@ -43,6 +43,7 @@ namespace mlir {
           // input of this task or internally from another partition.
           InputMap inputs;
           SmallVector<Value> taskResults;
+          unsigned numNodes = 0;
           {
             // Map arguments of the entry block to external inputs of the task.
             llvm::DenseMap<mlir::BlockArgument, mlir::Value> externalTensors;
@@ -91,12 +92,14 @@ namespace mlir {
                     // Constant operations do not have an operand, so they
                     // should be used as seeds for the initial partitioning, too.
                     inNodes.insert(op);
+                  } else {
+                    ++numNodes;
                   }
                 }
               });
             });
           }
-          if (nodes.size() <= partitioner.getMaximumPartitionSize()) {
+          if (numNodes <= partitioner.getMaximumPartitionSize()) {
             // Do not partition a task if it is already smaller than the maximum size.
             return mlir::failure();
           }
