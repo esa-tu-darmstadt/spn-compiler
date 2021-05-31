@@ -20,7 +20,7 @@ namespace mlir {
 
       std::unique_ptr<OperationPass<SPNKernel>> createLoSPNCopyRemovalPass();
 
-      std::unique_ptr<OperationPass<SPNKernel>> createLoSPNPartitionerPass();
+      std::unique_ptr<OperationPass<SPNKernel>> createLoSPNPartitionerPass(int maxTaskSize = -1);
 
       /// Instantiate the graph stats collection pass determining SPN statistics like
       /// the number of inner and leaf nodes or min/max/average node level.

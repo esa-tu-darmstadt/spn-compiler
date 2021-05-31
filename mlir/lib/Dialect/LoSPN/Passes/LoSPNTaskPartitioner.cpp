@@ -91,7 +91,7 @@ namespace mlir {
               });
             });
           }
-          if (nodes.size() < 8) {
+          if (nodes.size() <= partitioner.getMaximumPartitionSize()) {
             return mlir::failure();
           }
           // Perform the actual partitioning.
@@ -329,16 +329,26 @@ namespace mlir {
 
       };
 
-      struct LoSPNTaskPartitioner : LoSPNTaskPartioningBase<LoSPNTaskPartitioner> {
+      struct LoSPNTaskPartitioner : public LoSPNTaskPartioningBase<LoSPNTaskPartitioner> {
+
+      public:
+
+        LoSPNTaskPartitioner() = default;
+
+        explicit LoSPNTaskPartitioner(int maxTaskSize) {
+          this->maxTaskSize = maxTaskSize;
+        }
 
       protected:
 
         void runOnOperation() override {
-          GraphPartitioner partitioner{2, SimpleMoveHeuristic::create};
-          RewritePatternSet patterns(getOperation()->getContext());
-          patterns.insert<PartitionTask>(getOperation()->getContext(), partitioner);
-          mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
-          applyPatternsAndFoldGreedily(getOperation(), frozenPatterns);
+          if (this->maxTaskSize.getValue() > 0) {
+            GraphPartitioner partitioner{this->maxTaskSize.getValue(), SimpleMoveHeuristic::create};
+            RewritePatternSet patterns(getOperation()->getContext());
+            patterns.insert<PartitionTask>(getOperation()->getContext(), partitioner);
+            mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
+            applyPatternsAndFoldGreedily(getOperation(), frozenPatterns);
+          }
         }
 
       };
@@ -347,6 +357,6 @@ namespace mlir {
   }
 }
 
-std::unique_ptr<mlir::OperationPass<mlir::spn::low::SPNKernel>> mlir::spn::low::createLoSPNPartitionerPass() {
-  return std::make_unique<LoSPNTaskPartitioner>();
+std::unique_ptr<mlir::OperationPass<mlir::spn::low::SPNKernel>> mlir::spn::low::createLoSPNPartitionerPass(int maxTaskSize) {
+  return std::make_unique<LoSPNTaskPartitioner>(maxTaskSize);
 }

@@ -39,6 +39,11 @@ namespace spnc {
     extern EnumOpt compilationTarget;
 
     ///
+    /// Option to specify the maximum size of a task. Smaller tasks typically reduce
+    /// compilation time, but can introduce overhead.
+    extern Option<int> maxTaskSize;
+
+    ///
     /// Flag to indicate whether the code generated for the CPU should be vectorized.
     extern Option<bool> cpuVectorize;
 

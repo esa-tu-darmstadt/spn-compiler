@@ -79,8 +79,14 @@ void mlir::spn::low::Partition::dump() const {
   }
 }
 
-GraphPartitioner::GraphPartitioner(unsigned int numberOfPartitions, HeuristicFactory heuristic) :
-    numPartitions{numberOfPartitions}, factory{std::move(heuristic)} {}
+GraphPartitioner::GraphPartitioner(int maxTaskSize, HeuristicFactory heuristic) :
+    maxPartitionSize{maxTaskSize}, factory{std::move(heuristic)} {}
+
+unsigned int GraphPartitioner::getMaximumPartitionSize() const {
+  // Allow up to 1% or at least one node in slack.
+  unsigned slack = std::max(1u, static_cast<unsigned>(static_cast<double>(maxPartitionSize) * 0.01));
+  return maxPartitionSize + slack;
+}
 
 Partitioning mlir::spn::low::GraphPartitioner::partitionGraph(
     llvm::ArrayRef<Operation*> nodes,
@@ -120,15 +126,13 @@ Partitioning mlir::spn::low::GraphPartitioner::initialPartitioning(
       }
     }
   }
-  // TODO Make this configurable
-  auto nodesPerPartition = llvm::divideCeil(T.size(), numPartitions);
-  llvm::dbgs() << "Nodes per Partition: " << nodesPerPartition << "\n";
+  auto numPartitions = llvm::divideCeil(T.size(), maxPartitionSize);
   Partitioning partitioning;
   unsigned nodeIndex = 0;
   for (unsigned i = 0; i < numPartitions; ++i) {
-    partitioning.push_back(std::make_unique<Partition>(i, nodesPerPartition));
+    partitioning.push_back(std::make_unique<Partition>(i, getMaximumPartitionSize()));
     auto& curPar = partitioning.back();
-    auto maxIndex = nodeIndex + nodesPerPartition;
+    auto maxIndex = nodeIndex + maxPartitionSize;
     for (; (nodeIndex < maxIndex) && (nodeIndex < T.size()); ++nodeIndex) {
       curPar->addNode(T[nodeIndex]);
     }

@@ -21,11 +21,7 @@ namespace mlir {
 
       public:
 
-        Partition(unsigned ID, unsigned maximumSize) : id{ID}, numNodes{0}, maxSize{maximumSize} {
-          // Allow up to 1% or at least one node in slack.
-          unsigned slack = std::max(1u, static_cast<unsigned>(static_cast<double>(maxSize) * 0.01));
-          sizeBoundary = maxSize + slack;
-        };
+        Partition(unsigned ID, unsigned maximumSize) : id{ID}, numNodes{0}, sizeBoundary{maximumSize} {};
 
         void addNode(Operation* node);
 
@@ -75,8 +71,6 @@ namespace mlir {
 
         unsigned numNodes;
 
-        unsigned maxSize;
-
         unsigned sizeBoundary;
 
       };
@@ -85,11 +79,13 @@ namespace mlir {
 
       public:
 
-        explicit GraphPartitioner(unsigned numberOfPartitions, HeuristicFactory heuristic = nullptr);
+        explicit GraphPartitioner(int maxTaskSize, HeuristicFactory heuristic = nullptr);
 
         Partitioning partitionGraph(llvm::ArrayRef<Operation*> nodes,
                                     llvm::SmallPtrSetImpl<Operation*>& inNodes,
                                     llvm::ArrayRef<Value> externalInputs);
+
+        unsigned getMaximumPartitionSize() const;
 
       private:
 
@@ -103,7 +99,7 @@ namespace mlir {
         bool hasInDegreeZero(Operation* node, llvm::SmallPtrSetImpl<Operation*>& partitioned,
                              llvm::SmallPtrSetImpl<Value>& externalInputs) const;
 
-        unsigned numPartitions;
+        int maxPartitionSize;
 
         HeuristicFactory factory;
 

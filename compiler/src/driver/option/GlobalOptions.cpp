@@ -23,6 +23,8 @@ EnumOpt spnc::option::compilationTarget{"target",
                                          EnumVal(CUDA, "CUDA")},
                                         {required()}};
 
+Option<int> spnc::option::maxTaskSize{"maxTaskSize", -1};
+
 Option<bool> spnc::option::cpuVectorize{"cpu-vectorize", false};
 
 using spnc::option::VectorLibrary;
