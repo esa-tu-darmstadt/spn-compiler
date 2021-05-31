@@ -25,7 +25,6 @@ Heuristic::Heuristic(llvm::ArrayRef<Operation*> allNodes,
       partitionMap[n] = id;
     }
   }
-  llvm::dbgs() << partitionMap.size() << "\n";
 }
 
 unsigned int Heuristic::getPartitionIDForNode(Operation* node) {
