@@ -7,6 +7,7 @@
 //==============================================================================
 
 #include "GraphPartitioner.h"
+#include <stack>
 
 using namespace llvm;
 using namespace mlir;
@@ -95,8 +96,6 @@ Partitioning mlir::spn::low::GraphPartitioner::partitionGraph(
   auto partitioning = initialPartitioning(nodes, inNodes, externalInputs);
   refinePartitioning(nodes, externalInputs, &partitioning);
   return partitioning;
-  // TODO: Special handling of constant operations. They can simply be duplicated if necessary and should
-  // never imply an edge crossing partitions.
 }
 
 Partitioning mlir::spn::low::GraphPartitioner::initialPartitioning(
@@ -104,28 +103,38 @@ Partitioning mlir::spn::low::GraphPartitioner::initialPartitioning(
     llvm::SmallPtrSetImpl<Operation*>& inNodes,
     llvm::ArrayRef<Value> externalInputs) const {
   llvm::SmallPtrSet<Operation*, 32> partitioned;
-  llvm::SmallVector<Operation*> S;
+  std::stack<Operation*> S;
   llvm::SmallVector<Operation*, 0> T;
   llvm::SmallPtrSet<Value, 32> external(externalInputs.begin(), externalInputs.end());
   llvm::SmallVector<Operation*> inputNodes(inNodes.begin(), inNodes.end());
+  // Initially populate the stack with all operations that potentially have an in-degree of zero.
   for (auto I = inputNodes.rbegin(); I != inputNodes.rend(); ++I) {
     if (hasInDegreeZero(*I, partitioned, external)) {
-      S.push_back(*I);
+      S.push(*I);
     }
   }
+  // Iterate all nodes, creating a topological sort order.
+  // By using a stack instead of a queue, we effectively create more vertical cuts rather than
+  // horizontal cuts with many edges crossing partitions.
   while (T.size() < nodes.size()) {
     assert(!S.empty());
-    auto cur = S.pop_back_val();
+    // Pop the top-most element from the stack.
+    auto cur = S.top();
+    S.pop();
     T.push_back(cur);
     partitioned.insert(cur);
+    // Check if any of the users of this operation have all their operands visited now and
+    // push them onto the stack.
     for (auto r : cur->getResults()) {
       for (auto* U : r.getUsers()) {
         if (hasInDegreeZero(U, partitioned, external)) {
-          S.push_back(U);
+          S.push(U);
         }
       }
     }
   }
+  // Create partitions from the topological sort order by taking
+  // chunks of n nodes from the list and putting them into one partition.
   auto numPartitions = llvm::divideCeil(T.size(), maxPartitionSize);
   Partitioning partitioning;
   unsigned nodeIndex = 0;

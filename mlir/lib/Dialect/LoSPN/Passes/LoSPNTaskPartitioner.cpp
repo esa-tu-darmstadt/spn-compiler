@@ -23,6 +23,9 @@ namespace mlir {
   namespace spn {
     namespace low {
 
+      ///
+      /// Pattern matching a LoSPN task and splitting the task
+      /// into multiple tasks by graph partitioning.
       class PartitionTask : public OpRewritePattern<low::SPNTask> {
 
       public:
@@ -32,7 +35,7 @@ namespace mlir {
         LogicalResult matchAndRewrite(SPNTask op, PatternRewriter& rewriter) const override {
           // All operations in the Task relevant for partitioning
           SmallVector<Operation*> nodes;
-          // All operations with no internal operands (in-degree 0)
+          // All operations with potentially no internal operands (in-degree 0)
           SmallPtrSet<Operation*, 10> inNodes;
           // All inputs considered external for the partitioning.
           SmallVector<Value> external;
@@ -60,16 +63,16 @@ namespace mlir {
                 // Detect the BatchExtract producing this block arg:
                 auto bodyOp = body->getOperand(inIndex++);
                 assert(isa<SPNBatchExtract>(bodyOp.getDefiningOp()));
-                auto collect = cast<SPNBatchExtract>(bodyOp.getDefiningOp());
-                assert(collect.input().isa<BlockArgument>());
+                auto extract = cast<SPNBatchExtract>(bodyOp.getDefiningOp());
+                assert(extract.input().isa<BlockArgument>());
                 // Get the input tensor of the BatchExtract
-                auto tensorArg = collect.input();
+                auto tensorArg = extract.input();
                 // Match the input tensor of the BatchExtract
                 // (which should be a block argument of the Task's entry block)
                 // to the external operand of the task.
                 assert(externalTensors.count(tensorArg.cast<BlockArgument>()));
                 auto externalTensor = externalTensors[tensorArg.cast<BlockArgument>()];
-                inputs[blockArg] = InputInfo{externalTensor, collect.sampleIndex()};
+                inputs[blockArg] = InputInfo{externalTensor, extract.sampleIndex()};
                 // All users of the entry block args potentially do not have outside operands.
                 for (auto* U : blockArg.getUsers()) {
                   inNodes.insert(U);
@@ -77,6 +80,8 @@ namespace mlir {
               }
               body.body().walk([&](Operation* op) {
                 if (isa<SPNYield>(op)) {
+                  // SPNYield is not considered during partitioning, but the we need
+                  // store the returned results to identify the new task producing the results.
                   for (auto resVal : op->getOperands()) {
                     taskResults.push_back(resVal);
                   }
@@ -92,6 +97,7 @@ namespace mlir {
             });
           }
           if (nodes.size() <= partitioner.getMaximumPartitionSize()) {
+            // Do not partition a task if it is already smaller than the maximum size.
             return mlir::failure();
           }
           // Perform the actual partitioning.
@@ -108,15 +114,20 @@ namespace mlir {
           postprocessConstants(partitions, rewriter);
 
           for (auto& p : partitions) {
+            // Create a new LoSPN task for each partition.
             createTaskForPartition(p, rewriter, op.getLoc(), op.batchSize(), inputs, partitions);
           }
+
+          // Emit a remark with some information about the number of partitions etc.
+          auto numPartitions = partitions.size();
+          auto maxSize = partitioner.getMaximumPartitionSize();
+          op->emitRemark() << "Split task into " << numPartitions << " partitions with a maximum size of " << maxSize;
+          // Identify the task(s) producing the final result(s) of the original task and replace
+          // the original task by the newly created tasks.
           SmallVector<Value> newResults;
           for (auto res : taskResults) {
             newResults.push_back(inputs.lookup(res).first);
           }
-          auto numPartitions = partitions.size();
-          auto maxSize = partitioner.getMaximumPartitionSize();
-          op->emitRemark() << "Split task into " << numPartitions << " partitions with a maximum size of " << maxSize;
           rewriter.replaceOp(op, newResults);
           return mlir::success();
         }
@@ -152,6 +163,7 @@ namespace mlir {
                 }
                 auto inputInfo = inputs[operand];
                 nonPartitionInputs[operand] = inputInfo;
+                // Remember which output from the outside will be provided by which argument to this task.
                 if (!inputArgs.count(inputInfo.first)) {
                   inputArgs[inputInfo.first] = inputArgIndex++;
                 }
@@ -176,13 +188,16 @@ namespace mlir {
               }
             }
           }
+          // Add all input tensors as operands of the new task.
           SmallVector<Value> taskInputs;
           for (auto& in : inputArgs) {
             taskInputs.push_back(in.first);
           }
+          // Create the actual LoSPN task.
           auto task = rewriter.create<SPNTask>(loc, resultTypes, taskInputs, batchSize);
           auto restore = rewriter.saveInsertionPoint();
           auto taskBlock = task.addEntryBlock();
+          // Create a batch extract for each tensor argument of the new task.
           rewriter.setInsertionPointToStart(taskBlock);
           llvm::DenseMap<Value, unsigned> inputIndices;
           SmallVector<Value> bodyInputs;
@@ -193,6 +208,7 @@ namespace mlir {
             auto inputInfo = in.getSecond();
             auto index = inputArgs[inputInfo.first];
             hasLogType[bodyArgIndex] = value.getType().isa<low::LogType>();
+            // Remember which input value is associated with which input index for the body.
             inputIndices[value] = bodyArgIndex++;
             auto extract = rewriter.create<SPNBatchExtract>(loc,
                                                             performTypeConversion(value.getType()),
@@ -204,6 +220,8 @@ namespace mlir {
           auto restoreBody = rewriter.saveInsertionPoint();
           auto bodyBlock = rewriter.createBlock(&body.body());
           auto index = 0;
+          // Add an block argument for each external input. The block arg corresponds to the
+          // batch extract extracing the value from the input tensor.
           for (auto& bodyIn : bodyInputs) {
             if (hasLogType[index++]) {
               bodyBlock->addArgument(low::LogType::get(bodyIn.getType()));
@@ -211,27 +229,32 @@ namespace mlir {
               bodyBlock->addArgument(bodyIn.getType());
             }
           }
+          // Populate a mapping from external Value to block argument.
           BlockAndValueMapping mapper;
           for (auto remapped : inputIndices) {
             mapper.map(remapped.getFirst(), bodyBlock->getArgument(remapped.second));
           }
+          // Copy the operations in this partition from the original task to the new task.
           for (auto operation : *partition.first) {
             copyOperation(operation, rewriter, mapper);
           }
           SmallVector<Value> bodyYields;
           unsigned resultIndex = 0;
+          // Create a SPNYield with all results at the end of the body.
           for (auto retVal : nonPartitionOutputs) {
             bodyYields.push_back(mapper.lookupOrNull(retVal));
             inputs[retVal] = InputInfo{task->getResult(resultIndex++), 0};
           }
           rewriter.create<SPNYield>(loc, bodyYields);
           rewriter.restoreInsertionPoint(restoreBody);
+          // Create a SPNBatchCollect for each result value to yield tensors.
           SmallVector<Value> taskReturns;
           for (auto r : body.getResults()) {
             auto rType = RankedTensorType::get({-1}, r.getType());
             auto collect = rewriter.create<SPNBatchCollect>(loc, rType, r, task.getBatchIndex());
             taskReturns.push_back(collect.getResult(0));
           }
+          // Create a Return at the end of the task, returning all results as tensors.
           rewriter.create<SPNReturn>(loc, taskReturns);
           rewriter.restoreInsertionPoint(restore);
         }
@@ -246,6 +269,11 @@ namespace mlir {
           (void) rewriter.clone(*op, mapper);
         }
 
+        /// Find which partition contains the operation producing the given value.
+        /// \param input The produced Value.
+        /// \param partitions List of partitions.
+        /// \return Information about the partition containing the operation/value or a
+        ///         nullptr wrapped in the information if no partition could be found.
         PartitionInfo findPartition(Value input, llvm::ArrayRef<PartitionInfo> partitions) const {
           for (auto& p : partitions) {
             if (p.second) {
@@ -261,6 +289,9 @@ namespace mlir {
           return PartitionInfo{nullptr, false};
         }
 
+        /// Strip the LogType.
+        /// \param type Type.
+        /// \return The type or the base-type in case type is a LogType.
         Type performTypeConversion(Type type) const {
           if (type.isa<low::LogType>()) {
             return type.cast<low::LogType>().getBaseType();
@@ -294,6 +325,11 @@ namespace mlir {
           }
         }
 
+        /// Find the partition containing the specified operation.
+        /// \param op Operation.
+        /// \param partitions List of partitions.
+        /// \return Information about the partition containing the operation or a
+        //          nullptr wrapped in the information if no partition could be found.
         PartitionInfo findContainingPartition(Operation* op, llvm::ArrayRef<PartitionInfo> partitions) const {
           for (auto& p : partitions) {
             if (p.first->contains(op)) {
@@ -325,7 +361,9 @@ namespace mlir {
             RewritePatternSet patterns(getOperation()->getContext());
             patterns.insert<PartitionTask>(getOperation()->getContext(), partitioner);
             mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
-            applyPatternsAndFoldGreedily(getOperation(), frozenPatterns);
+            if (failed(applyPatternsAndFoldGreedily(getOperation(), frozenPatterns))) {
+              signalPassFailure();
+            }
           }
         }
 
