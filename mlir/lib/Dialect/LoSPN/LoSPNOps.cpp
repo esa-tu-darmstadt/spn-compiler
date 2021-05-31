@@ -13,7 +13,6 @@
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/PatternMatch.h"
 
 namespace mlir {
   namespace spn {
@@ -333,6 +332,27 @@ void mlir::spn::low::SPNStripLog::build(::mlir::OpBuilder& odsBuilder,
   }
   // None of the operands was constant, return nullptr to signal that the operations has not been touched.
   return nullptr;
+}
+
+//===----------------------------------------------------------------------===//
+// SPNCategoricalLeaf
+//===----------------------------------------------------------------------===//
+
+::mlir::LogicalResult mlir::spn::low::SPNCategoricalLeaf::canonicalize(SPNCategoricalLeaf op, PatternRewriter &rewriter) {
+  // Rewrite Categoricals which contain exactly two probabilities into a LoSPN Select.
+  auto probabilities = op.probabilities().getValue();
+  if (probabilities.size() == 2) {
+    auto p0 = probabilities[0].dyn_cast<FloatAttr>();
+    auto p1 = probabilities[1].dyn_cast<FloatAttr>();
+    // auto index = FloatAttr::get(FloatType::getF64(op->getContext()), op.index().dyn_cast<mlir::Float64Type>());
+    auto threshold_max_true = FloatAttr::get(op.index().getType(), 1.0);
+    auto p0_Value = rewriter.create<SPNConstant>(op.getLoc(), p0.getType(), probabilities[0].dyn_cast<TypeAttr>(), p0);
+    auto p1_Value = rewriter.create<SPNConstant>(p0_Value.getLoc(), p1.getType(), probabilities[1].dyn_cast<TypeAttr>(), p1);
+    auto threshold = rewriter.create<SPNConstant>(p1_Value.getLoc(), threshold_max_true.getType(), threshold_max_true.dyn_cast<TypeAttr>(), threshold_max_true);
+    rewriter.replaceOpWithNewOp<SPNSelectLeaf>(op, p0.getType(), op.index(), threshold, p1_Value, p0_Value);
+    return success();
+  }
+  return failure();
 }
 
 //===----------------------------------------------------------------------===//

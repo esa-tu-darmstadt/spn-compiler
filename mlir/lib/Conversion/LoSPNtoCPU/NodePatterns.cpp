@@ -483,6 +483,23 @@ mlir::LogicalResult mlir::spn::CategoricalLowering::matchAndRewrite(mlir::spn::l
                                                             values, resultType, "categorical_", computesLog);
 }
 
+mlir::LogicalResult mlir::spn::SelectLowering::matchAndRewrite(mlir::spn::low::SPNSelectLeaf op,
+                                                               llvm::ArrayRef<mlir::Value> operands,
+                                                               mlir::ConversionPatternRewriter& rewriter) const {
+  mlir::Value cond;
+  if (op.cond().getType().isa<mlir::FloatType>()) {
+    cond = rewriter.create<mlir::CmpFOp>(op->getLoc(), IntegerType::get(op.getContext(), 1),
+                                         mlir::CmpFPredicate::UGE, op.cond(), op.threshold());
+  } else if (op.cond().getType().isa<mlir::IntegerType>()) {
+    cond = rewriter.create<mlir::CmpIOp>(op->getLoc(), IntegerType::get(op.getContext(), 1),
+                                         mlir::CmpIPredicate::uge, op.cond(), op.threshold());
+  } else {
+    return rewriter.notifyMatchFailure(op, "Expected condition-value to be either Float- or IntegerType");
+  }
+  rewriter.replaceOpWithNewOp<SelectOp>(op, cond, op.val_true(), op.val_false());
+  return success();
+}
+
 mlir::LogicalResult mlir::spn::ResolveConvertToVector::matchAndRewrite(mlir::spn::low::SPNConvertToVector op,
                                                                        llvm::ArrayRef<mlir::Value> operands,
                                                                        mlir::ConversionPatternRewriter& rewriter) const {

@@ -146,6 +146,15 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
+    struct SelectLowering : public OpConversionPattern<low::SPNSelectLeaf> {
+
+      using OpConversionPattern<low::SPNSelectLeaf>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNSelectLeaf op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
     struct ResolveConvertToVector : public OpConversionPattern<low::SPNConvertToVector> {
 
       using OpConversionPattern<low::SPNConvertToVector>::OpConversionPattern;
@@ -171,6 +180,7 @@ namespace mlir {
       patterns.insert<MulLowering, AddLowering>(typeConverter, context);
       patterns.insert<MulLogLowering, AddLogLowering>(typeConverter, context);
       patterns.insert<CategoricalLowering, HistogramLowering>(typeConverter, context);
+      patterns.insert<SelectLowering, CategoricalLowering, HistogramLowering>(typeConverter, context);
       patterns.insert<GaussianLowering, GaussianLogLowering>(typeConverter, context);
       patterns.insert<ResolveConvertToVector, ResolveStripLog>(typeConverter, context);
     }
