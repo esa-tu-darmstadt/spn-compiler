@@ -58,6 +58,8 @@ namespace mlir {
           }
         };
 
+        // TODO: add vector reduction patterns
+
         struct VectorizeConstant : public OpSpecificSLPVectorizationPattern<ConstantOp> {
           using OpSpecificSLPVectorizationPattern<ConstantOp>::OpSpecificSLPVectorizationPattern;
           void rewrite(Superword* superword, PatternRewriter& rewriter) const override;

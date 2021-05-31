@@ -7,6 +7,7 @@
 //==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraph.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPGraphBuilder.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 
 using namespace mlir;
@@ -193,4 +194,15 @@ SLPNode* SLPNode::getOperand(size_t index) const {
 
 ArrayRef<std::shared_ptr<SLPNode>> SLPNode::getOperands() const {
   return operandNodes;
+}
+
+// === SLPGraph === //
+
+SLPGraph::SLPGraph(ArrayRef<Value> const& seed, unsigned lookAhead) : lookAhead{lookAhead} {
+  SLPGraphBuilder builder{*this};
+  builder.build(seed);
+}
+
+Superword* SLPGraph::getRoot() const {
+  return root.get();
 }

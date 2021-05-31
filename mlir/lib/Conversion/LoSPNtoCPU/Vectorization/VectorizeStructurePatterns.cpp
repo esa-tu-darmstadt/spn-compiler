@@ -8,7 +8,6 @@
 
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Seeding.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPGraphBuilder.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPPatternMatch.h"
 #include "mlir/Dialect/SCF/SCF.h"
@@ -107,8 +106,8 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
   // Apply SLP vectorization.
   task->emitRemark() << "Beginning SLP vectorization...";
+  taskFunc.dump();
   auto elementType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
-  SLPGraphBuilder builder{3};
   ConversionManager conversionManager{rewriter};
   std::unique_ptr<SeedAnalysis> seedAnalysis;
   {
@@ -129,16 +128,13 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   auto costModel = std::make_shared<UnitCostModel>();
   SLPPatternApplicator applicator{costModel, std::move(patterns)};
 
-  unsigned numRuns = 1;
-  unsigned run = 0;
-
   for (auto seed = seedAnalysis->next(); !seed.empty(); seed = seedAnalysis->next()) {
     //low::slp::dumpOpTree(seed);
     task->emitRemark("Computing graph...");
-    auto graph = builder.build(seed);
+    SLPGraph graph{seed, 3};
 
     task->emitRemark("Converting graph...");
-    conversionManager.initConversion(graph.get());
+    conversionManager.initConversion(graph.getRoot());
     auto const& order = conversionManager.conversionOrder();
 
     auto numVectors = order.size();
@@ -152,39 +148,41 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     double progressThreshold = interval;
 
     // Traverse the SLP graph and apply the vectorization patterns.
-    for (auto* vector : order) {
+    for (auto* superword : order) {
+      llvm::dbgs() << "CURRENT SUPERWORD:\t";
+      dumpSuperword(*superword);
       // Happens if the vector from a previously built graph is being re-used.
-      if (conversionManager.wasConverted(vector)) {
+      if (conversionManager.wasConverted(superword)) {
         continue;
       }
       //dumpSLPValueVector(*vector);
-      if (failed(applicator.matchAndRewrite(vector, rewriter))) {
-        auto const& vectorType = vector->getVectorType();
-        conversionManager.setInsertionPointFor(vector);
+      if (failed(applicator.matchAndRewrite(superword, rewriter))) {
+        auto const& vectorType = superword->getVectorType();
+        conversionManager.setInsertionPointFor(superword);
         // Create extractions from vectorized operands if present.
-        for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-          auto const& element = vector->getElement(lane);
+        for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
+          auto const& element = superword->getElement(lane);
           if (auto* elementOp = element.getDefiningOp()) {
-            if (vector->isLeaf()) {
-              vector->setElement(lane, conversionManager.getOrExtractValue(element));
+            if (superword->isLeaf()) {
+              superword->setElement(lane, conversionManager.getOrExtractValue(element));
             } else {
               for (size_t i = 0; i < elementOp->getNumOperands(); ++i) {
                 elementOp->setOperand(i, conversionManager.getOrExtractValue(elementOp->getOperand(i)));
               }
             }
           }
-          if (lane == 0 && vector->splattable()) {
+          if (lane == 0 && superword->splattable()) {
             break;
           }
         }
-        if (vector->splattable()) {
-          auto const& element = vector->getElement(0);
+        if (superword->splattable()) {
+          auto const& element = superword->getElement(0);
           auto vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
-          conversionManager.update(vector, vectorizedOp, ElementFlag::KeepFirst);
+          conversionManager.update(superword, vectorizedOp, ElementFlag::KeepFirst);
         } else {
           Value vectorizedOp;
-          for (size_t i = 0; i < vector->numLanes(); ++i) {
-            auto const& element = vector->getElement(i);
+          for (size_t i = 0; i < superword->numLanes(); ++i) {
+            auto const& element = superword->getElement(i);
             if (i == 0) {
               vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), vectorType, element);
             } else {
@@ -192,13 +190,13 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
               vectorizedOp = rewriter.create<vector::InsertElementOp>(element.getLoc(), element, vectorizedOp, index);
             }
           }
-          conversionManager.update(vector, vectorizedOp, ElementFlag::KeepAll);
+          conversionManager.update(superword, vectorizedOp, ElementFlag::KeepAll);
         }
       }
       // Create vector extractions for escaping uses & erase superfluous operations.
-      auto const& creationMode = conversionManager.getElementFlag(vector);
-      for (size_t lane = 0; lane < vector->numLanes(); ++lane) {
-        auto const& element = vector->getElement(lane);
+      auto const& creationMode = conversionManager.getElementFlag(superword);
+      for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
+        auto const& element = superword->getElement(lane);
         if (finishedValues.contains(element)) {
           continue;
         }
@@ -221,7 +219,8 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     }
     task->emitRemark("Conversion complete.");
     seedAnalysis->markAllUnavailable(order);
-    if (++run >= numRuns) {
+    // TODO: actually determine whether an SLP graph was constructed.
+    if (true) {
       break;
     }
   }

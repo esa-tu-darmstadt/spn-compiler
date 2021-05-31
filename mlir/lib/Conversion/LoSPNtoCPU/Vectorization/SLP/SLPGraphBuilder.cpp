@@ -13,15 +13,15 @@
 using namespace mlir;
 using namespace mlir::spn::low::slp;
 
-SLPGraphBuilder::SLPGraphBuilder(size_t maxLookAhead) : maxLookAhead{maxLookAhead} {}
+SLPGraphBuilder::SLPGraphBuilder(SLPGraph& graph) : graph{graph} {}
 
-std::shared_ptr<Superword> SLPGraphBuilder::build(ArrayRef<Value> const& seed) {
-  auto root = std::make_shared<Superword>(seed);
-  auto rootNode = nodeBySuperword.try_emplace(root.get(), std::make_shared<SLPNode>(root)).first->second;
-  superwordsByValue[root->getElement(0)].emplace_back(root);
+void SLPGraphBuilder::build(ArrayRef<Value> const& seed) {
+  graph.root = std::make_shared<Superword>(seed);
+  auto rootNode = nodeBySuperword.try_emplace(graph.root.get(), std::make_shared<SLPNode>(graph.root)).first->second;
+  graph.superwordsByValue[graph.root->getElement(0)].emplace_back(graph.root);
   buildWorklist.insert(rootNode.get());
-  buildGraph(root);
-  return root;
+  buildGraph(graph.root);
+  //dumpSLPGraph(rootNode.get());
 }
 
 // Some helper functions in an anonymous namespace.
@@ -123,7 +123,7 @@ void SLPGraphBuilder::buildGraph(std::shared_ptr<Superword> const& superword) {
     }
     // B. Normal Mode: Finished building multi-node
     if (currentNode->isSuperwordRoot(*superword)) {
-      //reorderOperands(currentNode);
+      reorderOperands(currentNode.get());
       for (auto const& operandNode : currentNode->getOperands()) {
         if (buildWorklist.erase(operandNode.get())) {
           buildGraph(operandNode->getSuperword(operandNode->numSuperwords() - 1));
@@ -251,7 +251,7 @@ std::pair<Value, SLPGraphBuilder::Mode> SLPGraphBuilder::getBest(Mode const& mod
       if (mode == OPCODE) {
         // Look-ahead on various levels
         // TODO: when the level is increased, we recompute everything from the level before. change that maybe?
-        for (size_t level = 1; level <= maxLookAhead; ++level) {
+        for (size_t level = 1; level <= graph.lookAhead; ++level) {
           // Best is the candidate with max score
           unsigned bestScore = 0;
           llvm::SmallSet<unsigned, 4> scores;
@@ -303,24 +303,11 @@ unsigned SLPGraphBuilder::getLookAheadScore(Value const& last, Value const& cand
 
 // === Utilities === //
 
-SLPGraphBuilder::Mode SLPGraphBuilder::modeFromValue(Value const& value) const {
-  if (value.isa<BlockArgument>()) {
-    return SPLAT;
-  }
-  auto* definingOp = value.getDefiningOp();
-  if (definingOp->hasTrait<OpTrait::ConstantLike>()) {
-    return CONST;
-  } else if (dyn_cast<mlir::spn::low::SPNBatchRead>(definingOp)) {
-    return LOAD;
-  }
-  return OPCODE;
-}
-
 std::shared_ptr<Superword> SLPGraphBuilder::appendSuperwordToNode(ArrayRef<Value> const& values,
                                                                   std::shared_ptr<SLPNode> const& node,
                                                                   std::shared_ptr<Superword> const& usingSuperword) {
   auto newSuperword = std::make_shared<Superword>(values);
-  superwordsByValue[values[0]].emplace_back(newSuperword);
+  graph.superwordsByValue[values[0]].emplace_back(newSuperword);
   nodeBySuperword[newSuperword.get()] = node;
   node->addSuperword(newSuperword);
   usingSuperword->addOperand(newSuperword);
@@ -333,7 +320,7 @@ std::shared_ptr<SLPNode> SLPGraphBuilder::addOperandToNode(ArrayRef<Value> const
   auto newSuperword = std::make_shared<Superword>(operandValues);
   auto operandNode =
       nodeBySuperword.try_emplace(newSuperword.get(), std::make_shared<SLPNode>(newSuperword)).first->second;
-  superwordsByValue[operandValues[0]].emplace_back(newSuperword);
+  graph.superwordsByValue[operandValues[0]].emplace_back(newSuperword);
   nodeBySuperword[newSuperword.get()] = operandNode;
   node->addOperand(operandNode);
   usingSuperword->addOperand(newSuperword);
@@ -341,8 +328,8 @@ std::shared_ptr<SLPNode> SLPGraphBuilder::addOperandToNode(ArrayRef<Value> const
 }
 
 std::shared_ptr<Superword> SLPGraphBuilder::superwordOrNull(ArrayRef<Value> const& values) const {
-  if (superwordsByValue.count(values[0])) {
-    auto const& superwords = superwordsByValue.lookup(values[0]);
+  if (graph.superwordsByValue.count(values[0])) {
+    auto const& superwords = graph.superwordsByValue.lookup(values[0]);
     auto const& it = std::find_if(std::begin(superwords), std::end(superwords), [&](auto const& superword) {
       if (superword->numLanes() != values.size()) {
         return false;

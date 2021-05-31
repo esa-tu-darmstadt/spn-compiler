@@ -9,9 +9,9 @@
 #ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPGRAPHBUILDER_H
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPGRAPHBUILDER_H
 
-#include "mlir/IR/Operation.h"
 #include "SLPGraph.h"
-#include "Seeding.h"
+#include "LoSPN/LoSPNOps.h"
+#include "mlir/IR/Operation.h"
 
 namespace mlir {
   namespace spn {
@@ -22,9 +22,9 @@ namespace mlir {
 
         public:
 
-          explicit SLPGraphBuilder(size_t maxLookAhead);
+          explicit SLPGraphBuilder(SLPGraph& graph);
 
-          std::shared_ptr<Superword> build(ArrayRef<Value> const& seed);
+          void build(ArrayRef<Value> const& seed);
 
         private:
 
@@ -48,7 +48,19 @@ namespace mlir {
 
           // === Utilities === //
 
-          Mode modeFromValue(Value const& value) const;
+          Mode modeFromValue(Value const& value) const {
+            if (value.isa<BlockArgument>()) {
+              return SPLAT;
+            }
+            auto* definingOp = value.getDefiningOp();
+            if (definingOp->hasTrait<OpTrait::ConstantLike>()) {
+              return CONST;
+            } else if (dyn_cast<mlir::spn::low::SPNBatchRead>(definingOp)) {
+              return LOAD;
+            }
+            return OPCODE;
+          }
+
           std::shared_ptr<Superword> appendSuperwordToNode(ArrayRef<Value> const& values,
                                                            std::shared_ptr<SLPNode> const& node,
                                                            std::shared_ptr<Superword> const& usingSuperword);
@@ -59,9 +71,8 @@ namespace mlir {
 
           // ================= //
 
-          size_t const maxLookAhead;
+          SLPGraph& graph;
           DenseMap<Superword*, std::shared_ptr<SLPNode>> nodeBySuperword;
-          DenseMap<Value, SmallVector<std::shared_ptr<Superword>>> superwordsByValue;
           SmallPtrSet<SLPNode*, 8> buildWorklist;
 
         };

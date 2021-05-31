@@ -66,12 +66,6 @@ size_t slp::numUniqueOps(ArrayRef<Superword*> const& superwords) {
   return uniqueOps.size();
 }
 
-void slp::dumpSLPNode(SLPNode const& node) {
-  for (size_t i = node.numSuperwords(); i-- > 0;) {
-    dumpSuperword(*node.getSuperword(i));
-  }
-}
-
 // Helper functions in an anonymous namespace.
 namespace {
   void dumpBlockArgOrDefiningAddress(Value const& val) {
@@ -104,7 +98,13 @@ void slp::dumpSuperword(Superword const& superword) {
   llvm::dbgs() << "\n";
 }
 
-void slp::dumpOpTree(ArrayRef<Value> const& values) {
+void slp::dumpSLPNode(SLPNode const& node) {
+  for (size_t i = node.numSuperwords(); i-- > 0;) {
+    dumpSuperword(*node.getSuperword(i));
+  }
+}
+
+void slp::dumpOpGraph(ArrayRef<Value> const& values) {
   DenseMap<Value, unsigned> nodes;
   SmallVector<std::tuple<Value, Value, unsigned>> edges;
 
@@ -157,6 +157,48 @@ void slp::dumpOpTree(ArrayRef<Value> const& values) {
   for (auto const& edge : edges) {
     llvm::dbgs() << "\tnode_" << nodes[std::get<0>(edge)] << " -> node_" << nodes[std::get<1>(edge)] << "[label=\""
                  << std::get<2>(edge) << "\"];\n";
+  }
+  llvm::dbgs() << "}\n";
+}
+
+void slp::dumpSuperwordGraph(Superword* root) {
+
+  llvm::dbgs() << "digraph debug_graph {\n";
+  llvm::dbgs() << "rankdir = BT;\n";
+  llvm::dbgs() << "node[shape=box];\n";
+
+  for (auto* superword : graph::postOrder(root)) {
+    llvm::dbgs() << "node_" << superword << "[label=<\n";
+    llvm::dbgs() << "\t<TABLE ALIGN=\"CENTER\" BORDER=\"0\" CELLSPACING=\"10\" CELLPADDING=\"0\">\n";
+    llvm::dbgs() << "\t\t<TR>\n";
+    for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
+      auto value = superword->getElement(lane);
+      llvm::dbgs() << "\t\t\t<TD>";
+      llvm::dbgs() << "<B>";
+      dumpBlockArgOrDefiningOpName(value);
+      llvm::dbgs() << "</B>";
+      // --- Additional operation information ---
+      if (auto* definingOp = value.getDefiningOp()) {
+        llvm::dbgs() << "<BR/><FONT COLOR=\"#bbbbbb\">";
+        llvm::dbgs() << "(" << definingOp << ")";
+        llvm::dbgs() << "</FONT>";
+      }
+      // --- ================================ ---
+      llvm::dbgs() << "</TD>";
+      if (lane < superword->numLanes() - 1) {
+        llvm::dbgs() << "<VR/>";
+      }
+      llvm::dbgs() << "\n";
+    }
+    llvm::dbgs() << "\t\t</TR>\n";
+    llvm::dbgs() << "\t</TABLE>\n";
+    llvm::dbgs() << ">];\n";
+
+    for (size_t i = 0; i < superword->numOperands(); ++i) {
+      auto const& operand = superword->getOperand(i);
+      llvm::dbgs() << "node_" << superword << "->" << "node_" << operand << "[label=\"" << std::to_string(i)
+                   << "\"];\n";
+    }
   }
   llvm::dbgs() << "}\n";
 }

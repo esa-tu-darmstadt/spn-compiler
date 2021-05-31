@@ -86,6 +86,17 @@ namespace mlir {
           SmallVector<std::shared_ptr<SLPNode>> operandNodes;
         };
 
+        class SLPGraph {
+          friend class SLPGraphBuilder;
+        public:
+          SLPGraph(ArrayRef<Value> const& seed, unsigned lookAhead);
+          Superword* getRoot() const;
+        private:
+          std::shared_ptr<Superword> root;
+          DenseMap<Value, SmallVector<std::shared_ptr<Superword>>> superwordsByValue;
+          unsigned const lookAhead;
+        };
+
         namespace graph {
 
           template<typename Node>
