@@ -42,12 +42,9 @@ namespace mlir {
             return it.first->second;
           }
 
-          double getSuperwordTreeCost(Superword* root, SLPVectorizationPattern* pattern) {
-            llvm_unreachable("TODO");
-          }
-
         protected:
           virtual double computeScalarCost(Value const& value) = 0;
+          virtual double singleElementExtractionCost() = 0;
           double cost;
         private:
           DenseMap<Value, double> cachedScalarCosts;
@@ -58,6 +55,7 @@ namespace mlir {
 
         class UnitCostModel : public CostModel {
           double computeScalarCost(Value const& value) override;
+          double singleElementExtractionCost() override;
           void visit(BroadcastSuperword* pattern, Superword* superword) override;
           void visit(BroadcastInsertSuperword* pattern, Superword* superword) override;
           void visit(VectorizeConstant* pattern, Superword* superword) override;
