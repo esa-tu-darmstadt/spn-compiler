@@ -7,6 +7,7 @@
 //==============================================================================
 
 #include <mlir/Rewrite/FrozenRewritePatternSet.h>
+#include <llvm/ADT/IndexedMap.h>
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/IR/BlockAndValueMapping.h"
@@ -205,7 +206,8 @@ namespace mlir {
           llvm::DenseMap<Value, unsigned> inputIndices;
           SmallVector<Value> bodyInputs;
           unsigned bodyArgIndex = 0;
-          bool hasLogType[nonPartitionInputs.size()];
+          llvm::IndexedMap<bool> hasLogType;
+          hasLogType.grow(nonPartitionInputs.size());
           for (auto& in : nonPartitionInputs) {
             auto value = in.getFirst();
             auto inputInfo = in.getSecond();
