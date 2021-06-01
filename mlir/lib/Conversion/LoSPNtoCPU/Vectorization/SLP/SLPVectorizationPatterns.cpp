@@ -65,6 +65,10 @@ void BroadcastSuperword::accept(PatternVisitor& visitor, Superword* superword) {
   visitor.visit(this, superword);
 }
 
+SmallVector<Value, 4> BroadcastSuperword::possiblyRequiredExtractions(Superword* superword) const {
+  return {superword->getElement(0)};
+}
+
 // === BroadcastInsert === //
 
 LogicalResult BroadcastInsertSuperword::match(Superword* superword) const {
@@ -88,6 +92,10 @@ void BroadcastInsertSuperword::rewrite(Superword* superword, PatternRewriter& re
 
 void BroadcastInsertSuperword::accept(PatternVisitor& visitor, Superword* superword) {
   visitor.visit(this, superword);
+}
+
+SmallVector<Value, 4> BroadcastInsertSuperword::possiblyRequiredExtractions(Superword* superword) const {
+  return {std::begin(*superword), std::end(*superword)};
 }
 
 // Helper functions in anonymous namespace.
@@ -129,7 +137,7 @@ namespace {
 
 }
 
-// === SPNConstant === //
+// === VectorizeConstant === //
 
 void VectorizeConstant::rewrite(Superword* superword, PatternRewriter& rewriter) const {
   SmallVector<Attribute, 4> constants;
@@ -145,7 +153,11 @@ void VectorizeConstant::accept(PatternVisitor& visitor, Superword* superword) {
   visitor.visit(this, superword);
 }
 
-// === SPNBatchRead === //
+SmallVector<Value, 4> VectorizeConstant::possiblyRequiredExtractions(Superword* superword) const {
+  return {};
+}
+
+// === VectorizeBatchRead === //
 
 LogicalResult VectorizeBatchRead::match(Superword* superword) const {
   if (!consecutiveLoads(superword->begin(), superword->end())) {
@@ -169,7 +181,7 @@ void VectorizeBatchRead::accept(PatternVisitor& visitor, Superword* superword) {
   visitor.visit(this, superword);
 }
 
-// === SPNAdd === //
+// === VectorizeAdd === //
 
 void VectorizeAdd::rewrite(Superword* superword, PatternRewriter& rewriter) const {
   SmallVector<Value, 2> operands;
@@ -184,7 +196,7 @@ void VectorizeAdd::accept(PatternVisitor& visitor, Superword* superword) {
   visitor.visit(this, superword);
 }
 
-// === SPNMul === //
+// === VectorizeMul === //
 
 void VectorizeMul::rewrite(Superword* superword, PatternRewriter& rewriter) const {
   SmallVector<Value, 2> operands;
@@ -199,7 +211,7 @@ void VectorizeMul::accept(PatternVisitor& visitor, Superword* superword) {
   visitor.visit(this, superword);
 }
 
-// === SPNGaussianLeaf === //
+// === VectorizeGaussian === //
 
 void VectorizeGaussian::rewrite(Superword* superword, PatternRewriter& rewriter) const {
 

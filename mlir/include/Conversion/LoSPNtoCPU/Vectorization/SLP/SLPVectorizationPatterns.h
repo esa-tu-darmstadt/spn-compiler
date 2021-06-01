@@ -26,7 +26,6 @@ namespace mlir {
         class Visitable {
         public:
           virtual void accept(PatternVisitor& visitor, Superword* superword) = 0;
-        protected:
           virtual ~Visitable() = default;
         };
 
@@ -40,70 +39,84 @@ namespace mlir {
           ConversionManager& conversionManager;
         };
 
-        struct BroadcastSuperword : public SLPVectorizationPattern {
+        class LeafVectorizationPattern : public virtual SLPVectorizationPattern {
           using SLPVectorizationPattern::SLPVectorizationPattern;
-          LogicalResult match(Superword* superword) const override;
-          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
-          void accept(PatternVisitor& visitor, Superword* superword) override;
-        };
-
-        struct BroadcastInsertSuperword : public SLPVectorizationPattern {
-          using SLPVectorizationPattern::SLPVectorizationPattern;
-          LogicalResult match(Superword* superword) const override;
-          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
-          void accept(PatternVisitor& visitor, Superword* superword) override;
+        public:
+          virtual SmallVector<Value, 4> possiblyRequiredExtractions(Superword* superword) const = 0;
         };
 
         template<typename SourceOp>
-        class OpSpecificSLPVectorizationPattern : public SLPVectorizationPattern {
+        class OpSpecificVectorizationPattern : public virtual SLPVectorizationPattern {
+          using SLPVectorizationPattern::SLPVectorizationPattern;
         public:
-
-          explicit OpSpecificSLPVectorizationPattern(ConversionManager& conversionManager) : SLPVectorizationPattern{
-              conversionManager} {}
-
           LogicalResult match(Superword* superword) const override {
+            bool checkedOperands = false;
             for (auto const& value : *superword) {
-              if (!value.getDefiningOp<SourceOp>()) {
-                // Pattern only applicable to uniform superwords of type SourceOp.
+              SourceOp op = value.getDefiningOp<SourceOp>();
+              // Pattern only applicable to uniform superwords of type SourceOp.
+              if (!op) {
                 return failure();
+              }
+              if (!checkedOperands) {
+                if (superword->numOperands() != op->getNumOperands()) {
+                  return failure();
+                }
+                checkedOperands = true;
               }
             }
             return success();
           }
         };
 
-        // TODO: add vector reduction patterns
-
-        struct VectorizeConstant : public OpSpecificSLPVectorizationPattern<ConstantOp> {
-          using OpSpecificSLPVectorizationPattern<ConstantOp>::OpSpecificSLPVectorizationPattern;
+        struct BroadcastSuperword : public LeafVectorizationPattern {
+          using LeafVectorizationPattern::LeafVectorizationPattern;
+          LogicalResult match(Superword* superword) const override;
           void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
           void accept(PatternVisitor& visitor, Superword* superword) override;
+          SmallVector<Value, 4> possiblyRequiredExtractions(Superword* superword) const override;
         };
 
-        struct VectorizeBatchRead : public OpSpecificSLPVectorizationPattern<SPNBatchRead> {
-          using OpSpecificSLPVectorizationPattern<SPNBatchRead>::OpSpecificSLPVectorizationPattern;
+        struct BroadcastInsertSuperword : public LeafVectorizationPattern {
+          using LeafVectorizationPattern::LeafVectorizationPattern;
+          LogicalResult match(Superword* superword) const override;
+          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          void accept(PatternVisitor& visitor, Superword* superword) override;
+          SmallVector<Value, 4> possiblyRequiredExtractions(Superword* superword) const override;
+        };
+
+        struct VectorizeConstant : public OpSpecificVectorizationPattern<ConstantOp>, public LeafVectorizationPattern {
+          using OpSpecificVectorizationPattern<ConstantOp>::OpSpecificVectorizationPattern;
+          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          void accept(PatternVisitor& visitor, Superword* superword) override;
+          SmallVector<Value, 4> possiblyRequiredExtractions(Superword* superword) const override;
+        };
+
+        struct VectorizeBatchRead : public OpSpecificVectorizationPattern<SPNBatchRead> {
+          using OpSpecificVectorizationPattern<SPNBatchRead>::OpSpecificVectorizationPattern;
           LogicalResult match(Superword* superword) const override;
           void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
           void accept(PatternVisitor& visitor, Superword* superword) override;
         };
 
-        struct VectorizeAdd : public OpSpecificSLPVectorizationPattern<SPNAdd> {
-          using OpSpecificSLPVectorizationPattern<SPNAdd>::OpSpecificSLPVectorizationPattern;
+        struct VectorizeAdd : public OpSpecificVectorizationPattern<SPNAdd> {
+          using OpSpecificVectorizationPattern<SPNAdd>::OpSpecificVectorizationPattern;
           void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
           void accept(PatternVisitor& visitor, Superword* superword) override;
         };
 
-        struct VectorizeMul : public OpSpecificSLPVectorizationPattern<SPNMul> {
-          using OpSpecificSLPVectorizationPattern<SPNMul>::OpSpecificSLPVectorizationPattern;
+        struct VectorizeMul : public OpSpecificVectorizationPattern<SPNMul> {
+          using OpSpecificVectorizationPattern<SPNMul>::OpSpecificVectorizationPattern;
           void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
           void accept(PatternVisitor& visitor, Superword* superword) override;
         };
 
-        struct VectorizeGaussian : public OpSpecificSLPVectorizationPattern<SPNGaussianLeaf> {
-          using OpSpecificSLPVectorizationPattern<SPNGaussianLeaf>::OpSpecificSLPVectorizationPattern;
+        struct VectorizeGaussian : public OpSpecificVectorizationPattern<SPNGaussianLeaf> {
+          using OpSpecificVectorizationPattern<SPNGaussianLeaf>::OpSpecificVectorizationPattern;
           void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
           void accept(PatternVisitor& visitor, Superword* superword) override;
         };
+
+        // TODO: add vector reduction patterns
 
         class PatternVisitor {
         public:
