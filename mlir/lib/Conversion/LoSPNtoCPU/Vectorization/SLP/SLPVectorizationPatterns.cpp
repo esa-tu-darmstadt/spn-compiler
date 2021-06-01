@@ -78,15 +78,12 @@ LogicalResult BroadcastInsertSuperword::match(Superword* superword) const {
 void BroadcastInsertSuperword::rewrite(Superword* superword, PatternRewriter& rewriter) const {
   createNecessaryExtractionsFor(superword, conversionManager);
   DenseMap<Value, unsigned> elementCounts;
-  for (auto const& element : *superword) {
-    ++elementCounts[element];
-  }
   Value broadcastValue;
   unsigned maxCount = 0;
-  for (auto const& entry : elementCounts) {
-    if (entry.second > maxCount) {
-      maxCount = entry.second;
-      broadcastValue = entry.first;
+  for (auto const& element : *superword) {
+    if (++elementCounts[element] > maxCount) {
+      broadcastValue = element;
+      maxCount = elementCounts[element];
     }
   }
   auto loc = superword->getLoc();
