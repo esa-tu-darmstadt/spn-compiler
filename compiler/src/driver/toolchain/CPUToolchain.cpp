@@ -37,7 +37,14 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
   auto diagHandler = setupDiagnosticHandler(ctx.get());
   auto cpuVectorize = spnc::option::cpuVectorize.get(*config);
   SPDLOG_INFO("CPU Vectorization enabled: {}", cpuVectorize);
-  auto targetMachine = createTargetMachine(cpuVectorize);
+  int mcOptLevel = spnc::option::optLevel.get(*config);
+  if (spnc::option::mcOptLevel.isPresent(*config) && spnc::option::mcOptLevel.get(*config) != mcOptLevel) {
+    auto optionValue = spnc::option::mcOptLevel.get(*config);
+    SPDLOG_INFO("Option mc-opt-level (value: {}) takes precedence over option opt-level (value: {})",
+                optionValue, mcOptLevel);
+    mcOptLevel = optionValue;
+  }
+  auto targetMachine = createTargetMachine(mcOptLevel);
   auto kernelInfo = std::make_shared<KernelInfo>();
   kernelInfo->target = KernelTarget::CPU;
   BinarySPN binarySPNFile{inputFile, false};
@@ -48,7 +55,14 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
   auto& cpu2llvm = job->insertAction<CPUtoLLVMConversion>(lospn2cpu, ctx, diagHandler);
 
   // Convert the MLIR module to a LLVM-IR module.
-  auto& llvmConversion = job->insertAction<MLIRtoLLVMIRConversion>(cpu2llvm, ctx, targetMachine);
+  int irOptLevel = spnc::option::optLevel.get(*config);
+  if (spnc::option::irOptLevel.isPresent(*config) && spnc::option::irOptLevel.get(*config) != irOptLevel) {
+    auto optionValue = spnc::option::irOptLevel.get(*config);
+    SPDLOG_INFO("Option ir-opt-level (value: {}) takes precedence over option opt-level (value: {})",
+                optionValue, irOptLevel);
+    irOptLevel = optionValue;
+  }
+  auto& llvmConversion = job->insertAction<MLIRtoLLVMIRConversion>(cpu2llvm, ctx, targetMachine, irOptLevel);
 
   // Translate the generated LLVM IR module to object code and write it to an object file.
   auto objectFile = FileSystem::createTempFile<FileType::OBJECT>(true);

@@ -38,6 +38,12 @@ namespace spnc {
     /// Interface option to specify the compilation target.
     extern EnumOpt compilationTarget;
 
+    extern Option<int> optLevel;
+
+    extern Option<int> irOptLevel;
+
+    extern Option<int> mcOptLevel;
+
     ///
     /// Option to specify the maximum size of a task. Smaller tasks typically reduce
     /// compilation time, but can introduce overhead.

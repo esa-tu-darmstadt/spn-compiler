@@ -25,9 +25,9 @@ using namespace spnc;
 MLIRtoLLVMIRConversion::MLIRtoLLVMIRConversion(spnc::ActionWithOutput<mlir::ModuleOp>& _input,
                                                std::shared_ptr<mlir::MLIRContext> context,
                                                std::shared_ptr<llvm::TargetMachine> targetMachine,
-                                               bool optimizeOutput)
-    : ActionSingleInput<mlir::ModuleOp, llvm::Module>{_input}, cached{false}, optimize{optimizeOutput},
-    ctx{std::move(context)}, machine{std::move(targetMachine)}, llvmCtx{} {}
+                                               int optLevel)
+    : ActionSingleInput<mlir::ModuleOp, llvm::Module>{_input}, cached{false}, irOptLevel{optLevel},
+      ctx{std::move(context)}, machine{std::move(targetMachine)}, llvmCtx{} {}
 
 llvm::Module& spnc::MLIRtoLLVMIRConversion::execute() {
   if (!cached) {
@@ -50,7 +50,7 @@ llvm::Module& spnc::MLIRtoLLVMIRConversion::execute() {
     mlir::ExecutionEngine::setupTargetTriple(module.get());
     // Run optimization pipeline to get rid of some clutter introduced during conversion to LLVM dialect in MLIR.
     optimizeLLVMIR();
-    if (optimize && spnc::option::dumpIR.get(*this->config)) {
+    if (irOptLevel > 0 && spnc::option::dumpIR.get(*this->config)) {
       llvm::dbgs() << "\n// *** IR after optimization of LLVM IR ***\n";
       module->dump();
     }
@@ -63,12 +63,10 @@ void MLIRtoLLVMIRConversion::optimizeLLVMIR() {
   llvm::legacy::PassManager modulePM;
   llvm::legacy::FunctionPassManager funcPM(module.get());
   llvm::PassManagerBuilder builder;
-  // TODO Allow more fine-grained setting via option.
-  unsigned optLevel = (optimize) ? 3 : 0;
   unsigned sizeLevel = 0;
-  builder.OptLevel = optLevel;
+  builder.OptLevel = irOptLevel;
   builder.SizeLevel = sizeLevel;
-  builder.Inliner = llvm::createFunctionInliningPass(optLevel, sizeLevel, false);
+  builder.Inliner = llvm::createFunctionInliningPass(irOptLevel, sizeLevel, false);
   // Currently both kinds of vectorization are always disabled. Either the
   // vectorization was already performed in MLIR or the user did not request vectorization.
   builder.LoopVectorize = false;

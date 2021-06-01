@@ -76,7 +76,7 @@ std::shared_ptr<mlir::ScopedDiagnosticHandler> spnc::MLIRToolchain::setupDiagnos
   });
 }
 
-std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(bool cpuVectorize) {
+std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(int optLevel) {
   // NOTE: If we wanted to support cross-compilation, we could hook in here to use a different target machine.
 
   llvm::InitializeNativeTarget();
@@ -111,9 +111,23 @@ std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(bo
   SPDLOG_INFO("Target machine features: {}", featureList.str());
   SPDLOG_INFO("Target machine CPU physical core count: {}", llvm::sys::getHostNumPhysicalCores());
 
+  llvm::CodeGenOpt::Level cgOptLevel = llvm::CodeGenOpt::Default;
+  switch (optLevel) {
+    case 0: cgOptLevel = llvm::CodeGenOpt::None;
+      break;
+    case 1: cgOptLevel = llvm::CodeGenOpt::Less;
+      break;
+    case 2: cgOptLevel = llvm::CodeGenOpt::Default;
+      break;
+    case 3: cgOptLevel = llvm::CodeGenOpt::Aggressive;
+      break;
+    default: SPNC_FATAL_ERROR("Invalid optimization level {}", optLevel);
+  }
+
   std::shared_ptr<llvm::TargetMachine> machine{target->createTargetMachine(targetTriple,
                                                                            cpu, features.getString(), {},
-                                                                           llvm::Reloc::PIC_)};
+                                                                           llvm::Reloc::PIC_, llvm::None,
+                                                                           cgOptLevel)};
   return machine;
 }
 
