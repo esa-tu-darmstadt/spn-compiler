@@ -34,6 +34,21 @@ SLPVectorizationPattern* SLPPatternApplicator::bestMatch(Superword* superword) {
   return it.first->second;
 }
 
+LeafVectorizationPattern* SLPPatternApplicator::bestMatchIfLeaf(Superword* superword) const {
+  double bestCost = 0;
+  LeafVectorizationPattern* bestPattern = nullptr;
+  for (size_t i = 0; i < patterns.size(); ++i) {
+    if (auto leafPattern = dyn_cast<LeafVectorizationPattern>(patterns[i].get())) {
+      auto cost = costModel->getSuperwordCost(superword, leafPattern);
+      if (!bestPattern || bestCost > cost) {
+        bestCost = cost;
+        bestPattern = leafPattern;
+      }
+    }
+  }
+  return bestPattern;
+}
+
 void SLPPatternApplicator::matchAndRewrite(Superword* superword, PatternRewriter& rewriter) {
   auto* pattern = bestMatch(superword);
   if (!pattern) {
