@@ -70,6 +70,8 @@ namespace spnc {
 
   private:
 
+    void optimizeLLVMIR();
+
     std::unique_ptr<llvm::Module> module;
 
     bool cached;

@@ -96,20 +96,13 @@ std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(bo
   bool initial = true;
   if (llvm::sys::getHostCPUFeatures(hostFeatures)) {
     for (auto& f : hostFeatures) {
-      // Temporary hack: If no vectorization was requested by the user, disable
-      // AVX* target features to avoid the LLVM auto-vectorizer to kick in.
-      // TODO: Replace with a cleaner solution.
-      if (!cpuVectorize && f.first().startswith("avx")) {
-        features.AddFeature(f.first(), false);
-      } else {
-        features.AddFeature(f.first(), f.second);
-        if(f.second){
-          if (!initial) {
-            featureList << ", ";
-          }
-          featureList << f.first().str();
-          initial = false;
+      features.AddFeature(f.first(), f.second);
+      if (f.second) {
+        if (!initial) {
+          featureList << ", ";
         }
+        featureList << f.first().str();
+        initial = false;
       }
     }
   }
