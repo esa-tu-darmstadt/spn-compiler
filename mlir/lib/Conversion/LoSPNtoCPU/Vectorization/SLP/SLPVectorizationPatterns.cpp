@@ -77,15 +77,27 @@ LogicalResult BroadcastInsertSuperword::match(Superword* superword) const {
 
 void BroadcastInsertSuperword::rewrite(Superword* superword, PatternRewriter& rewriter) const {
   createNecessaryExtractionsFor(superword, conversionManager);
-  Value vectorizedOp;
+  DenseMap<Value, unsigned> elementCounts;
+  for (auto const& element : *superword) {
+    ++elementCounts[element];
+  }
+  Value broadcastValue;
+  unsigned maxCount = 0;
+  for (auto const& entry : elementCounts) {
+    if (entry.second > maxCount) {
+      maxCount = entry.second;
+      broadcastValue = entry.first;
+    }
+  }
+  auto loc = superword->getLoc();
+  Value vectorizedOp = rewriter.create<vector::BroadcastOp>(loc, superword->getVectorType(), broadcastValue);
   for (size_t i = 0; i < superword->numLanes(); ++i) {
     auto const& element = superword->getElement(i);
-    if (i == 0) {
-      vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), superword->getVectorType(), element);
-    } else {
-      auto index = conversionManager.getOrCreateConstant(element.getLoc(), rewriter.getI32IntegerAttr((int) i));
-      vectorizedOp = rewriter.create<vector::InsertElementOp>(element.getLoc(), element, vectorizedOp, index);
+    if (element == broadcastValue) {
+      continue;
     }
+    auto index = conversionManager.getOrCreateConstant(loc, rewriter.getI32IntegerAttr((int) i));
+    vectorizedOp = rewriter.create<vector::InsertElementOp>(loc, element, vectorizedOp, index);
   }
   conversionManager.update(superword, vectorizedOp, ElementFlag::KeepAll);
 }
