@@ -135,6 +135,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
     task->emitRemark("Converting graph...");
     conversionManager.initConversion(graph.getRoot());
+    costModel->setConversionState(std::make_shared<ConversionState>());
     auto const& order = conversionManager.conversionOrder();
 
     auto numVectors = order.size();
