@@ -306,24 +306,23 @@ unsigned SLPGraphBuilder::getLookAheadScore(Value const& last, Value const& cand
 std::shared_ptr<Superword> SLPGraphBuilder::appendSuperwordToNode(ArrayRef<Value> const& values,
                                                                   std::shared_ptr<SLPNode> const& node,
                                                                   std::shared_ptr<Superword> const& usingSuperword) {
-  auto newSuperword = std::make_shared<Superword>(values);
-  graph.superwordsByValue[values[0]].emplace_back(newSuperword);
-  nodeBySuperword[newSuperword.get()] = node;
-  node->addSuperword(newSuperword);
-  usingSuperword->addOperand(newSuperword);
-  return newSuperword;
+  auto superword = std::make_shared<Superword>(values);
+  graph.superwordsByValue[values[0]].emplace_back(superword);
+  nodeBySuperword[superword.get()] = node;
+  node->addSuperword(superword);
+  usingSuperword->addOperand(superword);
+  return superword;
 }
 
 std::shared_ptr<SLPNode> SLPGraphBuilder::addOperandToNode(ArrayRef<Value> const& operandValues,
                                                            std::shared_ptr<SLPNode> const& node,
                                                            std::shared_ptr<Superword> const& usingSuperword) {
-  auto newSuperword = std::make_shared<Superword>(operandValues);
-  auto operandNode =
-      nodeBySuperword.try_emplace(newSuperword.get(), std::make_shared<SLPNode>(newSuperword)).first->second;
-  graph.superwordsByValue[operandValues[0]].emplace_back(newSuperword);
-  nodeBySuperword[newSuperword.get()] = operandNode;
+  auto superword = std::make_shared<Superword>(operandValues);
+  graph.superwordsByValue[operandValues[0]].emplace_back(superword);
+  auto operandNode = nodeBySuperword.try_emplace(superword.get(), std::make_shared<SLPNode>(superword)).first->second;
+  nodeBySuperword[superword.get()] = operandNode;
   node->addOperand(operandNode);
-  usingSuperword->addOperand(newSuperword);
+  usingSuperword->addOperand(superword);
   return operandNode;
 }
 
