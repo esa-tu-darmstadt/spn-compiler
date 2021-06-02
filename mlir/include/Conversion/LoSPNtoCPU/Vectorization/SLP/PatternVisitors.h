@@ -38,7 +38,7 @@ namespace mlir {
         class PatternVisitor {
         public:
           // Acts as default visiting method so that we don't have to override every single visit method.
-          virtual void visit(SLPVectorizationPattern* pattern, Superword* superword) = 0;
+          virtual void visitDefault(SLPVectorizationPattern* pattern, Superword* superword) = 0;
           virtual void visit(BroadcastSuperword* pattern, Superword* superword);
           virtual void visit(BroadcastInsertSuperword* pattern, Superword* superword);
           virtual void visit(VectorizeConstant* pattern, Superword* superword);
@@ -53,7 +53,7 @@ namespace mlir {
         class ScalarValueVisitor : public PatternVisitor {
         public:
           ArrayRef<Value> getRequiredScalarValues(SLPVectorizationPattern* pattern, Superword* superword);
-          void visit(SLPVectorizationPattern* pattern, Superword* superword) override;
+          void visitDefault(SLPVectorizationPattern* pattern, Superword* superword) override;
           void visit(BroadcastSuperword* pattern, Superword* superword) override;
           void visit(BroadcastInsertSuperword* pattern, Superword* superword) override;
         private:
@@ -63,7 +63,7 @@ namespace mlir {
         class LeafPatternVisitor : public PatternVisitor {
         public:
           bool isLeafPattern(SLPVectorizationPattern* pattern);
-          void visit(SLPVectorizationPattern* pattern, Superword* superword) override;
+          void visitDefault(SLPVectorizationPattern* pattern, Superword* superword) override;
           void visit(BroadcastSuperword* pattern, Superword* superword) override;
           void visit(BroadcastInsertSuperword* pattern, Superword* superword) override;
           void visit(VectorizeConstant* pattern, Superword* superword) override;

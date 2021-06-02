@@ -18,31 +18,31 @@ using namespace mlir::spn::low::slp;
 // === PatternVisitor === //
 
 void PatternVisitor::visit(BroadcastSuperword* pattern, Superword* superword) {
-  static_cast<SLPVectorizationPattern*>(pattern)->accept(*this, superword);
+  visitDefault(pattern, superword);
 }
 
 void PatternVisitor::visit(BroadcastInsertSuperword* pattern, Superword* superword) {
-  static_cast<SLPVectorizationPattern*>(pattern)->accept(*this, superword);
+  visitDefault(pattern, superword);
 }
 
 void PatternVisitor::visit(VectorizeConstant* pattern, Superword* superword) {
-  static_cast<SLPVectorizationPattern*>(pattern)->accept(*this, superword);
+  visitDefault(pattern, superword);
 }
 
 void PatternVisitor::visit(VectorizeBatchRead* pattern, Superword* superword) {
-  static_cast<SLPVectorizationPattern*>(pattern)->accept(*this, superword);
+  visitDefault(pattern, superword);
 }
 
 void PatternVisitor::visit(VectorizeAdd* pattern, Superword* superword) {
-  static_cast<SLPVectorizationPattern*>(pattern)->accept(*this, superword);
+  visitDefault(pattern, superword);
 }
 
 void PatternVisitor::visit(VectorizeMul* pattern, Superword* superword) {
-  static_cast<SLPVectorizationPattern*>(pattern)->accept(*this, superword);
+  visitDefault(pattern, superword);
 }
 
 void PatternVisitor::visit(VectorizeGaussian* pattern, Superword* superword) {
-  static_cast<SLPVectorizationPattern*>(pattern)->accept(*this, superword);
+  visitDefault(pattern, superword);
 }
 
 // === ScalarValueVisitor === //
@@ -52,7 +52,7 @@ ArrayRef<Value> ScalarValueVisitor::getRequiredScalarValues(SLPVectorizationPatt
   return this->scalarValues;
 }
 
-void ScalarValueVisitor::visit(SLPVectorizationPattern* pattern, Superword* superword) {
+void ScalarValueVisitor::visitDefault(SLPVectorizationPattern* pattern, Superword* superword) {
   this->scalarValues.clear();
 }
 
@@ -72,7 +72,7 @@ bool LeafPatternVisitor::isLeafPattern(SLPVectorizationPattern* pattern) {
   return this->isLeaf;
 }
 
-void LeafPatternVisitor::visit(SLPVectorizationPattern* pattern, Superword* superword) {
+void LeafPatternVisitor::visitDefault(SLPVectorizationPattern* pattern, Superword* superword) {
   this->isLeaf = false;
 }
 

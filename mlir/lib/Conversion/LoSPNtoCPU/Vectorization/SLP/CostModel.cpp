@@ -113,7 +113,7 @@ double UnitCostModel::computeExtractionCost(Superword* superword, size_t index) 
   return 1;
 }
 
-void UnitCostModel::visit(SLPVectorizationPattern* pattern, Superword* superword) {
+void UnitCostModel::visitDefault(SLPVectorizationPattern* pattern, Superword* superword) {
   this->cost = 1;
 }
 
