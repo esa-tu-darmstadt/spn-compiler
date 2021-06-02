@@ -47,7 +47,7 @@ void PatternVisitor::visit(VectorizeGaussian* pattern, Superword* superword) {
 
 // === ScalarValueVisitor === //
 
-ArrayRef<Value> ScalarValueVisitor::requiredScalarValues(SLPVectorizationPattern* pattern, Superword* superword) {
+ArrayRef<Value> ScalarValueVisitor::getRequiredScalarValues(SLPVectorizationPattern* pattern, Superword* superword) {
   pattern->accept(*this, superword);
   return this->scalarValues;
 }

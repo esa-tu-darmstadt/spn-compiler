@@ -39,9 +39,9 @@ SLPVectorizationPattern* SLPPatternApplicator::bestMatchIfLeaf(Superword* superw
   double bestCost = 0;
   SLPVectorizationPattern* bestPattern = nullptr;
   for (size_t i = 0; i < patterns.size(); ++i) {
-    if (leafVisitor->isLeafPattern(patterns[i].get())) {
+    if (leafVisitor->isLeafPattern(patterns[i].get()) && succeeded(patterns[i]->match(superword))) {
       auto cost = costModel->getSuperwordCost(superword, patterns[i].get());
-      if (!bestPattern || bestCost > cost) {
+      if (i == 0 || cost < bestCost) {
         bestCost = cost;
         bestPattern = patterns[i].get();
       }

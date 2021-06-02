@@ -10,6 +10,7 @@
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_GRAPHCONVERSION_H
 
 #include "SLPGraph.h"
+#include "PatternVisitors.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/FoldUtils.h"
 
@@ -17,6 +18,48 @@ namespace mlir {
   namespace spn {
     namespace low {
       namespace slp {
+
+        class CostModel;
+        class SLPVectorizationPattern;
+
+        struct ValuePosition {
+          ValuePosition() : superword{nullptr}, index{0} {}
+          ValuePosition(Superword* superword, size_t index) : superword{superword}, index{index} {}
+          Superword* superword;
+          size_t index;
+        };
+
+        class ConversionState {
+        public:
+          bool alreadyComputed(Superword* superword) const;
+          bool alreadyComputed(Value const& value) const;
+          bool isExtractionProfitable(Value const& value) const;
+          void markComputed(Superword* superword);
+          void markComputed(Value const& value);
+          void markExtractionProfitable(Value const& value);
+          ValuePosition getWordContainingValue(Value const& value) const;
+        private:
+          SmallPtrSet<Value, 32> computedScalarValues;
+          SmallPtrSet<Superword*, 32> computedSuperwords;
+          DenseMap<Value, ValuePosition> extractableScalarValues;
+          SmallPtrSet<Value, 32> profitableExtractions;
+        };
+
+        class ConversionPlan {
+        public:
+          struct Step {
+            Step(Superword* superword, SLPVectorizationPattern* pattern) : superword{superword}, pattern{pattern} {}
+            Superword* superword;
+            SLPVectorizationPattern* pattern;
+          };
+          ConversionPlan(std::shared_ptr<ConversionState> conversionState);
+          void addConversionStep(Superword* superword, SLPVectorizationPattern* pattern);
+        private:
+          SmallVector<Step, 32> plan;
+          std::shared_ptr<ConversionState> conversionState;
+          ScalarValueVisitor scalarVisitor;
+          std::shared_ptr<CostModel> costModel;
+        };
 
         enum ElementFlag {
           /// Erase all elements after conversion.

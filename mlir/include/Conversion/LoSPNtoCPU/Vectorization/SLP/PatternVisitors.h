@@ -17,7 +17,7 @@ namespace mlir {
       namespace slp {
 
         class PatternVisitor;
-        // === Forward declare all patterns here to avoid cyclic dependencies in includes. === //
+        /* === Forward declare all patterns here to avoid cyclic dependencies in includes. === */
         class SLPVectorizationPattern;
         struct BroadcastSuperword;
         struct BroadcastInsertSuperword;
@@ -26,7 +26,7 @@ namespace mlir {
         struct VectorizeAdd;
         struct VectorizeMul;
         struct VectorizeGaussian;
-        // =================================================================================== //
+        /* =================================================================================== */
 
         class Visitable {
         public:
@@ -37,7 +37,7 @@ namespace mlir {
 
         class PatternVisitor {
         public:
-          // Acts as default visiting method so that we don't have to duplicate every visit method all the time.
+          // Acts as default visiting method so that we don't have to override every single visit method.
           virtual void visit(SLPVectorizationPattern* pattern, Superword* superword) = 0;
           virtual void visit(BroadcastSuperword* pattern, Superword* superword);
           virtual void visit(BroadcastInsertSuperword* pattern, Superword* superword);
@@ -52,7 +52,7 @@ namespace mlir {
 
         class ScalarValueVisitor : public PatternVisitor {
         public:
-          ArrayRef<Value> requiredScalarValues(SLPVectorizationPattern* pattern, Superword* superword);
+          ArrayRef<Value> getRequiredScalarValues(SLPVectorizationPattern* pattern, Superword* superword);
           void visit(SLPVectorizationPattern* pattern, Superword* superword) override;
           void visit(BroadcastSuperword* pattern, Superword* superword) override;
           void visit(BroadcastInsertSuperword* pattern, Superword* superword) override;

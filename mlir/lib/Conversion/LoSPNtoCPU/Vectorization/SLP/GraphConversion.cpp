@@ -7,10 +7,113 @@
 //==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/SLP/GraphConversion.h"
+#include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
+#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
+#include "llvm/ADT/SCCIterator.h"
 
 using namespace mlir;
 using namespace mlir::spn::low::slp;
+
+namespace llvm {
+
+  template<>
+  struct GraphTraits<DependencyGraph> {
+    typedef Superword* NodeRef;
+    typedef SmallPtrSetIterator<NodeRef> ChildIteratorType;
+    static NodeRef getEntryNode(DependencyGraph const&) {
+      llvm_unreachable("TODO");
+    }
+    static ChildIteratorType child_begin(NodeRef) {
+      llvm_unreachable("TODO");
+    }
+    static ChildIteratorType child_end(NodeRef) {
+      llvm_unreachable("TODO");
+    }
+
+    typedef SmallPtrSetIterator<NodeRef> nodes_iterator;
+    static nodes_iterator nodes_begin(DependencyGraph* G) {
+      llvm_unreachable("TODO");
+    }
+    static nodes_iterator nodes_end(DependencyGraph* G) {
+      llvm_unreachable("TODO");
+    }
+
+    typedef std::pair<NodeRef, NodeRef> EdgeRef;
+    typedef SmallPtrSetIterator<EdgeRef> ChildEdgeIteratorType;
+    static ChildEdgeIteratorType child_edge_begin(NodeRef) {
+      llvm_unreachable("TODO");
+    }
+    static ChildEdgeIteratorType child_edge_end(NodeRef) {
+      llvm_unreachable("TODO");
+    }
+    static NodeRef edge_dest(EdgeRef) {
+      llvm_unreachable("TODO");
+    }
+
+    static unsigned size(DependencyGraph* G) {
+      llvm_unreachable("TODO");
+    }
+  };
+
+}
+
+// === ConversionState === //
+
+bool ConversionState::alreadyComputed(Superword* superword) const {
+  return computedSuperwords.contains(superword);
+}
+
+bool ConversionState::alreadyComputed(Value const& value) const {
+  return computedScalarValues.contains(value);
+}
+
+bool ConversionState::isExtractionProfitable(Value const& value) const {
+  return profitableExtractions.contains(value);
+}
+
+void ConversionState::markComputed(Superword* superword) {
+  computedSuperwords.insert(superword);
+  for (auto* operand : superword->getOperands()) {
+    assert (alreadyComputed(operand) && "computing vector before its operands");
+  }
+}
+
+void ConversionState::markComputed(Value const& value) {
+  computedScalarValues.insert(value);
+  if (auto* definingOp = value.getDefiningOp()) {
+    for (auto const& operand : definingOp->getOperands()) {
+      markComputed(operand);
+    }
+  }
+}
+
+void ConversionState::markExtractionProfitable(Value const& value) {
+  profitableExtractions.insert(value);
+}
+
+ValuePosition ConversionState::getWordContainingValue(Value const& value) const {
+  return extractableScalarValues.lookup(value);
+}
+
+// === ConversionPlan === //
+
+ConversionPlan::ConversionPlan(std::shared_ptr<ConversionState> conversionState) : conversionState{
+    std::move(conversionState)} {}
+
+void ConversionPlan::addConversionStep(Superword* superword, SLPVectorizationPattern* pattern) {
+  for (auto const& element : scalarVisitor.getRequiredScalarValues(pattern, superword)) {
+    if (conversionState->alreadyComputed(element)) {
+      continue;
+    }
+    if (costModel->isExtractionProfitable(element)) {
+      llvm_unreachable("TODO: create extraction step");
+    }
+    conversionState->markComputed(element);
+  }
+  plan.emplace_back(superword, pattern);
+}
 
 // Helper functions in anonymous namespace.
 namespace {
@@ -63,16 +166,9 @@ namespace {
   }
 
   bool willBeFolded(Superword* superword) {
-    for (auto const& element : *superword) {
-      if (auto* definingOp = element.getDefiningOp()) {
-        if (!definingOp->hasTrait<OpTrait::ConstantLike>()) {
-          return false;
-        }
-      } else {
-        return false;
-      }
-    }
-    return true;
+    return std::all_of(std::begin(*superword), std::end(*superword), [&](Value const& element) {
+      return element.getDefiningOp() && element.getDefiningOp()->hasTrait<OpTrait::ConstantLike>();
+    });
   }
 
   void reorderOperations(Operation* firstInput,
@@ -249,6 +345,8 @@ Value ConversionManager::getValue(Superword* superword) const {
 }
 
 ElementFlag ConversionManager::getElementFlag(Superword* superword) const {
+  superword->begin()->getDefiningOp()->getParentOfType<FuncOp>().dump();
+  dumpSuperword(*superword);
   assert(wasConverted(superword) && "superword has not yet been converted");
   return creationData.lookup(superword).flag;
 }

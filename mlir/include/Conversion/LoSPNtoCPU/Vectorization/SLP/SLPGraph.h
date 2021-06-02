@@ -19,11 +19,9 @@ namespace mlir {
     namespace low {
       namespace slp {
 
-        class SLPNode;
-
         class Superword {
 
-          friend SLPNode;
+          friend class SLPNode;
 
         public:
 
@@ -54,14 +52,14 @@ namespace mlir {
 
         private:
           SmallVector<Value, 4> values;
-          SmallVector<std::shared_ptr<Superword>> operandWords;
+          SmallVector<std::shared_ptr<Superword>, 2> operandWords;
         };
 
         class SLPNode {
 
         public:
 
-          SLPNode(std::shared_ptr<Superword> superword);
+          explicit SLPNode(std::shared_ptr<Superword> superword);
 
           void addSuperword(std::shared_ptr<Superword> superword);
           std::shared_ptr<Superword> getSuperword(size_t index) const;
@@ -96,6 +94,10 @@ namespace mlir {
           std::shared_ptr<Superword> root;
           DenseMap<Value, SmallVector<std::shared_ptr<Superword>>> superwordsByValue;
           unsigned const lookAhead;
+        };
+
+        class DependencyGraph {
+
         };
 
         namespace graph {

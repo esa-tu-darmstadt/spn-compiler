@@ -7,9 +7,70 @@
 //==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
+#include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
+#include "LoSPN/LoSPNTypes.h"
 
 using namespace mlir;
 using namespace mlir::spn::low::slp;
+
+// === CostModel === //
+
+double CostModel::getScalarCost(Value const& value) {
+  if (conversionState->alreadyComputed(value)) {
+    return 0;
+  }
+  double scalarCost = computeScalarCost(value);
+  if (auto* definingOp = value.getDefiningOp()) {
+    for (auto const& operand : definingOp->getOperands()) {
+      if (isExtractionProfitable(operand)) {
+        scalarCost += getExtractionCost(operand);
+        conversionState->markExtractionProfitable(operand);
+      } else {
+        scalarCost += getScalarCost(operand);
+      }
+    }
+  }
+  return scalarCost;
+}
+
+double CostModel::getSuperwordCost(Superword* superword, SLPVectorizationPattern* pattern) {
+  if (conversionState->alreadyComputed(superword)) {
+    return 0;
+  }
+  pattern->accept(*this, superword);
+  double vectorCost = cost;
+  for (auto* operand: superword->getOperands()) {
+    if (!conversionState->alreadyComputed(superword)) {
+      pattern->accept(*this, operand);
+      vectorCost += cost;
+    }
+  }
+  return vectorCost;
+}
+
+bool CostModel::isExtractionProfitable(Value const& value) {
+  if (conversionState->isExtractionProfitable(value)) {
+    return true;
+  }
+  auto extractionCost = getExtractionCost(value);
+  if (extractionCost == MAX_COST) {
+    return false;
+  }
+  auto scalarCost = getScalarCost(value);
+  return extractionCost < scalarCost;
+}
+
+void CostModel::setConversionState(std::shared_ptr<ConversionState> const& newConversionState) {
+  conversionState = newConversionState;
+}
+
+double CostModel::getExtractionCost(Value const& value) {
+  auto valuePosition = conversionState->getWordContainingValue(value);
+  if (valuePosition.superword) {
+    return computeExtractionCost(valuePosition.superword, valuePosition.index);
+  }
+  return MAX_COST;
+}
 
 // === UnitCostModel === //
 
@@ -48,7 +109,7 @@ double UnitCostModel::computeScalarCost(Value const& value) {
   return 1;
 }
 
-double UnitCostModel::singleElementExtractionCost() {
+double UnitCostModel::computeExtractionCost(Superword* superword, size_t index) {
   return 1;
 }
 
@@ -57,13 +118,16 @@ void UnitCostModel::visit(SLPVectorizationPattern* pattern, Superword* superword
 }
 
 void UnitCostModel::visit(BroadcastSuperword* pattern, Superword* superword) {
-  this->cost = getScalarTreeCost(superword->getElement(0)) + 1;
+  this->cost = 1;
+  for (auto const& element : scalarVisitor.getRequiredScalarValues(pattern, superword)) {
+    this->cost += getScalarCost(element);
+  }
 }
 
 void UnitCostModel::visit(BroadcastInsertSuperword* pattern, Superword* superword) {
-  this->cost = static_cast<double>(superword->numLanes());
-  for (auto const& element : *superword) {
-    this->cost += getScalarTreeCost(element);
+  this->cost = 0;
+  for (auto const& element : scalarVisitor.getRequiredScalarValues(pattern, superword)) {
+    this->cost += getScalarCost(element) + 1;
   }
 }
 
