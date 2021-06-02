@@ -52,6 +52,10 @@ double UnitCostModel::singleElementExtractionCost() {
   return 1;
 }
 
+void UnitCostModel::visit(SLPVectorizationPattern* pattern, Superword* superword) {
+  this->cost = 1;
+}
+
 void UnitCostModel::visit(BroadcastSuperword* pattern, Superword* superword) {
   this->cost = getScalarTreeCost(superword->getElement(0)) + 1;
 }
@@ -65,18 +69,6 @@ void UnitCostModel::visit(BroadcastInsertSuperword* pattern, Superword* superwor
 
 void UnitCostModel::visit(VectorizeConstant* pattern, Superword* superword) {
   this->cost = 0;
-}
-
-void UnitCostModel::visit(VectorizeBatchRead* pattern, Superword* superword) {
-  this->cost = 1;
-}
-
-void UnitCostModel::visit(VectorizeAdd* pattern, Superword* superword) {
-  this->cost = 1;
-}
-
-void UnitCostModel::visit(VectorizeMul* pattern, Superword* superword) {
-  this->cost = 1;
 }
 
 void UnitCostModel::visit(VectorizeGaussian* pattern, Superword* superword) {

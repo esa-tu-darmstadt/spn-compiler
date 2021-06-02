@@ -15,7 +15,8 @@ using namespace mlir::spn::low::slp;
 
 SLPPatternApplicator::SLPPatternApplicator(std::shared_ptr<CostModel> costModel,
                                            SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>&& patterns)
-    : costModel{std::move(costModel)}, patterns{std::move(patterns)} {}
+    : costModel{std::move(costModel)}, patterns{std::move(patterns)},
+      leafVisitor{std::make_unique<LeafPatternVisitor>()} {}
 
 SLPVectorizationPattern* SLPPatternApplicator::bestMatch(Superword* superword) {
   auto it = bestMatches.try_emplace(superword, nullptr);
@@ -34,15 +35,15 @@ SLPVectorizationPattern* SLPPatternApplicator::bestMatch(Superword* superword) {
   return it.first->second;
 }
 
-LeafVectorizationPattern* SLPPatternApplicator::bestMatchIfLeaf(Superword* superword) const {
+SLPVectorizationPattern* SLPPatternApplicator::bestMatchIfLeaf(Superword* superword) const {
   double bestCost = 0;
-  LeafVectorizationPattern* bestPattern = nullptr;
+  SLPVectorizationPattern* bestPattern = nullptr;
   for (size_t i = 0; i < patterns.size(); ++i) {
-    if (auto leafPattern = dyn_cast<LeafVectorizationPattern>(patterns[i].get())) {
-      auto cost = costModel->getSuperwordCost(superword, leafPattern);
+    if (leafVisitor->isLeafPattern(patterns[i].get())) {
+      auto cost = costModel->getSuperwordCost(superword, patterns[i].get());
       if (!bestPattern || bestCost > cost) {
         bestCost = cost;
-        bestPattern = leafPattern;
+        bestPattern = patterns[i].get();
       }
     }
   }

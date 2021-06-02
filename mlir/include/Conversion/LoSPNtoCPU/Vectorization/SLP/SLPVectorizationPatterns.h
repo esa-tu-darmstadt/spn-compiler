@@ -11,6 +11,7 @@
 
 #include "SLPGraph.h"
 #include "GraphConversion.h"
+#include "PatternVisitors.h"
 #include "LoSPN/LoSPNOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/PatternMatch.h"
@@ -21,14 +22,6 @@ namespace mlir {
     namespace low {
       namespace slp {
 
-        class PatternVisitor;
-
-        class Visitable {
-        public:
-          virtual void accept(PatternVisitor& visitor, Superword* superword) = 0;
-          virtual ~Visitable() = default;
-        };
-
         class SLPVectorizationPattern : public Visitable {
         public:
           explicit SLPVectorizationPattern(ConversionManager& conversionManager);
@@ -37,12 +30,6 @@ namespace mlir {
         protected:
           virtual void rewrite(Superword* superword, PatternRewriter& rewriter) const = 0;
           ConversionManager& conversionManager;
-        };
-
-        class LeafVectorizationPattern : public virtual SLPVectorizationPattern {
-          using SLPVectorizationPattern::SLPVectorizationPattern;
-        public:
-          virtual SmallVector<Value, 4> possiblyRequiredExtractions(Superword* superword) const = 0;
         };
 
         template<typename SourceOp>
@@ -68,27 +55,24 @@ namespace mlir {
           }
         };
 
-        struct BroadcastSuperword : public LeafVectorizationPattern {
-          using LeafVectorizationPattern::LeafVectorizationPattern;
+        struct BroadcastSuperword : public SLPVectorizationPattern {
+          using SLPVectorizationPattern::SLPVectorizationPattern;
           LogicalResult match(Superword* superword) const override;
           void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
           void accept(PatternVisitor& visitor, Superword* superword) override;
-          SmallVector<Value, 4> possiblyRequiredExtractions(Superword* superword) const override;
         };
 
-        struct BroadcastInsertSuperword : public LeafVectorizationPattern {
-          using LeafVectorizationPattern::LeafVectorizationPattern;
+        struct BroadcastInsertSuperword : public SLPVectorizationPattern {
+          using SLPVectorizationPattern::SLPVectorizationPattern;
           LogicalResult match(Superword* superword) const override;
           void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
           void accept(PatternVisitor& visitor, Superword* superword) override;
-          SmallVector<Value, 4> possiblyRequiredExtractions(Superword* superword) const override;
         };
 
-        struct VectorizeConstant : public OpSpecificVectorizationPattern<ConstantOp>, public LeafVectorizationPattern {
+        struct VectorizeConstant : public OpSpecificVectorizationPattern<ConstantOp> {
           using OpSpecificVectorizationPattern<ConstantOp>::OpSpecificVectorizationPattern;
           void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
           void accept(PatternVisitor& visitor, Superword* superword) override;
-          SmallVector<Value, 4> possiblyRequiredExtractions(Superword* superword) const override;
         };
 
         struct VectorizeBatchRead : public OpSpecificVectorizationPattern<SPNBatchRead> {
@@ -117,19 +101,6 @@ namespace mlir {
         };
 
         // TODO: add vector reduction patterns
-
-        class PatternVisitor {
-        public:
-          virtual void visit(BroadcastSuperword* pattern, Superword* superword) = 0;
-          virtual void visit(BroadcastInsertSuperword* pattern, Superword* superword) = 0;
-          virtual void visit(VectorizeConstant* pattern, Superword* superword) = 0;
-          virtual void visit(VectorizeBatchRead* pattern, Superword* superword) = 0;
-          virtual void visit(VectorizeAdd* pattern, Superword* superword) = 0;
-          virtual void visit(VectorizeMul* pattern, Superword* superword) = 0;
-          virtual void visit(VectorizeGaussian* pattern, Superword* superword) = 0;
-        protected:
-          virtual ~PatternVisitor() = default;
-        };
 
         static void populateSLPVectorizationPatterns(SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>& patterns,
                                                      ConversionManager& conversionManager) {

@@ -65,10 +65,6 @@ void BroadcastSuperword::accept(PatternVisitor& visitor, Superword* superword) {
   visitor.visit(this, superword);
 }
 
-SmallVector<Value, 4> BroadcastSuperword::possiblyRequiredExtractions(Superword* superword) const {
-  return {superword->getElement(0)};
-}
-
 // === BroadcastInsert === //
 
 LogicalResult BroadcastInsertSuperword::match(Superword* superword) const {
@@ -101,10 +97,6 @@ void BroadcastInsertSuperword::rewrite(Superword* superword, PatternRewriter& re
 
 void BroadcastInsertSuperword::accept(PatternVisitor& visitor, Superword* superword) {
   visitor.visit(this, superword);
-}
-
-SmallVector<Value, 4> BroadcastInsertSuperword::possiblyRequiredExtractions(Superword* superword) const {
-  return {std::begin(*superword), std::end(*superword)};
 }
 
 // Helper functions in anonymous namespace.
@@ -160,10 +152,6 @@ void VectorizeConstant::rewrite(Superword* superword, PatternRewriter& rewriter)
 
 void VectorizeConstant::accept(PatternVisitor& visitor, Superword* superword) {
   visitor.visit(this, superword);
-}
-
-SmallVector<Value, 4> VectorizeConstant::possiblyRequiredExtractions(Superword* superword) const {
-  return {};
 }
 
 // === VectorizeBatchRead === //

@@ -56,12 +56,10 @@ namespace mlir {
         class UnitCostModel : public CostModel {
           double computeScalarCost(Value const& value) override;
           double singleElementExtractionCost() override;
+          void visit(SLPVectorizationPattern* pattern, Superword* superword) override;
           void visit(BroadcastSuperword* pattern, Superword* superword) override;
           void visit(BroadcastInsertSuperword* pattern, Superword* superword) override;
           void visit(VectorizeConstant* pattern, Superword* superword) override;
-          void visit(VectorizeBatchRead* pattern, Superword* superword) override;
-          void visit(VectorizeAdd* pattern, Superword* superword) override;
-          void visit(VectorizeMul* pattern, Superword* superword) override;
           void visit(VectorizeGaussian* pattern, Superword* superword) override;
         };
       }
