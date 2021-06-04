@@ -23,4 +23,12 @@ def LoSPNCopyRemoval : Pass<"lospn-copy-removal", "SPNKernel"> {
   let dependentDialects = ["memref::MemRefDialect", "StandardOpsDialect", "scf::SCFDialect"];
 }
 
+def LoSPNTaskPartioning : Pass<"lospn-task-partitioning", "SPNKernel"> {
+  let summary = "Partition LoSPN tasks into multiple tasks";
+  let constructor = "mlir::spn::low::createLoSPNPartitionerPass()";
+  let options = [
+    Option<"maxTaskSize", "max-task-size", "int", "-1", "Determine the maximum number of operations per task">,
+  ];
+}
+
 #endif // MLIR_DIALECT_LoSPN_PASSES

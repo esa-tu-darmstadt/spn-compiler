@@ -64,21 +64,20 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
   // (assumes a 1:1 mapping between scalar operand of SPNBatchCollect and Tensor result).
   // Insert a SPNReturn (with no return values) as new terminator for the new task.
   rewriter.setInsertionPoint(newTaskBlock->getTerminator());
-  newTaskBlock->walk([&](low::SPNBatchCollect collect) {
-    SmallVector<Value, 2> scalarReturnValues;
-    for (auto retVal : llvm::zip(collect.resultValues(), collect.tensors(), outArgs)) {
-      Value scalarResult = std::get<0>(retVal);
-      auto convertedType = typeConverter->convertType(std::get<1>(retVal).getType());
-      auto memRef = std::get<2>(retVal);
-      assert(convertedType == memRef.getType());
-      rewriter.create<low::SPNBatchWrite>(collect.getLoc(), scalarResult, memRef, batchIndex);
-    }
-    rewriter.eraseOp(collect);
-  });
-  // Erase the old return and replace it with an empty return,
-  // as all results are now 'returned' via write to the out-args.
   auto ret = dyn_cast<SPNReturn>(newTaskBlock->getTerminator());
   assert(ret);
+  for (auto collectArg : llvm::zip(ret.returnValues(), outArgs)) {
+    auto collect = dyn_cast<SPNBatchCollect>(std::get<0>(collectArg).getDefiningOp());
+    assert(collect);
+    auto outArg = std::get<1>(collectArg);
+    // TODO Handle BatchCollect summarizing multiple return values into one tensor.
+    assert(collect.resultValues().size() == 1);
+    auto retVal = collect.resultValues().front();
+    rewriter.create<low::SPNBatchWrite>(collect.getLoc(), retVal, outArg, batchIndex);
+    rewriter.eraseOp(collect);
+  }
+  // Erase the old return and replace it with an empty return,
+  // as all results are now 'returned' via write to the out-args.
   rewriter.eraseOp(ret);
   rewriter.create<low::SPNReturn>(op->getLoc(), ValueRange{});
   // The results computed by the new task are stored in the allocated MemRefs,

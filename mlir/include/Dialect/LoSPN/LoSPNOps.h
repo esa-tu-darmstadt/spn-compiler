@@ -15,6 +15,7 @@
 #include "mlir/IR/RegionKindInterface.h"
 #include "LoSPN/LoSPNInterfaces.h"
 #include "LoSPN/LoSPNTraits.h"
+#include "LoSPN/LoSPNTypes.h"
 #include "mlir/IR/FunctionSupport.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/IR/BuiltinOps.h"

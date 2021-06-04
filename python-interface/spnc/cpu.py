@@ -33,6 +33,8 @@ class CPUCompiler:
         Use vector shuffles instead of gather loads when vectorizing.
     verbose : bool
         Verbose output.
+    otherOptions : dict
+        Additional options to pass to the compiler.
 
     Methods
     -------
@@ -53,8 +55,8 @@ class CPUCompiler:
     
     """
 
-    def __init__(self, vectorize = True, vectorLibrary = "LIBMVEC", computeInLogSpace = True, 
-                useVectorShuffle = True, verbose = False):
+    def __init__(self, vectorize=True, vectorLibrary="LIBMVEC", computeInLogSpace=True,
+                 useVectorShuffle=True, verbose=False, **kwargs):
         """
         Parameters
         ----------
@@ -68,6 +70,8 @@ class CPUCompiler:
             Use vector shuffles instead of gather loads when vectorizing.
         verbose : bool, optional
             Verbose output.
+        kwargs :
+            Additional options to pass to the compiler.
         """
         
         self.verbose = verbose
@@ -75,6 +79,7 @@ class CPUCompiler:
         self.vectorLibrary = vectorLibrary
         self.computeInLogSpace = computeInLogSpace
         self.useVectorShuffle = useVectorShuffle
+        self.otherOptions = kwargs
 
 
     def compile_ll(self, spn, inputDataType = "float64", errorModel = ErrorModel(), 
@@ -112,13 +117,23 @@ class CPUCompiler:
             raise RuntimeError("Serialization of the SPN failed")
 
         # Compile the query into a Kernel.
-        options = dict({"target" : "CPU", 
-                        "cpu-vectorize" : convertToFlag(self.vectorize),
-                        "vector-library" : self.vectorLibrary,
-                        "use-shuffle" : convertToFlag(self.useVectorShuffle),
-                        "use-log-space" : convertToFlag(self.computeInLogSpace),
-                        "dump-ir" : convertToFlag(self.verbose)
+        options = dict({"target": "CPU",
+                        "cpu-vectorize": convertToFlag(self.vectorize),
+                        "vector-library": self.vectorLibrary,
+                        "use-shuffle": convertToFlag(self.useVectorShuffle),
+                        "use-log-space": convertToFlag(self.computeInLogSpace),
+                        "dump-ir": convertToFlag(self.verbose)
                         })
+
+        # Add the extra options, if they do not clash with an existing option.
+        if self.otherOptions is not None:
+            extraOptions = [(str(k), str(v)) for k, v in self.otherOptions.items()]
+            for k, v in extraOptions:
+                if k in options and options[k] != v:
+                    print(f"WARNING: Option {k} specified twice, ignoring option value {v}")
+                else:
+                    options[k] = v
+
         if self.verbose:
             print(f"Invoking compiler with options: {options}")
 

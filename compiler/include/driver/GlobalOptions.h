@@ -38,6 +38,17 @@ namespace spnc {
     /// Interface option to specify the compilation target.
     extern EnumOpt compilationTarget;
 
+    extern Option<int> optLevel;
+
+    extern Option<int> irOptLevel;
+
+    extern Option<int> mcOptLevel;
+
+    ///
+    /// Option to specify the maximum size of a task. Smaller tasks typically reduce
+    /// compilation time, but can introduce overhead.
+    extern Option<int> maxTaskSize;
+
     ///
     /// Flag to indicate whether the code generated for the CPU should be vectorized.
     extern Option<bool> cpuVectorize;

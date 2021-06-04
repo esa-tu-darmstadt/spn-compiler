@@ -14,13 +14,16 @@ from spn.algorithms.Inference import log_likelihood
 
 from spnc.cpu import CPUCompiler
 
+import pytest
 
-def test_cpu_histogram():
+
+@pytest.mark.skipif(not CPUCompiler.isVectorizationSupported(), reason="CPU vectorization not supported")
+def test_log_vector_histogram():
     # Construct a minimal SPN.
     h1 = Histogram([0., 1., 2.], [0.25, 0.75], [1, 1], scope=0)
-    h2 = Histogram([0., 3., 6., 8.], [0.45, 0.1, 0.55], [1, 1], scope=1)
+    h2 = Histogram([0., 1., 2.], [0.45, 0.55], [1, 1], scope=1)
     h3 = Histogram([0., 1., 2.], [0.33, 0.67], [1, 1], scope=0)
-    h4 = Histogram([0., 5., 8.], [0.875, 0.125], [1, 1], scope=1)
+    h4 = Histogram([0., 1., 2.], [0.875, 0.125], [1, 1], scope=1)
 
     p0 = Product(children=[h1, h2])
     p1 = Product(children=[h3, h4])
@@ -31,10 +34,12 @@ def test_cpu_histogram():
         np.random.randint(2, size=30),
     )).astype("float64")
 
+    if not CPUCompiler.isVectorizationSupported():
+        print("Test not supported by the compiler installation")
+        return 0
+
     # Execute the compiled Kernel.
-    results = CPUCompiler(computeInLogSpace=False, vectorize=False).log_likelihood(spn, inputs,
-                                                                                   supportMarginal=False,
-                                                                                   batchSize=10)
+    results = CPUCompiler(maxTaskSize=5).log_likelihood(spn, inputs, supportMarginal=False)
 
     # Compute the reference results using the inference from SPFlow.
     reference = log_likelihood(spn, inputs)
@@ -43,8 +48,8 @@ def test_cpu_histogram():
     # Check the computation results against the reference
     # Check in normal space if log-results are not very close to each other.
     assert np.all(np.isclose(results, reference)) or np.all(np.isclose(np.exp(results), np.exp(reference)))
-    
+
 
 if __name__ == "__main__":
-    test_cpu_histogram()
+    test_log_vector_histogram()
     print("COMPUTATION OK")
