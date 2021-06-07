@@ -36,6 +36,8 @@ namespace mlir {
 
       bool hasAVXSupport();
 
+      bool hasNeonSupport();
+
       unsigned getHWVectorEntries(mlir::Type type);
 
     private:
@@ -45,6 +47,8 @@ namespace mlir {
       unsigned getHWVectorEntriesAVX2(mlir::Type type);
 
       unsigned getHWVectorEntriesAVX(mlir::Type type);
+
+      unsigned getHWVectorEntriesNeon(mlir::Type type);
 
       llvm::StringMap<bool, llvm::MallocAllocator> featureMap;
 

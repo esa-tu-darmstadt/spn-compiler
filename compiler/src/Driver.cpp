@@ -56,17 +56,21 @@ bool spn_compiler::isTargetSupported(const std::string& target){
 bool spn_compiler::isFeatureSupported(const std::string& feature){
   if(feature == "vectorize"){
       auto& targetInfo = mlir::spn::TargetInformation::nativeCPUTarget();
-      return targetInfo.hasAVXSupport() || 
-              targetInfo.hasAVX2Support() || targetInfo.hasAVX512Support();
+      return targetInfo.hasAVXSupport() ||
+          targetInfo.hasAVX2Support() || targetInfo.hasAVX512Support() ||
+          targetInfo.hasNeonSupport();
   }
-  if(feature == "AVX"){
+  if (feature == "AVX") {
     return mlir::spn::TargetInformation::nativeCPUTarget().hasAVXSupport();
   }
-  if(feature == "AVX2"){
+  if (feature == "AVX2") {
     return mlir::spn::TargetInformation::nativeCPUTarget().hasAVX2Support();
   }
-  if(feature == "AVX512"){
+  if (feature == "AVX512") {
     return mlir::spn::TargetInformation::nativeCPUTarget().hasAVX512Support();
+  }
+  if (feature == "Neon") {
+    return mlir::spn::TargetInformation::nativeCPUTarget().hasNeonSupport();
   }
   // TODO Add query support for more features.
   return false;
