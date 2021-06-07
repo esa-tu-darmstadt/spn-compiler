@@ -106,9 +106,21 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
   // Apply SLP vectorization.
   task->emitRemark() << "Beginning SLP vectorization...";
-  taskFunc.dump();
+  task->emitRemark() << "Total number of operations in function: " << taskFunc.body().front().getOperations().size();
+  //taskFunc.dump();
   auto elementType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
-  ConversionManager conversionManager{rewriter};
+  auto conversionState = std::make_shared<ConversionState>();
+  ConversionManager conversionManager{rewriter, conversionState};
+
+  // Prevents extracting/erasing values more than once (in splat mode, if they appear in multiple vectors, ...).
+  SmallPtrSet<Value, 32> finishedValues;
+
+  SmallVector<std::unique_ptr<SLPVectorizationPattern>, 10> patterns;
+  populateSLPVectorizationPatterns(patterns, conversionManager);
+  auto costModel = std::make_shared<UnitCostModel>();
+  costModel->setConversionState(conversionState);
+  SLPPatternApplicator applicator{costModel, std::move(patterns)};
+
   std::unique_ptr<SeedAnalysis> seedAnalysis;
   {
     bool topDown = true;
@@ -120,14 +132,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     }
   }
 
-  // Prevents extracting/erasing values more than once (in splat mode, if they appear in multiple vectors, ...).
-  SmallPtrSet<Value, 32> finishedValues;
-
-  SmallVector<std::unique_ptr<SLPVectorizationPattern>, 10> patterns;
-  populateSLPVectorizationPatterns(patterns, conversionManager);
-  auto costModel = std::make_shared<UnitCostModel>();
-  SLPPatternApplicator applicator{costModel, std::move(patterns)};
-
   for (auto seed = seedAnalysis->next(); !seed.empty(); seed = seedAnalysis->next()) {
     //low::slp::dumpOpTree(seed);
     task->emitRemark("Computing graph...");
@@ -135,7 +139,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
     task->emitRemark("Converting graph...");
     conversionManager.initConversion(graph.getRoot());
-    costModel->setConversionState(std::make_shared<ConversionState>());
     auto const& order = conversionManager.conversionOrder();
 
     auto numVectors = order.size();
@@ -150,27 +153,24 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
     // Traverse the SLP graph and apply the vectorization patterns.
     for (auto* superword : order) {
-      llvm::dbgs() << "CURRENT SUPERWORD:\t";
-      dumpSuperword(*superword);
-      // Happens if the vector from a previously built graph is being re-used.
-      if (conversionManager.wasConverted(superword)) {
-        continue;
-      }
-      //dumpSLPValueVector(*vector);
+      //llvm::dbgs() << "CURRENT SUPERWORD:\t";
+      //dumpSuperword(*superword);
       applicator.matchAndRewrite(superword, rewriter);
+      conversionState->markComputed(superword);
       // Create vector extractions for escaping uses & erase superfluous operations.
-      auto const& creationMode = conversionManager.getElementFlag(superword);
+      auto const& vectorFlag = conversionManager.getElementFlag(superword);
       for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
         auto const& element = superword->getElement(lane);
         if (finishedValues.contains(element)) {
           continue;
         }
         finishedValues.insert(element);
-        if (creationMode == ElementFlag::KeepAll || (creationMode == ElementFlag::KeepFirst && lane == 0)) {
+        if (vectorFlag == ElementFlag::KeepAll || (vectorFlag == ElementFlag::KeepFirst && lane == 0)) {
           continue;
         }
         if (conversionManager.hasEscapingUsers(element)) {
-          if (creationMode == ElementFlag::KeepNoneNoExtract) {
+          // E.g. constants don't need to be extracted.
+          if (vectorFlag == ElementFlag::KeepNoneNoExtract) {
             continue;
           }
           conversionManager.createExtractionFor(element);
@@ -192,6 +192,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     }
   }
   task->emitRemark("SLP vectorization complete.");
+  //taskFunc->dump();
   rewriter.restoreInsertionPoint(callPoint);
   rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
   return success();

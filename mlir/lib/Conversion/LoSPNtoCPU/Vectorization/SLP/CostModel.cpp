@@ -19,18 +19,20 @@ double CostModel::getScalarCost(Value const& value) {
   if (conversionState->alreadyComputed(value)) {
     return 0;
   }
-  double scalarCost = computeScalarCost(value);
-  if (auto* definingOp = value.getDefiningOp()) {
-    for (auto const& operand : definingOp->getOperands()) {
-      if (isExtractionProfitable(operand)) {
-        scalarCost += getExtractionCost(operand);
-        conversionState->markExtractionProfitable(operand);
-      } else {
-        scalarCost += getScalarCost(operand);
+  auto it = cachedScalarCost.try_emplace(value, computeScalarCost(value));
+  if (it.second) {
+    if (auto* definingOp = value.getDefiningOp()) {
+      for (auto const& operand : definingOp->getOperands()) {
+        if (isExtractionProfitable(operand)) {
+          cachedScalarCost[value] += getExtractionCost(operand);
+        } else {
+          cachedScalarCost[value] += getScalarCost(operand);
+        }
       }
     }
+    return cachedScalarCost[value];
   }
-  return scalarCost;
+  return it.first->second;
 }
 
 double CostModel::getSuperwordCost(Superword* superword, SLPVectorizationPattern* pattern) {
@@ -49,9 +51,6 @@ double CostModel::getSuperwordCost(Superword* superword, SLPVectorizationPattern
 }
 
 bool CostModel::isExtractionProfitable(Value const& value) {
-  if (conversionState->isExtractionProfitable(value)) {
-    return true;
-  }
   auto extractionCost = getExtractionCost(value);
   if (extractionCost == MAX_COST) {
     return false;
@@ -62,6 +61,28 @@ bool CostModel::isExtractionProfitable(Value const& value) {
 
 void CostModel::setConversionState(std::shared_ptr<ConversionState> const& newConversionState) {
   conversionState = newConversionState;
+  conversionState->addScalarCallback([&](Value value) {
+    updateCost(value, 0, false);
+  });
+  conversionState->addExtractionCallback([&](Value value) {
+    updateCost(value, 0, true);
+  });
+}
+
+void CostModel::updateCost(Value const& value, double newCost, bool updateUses) {
+  auto it = cachedScalarCost.try_emplace(value, newCost);
+  if (!it.second && it.first->second <= newCost) {
+    return;
+  }
+  if (updateUses) {
+    for (auto* user : value.getUsers()) {
+      for (auto const& result : user->getResults()) {
+        if (cachedScalarCost.count(result)) {
+          updateCost(result, getScalarCost(result), true);
+        }
+      }
+    }
+  }
 }
 
 double CostModel::getExtractionCost(Value const& value) {

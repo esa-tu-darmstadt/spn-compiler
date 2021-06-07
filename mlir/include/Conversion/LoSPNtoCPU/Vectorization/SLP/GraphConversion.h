@@ -33,16 +33,23 @@ namespace mlir {
         public:
           bool alreadyComputed(Superword* superword) const;
           bool alreadyComputed(Value const& value) const;
-          bool isExtractionProfitable(Value const& value) const;
           void markComputed(Superword* superword);
           void markComputed(Value const& value);
-          void markExtractionProfitable(Value const& value);
           ValuePosition getWordContainingValue(Value const& value) const;
+          // Callback registration.
+          void addVectorCallback(std::function<void(Superword*)> callback);
+          void addScalarCallback(std::function<void(Value)> callback);
+          void addExtractionCallback(std::function<void(Value)> callback);
         private:
-          SmallPtrSet<Value, 32> computedScalarValues;
           SmallPtrSet<Superword*, 32> computedSuperwords;
+          SmallPtrSet<Value, 32> computedScalarValues;
           DenseMap<Value, ValuePosition> extractableScalarValues;
-          SmallPtrSet<Value, 32> profitableExtractions;
+          // Callbacks for when a superword was converted.
+          SmallVector<std::function<void(Superword*)>> vectorCallbacks;
+          // Callbacks for when a scalar value is used as input for some vector.
+          SmallVector<std::function<void(Value)>> scalarCallbacks;
+          // Callbacks for when an extraction for some value has been created.
+          SmallVector<std::function<void(Value)>> extractionCallbacks;
         };
 
         class ConversionPlan {
@@ -76,7 +83,7 @@ namespace mlir {
 
         public:
 
-          explicit ConversionManager(PatternRewriter& rewriter);
+          ConversionManager(PatternRewriter& rewriter, std::shared_ptr<ConversionState> conversionState);
 
           void initConversion(Superword* root);
 
@@ -107,7 +114,7 @@ namespace mlir {
             ElementFlag flag;
           };
           DenseMap<Superword*, CreationData> creationData;
-          DenseMap<Value, std::pair<Superword*, size_t>> superwordPositions;
+          std::shared_ptr<ConversionState> conversionState;
 
           /// Stores insertion points. An entry {k, v} means that superword k will be inserted right after superword v.
           /*
@@ -128,7 +135,6 @@ namespace mlir {
 
           /// Helps avoid creating duplicate constants.
           OperationFolder folder;
-
         };
       }
     }

@@ -31,12 +31,10 @@ SmallVector<Value, 4> SeedAnalysis::next() {
   return seed;
 }
 
-void SeedAnalysis::markAllUnavailable(ArrayRef<Superword*> const& superwords) {
-  for (auto* superword : superwords) {
-    for (auto const& element : *superword) {
-      if (auto* definingOp = element.getDefiningOp()) {
-        availableOps.erase(definingOp);
-      }
+void SeedAnalysis::notifySeedFailed(ArrayRef<Value> const& seed) {
+  for (auto const& value : seed) {
+    if (auto* definingOp = value.getDefiningOp()) {
+      availableOps.erase(definingOp);
     }
   }
 }
@@ -79,8 +77,9 @@ namespace {
       bool needsNewSeed = true;
       for (auto& potentialSeed : seedsByOpName[opName]) {
         if (potentialSeed.size() < width && opDepths.lookup(potentialSeed.front()) == depth) {
-          // Cannot use values for seeds that are defined in different scopes.
-          if (potentialSeed.front().getParentRegion() != value.getParentRegion()) {
+          //if (potentialSeed.size() < width && (opDepths.lookup(potentialSeed.front()) == 3 || opDepths.lookup(potentialSeed.front()) == 4)) {
+          // Cannot use values for seeds that are defined in different blocks.
+          if (potentialSeed.front().getParentBlock() != value.getParentBlock()) {
             continue;
           }
           potentialSeed.emplace_back(value);
@@ -160,6 +159,18 @@ SmallVector<Value, 4> FirstRootAnalysis::nextSeed() const {
   rootOp->emitRemark("Computing seed out of " + std::to_string(availableOps.size()) + " operations...");
   llvm::StringMap<DenseMap<Operation*, llvm::BitVector>> reachableLeaves;
   auto* root = findFirstRoot(reachableLeaves);
+
+  for (auto const& nameEntry : reachableLeaves) {
+    llvm::dbgs() << nameEntry.first() << ":\n";
+    for (auto const& entry : nameEntry.second) {
+      llvm::dbgs() << "\t" << entry.first << ":\t";
+      for (size_t i = 0; i < entry.second.size(); ++i) {
+        llvm::dbgs() << (entry.second.test(i) ? "1" : "0");
+      }
+      llvm::dbgs() << "\n";
+    }
+  }
+
   auto opDepths = computeOpDepths(&root, &root + 1);
   auto seeds = computeSeedsByOpName(opDepths, width);
 

@@ -69,14 +69,16 @@ bool ConversionState::alreadyComputed(Value const& value) const {
   return computedScalarValues.contains(value);
 }
 
-bool ConversionState::isExtractionProfitable(Value const& value) const {
-  return profitableExtractions.contains(value);
-}
-
 void ConversionState::markComputed(Superword* superword) {
-  computedSuperwords.insert(superword);
   for (auto* operand : superword->getOperands()) {
     assert (alreadyComputed(operand) && "computing vector before its operands");
+  }
+  computedSuperwords.insert(superword);
+  for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
+    extractableScalarValues.try_emplace(superword->getElement(lane), superword, lane);
+  }
+  for (auto const& callback : vectorCallbacks) {
+    callback(superword);
   }
 }
 
@@ -87,14 +89,25 @@ void ConversionState::markComputed(Value const& value) {
       markComputed(operand);
     }
   }
-}
-
-void ConversionState::markExtractionProfitable(Value const& value) {
-  profitableExtractions.insert(value);
+  for (auto const& callback : scalarCallbacks) {
+    callback(value);
+  }
 }
 
 ValuePosition ConversionState::getWordContainingValue(Value const& value) const {
   return extractableScalarValues.lookup(value);
+}
+
+void ConversionState::addVectorCallback(std::function<void(Superword*)> callback) {
+  vectorCallbacks.emplace_back(std::move(callback));
+}
+
+void ConversionState::addScalarCallback(std::function<void(Value)> callback) {
+  scalarCallbacks.emplace_back(std::move(callback));
+}
+
+void ConversionState::addExtractionCallback(std::function<void(Value)> callback) {
+  extractionCallbacks.emplace_back(std::move(callback));
 }
 
 // === ConversionPlan === //
@@ -220,7 +233,8 @@ namespace {
 
 }
 
-ConversionManager::ConversionManager(PatternRewriter& rewriter) : rewriter{rewriter}, folder{rewriter.getContext()} {}
+ConversionManager::ConversionManager(PatternRewriter& rewriter, std::shared_ptr<ConversionState> conversionState)
+    : conversionState{std::move(conversionState)}, rewriter{rewriter}, folder{rewriter.getContext()} {}
 
 void ConversionManager::initConversion(Superword* root) {
   order.assign(computeOrder(root));
@@ -245,7 +259,6 @@ void ConversionManager::initConversion(Superword* root) {
           }
           inputs.insert(elementOp);
         } else {
-          superwordPositions.try_emplace(element, superword, lane);
           for (size_t i = 0; i < superword->numOperands(); ++i) {
             auto const& operand = superword->getOperand(i)->getElement(lane);
             auto& users = escapingUsers[operand];
@@ -345,8 +358,6 @@ Value ConversionManager::getValue(Superword* superword) const {
 }
 
 ElementFlag ConversionManager::getElementFlag(Superword* superword) const {
-  superword->begin()->getDefiningOp()->getParentOfType<FuncOp>().dump();
-  dumpSuperword(*superword);
   assert(wasConverted(superword) && "superword has not yet been converted");
   return creationData.lookup(superword).flag;
 }
@@ -364,24 +375,24 @@ Value ConversionManager::getOrCreateConstant(Location const& loc, Attribute cons
 }
 
 Value ConversionManager::getOrExtractValue(Value const& value) {
-  auto const& wordPosition = superwordPositions.lookup(value);
-  if (!wordPosition.first) {
+  auto const& wordPosition = conversionState->getWordContainingValue(value);
+  if (!wordPosition.superword) {
     return value;
   }
-  auto elementFlag = getElementFlag(wordPosition.first);
-  if (elementFlag == ElementFlag::KeepAll || (elementFlag == ElementFlag::KeepFirst && wordPosition.second == 0)) {
+  auto elementFlag = getElementFlag(wordPosition.superword);
+  if (elementFlag == ElementFlag::KeepAll || (elementFlag == ElementFlag::KeepFirst && wordPosition.index == 0)) {
     return value;
   }
-  auto const& source = getValue(wordPosition.first);
-  auto const& pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) wordPosition.second));
+  auto const& source = getValue(wordPosition.superword);
+  auto const& pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) wordPosition.index));
   return rewriter.create<vector::ExtractElementOp>(value.getLoc(), source, pos);
 }
 
 void ConversionManager::createExtractionFor(Value const& value) {
   assert(hasEscapingUsers(value) && "value does not have escaping uses");
-  auto const& wordPosition = superwordPositions.lookup(value);
-  auto const& source = getValue(wordPosition.first);
-  auto pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) wordPosition.second));
+  auto const& wordPosition = conversionState->getWordContainingValue(value);
+  auto const& source = getValue(wordPosition.superword);
+  auto pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) wordPosition.index));
   rewriter.setInsertionPoint(escapingUsers.lookup(value).front());
   auto extractOp = rewriter.create<vector::ExtractElementOp>(value.getLoc(), source, pos);
   for (auto* escapingUser : escapingUsers.lookup(value)) {

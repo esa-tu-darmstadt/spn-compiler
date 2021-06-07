@@ -32,8 +32,10 @@ namespace mlir {
           ScalarValueVisitor scalarVisitor;
           std::shared_ptr<ConversionState> conversionState;
         private:
-          static constexpr double MAX_COST = std::numeric_limits<double>::max();
+          void updateCost(Value const& value, double newCost, bool updateUses);
           double getExtractionCost(Value const& value);
+          static constexpr double MAX_COST = std::numeric_limits<double>::max();
+          DenseMap<Value, double> cachedScalarCost;
         };
 
         class UnitCostModel : public CostModel {
