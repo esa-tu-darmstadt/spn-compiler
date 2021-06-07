@@ -33,7 +33,7 @@ namespace mlir {
         };
 
         template<typename SourceOp>
-        class OpSpecificVectorizationPattern : public virtual SLPVectorizationPattern {
+        class OpSpecificVectorizationPattern : public SLPVectorizationPattern {
           using SLPVectorizationPattern::SLPVectorizationPattern;
         public:
           LogicalResult match(Superword* superword) const override {

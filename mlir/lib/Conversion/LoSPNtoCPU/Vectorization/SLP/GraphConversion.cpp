@@ -150,7 +150,7 @@ namespace {
       order.emplace_back(entry.first);
     }
     llvm::sort(std::begin(order), std::end(order), [&](Superword* lhs, Superword* rhs) {
-      // This additional comparison maximizes the re-use potential of leaf vectors.
+      // This comparison maximizes the re-use potential of non-leaf elements in leaf nodes through extractions.
       if (depths[lhs] == depths[rhs]) {
         return !lhs->isLeaf() && rhs->isLeaf();
       }
@@ -246,6 +246,7 @@ void ConversionManager::initConversion(Superword* root) {
   escapingUsers.clear();
   insertionPoints.clear();
 
+  // Gather escaping users.
   for (auto* superword : order) {
     for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
       auto const& element = superword->getElement(lane);
