@@ -147,7 +147,7 @@ void VectorizeConstant::rewrite(Superword* superword, PatternRewriter& rewriter)
   }
   auto const& elements = denseFloatingPoints(std::begin(constants), std::end(constants), superword->getVectorType());
   auto const& constVector = conversionManager.getOrCreateConstant(superword->getLoc(), elements);
-  conversionManager.update(superword, constVector, ElementFlag::KeepNoneNoExtract);
+  conversionManager.update(superword, constVector, ElementFlag::KeepAll);
 }
 
 void VectorizeConstant::accept(PatternVisitor& visitor, Superword* superword) {

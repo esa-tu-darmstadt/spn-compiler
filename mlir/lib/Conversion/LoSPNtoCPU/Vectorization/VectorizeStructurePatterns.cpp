@@ -169,10 +169,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
           continue;
         }
         if (conversionManager.hasEscapingUsers(element)) {
-          // E.g. constants don't need to be extracted.
-          if (vectorFlag == ElementFlag::KeepNoneNoExtract) {
-            continue;
-          }
           conversionManager.createExtractionFor(element);
         }
         rewriter.eraseOp(element.getDefiningOp());

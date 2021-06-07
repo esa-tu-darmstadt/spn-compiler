@@ -74,9 +74,7 @@ namespace mlir {
           /// Erase all but the first element after conversion.
           KeepFirst,
           /// Do not erase any element after conversion.
-          KeepAll,
-          /// Erase all elements, but also do not create extract operations for them.
-          KeepNoneNoExtract
+          KeepAll
         };
 
         class ConversionManager {
