@@ -10,6 +10,7 @@
 #define SPNC_COMPILER_SRC_DRIVER_TARGET_TARGETINFORMATION_H
 
 #include <llvm/ADT/StringMap.h>
+#include "llvm/ADT/Triple.h"
 #include "mlir/IR/Types.h"
 
 namespace mlir {
@@ -30,11 +31,19 @@ namespace mlir {
 
       static TargetInformation& nativeCPUTarget();
 
+      std::string getHostArchitecture();
+
+      bool isX8664Target();
+
+      bool isAARCH64Target();
+
       bool hasAVX2Support();
 
       bool hasAVX512Support();
 
       bool hasAVXSupport();
+
+      bool hasNeonSupport();
 
       unsigned getHWVectorEntries(mlir::Type type);
 
@@ -46,7 +55,11 @@ namespace mlir {
 
       unsigned getHWVectorEntriesAVX(mlir::Type type);
 
+      unsigned getHWVectorEntriesNeon(mlir::Type type);
+
       llvm::StringMap<bool, llvm::MallocAllocator> featureMap;
+
+      llvm::Triple hostDefaultTriple;
 
     };
   }

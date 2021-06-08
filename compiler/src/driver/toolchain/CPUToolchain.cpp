@@ -16,6 +16,7 @@
 #include <codegen/mlir/frontend/MLIRDeserializer.h>
 #include <codegen/mlir/transformation/LoSPNTransformations.h>
 #include <driver/action/EmitObjectCode.h>
+#include <TargetInformation.h>
 
 using namespace spnc;
 using namespace mlir;
@@ -76,11 +77,17 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
   llvm::SmallVector<std::string, 3> additionalLibs;
   // Link vector libraries if specified by option.
   auto veclib = spnc::option::vectorLibrary.get(*config);
+  if (!validateVectorLibrary(*config)) {
+    SPDLOG_WARN("Vector library selection is invalid on this platform, overriding with 'None'");
+    veclib = spnc::option::VectorLibrary::NONE;
+  }
   if (veclib != spnc::option::VectorLibrary::NONE) {
     switch (veclib) {
       case spnc::option::VectorLibrary::SVML: additionalLibs.push_back("svml");
         break;
       case spnc::option::VectorLibrary::LIBMVEC: additionalLibs.push_back("m");
+        break;
+      case spnc::option::VectorLibrary::ARM: additionalLibs.push_back("mathlib");
         break;
       default:SPNC_FATAL_ERROR("Unknown vector library");
     }
@@ -90,4 +97,15 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
       job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo, 
                                                 additionalLibs, searchPaths);
   return job;
+}
+
+bool CPUToolchain::validateVectorLibrary(interface::Configuration& config) {
+  auto veclib = spnc::option::vectorLibrary.get(config);
+  auto& targetInfo = mlir::spn::TargetInformation::nativeCPUTarget();
+  switch (veclib) {
+    case spnc::option::VectorLibrary::SVML:
+    case spnc::option::VectorLibrary::LIBMVEC:return targetInfo.isX8664Target();
+    case spnc::option::VectorLibrary::ARM:return targetInfo.isAARCH64Target();
+    default:return false;
+  }
 }

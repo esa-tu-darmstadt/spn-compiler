@@ -55,6 +55,7 @@ namespace spnc {
 
     /// Available vector libraries
     enum VectorLibrary {
+      ARM,
       SVML,
       LIBMVEC,
       NONE

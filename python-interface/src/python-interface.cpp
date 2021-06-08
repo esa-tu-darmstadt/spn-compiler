@@ -51,11 +51,14 @@ PYBIND11_MODULE(spncpy, m) {
       .def("compileQuery", [](const spn_compiler& compiler, const std::string& inputFile, const options_t& options) {
         return spn_compiler::compileQuery(inputFile, options);
       })
-      .def("isTargetSupported", [](const std::string& target){
+      .def("isTargetSupported", [](const std::string& target) {
         return spn_compiler::isTargetSupported(target);
       })
-      .def("isFeatureAvailable", [](const std::string& feature){
+      .def("isFeatureAvailable", [](const std::string& feature) {
         return spn_compiler::isFeatureSupported(feature);
+      })
+      .def("getHostArchitecture", []() {
+        return spn_compiler::getHostArchitecture();
       });
 
 }

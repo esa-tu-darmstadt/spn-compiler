@@ -37,6 +37,7 @@ using spnc::option::VectorLibrary;
 EnumOpt spnc::option::vectorLibrary{"vector-library", NONE,
                                     {EnumVal(SVML, "SVML"),
                                      EnumVal(LIBMVEC, "LIBMVEC"),
+                                     EnumVal(ARM, "ARM"),
                                      EnumVal(NONE, "None")}};
 
 Option<bool> spnc::option::replaceGatherWithShuffle{"use-shuffle", false};
