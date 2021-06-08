@@ -31,4 +31,9 @@ def LoSPNTaskPartioning : Pass<"lospn-task-partitioning", "SPNKernel"> {
   ];
 }
 
+def ReplaceARMOptimizedRoutines : Pass<"replace-arm-optimized-routines", "ModuleOp"> {
+  let summary = "Replace elementary functions with calls to ARM optimized routines";
+  let constructor = "mlir::spn::low::createReplaceARMOptimizedRoutinesPass()";
+}
+
 #endif // MLIR_DIALECT_LoSPN_PASSES

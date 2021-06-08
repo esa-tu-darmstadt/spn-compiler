@@ -25,6 +25,10 @@ namespace spnc {
     static std::unique_ptr<Job<Kernel>> constructJobFromFile(const std::string& inputFile,
                                                              const std::shared_ptr<interface::Configuration>& config);
 
+  private:
+
+    static bool validateVectorLibrary(interface::Configuration& config);
+
   };
 
 }

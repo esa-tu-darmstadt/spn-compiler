@@ -75,3 +75,7 @@ bool spn_compiler::isFeatureSupported(const std::string& feature){
   // TODO Add query support for more features.
   return false;
 }
+
+std::string spn_compiler::getHostArchitecture() {
+  return mlir::spn::TargetInformation::nativeCPUTarget().getHostArchitecture();
+}

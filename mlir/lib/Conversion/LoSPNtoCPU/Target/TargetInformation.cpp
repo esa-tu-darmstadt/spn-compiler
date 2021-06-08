@@ -16,13 +16,25 @@
 #include "llvm/Support/raw_os_ostream.h"
 #include "mlir/IR/BuiltinTypes.h"
 
-mlir::spn::TargetInformation::TargetInformation() {
+mlir::spn::TargetInformation::TargetInformation() : hostDefaultTriple(llvm::sys::getDefaultTargetTriple()) {
   llvm::sys::getHostCPUFeatures(featureMap);
 }
 
 mlir::spn::TargetInformation& mlir::spn::TargetInformation::nativeCPUTarget() {
   static TargetInformation ti;
   return ti;
+}
+
+std::string mlir::spn::TargetInformation::getHostArchitecture() {
+  return hostDefaultTriple.getArchName().str();
+}
+
+bool mlir::spn::TargetInformation::isX8664Target() {
+  return hostDefaultTriple.getArch() == llvm::Triple::x86_64;
+}
+
+bool mlir::spn::TargetInformation::isAARCH64Target() {
+  return hostDefaultTriple.getArch() == llvm::Triple::aarch64;
 }
 
 bool mlir::spn::TargetInformation::hasAVX2Support() {
