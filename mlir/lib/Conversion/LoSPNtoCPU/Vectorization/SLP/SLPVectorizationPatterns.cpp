@@ -120,22 +120,6 @@ namespace {
     return DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<double>>(array));
   }
 
-  template<typename T>
-  DenseElementsAttr denseFloatingPoints(T value, VectorType const& vectorType) {
-    if (vectorType.getElementType().cast<FloatType>().getWidth() == 32) {
-      SmallVector<float, 4> array;
-      for (unsigned i = 0; i < vectorType.getNumElements(); ++i) {
-        array.push_back(static_cast<float>(value));
-      }
-      return DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<float>>(array));
-    }
-    SmallVector<double, 4> array;
-    for (unsigned i = 0; i < vectorType.getNumElements(); ++i) {
-      array.push_back(value);
-    }
-    return DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<double>>(array));
-  }
-
 }
 
 // === VectorizeConstant === //
@@ -214,58 +198,56 @@ void VectorizeGaussian::rewrite(Superword* superword, PatternRewriter& rewriter)
 
   auto vectorType = superword->getVectorType();
 
-  DenseElementsAttr coefficients;
+  // Calculate Gaussian distribution using e^((x - mean)^2 / (-2 * variance)) / sqrt(2 * PI * variance)
+  DenseElementsAttr means;
+  DenseElementsAttr variances;
+  DenseElementsAttr roots;
   if (vectorType.getElementType().cast<FloatType>().getWidth() == 32) {
-    SmallVector<float, 4> array;
+    SmallVector<float, 4> meansArray;
+    SmallVector<float, 4> variancesArray;
+    SmallVector<float, 4> rootsArray;
     for (auto const& value : *superword) {
+      meansArray.emplace_back(static_cast<SPNGaussianLeaf>(value.getDefiningOp()).mean().convertToFloat());
       float stddev = static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddev().convertToFloat();
-      array.emplace_back(1.0f / (stddev * std::sqrt(2.0f * M_PIf32)));
+      variancesArray.emplace_back(-2 * stddev * stddev);
+      rootsArray.emplace_back(std::sqrt(2.0f * M_PIf32 * stddev * stddev));
     }
-    coefficients = DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<float>>(array));
+    means = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<float>>(meansArray));
+    variances = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<float>>(variancesArray));
+    roots = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<float>>(rootsArray));
   } else {
-    SmallVector<double, 4> array;
+    SmallVector<double, 4> meansArray;
+    SmallVector<double, 4> variancesArray;
+    SmallVector<double, 4> rootsArray;
     for (auto const& value : *superword) {
+      meansArray.emplace_back(static_cast<SPNGaussianLeaf>(value.getDefiningOp()).mean().convertToDouble());
       double stddev = static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddev().convertToDouble();
-      array.emplace_back(1.0 / (stddev * std::sqrt(2.0 * M_PI)));
+      variancesArray.emplace_back(-2 * stddev * stddev);
+      rootsArray.emplace_back(std::sqrt(2.0 * M_PI * stddev * stddev));
     }
-    coefficients = DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<double>>(array));
+    means = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<double>>(meansArray));
+    variances = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<double>>(variancesArray));
+    roots = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<double>>(rootsArray));
   }
 
-  // Gather means in a dense floating point attribute vector.
-  SmallVector<Attribute, 4> meanAttributes;
-  for (auto const& value : *superword) {
-    meanAttributes.emplace_back(static_cast<SPNGaussianLeaf>(value.getDefiningOp()).meanAttr());
-  }
-  auto const& means = denseFloatingPoints(std::begin(meanAttributes), std::end(meanAttributes), vectorType);
-
-  // Gather standard deviations in a dense floating point attribute vector.
-  SmallVector<Attribute, 4> stddevAttributes;
-  for (auto const& value : *superword) {
-    stddevAttributes.emplace_back(static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddevAttr());
-  }
-  auto const& stddevs = denseFloatingPoints(std::begin(stddevAttributes), std::end(stddevAttributes), vectorType);
-
-  // Grab the input vector.
-  Value const& inputVector = conversionManager.getValue(superword->getOperand(0));
-
-  // Calculate Gaussian distribution using e^(-0.5 * ((x - mean) / stddev)^2)) / (stddev * sqrt(2 * PI))
   // (x - mean)
+  auto inputVector = conversionManager.getValue(superword->getOperand(0));
   auto meanVector = conversionManager.getOrCreateConstant(superword->getLoc(), means);
   Value gaussianVector = rewriter.create<SubFOp>(superword->getLoc(), vectorType, inputVector, meanVector);
 
-  // ((x - mean) / stddev)^2
-  auto stddevVector = conversionManager.getOrCreateConstant(superword->getLoc(), stddevs);
-  gaussianVector = rewriter.create<DivFOp>(superword->getLoc(), vectorType, gaussianVector, stddevVector);
+  // ((x - mean)^2
   gaussianVector = rewriter.create<MulFOp>(superword->getLoc(), vectorType, gaussianVector, gaussianVector);
 
-  // e^(-0.5 * ((x - mean) / stddev)^2))
-  auto halfVector = conversionManager.getOrCreateConstant(superword->getLoc(), denseFloatingPoints(-0.5, vectorType));
-  gaussianVector = rewriter.create<MulFOp>(superword->getLoc(), vectorType, halfVector, gaussianVector);
+  // (x - mean)^2 / (-2 * variance)
+  auto varianceVector = conversionManager.getOrCreateConstant(superword->getLoc(), variances);
+  gaussianVector = rewriter.create<DivFOp>(superword->getLoc(), vectorType, gaussianVector, varianceVector);
+
+  // e^((x - mean)^2 / (-2 * variance))
   gaussianVector = rewriter.create<math::ExpOp>(superword->getLoc(), vectorType, gaussianVector);
 
-  // e^(-0.5 * ((x - mean) / stddev)^2)) / (stddev * sqrt(2 * PI))
-  auto coefficientVector = conversionManager.getOrCreateConstant(superword->getLoc(), coefficients);
-  gaussianVector = rewriter.create<MulFOp>(superword->getLoc(), coefficientVector, gaussianVector);
+  // e^((x - mean)^2 / (-2 * variance)) / sqrt(2 * PI * variance)
+  auto rootsVector = conversionManager.getOrCreateConstant(superword->getLoc(), roots);
+  gaussianVector = rewriter.create<DivFOp>(superword->getLoc(), gaussianVector, rootsVector);
 
   conversionManager.update(superword, gaussianVector, ElementFlag::KeepNone);
 }
