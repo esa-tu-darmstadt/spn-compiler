@@ -19,18 +19,16 @@ target_include_directories(spncpy
 
 # Create the setup.py and supplement some information from the CMake configure and generate stage.
 # This is a multi-stage process, because we first need to use configure_file to supplement 
-# configuration variables (used for the MLIR CUDA runtime wrapper library) and then need 
-# to substiture the generator expressions used to add target information to the setup.py
+# configuration variables (used for the SPNC CUDA runtime wrapper library) and then need
+# to substitute the generator expressions used to add target information to the setup.py
 if (${CUDA_GPU_SUPPORT})
     set(INCLUDE_MLIR_CUDA_WRAPPERS "True")
     # Copy MLIR CUDA wrappers to spnc package directory.
     add_custom_command(TARGET spncpy POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy
-            ${MLIR_CUDA_WRAPPERS} ${CMAKE_CURRENT_SOURCE_DIR}/spnc)
-    get_filename_component(MLIR_CUDA_WRAPPER_NAME ${MLIR_CUDA_WRAPPERS} NAME)
+            $<TARGET_FILE:spnc-cuda-wrappers> ${CMAKE_CURRENT_SOURCE_DIR}/spnc)
 else ()
     set(INCLUDE_MLIR_CUDA_WRAPPERS "False")
-    set(MLIR_CUDA_WRAPPER_NAME "")
 endif ()
 
 # Copy the spnc Python interface module/library to the spnc package directory.
