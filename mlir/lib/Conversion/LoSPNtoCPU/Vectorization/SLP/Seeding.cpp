@@ -69,6 +69,10 @@ namespace {
     llvm::StringMap<SmallVector<SmallVector<Value, 4>>> seedsByOpName;
     for (auto& entry : opDepths) {
       auto& value = entry.first;
+      auto* definingOp = value.getDefiningOp();
+      if (!definingOp || definingOp->hasTrait<OpTrait::ConstantLike>() || !vectorizable(definingOp)) {
+        continue;
+      }
       auto const& depth = entry.second;
       auto const& opName = value.getDefiningOp()->getName().getStringRef();
       if (depth < log2(width)) {
@@ -110,7 +114,7 @@ TopDownAnalysis::TopDownAnalysis(Operation* rootOp, unsigned width) : SeedAnalys
 
 void TopDownAnalysis::computeAvailableOps() {
   rootOp->walk([&](Operation* op) {
-    if (!vectorizable(op)) {
+    if (!vectorizable(op) || op->hasTrait<OpTrait::ConstantLike>()) {
       return;
     }
     availableOps.insert(op);
@@ -196,6 +200,9 @@ SmallVector<Value, 4> FirstRootAnalysis::nextSeed() const {
 
 void FirstRootAnalysis::computeAvailableOps() {
   rootOp->walk([&](LeafNodeInterface leaf) {
+    if (!vectorizable(leaf)) {
+      return;
+    }
     availableOps.insert(leaf);
   });
 }
