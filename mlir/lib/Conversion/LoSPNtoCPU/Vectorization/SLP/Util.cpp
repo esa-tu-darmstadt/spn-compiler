@@ -7,6 +7,7 @@
 //==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
+#include "LoSPN/LoSPNTypes.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 using namespace mlir;
@@ -20,7 +21,6 @@ bool slp::vectorizable(Operation* op) {
 }
 
 bool slp::vectorizable(Value const& value) {
-  // Block arguments don't have defining ops (they can still be put in a vector by other means).
   if (auto* definingOp = value.getDefiningOp()) {
     if (!vectorizable(definingOp)) {
       return false;
@@ -30,7 +30,10 @@ bool slp::vectorizable(Value const& value) {
 }
 
 bool slp::ofVectorizableType(Value const& value) {
-  return value.getType().isIntOrFloat();
+  if (auto logType = value.getType().dyn_cast<LogType>()) {
+    return VectorType::isValidElementType(logType.getBaseType());
+  }
+  return VectorType::isValidElementType(value.getType());
 }
 
 bool slp::consecutiveLoads(Value const& lhs, Value const& rhs) {
