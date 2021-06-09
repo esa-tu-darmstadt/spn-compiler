@@ -7,6 +7,7 @@
 //==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
+#include "LoSPNtoCPU/Vectorization/SLP/GraphConversion.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"

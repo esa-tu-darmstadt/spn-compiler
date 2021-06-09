@@ -20,7 +20,6 @@ namespace mlir {
       namespace slp {
 
         class CostModel;
-        class SLPVectorizationPattern;
 
         struct ValuePosition {
           ValuePosition() : superword{nullptr}, index{0} {}

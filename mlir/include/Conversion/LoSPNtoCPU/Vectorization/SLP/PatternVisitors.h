@@ -10,33 +10,12 @@
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_PATTERNVISITORS_H
 
 #include "SLPGraph.h"
+#include "SLPVectorizationPatterns.h"
 
 namespace mlir {
   namespace spn {
     namespace low {
       namespace slp {
-
-        class PatternVisitor;
-        /* === Forward declare all patterns here to avoid cyclic dependencies in includes. === */
-        class SLPVectorizationPattern;
-        struct BroadcastSuperword;
-        struct BroadcastInsertSuperword;
-        struct VectorizeConstant;
-        struct VectorizeBatchRead;
-        struct VectorizeAdd;
-        struct VectorizeMul;
-        struct VectorizeGaussian;
-        struct VectorizeLogAdd;
-        struct VectorizeLogMul;
-        struct VectorizeLogGaussian;
-        /* =================================================================================== */
-
-        class Visitable {
-        public:
-          virtual void accept(PatternVisitor& visitor, Superword* superword) = 0;
-        protected:
-          virtual ~Visitable() = default;
-        };
 
         class PatternVisitor {
         public:

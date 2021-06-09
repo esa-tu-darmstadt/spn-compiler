@@ -10,24 +10,25 @@
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPVECTORIZATIONPATTERNS_H
 
 #include "SLPGraph.h"
-#include "GraphConversion.h"
-#include "PatternVisitors.h"
 #include "LoSPN/LoSPNOps.h"
 #include "LoSPN/LoSPNTypes.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/IR/PatternMatch.h"
-#include "mlir/Rewrite/PatternApplicator.h"
 
 namespace mlir {
   namespace spn {
     namespace low {
       namespace slp {
 
-        class SLPVectorizationPattern : public Visitable {
+        class ConversionManager;
+        class PatternVisitor;
+
+        class SLPVectorizationPattern {
         public:
           explicit SLPVectorizationPattern(ConversionManager& conversionManager);
+          virtual ~SLPVectorizationPattern() = default;
           void rewriteSuperword(Superword* superword, PatternRewriter& rewriter);
           virtual LogicalResult match(Superword* superword) const = 0;
+          virtual void accept(PatternVisitor& visitor, Superword* superword) = 0;
         protected:
           virtual void rewrite(Superword* superword, PatternRewriter& rewriter) const = 0;
           ConversionManager& conversionManager;
