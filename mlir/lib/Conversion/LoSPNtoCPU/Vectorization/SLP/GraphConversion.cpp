@@ -236,7 +236,7 @@ namespace {
 ConversionManager::ConversionManager(PatternRewriter& rewriter, std::shared_ptr<ConversionState> conversionState)
     : conversionState{std::move(conversionState)}, rewriter{rewriter}, folder{rewriter.getContext()} {}
 
-void ConversionManager::initConversion(Superword* root) {
+void ConversionManager::initConversion(Superword* root, Block* block) {
   order.assign(computeOrder(root));
 
   SmallPtrSet<Operation*, 32> inputs;
@@ -295,51 +295,37 @@ void ConversionManager::initConversion(Superword* root) {
   }
 
   // Compute insertion points.
-  DenseMap<Superword*, Value> currentInsertionPoint;
-  DenseMap<Value, Superword*> lastWordAfterValue;
-  Value currentLatest;
   for (auto* superword : order) {
     if (superword->isLeaf()) {
       auto const& element = latestElement(superword);
-      currentInsertionPoint[superword] = element;
-      auto pair = lastWordAfterValue.try_emplace(element, superword);
-      if (!pair.second) {
-        insertionPoints[superword] = pair.first->second;
-        pair.first->getSecond() = superword;
+      if (element.getDefiningOp()) {
+        insertionPoints[superword] = element.getDefiningOp()->getNextNode();
+      } else {
+        insertionPoints[superword] = &block->front();
       }
     } else {
-      Value latestOperand;
+      Operation* latestOperand = nullptr;
       for (size_t i = 0; i < superword->numOperands(); ++i) {
         auto* operand = superword->getOperand(i);
         if (willBeFolded(operand)) {
           continue;
         }
-        auto const& nextLatest = currentInsertionPoint[operand];
-        if (!latestOperand || !later(latestOperand, nextLatest)) {
+        auto* nextLatest = insertionPoints[operand];
+        if (!latestOperand || latestOperand->isBeforeInBlock(nextLatest)) {
           latestOperand = nextLatest;
         }
       }
-      if (latestOperand) {
-        insertionPoints[superword] = lastWordAfterValue[latestOperand];
-        currentInsertionPoint[superword] = latestOperand;
-        lastWordAfterValue[latestOperand] = superword;
-      } else {
-        insertionPoints[superword] = lastWordAfterValue[currentLatest];
-        currentInsertionPoint[superword] = currentLatest;
-        lastWordAfterValue[currentLatest] = superword;
-      }
-    }
-    if (!currentLatest || later(currentInsertionPoint[superword], currentLatest)) {
-      currentLatest = currentInsertionPoint[superword];
+      insertionPoints[superword] = latestOperand;
     }
   }
 }
 
 void ConversionManager::setInsertionPointFor(Superword* superword) const {
-  if (!insertionPoints.count(superword)) {
-    rewriter.setInsertionPointAfterValue(latestElement(superword));
+  auto* insertionPoint = insertionPoints.lookup(superword);
+  if (insertionPoint) {
+    rewriter.setInsertionPoint(insertionPoint);
   } else {
-    rewriter.setInsertionPointAfterValue(creationData.lookup(insertionPoints.lookup(superword)).operation);
+    rewriter.setInsertionPointToEnd(superword->getElement(0).getParentBlock());
   }
 }
 
