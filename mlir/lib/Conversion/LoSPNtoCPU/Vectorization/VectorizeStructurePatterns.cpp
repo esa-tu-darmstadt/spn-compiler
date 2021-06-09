@@ -133,12 +133,12 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   }
 
   for (auto seed = seedAnalysis->next(); !seed.empty(); seed = seedAnalysis->next()) {
-    //low::slp::dumpOpTree(seed);
+    //dumpOpGraph(seed);
     task->emitRemark("Computing graph...");
     SLPGraph graph{seed, 3};
 
     task->emitRemark("Converting graph...");
-    conversionManager.initConversion(graph.getRoot());
+    conversionManager.initConversion(graph.getRoot(), &taskFunc.front());
     auto const& order = conversionManager.conversionOrder();
 
     auto numVectors = order.size();

@@ -207,8 +207,8 @@ void VectorizeGaussian::rewrite(Superword* superword, PatternRewriter& rewriter)
     SmallVector<float, 4> variancesArray;
     SmallVector<float, 4> rootsArray;
     for (auto const& value : *superword) {
-      meansArray.emplace_back(static_cast<SPNGaussianLeaf>(value.getDefiningOp()).mean().convertToFloat());
-      float stddev = static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddev().convertToFloat();
+      meansArray.emplace_back((float) static_cast<SPNGaussianLeaf>(value.getDefiningOp()).meanAttr().getValueAsDouble());
+      float stddev = (float) static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddevAttr().getValueAsDouble();
       variancesArray.emplace_back(-2 * stddev * stddev);
       rootsArray.emplace_back(std::sqrt(2.0f * M_PIf32 * stddev * stddev));
     }
@@ -220,8 +220,8 @@ void VectorizeGaussian::rewrite(Superword* superword, PatternRewriter& rewriter)
     SmallVector<double, 4> variancesArray;
     SmallVector<double, 4> rootsArray;
     for (auto const& value : *superword) {
-      meansArray.emplace_back(static_cast<SPNGaussianLeaf>(value.getDefiningOp()).mean().convertToDouble());
-      double stddev = static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddev().convertToDouble();
+      meansArray.emplace_back(static_cast<SPNGaussianLeaf>(value.getDefiningOp()).meanAttr().getValueAsDouble());
+      double stddev = static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddevAttr().getValueAsDouble();
       variancesArray.emplace_back(-2 * stddev * stddev);
       rootsArray.emplace_back(std::sqrt(2.0 * M_PI * stddev * stddev));
     }
@@ -253,5 +253,126 @@ void VectorizeGaussian::rewrite(Superword* superword, PatternRewriter& rewriter)
 }
 
 void VectorizeGaussian::accept(PatternVisitor& visitor, Superword* superword) {
+  visitor.visit(this, superword);
+}
+
+// === VectorizeLogAdd === //
+
+LogicalResult VectorizeLogAdd::match(Superword* superword) const {
+  if (failed(LogSpaceVectorizationPattern<SPNAdd>::match(superword))) {
+    return failure();
+  }
+  return success(superword->getElementType().isa<LogType>());
+}
+
+void VectorizeLogAdd::rewrite(Superword* superword, PatternRewriter& rewriter) const {
+  llvm_unreachable("TODO");
+}
+
+void VectorizeLogAdd::accept(PatternVisitor& visitor, Superword* superword) {
+  visitor.visit(this, superword);
+}
+
+// === VectorizeLogMul === //
+
+LogicalResult VectorizeLogMul::match(Superword* superword) const {
+  if (failed(LogSpaceVectorizationPattern<SPNMul>::match(superword))) {
+    return failure();
+  }
+  return success(superword->getElementType().isa<LogType>());
+}
+
+void VectorizeLogMul::rewrite(Superword* superword, PatternRewriter& rewriter) const {
+  SmallVector<Value, 2> operands;
+  for (unsigned i = 0; i < superword->numOperands(); ++i) {
+    operands.emplace_back(conversionManager.getValue(superword->getOperand(i)));
+  }
+  auto logMul = rewriter.create<AddFOp>(superword->getLoc(), superword->getVectorType(), operands);
+  conversionManager.update(superword, logMul, ElementFlag::KeepNone);
+}
+
+void VectorizeLogMul::accept(PatternVisitor& visitor, Superword* superword) {
+  visitor.visit(this, superword);
+}
+
+// === VectorizeLogGaussian === //
+
+LogicalResult VectorizeLogGaussian::match(Superword* superword) const {
+  if (failed(LogSpaceVectorizationPattern<SPNGaussianLeaf>::match(superword))) {
+    return failure();
+  }
+  return success(superword->getElementType().isa<LogType>());
+}
+
+// Helper functions in anonymous namespace.
+namespace {
+  Value expandOrTruncateInput(Value const& input, VectorType targetType, PatternRewriter& rewriter) {
+    auto inputType = input.getType().dyn_cast<VectorType>();
+    assert(inputType && "vector with scalar operand");
+    if (inputType.getElementTypeBitWidth() < targetType.getElementTypeBitWidth()) {
+      return rewriter.create<FPExtOp>(input.getLoc(), input, targetType);
+    } else if (inputType.getElementTypeBitWidth() > targetType.getElementTypeBitWidth()) {
+      return rewriter.create<FPTruncOp>(input.getLoc(), input, targetType);
+    }
+    return input;
+  }
+}
+
+void VectorizeLogGaussian::rewrite(Superword* superword, PatternRewriter& rewriter) const {
+
+  auto vectorType = superword->getVectorType();
+
+  // Calculate log-space Gaussian distribution using -ln(stddev) - 0.5 * ln(2*pi) - (x - mean)^2 / (2 * stddev^2)
+  DenseElementsAttr means;
+  DenseElementsAttr minuends;
+  DenseElementsAttr factors;
+  if (vectorType.getElementType().cast<FloatType>().getWidth() == 32) {
+    SmallVector<float, 4> meansArray;
+    SmallVector<float, 4> minuendsArray;
+    SmallVector<float, 4> factorsArray;
+    for (auto const& value : *superword) {
+      meansArray.emplace_back((float) static_cast<SPNGaussianLeaf>(value.getDefiningOp()).meanAttr().getValueAsDouble());
+      float stddev = (float) static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddevAttr().getValueAsDouble();
+      minuendsArray.emplace_back(-logf(stddev) - 0.5 * logf(2 * M_PIf32));
+      factorsArray.emplace_back(1.0 / (2 * stddev * stddev));
+    }
+    means = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<float>>(meansArray));
+    minuends = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<float>>(minuendsArray));
+    factors = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<float>>(factorsArray));
+  } else {
+    SmallVector<double, 4> meansArray;
+    SmallVector<double, 4> minuendsArray;
+    SmallVector<double, 4> factorsArray;
+    for (auto const& value : *superword) {
+      meansArray.emplace_back(static_cast<SPNGaussianLeaf>(value.getDefiningOp()).meanAttr().getValueAsDouble());
+      double stddev = static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddevAttr().getValueAsDouble();
+      minuendsArray.emplace_back(-log(stddev) - 0.5 * log(2 * M_PI));
+      factorsArray.emplace_back(1.0 / (2 * stddev * stddev));
+    }
+    means = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<double>>(meansArray));
+    minuends = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<double>>(minuendsArray));
+    factors = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<double>>(factorsArray));
+  }
+
+  // x - mean
+  auto inputVector = expandOrTruncateInput(conversionManager.getValue(superword->getOperand(0)), vectorType, rewriter);
+  auto meanVector = conversionManager.getOrCreateConstant(superword->getLoc(), means);
+  Value gaussianVector = rewriter.create<SubFOp>(superword->getLoc(), vectorType, inputVector, meanVector);
+
+  // (x - mean)^2
+  gaussianVector = rewriter.create<MulFOp>(superword->getLoc(), vectorType, gaussianVector, gaussianVector);
+
+  // (x - mean)^2 / (2 * stddev^2)
+  auto factorsVector = conversionManager.getOrCreateConstant(superword->getLoc(), factors);
+  gaussianVector = rewriter.create<MulFOp>(superword->getLoc(), vectorType, gaussianVector, factorsVector);
+
+  // -ln(stddev) - 0.5 * ln(2*pi) - (x - mean)^2 / (2 * stddev^2)
+  auto minuendVector = conversionManager.getOrCreateConstant(superword->getLoc(), minuends);
+  gaussianVector = rewriter.create<SubFOp>(superword->getLoc(), vectorType, minuendVector, gaussianVector);
+
+  conversionManager.update(superword, gaussianVector, ElementFlag::KeepNone);
+}
+
+void VectorizeLogGaussian::accept(PatternVisitor& visitor, Superword* superword) {
   visitor.visit(this, superword);
 }

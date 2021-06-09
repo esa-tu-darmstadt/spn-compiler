@@ -26,6 +26,9 @@ namespace mlir {
         struct VectorizeAdd;
         struct VectorizeMul;
         struct VectorizeGaussian;
+        struct VectorizeLogAdd;
+        struct VectorizeLogMul;
+        struct VectorizeLogGaussian;
         /* =================================================================================== */
 
         class Visitable {
@@ -46,6 +49,9 @@ namespace mlir {
           virtual void visit(VectorizeAdd* pattern, Superword* superword);
           virtual void visit(VectorizeMul* pattern, Superword* superword);
           virtual void visit(VectorizeGaussian* pattern, Superword* superword);
+          virtual void visit(VectorizeLogAdd* pattern, Superword* superword);
+          virtual void visit(VectorizeLogMul* pattern, Superword* superword);
+          virtual void visit(VectorizeLogGaussian* pattern, Superword* superword);
         protected:
           virtual ~PatternVisitor() = default;
         };

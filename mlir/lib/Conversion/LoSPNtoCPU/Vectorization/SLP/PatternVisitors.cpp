@@ -45,6 +45,18 @@ void PatternVisitor::visit(VectorizeGaussian* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }
 
+void PatternVisitor::visit(VectorizeLogAdd* pattern, Superword* superword) {
+  visitDefault(pattern, superword);
+}
+
+void PatternVisitor::visit(VectorizeLogMul* pattern, Superword* superword) {
+  visitDefault(pattern, superword);
+}
+
+void PatternVisitor::visit(VectorizeLogGaussian* pattern, Superword* superword) {
+  visitDefault(pattern, superword);
+}
+
 // === ScalarValueVisitor === //
 
 ArrayRef<Value> ScalarValueVisitor::getRequiredScalarValues(SLPVectorizationPattern* pattern, Superword* superword) {
