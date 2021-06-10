@@ -178,8 +178,26 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         progressThreshold += interval;
       }
     }
-    // TODO: determine whether an SLP graph was constructed.
-    if (true) {
+    // Perform DCE on the created vector operations. This is useful if patterns have been applied to superwords
+    // that don't need the superword's operands, e.g. vector loads that discard the operand vector of memref indices.
+    SmallPtrSet<Operation*, 10> erasedVectorOps;
+    for (SmallVector<Superword*, 32> worklist{std::begin(order), std::end(order)}; !worklist.empty();) {
+      auto* superword = worklist.pop_back_val();
+      auto* vectorOp = conversionManager.getValue(superword).getDefiningOp();
+      if (std::any_of(std::begin(vectorOp->getUsers()), std::end(vectorOp->getUsers()), [&](Operation* user) {
+        return !erasedVectorOps.contains(user);
+      })) {
+        continue;
+      }
+      erasedVectorOps.insert(vectorOp);
+      rewriter.eraseOp(vectorOp);
+      for (auto* operand : superword->getOperands()) {
+        if (!erasedVectorOps.contains(conversionManager.getValue(operand).getDefiningOp())) {
+          worklist.emplace_back(operand);
+        }
+      }
+    }
+    if (erasedVectorOps.size() != order.size()) {
       task->emitRemark("Conversion complete.");
       break;
     } else {
