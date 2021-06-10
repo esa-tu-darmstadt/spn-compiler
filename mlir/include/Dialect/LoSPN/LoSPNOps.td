@@ -208,6 +208,24 @@ def SPNConvertToScalar : LoSPN_Op<"to_scalar", [NoSideEffect]> {
 
 }
 
+def SPNAttachLog : LoSPN_Op<"attach_log", [VectorizableOp, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
+    let summary = "Add the log-space property to a value";
+
+    let description = [{
+        Add the log-space property to a value.
+        This operation is only used for type conversion and does not
+        generate actual code.
+    }];
+
+    let arguments = (ins LoSPNComputeType:$input, TypeAttr:$source);
+
+    let results = (outs LoSPNComputeType:$out);
+
+    let builders = [
+        OpBuilder<(ins "Value":$input, "Type":$sourceType)>
+    ];
+}
+
 def SPNStripLog : LoSPN_Op<"strip_log", [VectorizableOp, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
     let summary = "Strip the log-space property from a value";
 

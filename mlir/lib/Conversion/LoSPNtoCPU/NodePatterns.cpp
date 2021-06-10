@@ -521,6 +521,20 @@ mlir::LogicalResult mlir::spn::ResolveConvertToVector::matchAndRewrite(mlir::spn
   return rewriter.notifyMatchFailure(op, "Conversion to vector cannot be resolved trivially");
 }
 
+mlir::LogicalResult mlir::spn::ResolveAttachLog::matchAndRewrite(mlir::spn::low::SPNAttachLog op,
+                                                                 llvm::ArrayRef<mlir::Value> operands,
+                                                                 mlir::ConversionPatternRewriter& rewriter) const {
+  if (op.checkVectorized()) {
+    return rewriter.notifyMatchFailure(op, "Pattern does not resolve vectorized operation");
+  }
+  assert(operands.size() == 1);
+  if (operands[0].getType() != op.source()) {
+    return rewriter.notifyMatchFailure(op, "Could not resolve AttachLog trivially");
+  }
+  rewriter.replaceOp(op, operands[0]);
+  return success();
+}
+
 mlir::LogicalResult mlir::spn::ResolveStripLog::matchAndRewrite(mlir::spn::low::SPNStripLog op,
                                                                 llvm::ArrayRef<mlir::Value> operands,
                                                                 mlir::ConversionPatternRewriter& rewriter) const {

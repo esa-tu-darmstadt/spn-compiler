@@ -261,6 +261,17 @@ mlir::Block* mlir::spn::low::SPNBody::addEntryBlock() {
 }
 
 //===----------------------------------------------------------------------===//
+// SPNAttachLog
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::low::SPNAttachLog::build(::mlir::OpBuilder& odsBuilder,
+                                         ::mlir::OperationState& odsState,
+                                         Value input,
+                                         Type sourceType) {
+  build(odsBuilder, odsState, LogType::get(sourceType), input, TypeAttr::get(sourceType));
+}
+
+//===----------------------------------------------------------------------===//
 // SPNStripLog
 //===----------------------------------------------------------------------===//
 

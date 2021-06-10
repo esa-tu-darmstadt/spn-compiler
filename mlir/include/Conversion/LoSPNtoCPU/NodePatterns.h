@@ -155,6 +155,15 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
+    struct ResolveAttachLog : public OpConversionPattern<low::SPNAttachLog> {
+
+      using OpConversionPattern<low::SPNAttachLog>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNAttachLog op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
     struct ResolveStripLog : public OpConversionPattern<low::SPNStripLog> {
 
       using OpConversionPattern<low::SPNStripLog>::OpConversionPattern;
@@ -172,7 +181,7 @@ namespace mlir {
       patterns.insert<MulLogLowering, AddLogLowering>(typeConverter, context);
       patterns.insert<CategoricalLowering, HistogramLowering>(typeConverter, context);
       patterns.insert<GaussianLowering, GaussianLogLowering>(typeConverter, context);
-      patterns.insert<ResolveConvertToVector, ResolveStripLog>(typeConverter, context);
+      patterns.insert<ResolveConvertToVector, ResolveAttachLog, ResolveStripLog>(typeConverter, context);
     }
   }
 }

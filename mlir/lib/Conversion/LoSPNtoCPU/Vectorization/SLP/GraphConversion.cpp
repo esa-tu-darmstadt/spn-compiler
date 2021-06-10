@@ -9,7 +9,7 @@
 #include "LoSPNtoCPU/Vectorization/SLP/GraphConversion.h"
 #include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
-#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
+#include "LoSPN/LoSPNOps.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "llvm/ADT/SCCIterator.h"
 
@@ -381,16 +381,19 @@ void ConversionManager::createExtractionFor(Value const& value) {
   auto const& source = getValue(wordPosition.superword);
   auto pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) wordPosition.index));
   rewriter.setInsertionPoint(escapingUsers.lookup(value).front());
-  auto extractOp = rewriter.create<vector::ExtractElementOp>(value.getLoc(), source, pos);
+  Value extractOp = rewriter.create<vector::ExtractElementOp>(value.getLoc(), source, pos);
   for (auto* escapingUser : escapingUsers.lookup(value)) {
     size_t index = 0;
     for (auto const& operand : escapingUser->getOperands()) {
       if (operand == value) {
+        if(operand.getType().isa<LogType>()) {
+          extractOp = rewriter.create<SPNAttachLog>(value.getLoc(), extractOp, extractOp.getType());
+        }
         break;
       }
       ++index;
     }
-    escapingUser->setOperand(index, extractOp.result());
+    escapingUser->setOperand(index, extractOp);
   }
   escapingUsers.erase(value);
 }
