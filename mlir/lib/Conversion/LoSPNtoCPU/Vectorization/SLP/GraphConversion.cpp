@@ -131,6 +131,15 @@ void ConversionPlan::addConversionStep(Superword* superword, SLPVectorizationPat
 // Helper functions in anonymous namespace.
 namespace {
 
+  Operation* earliestNonConstOperation(Block* block) {
+    for (auto& op : *block) {
+      if (!op.hasTrait<OpTrait::ConstantLike>()) {
+        return &op;
+      }
+    }
+    llvm_unreachable("a block consisting of constant operations only should not need to be vectorized");
+  }
+
   SmallVector<Superword*> computeOrder(Superword* root) {
     DenseMap<Superword*, unsigned> depths;
     depths[root] = 0;
@@ -184,12 +193,10 @@ namespace {
     });
   }
 
-  void reorderOperations(Operation* firstInput,
-                         SmallPtrSetImpl<Operation*> const& inputs,
-                         SmallPtrSetImpl<Operation*> const& users) {
+  void reorderOperations(Operation* earliestInput, Block* block, SmallPtrSetImpl<Operation*> const& escapingUsers) {
     DenseMap<Operation*, unsigned> depths;
     SmallVector<Operation*> worklist;
-    for (auto* user : users) {
+    for (auto* user : escapingUsers) {
       worklist.emplace_back(user);
       depths[user] = 0;
     }
@@ -198,7 +205,7 @@ namespace {
       auto* currentOp = worklist.pop_back_val();
       for (auto const& operand : currentOp->getOperands()) {
         if (auto* operandOp = operand.getDefiningOp()) {
-          if (operandOp->isBeforeInBlock(firstInput)) {
+          if (earliestInput && operandOp->isBeforeInBlock(earliestInput)) {
             continue;
           }
           unsigned operandDepth = depths[currentOp] + 1;
@@ -221,10 +228,20 @@ namespace {
         return lhs->isBeforeInBlock(rhs);
       });
     }
-    Operation* latestOp = firstInput;
+
+    Operation* latestOp = earliestInput;
     for (unsigned depth = 0; depth <= maxDepth; ++depth) {
       auto const& ops = opsSortedByDepth[depth];
       for (auto* op : ops) {
+        // Earliest input == block argument?
+        if (!latestOp) {
+          latestOp = earliestNonConstOperation(block)->getPrevNode();
+          if (!latestOp) {
+            op->moveBefore(block, block->begin());
+            latestOp = op;
+            continue;
+          }
+        }
         op->moveAfter(latestOp);
         latestOp = op;
       }
@@ -239,14 +256,12 @@ ConversionManager::ConversionManager(PatternRewriter& rewriter, std::shared_ptr<
 void ConversionManager::initConversion(Superword* root, Block* block) {
   order.assign(computeOrder(root));
 
-  SmallPtrSet<Operation*, 32> inputs;
-  Operation* earliestInput = nullptr;
-
   // Remove all temporary data from previous graphs.
   escapingUsers.clear();
   insertionPoints.clear();
 
   // Gather escaping users.
+  Operation* earliestInput = nullptr;
   for (auto* superword : order) {
     for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
       auto const& element = superword->getElement(lane);
@@ -258,7 +273,6 @@ void ConversionManager::initConversion(Superword* root, Block* block) {
           if (!earliestInput || elementOp->isBeforeInBlock(earliestInput)) {
             earliestInput = elementOp;
           }
-          inputs.insert(elementOp);
         } else {
           for (size_t i = 0; i < superword->numOperands(); ++i) {
             auto const& operand = superword->getOperand(i)->getElement(lane);
@@ -269,27 +283,17 @@ void ConversionManager::initConversion(Superword* root, Block* block) {
       }
     }
   }
-  if (earliestInput) {
-    Operation* latestEscapingUser = nullptr;
-    SmallPtrSet<Operation*, 32> users;
-    for (auto& entry : escapingUsers) {
-      for (auto* escapingUser : entry.second) {
-        if (users.contains(escapingUser)) {
-          continue;
-        }
-        if (!latestEscapingUser || latestEscapingUser->isBeforeInBlock(escapingUser)) {
-          latestEscapingUser = escapingUser;
-        }
-        users.insert(escapingUser);
-      }
-    }
-    reorderOperations(earliestInput, inputs, users);
+  SmallPtrSet<Operation*, 32> users;
+  for (auto& entry : escapingUsers) {
+    users.insert(std::begin(entry.second), std::end(entry.second));
   }
+
+  assert(!users.empty() && "trying to vectorize dead function");
+  reorderOperations(earliestInput, block, users);
 
   // Sort escaping users so that we can create the extraction operation right in front of the first one.
   for (auto& entry : escapingUsers) {
-    auto& users = entry.second;
-    llvm::sort(std::begin(users), std::end(users), [&](Operation* lhs, Operation* rhs) {
+    llvm::sort(std::begin(entry.second), std::end(entry.second), [&](Operation* lhs, Operation* rhs) {
       return lhs->isBeforeInBlock(rhs);
     });
   }
@@ -297,11 +301,11 @@ void ConversionManager::initConversion(Superword* root, Block* block) {
   // Compute insertion points.
   for (auto* superword : order) {
     if (superword->isLeaf()) {
-      auto const& element = latestElement(superword);
-      if (element.getDefiningOp()) {
-        insertionPoints[superword] = element.getDefiningOp()->getNextNode();
+      auto const& latest = latestElement(superword);
+      if (auto* latestOp = latest.getDefiningOp()) {
+        insertionPoints[superword] = latestOp->getNextNode();
       } else {
-        insertionPoints[superword] = &block->front();
+        insertionPoints[superword] = earliestNonConstOperation(block);
       }
     } else {
       Operation* latestOperand = nullptr;
@@ -315,7 +319,14 @@ void ConversionManager::initConversion(Superword* root, Block* block) {
           latestOperand = nextLatest;
         }
       }
-      insertionPoints[superword] = latestOperand;
+      // Make sure that if vectorization patterns fail, broadcast & insert patterns can still be applied.
+      // Here, the latest element always has a defining op (otherwise the superword would be a leaf).
+      auto latestOp = latestElement(superword).getDefiningOp();
+      if (latestOperand->isBeforeInBlock(latestOp)) {
+        insertionPoints[superword] = latestOp->getNextNode();
+      } else {
+        insertionPoints[superword] = latestOperand;
+      }
     }
   }
 }
@@ -329,14 +340,14 @@ void ConversionManager::setInsertionPointFor(Superword* superword) const {
   }
 }
 
+bool ConversionManager::wasConverted(Superword* superword) const {
+  return creationData.count(superword);
+}
+
 void ConversionManager::update(Superword* superword, Value const& operation, ElementFlag flag) {
   assert(!wasConverted(superword) && "superword has been converted already");
   creationData[superword].operation = operation;
   creationData[superword].flag = flag;
-}
-
-bool ConversionManager::wasConverted(Superword* superword) const {
-  return creationData.count(superword);
 }
 
 Value ConversionManager::getValue(Superword* superword) const {
@@ -386,7 +397,7 @@ void ConversionManager::createExtractionFor(Value const& value) {
     size_t index = 0;
     for (auto const& operand : escapingUser->getOperands()) {
       if (operand == value) {
-        if(operand.getType().isa<LogType>()) {
+        if (operand.getType().isa<LogType>()) {
           extractOp = rewriter.create<SPNAttachLog>(value.getLoc(), extractOp, extractOp.getType());
         }
         break;
