@@ -8,8 +8,6 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/GraphConversion.h"
 #include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
-#include "LoSPN/LoSPNOps.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "llvm/ADT/SCCIterator.h"
 
@@ -322,10 +320,10 @@ void ConversionManager::initConversion(Superword* root, Block* block) {
       // Make sure that if vectorization patterns fail, broadcast & insert patterns can still be applied.
       // Here, the latest element always has a defining op (otherwise the superword would be a leaf).
       auto latestOp = latestElement(superword).getDefiningOp();
-      if (latestOperand->isBeforeInBlock(latestOp)) {
-        insertionPoints[superword] = latestOp->getNextNode();
-      } else {
+      if (latestOp->isBeforeInBlock(latestOperand)) {
         insertionPoints[superword] = latestOperand;
+      } else {
+        insertionPoints[superword] = latestOp->getNextNode();
       }
     }
   }
