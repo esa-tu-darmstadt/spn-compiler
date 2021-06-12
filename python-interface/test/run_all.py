@@ -97,6 +97,52 @@ def test_all_speakers(log_prefix, max_rows=None):
                   log_file=log_prefix + "_io_noisy_marg_1_bounds_1.log")
 
 
+def find_rat_spn_model(csv_file, models_path):
+    for path, subdirectories, _ in os.walk(models_path):
+        for subdirectory in subdirectories:
+            if subdirectory not in csv_file:
+                continue
+            for model_name in os.listdir(os.path.join(path, subdirectory)):
+                # Strip extension from file.
+                if model_name[0:-3] in csv_file:
+                    query = BinaryDeserializer(os.path.join(path, subdirectory, model_name)).deserialize_from_file()
+                    return query.root
+    raise Exception(f"No model found for CSV file {csv_file}")
+
+
+def test_all_rat_spns(log_prefix, max_rows=None):
+    models_path = "/net/celebdil/spn-benchmarks/ratspn-classification/models"
+    io_path = "/net/celebdil/spn-benchmarks/ratspn-classification/io_files/"
+    for path, datasets, _ in os.walk(io_path):
+        for dataset in datasets:
+            csvs = os.listdir(os.path.join(path, dataset))
+            inputs = None
+            for csv_file in csvs:
+                if csv_file != "input.csv":
+                    continue
+                inputs = read_csv(os.path.join(path, dataset, "input.csv"),
+                                  delimiter=",",
+                                  dtype="float64",
+                                  max_rows=max_rows)
+            if inputs is None:
+                raise Exception(f"Dataset folder does not contain 'input.csv': {dataset}")
+            for csv_file in csvs:
+                if csv_file == "input.csv":
+                    continue
+                references = read_csv(os.path.join(path, dataset, csv_file),
+                                      delimiter=",",
+                                      dtype="float64",
+                                      max_rows=max_rows)
+                references = references.reshape(references.size)
+                spn = find_rat_spn_model(csv_file=csv_file, models_path=models_path)
+                test_spn(spn=spn,
+                         inputs=inputs,
+                         references=references,
+                         log_file=log_prefix + ".log",
+                         spn_name=csv_file[0:-3])
+
+
 if __name__ == "__main__":
-    test_all_speakers(log_prefix="speakers", max_rows=10)
+    # test_all_speakers(log_prefix="speakers", max_rows=10)
+    # test_all_rat_spns(log_prefix="rat_spn", max_rows=5)
     print("DONE")
