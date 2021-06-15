@@ -321,6 +321,7 @@ mlir::LogicalResult mlir::spn::GaussianLogLowering::matchAndRewrite(mlir::spn::l
   Value gaussian = rewriter.create<mlir::AddFOp>(op->getLoc(), coefficientConst, fraction);
   if (op.supportMarginal()) {
     auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), CmpFPredicate::UNO, index, index);
+    // FixMe / Question: Could this be a bug? (Either rename to 'constZero' -OR- set to 1.0 (instead of 0.0))
     auto constOne = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, 0.0));
     gaussian = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, gaussian);
   }
@@ -486,17 +487,55 @@ mlir::LogicalResult mlir::spn::CategoricalLowering::matchAndRewrite(mlir::spn::l
 mlir::LogicalResult mlir::spn::SelectLowering::matchAndRewrite(mlir::spn::low::SPNSelectLeaf op,
                                                                llvm::ArrayRef<mlir::Value> operands,
                                                                mlir::ConversionPatternRewriter& rewriter) const {
+  // If the input type is not an integer, but also not a float, we cannot convert it and this pattern fails.
   mlir::Value cond;
-  if (op.cond().getType().isa<mlir::FloatType>()) {
+  auto inputTy = op.input().getType();
+  if (inputTy.isa<mlir::FloatType>()) {
+    auto thresholdAttr = FloatAttr::get(inputTy, op.input_true_thresholdAttr().getValueAsDouble());
+    auto input_true_threshold = rewriter.create<mlir::ConstantOp>(op->getLoc(), inputTy, thresholdAttr);
     cond = rewriter.create<mlir::CmpFOp>(op->getLoc(), IntegerType::get(op.getContext(), 1),
-                                         mlir::CmpFPredicate::UGE, op.cond(), op.threshold());
-  } else if (op.cond().getType().isa<mlir::IntegerType>()) {
+                                         mlir::CmpFPredicate::ULT, op.input(), input_true_threshold);
+  } else if (inputTy.isa<mlir::IntegerType>()) {
+    auto thresholdAttr = IntegerAttr::get(inputTy, op.input_true_thresholdAttr().getValueAsDouble());
+    auto input_true_threshold = rewriter.create<mlir::ConstantOp>(op->getLoc(), inputTy, thresholdAttr);
     cond = rewriter.create<mlir::CmpIOp>(op->getLoc(), IntegerType::get(op.getContext(), 1),
-                                         mlir::CmpIPredicate::uge, op.cond(), op.threshold());
+                                         mlir::CmpIPredicate::ult, op.input(), input_true_threshold);
   } else {
     return rewriter.notifyMatchFailure(op, "Expected condition-value to be either Float- or IntegerType");
   }
-  rewriter.replaceOpWithNewOp<SelectOp>(op, cond, op.val_true(), op.val_false());
+
+  Type resultType = op.getResult().getType();
+  bool computesLog = false;
+  if (auto logType = resultType.dyn_cast<low::LogType>()) {
+    resultType = logType.getBaseType();
+    computesLog = true;
+  }
+
+  ConstantOp val_true, val_false;
+  if (computesLog) {
+    val_true = rewriter.create<mlir::ConstantOp>(op->getLoc(),
+                                                 resultType,
+                                                 FloatAttr::get(resultType, log(op.val_trueAttr().getValueAsDouble())));
+    val_false = rewriter.create<mlir::ConstantOp>(op->getLoc(),
+                                                  resultType,
+                                                  FloatAttr::get(resultType,
+                                                                 log(op.val_falseAttr().getValueAsDouble())));
+  } else {
+    val_true = rewriter.create<mlir::ConstantOp>(op->getLoc(), op.val_trueAttr().getType(), op.val_trueAttr());
+    val_false = rewriter.create<mlir::ConstantOp>(op->getLoc(), op.val_falseAttr().getType(), op.val_falseAttr());
+  }
+
+  mlir::Value leaf = rewriter.template create<SelectOp>(op.getLoc(), cond, val_true, val_false);
+  if (op.supportMarginal()) {
+    assert(inputTy.template isa<mlir::FloatType>());
+    auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), mlir::CmpFPredicate::UNO, op.input(), op.input());
+    auto marginalValue = (computesLog) ? 0.0 : 1.0;
+    auto constOne = rewriter.create<mlir::ConstantOp>(op.getLoc(),
+                                                      rewriter.getFloatAttr(resultType, marginalValue));
+    leaf = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, leaf);
+  }
+  rewriter.replaceOp(op, leaf);
+
   return success();
 }
 

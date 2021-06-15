@@ -39,14 +39,11 @@ module  {
 // CHECK:             %[[VAL_8:.*]] = "lo_spn.batch_read"(%[[VAL_6]], %[[VAL_5]]) {sampleIndex = 0 : ui32} : (memref<?x1xf64>, index) -> f64
 // CHECK:             %[[VAL_9:.*]] = "lo_spn.body"(%[[VAL_8]]) ( {
 // CHECK:             ^bb0(%[[VAL_10:.*]]: f64):
-// CHECK:               %[[VAL_11:.*]] = constant 4.500000e-01 : f64
-// CHECK:               %[[VAL_12:.*]] = constant 5.500000e-01 : f64
-// CHECK:               %[[VAL_13:.*]] = constant 1.000000e+00 : f64
-// CHECK:               %[[VAL_14:.*]] = "lo_spn.select"(%[[VAL_10]], %[[VAL_13]], %[[VAL_12]], %[[VAL_11]]) : (f64, f64, f64, f64) -> f64
-// CHECK:               %[[VAL_15:.*]] = "lo_spn.log"(%[[VAL_14]]) : (f64) -> f64
-// CHECK:               "lo_spn.yield"(%[[VAL_15]]) : (f64) -> ()
+// CHECK:               %[[VAL_11:.*]] = "lo_spn.select"(%[[VAL_10]]) {input_true_threshold = 1.000000e+00 : f64, supportMarginal = false, val_false = 5.500000e-01 : f64, val_true = 4.500000e-01 : f64} : (f64) -> f64
+// CHECK:               %[[VAL_12:.*]] = "lo_spn.log"(%[[VAL_11]]) : (f64) -> f64
+// CHECK:               "lo_spn.yield"(%[[VAL_12]]) : (f64) -> ()
 // CHECK:             }) : (f64) -> f64
-// CHECK:             "lo_spn.batch_write"(%[[VAL_16:.*]], %[[VAL_7]], %[[VAL_5]]) : (f64, memref<?xf64>, index) -> ()
+// CHECK:             "lo_spn.batch_write"(%[[VAL_13:.*]], %[[VAL_7]], %[[VAL_5]]) : (f64, memref<?xf64>, index) -> ()
 // CHECK:             "lo_spn.return"() : () -> ()
 // CHECK:           }) {batchSize = 12 : ui32} : (memref<?x1xf64>, memref<?xf64>) -> ()
 // CHECK:           "lo_spn.copy"(%[[VAL_4]], %[[VAL_1]]) : (memref<?xf64>, memref<?xf64>) -> ()

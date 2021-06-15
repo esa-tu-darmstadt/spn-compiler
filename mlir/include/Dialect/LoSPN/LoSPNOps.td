@@ -324,6 +324,8 @@ def SPNHistogramLeaf : LoSPNBodyOp<"histogram", [NoSideEffect,
     let arguments = (ins LoSPNInputType:$index, BucketListAttr:$buckets,
                         UI32Attr:$bucketCount, BoolAttr:$supportMarginal);
 
+    let hasCanonicalizeMethod = 1;
+
     let results = (outs LoSPNComputeType);
 }
 
@@ -367,8 +369,11 @@ def SPNGaussianLeaf : LoSPNBodyOp<"gaussian", [NoSideEffect,
 
 ///
 /// Select of an SPN leaf node value.
+/// Corresponds to: ($input < $input_true_threshold) ? $val_true : $val_false;
 ///
-def SPNSelectLeaf : LoSPNBodyOp<"select", [NoSideEffect]> {
+def SPNSelectLeaf : LoSPNBodyOp<"select", [NoSideEffect,
+                                           DeclareOpInterfaceMethods<LoSPNVectorizable>,
+                                           DeclareOpInterfaceMethods<LeafNodeInterface>]> {
 
     let summary = "Leaf node value select";
 
@@ -376,8 +381,8 @@ def SPNSelectLeaf : LoSPNBodyOp<"select", [NoSideEffect]> {
         Single value select of a Categorical or Histogram leaf.
     }];
 
-    let arguments = (ins LoSPNInputType:$cond, LoSPNInputType:$threshold,
-        LoSPNComputeType:$val_true, LoSPNComputeType:$val_false);
+    let arguments = (ins LoSPNInputType:$input, F64Attr:$input_true_threshold,
+        F64Attr:$val_true, F64Attr:$val_false, BoolAttr:$supportMarginal);
 
     let results = (outs LoSPNComputeType);
 

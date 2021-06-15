@@ -137,6 +137,7 @@ void mlir::spn::LoSPNNodeVectorizationPass::runOnOperation() {
   target.addLegalOp<mlir::spn::low::SPNConvertToVector>();
 
   OwningRewritePatternList patterns(&getContext());
+  patterns.insert<SelectLowering>(typeConverter, &getContext());
   mlir::spn::populateLoSPNCPUVectorizationNodePatterns(patterns, &getContext(), typeConverter);
 
   auto op = getOperation();
