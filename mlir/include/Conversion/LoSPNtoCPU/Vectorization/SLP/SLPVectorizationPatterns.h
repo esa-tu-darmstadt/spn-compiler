@@ -130,6 +130,12 @@ namespace mlir {
 
         // === Log-space patterns === //
 
+        struct VectorizeLogConstant : public LogSpaceVectorizationPattern<SPNConstant> {
+          using LogSpaceVectorizationPattern<SPNConstant>::LogSpaceVectorizationPattern;
+          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          void accept(PatternVisitor& visitor, Superword* superword) override;
+        };
+
         struct VectorizeLogAdd : public LogSpaceVectorizationPattern<SPNAdd> {
           using LogSpaceVectorizationPattern<SPNAdd>::LogSpaceVectorizationPattern;
           LogicalResult match(Superword* superword) const override;
@@ -164,6 +170,7 @@ namespace mlir {
           patterns.emplace_back(std::make_unique<VectorizeMul>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeGaussian>(conversionManager));
           // === Log-space patterns === //
+          patterns.emplace_back(std::make_unique<VectorizeLogConstant>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeLogAdd>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeLogMul>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeLogGaussian>(conversionManager));

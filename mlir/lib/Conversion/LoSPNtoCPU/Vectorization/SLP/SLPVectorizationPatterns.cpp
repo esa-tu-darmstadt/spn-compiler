@@ -47,6 +47,13 @@ namespace {
       }
     }
   }
+
+  Value stripLogOrValue(Value const& value, PatternRewriter& rewriter) {
+    if (auto logType = value.getType().dyn_cast<LogType>()) {
+      return rewriter.create<SPNStripLog>(value.getLoc(), value, logType.getBaseType());
+    }
+    return value;
+  }
 }
 
 // === Broadcast === //
@@ -57,7 +64,7 @@ LogicalResult BroadcastSuperword::match(Superword* superword) const {
 
 void BroadcastSuperword::rewrite(Superword* superword, PatternRewriter& rewriter) const {
   createNecessaryExtractionsFor(superword, conversionManager);
-  auto const& element = superword->getElement(0);
+  auto const& element = stripLogOrValue(superword->getElement(0), rewriter);
   auto vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), superword->getVectorType(), element);
   conversionManager.update(superword, vectorizedOp, ElementFlag::KeepFirst);
 }
@@ -84,14 +91,16 @@ void BroadcastInsertSuperword::rewrite(Superword* superword, PatternRewriter& re
     }
   }
   auto loc = superword->getLoc();
-  Value vectorizedOp = rewriter.create<vector::BroadcastOp>(loc, superword->getVectorType(), broadcastValue);
+  Value vectorizedOp =
+      rewriter.create<vector::BroadcastOp>(loc, superword->getVectorType(), stripLogOrValue(broadcastValue, rewriter));
   for (size_t i = 0; i < superword->numLanes(); ++i) {
     auto const& element = superword->getElement(i);
     if (element == broadcastValue) {
       continue;
     }
     auto index = conversionManager.getOrCreateConstant(loc, rewriter.getI32IntegerAttr((int) i));
-    vectorizedOp = rewriter.create<vector::InsertElementOp>(loc, element, vectorizedOp, index);
+    vectorizedOp =
+        rewriter.create<vector::InsertElementOp>(loc, stripLogOrValue(element, rewriter), vectorizedOp, index);
   }
   conversionManager.update(superword, vectorizedOp, ElementFlag::KeepAll);
 }
@@ -104,21 +113,68 @@ void BroadcastInsertSuperword::accept(PatternVisitor& visitor, Superword* superw
 namespace {
 
   template<typename AttributeIterator>
-  DenseElementsAttr denseFloatingPoints(AttributeIterator begin, AttributeIterator end, VectorType const& vectorType) {
-    if (vectorType.getElementType().cast<FloatType>().getWidth() == 32) {
-      SmallVector<float, 4> array;
+  DenseElementsAttr denseElements(AttributeIterator begin, AttributeIterator end, VectorType const& vectorType) {
+    if (auto floatType = vectorType.getElementType().template dyn_cast<FloatType>()) {
+      if (floatType.getWidth() == 32) {
+        SmallVector<float, 4> array;
+        while (begin != end) {
+          array.push_back(begin->template cast<FloatAttr>().getValue().convertToFloat());
+          ++begin;
+        }
+        return DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<float>>(array));
+      }
+      SmallVector<double, 4> array;
       while (begin != end) {
-        array.push_back(begin->template cast<FloatAttr>().getValue().convertToFloat());
+        array.push_back(begin->template cast<FloatAttr>().getValue().convertToDouble());
         ++begin;
       }
-      return DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<float>>(array));
+      return DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<double>>(array));
+    } else if (auto indexType = vectorType.getElementType().template dyn_cast<IndexType>()) {
+      if (indexType.isSignlessIntOrIndex()) {
+        SmallVector<int64_t, 4> array;
+        while (begin != end) {
+          array.push_back(begin->template cast<IntegerAttr>().getInt());
+          ++begin;
+        }
+        return DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<int64_t>>(array));
+      } else if (indexType.isUnsignedInteger()) {
+        SmallVector<uint64_t, 4> array;
+        while (begin != end) {
+          array.push_back(begin->template cast<IntegerAttr>().getUInt());
+          ++begin;
+        }
+        return DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<uint64_t>>(array));
+      }
+      SmallVector<int64_t, 4> array;
+      while (begin != end) {
+        array.push_back(begin->template cast<IntegerAttr>().getSInt());
+        ++begin;
+      }
+      return DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<int64_t>>(array));
+    } else if (auto intType = vectorType.getElementType().template dyn_cast<IntegerType>()) {
+      if (intType.isSignlessIntOrIndex()) {
+        SmallVector<int64_t, 4> array;
+        while (begin != end) {
+          array.push_back(begin->template cast<IntegerAttr>().getInt());
+          ++begin;
+        }
+        return DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<int64_t>>(array));
+      } else if (intType.isUnsignedInteger()) {
+        SmallVector<uint64_t, 4> array;
+        while (begin != end) {
+          array.push_back(begin->template cast<IntegerAttr>().getUInt());
+          ++begin;
+        }
+        return DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<uint64_t>>(array));
+      }
+      SmallVector<int64_t, 4> array;
+      while (begin != end) {
+        array.push_back(begin->template cast<IntegerAttr>().getSInt());
+        ++begin;
+      }
+      return DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<int64_t>>(array));
     }
-    SmallVector<double, 4> array;
-    while (begin != end) {
-      array.push_back(begin->template cast<FloatAttr>().getValue().convertToDouble());
-      ++begin;
-    }
-    return DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<double>>(array));
+    llvm_unreachable("illegal vector element type");
   }
 
 }
@@ -130,7 +186,7 @@ void VectorizeConstant::rewrite(Superword* superword, PatternRewriter& rewriter)
   for (auto const& value : *superword) {
     constants.emplace_back(static_cast<ConstantOp>(value.getDefiningOp()).value());
   }
-  auto const& elements = denseFloatingPoints(std::begin(constants), std::end(constants), superword->getVectorType());
+  auto const& elements = denseElements(std::begin(constants), std::end(constants), superword->getVectorType());
   auto const& constVector = conversionManager.getOrCreateConstant(superword->getLoc(), elements);
   conversionManager.update(superword, constVector, ElementFlag::KeepAll);
 }
@@ -254,6 +310,22 @@ void VectorizeGaussian::rewrite(Superword* superword, PatternRewriter& rewriter)
 }
 
 void VectorizeGaussian::accept(PatternVisitor& visitor, Superword* superword) {
+  visitor.visit(this, superword);
+}
+
+// === VectorizeLogConstant === //
+
+void VectorizeLogConstant::rewrite(Superword* superword, PatternRewriter& rewriter) const {
+  SmallVector<Attribute, 4> constants;
+  for (auto const& value : *superword) {
+    constants.emplace_back(static_cast<SPNConstant>(value.getDefiningOp()).valueAttr());
+  }
+  auto const& elements = denseElements(std::begin(constants), std::end(constants), superword->getVectorType());
+  auto const& constVector = conversionManager.getOrCreateConstant(superword->getLoc(), elements);
+  conversionManager.update(superword, constVector, ElementFlag::KeepAll);
+}
+
+void VectorizeLogConstant::accept(PatternVisitor& visitor, Superword* superword) {
   visitor.visit(this, superword);
 }
 

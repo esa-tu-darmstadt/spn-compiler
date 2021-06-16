@@ -159,3 +159,7 @@ void UnitCostModel::visit(VectorizeConstant* pattern, Superword* superword) {
 void UnitCostModel::visit(VectorizeGaussian* pattern, Superword* superword) {
   this->cost = 6;
 }
+
+void UnitCostModel::visit(VectorizeLogConstant* pattern, Superword* superword) {
+  this->cost = 0;
+}
