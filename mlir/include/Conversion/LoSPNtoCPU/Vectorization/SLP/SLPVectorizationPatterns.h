@@ -101,6 +101,12 @@ namespace mlir {
           void accept(PatternVisitor& visitor, Superword* superword) override;
         };
 
+        struct VectorizeSPNConstant : public OpSpecificVectorizationPattern<SPNConstant> {
+          using OpSpecificVectorizationPattern<SPNConstant>::OpSpecificVectorizationPattern;
+          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          void accept(PatternVisitor& visitor, Superword* superword) override;
+        };
+
         struct VectorizeBatchRead : public OpSpecificVectorizationPattern<SPNBatchRead> {
           using OpSpecificVectorizationPattern<SPNBatchRead>::OpSpecificVectorizationPattern;
           LogicalResult match(Superword* superword) const override;
@@ -130,12 +136,6 @@ namespace mlir {
 
         // === Log-space patterns === //
 
-        struct VectorizeLogConstant : public LogSpaceVectorizationPattern<SPNConstant> {
-          using LogSpaceVectorizationPattern<SPNConstant>::LogSpaceVectorizationPattern;
-          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
-          void accept(PatternVisitor& visitor, Superword* superword) override;
-        };
-
         struct VectorizeLogAdd : public LogSpaceVectorizationPattern<SPNAdd> {
           using LogSpaceVectorizationPattern<SPNAdd>::LogSpaceVectorizationPattern;
           LogicalResult match(Superword* superword) const override;
@@ -164,13 +164,13 @@ namespace mlir {
           patterns.emplace_back(std::make_unique<BroadcastSuperword>(conversionManager));
           patterns.emplace_back(std::make_unique<BroadcastInsertSuperword>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeConstant>(conversionManager));
+          patterns.emplace_back(std::make_unique<VectorizeSPNConstant>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeBatchRead>(conversionManager));
           // === Normal space patterns === //
           patterns.emplace_back(std::make_unique<VectorizeAdd>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeMul>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeGaussian>(conversionManager));
           // === Log-space patterns === //
-          patterns.emplace_back(std::make_unique<VectorizeLogConstant>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeLogAdd>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeLogMul>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeLogGaussian>(conversionManager));

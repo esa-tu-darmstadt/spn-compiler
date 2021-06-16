@@ -29,6 +29,10 @@ void PatternVisitor::visit(VectorizeConstant* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }
 
+void PatternVisitor::visit(VectorizeSPNConstant* pattern, Superword* superword) {
+  visitDefault(pattern, superword);
+}
+
 void PatternVisitor::visit(VectorizeBatchRead* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }
@@ -42,10 +46,6 @@ void PatternVisitor::visit(VectorizeMul* pattern, Superword* superword) {
 }
 
 void PatternVisitor::visit(VectorizeGaussian* pattern, Superword* superword) {
-  visitDefault(pattern, superword);
-}
-
-void PatternVisitor::visit(VectorizeLogConstant* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }
 

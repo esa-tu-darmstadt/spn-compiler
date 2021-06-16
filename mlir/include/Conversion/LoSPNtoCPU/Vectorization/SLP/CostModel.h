@@ -45,8 +45,8 @@ namespace mlir {
           void visit(BroadcastSuperword* pattern, Superword* superword) override;
           void visit(BroadcastInsertSuperword* pattern, Superword* superword) override;
           void visit(VectorizeConstant* pattern, Superword* superword) override;
+          void visit(VectorizeSPNConstant* pattern, Superword* superword) override;
           void visit(VectorizeGaussian* pattern, Superword* superword) override;
-          void visit(VectorizeLogConstant* pattern, Superword* superword) override;
         };
       }
     }
