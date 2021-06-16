@@ -45,6 +45,10 @@ void PatternVisitor::visit(VectorizeGaussian* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }
 
+void PatternVisitor::visit(VectorizeLogConstant* pattern, Superword* superword) {
+  visitDefault(pattern, superword);
+}
+
 void PatternVisitor::visit(VectorizeLogAdd* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }

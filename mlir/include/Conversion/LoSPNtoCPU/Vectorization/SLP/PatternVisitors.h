@@ -28,6 +28,7 @@ namespace mlir {
           virtual void visit(VectorizeAdd* pattern, Superword* superword);
           virtual void visit(VectorizeMul* pattern, Superword* superword);
           virtual void visit(VectorizeGaussian* pattern, Superword* superword);
+          virtual void visit(VectorizeLogConstant* pattern, Superword* superword);
           virtual void visit(VectorizeLogAdd* pattern, Superword* superword);
           virtual void visit(VectorizeLogMul* pattern, Superword* superword);
           virtual void visit(VectorizeLogGaussian* pattern, Superword* superword);
