@@ -138,21 +138,18 @@ namespace mlir {
 
         struct VectorizeLogAdd : public LogSpaceVectorizationPattern<SPNAdd> {
           using LogSpaceVectorizationPattern<SPNAdd>::LogSpaceVectorizationPattern;
-          LogicalResult match(Superword* superword) const override;
           void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
           void accept(PatternVisitor& visitor, Superword* superword) override;
         };
 
         struct VectorizeLogMul : public LogSpaceVectorizationPattern<SPNMul> {
           using LogSpaceVectorizationPattern<SPNMul>::LogSpaceVectorizationPattern;
-          LogicalResult match(Superword* superword) const override;
           void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
           void accept(PatternVisitor& visitor, Superword* superword) override;
         };
 
         struct VectorizeLogGaussian : public LogSpaceVectorizationPattern<SPNGaussianLeaf> {
           using LogSpaceVectorizationPattern<SPNGaussianLeaf>::LogSpaceVectorizationPattern;
-          LogicalResult match(Superword* superword) const override;
           void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
           void accept(PatternVisitor& visitor, Superword* superword) override;
         };

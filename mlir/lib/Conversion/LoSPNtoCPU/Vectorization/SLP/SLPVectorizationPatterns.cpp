@@ -370,13 +370,6 @@ void VectorizeGaussian::accept(PatternVisitor& visitor, Superword* superword) {
 
 // === VectorizeLogAdd === //
 
-LogicalResult VectorizeLogAdd::match(Superword* superword) const {
-  if (failed(LogSpaceVectorizationPattern<SPNAdd>::match(superword))) {
-    return failure();
-  }
-  return success(superword->getElementType().isa<LogType>());
-}
-
 void VectorizeLogAdd::rewrite(Superword* superword, PatternRewriter& rewriter) const {
   llvm_unreachable("TODO");
 }
@@ -386,13 +379,6 @@ void VectorizeLogAdd::accept(PatternVisitor& visitor, Superword* superword) {
 }
 
 // === VectorizeLogMul === //
-
-LogicalResult VectorizeLogMul::match(Superword* superword) const {
-  if (failed(LogSpaceVectorizationPattern<SPNMul>::match(superword))) {
-    return failure();
-  }
-  return success(superword->getElementType().isa<LogType>());
-}
 
 void VectorizeLogMul::rewrite(Superword* superword, PatternRewriter& rewriter) const {
   SmallVector<Value, 2> operands;
@@ -408,13 +394,6 @@ void VectorizeLogMul::accept(PatternVisitor& visitor, Superword* superword) {
 }
 
 // === VectorizeLogGaussian === //
-
-LogicalResult VectorizeLogGaussian::match(Superword* superword) const {
-  if (failed(LogSpaceVectorizationPattern<SPNGaussianLeaf>::match(superword))) {
-    return failure();
-  }
-  return success(superword->getElementType().isa<LogType>());
-}
 
 // Helper functions in anonymous namespace.
 namespace {
