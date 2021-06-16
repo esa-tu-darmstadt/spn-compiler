@@ -206,6 +206,41 @@ void slp::dumpSuperwordGraph(Superword* root) {
   llvm::dbgs() << "}\n";
 }
 
+// Helper functions in anonymous namespace.
+namespace {
+  void dumpAdditionalInformation(Value const& value) {
+    if (auto* definingOp = value.getDefiningOp()) {
+      llvm::dbgs() << "<BR/><FONT COLOR=\"#bbbbbb\">";
+      llvm::dbgs() << "(" << definingOp << ")";
+      if (auto constOp = dyn_cast<ConstantOp>(definingOp)) {
+        llvm::dbgs() << "<BR/>value: " << constOp.getValue();
+      } else if (auto lowConstOp = dyn_cast<SPNConstant>(definingOp)) {
+        llvm::dbgs() << "<BR/>value: " << lowConstOp.value().convertToDouble();
+      } else if (auto readOp = dyn_cast<SPNBatchRead>(definingOp)) {
+        llvm::dbgs() << "<BR/>mem: ";
+        dumpBlockArgOrDefiningAddress(readOp.batchMem());
+        llvm::dbgs() << "<BR/>batch: ";
+        dumpBlockArgOrDefiningAddress(readOp.batchIndex());
+        llvm::dbgs() << "<BR/>sample: " << readOp.sampleIndex();
+      } else if (auto gaussianOp = dyn_cast<SPNGaussianLeaf>(definingOp)) {
+        llvm::dbgs() << "<BR/>index: ";
+        dumpBlockArgOrDefiningAddress(gaussianOp.index());
+        llvm::dbgs() << "<BR/>mean: " << gaussianOp.mean().convertToDouble();
+        llvm::dbgs() << "<BR/>stddev: " << gaussianOp.stddev().convertToDouble();
+      } else if (auto categoricalOp = dyn_cast<SPNCategoricalLeaf>(definingOp)) {
+        llvm::dbgs() << "<BR/>index: ";
+        dumpBlockArgOrDefiningAddress(categoricalOp.index());
+        llvm::dbgs() << "<BR/>probabilities: [ ";
+        for (auto const& probability : categoricalOp.probabilities()) {
+          llvm::dbgs() << probability << " ";
+        }
+        llvm::dbgs() << "]";
+      }
+      llvm::dbgs() << "</FONT>";
+    }
+  }
+}
+
 void slp::dumpSLPGraph(SLPNode* root) {
 
   llvm::dbgs() << "digraph debug_graph {\n";
@@ -224,35 +259,7 @@ void slp::dumpSLPGraph(SLPNode* root) {
         dumpBlockArgOrDefiningOpName(value);
         llvm::dbgs() << "</B>";
         // --- Additional operation information ---
-        if (auto* definingOp = value.getDefiningOp()) {
-          llvm::dbgs() << "<BR/><FONT COLOR=\"#bbbbbb\">";
-          llvm::dbgs() << "(" << definingOp << ")";
-          if (auto constOp = dyn_cast<ConstantOp>(definingOp)) {
-            llvm::dbgs() << "<BR/>value: " << constOp.getValue();
-          } else if (auto lowConstOp = dyn_cast<SPNConstant>(definingOp)) {
-            llvm::dbgs() << "<BR/>value: " << lowConstOp.value().convertToDouble();
-          } else if (auto readOp = dyn_cast<SPNBatchRead>(definingOp)) {
-            llvm::dbgs() << "<BR/>mem: ";
-            dumpBlockArgOrDefiningAddress(readOp.batchMem());
-            llvm::dbgs() << "<BR/>batch: ";
-            dumpBlockArgOrDefiningAddress(readOp.batchIndex());
-            llvm::dbgs() << "<BR/>sample: " << readOp.sampleIndex();
-          } else if (auto gaussianOp = dyn_cast<SPNGaussianLeaf>(definingOp)) {
-            llvm::dbgs() << "<BR/>index: ";
-            dumpBlockArgOrDefiningAddress(gaussianOp.index());
-            llvm::dbgs() << "<BR/>mean: " << gaussianOp.mean().convertToDouble();
-            llvm::dbgs() << "<BR/>stddev: " << gaussianOp.stddev().convertToDouble();
-          } else if (auto categoricalOp = dyn_cast<SPNCategoricalLeaf>(definingOp)) {
-            llvm::dbgs() << "<BR/>index: ";
-            dumpBlockArgOrDefiningAddress(categoricalOp.index());
-            llvm::dbgs() << "<BR/>probabilities: [ ";
-            for (auto const& probability : categoricalOp.probabilities()) {
-              llvm::dbgs() << probability << " ";
-            }
-            llvm::dbgs() << "]";
-          }
-          llvm::dbgs() << "</FONT>";
-        }
+        dumpAdditionalInformation(value);
         // --- ================================ ---
         llvm::dbgs() << "</TD>";
         if (lane < node->numLanes() - 1) {
@@ -268,6 +275,42 @@ void slp::dumpSLPGraph(SLPNode* root) {
     for (size_t i = 0; i < node->numOperands(); ++i) {
       auto const& operand = node->getOperand(i);
       llvm::dbgs() << "node_" << node << "->" << "node_" << operand << "[label=\"" << std::to_string(i) << "\"];\n";
+    }
+  }
+  llvm::dbgs() << "}\n";
+}
+
+void slp::dumpDependencyGraph(DependencyGraph const& dependencyGraph) {
+  llvm::dbgs() << "digraph debug_graph {\n";
+  llvm::dbgs() << "rankdir = TB;\n";
+  llvm::dbgs() << "node[shape=box];\n";
+  for (auto* node : dependencyGraph.nodes) {
+    llvm::dbgs() << "node_" << node << "[label=<\n";
+    llvm::dbgs() << "\t<TABLE ALIGN=\"CENTER\" BORDER=\"0\" CELLSPACING=\"10\" CELLPADDING=\"0\">\n";
+    llvm::dbgs() << "\t\t<TR>\n";
+    for (size_t lane = 0; lane < node->numLanes(); ++lane) {
+      auto value = node->getElement(lane);
+      llvm::dbgs() << "\t\t\t<TD>";
+      llvm::dbgs() << "<B>";
+      dumpBlockArgOrDefiningOpName(value);
+      llvm::dbgs() << "</B>";
+      // --- Additional operation information ---
+      dumpAdditionalInformation(value);
+      // --- ================================ ---
+      llvm::dbgs() << "</TD>";
+      if (lane < node->numLanes() - 1) {
+        llvm::dbgs() << "<VR/>";
+      }
+      llvm::dbgs() << "\n";
+    }
+    llvm::dbgs() << "\t\t</TR>\n";
+    llvm::dbgs() << "\t</TABLE>\n";
+    llvm::dbgs() << ">];\n";
+  }
+  for (auto const& entry : dependencyGraph.dependencyEdges) {
+    auto* src = entry.first;
+    for (auto* dst : entry.second) {
+      llvm::dbgs() << "node_" << src << "->" << "node_" << dst << ";\n";
     }
   }
   llvm::dbgs() << "}\n";

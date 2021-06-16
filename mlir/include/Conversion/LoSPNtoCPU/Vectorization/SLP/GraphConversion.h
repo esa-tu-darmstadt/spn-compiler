@@ -83,6 +83,7 @@ namespace mlir {
           ConversionManager(PatternRewriter& rewriter, std::shared_ptr<ConversionState> conversionState);
 
           void initConversion(Superword* root, Block* block);
+          void finishConversion(Block* block);
 
           void setInsertionPointFor(Superword* superword) const;
           bool wasConverted(Superword* superword) const;
@@ -113,16 +114,7 @@ namespace mlir {
           DenseMap<Superword*, CreationData> creationData;
           std::shared_ptr<ConversionState> conversionState;
 
-          /// Stores insertion points. An entry {k, v} means that superword k will be inserted right before operation v.
-          /*
-           * NOTE: we cannot use a single value that is updated after every created vector op because this would require
-           * Operation::isBeforeInBlock() in case the created vector op was a leaf op and was created *behind* the last
-           * vector op (i.e. if lastVectorOp.isBeforeInBlock(createdVectorOp) then lastVectorOp = createdVectorOp).
-           * With the current MLIR implementation, Operation::isBeforeInBlock() recomputes the *entire* operation order
-           * of the block in case either lastVectorOp or createdVectorOp are new, which createdVectorOp would always be.
-           * Depending on the size of the block and the number of created vector ops, this can waste a lot (!!) of time.
-           */
-          DenseMap<Superword*, Operation*> insertionPoints;
+          Value latestCreation;
 
           /// Stores escaping users for each value.
           DenseMap<Value, SmallVector<Operation*, 1>> escapingUsers;

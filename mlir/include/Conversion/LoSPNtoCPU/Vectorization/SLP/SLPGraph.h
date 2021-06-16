@@ -34,6 +34,7 @@ namespace mlir {
           bool contains(Value const& value) const;
 
           bool isLeaf() const;
+          bool constant() const;
           bool uniform() const;
           bool splattable() const;
 
@@ -84,20 +85,23 @@ namespace mlir {
           SmallVector<std::shared_ptr<SLPNode>> operandNodes;
         };
 
+        struct DependencyGraph {
+          size_t numNodes() const;
+          size_t numEdges() const;
+          SmallVector<Superword*> postOrder() const;
+          SmallPtrSet<Superword*, 32> nodes;
+          DenseMap<Superword*, SmallPtrSet<Superword*, 1>> dependencyEdges;
+        };
+
         class SLPGraph {
           friend class SLPGraphBuilder;
         public:
           SLPGraph(ArrayRef<Value> const& seed, unsigned lookAhead);
           Superword* getRoot() const;
-          DenseMap<Superword*, SmallPtrSet<Superword*, 4>> dependencyMap() const;
+          DependencyGraph dependencyGraph() const;
         private:
           std::shared_ptr<Superword> root;
-          DenseMap<Value, SmallVector<std::shared_ptr<Superword>>> superwordsByValue;
           unsigned const lookAhead;
-        };
-
-        class DependencyGraph {
-
         };
 
         namespace graph {

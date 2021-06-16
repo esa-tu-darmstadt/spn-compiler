@@ -7,6 +7,7 @@
 //==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
+#include "LoSPNtoCPU/Vectorization/SLP/Analysis.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Seeding.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPPatternMatch.h"
@@ -103,6 +104,13 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   }
   // Inline the content of the task into the function.
   rewriter.mergeBlocks(&task.body().front(), taskBlock, blockReplacementArgs);
+  // Replace block arguments *now* because moving operations later on does funky stuff to their block argument operands
+  // Spoiler: it does not remap them, which leads to failures if an operand should be erased.
+  taskBlock->walk([&](Operation* op) {
+    for (size_t i = 0; i < op->getNumOperands(); ++i) {
+      op->setOperand(i, rewriter.getRemappedValue(op->getOperand(i)));
+    }
+  });
 
   // Apply SLP vectorization.
   task->emitRemark() << "Beginning SLP vectorization...";
@@ -137,8 +145,34 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     task->emitRemark("Computing graph...");
     SLPGraph graph{seed, 3};
 
+    {
+      bool dependencyStuff = false;
+      if (dependencyStuff) {
+        auto dependencyGraph = graph.dependencyGraph();
+        task->emitRemark("#Nodes in dependency graph: ") << dependencyGraph.numNodes();
+        task->emitRemark("#Edges in dependency graph: ") << dependencyGraph.numEdges();
+        dumpDependencyGraph(dependencyGraph);
+        for (auto* superword : dependencyGraph.postOrder()) {
+          dumpSuperword(*superword);
+        }
+      }
+    }
+    {
+      bool analysisStuff = false;
+      if (analysisStuff) {
+        analyzeTopologicalMixing(graph);
+        conversionManager.initConversion(graph.getRoot(), &taskFunc.front());
+        for (auto& op : taskBlock->getOperations()) {
+          rewriter.eraseOp(&op);
+        }
+        rewriter.setInsertionPointToStart(taskBlock);
+        rewriter.create<ReturnOp>(task->getLoc());
+        break;
+      }
+    }
+
     task->emitRemark("Converting graph...");
-    conversionManager.initConversion(graph.getRoot(), &taskFunc.front());
+    conversionManager.initConversion(graph.getRoot(), taskBlock);
     auto const& order = conversionManager.conversionOrder();
 
     auto numVectors = order.size();
@@ -181,23 +215,15 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     // Perform DCE on the created vector operations. This is useful if patterns have been applied to superwords
     // that don't need the superword's operands, e.g. vector loads that discard the operand vector of memref indices.
     SmallPtrSet<Operation*, 10> erasedVectorOps;
-    for (SmallVector<Superword*, 32> worklist{std::begin(order), std::end(order)}; !worklist.empty();) {
-      auto* superword = worklist.pop_back_val();
-      auto* vectorOp = conversionManager.getValue(superword).getDefiningOp();
-      if (std::any_of(std::begin(vectorOp->getUsers()), std::end(vectorOp->getUsers()), [&](Operation* user) {
-        return !erasedVectorOps.contains(user);
-      })) {
-        continue;
-      }
-      erasedVectorOps.insert(vectorOp);
-      rewriter.eraseOp(vectorOp);
-      for (auto* operand : superword->getOperands()) {
-        if (!erasedVectorOps.contains(conversionManager.getValue(operand).getDefiningOp())) {
-          worklist.emplace_back(operand);
-        }
+    for (auto it = order.rbegin(); it != order.rend(); ++it) {
+      auto* vectorOp = conversionManager.getValue(*it).getDefiningOp();
+      if (isOpTriviallyDead(vectorOp)) {
+        erasedVectorOps.insert(vectorOp);
+        rewriter.eraseOp(vectorOp);
       }
     }
     if (erasedVectorOps.size() != order.size()) {
+      conversionManager.finishConversion(&taskFunc.front());
       task->emitRemark("Conversion complete.");
       break;
     } else {
@@ -205,7 +231,17 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       seedAnalysis->notifySeedFailed(seed);
     }
   }
+
   task->emitRemark("SLP vectorization complete.");
+  for (auto& op : *taskBlock) {
+    for (auto* user : op.getUsers()) {
+      if (user->isBeforeInBlock(&op)) {
+        llvm::dbgs() << *user << "\n";
+        llvm::dbgs() << op << "\n";
+        llvm_unreachable("user before operand");
+      }
+    }
+  }
   //taskFunc->dump();
   rewriter.restoreInsertionPoint(callPoint);
   rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);

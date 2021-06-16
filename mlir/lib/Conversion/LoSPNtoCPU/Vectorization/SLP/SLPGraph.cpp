@@ -8,7 +8,7 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraph.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraphBuilder.h"
-#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
+#include "LoSPN/LoSPNTypes.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -53,6 +53,19 @@ bool Superword::contains(Value const& value) const {
 
 bool Superword::isLeaf() const {
   return operandWords.empty();
+}
+
+bool Superword::constant() const {
+  for (auto const& value : values) {
+    if (auto* definingOp = value.getDefiningOp()) {
+      if (!definingOp->hasTrait<OpTrait::ConstantLike>()) {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
+  return true;
 }
 
 bool Superword::uniform() const {
@@ -125,6 +138,9 @@ SmallVector<Superword*, 2> Superword::getOperands() const {
 }
 
 VectorType Superword::getVectorType() const {
+  if (auto logType = getElement(0).getType().dyn_cast<LogType>()) {
+    return VectorType::get(static_cast<unsigned>(numLanes()), logType.getBaseType());
+  }
   return VectorType::get(static_cast<unsigned>(numLanes()), getElementType());
 }
 
@@ -207,17 +223,84 @@ Superword* SLPGraph::getRoot() const {
   return root.get();
 }
 
-DenseMap<Superword*, SmallPtrSet<Superword*, 4>> SLPGraph::dependencyMap() const {
-  DenseMap<Superword*, SmallPtrSet<Superword*, 4>> dependencies;
+DependencyGraph SLPGraph::dependencyGraph() const {
+  DependencyGraph dependencyGraph;
+  DenseMap<Value, SmallPtrSet<Superword*, 2>> valueOccurrences;
   graph::walk(root.get(), [&](Superword* superword) {
     for (auto const& element : *superword) {
-      for (auto const& word : superwordsByValue.lookup(element)) {
-        if (superword == word.get()) {
-          continue;
-        }
-        dependencies[superword].insert(word.get());
+      valueOccurrences[element].insert(superword);
+    }
+    dependencyGraph.nodes.insert(superword);
+  });
+  // BFS through scalar values.
+  llvm::SmallSetVector<Value, 32> worklist;
+  llvm::SmallSetVector<Value, 32> nextWorklist;
+  DenseMap<Value, SmallPtrSet<Superword*, 32>> reachableUses;
+  for (auto const& element : *root) {
+    if (auto* definingOp = element.getDefiningOp()) {
+      for (auto const& operand : definingOp->getOperands()) {
+        reachableUses[operand].insert(root.get());
+        nextWorklist.insert(operand);
       }
     }
+  }
+  while (!nextWorklist.empty()) {
+    worklist.swap(nextWorklist);
+    while (!worklist.empty()) {
+      auto element = worklist.pop_back_val();
+      for (auto* user : element.getUsers()) {
+        for (auto const& result : user->getResults()) {
+          reachableUses[element].insert(std::begin(reachableUses[result]), std::end(reachableUses[result]));
+          reachableUses[element].insert(std::begin(valueOccurrences[result]), std::end(valueOccurrences[result]));
+        }
+      }
+      if (auto* definingOp = element.getDefiningOp()) {
+        for (auto const& operand : definingOp->getOperands()) {
+          nextWorklist.insert(operand);
+        }
+      }
+    }
+  }
+  for (auto* node : dependencyGraph.nodes) {
+    for (auto const& element : *node) {
+      for (auto const& reachableUse : reachableUses[element]) {
+        dependencyGraph.dependencyEdges[node].insert(reachableUse);
+      }
+    }
+  }
+  return dependencyGraph;
+}
+
+// === DependencyGraph === //
+
+size_t DependencyGraph::numNodes() const {
+  return nodes.size();
+}
+
+size_t DependencyGraph::numEdges() const {
+  size_t numEdges = 0;
+  for (auto& entry : dependencyEdges) {
+    numEdges += entry.second.size();
+  }
+  return numEdges;
+}
+
+SmallVector<Superword*> DependencyGraph::postOrder() const {
+  SmallVector<Superword*> order{std::begin(nodes), std::end(nodes)};
+  DenseMap<Superword*, unsigned> destinationCounts;
+  for (auto* superword : nodes) {
+    for (auto* dependency : dependencyEdges.lookup(superword)) {
+      ++destinationCounts[dependency];
+    }
+  }
+  llvm::sort(std::begin(order), std::end(order), [&](Superword* lhs, Superword* rhs) {
+    if (dependencyEdges.lookup(lhs).contains(rhs)) {
+      return true;
+    }
+    if (dependencyEdges.lookup(rhs).contains(lhs)) {
+      return false;
+    }
+    return destinationCounts[lhs] < destinationCounts[rhs];
   });
-  return dependencies;
+  return order;
 }

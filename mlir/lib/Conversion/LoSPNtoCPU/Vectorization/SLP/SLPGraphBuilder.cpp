@@ -18,7 +18,7 @@ SLPGraphBuilder::SLPGraphBuilder(SLPGraph& graph) : graph{graph} {}
 void SLPGraphBuilder::build(ArrayRef<Value> const& seed) {
   graph.root = std::make_shared<Superword>(seed);
   auto rootNode = nodeBySuperword.try_emplace(graph.root.get(), std::make_shared<SLPNode>(graph.root)).first->second;
-  graph.superwordsByValue[graph.root->getElement(0)].emplace_back(graph.root);
+  superwordsByValue[graph.root->getElement(0)].emplace_back(graph.root);
   buildWorklist.insert(rootNode.get());
   buildGraph(graph.root);
   //dumpSLPGraph(rootNode.get());
@@ -307,7 +307,7 @@ std::shared_ptr<Superword> SLPGraphBuilder::appendSuperwordToNode(ArrayRef<Value
                                                                   std::shared_ptr<SLPNode> const& node,
                                                                   std::shared_ptr<Superword> const& usingSuperword) {
   auto superword = std::make_shared<Superword>(values);
-  graph.superwordsByValue[values[0]].emplace_back(superword);
+  superwordsByValue[values[0]].emplace_back(superword);
   nodeBySuperword[superword.get()] = node;
   node->addSuperword(superword);
   usingSuperword->addOperand(superword);
@@ -318,7 +318,7 @@ std::shared_ptr<SLPNode> SLPGraphBuilder::addOperandToNode(ArrayRef<Value> const
                                                            std::shared_ptr<SLPNode> const& node,
                                                            std::shared_ptr<Superword> const& usingSuperword) {
   auto superword = std::make_shared<Superword>(operandValues);
-  graph.superwordsByValue[operandValues[0]].emplace_back(superword);
+  superwordsByValue[operandValues[0]].emplace_back(superword);
   auto operandNode = nodeBySuperword.try_emplace(superword.get(), std::make_shared<SLPNode>(superword)).first->second;
   nodeBySuperword[superword.get()] = operandNode;
   node->addOperand(operandNode);
@@ -327,8 +327,8 @@ std::shared_ptr<SLPNode> SLPGraphBuilder::addOperandToNode(ArrayRef<Value> const
 }
 
 std::shared_ptr<Superword> SLPGraphBuilder::superwordOrNull(ArrayRef<Value> const& values) const {
-  if (graph.superwordsByValue.count(values[0])) {
-    auto const& superwords = graph.superwordsByValue.lookup(values[0]);
+  if (superwordsByValue.count(values[0])) {
+    auto const& superwords = superwordsByValue.lookup(values[0]);
     auto const& it = std::find_if(std::begin(superwords), std::end(superwords), [&](auto const& superword) {
       if (superword->numLanes() != values.size()) {
         return false;

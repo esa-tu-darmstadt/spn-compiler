@@ -73,6 +73,7 @@ namespace mlir {
 
           SLPGraph& graph;
           DenseMap<Superword*, std::shared_ptr<SLPNode>> nodeBySuperword;
+          DenseMap<Value, SmallVector<std::shared_ptr<Superword>>> superwordsByValue;
           SmallPtrSet<SLPNode*, 8> buildWorklist;
 
         };
