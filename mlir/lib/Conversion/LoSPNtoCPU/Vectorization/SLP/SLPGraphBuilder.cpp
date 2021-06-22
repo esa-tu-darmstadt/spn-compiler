@@ -21,7 +21,7 @@ void SLPGraphBuilder::build(ArrayRef<Value> const& seed) {
   superwordsByValue[graph.root->getElement(0)].emplace_back(graph.root);
   buildWorklist.insert(rootNode.get());
   buildGraph(graph.root);
-  //dumpSLPGraph(rootNode.get());
+  dumpSLPGraph(rootNode.get());
 }
 
 // Some helper functions in an anonymous namespace.
@@ -123,7 +123,7 @@ void SLPGraphBuilder::buildGraph(std::shared_ptr<Superword> const& superword) {
     }
     // B. Normal Mode: Finished building multi-node
     if (currentNode->isSuperwordRoot(*superword)) {
-      reorderOperands(currentNode.get());
+      //reorderOperands(currentNode.get());
       for (auto const& operandNode : currentNode->getOperands()) {
         if (buildWorklist.erase(operandNode.get())) {
           buildGraph(operandNode->getSuperword(operandNode->numSuperwords() - 1));

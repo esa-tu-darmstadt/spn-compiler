@@ -28,15 +28,12 @@ SmallVector<Value, 4> SeedAnalysis::next() {
     }
   }
   auto seed = nextSeed();
-  return seed;
-}
-
-void SeedAnalysis::notifySeedFailed(ArrayRef<Value> const& seed) {
   for (auto const& value : seed) {
     if (auto* definingOp = value.getDefiningOp()) {
       availableOps.erase(definingOp);
     }
   }
+  return seed;
 }
 
 // === TopDownSeedAnalysis === //

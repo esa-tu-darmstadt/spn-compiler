@@ -23,30 +23,13 @@ SLPVectorizationPattern::SLPVectorizationPattern(ConversionManager& conversionMa
     conversionManager} {}
 
 void SLPVectorizationPattern::rewriteSuperword(Superword* superword, PatternRewriter& rewriter) {
-  conversionManager.setInsertionPointFor(superword);
-  rewrite(superword, rewriter);
+  conversionManager.setupConversionFor(superword, this);
+  auto vectorOp = rewrite(superword, rewriter);
+  conversionManager.update(superword, vectorOp, this);
 }
 
 // Helper functions in anonymous namespace.
 namespace {
-  void createNecessaryExtractionsFor(Superword* superword, ConversionManager& conversionManager) {
-    // Create extractions from vectorized operands if present.
-    for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
-      auto const& element = superword->getElement(lane);
-      if (auto* elementOp = element.getDefiningOp()) {
-        if (superword->isLeaf()) {
-          superword->setElement(lane, conversionManager.getOrExtractValue(element));
-        } else {
-          for (size_t i = 0; i < elementOp->getNumOperands(); ++i) {
-            elementOp->setOperand(i, conversionManager.getOrExtractValue(elementOp->getOperand(i)));
-          }
-        }
-      }
-      if (lane == 0 && superword->splattable()) {
-        break;
-      }
-    }
-  }
 
   Value stripLogOrValue(Value const& value, PatternRewriter& rewriter) {
     if (auto logType = value.getType().dyn_cast<LogType>()) {
@@ -84,14 +67,12 @@ LogicalResult BroadcastSuperword::match(Superword* superword) const {
   return success(superword->splattable());
 }
 
-void BroadcastSuperword::rewrite(Superword* superword, PatternRewriter& rewriter) const {
-  createNecessaryExtractionsFor(superword, conversionManager);
+Value BroadcastSuperword::rewrite(Superword* superword, PatternRewriter& rewriter) const {
   auto const& element = stripLogOrValue(superword->getElement(0), rewriter);
-  auto vectorizedOp = rewriter.create<vector::BroadcastOp>(element.getLoc(), superword->getVectorType(), element);
-  conversionManager.update(superword, vectorizedOp, ElementFlag::KeepFirst);
+  return rewriter.create<vector::BroadcastOp>(element.getLoc(), superword->getVectorType(), element);
 }
 
-void BroadcastSuperword::accept(PatternVisitor& visitor, Superword* superword) {
+void BroadcastSuperword::accept(PatternVisitor& visitor, Superword* superword) const {
   visitor.visit(this, superword);
 }
 
@@ -101,8 +82,7 @@ LogicalResult BroadcastInsertSuperword::match(Superword* superword) const {
   return success();
 }
 
-void BroadcastInsertSuperword::rewrite(Superword* superword, PatternRewriter& rewriter) const {
-  createNecessaryExtractionsFor(superword, conversionManager);
+Value BroadcastInsertSuperword::rewrite(Superword* superword, PatternRewriter& rewriter) const {
   DenseMap<Value, unsigned> elementCounts;
   Value broadcastValue;
   unsigned maxCount = 0;
@@ -124,10 +104,10 @@ void BroadcastInsertSuperword::rewrite(Superword* superword, PatternRewriter& re
     vectorizedOp =
         rewriter.create<vector::InsertElementOp>(loc, stripLogOrValue(element, rewriter), vectorizedOp, index);
   }
-  conversionManager.update(superword, vectorizedOp, ElementFlag::KeepAll);
+  return vectorizedOp;
 }
 
-void BroadcastInsertSuperword::accept(PatternVisitor& visitor, Superword* superword) {
+void BroadcastInsertSuperword::accept(PatternVisitor& visitor, Superword* superword) const {
   visitor.visit(this, superword);
 }
 
@@ -203,23 +183,22 @@ namespace {
 
 // === VectorizeConstant === //
 
-void VectorizeConstant::rewrite(Superword* superword, PatternRewriter& rewriter) const {
+Value VectorizeConstant::rewrite(Superword* superword, PatternRewriter& rewriter) const {
   SmallVector<Attribute, 4> constants;
   for (auto const& value : *superword) {
     constants.emplace_back(static_cast<ConstantOp>(value.getDefiningOp()).value());
   }
   auto const& elements = denseElements(std::begin(constants), std::end(constants), superword->getVectorType());
-  auto const& constVector = conversionManager.getOrCreateConstant(superword->getLoc(), elements);
-  conversionManager.update(superword, constVector, ElementFlag::KeepAll);
+  return conversionManager.getOrCreateConstant(superword->getLoc(), elements);
 }
 
-void VectorizeConstant::accept(PatternVisitor& visitor, Superword* superword) {
+void VectorizeConstant::accept(PatternVisitor& visitor, Superword* superword) const {
   visitor.visit(this, superword);
 }
 
 // === VectorizeSPNConstant === //
 
-void VectorizeSPNConstant::rewrite(Superword* superword, PatternRewriter& rewriter) const {
+Value VectorizeSPNConstant::rewrite(Superword* superword, PatternRewriter& rewriter) const {
   DenseElementsAttr elements;
   if (auto logType = superword->getElementType().dyn_cast<LogType>()) {
     if (logType.getBaseType().getIntOrFloatBitWidth() == 32) {
@@ -242,11 +221,10 @@ void VectorizeSPNConstant::rewrite(Superword* superword, PatternRewriter& rewrit
     }
     elements = denseElements(std::begin(constants), std::end(constants), superword->getVectorType());
   }
-  auto const& constVector = conversionManager.getOrCreateConstant(superword->getLoc(), elements);
-  conversionManager.update(superword, constVector, ElementFlag::KeepAll);
+  return conversionManager.getOrCreateConstant(superword->getLoc(), elements);
 }
 
-void VectorizeSPNConstant::accept(PatternVisitor& visitor, Superword* superword) {
+void VectorizeSPNConstant::accept(PatternVisitor& visitor, Superword* superword) const {
   visitor.visit(this, superword);
 }
 
@@ -260,53 +238,52 @@ LogicalResult VectorizeBatchRead::match(Superword* superword) const {
   return success();
 }
 
-void VectorizeBatchRead::rewrite(Superword* superword, PatternRewriter& rewriter) const {
+Value VectorizeBatchRead::rewrite(Superword* superword, PatternRewriter& rewriter) const {
   auto batchRead = cast<SPNBatchRead>(superword->getElement(0).getDefiningOp());
   auto sampleIndex =
       conversionManager.getOrCreateConstant(superword->getLoc(), rewriter.getIndexAttr(batchRead.sampleIndex()));
   ValueRange indices{batchRead.batchIndex(), sampleIndex};
-  auto vectorLoad =
-      rewriter.create<vector::LoadOp>(superword->getLoc(), superword->getVectorType(), batchRead.batchMem(), indices);
-  conversionManager.update(superword, vectorLoad, ElementFlag::KeepNone);
+  return rewriter.create<vector::LoadOp>(superword->getLoc(),
+                                         superword->getVectorType(),
+                                         batchRead.batchMem(),
+                                         indices);
 }
 
-void VectorizeBatchRead::accept(PatternVisitor& visitor, Superword* superword) {
+void VectorizeBatchRead::accept(PatternVisitor& visitor, Superword* superword) const {
   visitor.visit(this, superword);
 }
 
 // === VectorizeAdd === //
 
-void VectorizeAdd::rewrite(Superword* superword, PatternRewriter& rewriter) const {
+Value VectorizeAdd::rewrite(Superword* superword, PatternRewriter& rewriter) const {
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < superword->numOperands(); ++i) {
     operands.emplace_back(conversionManager.getValue(superword->getOperand(i)));
   }
-  auto vectorAdd = rewriter.create<AddFOp>(superword->getLoc(), superword->getVectorType(), operands);
-  conversionManager.update(superword, vectorAdd, ElementFlag::KeepNone);
+  return rewriter.create<AddFOp>(superword->getLoc(), superword->getVectorType(), operands);
 }
 
-void VectorizeAdd::accept(PatternVisitor& visitor, Superword* superword) {
+void VectorizeAdd::accept(PatternVisitor& visitor, Superword* superword) const {
   visitor.visit(this, superword);
 }
 
 // === VectorizeMul === //
 
-void VectorizeMul::rewrite(Superword* superword, PatternRewriter& rewriter) const {
+Value VectorizeMul::rewrite(Superword* superword, PatternRewriter& rewriter) const {
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < superword->numOperands(); ++i) {
     operands.emplace_back(conversionManager.getValue(superword->getOperand(i)));
   }
-  auto vectorAdd = rewriter.create<MulFOp>(superword->getLoc(), superword->getVectorType(), operands);
-  conversionManager.update(superword, vectorAdd, ElementFlag::KeepNone);
+  return rewriter.create<MulFOp>(superword->getLoc(), superword->getVectorType(), operands);
 }
 
-void VectorizeMul::accept(PatternVisitor& visitor, Superword* superword) {
+void VectorizeMul::accept(PatternVisitor& visitor, Superword* superword) const {
   visitor.visit(this, superword);
 }
 
 // === VectorizeGaussian === //
 
-void VectorizeGaussian::rewrite(Superword* superword, PatternRewriter& rewriter) const {
+Value VectorizeGaussian::rewrite(Superword* superword, PatternRewriter& rewriter) const {
 
   auto vectorType = superword->getVectorType();
 
@@ -359,37 +336,52 @@ void VectorizeGaussian::rewrite(Superword* superword, PatternRewriter& rewriter)
 
   // e^((x - mean)^2 / (-2 * variance)) / sqrt(2 * PI * variance)
   auto rootsVector = conversionManager.getOrCreateConstant(superword->getLoc(), roots);
-  gaussianVector = rewriter.create<DivFOp>(superword->getLoc(), gaussianVector, rootsVector);
-
-  conversionManager.update(superword, gaussianVector, ElementFlag::KeepNone);
+  return rewriter.create<DivFOp>(superword->getLoc(), gaussianVector, rootsVector);
 }
 
-void VectorizeGaussian::accept(PatternVisitor& visitor, Superword* superword) {
+void VectorizeGaussian::accept(PatternVisitor& visitor, Superword* superword) const {
   visitor.visit(this, superword);
 }
 
 // === VectorizeLogAdd === //
 
-void VectorizeLogAdd::rewrite(Superword* superword, PatternRewriter& rewriter) const {
-  llvm_unreachable("TODO");
+// Helper functions in anonymous namespace.
+namespace {
+  template<typename T>
+  DenseElementsAttr denseConstant(T constant, VectorType vectorType) {
+    SmallVector<T, 4> array;
+    for (auto i = 0; i < vectorType.getNumElements(); ++i) {
+      array[i] = constant;
+    }
+    return DenseElementsAttr::get(vectorType, array);
+  }
 }
 
-void VectorizeLogAdd::accept(PatternVisitor& visitor, Superword* superword) {
+Value VectorizeLogAdd::rewrite(Superword* superword, PatternRewriter& rewriter) const {
+  // Rewrite 'ln(x + y)' with 'a = ln(x), b = ln(y)' as 'b + ln(e^(a - b) + 1)'.
+  auto lhs = conversionManager.getValue(superword->getOperand(0));
+  auto rhs = conversionManager.getValue(superword->getOperand(1));
+  Value vectorOp = rewriter.create<SubFOp>(superword->getLoc(), lhs, rhs);
+  vectorOp = rewriter.create<math::ExpOp>(superword->getLoc(), vectorOp);
+  //vectorOp = rewriter.create<math::Log1pOp>(superword->getLoc(), vectorOp);
+  return rewriter.create<AddFOp>(superword->getLoc(), rhs, vectorOp);
+}
+
+void VectorizeLogAdd::accept(PatternVisitor& visitor, Superword* superword) const {
   visitor.visit(this, superword);
 }
 
 // === VectorizeLogMul === //
 
-void VectorizeLogMul::rewrite(Superword* superword, PatternRewriter& rewriter) const {
+Value VectorizeLogMul::rewrite(Superword* superword, PatternRewriter& rewriter) const {
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < superword->numOperands(); ++i) {
     operands.emplace_back(conversionManager.getValue(superword->getOperand(i)));
   }
-  auto logMul = rewriter.create<AddFOp>(superword->getLoc(), superword->getVectorType(), operands);
-  conversionManager.update(superword, logMul, ElementFlag::KeepNone);
+  return rewriter.create<AddFOp>(superword->getLoc(), superword->getVectorType(), operands);
 }
 
-void VectorizeLogMul::accept(PatternVisitor& visitor, Superword* superword) {
+void VectorizeLogMul::accept(PatternVisitor& visitor, Superword* superword) const {
   visitor.visit(this, superword);
 }
 
@@ -409,7 +401,7 @@ namespace {
   }
 }
 
-void VectorizeLogGaussian::rewrite(Superword* superword, PatternRewriter& rewriter) const {
+Value VectorizeLogGaussian::rewrite(Superword* superword, PatternRewriter& rewriter) const {
 
   auto vectorType = superword->getVectorType();
 
@@ -459,11 +451,9 @@ void VectorizeLogGaussian::rewrite(Superword* superword, PatternRewriter& rewrit
 
   // -ln(stddev) - 0.5 * ln(2*pi) - (x - mean)^2 / (2 * stddev^2)
   auto minuendVector = conversionManager.getOrCreateConstant(superword->getLoc(), minuends);
-  gaussianVector = rewriter.create<SubFOp>(superword->getLoc(), vectorType, minuendVector, gaussianVector);
-
-  conversionManager.update(superword, gaussianVector, ElementFlag::KeepNone);
+  return rewriter.create<SubFOp>(superword->getLoc(), vectorType, minuendVector, gaussianVector);
 }
 
-void VectorizeLogGaussian::accept(PatternVisitor& visitor, Superword* superword) {
+void VectorizeLogGaussian::accept(PatternVisitor& visitor, Superword* superword) const {
   visitor.visit(this, superword);
 }

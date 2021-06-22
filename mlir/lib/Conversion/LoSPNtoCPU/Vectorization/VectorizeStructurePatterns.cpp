@@ -104,8 +104,8 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   }
   // Inline the content of the task into the function.
   rewriter.mergeBlocks(&task.body().front(), taskBlock, blockReplacementArgs);
-  // Replace block arguments *now* because moving operations later on does funky stuff to their block argument operands
-  // Spoiler: it does not remap them, which leads to failures if an operand should be erased.
+  // Replace block arguments *now* because moving operations later on somehow 'resets' their block argument operands
+  // and does not remap them in the end, which leads to failures if a block argument should be erased.
   taskBlock->walk([&](Operation* op) {
     for (size_t i = 0; i < op->getNumOperands(); ++i) {
       op->setOperand(i, rewriter.getRemappedValue(op->getOperand(i)));
@@ -116,19 +116,16 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   task->emitRemark() << "Beginning SLP vectorization...";
   task->emitRemark() << "Total number of operations in function: " << taskFunc.body().front().getOperations().size();
   //taskFunc.dump();
-  auto elementType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
   auto conversionState = std::make_shared<ConversionState>();
-  ConversionManager conversionManager{rewriter, conversionState};
-
-  // Prevents extracting/erasing values more than once (in splat mode, if they appear in multiple vectors, ...).
-  SmallPtrSet<Value, 32> finishedValues;
+  auto costModel = std::make_shared<UnitCostModel>();
+  costModel->setConversionState(conversionState);
+  ConversionManager conversionManager{rewriter, conversionState, costModel};
 
   SmallVector<std::unique_ptr<SLPVectorizationPattern>, 10> patterns;
   populateSLPVectorizationPatterns(patterns, conversionManager);
-  auto costModel = std::make_shared<UnitCostModel>();
-  costModel->setConversionState(conversionState);
   SLPPatternApplicator applicator{costModel, std::move(patterns)};
 
+  auto elementType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
   std::unique_ptr<SeedAnalysis> seedAnalysis;
   {
     bool topDown = true;
@@ -155,6 +152,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         for (auto* superword : dependencyGraph.postOrder()) {
           dumpSuperword(*superword);
         }
+        break;
       }
     }
     {
@@ -172,6 +170,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     }
 
     task->emitRemark("Converting graph...");
+    
     conversionManager.initConversion(graph.getRoot(), taskBlock);
     auto const& order = conversionManager.conversionOrder();
 
@@ -188,48 +187,41 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     // Traverse the SLP graph and apply the vectorization patterns.
     for (auto* superword : order) {
       //llvm::dbgs() << "CURRENT SUPERWORD:\t";
-      //dumpSuperword(*superword);
+      dumpSuperword(*superword);
       applicator.matchAndRewrite(superword, rewriter);
-      conversionState->markComputed(superword);
-      // Create vector extractions for escaping uses & erase superfluous operations.
-      auto const& vectorFlag = conversionManager.getElementFlag(superword);
-      for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
-        auto const& element = superword->getElement(lane);
-        if (finishedValues.contains(element)) {
-          continue;
-        }
-        finishedValues.insert(element);
-        if (vectorFlag == ElementFlag::KeepAll || (vectorFlag == ElementFlag::KeepFirst && lane == 0)) {
-          continue;
-        }
-        if (conversionManager.hasEscapingUsers(element)) {
-          conversionManager.createExtractionFor(element);
-        }
-        rewriter.eraseOp(element.getDefiningOp());
-      }
       if (static_cast<double>(n++) / static_cast<double>(numVectors) >= progressThreshold) {
         task->emitRemark("Conversion progress: " + std::to_string((int) std::round(100 * progressThreshold)) + '%');
         progressThreshold += interval;
       }
     }
-    // Perform DCE on the created vector operations. This is useful if patterns have been applied to superwords
-    // that don't need the superword's operands, e.g. vector loads that discard the operand vector of memref indices.
-    SmallPtrSet<Operation*, 10> erasedVectorOps;
-    for (auto it = order.rbegin(); it != order.rend(); ++it) {
-      auto* vectorOp = conversionManager.getValue(*it).getDefiningOp();
-      if (isOpTriviallyDead(vectorOp)) {
-        erasedVectorOps.insert(vectorOp);
-        rewriter.eraseOp(vectorOp);
+    // Perform DCE on the created block. This is especially useful if patterns have been applied to superwords
+    // that don't use the superword's operands, e.g. vector loads that discard the operand superword of memref indices.
+    SmallPtrSet<Operation*, 32> deadOps;
+    taskBlock->walk<WalkOrder::PreOrder>([&](Operation* op) {
+      if (isOpTriviallyDead(op)) {
+        deadOps.insert(op);
+      }
+    });
+    llvm::SmallSetVector<Operation*, 32> worklist{std::begin(deadOps), std::end(deadOps)};
+    while (!worklist.empty()) {
+      auto* op = worklist.pop_back_val();
+      for (auto const& operand : op->getOperands()) {
+        if (auto* operandOp = operand.getDefiningOp()) {
+          auto users = operandOp->getUsers();
+          if (std::all_of(std::begin(users), std::end(users), [&](Operation* user) {
+            return deadOps.contains(user);
+          })) {
+            deadOps.insert(operandOp);
+            worklist.insert(operandOp);
+          }
+        }
       }
     }
-    if (erasedVectorOps.size() != order.size()) {
-      conversionManager.finishConversion(&taskFunc.front());
-      task->emitRemark("Conversion complete.");
-      break;
-    } else {
-      task->emitRemark("Seed failed, trying with next one.");
-      seedAnalysis->notifySeedFailed(seed);
+    for (auto* op : deadOps) {
+      rewriter.eraseOp(op);
     }
+    conversionManager.finishConversion(&taskFunc.front());
+    task->emitRemark("Conversion complete.");
   }
 
   task->emitRemark("SLP vectorization complete.");
@@ -242,9 +234,25 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       }
     }
   }
-  //taskFunc->dump();
+  taskFunc->getParentOfType<ModuleOp>()->dump();
+  taskFunc->walk([&](SPNBatchRead op) {
+    for (auto const& operand : op->getOperands()) {
+      assert(operand);
+    }
+  });
+  taskFunc->walk([&](SPNMul op) {
+    for (auto const& operand : op->getOperands()) {
+      if (hash_value(operand.getType()) != hash_value(op->getOperand(0).getType())) {
+        op->dump();
+        llvm_unreachable("operand.getType() == op->getOperand(0).getType()");
+      }
+    }
+  });
   rewriter.restoreInsertionPoint(callPoint);
   rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
+  for (auto& region : taskFunc->getRegions()) {
+    assert(region.isIsolatedFromAbove());
+  }
   return success();
 }
 

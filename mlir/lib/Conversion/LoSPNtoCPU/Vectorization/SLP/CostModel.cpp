@@ -134,32 +134,40 @@ double UnitCostModel::computeExtractionCost(Superword* superword, size_t index) 
   return 1;
 }
 
-void UnitCostModel::visitDefault(SLPVectorizationPattern* pattern, Superword* superword) {
+void UnitCostModel::visitDefault(SLPVectorizationPattern const* pattern, Superword* superword) {
   this->cost = 1;
 }
 
-void UnitCostModel::visit(BroadcastSuperword* pattern, Superword* superword) {
+void UnitCostModel::visit(BroadcastSuperword const* pattern, Superword* superword) {
   this->cost = 1;
-  for (auto const& element : scalarVisitor.getRequiredScalarValues(pattern, superword)) {
+  for (auto const& element : leafVisitor.getRequiredScalarValues(pattern, superword)) {
     this->cost += getScalarCost(element);
   }
 }
 
-void UnitCostModel::visit(BroadcastInsertSuperword* pattern, Superword* superword) {
+void UnitCostModel::visit(BroadcastInsertSuperword const* pattern, Superword* superword) {
   this->cost = 0;
-  for (auto const& element : scalarVisitor.getRequiredScalarValues(pattern, superword)) {
+  for (auto const& element : leafVisitor.getRequiredScalarValues(pattern, superword)) {
     this->cost += getScalarCost(element) + 1;
   }
 }
 
-void UnitCostModel::visit(VectorizeConstant* pattern, Superword* superword) {
+void UnitCostModel::visit(VectorizeConstant const* pattern, Superword* superword) {
   this->cost = 0;
 }
 
-void UnitCostModel::visit(VectorizeSPNConstant* pattern, Superword* superword) {
+void UnitCostModel::visit(VectorizeSPNConstant const* pattern, Superword* superword) {
   this->cost = 0;
 }
 
-void UnitCostModel::visit(VectorizeGaussian* pattern, Superword* superword) {
-  this->cost = 6;
+void UnitCostModel::visit(VectorizeGaussian const* pattern, Superword* superword) {
+  this->cost = 5;
+}
+
+void UnitCostModel::visit(VectorizeLogAdd const* pattern, Superword* superword) {
+  this->cost = 4;
+}
+
+void UnitCostModel::visit(VectorizeLogGaussian const* pattern, Superword* superword) {
+  this->cost = 4;
 }

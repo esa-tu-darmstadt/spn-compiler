@@ -24,7 +24,6 @@ namespace mlir {
         public:
           SeedAnalysis(Operation* rootOp, unsigned width);
           virtual ~SeedAnalysis() = default;
-          void notifySeedFailed(ArrayRef<Value> const& seed);
           virtual SmallVector<Value, 4> next();
         protected:
           virtual void computeAvailableOps() = 0;

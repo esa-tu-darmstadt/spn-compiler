@@ -17,93 +17,67 @@ using namespace mlir::spn::low::slp;
 
 // === PatternVisitor === //
 
-void PatternVisitor::visit(BroadcastSuperword* pattern, Superword* superword) {
+void PatternVisitor::visit(BroadcastSuperword const* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }
 
-void PatternVisitor::visit(BroadcastInsertSuperword* pattern, Superword* superword) {
+void PatternVisitor::visit(BroadcastInsertSuperword const* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }
 
-void PatternVisitor::visit(VectorizeConstant* pattern, Superword* superword) {
+void PatternVisitor::visit(VectorizeConstant const* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }
 
-void PatternVisitor::visit(VectorizeSPNConstant* pattern, Superword* superword) {
+void PatternVisitor::visit(VectorizeSPNConstant const* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }
 
-void PatternVisitor::visit(VectorizeBatchRead* pattern, Superword* superword) {
+void PatternVisitor::visit(VectorizeBatchRead const* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }
 
-void PatternVisitor::visit(VectorizeAdd* pattern, Superword* superword) {
+void PatternVisitor::visit(VectorizeAdd const* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }
 
-void PatternVisitor::visit(VectorizeMul* pattern, Superword* superword) {
+void PatternVisitor::visit(VectorizeMul const* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }
 
-void PatternVisitor::visit(VectorizeGaussian* pattern, Superword* superword) {
+void PatternVisitor::visit(VectorizeGaussian const* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }
 
-void PatternVisitor::visit(VectorizeLogAdd* pattern, Superword* superword) {
+void PatternVisitor::visit(VectorizeLogAdd const* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }
 
-void PatternVisitor::visit(VectorizeLogMul* pattern, Superword* superword) {
+void PatternVisitor::visit(VectorizeLogMul const* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }
 
-void PatternVisitor::visit(VectorizeLogGaussian* pattern, Superword* superword) {
+void PatternVisitor::visit(VectorizeLogGaussian const* pattern, Superword* superword) {
   visitDefault(pattern, superword);
-}
-
-// === ScalarValueVisitor === //
-
-ArrayRef<Value> ScalarValueVisitor::getRequiredScalarValues(SLPVectorizationPattern* pattern, Superword* superword) {
-  pattern->accept(*this, superword);
-  return this->scalarValues;
-}
-
-void ScalarValueVisitor::visitDefault(SLPVectorizationPattern* pattern, Superword* superword) {
-  this->scalarValues.clear();
-}
-
-void ScalarValueVisitor::visit(BroadcastSuperword* pattern, Superword* superword) {
-  this->scalarValues.assign({superword->getElement(0)});
-}
-
-void ScalarValueVisitor::visit(BroadcastInsertSuperword* pattern, Superword* superword) {
-  SmallPtrSet<Value, 4> uniqueValues{std::begin(*superword), std::end(*superword)};
-  this->scalarValues.assign(std::begin(uniqueValues), std::end(uniqueValues));
 }
 
 // === LeafPatternVisitor === //
 
-bool LeafPatternVisitor::isLeafPattern(SLPVectorizationPattern* pattern) {
-  pattern->accept(*this, nullptr);
-  return this->isLeaf;
+ArrayRef<Value> LeafPatternVisitor::getRequiredScalarValues(SLPVectorizationPattern const* pattern,
+                                                            Superword* superword) {
+  pattern->accept(*this, superword);
+  return this->scalarValues;
 }
 
-void LeafPatternVisitor::visitDefault(SLPVectorizationPattern* pattern, Superword* superword) {
-  this->isLeaf = false;
+void LeafPatternVisitor::visitDefault(SLPVectorizationPattern const* pattern, Superword* superword) {
+  this->scalarValues.clear();
 }
 
-void LeafPatternVisitor::visit(BroadcastSuperword* pattern, Superword* superword) {
-  this->isLeaf = true;
+void LeafPatternVisitor::visit(BroadcastSuperword const* pattern, Superword* superword) {
+  this->scalarValues.assign({superword->getElement(0)});
 }
 
-void LeafPatternVisitor::visit(BroadcastInsertSuperword* pattern, Superword* superword) {
-  this->isLeaf = true;
-}
-
-void LeafPatternVisitor::visit(VectorizeConstant* pattern, Superword* superword) {
-  this->isLeaf = true;
-}
-
-void LeafPatternVisitor::visit(VectorizeBatchRead* pattern, Superword* superword) {
-  this->isLeaf = true;
+void LeafPatternVisitor::visit(BroadcastInsertSuperword const* pattern, Superword* superword) {
+  SmallPtrSet<Value, 4> uniqueValues{std::begin(*superword), std::end(*superword)};
+  this->scalarValues.assign(std::begin(uniqueValues), std::end(uniqueValues));
 }

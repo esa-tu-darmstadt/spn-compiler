@@ -34,6 +34,7 @@ namespace mlir {
           bool alreadyComputed(Value const& value) const;
           void markComputed(Superword* superword);
           void markComputed(Value const& value);
+          void markExtracted(Value const& value);
           ValuePosition getWordContainingValue(Value const& value) const;
           // Callback registration.
           void addVectorCallback(std::function<void(Superword*)> callback);
@@ -43,81 +44,50 @@ namespace mlir {
           SmallPtrSet<Superword*, 32> computedSuperwords;
           SmallPtrSet<Value, 32> computedScalarValues;
           DenseMap<Value, ValuePosition> extractableScalarValues;
-          // Callbacks for when a superword was converted.
+          /// Callbacks for when a superword was converted.
           SmallVector<std::function<void(Superword*)>> vectorCallbacks;
-          // Callbacks for when a scalar value is used as input for some vector.
+          /// Callbacks for when a scalar value is used as input for some vector.
           SmallVector<std::function<void(Value)>> scalarCallbacks;
-          // Callbacks for when an extraction for some value has been created.
+          /// Callbacks for when an extraction for some value has been created.
           SmallVector<std::function<void(Value)>> extractionCallbacks;
-        };
-
-        class ConversionPlan {
-        public:
-          struct Step {
-            Step(Superword* superword, SLPVectorizationPattern* pattern) : superword{superword}, pattern{pattern} {}
-            Superword* superword;
-            SLPVectorizationPattern* pattern;
-          };
-          ConversionPlan(std::shared_ptr<ConversionState> conversionState);
-          void addConversionStep(Superword* superword, SLPVectorizationPattern* pattern);
-        private:
-          SmallVector<Step, 32> plan;
-          std::shared_ptr<ConversionState> conversionState;
-          ScalarValueVisitor scalarVisitor;
-          std::shared_ptr<CostModel> costModel;
-        };
-
-        enum ElementFlag {
-          /// Erase all elements after conversion.
-          KeepNone,
-          /// Erase all but the first element after conversion.
-          KeepFirst,
-          /// Do not erase any element after conversion.
-          KeepAll
         };
 
         class ConversionManager {
 
         public:
 
-          ConversionManager(PatternRewriter& rewriter, std::shared_ptr<ConversionState> conversionState);
+          ConversionManager(PatternRewriter& rewriter,
+                            std::shared_ptr<ConversionState> conversionState,
+                            std::shared_ptr<CostModel> costModel);
 
           void initConversion(Superword* root, Block* block);
           void finishConversion(Block* block);
-
-          void setInsertionPointFor(Superword* superword) const;
-          bool wasConverted(Superword* superword) const;
-
-          void update(Superword* superword, Value const& operation, ElementFlag flag);
-
-          Value getValue(Superword* superword) const;
-          ElementFlag getElementFlag(Superword* superword) const;
-
           ArrayRef<Superword*> conversionOrder() const;
 
-          bool hasEscapingUsers(Value const& value) const;
+          void setupConversionFor(Superword* superword, SLPVectorizationPattern const* pattern);
+          void update(Superword* superword, Value const& operation, SLPVectorizationPattern const* appliedPattern);
 
+          Value getValue(Superword* superword) const;
           Value getOrCreateConstant(Location const& loc, Attribute const& attribute);
-          Value getOrExtractValue(Value const& value);
-          void createExtractionFor(Value const& value);
 
         private:
+          bool wasConverted(Superword* superword) const;
+          bool hasEscapingUsers(Value const& value) const;
+          Value getOrExtractValue(Value const& value);
 
           SmallVector<Superword*> order;
 
-          struct CreationData {
-            /// The operation that was created for this superword.
-            Value operation;
-            /// What to do with its elements after conversion.
-            ElementFlag flag;
-          };
-          DenseMap<Superword*, CreationData> creationData;
+          DenseMap<Superword*, Value> vectorOperations;
           std::shared_ptr<ConversionState> conversionState;
 
           Value latestCreation;
+          std::shared_ptr<CostModel> costModel;
 
           /// Stores escaping users for each value.
           DenseMap<Value, SmallVector<Operation*, 1>> escapingUsers;
+
+          /// For finding out which vector elements can be erased.
+          LeafPatternVisitor leafVisitor;
 
           /// For creating constants & setting insertion points.
           PatternRewriter& rewriter;

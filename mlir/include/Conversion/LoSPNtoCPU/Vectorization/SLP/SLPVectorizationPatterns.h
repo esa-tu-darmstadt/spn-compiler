@@ -28,9 +28,9 @@ namespace mlir {
           virtual ~SLPVectorizationPattern() = default;
           void rewriteSuperword(Superword* superword, PatternRewriter& rewriter);
           virtual LogicalResult match(Superword* superword) const = 0;
-          virtual void accept(PatternVisitor& visitor, Superword* superword) = 0;
+          virtual void accept(PatternVisitor& visitor, Superword* superword) const = 0;
         protected:
-          virtual void rewrite(Superword* superword, PatternRewriter& rewriter) const = 0;
+          virtual Value rewrite(Superword* superword, PatternRewriter& rewriter) const = 0;
           ConversionManager& conversionManager;
         };
 
@@ -84,74 +84,74 @@ namespace mlir {
         struct BroadcastSuperword : public SLPVectorizationPattern {
           using SLPVectorizationPattern::SLPVectorizationPattern;
           LogicalResult match(Superword* superword) const override;
-          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
-          void accept(PatternVisitor& visitor, Superword* superword) override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         struct BroadcastInsertSuperword : public SLPVectorizationPattern {
           using SLPVectorizationPattern::SLPVectorizationPattern;
           LogicalResult match(Superword* superword) const override;
-          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
-          void accept(PatternVisitor& visitor, Superword* superword) override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         struct VectorizeConstant : public OpSpecificVectorizationPattern<ConstantOp> {
           using OpSpecificVectorizationPattern<ConstantOp>::OpSpecificVectorizationPattern;
-          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
-          void accept(PatternVisitor& visitor, Superword* superword) override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         struct VectorizeSPNConstant : public OpSpecificVectorizationPattern<SPNConstant> {
           using OpSpecificVectorizationPattern<SPNConstant>::OpSpecificVectorizationPattern;
-          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
-          void accept(PatternVisitor& visitor, Superword* superword) override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         struct VectorizeBatchRead : public OpSpecificVectorizationPattern<SPNBatchRead> {
           using OpSpecificVectorizationPattern<SPNBatchRead>::OpSpecificVectorizationPattern;
           LogicalResult match(Superword* superword) const override;
-          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
-          void accept(PatternVisitor& visitor, Superword* superword) override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         // === Normal space patterns === //
 
         struct VectorizeAdd : public NormalSpaceVectorizationPattern<SPNAdd> {
           using NormalSpaceVectorizationPattern<SPNAdd>::NormalSpaceVectorizationPattern;
-          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
-          void accept(PatternVisitor& visitor, Superword* superword) override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         struct VectorizeMul : public NormalSpaceVectorizationPattern<SPNMul> {
           using NormalSpaceVectorizationPattern<SPNMul>::NormalSpaceVectorizationPattern;
-          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
-          void accept(PatternVisitor& visitor, Superword* superword) override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         struct VectorizeGaussian : public NormalSpaceVectorizationPattern<SPNGaussianLeaf> {
           using NormalSpaceVectorizationPattern<SPNGaussianLeaf>::NormalSpaceVectorizationPattern;
-          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
-          void accept(PatternVisitor& visitor, Superword* superword) override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         // === Log-space patterns === //
 
         struct VectorizeLogAdd : public LogSpaceVectorizationPattern<SPNAdd> {
           using LogSpaceVectorizationPattern<SPNAdd>::LogSpaceVectorizationPattern;
-          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
-          void accept(PatternVisitor& visitor, Superword* superword) override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         struct VectorizeLogMul : public LogSpaceVectorizationPattern<SPNMul> {
           using LogSpaceVectorizationPattern<SPNMul>::LogSpaceVectorizationPattern;
-          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
-          void accept(PatternVisitor& visitor, Superword* superword) override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         struct VectorizeLogGaussian : public LogSpaceVectorizationPattern<SPNGaussianLeaf> {
           using LogSpaceVectorizationPattern<SPNGaussianLeaf>::LogSpaceVectorizationPattern;
-          void rewrite(Superword* superword, PatternRewriter& rewriter) const override;
-          void accept(PatternVisitor& visitor, Superword* superword) override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         // TODO: add vector reduction patterns

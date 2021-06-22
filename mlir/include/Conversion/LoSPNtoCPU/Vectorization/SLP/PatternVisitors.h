@@ -19,43 +19,32 @@ namespace mlir {
 
         class PatternVisitor {
         public:
-          // Acts as default visiting method so that we don't have to override every single visit method.
-          virtual void visitDefault(SLPVectorizationPattern* pattern, Superword* superword) = 0;
-          virtual void visit(BroadcastSuperword* pattern, Superword* superword);
-          virtual void visit(BroadcastInsertSuperword* pattern, Superword* superword);
-          virtual void visit(VectorizeConstant* pattern, Superword* superword);
-          virtual void visit(VectorizeSPNConstant* pattern, Superword* superword);
-          virtual void visit(VectorizeBatchRead* pattern, Superword* superword);
-          virtual void visit(VectorizeAdd* pattern, Superword* superword);
-          virtual void visit(VectorizeMul* pattern, Superword* superword);
-          virtual void visit(VectorizeGaussian* pattern, Superword* superword);
-          virtual void visit(VectorizeLogAdd* pattern, Superword* superword);
-          virtual void visit(VectorizeLogMul* pattern, Superword* superword);
-          virtual void visit(VectorizeLogGaussian* pattern, Superword* superword);
+          // Default visiting method so that we don't have to override every single visit method.
+          virtual void visitDefault(SLPVectorizationPattern const* pattern, Superword* superword) = 0;
+          // Individual pattern visits.
+          virtual void visit(BroadcastSuperword const* pattern, Superword* superword);
+          virtual void visit(BroadcastInsertSuperword const* pattern, Superword* superword);
+          virtual void visit(VectorizeConstant const* pattern, Superword* superword);
+          virtual void visit(VectorizeSPNConstant const* pattern, Superword* superword);
+          virtual void visit(VectorizeBatchRead const* pattern, Superword* superword);
+          virtual void visit(VectorizeAdd const* pattern, Superword* superword);
+          virtual void visit(VectorizeMul const* pattern, Superword* superword);
+          virtual void visit(VectorizeGaussian const* pattern, Superword* superword);
+          virtual void visit(VectorizeLogAdd const* pattern, Superword* superword);
+          virtual void visit(VectorizeLogMul const* pattern, Superword* superword);
+          virtual void visit(VectorizeLogGaussian const* pattern, Superword* superword);
         protected:
           virtual ~PatternVisitor() = default;
         };
 
-        class ScalarValueVisitor : public PatternVisitor {
-        public:
-          ArrayRef<Value> getRequiredScalarValues(SLPVectorizationPattern* pattern, Superword* superword);
-          void visitDefault(SLPVectorizationPattern* pattern, Superword* superword) override;
-          void visit(BroadcastSuperword* pattern, Superword* superword) override;
-          void visit(BroadcastInsertSuperword* pattern, Superword* superword) override;
-        private:
-          SmallVector<Value, 4> scalarValues;
-        };
-
         class LeafPatternVisitor : public PatternVisitor {
         public:
-          bool isLeafPattern(SLPVectorizationPattern* pattern);
-          void visitDefault(SLPVectorizationPattern* pattern, Superword* superword) override;
-          void visit(BroadcastSuperword* pattern, Superword* superword) override;
-          void visit(BroadcastInsertSuperword* pattern, Superword* superword) override;
-          void visit(VectorizeConstant* pattern, Superword* superword) override;
-          void visit(VectorizeBatchRead* pattern, Superword* superword) override;
+          ArrayRef<Value> getRequiredScalarValues(SLPVectorizationPattern const* pattern, Superword* superword);
+          void visitDefault(SLPVectorizationPattern const* pattern, Superword* superword) override;
+          void visit(BroadcastSuperword const* pattern, Superword* superword) override;
+          void visit(BroadcastInsertSuperword const* pattern, Superword* superword) override;
         private:
-          bool isLeaf;
+          SmallVector<Value, 4> scalarValues;
         };
 
       }

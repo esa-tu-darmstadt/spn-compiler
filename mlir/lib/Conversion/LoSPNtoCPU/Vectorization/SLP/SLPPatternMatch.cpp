@@ -15,8 +15,7 @@ using namespace mlir::spn::low::slp;
 
 SLPPatternApplicator::SLPPatternApplicator(std::shared_ptr<CostModel> costModel,
                                            SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>&& patterns)
-    : costModel{std::move(costModel)}, patterns{std::move(patterns)},
-      leafVisitor{std::make_unique<LeafPatternVisitor>()} {}
+    : costModel{std::move(costModel)}, patterns{std::move(patterns)} {}
 
 SLPVectorizationPattern* SLPPatternApplicator::bestMatch(Superword* superword) {
   auto it = bestMatches.try_emplace(superword, nullptr);
@@ -33,21 +32,6 @@ SLPVectorizationPattern* SLPPatternApplicator::bestMatch(Superword* superword) {
     }
   }
   return it.first->second;
-}
-
-SLPVectorizationPattern* SLPPatternApplicator::bestMatchIfLeaf(Superword* superword) const {
-  double bestCost = 0;
-  SLPVectorizationPattern* bestPattern = nullptr;
-  for (size_t i = 0; i < patterns.size(); ++i) {
-    if (leafVisitor->isLeafPattern(patterns[i].get()) && succeeded(patterns[i]->match(superword))) {
-      auto cost = costModel->getSuperwordCost(superword, patterns[i].get());
-      if (i == 0 || cost < bestCost) {
-        bestCost = cost;
-        bestPattern = patterns[i].get();
-      }
-    }
-  }
-  return bestPattern;
 }
 
 void SLPPatternApplicator::matchAndRewrite(Superword* superword, PatternRewriter& rewriter) {

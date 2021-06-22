@@ -29,7 +29,7 @@ namespace mlir {
           virtual double computeExtractionCost(Superword* superword, size_t index) = 0;
           double cost;
           // For insertion/extraction cost computation.
-          ScalarValueVisitor scalarVisitor;
+          LeafPatternVisitor leafVisitor;
           std::shared_ptr<ConversionState> conversionState;
         private:
           void updateCost(Value const& value, double newCost, bool updateUses);
@@ -41,12 +41,14 @@ namespace mlir {
         class UnitCostModel : public CostModel {
           double computeScalarCost(Value const& value) override;
           double computeExtractionCost(Superword* superword, size_t index) override;
-          void visitDefault(SLPVectorizationPattern* pattern, Superword* superword) override;
-          void visit(BroadcastSuperword* pattern, Superword* superword) override;
-          void visit(BroadcastInsertSuperword* pattern, Superword* superword) override;
-          void visit(VectorizeConstant* pattern, Superword* superword) override;
-          void visit(VectorizeSPNConstant* pattern, Superword* superword) override;
-          void visit(VectorizeGaussian* pattern, Superword* superword) override;
+          void visitDefault(SLPVectorizationPattern const* pattern, Superword* superword) override;
+          void visit(BroadcastSuperword const* pattern, Superword* superword) override;
+          void visit(BroadcastInsertSuperword const* pattern, Superword* superword) override;
+          void visit(VectorizeConstant const* pattern, Superword* superword) override;
+          void visit(VectorizeSPNConstant const* pattern, Superword* superword) override;
+          void visit(VectorizeGaussian const* pattern, Superword* superword) override;
+          void visit(VectorizeLogAdd const* pattern, Superword* superword) override;
+          void visit(VectorizeLogGaussian const* pattern, Superword* superword) override;
         };
       }
     }
