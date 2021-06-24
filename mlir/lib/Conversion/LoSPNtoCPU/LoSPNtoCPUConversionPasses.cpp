@@ -50,6 +50,7 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   OwningRewritePatternList taskPatterns(&getContext());
   if (vectorize) {
     target.addLegalOp<math::ExpOp>();
+    target.addLegalOp<math::Log1pOp>();
     spn::populateLoSPNtoCPUVectorizationTaskPatterns(taskPatterns, &getContext(), typeConverter);
   }
   spn::populateLoSPNtoCPUTaskPatterns(taskPatterns, &getContext(), typeConverter);

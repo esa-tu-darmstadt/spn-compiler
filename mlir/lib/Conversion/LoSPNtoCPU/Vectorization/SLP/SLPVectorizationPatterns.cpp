@@ -377,7 +377,7 @@ Value VectorizeLogAdd::rewrite(Superword* superword, PatternRewriter& rewriter) 
   auto rhs = conversionManager.getValue(superword->getOperand(1));
   Value vectorOp = rewriter.create<SubFOp>(superword->getLoc(), lhs, rhs);
   vectorOp = rewriter.create<math::ExpOp>(superword->getLoc(), vectorOp);
-  //vectorOp = rewriter.create<math::Log1pOp>(superword->getLoc(), vectorOp);
+  vectorOp = rewriter.create<math::Log1pOp>(superword->getLoc(), vectorOp);
   return rewriter.create<AddFOp>(superword->getLoc(), rhs, vectorOp);
 }
 
