@@ -170,7 +170,6 @@ void ConversionManager::initConversion(Superword* root, Block* block, std::share
     originalOperations.emplace_back(op);
   });
   // Gather escaping users.
-  Operation* earliestInput = nullptr;
   for (auto* superword : order) {
     for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
       auto const& element = superword->getElement(lane);
@@ -181,11 +180,7 @@ void ConversionManager::initConversion(Superword* root, Block* block, std::share
         if (!escapingUsers.count(element)) {
           escapingUsers[element].assign(std::begin(element.getUsers()), std::end(element.getUsers()));
         }
-        if (superword->isLeaf()) {
-          if (!earliestInput || elementOp->isBeforeInBlock(earliestInput)) {
-            earliestInput = elementOp;
-          }
-        } else {
+        if (!superword->isLeaf()) {
           for (size_t i = 0; i < superword->numOperands(); ++i) {
             auto const& operand = superword->getOperand(i)->getElement(lane);
             auto& users = escapingUsers[operand];
