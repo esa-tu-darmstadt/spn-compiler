@@ -108,7 +108,6 @@ namespace mlir {
         private:
           bool hasEscapingUsers(Value value) const;
           Value getOrExtractValue(Value value);
-          void updateOperand(Operation* op, Value oldOperand, Value newOperand);
 
           void moveToTrash(SmallPtrSetImpl<Operation*> const& deadOps);
           void emptyTrash();

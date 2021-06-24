@@ -347,11 +347,17 @@ void ConversionManager::update(Superword* superword, Value operation, SLPVectori
     }
     if (hasEscapingUsers(element)) {
       Value extractOp = getOrExtractValue(element);
-      if (extractOp.getType().isa<LogType>()) {
-        extractOp = rewriter.create<SPNAttachLog>(element.getLoc(), extractOp, extractOp.getType());
-      }
-      for (auto* escapingUser : escapingUsers.lookup(element)) {
-        updateOperand(escapingUser, element, extractOp);
+      if (extractOp != element) {
+        if (extractOp.getType().isa<LogType>()) {
+          extractOp = rewriter.create<SPNAttachLog>(element.getLoc(), extractOp, extractOp.getType());
+        }
+        for (auto* escapingUser : escapingUsers.lookup(element)) {
+          for (size_t i = 0; i < escapingUser->getNumOperands(); ++i) {
+            if (escapingUser->getOperand(i) == element) {
+              escapingUser->setOperand(i, extractOp);
+            }
+          }
+        }
       }
       escapingUsers.erase(element);
     }
@@ -385,14 +391,6 @@ Value ConversionManager::getOrExtractValue(Value value) {
   auto extractOp = rewriter.create<vector::ExtractElementOp>(value.getLoc(), source, pos);
   conversionState->markExtracted(value);
   return extractOp;
-}
-
-void ConversionManager::updateOperand(Operation* op, Value oldOperand, Value newOperand) {
-  for (size_t i = 0; i < op->getNumOperands(); ++i) {
-    if (op->getOperand(i) == oldOperand) {
-      op->setOperand(i, newOperand);
-    }
-  }
 }
 
 void ConversionManager::moveToTrash(SmallPtrSetImpl<Operation*> const& deadOps) {
