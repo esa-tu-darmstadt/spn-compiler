@@ -59,8 +59,8 @@ bool CostModel::isExtractionProfitable(Value const& value) {
   return extractionCost < scalarCost;
 }
 
-void CostModel::setConversionState(std::shared_ptr<ConversionState> const& newConversionState) {
-  conversionState = newConversionState;
+void CostModel::setConversionState(std::shared_ptr<ConversionState> newConversionState) {
+  conversionState = std::move(newConversionState);
   conversionState->addScalarCallback([&](Value value) {
     updateCost(value, 0, false);
   });
@@ -69,10 +69,10 @@ void CostModel::setConversionState(std::shared_ptr<ConversionState> const& newCo
   });
 }
 
-double CostModel::getBlockCost(Block* block, SmallPtrSet<Operation*, 32> const& deadOps) const {
+double CostModel::getBlockCost(Block* block) const {
   double blockCost = 0;
   block->walk([&](Operation* op) {
-    if (deadOps.contains(op)) {
+    if (conversionState && conversionState->isDead(op)) {
       return WalkResult::skip();
     }
     for (auto const& result : op->getResults()) {
@@ -102,8 +102,8 @@ void CostModel::updateCost(Value const& value, double newCost, bool updateUses) 
 }
 
 double CostModel::getExtractionCost(Value const& value) const {
-  auto valuePosition = conversionState->getWordContainingValue(value);
-  if (valuePosition.superword) {
+  auto valuePosition = conversionState->getSuperwordContainingValue(value);
+  if (valuePosition) {
     return computeExtractionCost(valuePosition.superword, valuePosition.index);
   }
   return MAX_COST;

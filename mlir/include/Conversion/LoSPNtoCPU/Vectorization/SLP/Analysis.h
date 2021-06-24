@@ -54,8 +54,8 @@ namespace mlir {
           DenseMap<Superword*, unsigned> superwordDepths;
           unsigned maxSuperwordDepth = 0;
           llvm::SmallSetVector<Superword*, 32> graphWorklist;
-          graphWorklist.insert(graph.getRoot());
-          superwordDepths[graph.getRoot()] = 0;
+          graphWorklist.insert(graph.getRoot().get());
+          superwordDepths[graph.getRoot().get()] = 0;
 
           while (!graphWorklist.empty()) {
             auto* superword = graphWorklist.pop_back_val();
@@ -68,7 +68,7 @@ namespace mlir {
             }
           }
 
-          auto order = graph::postOrder(graph.getRoot());
+          auto order = graph::postOrder(graph.getRoot().get());
           unsigned topologicallyMixed = 0;
           unsigned lowest = std::numeric_limits<unsigned>::max();
           for (auto* superword : order) {

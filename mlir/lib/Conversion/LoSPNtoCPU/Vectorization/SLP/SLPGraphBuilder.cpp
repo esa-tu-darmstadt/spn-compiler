@@ -21,7 +21,7 @@ void SLPGraphBuilder::build(ArrayRef<Value> const& seed) {
   superwordsByValue[graph.root->getElement(0)].emplace_back(graph.root);
   buildWorklist.insert(rootNode.get());
   buildGraph(graph.root);
-  dumpSLPGraph(rootNode.get());
+  //dumpSLPGraph(rootNode.get());
 }
 
 // Some helper functions in an anonymous namespace.

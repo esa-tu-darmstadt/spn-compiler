@@ -64,7 +64,21 @@ namespace {
 // === Broadcast === //
 
 LogicalResult BroadcastSuperword::match(Superword* superword) const {
-  return success(superword->splattable());
+  Operation* firstOp = nullptr;
+  for (size_t i = 0; i < superword->numLanes(); ++i) {
+    if (auto* definingOp = superword->getElement(i).getDefiningOp()) {
+      if (i == 0) {
+        firstOp = definingOp;
+        continue;
+      }
+      if (!OperationEquivalence::isEquivalentTo(definingOp, firstOp)) {
+        return failure();
+      }
+    } else if (firstOp || superword->getElement(i) != superword->getElement(0)) {
+      return failure();
+    }
+  }
+  return success();
 }
 
 Value BroadcastSuperword::rewrite(Superword* superword, PatternRewriter& rewriter) const {

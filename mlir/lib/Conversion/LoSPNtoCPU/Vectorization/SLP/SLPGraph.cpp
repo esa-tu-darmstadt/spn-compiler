@@ -86,24 +86,6 @@ bool Superword::uniform() const {
   return true;
 }
 
-bool Superword::splattable() const {
-  Operation* firstOp = nullptr;
-  for (size_t i = 0; i < values.size(); ++i) {
-    if (auto* definingOp = values[i].getDefiningOp()) {
-      if (i == 0) {
-        firstOp = definingOp;
-        continue;
-      }
-      if (!OperationEquivalence::isEquivalentTo(definingOp, firstOp)) {
-        return false;
-      }
-    } else if (firstOp || values[i] != values.front()) {
-      return false;
-    }
-  }
-  return true;
-}
-
 size_t Superword::numLanes() const {
   return values.size();
 }
@@ -219,8 +201,8 @@ SLPGraph::SLPGraph(ArrayRef<Value> const& seed, unsigned lookAhead) : lookAhead{
   builder.build(seed);
 }
 
-Superword* SLPGraph::getRoot() const {
-  return root.get();
+std::shared_ptr<Superword> SLPGraph::getRoot() const {
+  return root;
 }
 
 DependencyGraph SLPGraph::dependencyGraph() const {

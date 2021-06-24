@@ -24,29 +24,36 @@ namespace mlir {
         struct ValuePosition {
           ValuePosition() : superword{nullptr}, index{0} {}
           ValuePosition(Superword* superword, size_t index) : superword{superword}, index{index} {}
+          explicit operator bool() const {
+            return superword;
+          }
           Superword* superword;
           size_t index;
         };
 
         class ConversionState {
         public:
-          ConversionState() = default;
-          ConversionState(ConversionState const& other) = default;
+          explicit ConversionState(std::shared_ptr<Superword> root);
+          ConversionState(std::shared_ptr<Superword> root, std::shared_ptr<ConversionState> parentState);
 
           bool alreadyComputed(Superword* superword) const;
-          bool alreadyComputed(Value const& value) const;
+          bool alreadyComputed(Value value) const;
+          bool isExtractable(Value value);
           bool isDead(Operation* op) const;
 
-          void markComputed(Value const& value);
+          void markComputed(Value value);
           void markComputed(Superword* superword, Value value);
-          void markExtracted(Value const& value);
+          void markExtracted(Value value);
           void markDead(Operation* op);
 
           Value getValue(Superword* superword) const;
-          ValuePosition getWordContainingValue(Value const& value) const;
+          ValuePosition getSuperwordContainingValue(Value value) const;
 
-          SmallPtrSet<Operation*, 32> const& getDeadOps() const;
+          SmallPtrSet<Operation*, 32> getDeadOps() const;
+          SmallVector<Superword*> unconvertedPostOrder() const;
           void undoChanges() const;
+
+          std::shared_ptr<ConversionState> getParentState() const;
 
           // Callback registration.
           /// Callback for when a superword was converted.
@@ -65,10 +72,15 @@ namespace mlir {
           /// not deemed profitable.
           void addExtractionUndoCallback(std::function<void(Value)> callback);
         private:
+          // Take ownership of the graph to prevent dangling pointers when it goes out of scope.
+          std::shared_ptr<Superword> correspondingGraph;
+          /// Enables recursive lookups from previous graph conversions.
+          std::shared_ptr<ConversionState> parentState;
+          /// Actual conversion data.
           SmallPtrSet<Value, 32> computedScalarValues;
           DenseMap<Superword*, Value> computedSuperwords;
           SmallPtrSet<Value, 32> extractedScalarValues;
-          /// Vector element data.
+          /// Store vector element data for faster extraction lookup.
           DenseMap<Value, ValuePosition> extractableScalarValues;
           /// Store dead operations to prevent erasing them more than once.
           SmallPtrSet<Operation*, 32> deadOps;
@@ -85,30 +97,27 @@ namespace mlir {
 
         public:
 
-          ConversionManager(PatternRewriter& rewriter, std::shared_ptr<CostModel> costModel);
+          ConversionManager(PatternRewriter& rewriter, Block* block, std::shared_ptr<CostModel> costModel);
 
-          void initConversion(Superword* root, Block* block, std::shared_ptr<ConversionState> graphState);
+          SmallVector<Superword*> initConversion(SLPGraph const& graph);
           void finishConversion();
           void undoConversion();
-          ArrayRef<Superword*> conversionOrder() const;
 
           void setupConversionFor(Superword* superword, SLPVectorizationPattern const* pattern);
-          void update(Superword* superword, Value const& operation, SLPVectorizationPattern const* appliedPattern);
+          void update(Superword* superword, Value operation, SLPVectorizationPattern const* appliedPattern);
 
           Value getValue(Superword* superword) const;
           Value getOrCreateConstant(Location const& loc, Attribute const& attribute);
+          void eraseAllDeadOps();
 
         private:
-          bool hasEscapingUsers(Value const& value) const;
-          Value getOrExtractValue(Value const& value);
+          bool hasEscapingUsers(Value value) const;
+          Value getOrExtractValue(Value value);
           void updateOperand(Operation* op, Value oldOperand, Value newOperand);
 
-          SmallVector<Superword*> order;
-
-          std::shared_ptr<ConversionState> conversionState;
-
-          Block* graphBlock = nullptr;
+          Block* block;
           std::shared_ptr<CostModel> costModel;
+          std::shared_ptr<ConversionState> conversionState;
 
           /// Stores escaping users for each value.
           DenseMap<Value, SmallVector<Operation*, 1>> escapingUsers;
@@ -117,7 +126,7 @@ namespace mlir {
           SmallVector<Operation*, 32> originalOperations;
           DenseMap<Operation*, SmallVector<Value, 2>> originalOperands;
 
-          /// For finding out which vector elements can be erased.
+          /// Helps find out which vector elements can be erased.
           LeafPatternVisitor leafVisitor;
 
           /// For creating constants & setting insertion points.

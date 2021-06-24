@@ -36,7 +36,6 @@ namespace mlir {
           bool isLeaf() const;
           bool constant() const;
           bool uniform() const;
-          bool splattable() const;
 
           size_t numLanes() const;
           SmallVectorImpl<Value>::const_iterator begin() const;
@@ -97,7 +96,7 @@ namespace mlir {
           friend class SLPGraphBuilder;
         public:
           SLPGraph(ArrayRef<Value> const& seed, unsigned lookAhead);
-          Superword* getRoot() const;
+          std::shared_ptr<Superword> getRoot() const;
           DependencyGraph dependencyGraph() const;
         private:
           std::shared_ptr<Superword> root;

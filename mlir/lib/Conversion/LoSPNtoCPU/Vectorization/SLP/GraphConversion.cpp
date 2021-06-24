@@ -8,6 +8,7 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/GraphConversion.h"
 #include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
+#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 
 using namespace mlir;
@@ -15,19 +16,40 @@ using namespace mlir::spn::low::slp;
 
 // === ConversionState === //
 
+ConversionState::ConversionState(std::shared_ptr<Superword> root) : correspondingGraph{std::move(root)} {}
+
+ConversionState::ConversionState(std::shared_ptr<Superword> root, std::shared_ptr<ConversionState> parentState)
+    : correspondingGraph{std::move(root)}, parentState{std::move(parentState)} {}
+
 bool ConversionState::alreadyComputed(Superword* superword) const {
-  return computedSuperwords.count(superword);
+  if (computedSuperwords.count(superword)) {
+    return true;
+  }
+  return parentState && parentState->alreadyComputed(superword);
 }
 
-bool ConversionState::alreadyComputed(Value const& value) const {
-  return computedScalarValues.contains(value) || extractedScalarValues.contains(value);
+bool ConversionState::alreadyComputed(Value value) const {
+  if (computedScalarValues.contains(value) || extractedScalarValues.contains(value)) {
+    return true;
+  }
+  return parentState && parentState->alreadyComputed(value);
+}
+
+bool ConversionState::isExtractable(Value value) {
+  if (extractableScalarValues.count(value)) {
+    return true;
+  }
+  return parentState && parentState->isExtractable(value);
 }
 
 bool ConversionState::isDead(Operation* op) const {
-  return deadOps.contains(op);
+  if (deadOps.contains(op)) {
+    return true;
+  }
+  return parentState && parentState->isDead(op);
 }
 
-void ConversionState::markComputed(Value const& value) {
+void ConversionState::markComputed(Value value) {
   if (computedScalarValues.insert(value).second) {
     if (auto* definingOp = value.getDefiningOp()) {
       for (auto const& operand : definingOp->getOperands()) {
@@ -54,7 +76,7 @@ void ConversionState::markComputed(Superword* superword, Value value) {
   }
 }
 
-void ConversionState::markExtracted(Value const& value) {
+void ConversionState::markExtracted(Value value) {
   if (extractedScalarValues.insert(value).second) {
     for (auto const& callback : extractionCallbacks) {
       callback(value);
@@ -67,16 +89,64 @@ void ConversionState::markDead(Operation* op) {
 }
 
 Value ConversionState::getValue(Superword* superword) const {
-  assert(alreadyComputed(superword) && "superword has not yet been converted");
-  return computedSuperwords.lookup(superword);
+  auto value = computedSuperwords.lookup(superword);
+  if (value) {
+    return value;
+  } else if (parentState) {
+    return parentState->getValue(superword);
+  }
+  llvm_unreachable("the superword has not yet been converted");
 }
 
-ValuePosition ConversionState::getWordContainingValue(Value const& value) const {
-  return extractableScalarValues.lookup(value);
+ValuePosition ConversionState::getSuperwordContainingValue(Value value) const {
+  auto valuePosition = extractableScalarValues.lookup(value);
+  if (!valuePosition && parentState) {
+    return parentState->getSuperwordContainingValue(value);
+  }
+  return valuePosition;
 }
 
-SmallPtrSet<Operation*, 32> const& ConversionState::getDeadOps() const {
-  return deadOps;
+SmallPtrSet<Operation*, 32> ConversionState::getDeadOps() const {
+  auto allDeadOps = deadOps;
+  if (parentState) {
+    auto parentDeadOps = parentState->getDeadOps();
+    allDeadOps.insert(std::begin(parentDeadOps), std::end(parentDeadOps));
+  }
+  return allDeadOps;
+}
+
+SmallVector<Superword*> ConversionState::unconvertedPostOrder() const {
+  SmallVector<Superword*> order;
+  if (parentState) {
+    order.assign(parentState->unconvertedPostOrder());
+  }
+  DenseMap<Superword*, unsigned> depths;
+  depths[correspondingGraph.get()] = 0;
+  SmallVector<Superword*> worklist{correspondingGraph.get()};
+  while (!worklist.empty()) {
+    auto* superword = worklist.pop_back_val();
+    if (alreadyComputed(superword)) {
+      continue;
+    }
+    for (auto* operand : superword->getOperands()) {
+      auto operandDepth = depths[superword] + 1;
+      if (depths[operand] < operandDepth) {
+        depths[operand] = operandDepth;
+        worklist.emplace_back(operand);
+      }
+    }
+  }
+  for (auto const& entry: depths) {
+    order.emplace_back(entry.first);
+  }
+  llvm::sort(std::begin(order), std::end(order), [&](Superword* lhs, Superword* rhs) {
+    // This comparison maximizes the re-use potential of non-leaf elements in leaf nodes through extractions.
+    if (depths[lhs] == depths[rhs]) {
+      return !lhs->isLeaf() && rhs->isLeaf();
+    }
+    return depths[lhs] > depths[rhs];
+  });
+  return order;
 }
 
 void ConversionState::undoChanges() const {
@@ -95,6 +165,10 @@ void ConversionState::undoChanges() const {
       callback(value);
     }
   }
+}
+
+std::shared_ptr<ConversionState> ConversionState::getParentState() const {
+  return parentState;
 }
 
 void ConversionState::addVectorCallback(std::function<void(Superword*)> callback) {
@@ -121,55 +195,25 @@ void ConversionState::addExtractionUndoCallback(std::function<void(Value)> callb
   extractionUndoCallbacks.emplace_back(std::move(callback));
 }
 
-// Helper functions in anonymous namespace.
-namespace {
+// === ConversionManager === //
 
-  SmallVector<Superword*> computeOrder(Superword* root) {
-    DenseMap<Superword*, unsigned> depths;
-    depths[root] = 0;
-    SmallVector<Superword*> worklist{root};
-    while (!worklist.empty()) {
-      auto* superword = worklist.pop_back_val();
-      for (auto* operand : superword->getOperands()) {
-        auto operandDepth = depths[superword] + 1;
-        if (depths[operand] < operandDepth) {
-          depths[operand] = operandDepth;
-          worklist.emplace_back(operand);
-        }
-      }
-    }
-    SmallVector<Superword*> order;
-    for (auto const& entry: depths) {
-      order.emplace_back(entry.first);
-    }
-    llvm::sort(std::begin(order), std::end(order), [&](Superword* lhs, Superword* rhs) {
-      // This comparison maximizes the re-use potential of non-leaf elements in leaf nodes through extractions.
-      if (depths[lhs] == depths[rhs]) {
-        return !lhs->isLeaf() && rhs->isLeaf();
-      }
-      return depths[lhs] > depths[rhs];
-    });
-    return order;
-  }
+ConversionManager::ConversionManager(PatternRewriter& rewriter, Block* block, std::shared_ptr<CostModel> costModel)
+    : block{block}, costModel{std::move(costModel)}, rewriter{rewriter}, folder{rewriter.getContext()} {}
 
-}
-
-ConversionManager::ConversionManager(PatternRewriter& rewriter, std::shared_ptr<CostModel> costModel) : costModel{
-    std::move(costModel)}, rewriter{rewriter}, folder{rewriter.getContext()} {}
-
-void ConversionManager::initConversion(Superword* root, Block* block, std::shared_ptr<ConversionState> graphState) {
+SmallVector<Superword*> ConversionManager::initConversion(SLPGraph const& graph) {
   // Clear all temporary data.
   escapingUsers.clear();
   originalOperations.clear();
   originalOperands.clear();
-  conversionState = std::move(graphState);
-  order.assign(computeOrder(root));
-  graphBlock = block;
+  // Work on a new, temporary conversion state.
+  conversionState = std::make_shared<ConversionState>(graph.getRoot(), conversionState);
+  costModel->setConversionState(conversionState);
   // Store original block state for undoing graph conversions.
   block->walk([&](Operation* op) {
     originalOperations.emplace_back(op);
   });
   // Gather escaping users.
+  auto order = conversionState->unconvertedPostOrder();
   for (auto* superword : order) {
     for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
       auto const& element = superword->getElement(lane);
@@ -196,13 +240,14 @@ void ConversionManager::initConversion(Superword* root, Block* block, std::share
       return lhs->isBeforeInBlock(rhs);
     });
   }
+  return order;
 }
 
 void ConversionManager::finishConversion() {
   // Sort operations topologically.
   DenseMap<Operation*, unsigned> depths;
   llvm::SmallSetVector<Operation*, 32> worklist;
-  graphBlock->walk<WalkOrder::PreOrder>([&](Operation* op) {
+  block->walk<WalkOrder::PreOrder>([&](Operation* op) {
     depths[op] = 0;
     worklist.insert(op);
   });
@@ -235,9 +280,30 @@ void ConversionManager::finishConversion() {
       if (lastOp) {
         op->moveAfter(lastOp);
       } else {
-        op->moveBefore(graphBlock, graphBlock->begin());
+        op->moveBefore(block, block->begin());
       }
       lastOp = op;
+    }
+  }
+  // Perform DCE on the resulting block. This is required for correct cost analyses.
+  block->walk<WalkOrder::PreOrder>([&](Operation* op) {
+    if (isOpTriviallyDead(op)) {
+      conversionState->markDead(op);
+      worklist.insert(op);
+    }
+  });
+  while (!worklist.empty()) {
+    auto* op = worklist.pop_back_val();
+    for (auto const& operand : op->getOperands()) {
+      if (auto* operandOp = operand.getDefiningOp()) {
+        auto users = operandOp->getUsers();
+        if (std::all_of(std::begin(users), std::end(users), [&](Operation* user) {
+          return conversionState->isDead(user);
+        })) {
+          conversionState->markDead(operandOp);
+          worklist.insert(operandOp);
+        }
+      }
     }
   }
 }
@@ -252,30 +318,30 @@ void ConversionManager::undoConversion() {
     if (lastOp) {
       op->moveAfter(lastOp);
     } else {
-      op->moveBefore(graphBlock, graphBlock->begin());
+      op->moveBefore(block, block->begin());
     }
     lastOp = op;
   }
   // Move all created operations to a trash block, so that they can be destroyed *immediately* instead of at the end
   // of the conversion process. We don't want to carry thousands or millions of erased operations with us to the next
   // vectorization attempt.
-  Block* trashBlock = rewriter.createBlock(graphBlock);
-  graphBlock->moveBefore(trashBlock);
-  while (auto* nextNode = lastOp->getNextNode()) {
-    nextNode->moveBefore(trashBlock, trashBlock->end());
-    nextNode->dropAllReferences();
+  Block* trashBlock = rewriter.createBlock(block);
+  block->moveBefore(trashBlock);
+  // Every op that appears after the last 'original' op can be erased.
+  while (auto* trashOp = lastOp->getNextNode()) {
+    trashOp->moveBefore(trashBlock, trashBlock->end());
+    trashOp->dropAllReferences();
+    if (trashOp->hasTrait<OpTrait::ConstantLike>()) {
+      folder.notifyRemoval(trashOp);
+    }
   }
   rewriter.eraseBlock(trashBlock);
-  folder.clear();
   conversionState->undoChanges();
-}
-
-ArrayRef<Superword*> ConversionManager::conversionOrder() const {
-  return order;
+  conversionState = conversionState->getParentState();
 }
 
 void ConversionManager::setupConversionFor(Superword* superword, SLPVectorizationPattern const* pattern) {
-  rewriter.setInsertionPointToEnd(graphBlock);
+  rewriter.setInsertionPointToEnd(block);
   // Create extractions if needed.
   auto scalarInputs = leafVisitor.getRequiredScalarValues(pattern, superword);
   for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
@@ -286,9 +352,11 @@ void ConversionManager::setupConversionFor(Superword* superword, SLPVectorizatio
   }
 }
 
-void ConversionManager::update(Superword* superword,
-                               Value const& operation,
-                               SLPVectorizationPattern const* appliedPattern) {
+void ConversionManager::update(Superword* superword, Value operation, SLPVectorizationPattern const* appliedPattern) {
+  if (conversionState->alreadyComputed(superword)) {
+    dumpSuperword(*superword);
+    getValue(superword).dump();
+  }
   conversionState->markComputed(superword, operation);
   auto scalarInputs = leafVisitor.getRequiredScalarValues(appliedPattern, superword);
   for (auto const& scalarInput : scalarInputs) {
@@ -321,11 +389,17 @@ Value ConversionManager::getOrCreateConstant(Location const& loc, Attribute cons
   return folder.getOrCreateConstant(rewriter, &attribute.getDialect(), attribute, attribute.getType(), loc);
 }
 
-bool ConversionManager::hasEscapingUsers(Value const& value) const {
+void ConversionManager::eraseAllDeadOps() {
+  for (auto* deadOp : conversionState->getDeadOps()) {
+    rewriter.eraseOp(deadOp);
+  }
+}
+
+bool ConversionManager::hasEscapingUsers(Value value) const {
   return escapingUsers.count(value) && !escapingUsers.lookup(value).empty();
 }
 
-Value ConversionManager::getOrExtractValue(Value const& value) {
+Value ConversionManager::getOrExtractValue(Value value) {
   if (conversionState->alreadyComputed(value)) {
     return value;
   }
@@ -333,7 +407,7 @@ Value ConversionManager::getOrExtractValue(Value const& value) {
     conversionState->markComputed(value);
     return value;
   }
-  auto const& wordPosition = conversionState->getWordContainingValue(value);
+  auto const& wordPosition = conversionState->getSuperwordContainingValue(value);
   assert(wordPosition.superword && "extraction deemed profitable, but value does not appear in any vector");
   auto const& source = conversionState->getValue(wordPosition.superword);
   auto const& pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) wordPosition.index));
