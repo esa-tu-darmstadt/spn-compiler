@@ -8,7 +8,6 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/GraphConversion.h"
 #include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
-#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 
 using namespace mlir;
@@ -199,8 +198,6 @@ void ConversionManager::initConversion(Superword* root, Block* block, std::share
   // Sort escaping users so that we can create the extraction operation right in front of the first one.
   for (auto& entry : escapingUsers) {
     llvm::sort(std::begin(entry.second), std::end(entry.second), [&](Operation* lhs, Operation* rhs) {
-      lhs->dump();
-      rhs->dump();
       return lhs->isBeforeInBlock(rhs);
     });
   }

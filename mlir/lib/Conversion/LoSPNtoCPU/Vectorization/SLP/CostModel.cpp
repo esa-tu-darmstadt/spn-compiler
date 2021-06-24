@@ -75,7 +75,6 @@ double CostModel::getBlockCost(Block* block, SmallPtrSet<Operation*, 32> const& 
     if (deadOps.contains(op)) {
       return WalkResult::skip();
     }
-    op->dump();
     for (auto const& result : op->getResults()) {
       blockCost += computeScalarCost(result);
       // Assume that all results are computed at the same time.

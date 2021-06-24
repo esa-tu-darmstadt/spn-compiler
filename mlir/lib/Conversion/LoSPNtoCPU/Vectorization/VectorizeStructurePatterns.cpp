@@ -154,8 +154,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         }
         break;
       }
-    }
-    {
       bool analysisStuff = false;
       if (analysisStuff) {
         analyzeTopologicalMixing(graph);
