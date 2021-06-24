@@ -33,7 +33,7 @@ namespace mlir {
 
         class ConversionState {
         public:
-          explicit ConversionState(std::shared_ptr<Superword> root);
+          ConversionState() = default;
           ConversionState(std::shared_ptr<Superword> root, std::shared_ptr<ConversionState> parentState);
 
           bool alreadyComputed(Superword* superword) const;

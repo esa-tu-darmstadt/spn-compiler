@@ -16,8 +16,6 @@ using namespace mlir::spn::low::slp;
 
 // === ConversionState === //
 
-ConversionState::ConversionState(std::shared_ptr<Superword> root) : correspondingGraph{std::move(root)} {}
-
 ConversionState::ConversionState(std::shared_ptr<Superword> root, std::shared_ptr<ConversionState> parentState)
     : correspondingGraph{std::move(root)}, parentState{std::move(parentState)} {}
 
@@ -117,9 +115,6 @@ SmallPtrSet<Operation*, 32> ConversionState::getDeadOps() const {
 
 SmallVector<Superword*> ConversionState::unconvertedPostOrder() const {
   SmallVector<Superword*> order;
-  if (parentState) {
-    order.assign(parentState->unconvertedPostOrder());
-  }
   DenseMap<Superword*, unsigned> depths;
   depths[correspondingGraph.get()] = 0;
   SmallVector<Superword*> worklist{correspondingGraph.get()};
@@ -198,7 +193,8 @@ void ConversionState::addExtractionUndoCallback(std::function<void(Value)> callb
 // === ConversionManager === //
 
 ConversionManager::ConversionManager(PatternRewriter& rewriter, Block* block, std::shared_ptr<CostModel> costModel)
-    : block{block}, costModel{std::move(costModel)}, rewriter{rewriter}, folder{rewriter.getContext()} {}
+    : block{block}, costModel{std::move(costModel)}, conversionState{std::make_shared<ConversionState>()},
+      rewriter{rewriter}, folder{rewriter.getContext()} {}
 
 SmallVector<Superword*> ConversionManager::initConversion(SLPGraph const& graph) {
   // Clear all temporary data.
