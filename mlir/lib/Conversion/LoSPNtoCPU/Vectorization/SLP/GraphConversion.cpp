@@ -17,30 +17,18 @@ using namespace mlir::spn::low::slp;
 // === ConversionState === //
 
 bool ConversionState::alreadyComputed(Superword* superword) const {
-  return computedSuperwords.contains(superword);
+  return computedSuperwords.count(superword);
 }
 
 bool ConversionState::alreadyComputed(Value const& value) const {
-  return computedScalarValues.contains(value);
+  return computedScalarValues.contains(value) || extractedScalarValues.contains(value);
 }
 
-void ConversionState::markComputed(Superword* superword) {
-  for (auto* operand : superword->getOperands()) {
-    assert (alreadyComputed(operand) && "computing vector before its operands");
-  }
-  computedSuperwords.insert(superword);
-  for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
-    extractableScalarValues.try_emplace(superword->getElement(lane), superword, lane);
-  }
-  for (auto const& callback : vectorCallbacks) {
-    callback(superword);
-  }
+bool ConversionState::isDead(Operation* op) const {
+  return deadOps.contains(op);
 }
 
 void ConversionState::markComputed(Value const& value) {
-  if (value.getDefiningOp()) {
-    value.getDefiningOp()->dump();
-  }
   if (computedScalarValues.insert(value).second) {
     if (auto* definingOp = value.getDefiningOp()) {
       for (auto const& operand : definingOp->getOperands()) {
@@ -53,16 +41,61 @@ void ConversionState::markComputed(Value const& value) {
   }
 }
 
+void ConversionState::markComputed(Superword* superword, Value value) {
+  assert(!alreadyComputed(superword) && "superword has already been converted");
+  for (auto* operand : superword->getOperands()) {
+    assert(alreadyComputed(operand) && "computing vector before its operands");
+  }
+  computedSuperwords[superword] = value;
+  for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
+    extractableScalarValues.try_emplace(superword->getElement(lane), superword, lane);
+  }
+  for (auto const& callback : vectorCallbacks) {
+    callback(superword);
+  }
+}
+
 void ConversionState::markExtracted(Value const& value) {
-  if (computedScalarValues.insert(value).second) {
+  if (extractedScalarValues.insert(value).second) {
     for (auto const& callback : extractionCallbacks) {
       callback(value);
     }
   }
 }
 
+void ConversionState::markDead(Operation* op) {
+  deadOps.insert(op);
+}
+
+Value ConversionState::getValue(Superword* superword) const {
+  assert(alreadyComputed(superword) && "superword has not yet been converted");
+  return computedSuperwords.lookup(superword);
+}
+
 ValuePosition ConversionState::getWordContainingValue(Value const& value) const {
   return extractableScalarValues.lookup(value);
+}
+
+SmallPtrSet<Operation*, 32> const& ConversionState::getDeadOps() const {
+  return deadOps;
+}
+
+void ConversionState::undoChanges() const {
+  for (auto const& callback : scalarUndoCallbacks) {
+    for (auto value : computedScalarValues) {
+      callback(value);
+    }
+  }
+  for (auto const& callback : vectorUndoCallbacks) {
+    for (auto const& entry : computedSuperwords) {
+      callback(entry.first);
+    }
+  }
+  for (auto const& callback : extractionUndoCallbacks) {
+    for (auto value : extractedScalarValues) {
+      callback(value);
+    }
+  }
 }
 
 void ConversionState::addVectorCallback(std::function<void(Superword*)> callback) {
@@ -75,6 +108,18 @@ void ConversionState::addScalarCallback(std::function<void(Value)> callback) {
 
 void ConversionState::addExtractionCallback(std::function<void(Value)> callback) {
   extractionCallbacks.emplace_back(std::move(callback));
+}
+
+void ConversionState::addVectorUndoCallback(std::function<void(Superword*)> callback) {
+  vectorUndoCallbacks.emplace_back(std::move(callback));
+}
+
+void ConversionState::addScalarUndoCallback(std::function<void(Value)> callback) {
+  scalarUndoCallbacks.emplace_back(std::move(callback));
+}
+
+void ConversionState::addExtractionUndoCallback(std::function<void(Value)> callback) {
+  extractionUndoCallbacks.emplace_back(std::move(callback));
 }
 
 // Helper functions in anonymous namespace.
@@ -299,21 +344,30 @@ namespace {
 
 }
 
-ConversionManager::ConversionManager(PatternRewriter& rewriter,
-                                     std::shared_ptr<ConversionState> conversionState,
-                                     std::shared_ptr<CostModel> costModel)
-    : conversionState{std::move(conversionState)}, costModel{std::move(costModel)}, rewriter{rewriter},
-      folder{rewriter.getContext()} {}
+ConversionManager::ConversionManager(PatternRewriter& rewriter, std::shared_ptr<CostModel> costModel) : costModel{
+    std::move(costModel)}, rewriter{rewriter}, folder{rewriter.getContext()} {}
 
-void ConversionManager::initConversion(Superword* root, Block* block) {
+void ConversionManager::initConversion(Superword* root, Block* block, std::shared_ptr<ConversionState> graphState) {
+  // Clear all temporary data.
+  escapingUsers.clear();
+  originalOperations.clear();
+  originalOperands.clear();
+  conversionState = std::move(graphState);
   order.assign(computeOrder(root));
-
+  graphBlock = block;
+  // Store original block state for undoing graph conversions.
+  block->walk([&](Operation* op) {
+    originalOperations.emplace_back(op);
+  });
   // Gather escaping users.
   Operation* earliestInput = nullptr;
   for (auto* superword : order) {
     for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
       auto const& element = superword->getElement(lane);
       if (auto* elementOp = element.getDefiningOp()) {
+        if (elementOp->hasTrait<OpTrait::ConstantLike>()) {
+          continue;
+        }
         if (!escapingUsers.count(element)) {
           escapingUsers[element].assign(std::begin(element.getUsers()), std::end(element.getUsers()));
         }
@@ -334,20 +388,18 @@ void ConversionManager::initConversion(Superword* root, Block* block) {
   // Sort escaping users so that we can create the extraction operation right in front of the first one.
   for (auto& entry : escapingUsers) {
     llvm::sort(std::begin(entry.second), std::end(entry.second), [&](Operation* lhs, Operation* rhs) {
+      lhs->dump();
+      rhs->dump();
       return lhs->isBeforeInBlock(rhs);
     });
   }
-  latestCreation = earliestNonConstOperation(block)->getResult(0);
 }
 
-void ConversionManager::finishConversion(Block* block) {
-  // Remove all temporary data.
-  escapingUsers.clear();
-  latestCreation = nullptr;
+void ConversionManager::finishConversion() {
   // Sort operations topologically.
   DenseMap<Operation*, unsigned> depths;
   llvm::SmallSetVector<Operation*, 32> worklist;
-  block->walk<WalkOrder::PreOrder>([&](Operation* op) {
+  graphBlock->walk<WalkOrder::PreOrder>([&](Operation* op) {
     depths[op] = 0;
     worklist.insert(op);
   });
@@ -365,7 +417,6 @@ void ConversionManager::finishConversion(Block* block) {
       }
     }
   }
-  // Sort operations in between the first input & the latest escaping user.
   SmallVector<SmallVector<Operation*>> opsSortedByDepth{maxDepth + 1};
   for (auto const& entry : depths) {
     opsSortedByDepth[maxDepth - entry.second].emplace_back(entry.first);
@@ -375,18 +426,45 @@ void ConversionManager::finishConversion(Block* block) {
       return lhs->isBeforeInBlock(rhs);
     });
   }
-  Operation* latestOp = nullptr;
+  Operation* lastOp = nullptr;
   for (auto const& ops : opsSortedByDepth) {
     for (auto* op : ops) {
-      if (!latestOp) {
-        op->moveBefore(block, block->begin());
-        latestOp = op;
+      if (lastOp) {
+        op->moveAfter(lastOp);
       } else {
-        op->moveAfter(latestOp);
-        latestOp = op;
+        op->moveBefore(graphBlock, graphBlock->begin());
       }
+      lastOp = op;
     }
   }
+}
+
+void ConversionManager::undoConversion() {
+  Operation* lastOp = nullptr;
+  for (auto* op : originalOperations) {
+    auto operands = originalOperands.lookup(op);
+    if (!operands.empty()) {
+      op->setOperands(operands);
+    }
+    if (lastOp) {
+      op->moveAfter(lastOp);
+    } else {
+      op->moveBefore(graphBlock, graphBlock->begin());
+    }
+    lastOp = op;
+  }
+  // Move all created operations to a trash block, so that they can be destroyed *immediately* instead of at the end
+  // of the conversion process. We don't want to carry thousands or millions of erased operations with us to the next
+  // vectorization attempt.
+  Block* trashBlock = rewriter.createBlock(graphBlock);
+  graphBlock->moveBefore(trashBlock);
+  while (auto* nextNode = lastOp->getNextNode()) {
+    nextNode->moveBefore(trashBlock, trashBlock->end());
+    nextNode->dropAllReferences();
+  }
+  rewriter.eraseBlock(trashBlock);
+  folder.clear();
+  conversionState->undoChanges();
 }
 
 ArrayRef<Superword*> ConversionManager::conversionOrder() const {
@@ -394,7 +472,7 @@ ArrayRef<Superword*> ConversionManager::conversionOrder() const {
 }
 
 void ConversionManager::setupConversionFor(Superword* superword, SLPVectorizationPattern const* pattern) {
-  rewriter.setInsertionPointAfterValue(latestCreation);
+  rewriter.setInsertionPointToEnd(graphBlock);
   // Create extractions if needed.
   auto scalarInputs = leafVisitor.getRequiredScalarValues(pattern, superword);
   for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
@@ -408,10 +486,7 @@ void ConversionManager::setupConversionFor(Superword* superword, SLPVectorizatio
 void ConversionManager::update(Superword* superword,
                                Value const& operation,
                                SLPVectorizationPattern const* appliedPattern) {
-  dumpSuperword(*superword);
-  assert(!wasConverted(superword) && "superword has been converted already");
-  vectorOperations[superword] = operation;
-  conversionState->markComputed(superword);
+  conversionState->markComputed(superword, operation);
   auto scalarInputs = leafVisitor.getRequiredScalarValues(appliedPattern, superword);
   for (auto const& scalarInput : scalarInputs) {
     conversionState->markComputed(scalarInput);
@@ -424,36 +499,23 @@ void ConversionManager::update(Superword* superword,
     }
     if (hasEscapingUsers(element)) {
       Value extractOp = getOrExtractValue(element);
+      if (extractOp.getType().isa<LogType>()) {
+        extractOp = rewriter.create<SPNAttachLog>(element.getLoc(), extractOp, extractOp.getType());
+      }
       for (auto* escapingUser : escapingUsers.lookup(element)) {
-        size_t index = 0;
-        for (auto const& operand : escapingUser->getOperands()) {
-          if (operand == element) {
-            if (operand.getType().isa<LogType>()) {
-              extractOp = rewriter.create<SPNAttachLog>(element.getLoc(), extractOp, extractOp.getType());
-            }
-            break;
-          }
-          ++index;
-        }
-        escapingUser->setOperand(index, extractOp);
+        updateOperand(escapingUser, element, extractOp);
       }
       escapingUsers.erase(element);
     }
   }
-  latestCreation = operation;
 }
 
 Value ConversionManager::getValue(Superword* superword) const {
-  assert(wasConverted(superword) && "superword has not yet been converted");
-  return vectorOperations.lookup(superword);
+  return conversionState->getValue(superword);
 }
 
 Value ConversionManager::getOrCreateConstant(Location const& loc, Attribute const& attribute) {
   return folder.getOrCreateConstant(rewriter, &attribute.getDialect(), attribute, attribute.getType(), loc);
-}
-
-bool ConversionManager::wasConverted(Superword* superword) const {
-  return vectorOperations.count(superword);
 }
 
 bool ConversionManager::hasEscapingUsers(Value const& value) const {
@@ -470,9 +532,18 @@ Value ConversionManager::getOrExtractValue(Value const& value) {
   }
   auto const& wordPosition = conversionState->getWordContainingValue(value);
   assert(wordPosition.superword && "extraction deemed profitable, but value does not appear in any vector");
-  auto const& source = getValue(wordPosition.superword);
+  auto const& source = conversionState->getValue(wordPosition.superword);
   auto const& pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) wordPosition.index));
   auto extractOp = rewriter.create<vector::ExtractElementOp>(value.getLoc(), source, pos);
   conversionState->markExtracted(value);
   return extractOp;
+}
+
+void ConversionManager::updateOperand(Operation* op, Value oldOperand, Value newOperand) {
+  originalOperands.try_emplace(op, op->getOperands());
+  for (size_t i = 0; i < op->getNumOperands(); ++i) {
+    if (op->getOperand(i) == oldOperand) {
+      op->setOperand(i, newOperand);
+    }
+  }
 }

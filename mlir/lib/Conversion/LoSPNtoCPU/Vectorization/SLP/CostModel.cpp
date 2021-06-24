@@ -69,6 +69,23 @@ void CostModel::setConversionState(std::shared_ptr<ConversionState> const& newCo
   });
 }
 
+double CostModel::getBlockCost(Block* block, SmallPtrSet<Operation*, 32> const& deadOps) const {
+  double blockCost = 0;
+  block->walk([&](Operation* op) {
+    if (deadOps.contains(op)) {
+      return WalkResult::skip();
+    }
+    op->dump();
+    for (auto const& result : op->getResults()) {
+      blockCost += computeScalarCost(result);
+      // Assume that all results are computed at the same time.
+      break;
+    }
+    return WalkResult::advance();
+  });
+  return blockCost;
+}
+
 void CostModel::updateCost(Value const& value, double newCost, bool updateUses) {
   auto it = cachedScalarCost.try_emplace(value, newCost);
   if (!it.second && it.first->second <= newCost) {
@@ -85,7 +102,7 @@ void CostModel::updateCost(Value const& value, double newCost, bool updateUses) 
   }
 }
 
-double CostModel::getExtractionCost(Value const& value) {
+double CostModel::getExtractionCost(Value const& value) const {
   auto valuePosition = conversionState->getWordContainingValue(value);
   if (valuePosition.superword) {
     return computeExtractionCost(valuePosition.superword, valuePosition.index);
@@ -96,7 +113,7 @@ double CostModel::getExtractionCost(Value const& value) {
 // === UnitCostModel === //
 
 /// Individual cost taken from NodePatterns.cpp
-double UnitCostModel::computeScalarCost(Value const& value) {
+double UnitCostModel::computeScalarCost(Value const& value) const {
   auto* definingOp = value.getDefiningOp();
   if (!definingOp) {
     return 0;
@@ -130,7 +147,7 @@ double UnitCostModel::computeScalarCost(Value const& value) {
   return 1;
 }
 
-double UnitCostModel::computeExtractionCost(Superword* superword, size_t index) {
+double UnitCostModel::computeExtractionCost(Superword* superword, size_t index) const {
   return 1;
 }
 

@@ -24,9 +24,11 @@ SmallVector<Value, 4> SeedAnalysis::next() {
       computeAvailableOps();
       availableComputed = true;
     } else {
+      rootOp->emitRemark("No seed found.");
       return {};
     }
   }
+  rootOp->emitRemark("Computing seed out of " + std::to_string(availableOps.size()) + " operations...");
   auto seed = nextSeed();
   for (auto const& value : seed) {
     if (auto* definingOp = value.getDefiningOp()) {
@@ -34,6 +36,16 @@ SmallVector<Value, 4> SeedAnalysis::next() {
     }
   }
   return seed;
+}
+
+void SeedAnalysis::update(ArrayRef<Superword*> createdVectors) {
+  for (auto* superword : createdVectors) {
+    for (auto element : *superword) {
+      if (auto* definingOp = element.getDefiningOp()) {
+        availableOps.erase(definingOp);
+      }
+    }
+  }
 }
 
 // === TopDownSeedAnalysis === //
@@ -62,16 +74,18 @@ namespace {
   }
 
   SmallVector<SmallVector<Value, 4>> computeSeedsByOpName(DenseMap<Value, unsigned int>& opDepths,
+                                                          SmallPtrSetImpl<Operation*> const& availableOps,
                                                           unsigned width) {
     llvm::StringMap<SmallVector<SmallVector<Value, 4>>> seedsByOpName;
     for (auto& entry : opDepths) {
       auto& value = entry.first;
       auto* definingOp = value.getDefiningOp();
-      if (!definingOp || definingOp->hasTrait<OpTrait::ConstantLike>() || !vectorizable(definingOp)) {
+      if (!definingOp || definingOp->hasTrait<OpTrait::ConstantLike>() || !vectorizable(definingOp)
+          || !availableOps.contains(definingOp)) {
         continue;
       }
       auto const& depth = entry.second;
-      auto const& opName = value.getDefiningOp()->getName().getStringRef();
+      auto const& opName = definingOp->getName().getStringRef();
       if (depth < log2(width)) {
         continue;
       }
@@ -120,8 +134,7 @@ void TopDownAnalysis::computeAvailableOps() {
 
 SmallVector<Value, 4> TopDownAnalysis::nextSeed() const {
   auto opDepths = computeOpDepths(std::begin(availableOps), std::end(availableOps));
-  rootOp->emitRemark("Computing seed out of " + std::to_string(availableOps.size()) + " operations...");
-  auto seeds = computeSeedsByOpName(opDepths, width);
+  auto seeds = computeSeedsByOpName(opDepths, availableOps, width);
 
   if (seeds.empty()) {
     rootOp->emitRemark("No seed found.");
@@ -157,7 +170,6 @@ namespace {
 FirstRootAnalysis::FirstRootAnalysis(Operation* rootOp, unsigned width) : SeedAnalysis{rootOp, width} {}
 
 SmallVector<Value, 4> FirstRootAnalysis::nextSeed() const {
-  rootOp->emitRemark("Computing seed out of " + std::to_string(availableOps.size()) + " operations...");
   llvm::StringMap<DenseMap<Operation*, llvm::BitVector>> reachableLeaves;
   auto* root = findFirstRoot(reachableLeaves);
 
@@ -173,7 +185,8 @@ SmallVector<Value, 4> FirstRootAnalysis::nextSeed() const {
   }
 
   auto opDepths = computeOpDepths(&root, &root + 1);
-  auto seeds = computeSeedsByOpName(opDepths, width);
+  // TODO: available ops computation
+  auto seeds = computeSeedsByOpName(opDepths, availableOps, width);
 
   if (seeds.empty()) {
     rootOp->emitRemark("No seed found.");

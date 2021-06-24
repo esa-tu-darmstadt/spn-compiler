@@ -118,8 +118,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   //taskFunc.dump();
   auto conversionState = std::make_shared<ConversionState>();
   auto costModel = std::make_shared<UnitCostModel>();
-  costModel->setConversionState(conversionState);
-  ConversionManager conversionManager{rewriter, conversionState, costModel};
+  ConversionManager conversionManager{rewriter, costModel};
 
   SmallVector<std::unique_ptr<SLPVectorizationPattern>, 10> patterns;
   populateSLPVectorizationPatterns(patterns, conversionManager);
@@ -137,11 +136,12 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     }
   }
 
+  auto currentFunctionCost = costModel->getBlockCost(taskBlock);
+
   for (auto seed = seedAnalysis->next(); !seed.empty(); seed = seedAnalysis->next()) {
     //dumpOpGraph(seed);
     task->emitRemark("Computing graph...");
     SLPGraph graph{seed, 3};
-
     {
       bool dependencyStuff = false;
       if (dependencyStuff) {
@@ -159,7 +159,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       bool analysisStuff = false;
       if (analysisStuff) {
         analyzeTopologicalMixing(graph);
-        conversionManager.initConversion(graph.getRoot(), &taskFunc.front());
         for (auto& op : taskBlock->getOperations()) {
           rewriter.eraseOp(&op);
         }
@@ -168,10 +167,12 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         break;
       }
     }
-
     task->emitRemark("Converting graph...");
-    
-    conversionManager.initConversion(graph.getRoot(), taskBlock);
+
+    // Use a temporary conversion state so that we can revert to the original one if the graph is deemed not profitable.
+    auto graphState = std::make_shared<ConversionState>(*conversionState);
+    costModel->setConversionState(graphState);
+    conversionManager.initConversion(graph.getRoot(), taskBlock, graphState);
     auto const& order = conversionManager.conversionOrder();
 
     auto numVectors = order.size();
@@ -187,41 +188,51 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     // Traverse the SLP graph and apply the vectorization patterns.
     for (auto* superword : order) {
       //llvm::dbgs() << "CURRENT SUPERWORD:\t";
-      dumpSuperword(*superword);
+      //dumpSuperword(*superword);
       applicator.matchAndRewrite(superword, rewriter);
       if (static_cast<double>(n++) / static_cast<double>(numVectors) >= progressThreshold) {
         task->emitRemark("Conversion progress: " + std::to_string((int) std::round(100 * progressThreshold)) + '%');
         progressThreshold += interval;
       }
     }
+    conversionManager.finishConversion();
     // Perform DCE on the created block. This is especially useful if patterns have been applied to superwords
     // that don't use the superword's operands, e.g. vector loads that discard the operand superword of memref indices.
-    SmallPtrSet<Operation*, 32> deadOps;
+    llvm::SmallSetVector<Operation*, 32> worklist;
     taskBlock->walk<WalkOrder::PreOrder>([&](Operation* op) {
       if (isOpTriviallyDead(op)) {
-        deadOps.insert(op);
+        graphState->markDead(op);
+        worklist.insert(op);
       }
     });
-    llvm::SmallSetVector<Operation*, 32> worklist{std::begin(deadOps), std::end(deadOps)};
     while (!worklist.empty()) {
       auto* op = worklist.pop_back_val();
       for (auto const& operand : op->getOperands()) {
         if (auto* operandOp = operand.getDefiningOp()) {
           auto users = operandOp->getUsers();
           if (std::all_of(std::begin(users), std::end(users), [&](Operation* user) {
-            return deadOps.contains(user);
+            return graphState->isDead(user);
           })) {
-            deadOps.insert(operandOp);
+            graphState->markDead(operandOp);
             worklist.insert(operandOp);
           }
         }
       }
     }
-    for (auto* op : deadOps) {
-      rewriter.eraseOp(op);
-    }
-    conversionManager.finishConversion(&taskFunc.front());
     task->emitRemark("Conversion complete.");
+    auto vectorizedFunctionCost = costModel->getBlockCost(taskBlock, graphState->getDeadOps());
+    if (vectorizedFunctionCost >= currentFunctionCost) {
+      task->emitRemark("Vectorization is not profitable, reverting back to non-vectorized state.");
+      conversionManager.undoConversion();
+    } else {
+      seedAnalysis->update(order);
+      conversionState = graphState;
+      currentFunctionCost = vectorizedFunctionCost;
+    }
+  }
+
+  for (auto* op : conversionState->getDeadOps()) {
+    rewriter.eraseOp(op);
   }
 
   task->emitRemark("SLP vectorization complete.");
@@ -234,7 +245,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       }
     }
   }
-  taskFunc->getParentOfType<ModuleOp>()->dump();
   taskFunc->walk([&](SPNBatchRead op) {
     for (auto const& operand : op->getOperands()) {
       assert(operand);
