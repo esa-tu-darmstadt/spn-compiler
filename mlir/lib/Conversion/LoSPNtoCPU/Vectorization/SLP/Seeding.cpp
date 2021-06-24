@@ -38,14 +38,9 @@ SmallVector<Value, 4> SeedAnalysis::next() {
   return seed;
 }
 
-void SeedAnalysis::update(ArrayRef<Superword*> createdVectors) {
-  for (auto* superword : createdVectors) {
-    for (auto element : *superword) {
-      if (auto* definingOp = element.getDefiningOp()) {
-        availableOps.erase(definingOp);
-      }
-    }
-  }
+void SeedAnalysis::update() {
+  availableOps.clear();
+  availableComputed = false;
 }
 
 // === TopDownSeedAnalysis === //

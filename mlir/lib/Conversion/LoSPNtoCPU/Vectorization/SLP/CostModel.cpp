@@ -7,8 +7,6 @@
 //==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
-#include "LoSPN/LoSPNTypes.h"
 
 using namespace mlir;
 using namespace mlir::spn::low::slp;
@@ -72,9 +70,6 @@ void CostModel::setConversionState(std::shared_ptr<ConversionState> newConversio
 double CostModel::getBlockCost(Block* block) const {
   double blockCost = 0;
   block->walk([&](Operation* op) {
-    if (conversionState && conversionState->isDead(op)) {
-      return WalkResult::skip();
-    }
     for (auto const& result : op->getResults()) {
       blockCost += computeScalarCost(result);
       // Assume that all results are computed at the same time.

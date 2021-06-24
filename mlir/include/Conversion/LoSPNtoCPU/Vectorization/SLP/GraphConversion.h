@@ -39,17 +39,14 @@ namespace mlir {
           bool alreadyComputed(Superword* superword) const;
           bool alreadyComputed(Value value) const;
           bool isExtractable(Value value);
-          bool isDead(Operation* op) const;
 
           void markComputed(Value value);
           void markComputed(Superword* superword, Value value);
           void markExtracted(Value value);
-          void markDead(Operation* op);
 
           Value getValue(Superword* superword) const;
           ValuePosition getSuperwordContainingValue(Value value) const;
 
-          SmallPtrSet<Operation*, 32> getDeadOps() const;
           SmallVector<Superword*> unconvertedPostOrder() const;
           void undoChanges() const;
 
@@ -82,8 +79,6 @@ namespace mlir {
           SmallPtrSet<Value, 32> extractedScalarValues;
           /// Store vector element data for faster extraction lookup.
           DenseMap<Value, ValuePosition> extractableScalarValues;
-          /// Store dead operations to prevent erasing them more than once.
-          SmallPtrSet<Operation*, 32> deadOps;
           // Callback data.
           SmallVector<std::function<void(Superword*)>> vectorCallbacks;
           SmallVector<std::function<void(Superword*)>> vectorUndoCallbacks;
@@ -101,21 +96,25 @@ namespace mlir {
 
           SmallVector<Superword*> initConversion(SLPGraph const& graph);
           void finishConversion();
-          void undoConversion();
+          void acceptConversion();
+          void rejectConversion();
 
           void setupConversionFor(Superword* superword, SLPVectorizationPattern const* pattern);
           void update(Superword* superword, Value operation, SLPVectorizationPattern const* appliedPattern);
 
           Value getValue(Superword* superword) const;
           Value getOrCreateConstant(Location const& loc, Attribute const& attribute);
-          void eraseAllDeadOps();
 
         private:
           bool hasEscapingUsers(Value value) const;
           Value getOrExtractValue(Value value);
           void updateOperand(Operation* op, Value oldOperand, Value newOperand);
 
+          void moveToTrash(SmallPtrSetImpl<Operation*> const& deadOps);
+          void emptyTrash();
+
           Block* block;
+          Block* trashBlock;
           std::shared_ptr<CostModel> costModel;
           std::shared_ptr<ConversionState> conversionState;
 

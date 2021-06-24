@@ -188,19 +188,21 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         progressThreshold += interval;
       }
     }
+    //taskFunc->dump();
     conversionManager.finishConversion();
+    //taskFunc->dump();
     task->emitRemark("Conversion complete.");
     auto vectorizedFunctionCost = costModel->getBlockCost(taskBlock);
     if (vectorizedFunctionCost >= currentFunctionCost) {
       task->emitRemark("Vectorization is not profitable, reverting back to non-vectorized state.");
-      conversionManager.undoConversion();
+      conversionManager.rejectConversion();
     } else {
-      seedAnalysis->update(order);
+      seedAnalysis->update();
       currentFunctionCost = vectorizedFunctionCost;
+      conversionManager.acceptConversion();
     }
+    //taskFunc->dump();
   }
-
-  conversionManager.eraseAllDeadOps();
 
   task->emitRemark("SLP vectorization complete.");
   for (auto& op : *taskBlock) {

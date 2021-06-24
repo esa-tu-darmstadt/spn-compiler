@@ -25,7 +25,7 @@ namespace mlir {
           SeedAnalysis(Operation* rootOp, unsigned width);
           virtual ~SeedAnalysis() = default;
           virtual SmallVector<Value, 4> next();
-          void update(ArrayRef<Superword*> createdVectors);
+          void update();
         protected:
           virtual void computeAvailableOps() = 0;
           virtual SmallVector<Value, 4> nextSeed() const = 0;
