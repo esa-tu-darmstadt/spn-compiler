@@ -184,10 +184,10 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     task->emitRemark("Conversion complete.");
     auto vectorizedFunctionCost = costModel->getBlockCost(taskBlock);
     if (vectorizedFunctionCost >= currentFunctionCost) {
-      task->emitRemark("Vectorization is not profitable, reverting back to non-vectorized state.");
+      task->emitRemark("Vectorization not profitable, reverting back to non-vectorized state.");
       conversionManager.rejectConversion();
     } else {
-      seedAnalysis->update();
+      seedAnalysis->update(order);
       currentFunctionCost = vectorizedFunctionCost;
       conversionManager.acceptConversion();
     }
