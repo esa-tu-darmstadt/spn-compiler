@@ -363,11 +363,11 @@ void VectorizeGaussian::accept(PatternVisitor& visitor, Superword* superword) co
 namespace {
   template<typename T>
   DenseElementsAttr denseConstant(T constant, VectorType vectorType) {
-    SmallVector<T, 4> array;
+    SmallVector<T, 4> array(vectorType.getNumElements());
     for (auto i = 0; i < vectorType.getNumElements(); ++i) {
       array[i] = constant;
     }
-    return DenseElementsAttr::get(vectorType, array);
+    return DenseElementsAttr::get(vectorType, static_cast<ArrayRef<T>>(array));
   }
 }
 
