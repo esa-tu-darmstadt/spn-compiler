@@ -172,21 +172,11 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     task->emitRemark("Number of SLP vectors in graph: " + std::to_string(numVectors));
     task->emitRemark("Number of unique ops in graph:  " + std::to_string(numUniqueOps(order)));
 
-    // Track progress.
-    double n = 0;
-    double percent = 0.1;
-    double interval = (double) numVectors >= (1.0 / percent) ? percent : 1.0 / (double) numVectors;
-    double progressThreshold = interval;
-
     // Traverse the SLP graph and apply the vectorization patterns.
     for (auto* superword : order) {
       //llvm::dbgs() << "CURRENT SUPERWORD:\t";
       //dumpSuperword(*superword);
       applicator.matchAndRewrite(superword, rewriter);
-      if (static_cast<double>(n++) / static_cast<double>(numVectors) >= progressThreshold) {
-        task->emitRemark("Conversion progress: " + std::to_string((int) std::round(100 * progressThreshold)) + '%');
-        progressThreshold += interval;
-      }
     }
     //taskFunc->dump();
     conversionManager.finishConversion();
@@ -214,24 +204,10 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       }
     }
   }
-  taskFunc->walk([&](SPNBatchRead op) {
-    for (auto const& operand : op->getOperands()) {
-      assert(operand);
-    }
-  });
-  taskFunc->walk([&](SPNMul op) {
-    for (auto const& operand : op->getOperands()) {
-      if (hash_value(operand.getType()) != hash_value(op->getOperand(0).getType())) {
-        op->dump();
-        llvm_unreachable("operand.getType() == op->getOperand(0).getType()");
-      }
-    }
-  });
+
   rewriter.restoreInsertionPoint(callPoint);
   rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
-  for (auto& region : taskFunc->getRegions()) {
-    assert(region.isIsolatedFromAbove());
-  }
+
   return success();
 }
 
