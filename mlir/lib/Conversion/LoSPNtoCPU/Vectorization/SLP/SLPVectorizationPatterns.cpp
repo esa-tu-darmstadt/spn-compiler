@@ -372,13 +372,16 @@ namespace {
 }
 
 Value VectorizeLogAdd::rewrite(Superword* superword, PatternRewriter& rewriter) const {
-  // Rewrite 'ln(x + y)' with 'a = ln(x), b = ln(y)' as 'b + ln(e^(a - b) + 1)'.
+  // Rewrite 'ln(x + y)' with 'a = ln(x), b = ln(y) and a > b' as 'a + ln(e^(b - a) + 1)'.
   auto lhs = conversionManager.getValue(superword->getOperand(0));
   auto rhs = conversionManager.getValue(superword->getOperand(1));
-  Value vectorOp = rewriter.create<SubFOp>(superword->getLoc(), lhs, rhs);
+  auto compare = rewriter.create<CmpFOp>(superword->getLoc(), CmpFPredicate::OGT, lhs, rhs);
+  auto a = rewriter.create<SelectOp>(superword->getLoc(), compare, lhs, rhs);
+  auto b = rewriter.create<SelectOp>(superword->getLoc(), compare, rhs, lhs);
+  Value vectorOp = rewriter.create<SubFOp>(superword->getLoc(), b, a);
   vectorOp = rewriter.create<math::ExpOp>(superword->getLoc(), vectorOp);
   vectorOp = rewriter.create<math::Log1pOp>(superword->getLoc(), vectorOp);
-  return rewriter.create<AddFOp>(superword->getLoc(), rhs, vectorOp);
+  return rewriter.create<AddFOp>(superword->getLoc(), a, vectorOp);
 }
 
 void VectorizeLogAdd::accept(PatternVisitor& visitor, Superword* superword) const {

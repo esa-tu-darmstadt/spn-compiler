@@ -15,7 +15,6 @@
 #include "LoSPNtoCPU/Vectorization/LoSPNVectorizationTypeConverter.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
-#include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 
 void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
@@ -23,7 +22,8 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
 
   target.addLegalDialect<StandardOpsDialect>();
   target.addLegalDialect<scf::SCFDialect>();
-  target.addLegalDialect<vector::VectorDialect>();
+  target.addLegalDialect<mlir::math::MathDialect>();
+  target.addLegalDialect<mlir::vector::VectorDialect>();
   target.addLegalDialect<mlir::memref::MemRefDialect>();
   target.addLegalOp<ModuleOp>();
   target.addLegalOp<FuncOp>();
@@ -49,8 +49,6 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
 
   OwningRewritePatternList taskPatterns(&getContext());
   if (vectorize) {
-    target.addLegalOp<math::ExpOp>();
-    target.addLegalOp<math::Log1pOp>();
     spn::populateLoSPNtoCPUVectorizationTaskPatterns(taskPatterns, &getContext(), typeConverter);
   }
   spn::populateLoSPNtoCPUTaskPatterns(taskPatterns, &getContext(), typeConverter);
