@@ -226,6 +226,25 @@ def SPNStripLog : LoSPN_Op<"strip_log", [VectorizableOp, DeclareOpInterfaceMetho
     ];
 }
 
+def SPNConvertLog : LoSPN_Op<"convert_log", [VectorizableOp, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
+    let summary = "Add the log-space property to a value";
+
+    let description = [{
+        Add the log-space property to a value.
+        This operation is only used as a materialization during type
+        conversion and does not generate actual code.
+    }];
+
+    let arguments = (ins LoSPNComputeType:$input);
+
+    let results = (outs LoSPN_LogType:$out);
+
+    let builders = [
+        OpBuilder<(ins "Value":$input)>
+    ];
+
+}
+
 def SPNReturn : LoSPN_Op<"return", [Terminator]> {
 
     let summary = "Return one or multiple results from a Task or Kernel";

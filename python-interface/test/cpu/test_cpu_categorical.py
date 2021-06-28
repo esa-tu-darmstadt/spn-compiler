@@ -35,10 +35,6 @@ def test_cpu_categorical():
         np.random.randint(3, size=30),
     )).astype("int32")
 
-    if not CPUCompiler.isVectorizationSupported():
-        print("Test not supported by the compiler installation")
-        return 0
-
     # Execute the compiled Kernel.
     results = CPUCompiler(computeInLogSpace=False, vectorize=False).log_likelihood(p, inputs, supportMarginal=False, batchSize=10)
 

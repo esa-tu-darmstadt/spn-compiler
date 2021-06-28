@@ -173,8 +173,18 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
+    struct ResolveConvertLog : public OpConversionPattern<low::SPNConvertLog> {
+
+      using OpConversionPattern<low::SPNConvertLog>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNConvertLog op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+
+    };
+
     static inline void populateLoSPNtoCPUNodePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
-                                               TypeConverter& typeConverter) {
+                                                      TypeConverter& typeConverter) {
       patterns.insert<BatchReadLowering, BatchWriteLowering, CopyLowering>(typeConverter, context);
       patterns.insert<LogLowering, ReturnLowering, ConstantLowering>(typeConverter, context);
       patterns.insert<MulLowering, AddLowering>(typeConverter, context);
@@ -182,7 +192,7 @@ namespace mlir {
       patterns.insert<CategoricalLowering, HistogramLowering>(typeConverter, context);
       patterns.insert<SelectLowering, CategoricalLowering, HistogramLowering>(typeConverter, context);
       patterns.insert<GaussianLowering, GaussianLogLowering>(typeConverter, context);
-      patterns.insert<ResolveConvertToVector, ResolveStripLog>(typeConverter, context);
+      patterns.insert<ResolveConvertToVector, ResolveStripLog, ResolveConvertLog>(typeConverter, context);
     }
   }
 }

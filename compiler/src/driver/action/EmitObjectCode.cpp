@@ -40,6 +40,7 @@ spnc::ObjectFile& spnc::EmitObjectCode::execute() {
           break;
         case spnc::option::VectorLibrary::LIBMVEC:TLII.addVectorizableFunctionsFromVecLib(llvm::TargetLibraryInfoImpl::LIBMVEC_X86);
           break;
+        case spnc::option::VectorLibrary::ARM: /* ARM Optimized Routines are not available through the TLII.*/ break;
         default:SPNC_FATAL_ERROR("Unknown vector library");
       }
       pass.add(new llvm::TargetLibraryInfoWrapperPass(TLII));

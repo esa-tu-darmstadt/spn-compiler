@@ -52,35 +52,35 @@ module  {
 // CHECK-SAME:                     %[[VAL_1:.*]]: memref<?xf64>) {
 // CHECK:           %[[VAL_2:.*]] = constant 0 : index
 // CHECK:           %[[VAL_3:.*]] = memref.dim %[[VAL_0]], %[[VAL_2]] : memref<?x6xf64>
-// CHECK:           %[[VAL_4:.*]] = constant 4 : index
+// CHECK:           %[[VAL_4:.*]] = constant [[#VEC:]] : index
 // CHECK:           %[[VAL_5:.*]] = remi_unsigned %[[VAL_3]], %[[VAL_4]] : index
 // CHECK:           %[[VAL_6:.*]] = subi %[[VAL_3]], %[[VAL_5]] : index
 // CHECK:           %[[VAL_7:.*]] = constant 0 : index
-// CHECK:           %[[VAL_8:.*]] = constant 4 : index
+// CHECK:           %[[VAL_8:.*]] = constant [[#VEC]] : index
 // CHECK:           scf.for %[[VAL_9:.*]] = %[[VAL_7]] to %[[VAL_6]] step %[[VAL_8]] {
-// CHECK:             %[[VAL_10:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_9]]) {sampleIndex = 0 : ui32, vector_width = 4 : i32} : (memref<?x6xf64>, index) -> f64
-// CHECK:             %[[VAL_11:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_9]]) {sampleIndex = 1 : ui32, vector_width = 4 : i32} : (memref<?x6xf64>, index) -> f64
-// CHECK:             %[[VAL_12:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_9]]) {sampleIndex = 2 : ui32, vector_width = 4 : i32} : (memref<?x6xf64>, index) -> f64
-// CHECK:             %[[VAL_13:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_9]]) {sampleIndex = 3 : ui32, vector_width = 4 : i32} : (memref<?x6xf64>, index) -> f64
-// CHECK:             %[[VAL_14:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_9]]) {sampleIndex = 4 : ui32, vector_width = 4 : i32} : (memref<?x6xf64>, index) -> f64
-// CHECK:             %[[VAL_15:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_9]]) {sampleIndex = 5 : ui32, vector_width = 4 : i32} : (memref<?x6xf64>, index) -> f64
-// CHECK:             %[[VAL_16:.*]] = "lo_spn.categorical"(%[[VAL_10]]) {probabilities = [3.500000e-01, 5.500000e-01, 1.000000e-01], supportMarginal = false, vector_width = 4 : i32} : (f64) -> f64
-// CHECK:             %[[VAL_17:.*]] = "lo_spn.categorical"(%[[VAL_11]]) {probabilities = [2.500000e-01, 6.250000e-01, 1.250000e-01], supportMarginal = false, vector_width = 4 : i32} : (f64) -> f64
-// CHECK:             %[[VAL_18:.*]] = "lo_spn.histogram"(%[[VAL_12]]) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}], supportMarginal = false, vector_width = 4 : i32} : (f64) -> f64
-// CHECK:             %[[VAL_19:.*]] = "lo_spn.histogram"(%[[VAL_13]]) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 4.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 5.500000e-01 : f64}], supportMarginal = false, vector_width = 4 : i32} : (f64) -> f64
-// CHECK:             %[[VAL_20:.*]] = "lo_spn.gaussian"(%[[VAL_14]]) {mean = 5.000000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false, vector_width = 4 : i32} : (f64) -> f64
-// CHECK:             %[[VAL_21:.*]] = "lo_spn.gaussian"(%[[VAL_15]]) {mean = 2.500000e-01 : f64, stddev = 1.000000e-01 : f64, supportMarginal = false, vector_width = 4 : i32} : (f64) -> f64
-// CHECK:             %[[VAL_22:.*]] = "lo_spn.mul"(%[[VAL_16]], %[[VAL_17]]) {vector_width = 4 : i32} : (f64, f64) -> f64
-// CHECK:             %[[VAL_23:.*]] = "lo_spn.mul"(%[[VAL_22]], %[[VAL_18]]) {vector_width = 4 : i32} : (f64, f64) -> f64
-// CHECK:             %[[VAL_24:.*]] = "lo_spn.constant"() {type = f64, value = 1.000000e-01 : f64, vector_width = 4 : i32} : () -> f64
-// CHECK:             %[[VAL_25:.*]] = "lo_spn.mul"(%[[VAL_23]], %[[VAL_24]]) {vector_width = 4 : i32} : (f64, f64) -> f64
-// CHECK:             %[[VAL_26:.*]] = "lo_spn.mul"(%[[VAL_19]], %[[VAL_20]]) {vector_width = 4 : i32} : (f64, f64) -> f64
-// CHECK:             %[[VAL_27:.*]] = "lo_spn.mul"(%[[VAL_26]], %[[VAL_21]]) {vector_width = 4 : i32} : (f64, f64) -> f64
-// CHECK:             %[[VAL_28:.*]] = "lo_spn.constant"() {type = f64, value = 1.000000e-01 : f64, vector_width = 4 : i32} : () -> f64
-// CHECK:             %[[VAL_29:.*]] = "lo_spn.mul"(%[[VAL_27]], %[[VAL_28]]) {vector_width = 4 : i32} : (f64, f64) -> f64
-// CHECK:             %[[VAL_30:.*]] = "lo_spn.add"(%[[VAL_25]], %[[VAL_29]]) {vector_width = 4 : i32} : (f64, f64) -> f64
-// CHECK:             %[[VAL_31:.*]] = "lo_spn.log"(%[[VAL_30]]) {vector_width = 4 : i32} : (f64) -> f64
-// CHECK:             "lo_spn.batch_write"(%[[VAL_31]], %[[VAL_1]], %[[VAL_9]]) {vector_width = 4 : i32} : (f64, memref<?xf64>, index) -> ()
+// CHECK:             %[[VAL_10:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_9]]) {sampleIndex = 0 : ui32, vector_width = [[#VEC]] : i32} : (memref<?x6xf64>, index) -> f64
+// CHECK:             %[[VAL_11:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_9]]) {sampleIndex = 1 : ui32, vector_width = [[#VEC]] : i32} : (memref<?x6xf64>, index) -> f64
+// CHECK:             %[[VAL_12:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_9]]) {sampleIndex = 2 : ui32, vector_width = [[#VEC]] : i32} : (memref<?x6xf64>, index) -> f64
+// CHECK:             %[[VAL_13:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_9]]) {sampleIndex = 3 : ui32, vector_width = [[#VEC]] : i32} : (memref<?x6xf64>, index) -> f64
+// CHECK:             %[[VAL_14:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_9]]) {sampleIndex = 4 : ui32, vector_width = [[#VEC]] : i32} : (memref<?x6xf64>, index) -> f64
+// CHECK:             %[[VAL_15:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_9]]) {sampleIndex = 5 : ui32, vector_width = [[#VEC]] : i32} : (memref<?x6xf64>, index) -> f64
+// CHECK:             %[[VAL_16:.*]] = "lo_spn.categorical"(%[[VAL_10]]) {probabilities = [3.500000e-01, 5.500000e-01, 1.000000e-01], supportMarginal = false, vector_width = [[#VEC]] : i32} : (f64) -> f64
+// CHECK:             %[[VAL_17:.*]] = "lo_spn.categorical"(%[[VAL_11]]) {probabilities = [2.500000e-01, 6.250000e-01, 1.250000e-01], supportMarginal = false, vector_width = [[#VEC]] : i32} : (f64) -> f64
+// CHECK:             %[[VAL_18:.*]] = "lo_spn.histogram"(%[[VAL_12]]) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}], supportMarginal = false, vector_width = [[#VEC]] : i32} : (f64) -> f64
+// CHECK:             %[[VAL_19:.*]] = "lo_spn.histogram"(%[[VAL_13]]) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 4.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 5.500000e-01 : f64}], supportMarginal = false, vector_width = [[#VEC]] : i32} : (f64) -> f64
+// CHECK:             %[[VAL_20:.*]] = "lo_spn.gaussian"(%[[VAL_14]]) {mean = 5.000000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false, vector_width = [[#VEC]] : i32} : (f64) -> f64
+// CHECK:             %[[VAL_21:.*]] = "lo_spn.gaussian"(%[[VAL_15]]) {mean = 2.500000e-01 : f64, stddev = 1.000000e-01 : f64, supportMarginal = false, vector_width = [[#VEC]] : i32} : (f64) -> f64
+// CHECK:             %[[VAL_22:.*]] = "lo_spn.mul"(%[[VAL_16]], %[[VAL_17]]) {vector_width = [[#VEC]] : i32} : (f64, f64) -> f64
+// CHECK:             %[[VAL_23:.*]] = "lo_spn.mul"(%[[VAL_22]], %[[VAL_18]]) {vector_width = [[#VEC]] : i32} : (f64, f64) -> f64
+// CHECK:             %[[VAL_24:.*]] = "lo_spn.constant"() {type = f64, value = 1.000000e-01 : f64, vector_width = [[#VEC]] : i32} : () -> f64
+// CHECK:             %[[VAL_25:.*]] = "lo_spn.mul"(%[[VAL_23]], %[[VAL_24]]) {vector_width = [[#VEC]] : i32} : (f64, f64) -> f64
+// CHECK:             %[[VAL_26:.*]] = "lo_spn.mul"(%[[VAL_19]], %[[VAL_20]]) {vector_width = [[#VEC]] : i32} : (f64, f64) -> f64
+// CHECK:             %[[VAL_27:.*]] = "lo_spn.mul"(%[[VAL_26]], %[[VAL_21]]) {vector_width = [[#VEC]] : i32} : (f64, f64) -> f64
+// CHECK:             %[[VAL_28:.*]] = "lo_spn.constant"() {type = f64, value = 1.000000e-01 : f64, vector_width = [[#VEC]] : i32} : () -> f64
+// CHECK:             %[[VAL_29:.*]] = "lo_spn.mul"(%[[VAL_27]], %[[VAL_28]]) {vector_width = [[#VEC]] : i32} : (f64, f64) -> f64
+// CHECK:             %[[VAL_30:.*]] = "lo_spn.add"(%[[VAL_25]], %[[VAL_29]]) {vector_width = [[#VEC]] : i32} : (f64, f64) -> f64
+// CHECK:             %[[VAL_31:.*]] = "lo_spn.log"(%[[VAL_30]]) {vector_width = [[#VEC]] : i32} : (f64) -> f64
+// CHECK:             "lo_spn.batch_write"(%[[VAL_31]], %[[VAL_1]], %[[VAL_9]]) {vector_width = [[#VEC]] : i32} : (f64, memref<?xf64>, index) -> ()
 // CHECK:           }
 // CHECK:           %[[VAL_32:.*]] = constant 1 : index
 // CHECK:           scf.for %[[VAL_33:.*]] = %[[VAL_6]] to %[[VAL_3]] step %[[VAL_32]] {

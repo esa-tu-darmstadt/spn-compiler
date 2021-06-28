@@ -30,7 +30,7 @@ namespace spnc {
     explicit MLIRtoLLVMIRConversion(ActionWithOutput<mlir::ModuleOp>& _input,
                                     std::shared_ptr<mlir::MLIRContext> context,
                                     std::shared_ptr<llvm::TargetMachine> targetMachine,
-                                    bool optimizeOutput = true);
+                                    int optLevel = 3);
 
     llvm::Module& execute() override;
 
@@ -42,8 +42,8 @@ namespace spnc {
     /// \param conv Move source.
     MLIRtoLLVMIRConversion(MLIRtoLLVMIRConversion&& conv) noexcept:
         ActionSingleInput<mlir::ModuleOp, llvm::Module>{conv.input},
-        module{std::move(conv.module)}, cached{conv.cached}, 
-        optimize{conv.optimize}, ctx{std::move(conv.ctx)} {
+        module{std::move(conv.module)}, cached{conv.cached},
+        irOptLevel{conv.irOptLevel}, ctx{std::move(conv.ctx)} {
       conv.cached = false;
     }
 
@@ -56,7 +56,7 @@ namespace spnc {
       this->ctx = std::move(conv.ctx);
       this->cached = conv.cached;
       conv.cached = false;
-      this->optimize = conv.optimize;
+      this->irOptLevel = conv.irOptLevel;
       return *this;
     }
 
@@ -70,11 +70,13 @@ namespace spnc {
 
   private:
 
+    void optimizeLLVMIR();
+
     std::unique_ptr<llvm::Module> module;
 
     bool cached;
 
-    bool optimize;
+    int irOptLevel;
 
     std::shared_ptr<mlir::MLIRContext> ctx;
 

@@ -26,7 +26,7 @@ namespace spnc {
 
     static std::shared_ptr<mlir::ScopedDiagnosticHandler> setupDiagnosticHandler(mlir::MLIRContext* ctx);
 
-    static std::shared_ptr<llvm::TargetMachine> createTargetMachine(bool cpuVectorize);
+    static std::shared_ptr<llvm::TargetMachine> createTargetMachine(int optLevel);
 
     static llvm::SmallVector<std::string> parseLibrarySearchPaths(const std::string& paths);
 

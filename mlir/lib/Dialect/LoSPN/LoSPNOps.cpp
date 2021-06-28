@@ -93,7 +93,14 @@ namespace mlir {
           return body.emitOpError() << "Incorrect number of block arguments for entry block of Body";
         }
         for (auto argInput : llvm::zip(body.body().front().getArguments(), body.inputs())) {
-          if (std::get<0>(argInput).getType() != std::get<1>(argInput).getType()) {
+          auto argType = std::get<0>(argInput).getType();
+          auto opType = std::get<1>(argInput).getType();
+          // The low::LogType is only used inside SPNBody, so if the block argument is of LogType,
+          // the operand should be of base-type.
+          if (argType.isa<LogType>()) {
+            argType = argType.cast<LogType>().getBaseType();
+          }
+          if (argType != opType) {
             return body.emitOpError() << "Body block argument type does not match Body operand type";
           }
         }
@@ -125,13 +132,20 @@ namespace mlir {
       static mlir::LogicalResult verifyBatchExtract(SPNBatchExtract extract) {
         auto tensor = extract.input().getType().dyn_cast<TensorType>();
         assert(tensor);
-        if (!tensor.hasRank() || tensor.getRank() != 2) {
+        auto nonZeroIndex = extract.sampleIndex() != 0;
+        if (!tensor.hasRank()) {
+          return extract.emitOpError() << "Input tensor should be ranked";
+        }
+        if (tensor.getRank() != 2 && nonZeroIndex) {
           return extract->emitOpError() << "Input tensor should be ranked with two dimensions";
         }
-        if (tensor.isDynamicDim(1)) {
+        if ((tensor.getRank() != 1 && tensor.getRank() != 2) && !nonZeroIndex) {
+          return extract.emitOpError() << "Input tensor should be ranked with one or two dimensions";
+        }
+        if (tensor.getRank() == 2 && tensor.isDynamicDim(1)) {
           return extract->emitOpError() << "Second dimension of input tensor should be static";
         }
-        if (extract.sampleIndex() >= tensor.getDimSize(1)) {
+        if (tensor.getRank() == 2 && extract.sampleIndex() >= tensor.getDimSize(1)) {
           return extract.emitOpError() << "Sample index out-of-bounds for input tensor";
         }
         if (tensor.getElementType() != extract.result().getType()) {
@@ -143,13 +157,20 @@ namespace mlir {
       static mlir::LogicalResult verifyBatchRead(SPNBatchRead read) {
         auto memref = read.batchMem().getType().dyn_cast<MemRefType>();
         assert(memref);
-        if (!memref.hasRank() || memref.getRank() != 2) {
+        auto nonZeroIndex = read.sampleIndex() != 0;
+        if (!memref.hasRank()) {
+          return read.emitOpError() << "Input memref should be ranked";
+        }
+        if (memref.getRank() != 2 && nonZeroIndex) {
           return read->emitOpError() << "Input memref should be ranked with two dimensions";
         }
-        if (memref.isDynamicDim(1)) {
+        if ((memref.getRank() != 1 && memref.getRank() != 2) && !nonZeroIndex) {
+          return read.emitOpError() << "Input memref should be ranked with one or two dimensions";
+        }
+        if (memref.getRank() == 2 && memref.isDynamicDim(1)) {
           return read->emitOpError() << "Second dimension of input memref should be static";
         }
-        if (read.sampleIndex() >= memref.getDimSize(1)) {
+        if (memref.getRank() == 2 && read.sampleIndex() >= memref.getDimSize(1)) {
           return read.emitOpError() << "Sample index out-of-bounds for input memref";
         }
         if (memref.getElementType() != read.result().getType()) {
@@ -220,7 +241,7 @@ mlir::Value mlir::spn::low::SPNTask::getBatchIndex() {
 }
 
 //===----------------------------------------------------------------------===//
-// SPNTask
+// SPNBody
 //===----------------------------------------------------------------------===//
 
 mlir::Block* mlir::spn::low::SPNBody::addEntryBlock() {
@@ -268,6 +289,17 @@ void mlir::spn::low::SPNStripLog::build(::mlir::OpBuilder& odsBuilder,
                                         Value input,
                                         Type targetType) {
   build(odsBuilder, odsState, targetType, input, TypeAttr::get(targetType));
+}
+
+//===----------------------------------------------------------------------===//
+// SPNConvertLog
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::low::SPNConvertLog::build(::mlir::OpBuilder& odsBuilder,
+                                          ::mlir::OperationState& odsState,
+                                          Value input) {
+  auto logType = mlir::spn::low::LogType::get(input.getType());
+  build(odsBuilder, odsState, logType, input);
 }
 
 //===----------------------------------------------------------------------===//
