@@ -149,6 +149,15 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
+    struct VectorizeSelectLeaf : public OpConversionPattern<low::SPNSelectLeaf> {
+
+      using OpConversionPattern<low::SPNSelectLeaf>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNSelectLeaf op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
     static inline void populateLoSPNCPUVectorizationNodePatterns(OwningRewritePatternList& patterns,
                                                           MLIRContext* context,
                                                           TypeConverter& typeConverter) {
@@ -159,6 +168,7 @@ namespace mlir {
       patterns.insert<VectorizeLogAdd, VectorizeLogMul>(typeConverter, context, 2);
       patterns.insert<VectorizeConstant>(typeConverter, context, 2);
       patterns.insert<ResolveVectorizedStripLog>(typeConverter, context, 2);
+      patterns.insert<VectorizeSelectLeaf>(typeConverter, context, 2);
     }
 
   }

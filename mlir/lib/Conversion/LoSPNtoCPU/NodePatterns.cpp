@@ -487,6 +487,9 @@ mlir::LogicalResult mlir::spn::CategoricalLowering::matchAndRewrite(mlir::spn::l
 mlir::LogicalResult mlir::spn::SelectLowering::matchAndRewrite(mlir::spn::low::SPNSelectLeaf op,
                                                                llvm::ArrayRef<mlir::Value> operands,
                                                                mlir::ConversionPatternRewriter& rewriter) const {
+  if (op.checkVectorized()) {
+    return rewriter.notifyMatchFailure(op, "Pattern only matches non-vectorized SelectLeaf");
+  }
   // If the input type is not an integer, but also not a float, we cannot convert it and this pattern fails.
   mlir::Value cond;
   auto inputTy = op.input().getType();

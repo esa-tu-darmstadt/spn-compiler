@@ -609,3 +609,14 @@ mlir::LogicalResult mlir::spn::ResolveVectorizedStripLog::matchAndRewrite(low::S
   rewriter.replaceOp(op, operands[0]);
   return success();
 }
+
+mlir::LogicalResult mlir::spn::VectorizeSelectLeaf::matchAndRewrite(mlir::spn::low::SPNSelectLeaf op,
+                                                                    llvm::ArrayRef<mlir::Value> operands,
+                                                                    mlir::ConversionPatternRewriter& rewriter) const {
+  // Replace the vectorized version of a BatchRead with a Gather load from the input memref.
+  if (!op.checkVectorized()) {
+    return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized Select");
+  }
+
+  return rewriter.notifyMatchFailure(op, "Pattern matched a vectorized Select");
+}
