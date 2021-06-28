@@ -659,10 +659,69 @@ mlir::LogicalResult mlir::spn::ResolveVectorizedConvertLog::matchAndRewrite(mlir
 mlir::LogicalResult mlir::spn::VectorizeSelectLeaf::matchAndRewrite(mlir::spn::low::SPNSelectLeaf op,
                                                                     llvm::ArrayRef<mlir::Value> operands,
                                                                     mlir::ConversionPatternRewriter& rewriter) const {
-  // Replace the vectorized version of a BatchRead with a Gather load from the input memref.
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized Select");
   }
+  if (op.getResult().getType().isa<low::LogType>()) {
+    return rewriter.notifyMatchFailure(op, "Pattern does not match for log-space computation");
+  }
 
-  return rewriter.notifyMatchFailure(op, "Pattern matched a vectorized Select");
+  auto inputVec = operands.front();
+  auto inputVecTy = inputVec.getType();
+
+  // Input should be a vector
+  if (!inputVecTy.isa<VectorType>()) {
+    return rewriter.notifyMatchFailure(op, "Vectorization pattern did not match, input was not a vector");
+  }
+
+  auto inputTy = op.input().getType();
+  VectorType vectorType = inputVecTy.dyn_cast<VectorType>();
+
+  // If the input type is not an integer, but also not a float, we cannot convert it and this pattern fails.
+  mlir::Value cond;
+  auto booleanVectorTy = VectorType::get(vectorType.getShape(), IntegerType::get(op.getContext(), 1));
+  Value thresholdVec =
+      broadcastVectorConstant(vectorType, op.input_true_thresholdAttr().getValueAsDouble(), rewriter, op.getLoc());
+  if (inputTy.isa<mlir::FloatType>()) {
+    cond =
+        rewriter.create<mlir::CmpFOp>(op->getLoc(), booleanVectorTy, mlir::CmpFPredicate::ULT, inputVec, thresholdVec);
+  } else if (inputTy.isa<mlir::IntegerType>()) {
+    // Convert from floating-point input to integer value if necessary.
+    // This conversion is also possible in vectorized mode.
+    auto intVectorTy = VectorType::get(vectorType.getShape(), inputTy);
+    thresholdVec = rewriter.create<FPToSIOp>(op->getLoc(), thresholdVec, intVectorTy);
+    cond =
+        rewriter.create<mlir::CmpIOp>(op->getLoc(), booleanVectorTy, mlir::CmpIPredicate::ult, inputVec, thresholdVec);
+  } else {
+    return rewriter.notifyMatchFailure(op, "Expected condition-value to be either Float- or IntegerType");
+  }
+
+  Type resultType = op.getResult().getType();
+  bool computesLog = false;
+  if (auto logType = resultType.dyn_cast<low::LogType>()) {
+    resultType = logType.getBaseType();
+    computesLog = true;
+  }
+
+  ConstantOp val_true, val_false;
+  if (computesLog) {
+    auto logVecTy = VectorType::get(vectorType.getShape(), resultType);
+    val_true = broadcastVectorConstant(logVecTy, log(op.val_trueAttr().getValueAsDouble()), rewriter, op.getLoc());
+    val_false = broadcastVectorConstant(logVecTy, log(op.val_falseAttr().getValueAsDouble()), rewriter, op.getLoc());
+  } else {
+    val_true = broadcastVectorConstant(vectorType, op.val_trueAttr().getValueAsDouble(), rewriter, op.getLoc());
+    val_false = broadcastVectorConstant(vectorType, op.val_falseAttr().getValueAsDouble(), rewriter, op.getLoc());
+  }
+
+  mlir::Value leaf = rewriter.template create<SelectOp>(op.getLoc(), cond, val_true, val_false);
+  if (op.supportMarginal()) {
+    assert(inputTy.template isa<mlir::FloatType>());
+    auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), CmpFPredicate::UNO, inputVec, inputVec);
+    auto marginalValue = (computesLog) ? 0.0 : 1.0;
+    auto constOne = broadcastVectorConstant(vectorType, marginalValue, rewriter, op.getLoc());
+    leaf = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, leaf);
+  }
+  rewriter.replaceOp(op, leaf);
+
+  return success();
 }
