@@ -347,13 +347,20 @@ void ConversionManager::update(Superword* superword, Value operation, SLPVectori
     }
     if (hasEscapingUsers(element)) {
       Value extractOp = getOrExtractValue(element);
+      // Nothing to do if it's being computed in scalar form somewhere else.
       if (extractOp != element) {
+        Value logExtractOp = nullptr;
         for (auto* escapingUser : escapingUsers.lookup(element)) {
           for (size_t i = 0; i < escapingUser->getNumOperands(); ++i) {
-            if (escapingUser->getOperand(i) == element) {
-              if (escapingUser->getOperand(i).getType().isa<LogType>()) {
-                extractOp = rewriter.create<SPNAttachLog>(element.getLoc(), extractOp, extractOp.getType());
+            if (escapingUser->getOperand(i) != element) {
+              continue;
+            }
+            if (escapingUser->getOperand(i).getType().isa<LogType>()) {
+              if (!logExtractOp) {
+                logExtractOp = rewriter.create<SPNAttachLog>(element.getLoc(), extractOp, extractOp.getType());
               }
+              escapingUser->setOperand(i, logExtractOp);
+            } else {
               escapingUser->setOperand(i, extractOp);
             }
           }
