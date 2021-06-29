@@ -56,7 +56,7 @@ print("Invoking compiler...")
 compiler = spnc.SPNCompiler()
 
 # Compile the query into a Kernel.
-options = dict({"target": "CPU", "cpu-vectorize": "true"})
+options = dict({"target": "CPU", "cpu-vectorize": "true", "use-log-space": "true"})
 k = compiler.compileQuery(tempfile, options)
 # Check that the comiled Kernel actually exists.
 if not os.path.isfile(k.fileName()):

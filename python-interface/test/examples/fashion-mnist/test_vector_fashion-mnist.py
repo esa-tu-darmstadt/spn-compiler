@@ -31,7 +31,7 @@ def test_vector_fashion_mnist():
                               dtype="float64")
     reference = reference.reshape(1000)
     # Compile the kernel.
-    compiler = CPUCompiler(vectorize=True, computeInLogSpace=False)
+    compiler = CPUCompiler(vectorize=False, computeInLogSpace=True)
     kernel = compiler.compile_ll(spn=spn, batchSize=1, supportMarginal=False)
     # Execute the compiled Kernel.
     time_sum = 0
@@ -42,7 +42,7 @@ def test_vector_fashion_mnist():
         time_sum = time_sum + time.time() - start
         print(f"evaluation #{i}: result: {result[0]:16.8f}, reference: {reference[i]:16.8f}", end='\r')
         assert np.isclose(result, reference[i])
-    print(f"Execution took {time_sum} seconds.")
+    print(f"\nExecution of {len(reference)} samples took {time_sum} seconds.")
 
 
 if __name__ == "__main__":

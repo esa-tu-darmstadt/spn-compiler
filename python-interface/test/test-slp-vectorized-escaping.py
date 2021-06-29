@@ -1,13 +1,14 @@
 import numpy as np
 import os
-import spncpy as spnc
 import tempfile
+import time
 from datetime import datetime
 from spn.algorithms.Inference import log_likelihood
 from spn.structure.Base import Product, Sum
 from spn.structure.leaves.histogram.Histograms import Histogram
 from spn.structure.leaves.parametric.Parametric import Categorical
 from spn.structure.leaves.parametric.Parametric import Gaussian
+from spnc.cpu import CPUCompiler
 from xspn.serialization.binary.BinarySerialization import BinarySerializer
 from xspn.structure.Model import SPNModel
 from xspn.structure.Query import JointProbability
@@ -96,70 +97,62 @@ BinarySerializer(tempfile).serialize_to_file(query)
 if not os.path.isfile(tempfile):
     raise RuntimeError("Serialization of the SPN failed")
 
-# Invoke the compiler.
-print("Invoking compiler...")
-compiler = spnc.SPNCompiler()
+num_samples = 10000
 
-# Compile the query into a Kernel.
-options = dict({"target": "CPU", "cpu-vectorize": "true"})
-k = compiler.compileQuery(tempfile, options)
-# Check that the comiled Kernel actually exists.
-if not os.path.isfile(k.fileName()):
-    raise RuntimeError("Compilation failed, not Kernel produced")
+# Randomly sample input values from Gaussian (normal) distributions.
+inputs = np.column_stack((
+    # gaussian
+    np.random.normal(loc=0.5, scale=1, size=num_samples),
+    np.random.normal(loc=0.125, scale=0.25, size=num_samples),
+    np.random.normal(loc=0.345, scale=0.24, size=num_samples),
+    np.random.normal(loc=0.456, scale=0.1, size=num_samples),
+    np.random.normal(loc=0.94, scale=0.48, size=num_samples),
+    np.random.normal(loc=0.56, scale=0.42, size=num_samples),
+    np.random.normal(loc=0.76, scale=0.14, size=num_samples),
+    np.random.normal(loc=0.32, scale=0.58, size=num_samples),
+    np.random.normal(loc=0.58, scale=0.219, size=num_samples),
+    np.random.normal(loc=0.14, scale=0.52, size=num_samples),
+    np.random.normal(loc=0.24, scale=0.42, size=num_samples),
+    np.random.normal(loc=0.34, scale=0.1, size=num_samples),
+    # histogram
+    np.random.randint(low=0, high=2, size=num_samples),
+    np.random.randint(low=0, high=2, size=num_samples),
+    np.random.randint(low=0, high=2, size=num_samples),
+    np.random.randint(low=0, high=2, size=num_samples),
+    np.random.randint(low=0, high=2, size=num_samples),
+    np.random.randint(low=0, high=2, size=num_samples),
+    np.random.randint(low=0, high=2, size=num_samples),
+    np.random.randint(low=0, high=2, size=num_samples),
+    # categorical
+    np.random.randint(low=0, high=3, size=num_samples),
+    np.random.randint(low=0, high=3, size=num_samples),
+    np.random.randint(low=0, high=3, size=num_samples),
+    np.random.randint(low=0, high=3, size=num_samples),
+    np.random.randint(low=0, high=3, size=num_samples),
+    np.random.randint(low=0, high=3, size=num_samples),
+    np.random.randint(low=0, high=3, size=num_samples),
+    np.random.randint(low=0, high=3, size=num_samples))).astype("float64")
 
-samples = 30
+# Compute the reference results using the inference from SPFlow.
+reference = log_likelihood(query.graph.root, inputs)
+reference = reference.reshape(num_samples)
 
-for i in range(samples):
+# Compile the kernel.
+compiler = CPUCompiler(vectorize=True, computeInLogSpace=True)
+kernel = compiler.compile_ll(spn=query.graph.root, batchSize=1, supportMarginal=False)
 
-    # Randomly sample input values from Gaussian (normal) distributions.
-    inputs = np.column_stack((
-        # gaussian
-        np.random.normal(0.5, 1),
-        np.random.normal(0.125, 0.25),
-        np.random.normal(0.345, 0.24),
-        np.random.normal(0.456, 0.1),
-        np.random.normal(0.94, 0.48),
-        np.random.normal(0.56, 0.42),
-        np.random.normal(0.76, 0.14),
-        np.random.normal(0.32, 0.58),
-        np.random.normal(0.58, 0.219),
-        np.random.normal(0.14, 0.52),
-        np.random.normal(0.24, 0.42),
-        np.random.normal(0.34, 0.1),
-        # histogram
-        np.random.randint(2, size=1),
-        np.random.randint(2, size=1),
-        np.random.randint(2, size=1),
-        np.random.randint(2, size=1),
-        np.random.randint(2, size=1),
-        np.random.randint(2, size=1),
-        np.random.randint(2, size=1),
-        np.random.randint(2, size=1),
-        # categorical
-        np.random.randint(3, size=1),
-        np.random.randint(3, size=1),
-        np.random.randint(3, size=1),
-        np.random.randint(3, size=1),
-        np.random.randint(3, size=1),
-        np.random.randint(3, size=1),
-        np.random.randint(3, size=1),
-        np.random.randint(3, size=1))).astype("float64")
-
-    # Execute the compiled Kernel.
-    results = k.execute(1, inputs)
-    # Compute the reference results using the inference from SPFlow.
-    reference = log_likelihood(spn, inputs)
-    reference = reference.reshape(1)
-
-    print(f"evaluation #{i}: result: {results}, reference: {reference}", end="\r")
-
-    # Compare computed results and reference to make sure the computation by the compiled Kernel is correct.
-    if not np.all(np.isclose(results, reference)):
-        print("\n")
-        raise RuntimeError(f"COMPUTATION FAILED: Results did not match reference! Input:\n{inputs}")
-
-print("\nCOMPUTATION OK")
+# Execute the compiled Kernel.
+time_sum = 0
+for i in range(len(reference)):
+    # Check the computation results against the reference
+    start = time.time()
+    result = compiler.execute(kernel, inputs=np.array([inputs[i]]))
+    time_sum = time_sum + time.time() - start
+    print(f"evaluation #{i}: result: {result[0]:16.8f}, reference: {reference[i]:16.8f}", end='\r')
+    assert np.isclose(result, reference[i])
+print(f"\nExecution of {len(reference)} samples took {time_sum} seconds.")
+print("COMPUTATION OK")
 
 # Remove the serialized SPN file and the compiled Kernel.
 os.remove(tempfile)
-os.remove(k.fileName())
+os.remove(kernel.fileName())
