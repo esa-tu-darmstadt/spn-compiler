@@ -63,6 +63,21 @@ namespace {
     }
   }
 
+  mlir::Value extendTruncateOrGetVector(mlir::Value input,
+                                        mlir::Type targetElementType,
+                                        mlir::ConversionPatternRewriter& rewriter) {
+    auto inputVectorType = input.getType().dyn_cast<mlir::VectorType>();
+    assert(inputVectorType && "cannot expand or truncate scalar type to vector type");
+    assert(targetElementType.isa<mlir::FloatType>() && "target element type must be float type");
+    auto targetVectorType = mlir::VectorType::get(inputVectorType.getShape(), targetElementType);
+    if (inputVectorType.getElementTypeBitWidth() < targetVectorType.getElementTypeBitWidth()) {
+      return rewriter.create<mlir::FPExtOp>(input.getLoc(), input, targetVectorType);
+    } else if (inputVectorType.getElementTypeBitWidth() > targetVectorType.getElementTypeBitWidth()) {
+      return rewriter.create<mlir::FPTruncOp>(input.getLoc(), input, targetVectorType);
+    }
+    return input;
+  }
+
 }
 
 mlir::LogicalResult mlir::spn::Vectorize1DBatchRead::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
@@ -328,18 +343,7 @@ mlir::LogicalResult mlir::spn::VectorizeGaussian::matchAndRewrite(mlir::spn::low
   auto featureType = vectorType.getElementType().dyn_cast<FloatType>();
   assert(featureType);
 
-  // FPTrunc and FPExt currently do not support vector types.
-  // Vectorization of a Gaussian must fail if its involves changing the width of
-  // the floating type between input (feature) and result.
-  if (featureType.getWidth() != floatResultType.getWidth()) {
-    return rewriter.notifyMatchFailure(op,
-                                       StringRef("Aborting vectorization: ") +
-                                           "Cannot vectorize Gaussian leaf as the requested input type" +
-                                           llvm::formatv("{}", featureType) +
-                                           " cannot be converted to the data-type for computation" +
-                                           llvm::formatv("{}", floatResultType) +
-                                           " in vectorized mode");
-  }
+  feature = extendTruncateOrGetVector(feature, floatResultType, rewriter);
 
   // Calculate Gaussian distribution using e^(-(x - mean)^2/2*variance))/sqrt(2*PI*variance)
   // Variance from standard deviation.
@@ -406,18 +410,7 @@ mlir::LogicalResult mlir::spn::VectorizeLogGaussian::matchAndRewrite(mlir::spn::
   auto featureType = vectorType.getElementType().dyn_cast<FloatType>();
   assert(featureType);
 
-  // FPTrunc and FPExt currently do not support vector types.
-  // Vectorization of a Gaussian must fail if its involves changing the width of
-  // the floating type between input (feature) and result.
-  if (featureType.getWidth() != floatResultType.getWidth()) {
-    return rewriter.notifyMatchFailure(op,
-                                       StringRef("Aborting vectorization: ") +
-                                           "Cannot vectorize Gaussian leaf as the requested input type" +
-                                           llvm::formatv("{}", featureType) +
-                                           " cannot be converted to the data-type for computation" +
-                                           llvm::formatv("{}", floatResultType) +
-                                           " in vectorized mode");
-  }
+  feature = extendTruncateOrGetVector(feature, floatResultType, rewriter);
 
   // Calculate Gaussian distribution using the logarithm of the PDF of the Normal (Gaussian) distribution,
   // given as '-ln(stddev) - 1/2 ln(2*pi) - (x - mean)^2 / 2*stddev^2'
