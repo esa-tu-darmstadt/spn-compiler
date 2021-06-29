@@ -24,7 +24,7 @@ def read_csv(csv_file, delimiter=",", dtype="float64", max_rows=None):
     return data
 
 
-def test_spn(spn, inputs, references, spn_name, log_file):
+def test_spn(spn, inputs, references, spn_name, log_file, compile_only):
     # Things to log.
     log_dict = {
         "name": spn_name,
@@ -33,18 +33,20 @@ def test_spn(spn, inputs, references, spn_name, log_file):
         "num_evaluations": references.size
     }
     # Compile the kernel.
-    compiler = CPUCompiler(vectorize=False, computeInLogSpace=True)
+    compiler = CPUCompiler(vectorize=True, computeInLogSpace=True)
     start = time.time()
     kernel = compiler.compile_ll(spn=spn, batchSize=1, supportMarginal=False)
     log_dict["compile time (s)"] = time.time() - start
     # Execute the compiled kernel.
-    for i in range(references.size):
-        # Check the computation results against the reference
-        reference = references[i]
-        start = time.time()
-        result = compiler.execute(kernel, inputs=np.atleast_2d(inputs[i]))
-        log_dict["execution time (s)"] = log_dict["execution time (s)"] + time.time() - start
-        assert np.isclose(result, reference), f"evaluation #{i}: result: {result:16.9f}, reference: {reference:16.8f}"
+    if not compile_only:
+        for i in range(references.size):
+            # Check the computation results against the reference
+            reference = references[i]
+            start = time.time()
+            result = compiler.execute(kernel, inputs=np.atleast_2d(inputs[i]))
+            log_dict["execution time (s)"] = log_dict["execution time (s)"] + time.time() - start
+            assert np.isclose(result,
+                              reference), f"evaluation #{i}: result: {result:16.9f}, reference: {reference:16.8f}"
     file_exists = os.path.isfile(log_file)
     with open(log_file, 'a') as csvfile:
         writer = csv.DictWriter(csvfile, delimiter=",", fieldnames=log_dict.keys())
@@ -53,7 +55,7 @@ def test_spn(spn, inputs, references, spn_name, log_file):
         writer.writerow(log_dict)
 
 
-def test_speakers(models_path, io_path, log_file, max_rows=None):
+def test_speakers(models_path, io_path, log_file, max_rows, compile_only):
     if not os.path.isdir(models_path):
         raise Exception("Must provide valid path to models directory")
     if not os.path.isdir(io_path):
@@ -74,27 +76,37 @@ def test_speakers(models_path, io_path, log_file, max_rows=None):
                                   dtype="float64",
                                   max_rows=max_rows)
             references = references.reshape(references.size)
-            test_spn(spn=spn, inputs=inputs, references=references, log_file=log_file, spn_name=spn_name)
+            test_spn(spn=spn,
+                     inputs=inputs,
+                     references=references,
+                     log_file=log_file,
+                     spn_name=spn_name,
+                     compile_only=compile_only)
 
 
-def test_all_speakers(log_prefix, max_rows=None):
+def test_all_speakers(log_prefix, max_rows=None, compile_only=False):
     speaker_models = "/net/celebdil/spn-benchmarks/speaker-identification/models/"
     test_speakers(models_path=speaker_models,
                   io_path="/net/celebdil/spn-benchmarks/speaker-identification/io_clean/",
+                  log_file=log_prefix + "_clean.log",
                   max_rows=max_rows,
-                  log_file=log_prefix + "_clean.log")
-    test_speakers(models_path=speaker_models,
-                  io_path="/net/celebdil/spn-benchmarks/speaker-identification/io_noisy_marg_0_bounds_0/",
-                  max_rows=max_rows,
-                  log_file=log_prefix + "_io_noisy_marg_0_bounds_0.log")
-    test_speakers(models_path=speaker_models,
-                  io_path="/net/celebdil/spn-benchmarks/speaker-identification/io_noisy_marg_1_bounds_0/",
-                  max_rows=max_rows,
-                  log_file=log_prefix + "_io_noisy_marg_1_bounds_0.log")
-    test_speakers(models_path=speaker_models,
-                  io_path="/net/celebdil/spn-benchmarks/speaker-identification/io_noisy_marg_1_bounds_1/",
-                  max_rows=max_rows,
-                  log_file=log_prefix + "_io_noisy_marg_1_bounds_1.log")
+                  compile_only=compile_only)
+    if not compile_only:
+        test_speakers(models_path=speaker_models,
+                      io_path="/net/celebdil/spn-benchmarks/speaker-identification/io_noisy_marg_0_bounds_0/",
+                      log_file=log_prefix + "_io_noisy_marg_0_bounds_0.log",
+                      max_rows=max_rows,
+                      compile_only=compile_only)
+        test_speakers(models_path=speaker_models,
+                      io_path="/net/celebdil/spn-benchmarks/speaker-identification/io_noisy_marg_1_bounds_0/",
+                      log_file=log_prefix + "_io_noisy_marg_1_bounds_0.log",
+                      max_rows=max_rows,
+                      compile_only=compile_only)
+        test_speakers(models_path=speaker_models,
+                      io_path="/net/celebdil/spn-benchmarks/speaker-identification/io_noisy_marg_1_bounds_1/",
+                      log_file=log_prefix + "_io_noisy_marg_1_bounds_1.log",
+                      max_rows=max_rows,
+                      compile_only=compile_only)
 
 
 def find_rat_spn_model(csv_file, models_path):
@@ -110,7 +122,7 @@ def find_rat_spn_model(csv_file, models_path):
     raise Exception(f"No model found for CSV file {csv_file}")
 
 
-def test_all_rat_spns(log_prefix, max_rows=None):
+def test_all_rat_spns(log_prefix, max_rows=None, compile_only=False):
     models_path = "/net/celebdil/spn-benchmarks/ratspn-classification/models"
     io_path = "/net/celebdil/spn-benchmarks/ratspn-classification/io_files/"
     for path, datasets, _ in os.walk(io_path):
@@ -139,10 +151,11 @@ def test_all_rat_spns(log_prefix, max_rows=None):
                          inputs=inputs,
                          references=references,
                          log_file=log_prefix + ".log",
-                         spn_name=csv_file[0:-3])
+                         spn_name=csv_file[0:-3],
+                         compile_only=compile_only)
 
 
 if __name__ == "__main__":
-    # test_all_speakers(log_prefix="speakers", max_rows=10)
-    # test_all_rat_spns(log_prefix="rat_spn", max_rows=5)
+    test_all_speakers(log_prefix="speakers", max_rows=1, compile_only=True)
+    test_all_rat_spns(log_prefix="rat_spn", max_rows=5, compile_only=True)
     print("DONE")
