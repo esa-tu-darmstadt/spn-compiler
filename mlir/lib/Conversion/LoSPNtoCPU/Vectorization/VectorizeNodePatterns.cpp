@@ -250,12 +250,7 @@ mlir::LogicalResult mlir::spn::VectorizeLogAdd::matchAndRewrite(mlir::spn::low::
   auto b = rewriter.create<SelectOp>(op->getLoc(), compare, operands[1], operands[0]);
   auto sub = rewriter.create<SubFOp>(op->getLoc(), b, a);
   auto exp = rewriter.create<math::ExpOp>(op.getLoc(), sub);
-  // TODO Currently, lowering of log1p to LLVM is not supported,
-  // therefore we perform the computation manually here.
-  auto constantOne = broadcastVectorConstant(typeConverter->convertType(op.getResult().getType()).cast<VectorType>(),
-                                             1.0, rewriter, op.getLoc());
-  auto onePlus = rewriter.create<AddFOp>(op->getLoc(), constantOne, exp);
-  auto log = rewriter.create<math::LogOp>(op.getLoc(), onePlus);
+  auto log = rewriter.create<math::Log1pOp>(op.getLoc(), exp);
   rewriter.replaceOpWithNewOp<AddFOp>(op, a, log);
   return success();
 }
