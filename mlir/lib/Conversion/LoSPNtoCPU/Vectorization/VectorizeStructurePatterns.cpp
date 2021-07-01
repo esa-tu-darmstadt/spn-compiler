@@ -167,7 +167,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     }
     task->emitRemark("Converting graph...");
 
-    auto order = conversionManager.initConversion(graph);
+    auto order = conversionManager.startConversion(graph);
     auto numVectors = order.size();
     task->emitRemark("Number of SLP vectors in graph: " + std::to_string(numVectors));
     task->emitRemark("Number of unique ops in graph:  " + std::to_string(numUniqueOps(order)));
@@ -185,7 +185,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     auto vectorizedFunctionCost = costModel->getBlockCost(taskBlock);
     if (vectorizedFunctionCost >= currentFunctionCost) {
       task->emitRemark("Vectorization not profitable, reverting back to non-vectorized state.");
-      conversionManager.rejectConversion();
+      conversionManager.cancelConversion();
     } else {
       seedAnalysis->update(order);
       currentFunctionCost = vectorizedFunctionCost;

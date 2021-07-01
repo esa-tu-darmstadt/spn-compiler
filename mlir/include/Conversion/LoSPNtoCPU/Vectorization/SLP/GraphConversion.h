@@ -33,8 +33,9 @@ namespace mlir {
 
         class ConversionState {
         public:
-          ConversionState() = default;
-          ConversionState(std::shared_ptr<Superword> root, std::shared_ptr<ConversionState> parentState);
+          void startConversion(std::shared_ptr<Superword> root);
+          void finishConversion();
+          void cancelConversion();
 
           bool alreadyComputed(Superword* superword) const;
           bool alreadyComputed(Value value) const;
@@ -48,9 +49,6 @@ namespace mlir {
           ValuePosition getSuperwordContainingValue(Value value) const;
 
           SmallVector<Superword*> unconvertedPostOrder() const;
-          void undoChanges() const;
-
-          std::shared_ptr<ConversionState> getParentState() const;
 
           // Callback registration.
           /// Callback for when a superword was converted.
@@ -69,16 +67,35 @@ namespace mlir {
           /// not deemed profitable.
           void addExtractionUndoCallback(std::function<void(Value)> callback);
         private:
-          // Take ownership of the graph to prevent dangling pointers when it goes out of scope.
-          std::shared_ptr<Superword> correspondingGraph;
-          /// Enables recursive lookups from previous graph conversions.
-          std::shared_ptr<ConversionState> parentState;
-          /// Actual conversion data.
-          SmallPtrSet<Value, 32> computedScalarValues;
-          DenseMap<Superword*, Value> computedSuperwords;
-          SmallPtrSet<Value, 32> extractedScalarValues;
-          /// Store vector element data for faster extraction lookup.
-          DenseMap<Value, ValuePosition> extractableScalarValues;
+          // Take ownership of the graphs to prevent dangling pointers when they go out of scope.
+          SmallVector<std::shared_ptr<Superword>, 5> correspondingGraphs;
+          struct ConversionData {
+            void clear() {
+              computedScalarValues.clear();
+              computedSuperwords.clear();
+              extractedScalarValues.clear();
+              extractableScalarValues.clear();
+            }
+            void copyFrom(ConversionData& other) {
+              computedScalarValues.insert(std::begin(other.computedScalarValues), std::end(other.computedScalarValues));
+              computedSuperwords.copyFrom(other.computedSuperwords);
+              extractedScalarValues.insert(std::begin(other.extractedScalarValues),
+                                           std::end(other.extractedScalarValues));
+              extractableScalarValues.copyFrom(other.extractableScalarValues);
+            }
+            /// Scalar values that are marked as computed (e.g. because they're used as inputs for vectors).
+            SmallPtrSet<Value, 32> computedScalarValues;
+            /// Superwords that are marked as computed.
+            DenseMap<Superword*, Value> computedSuperwords;
+            /// Extractions that have taken place.
+            SmallPtrSet<Value, 32> extractedScalarValues;
+            /// Store vector element data for faster extraction lookup.
+            DenseMap<Value, ValuePosition> extractableScalarValues;
+          };
+          // Permanent conversion data.
+          ConversionData permanentData;
+          // Temporary conversion data. These might need to be 'undone' when a graph is not deemed profitable.
+          ConversionData temporaryData;
           // Callback data.
           SmallVector<std::function<void(Superword*)>> vectorCallbacks;
           SmallVector<std::function<void(Superword*)>> vectorUndoCallbacks;
@@ -94,16 +111,17 @@ namespace mlir {
 
           ConversionManager(PatternRewriter& rewriter, Block* block, std::shared_ptr<CostModel> costModel);
 
-          SmallVector<Superword*> initConversion(SLPGraph const& graph);
+          SmallVector<Superword*> startConversion(SLPGraph const& graph);
           void finishConversion();
           void acceptConversion();
-          void rejectConversion();
+          void cancelConversion();
 
           void setupConversionFor(Superword* superword, SLPVectorizationPattern const* pattern);
           void update(Superword* superword, Value operation, SLPVectorizationPattern const* appliedPattern);
 
           Value getValue(Superword* superword) const;
           Value getOrCreateConstant(Location const& loc, Attribute const& attribute);
+          ConversionState& getConversionState() const;
 
         private:
           bool hasEscapingUsers(Value value) const;

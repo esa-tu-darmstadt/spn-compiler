@@ -97,8 +97,8 @@ void CostModel::updateCost(Value const& value, double newCost, bool updateUses) 
 }
 
 double CostModel::getExtractionCost(Value const& value) const {
-  auto valuePosition = conversionState->getSuperwordContainingValue(value);
-  if (valuePosition) {
+  if (conversionState->isExtractable(value)) {
+    auto valuePosition = conversionState->getSuperwordContainingValue(value);
     return computeExtractionCost(valuePosition.superword, valuePosition.index);
   }
   return MAX_COST;

@@ -16,29 +16,56 @@ using namespace mlir::spn::low::slp;
 
 // === ConversionState === //
 
-ConversionState::ConversionState(std::shared_ptr<Superword> root, std::shared_ptr<ConversionState> parentState)
-    : correspondingGraph{std::move(root)}, parentState{std::move(parentState)} {}
+void ConversionState::startConversion(std::shared_ptr<Superword> root) {
+  correspondingGraphs.emplace_back(std::move(root));
+}
+
+void ConversionState::finishConversion() {
+  permanentData.copyFrom(temporaryData);
+  temporaryData.clear();
+}
+
+void ConversionState::cancelConversion() {
+  for (auto const& callback : scalarUndoCallbacks) {
+    for (auto value : temporaryData.computedScalarValues) {
+      callback(value);
+    }
+  }
+  for (auto const& callback : vectorUndoCallbacks) {
+    for (auto const& entry : temporaryData.computedSuperwords) {
+      callback(entry.first);
+    }
+  }
+  for (auto const& callback : extractionUndoCallbacks) {
+    for (auto value : temporaryData.extractedScalarValues) {
+      callback(value);
+    }
+  }
+  temporaryData.clear();
+  correspondingGraphs.pop_back();
+}
 
 bool ConversionState::alreadyComputed(Superword* superword) const {
-  if (computedSuperwords.count(superword)) {
+  if (temporaryData.computedSuperwords.count(superword)) {
     return true;
   }
-  return parentState && parentState->alreadyComputed(superword);
+  return permanentData.computedSuperwords.count(superword);
 }
 
 bool ConversionState::alreadyComputed(Value value) const {
-  return computedScalarValues.contains(value) || extractedScalarValues.contains(value);
+  return temporaryData.computedScalarValues.contains(value) || temporaryData.extractedScalarValues.contains(value)
+      || permanentData.computedScalarValues.contains(value) || permanentData.extractedScalarValues.contains(value);
 }
 
 bool ConversionState::isExtractable(Value value) {
-  if (extractableScalarValues.count(value)) {
+  if (temporaryData.extractableScalarValues.count(value)) {
     return true;
   }
-  return parentState && parentState->isExtractable(value);
+  return permanentData.extractableScalarValues.count(value);
 }
 
 void ConversionState::markComputed(Value value) {
-  if (computedScalarValues.insert(value).second) {
+  if (temporaryData.computedScalarValues.insert(value).second) {
     if (auto* definingOp = value.getDefiningOp()) {
       for (auto const& operand : definingOp->getOperands()) {
         markComputed(operand);
@@ -55,9 +82,9 @@ void ConversionState::markComputed(Superword* superword, Value value) {
   for (auto* operand : superword->getOperands()) {
     assert(alreadyComputed(operand) && "computing vector before its operands");
   }
-  computedSuperwords[superword] = value;
+  temporaryData.computedSuperwords[superword] = value;
   for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
-    extractableScalarValues.try_emplace(superword->getElement(lane), superword, lane);
+    temporaryData.extractableScalarValues.try_emplace(superword->getElement(lane), superword, lane);
   }
   for (auto const& callback : vectorCallbacks) {
     callback(superword);
@@ -65,7 +92,7 @@ void ConversionState::markComputed(Superword* superword, Value value) {
 }
 
 void ConversionState::markExtracted(Value value) {
-  if (extractedScalarValues.insert(value).second) {
+  if (temporaryData.extractedScalarValues.insert(value).second) {
     for (auto const& callback : extractionCallbacks) {
       callback(value);
     }
@@ -73,28 +100,30 @@ void ConversionState::markExtracted(Value value) {
 }
 
 Value ConversionState::getValue(Superword* superword) const {
-  auto value = computedSuperwords.lookup(superword);
+  auto value = temporaryData.computedSuperwords.lookup(superword);
   if (value) {
     return value;
-  } else if (parentState) {
-    return parentState->getValue(superword);
   }
-  llvm_unreachable("the superword has not yet been converted");
+  value = permanentData.computedSuperwords.lookup(superword);
+  assert(value && "the superword has not yet been converted");
+  return value;
 }
 
 ValuePosition ConversionState::getSuperwordContainingValue(Value value) const {
-  auto valuePosition = extractableScalarValues.lookup(value);
-  if (!valuePosition && parentState) {
-    return parentState->getSuperwordContainingValue(value);
+  auto valuePosition = temporaryData.extractableScalarValues.lookup(value);
+  if (valuePosition) {
+    return valuePosition;
   }
+  valuePosition = permanentData.extractableScalarValues.lookup(value);
+  assert(valuePosition && "there is no superword containing the value");
   return valuePosition;
 }
 
 SmallVector<Superword*> ConversionState::unconvertedPostOrder() const {
   SmallVector<Superword*> order;
   DenseMap<Superword*, unsigned> depths;
-  depths[correspondingGraph.get()] = 0;
-  SmallVector<Superword*> worklist{correspondingGraph.get()};
+  depths[correspondingGraphs.back().get()] = 0;
+  SmallVector<Superword*> worklist{correspondingGraphs.back().get()};
   while (!worklist.empty()) {
     auto* superword = worklist.pop_back_val();
     if (alreadyComputed(superword)) {
@@ -119,28 +148,6 @@ SmallVector<Superword*> ConversionState::unconvertedPostOrder() const {
     return depths[lhs] > depths[rhs];
   });
   return order;
-}
-
-void ConversionState::undoChanges() const {
-  for (auto const& callback : scalarUndoCallbacks) {
-    for (auto value : computedScalarValues) {
-      callback(value);
-    }
-  }
-  for (auto const& callback : vectorUndoCallbacks) {
-    for (auto const& entry : computedSuperwords) {
-      callback(entry.first);
-    }
-  }
-  for (auto const& callback : extractionUndoCallbacks) {
-    for (auto value : extractedScalarValues) {
-      callback(value);
-    }
-  }
-}
-
-std::shared_ptr<ConversionState> ConversionState::getParentState() const {
-  return parentState;
 }
 
 void ConversionState::addVectorCallback(std::function<void(Superword*)> callback) {
@@ -171,16 +178,17 @@ void ConversionState::addExtractionUndoCallback(std::function<void(Value)> callb
 
 ConversionManager::ConversionManager(PatternRewriter& rewriter, Block* block, std::shared_ptr<CostModel> costModel)
     : block{block}, trashBlock{nullptr}, costModel{std::move(costModel)},
-      conversionState{std::make_shared<ConversionState>()}, rewriter{rewriter}, folder{rewriter.getContext()} {}
+      conversionState{std::make_shared<ConversionState>()}, rewriter{rewriter}, folder{rewriter.getContext()} {
+  this->costModel->setConversionState(conversionState);
+}
 
-SmallVector<Superword*> ConversionManager::initConversion(SLPGraph const& graph) {
+SmallVector<Superword*> ConversionManager::startConversion(SLPGraph const& graph) {
   // Clear all temporary data.
   escapingUsers.clear();
   originalOperations.clear();
   originalOperands.clear();
   // Work on a new, temporary conversion state.
-  conversionState = std::make_shared<ConversionState>(graph.getRoot(), conversionState);
-  costModel->setConversionState(conversionState);
+  conversionState->startConversion(graph.getRoot());
   // Store original block state for undoing graph conversions.
   block->walk([&](Operation* op) {
     originalOperations.emplace_back(op);
@@ -285,10 +293,11 @@ void ConversionManager::finishConversion() {
 }
 
 void ConversionManager::acceptConversion() {
+  conversionState->finishConversion();
   emptyTrash();
 }
 
-void ConversionManager::rejectConversion() {
+void ConversionManager::cancelConversion() {
   Operation* lastOp = nullptr;
   for (auto* op : originalOperations) {
     auto operands = originalOperands.lookup(op);
@@ -308,8 +317,7 @@ void ConversionManager::rejectConversion() {
     erasableOps.insert(trashOp);
     lastOp = trashOp;
   }
-  conversionState->undoChanges();
-  conversionState = conversionState->getParentState();
+  conversionState->cancelConversion();
   // Move all created vector operations to a trash block, so that they can be destroyed *immediately* instead of at the
   // end of the conversion process. We don't want to carry thousands or millions of erased operations with us to the
   // next vectorization attempt.
@@ -318,7 +326,7 @@ void ConversionManager::rejectConversion() {
 }
 
 void ConversionManager::setupConversionFor(Superword* superword, SLPVectorizationPattern const* pattern) {
-  rewriter.setInsertionPointToEnd(block);
+  rewriter.setInsertionPoint(block->getTerminator());
   // Create extractions if needed.
   auto scalarInputs = leafVisitor.getRequiredScalarValues(pattern, superword);
   for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
@@ -379,6 +387,10 @@ Value ConversionManager::getOrCreateConstant(Location const& loc, Attribute cons
   return folder.getOrCreateConstant(rewriter, &attribute.getDialect(), attribute, attribute.getType(), loc);
 }
 
+ConversionState& ConversionManager::getConversionState() const {
+  return *conversionState;
+}
+
 bool ConversionManager::hasEscapingUsers(Value value) const {
   return escapingUsers.count(value) && !escapingUsers.lookup(value).empty();
 }
@@ -406,7 +418,6 @@ void ConversionManager::moveToTrash(SmallPtrSetImpl<Operation*> const& deadOps) 
     block->moveBefore(trashBlock);
   }
   for (auto* op : deadOps) {
-    //op->dropAllReferences();
     op->dropAllUses();
     if (op->getNumOperands() > 0) {
       op->eraseOperands(0, op->getNumOperands());
