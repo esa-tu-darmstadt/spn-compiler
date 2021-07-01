@@ -27,10 +27,10 @@ namespace mlir {
           explicit SLPVectorizationPattern(ConversionManager& conversionManager);
           virtual ~SLPVectorizationPattern() = default;
           void rewriteSuperword(Superword* superword, PatternRewriter& rewriter);
-          virtual LogicalResult match(Superword* superword) const = 0;
+          virtual LogicalResult match(Superword* superword) = 0;
           virtual void accept(PatternVisitor& visitor, Superword* superword) const = 0;
         protected:
-          virtual Value rewrite(Superword* superword, PatternRewriter& rewriter) const = 0;
+          virtual Value rewrite(Superword* superword, PatternRewriter& rewriter) = 0;
           ConversionManager& conversionManager;
         };
 
@@ -38,7 +38,7 @@ namespace mlir {
         class OpSpecificVectorizationPattern : public SLPVectorizationPattern {
           using SLPVectorizationPattern::SLPVectorizationPattern;
         public:
-          LogicalResult match(Superword* superword) const override {
+          LogicalResult match(Superword* superword) override {
             bool checkedOperands = false;
             for (auto const& value : *superword) {
               SourceOp op = value.getDefiningOp<SourceOp>();
@@ -61,7 +61,7 @@ namespace mlir {
         class NormalSpaceVectorizationPattern : public OpSpecificVectorizationPattern<SourceOp> {
           using OpSpecificVectorizationPattern<SourceOp>::OpSpecificVectorizationPattern;
         public:
-          LogicalResult match(Superword* superword) const override {
+          LogicalResult match(Superword* superword) override {
             if (failed(OpSpecificVectorizationPattern<SourceOp>::match(superword))) {
               return failure();
             }
@@ -73,7 +73,7 @@ namespace mlir {
         class LogSpaceVectorizationPattern : public OpSpecificVectorizationPattern<SourceOp> {
           using OpSpecificVectorizationPattern<SourceOp>::OpSpecificVectorizationPattern;
         public:
-          LogicalResult match(Superword* superword) const override {
+          LogicalResult match(Superword* superword) override {
             if (failed(OpSpecificVectorizationPattern<SourceOp>::match(superword))) {
               return failure();
             }
@@ -83,34 +83,44 @@ namespace mlir {
 
         struct BroadcastSuperword : public SLPVectorizationPattern {
           using SLPVectorizationPattern::SLPVectorizationPattern;
-          LogicalResult match(Superword* superword) const override;
-          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          LogicalResult match(Superword* superword) override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) override;
           void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         struct BroadcastInsertSuperword : public SLPVectorizationPattern {
           using SLPVectorizationPattern::SLPVectorizationPattern;
-          LogicalResult match(Superword* superword) const override;
-          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          LogicalResult match(Superword* superword) override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) override;
           void accept(PatternVisitor& visitor, Superword* superword) const override;
+        };
+
+        struct ShuffleSuperword : public SLPVectorizationPattern {
+          explicit ShuffleSuperword(ConversionManager& conversionManager);
+          LogicalResult match(Superword* superword) override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) override;
+          void accept(PatternVisitor& visitor, Superword* superword) const override;
+        private:
+          DenseMap<Value, SmallPtrSet<Superword*, 8>> superwordsByValue;
+          DenseMap<Superword*, Superword*> shuffleMatches;
         };
 
         struct VectorizeConstant : public OpSpecificVectorizationPattern<ConstantOp> {
           using OpSpecificVectorizationPattern<ConstantOp>::OpSpecificVectorizationPattern;
-          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) override;
           void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         struct VectorizeSPNConstant : public OpSpecificVectorizationPattern<SPNConstant> {
           using OpSpecificVectorizationPattern<SPNConstant>::OpSpecificVectorizationPattern;
-          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) override;
           void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         struct VectorizeBatchRead : public OpSpecificVectorizationPattern<SPNBatchRead> {
           using OpSpecificVectorizationPattern<SPNBatchRead>::OpSpecificVectorizationPattern;
-          LogicalResult match(Superword* superword) const override;
-          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          LogicalResult match(Superword* superword) override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) override;
           void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
@@ -118,19 +128,19 @@ namespace mlir {
 
         struct VectorizeAdd : public NormalSpaceVectorizationPattern<SPNAdd> {
           using NormalSpaceVectorizationPattern<SPNAdd>::NormalSpaceVectorizationPattern;
-          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) override;
           void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         struct VectorizeMul : public NormalSpaceVectorizationPattern<SPNMul> {
           using NormalSpaceVectorizationPattern<SPNMul>::NormalSpaceVectorizationPattern;
-          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) override;
           void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         struct VectorizeGaussian : public NormalSpaceVectorizationPattern<SPNGaussianLeaf> {
           using NormalSpaceVectorizationPattern<SPNGaussianLeaf>::NormalSpaceVectorizationPattern;
-          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) override;
           void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
@@ -138,19 +148,19 @@ namespace mlir {
 
         struct VectorizeLogAdd : public LogSpaceVectorizationPattern<SPNAdd> {
           using LogSpaceVectorizationPattern<SPNAdd>::LogSpaceVectorizationPattern;
-          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) override;
           void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         struct VectorizeLogMul : public LogSpaceVectorizationPattern<SPNMul> {
           using LogSpaceVectorizationPattern<SPNMul>::LogSpaceVectorizationPattern;
-          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) override;
           void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
         struct VectorizeLogGaussian : public LogSpaceVectorizationPattern<SPNGaussianLeaf> {
           using LogSpaceVectorizationPattern<SPNGaussianLeaf>::LogSpaceVectorizationPattern;
-          Value rewrite(Superword* superword, PatternRewriter& rewriter) const override;
+          Value rewrite(Superword* superword, PatternRewriter& rewriter) override;
           void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
@@ -160,6 +170,7 @@ namespace mlir {
                                                      ConversionManager& conversionManager) {
           patterns.emplace_back(std::make_unique<BroadcastSuperword>(conversionManager));
           patterns.emplace_back(std::make_unique<BroadcastInsertSuperword>(conversionManager));
+          patterns.emplace_back(std::make_unique<ShuffleSuperword>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeConstant>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeSPNConstant>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeBatchRead>(conversionManager));

@@ -25,6 +25,10 @@ void PatternVisitor::visit(BroadcastInsertSuperword const* pattern, Superword* s
   visitDefault(pattern, superword);
 }
 
+void PatternVisitor::visit(ShuffleSuperword const* pattern, Superword* superword) {
+  visitDefault(pattern, superword);
+}
+
 void PatternVisitor::visit(VectorizeConstant const* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }
