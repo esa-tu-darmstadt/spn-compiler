@@ -378,8 +378,14 @@ void mlir::spn::low::SPNConvertLog::build(::mlir::OpBuilder& odsBuilder,
     auto pTrue = probabilities[0].dyn_cast<FloatAttr>();
     auto pFalse = probabilities[1].dyn_cast<FloatAttr>();
     auto threshold_max_true = FloatAttr::get(op.index().getType(), 1.0);
+
+    mlir::Type outputTy = pTrue.getType();
+    if (auto outputLogType = op.getResult().getType().dyn_cast<low::LogType>()) {
+      outputTy = outputLogType;
+    }
+
     rewriter.replaceOpWithNewOp<SPNSelectLeaf>(op,
-                                               pTrue.getType(),
+                                               outputTy,
                                                op.index(),
                                                threshold_max_true,
                                                pTrue,
@@ -411,8 +417,14 @@ void mlir::spn::low::SPNConvertLog::build(::mlir::OpBuilder& odsBuilder,
       auto pTrue = b0.val();
       auto pFalse = b1.val();
       auto threshold_max_true = FloatAttr::get(Float64Type::get(op.getContext()), b0.ub().getInt());
+
+      mlir::Type outputTy = pTrue.getType();
+      if (auto outputLogType = op.getResult().getType().dyn_cast<low::LogType>()) {
+        outputTy = outputLogType;
+      }
+
       rewriter.replaceOpWithNewOp<SPNSelectLeaf>(op,
-                                                 pTrue.getType(),
+                                                 outputTy,
                                                  op.index(),
                                                  threshold_max_true,
                                                  pTrue,
