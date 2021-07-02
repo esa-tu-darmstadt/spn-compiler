@@ -662,9 +662,6 @@ mlir::LogicalResult mlir::spn::VectorizeSelectLeaf::matchAndRewrite(mlir::spn::l
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized Select");
   }
-  if (op.getResult().getType().isa<low::LogType>()) {
-    return rewriter.notifyMatchFailure(op, "Pattern does not match for log-space computation");
-  }
 
   auto inputVec = operands.front();
   auto inputVecTy = inputVec.getType();
