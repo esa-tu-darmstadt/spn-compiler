@@ -129,7 +129,11 @@ extern MLIR_CUDA_WRAPPERS_EXPORT "C" void mgpuEventRecord(CUevent event,
 extern "C" void* mgpuMemAlloc(uint64_t sizeBytes, CUstream /*stream*/) {
   ScopedContext scopedContext;
   CUdeviceptr ptr;
+#if SPNC_CUDA_UNIFIED_MEMORY
+  CUDA_REPORT_IF_ERROR(cuMemAllocManaged(&ptr, sizeBytes, CU_MEM_ATTACH_GLOBAL));
+#else
   CUDA_REPORT_IF_ERROR(cuMemAlloc(&ptr, sizeBytes));
+#endif
   return reinterpret_cast<void*>(ptr);
 }
 
@@ -139,7 +143,11 @@ extern "C" void mgpuMemFree(void* ptr, CUstream /*stream*/) {
 
 extern "C" void mgpuMemcpy(void* dst, void* src, uint64_t sizeBytes,
                            CUstream stream) {
+#if SPNC_CUDA_UNIFIED_MEMORY
+  // Assumes physically shared memory between host CPU and GPU.
+#else
   CUDA_REPORT_IF_ERROR(cuMemcpyAsync(reinterpret_cast<CUdeviceptr>(dst),
                                      reinterpret_cast<CUdeviceptr>(src),
                                      sizeBytes, stream));
+#endif
 }
