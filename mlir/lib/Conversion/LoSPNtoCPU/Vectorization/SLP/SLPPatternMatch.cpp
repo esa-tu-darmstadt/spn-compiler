@@ -17,28 +17,25 @@ SLPPatternApplicator::SLPPatternApplicator(std::shared_ptr<CostModel> costModel,
                                            SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>&& patterns)
     : costModel{std::move(costModel)}, patterns{std::move(patterns)} {}
 
-SLPVectorizationPattern* SLPPatternApplicator::bestMatch(Superword* superword) {
-  auto it = bestMatches.try_emplace(superword, nullptr);
-  if (it.second) {
-    double bestCost = 0;
-    for (auto const& pattern : patterns) {
-      if (succeeded(pattern->match(superword))) {
-        auto cost = costModel->getSuperwordCost(superword, pattern.get());
-        if (!it.first->second || cost < bestCost) {
-          it.first->second = pattern.get();
-          bestCost = cost;
-        }
-      }
-    }
-  }
-  return it.first->second;
-}
-
 void SLPPatternApplicator::matchAndRewrite(Superword* superword, RewriterBase& rewriter) {
   auto* pattern = bestMatch(superword);
   if (!pattern) {
     llvm_unreachable("could not apply any pattern to superword. did you forget to add a default pattern?");
   }
   pattern->rewriteSuperword(superword, rewriter);
-  bestMatches.erase(superword);
+}
+
+SLPVectorizationPattern* SLPPatternApplicator::bestMatch(Superword* superword) {
+  SLPVectorizationPattern* bestPattern = nullptr;
+  double bestCost = 0;
+  for (auto const& pattern : patterns) {
+    if (succeeded(pattern->match(superword))) {
+      auto cost = costModel->getSuperwordCost(superword, pattern.get());
+      if (!bestPattern || cost < bestCost) {
+        bestPattern = pattern.get();
+        bestCost = cost;
+      }
+    }
+  }
+  return bestPattern;
 }
