@@ -82,6 +82,8 @@ namespace mlir {
           }
         };
 
+        // === Op-agnostic patterns === //
+
         struct BroadcastSuperword : public SLPVectorizationPattern {
           using SLPVectorizationPattern::SLPVectorizationPattern;
           LogicalResult match(Superword* superword) override;
@@ -106,6 +108,8 @@ namespace mlir {
           DenseMap<Superword*, Superword*> shuffleMatches;
         };
 
+        // === Op-specific patterns === //
+
         struct VectorizeConstant : public OpSpecificVectorizationPattern<ConstantOp> {
           using OpSpecificVectorizationPattern<ConstantOp>::OpSpecificVectorizationPattern;
           Value rewrite(Superword* superword, RewriterBase& rewriter) override;
@@ -125,7 +129,7 @@ namespace mlir {
           void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
-        // === Normal space patterns === //
+        // === Op-specific normal space patterns === //
 
         struct VectorizeAdd : public NormalSpaceVectorizationPattern<SPNAdd> {
           using NormalSpaceVectorizationPattern<SPNAdd>::NormalSpaceVectorizationPattern;
@@ -145,7 +149,7 @@ namespace mlir {
           void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
-        // === Log-space patterns === //
+        // === Op-specific log-space patterns === //
 
         struct VectorizeLogAdd : public LogSpaceVectorizationPattern<SPNAdd> {
           using LogSpaceVectorizationPattern<SPNAdd>::LogSpaceVectorizationPattern;
