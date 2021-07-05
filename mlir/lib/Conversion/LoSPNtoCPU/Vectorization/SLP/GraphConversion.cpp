@@ -273,10 +273,6 @@ void ConversionManager::setupConversionFor(Superword* superword, SLPVectorizatio
 }
 
 void ConversionManager::update(Superword* superword, Value operation, SLPVectorizationPattern const* appliedPattern) {
-  if (conversionState->alreadyComputed(superword)) {
-    dumpSuperword(*superword);
-    getValue(superword).dump();
-  }
   conversionState->markComputed(superword, operation);
   auto scalarInputs = leafVisitor.getRequiredScalarValues(appliedPattern, superword);
   for (auto scalarInput : scalarInputs) {
