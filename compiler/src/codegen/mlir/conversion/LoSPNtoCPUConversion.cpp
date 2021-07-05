@@ -9,8 +9,11 @@
 #include "LoSPNtoCPUConversion.h"
 #include "LoSPNtoCPU/LoSPNtoCPUConversionPasses.h"
 #include "LoSPNtoCPU/Vectorization/VectorOptimizationPasses.h"
+#include "LoSPN/LoSPNPasses.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/Dialect/Tensor/Transforms/Passes.h"
+#include <driver/GlobalOptions.h>
+#include <TargetInformation.h>
 
 void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   bool vectorize = spnc::option::cpuVectorize.get(*this->config);
@@ -29,6 +32,14 @@ void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, m
     }
   }
   pm->addPass(mlir::spn::createLoSPNtoCPUNodeConversionPass());
+  if (mlir::spn::TargetInformation::nativeCPUTarget().isAARCH64Target() &&
+      spnc::option::vectorLibrary.get(*config) == spnc::option::VectorLibrary::ARM) {
+    // The ARM Optimized Routines are currently not available through the regular TargetLibraryInfo
+    // interface of opt/llc, so replacement with optimized implementations of elementary
+    // functions (e.g., exp, log), cannot happen in the backend. Instead, we add our own pass
+    // performing the replacement in explicitly defined cases here.
+    pm->addPass(mlir::spn::low::createReplaceARMOptimizedRoutinesPass());
+  }
   // The remaining bufferization, buffer deallocation and copy removal passes
   // currently need to be placed at this point in the pipeline, as they operate
   // on FuncOp (not SPNKernel/SPNTask) and can therefore only run after the

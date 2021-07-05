@@ -41,6 +41,11 @@ namespace spnc {
     ///         false otherwise.
     static bool isFeatureSupported(const std::string& feature);
 
+    ///
+    /// Query the compiler for information about the host default architecture.
+    /// \return The name of the host default CPU architecture.
+    static std::string getHostArchitecture();
+
   };
 }
 

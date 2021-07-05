@@ -16,6 +16,7 @@
 #include <codegen/mlir/frontend/MLIRDeserializer.h>
 #include <codegen/mlir/transformation/LoSPNTransformations.h>
 #include <driver/action/EmitObjectCode.h>
+#include <TargetInformation.h>
 
 using namespace spnc;
 using namespace mlir;
@@ -37,7 +38,14 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
   auto diagHandler = setupDiagnosticHandler(ctx.get());
   auto cpuVectorize = spnc::option::cpuVectorize.get(*config);
   SPDLOG_INFO("CPU Vectorization enabled: {}", cpuVectorize);
-  auto targetMachine = createTargetMachine(cpuVectorize);
+  int mcOptLevel = spnc::option::optLevel.get(*config);
+  if (spnc::option::mcOptLevel.isPresent(*config) && spnc::option::mcOptLevel.get(*config) != mcOptLevel) {
+    auto optionValue = spnc::option::mcOptLevel.get(*config);
+    SPDLOG_INFO("Option mc-opt-level (value: {}) takes precedence over option opt-level (value: {})",
+                optionValue, mcOptLevel);
+    mcOptLevel = optionValue;
+  }
+  auto targetMachine = createTargetMachine(mcOptLevel);
   auto kernelInfo = std::make_shared<KernelInfo>();
   kernelInfo->target = KernelTarget::CPU;
   BinarySPN binarySPNFile{inputFile, false};
@@ -48,7 +56,14 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
   auto& cpu2llvm = job->insertAction<CPUtoLLVMConversion>(lospn2cpu, ctx, diagHandler);
 
   // Convert the MLIR module to a LLVM-IR module.
-  auto& llvmConversion = job->insertAction<MLIRtoLLVMIRConversion>(cpu2llvm, ctx, targetMachine);
+  int irOptLevel = spnc::option::optLevel.get(*config);
+  if (spnc::option::irOptLevel.isPresent(*config) && spnc::option::irOptLevel.get(*config) != irOptLevel) {
+    auto optionValue = spnc::option::irOptLevel.get(*config);
+    SPDLOG_INFO("Option ir-opt-level (value: {}) takes precedence over option opt-level (value: {})",
+                optionValue, irOptLevel);
+    irOptLevel = optionValue;
+  }
+  auto& llvmConversion = job->insertAction<MLIRtoLLVMIRConversion>(cpu2llvm, ctx, targetMachine, irOptLevel);
 
   // Translate the generated LLVM IR module to object code and write it to an object file.
   auto objectFile = FileSystem::createTempFile<FileType::OBJECT>(true);
@@ -62,11 +77,17 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
   llvm::SmallVector<std::string, 3> additionalLibs;
   // Link vector libraries if specified by option.
   auto veclib = spnc::option::vectorLibrary.get(*config);
+  if (!validateVectorLibrary(*config)) {
+    SPDLOG_WARN("Vector library selection is invalid on this platform, overriding with 'None'");
+    veclib = spnc::option::VectorLibrary::NONE;
+  }
   if (veclib != spnc::option::VectorLibrary::NONE) {
     switch (veclib) {
       case spnc::option::VectorLibrary::SVML: additionalLibs.push_back("svml");
         break;
       case spnc::option::VectorLibrary::LIBMVEC: additionalLibs.push_back("m");
+        break;
+      case spnc::option::VectorLibrary::ARM: additionalLibs.push_back("mathlib");
         break;
       default:SPNC_FATAL_ERROR("Unknown vector library");
     }
@@ -76,4 +97,15 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
       job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo, 
                                                 additionalLibs, searchPaths);
   return job;
+}
+
+bool CPUToolchain::validateVectorLibrary(interface::Configuration& config) {
+  auto veclib = spnc::option::vectorLibrary.get(config);
+  auto& targetInfo = mlir::spn::TargetInformation::nativeCPUTarget();
+  switch (veclib) {
+    case spnc::option::VectorLibrary::SVML:
+    case spnc::option::VectorLibrary::LIBMVEC:return targetInfo.isX8664Target();
+    case spnc::option::VectorLibrary::ARM:return targetInfo.isAARCH64Target();
+    default:return false;
+  }
 }

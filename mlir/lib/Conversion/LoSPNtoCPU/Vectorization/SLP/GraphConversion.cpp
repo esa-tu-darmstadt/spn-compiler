@@ -300,7 +300,7 @@ void ConversionManager::update(Superword* superword, Value operation, SLPVectori
             }
             if (escapingUser->getOperand(i).getType().isa<LogType>()) {
               if (!logExtractOp) {
-                logExtractOp = rewriter.create<SPNAttachLog>(element.getLoc(), extractOp, extractOp.getType());
+                logExtractOp = rewriter.create<SPNConvertLog>(element.getLoc(), extractOp);
               }
               escapingUser->setOperand(i, logExtractOp);
             } else {

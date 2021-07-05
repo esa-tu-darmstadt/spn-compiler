@@ -32,9 +32,9 @@ def test_cpu_histogram():
     )).astype("float64")
 
     # Execute the compiled Kernel.
-    results = CPUCompiler(computeInLogSpace=False, vectorize=False).log_likelihood(spn, inputs,
-                                                                                   supportMarginal=False,
-                                                                                   batchSize=10)
+    results = CPUCompiler(computeInLogSpace=False, vectorize=False, maxTaskSize=5).log_likelihood(spn, inputs,
+                                                                                                  supportMarginal=False,
+                                                                                                  batchSize=10)
 
     # Compute the reference results using the inference from SPFlow.
     reference = log_likelihood(spn, inputs)
@@ -43,7 +43,7 @@ def test_cpu_histogram():
     # Check the computation results against the reference
     # Check in normal space if log-results are not very close to each other.
     assert np.all(np.isclose(results, reference)) or np.all(np.isclose(np.exp(results), np.exp(reference)))
-    
+
 
 if __name__ == "__main__":
     test_cpu_histogram()

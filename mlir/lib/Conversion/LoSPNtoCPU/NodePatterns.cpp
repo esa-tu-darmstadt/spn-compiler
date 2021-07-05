@@ -22,9 +22,15 @@ mlir::LogicalResult mlir::spn::BatchReadLowering::matchAndRewrite(mlir::spn::low
   // using the batchIndex and the constant sample index.
   assert(operands.size() == 2 && "Expecting two operands for BatchRead");
   assert(operands[0].getType().isa<MemRefType>());
+  auto memRefType = operands[0].getType().cast<MemRefType>();
   assert(operands[1].getType().isa<IndexType>());
-  auto constSampleIndex = rewriter.create<ConstantOp>(op->getLoc(), rewriter.getIndexAttr(op.sampleIndex()));
-  rewriter.replaceOpWithNewOp<memref::LoadOp>(op, operands[0], ValueRange{operands[1], constSampleIndex});
+  SmallVector<Value> indices;
+  indices.push_back(operands[1]);
+  if (memRefType.getRank() == 2) {
+    auto constSampleIndex = rewriter.create<ConstantOp>(op->getLoc(), rewriter.getIndexAttr(op.sampleIndex()));
+    indices.push_back(constSampleIndex);
+  }
+  rewriter.replaceOpWithNewOp<memref::LoadOp>(op, operands[0], indices);
   return success();
 }
 
@@ -521,20 +527,6 @@ mlir::LogicalResult mlir::spn::ResolveConvertToVector::matchAndRewrite(mlir::spn
   return rewriter.notifyMatchFailure(op, "Conversion to vector cannot be resolved trivially");
 }
 
-mlir::LogicalResult mlir::spn::ResolveAttachLog::matchAndRewrite(mlir::spn::low::SPNAttachLog op,
-                                                                 llvm::ArrayRef<mlir::Value> operands,
-                                                                 mlir::ConversionPatternRewriter& rewriter) const {
-  if (op.checkVectorized()) {
-    return rewriter.notifyMatchFailure(op, "Pattern does not resolve vectorized operation");
-  }
-  assert(operands.size() == 1);
-  if (operands[0].getType() != op.source()) {
-    return rewriter.notifyMatchFailure(op, "Could not resolve AttachLog trivially");
-  }
-  rewriter.replaceOp(op, operands[0]);
-  return success();
-}
-
 mlir::LogicalResult mlir::spn::ResolveStripLog::matchAndRewrite(mlir::spn::low::SPNStripLog op,
                                                                 llvm::ArrayRef<mlir::Value> operands,
                                                                 mlir::ConversionPatternRewriter& rewriter) const {
@@ -545,6 +537,18 @@ mlir::LogicalResult mlir::spn::ResolveStripLog::matchAndRewrite(mlir::spn::low::
   if (operands[0].getType() != op.target()) {
     return rewriter.notifyMatchFailure(op, "Could not resolve StripLog trivially");
   }
+  rewriter.replaceOp(op, operands[0]);
+  return success();
+}
+
+mlir::LogicalResult mlir::spn::ResolveConvertLog::matchAndRewrite(mlir::spn::low::SPNConvertLog op,
+                                                                  llvm::ArrayRef<mlir::Value> operands,
+                                                                  mlir::ConversionPatternRewriter& rewriter) const {
+  assert(operands.size() == 1);
+  auto baseType = typeConverter->convertType(op.getResult().getType());
+  assert(operands[0].getType() == baseType);
+  // Simply replace the conversion by its input operand. All users of the conversion should be
+  // converted subsequently.
   rewriter.replaceOp(op, operands[0]);
   return success();
 }
