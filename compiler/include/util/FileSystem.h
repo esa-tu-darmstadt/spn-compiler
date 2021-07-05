@@ -12,7 +12,10 @@
 #include <functional>
 #include <iostream>
 #include <string>
-#include <stdlib.h>
+#include <cstdlib>
+#include <string.h>
+#include <unistd.h>
+#include "util/Logging.h"
 
 namespace spnc {
 
@@ -121,9 +124,16 @@ namespace spnc {
       default: fileExtension = "";
     }
     std::string tmpName = "/tmp/spncXXXXXX" + fileExtension;
-    auto suffixLength = fileExtension.length();
+    auto suffixLength = static_cast<int>(fileExtension.length());
     // Use the mkstemps function from the Posix standard to create a temporary files with file suffix.
-    mkstemps(&tmpName[0], suffixLength);
+    auto fd = mkstemps(&tmpName[0], suffixLength);
+    if (fd == -1) {
+      auto errNo = errno;
+      SPNC_FATAL_ERROR("Could not create temporary file: {}", strerror(errNo));
+    }
+    // mkstemps opens the file on creation. Close it again,
+    // users of the file should manage open/close themselves.
+    close(fd);
     return File<Type>{tmpName, deleteTmpOnExit};
   }
 
