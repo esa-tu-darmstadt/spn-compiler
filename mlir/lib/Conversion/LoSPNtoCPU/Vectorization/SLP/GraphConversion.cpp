@@ -226,6 +226,7 @@ SmallVector<Superword*> ConversionManager::startConversion(SLPGraph const& graph
 }
 
 void ConversionManager::finishConversion() {
+  reorderOperations();
   conversionState->finishConversion();
 }
 
@@ -313,6 +314,39 @@ void ConversionManager::update(Superword* superword, Value operation, SLPVectori
   }
 }
 
+Value ConversionManager::getValue(Superword* superword) const {
+  return conversionState->getValue(superword);
+}
+
+Value ConversionManager::getOrCreateConstant(Location const& loc, Attribute const& attribute) {
+  return folder.getOrCreateConstant(rewriter, &attribute.getDialect(), attribute, attribute.getType(), loc);
+}
+
+ConversionState& ConversionManager::getConversionState() const {
+  return *conversionState;
+}
+
+bool ConversionManager::hasEscapingUsers(Value value) const {
+  return escapingUsers.count(value) && !escapingUsers.lookup(value).empty();
+}
+
+Value ConversionManager::getOrExtractValue(Value value) {
+  if (conversionState->alreadyComputed(value)) {
+    return value;
+  }
+  if (!costModel->isExtractionProfitable(value)) {
+    conversionState->markComputed(value);
+    return value;
+  }
+  auto const& wordPosition = conversionState->getSuperwordContainingValue(value);
+  assert(wordPosition.superword && "extraction deemed profitable, but value does not appear in any vector");
+  auto source = conversionState->getValue(wordPosition.superword);
+  auto pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) wordPosition.index));
+  auto extractOp = rewriter.create<vector::ExtractElementOp>(value.getLoc(), source, pos);
+  conversionState->markExtracted(value);
+  return extractOp;
+}
+
 void ConversionManager::reorderOperations() {
   // Sort operations topologically.
   DenseMap<Operation*, unsigned> depths;
@@ -355,37 +389,4 @@ void ConversionManager::reorderOperations() {
       lastOp = op;
     }
   }
-}
-
-Value ConversionManager::getValue(Superword* superword) const {
-  return conversionState->getValue(superword);
-}
-
-Value ConversionManager::getOrCreateConstant(Location const& loc, Attribute const& attribute) {
-  return folder.getOrCreateConstant(rewriter, &attribute.getDialect(), attribute, attribute.getType(), loc);
-}
-
-ConversionState& ConversionManager::getConversionState() const {
-  return *conversionState;
-}
-
-bool ConversionManager::hasEscapingUsers(Value value) const {
-  return escapingUsers.count(value) && !escapingUsers.lookup(value).empty();
-}
-
-Value ConversionManager::getOrExtractValue(Value value) {
-  if (conversionState->alreadyComputed(value)) {
-    return value;
-  }
-  if (!costModel->isExtractionProfitable(value)) {
-    conversionState->markComputed(value);
-    return value;
-  }
-  auto const& wordPosition = conversionState->getSuperwordContainingValue(value);
-  assert(wordPosition.superword && "extraction deemed profitable, but value does not appear in any vector");
-  auto source = conversionState->getValue(wordPosition.superword);
-  auto pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) wordPosition.index));
-  auto extractOp = rewriter.create<vector::ExtractElementOp>(value.getLoc(), source, pos);
-  conversionState->markExtracted(value);
-  return extractOp;
 }

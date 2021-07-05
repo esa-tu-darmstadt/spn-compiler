@@ -161,7 +161,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       applicator.matchAndRewrite(superword, graphRewriter);
     }
     //taskFunc->dump();
-    conversionManager.reorderOperations();
     taskFunc->dump();
     task->emitRemark("Conversion complete.");
     auto vectorizedFunctionCost = costModel->getBlockCost(taskBlock, computeDeadOps(taskBlock));

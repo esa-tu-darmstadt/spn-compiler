@@ -117,7 +117,6 @@ namespace mlir {
 
           void setupConversionFor(Superword* superword, SLPVectorizationPattern const* pattern);
           void update(Superword* superword, Value operation, SLPVectorizationPattern const* appliedPattern);
-          void reorderOperations();
 
           Value getValue(Superword* superword) const;
           Value getOrCreateConstant(Location const& loc, Attribute const& attribute);
@@ -126,6 +125,7 @@ namespace mlir {
         private:
           bool hasEscapingUsers(Value value) const;
           Value getOrExtractValue(Value value);
+          void reorderOperations();
 
           Block* block;
           std::shared_ptr<CostModel> costModel;
