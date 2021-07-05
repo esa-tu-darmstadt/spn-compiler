@@ -119,12 +119,11 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   }
 
   auto currentFunctionCost = costModel->getBlockCost(taskBlock, computeDeadOps(taskBlock));
-
   for (auto seed = seedAnalysis->next(); !seed.empty(); seed = seedAnalysis->next()) {
-    //dumpOpGraph(seed);
     task->emitRemark("Computing graph...");
     SLPGraph graph{seed, 3};
 
+    // ============================================================================================================= //
     {
       bool dependencyStuff = false;
       if (dependencyStuff) {
@@ -148,47 +147,32 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         break;
       }
     }
-    task->emitRemark("Converting graph...");
+    // ============================================================================================================= //
 
+    task->emitRemark("Converting graph...");
     auto order = conversionManager.startConversion(graph);
+    // Traverse the SLP graph and apply the vectorization patterns.
     auto numVectors = order.size();
     task->emitRemark("Number of SLP vectors in graph: " + std::to_string(numVectors));
     task->emitRemark("Number of unique ops in graph:  " + std::to_string(numUniqueOps(order)));
-
-    // Traverse the SLP graph and apply the vectorization patterns.
     for (auto* superword : order) {
-      //dumpSuperword(*superword);
       applicator.matchAndRewrite(superword, graphRewriter);
     }
-    //taskFunc->dump();
-    taskFunc->dump();
     task->emitRemark("Conversion complete.");
     auto vectorizedFunctionCost = costModel->getBlockCost(taskBlock, computeDeadOps(taskBlock));
-    if (vectorizedFunctionCost >= (currentFunctionCost * 0)) {
+    if (vectorizedFunctionCost >= currentFunctionCost) {
       task->emitRemark("Vectorization not profitable, reverting back to non-vectorized state.");
       conversionManager.cancelConversion();
     } else {
+      task->emitRemark("Vectorization profitable, keeping vectorized state.");
+      conversionManager.finishConversion();
       seedAnalysis->update(order);
       currentFunctionCost = vectorizedFunctionCost;
-      conversionManager.finishConversion();
     }
-    taskFunc->dump();
   }
-
   task->emitRemark("SLP vectorization complete.");
-  for (auto& op : *taskBlock) {
-    for (auto* user : op.getUsers()) {
-      if (user->isBeforeInBlock(&op)) {
-        llvm::dbgs() << *user << "\n";
-        llvm::dbgs() << op << "\n";
-        llvm_unreachable("user before operand");
-      }
-    }
-  }
-
   rewriter.restoreInsertionPoint(callPoint);
   rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
-
   return success();
 }
 
