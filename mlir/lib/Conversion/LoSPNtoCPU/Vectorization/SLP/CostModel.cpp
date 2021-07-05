@@ -67,9 +67,12 @@ void CostModel::setConversionState(std::shared_ptr<ConversionState> newConversio
   });
 }
 
-double CostModel::getBlockCost(Block* block) const {
+double CostModel::getBlockCost(Block* block, SmallPtrSetImpl<Operation*> const& deadOps) const {
   double blockCost = 0;
   block->walk([&](Operation* op) {
+    if (deadOps.contains(op)) {
+      return WalkResult::skip();
+    }
     for (auto const& result : op->getResults()) {
       blockCost += computeScalarCost(result);
       // Assume that all results are computed at the same time.

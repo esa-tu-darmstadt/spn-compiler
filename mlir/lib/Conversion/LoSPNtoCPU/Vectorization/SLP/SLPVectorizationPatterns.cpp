@@ -22,7 +22,7 @@ using namespace mlir::spn::low::slp;
 SLPVectorizationPattern::SLPVectorizationPattern(ConversionManager& conversionManager) : conversionManager{
     conversionManager} {}
 
-void SLPVectorizationPattern::rewriteSuperword(Superword* superword, PatternRewriter& rewriter) {
+void SLPVectorizationPattern::rewriteSuperword(Superword* superword, RewriterBase& rewriter) {
   conversionManager.setupConversionFor(superword, this);
   auto vectorOp = rewrite(superword, rewriter);
   conversionManager.update(superword, vectorOp, this);
@@ -31,7 +31,7 @@ void SLPVectorizationPattern::rewriteSuperword(Superword* superword, PatternRewr
 // Helper functions in anonymous namespace.
 namespace {
 
-  Value stripLogOrValue(Value const& value, PatternRewriter& rewriter) {
+  Value stripLogOrValue(Value const& value, RewriterBase& rewriter) {
     if (auto logType = value.getType().dyn_cast<LogType>()) {
       return rewriter.create<SPNStripLog>(value.getLoc(), value, logType.getBaseType());
     }
@@ -39,7 +39,7 @@ namespace {
   }
 
   /// Might be useful in the future.
-  Value castToFloatOrValue(Value const& value, FloatType targetType, PatternRewriter& rewriter) {
+  Value castToFloatOrValue(Value const& value, FloatType targetType, RewriterBase& rewriter) {
     if (auto floatType = value.getType().dyn_cast<FloatType>()) {
       if (floatType.getWidth() < targetType.getWidth()) {
         return rewriter.create<FPExtOp>(value.getLoc(), value, targetType);
@@ -81,7 +81,7 @@ LogicalResult BroadcastSuperword::match(Superword* superword) {
   return success();
 }
 
-Value BroadcastSuperword::rewrite(Superword* superword, PatternRewriter& rewriter) {
+Value BroadcastSuperword::rewrite(Superword* superword, RewriterBase& rewriter) {
   auto const& element = stripLogOrValue(superword->getElement(0), rewriter);
   return rewriter.create<vector::BroadcastOp>(element.getLoc(), superword->getVectorType(), element);
 }
@@ -96,7 +96,7 @@ LogicalResult BroadcastInsertSuperword::match(Superword* superword) {
   return success();
 }
 
-Value BroadcastInsertSuperword::rewrite(Superword* superword, PatternRewriter& rewriter) {
+Value BroadcastInsertSuperword::rewrite(Superword* superword, RewriterBase& rewriter) {
   DenseMap<Value, unsigned> elementCounts;
   Value broadcastValue;
   unsigned maxCount = 0;
@@ -158,7 +158,7 @@ LogicalResult ShuffleSuperword::match(Superword* superword) {
   return failure();
 }
 
-Value ShuffleSuperword::rewrite(Superword* superword, PatternRewriter& rewriter) {
+Value ShuffleSuperword::rewrite(Superword* superword, RewriterBase& rewriter) {
   assert(shuffleMatches.lookup(superword) && "no match determined yet for superword");
   auto* existingSuperword = shuffleMatches.lookup(superword);
   // Erase match immediately to keep the map as small as possible.
@@ -252,7 +252,7 @@ namespace {
 
 // === VectorizeConstant === //
 
-Value VectorizeConstant::rewrite(Superword* superword, PatternRewriter& rewriter) {
+Value VectorizeConstant::rewrite(Superword* superword, RewriterBase& rewriter) {
   SmallVector<Attribute, 4> constants;
   for (auto const& value : *superword) {
     constants.emplace_back(static_cast<ConstantOp>(value.getDefiningOp()).value());
@@ -267,7 +267,7 @@ void VectorizeConstant::accept(PatternVisitor& visitor, Superword* superword) co
 
 // === VectorizeSPNConstant === //
 
-Value VectorizeSPNConstant::rewrite(Superword* superword, PatternRewriter& rewriter) {
+Value VectorizeSPNConstant::rewrite(Superword* superword, RewriterBase& rewriter) {
   DenseElementsAttr elements;
   if (auto logType = superword->getElementType().dyn_cast<LogType>()) {
     if (logType.getBaseType().getIntOrFloatBitWidth() == 32) {
@@ -307,7 +307,7 @@ LogicalResult VectorizeBatchRead::match(Superword* superword) {
   return success();
 }
 
-Value VectorizeBatchRead::rewrite(Superword* superword, PatternRewriter& rewriter) {
+Value VectorizeBatchRead::rewrite(Superword* superword, RewriterBase& rewriter) {
   auto batchRead = cast<SPNBatchRead>(superword->getElement(0).getDefiningOp());
   auto sampleIndex =
       conversionManager.getOrCreateConstant(superword->getLoc(), rewriter.getIndexAttr(batchRead.sampleIndex()));
@@ -324,7 +324,7 @@ void VectorizeBatchRead::accept(PatternVisitor& visitor, Superword* superword) c
 
 // === VectorizeAdd === //
 
-Value VectorizeAdd::rewrite(Superword* superword, PatternRewriter& rewriter) {
+Value VectorizeAdd::rewrite(Superword* superword, RewriterBase& rewriter) {
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < superword->numOperands(); ++i) {
     operands.emplace_back(conversionManager.getValue(superword->getOperand(i)));
@@ -338,7 +338,7 @@ void VectorizeAdd::accept(PatternVisitor& visitor, Superword* superword) const {
 
 // === VectorizeMul === //
 
-Value VectorizeMul::rewrite(Superword* superword, PatternRewriter& rewriter) {
+Value VectorizeMul::rewrite(Superword* superword, RewriterBase& rewriter) {
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < superword->numOperands(); ++i) {
     operands.emplace_back(conversionManager.getValue(superword->getOperand(i)));
@@ -352,7 +352,7 @@ void VectorizeMul::accept(PatternVisitor& visitor, Superword* superword) const {
 
 // === VectorizeGaussian === //
 
-Value VectorizeGaussian::rewrite(Superword* superword, PatternRewriter& rewriter) {
+Value VectorizeGaussian::rewrite(Superword* superword, RewriterBase& rewriter) {
 
   auto vectorType = superword->getVectorType();
 
@@ -426,7 +426,7 @@ namespace {
   }
 }
 
-Value VectorizeLogAdd::rewrite(Superword* superword, PatternRewriter& rewriter) {
+Value VectorizeLogAdd::rewrite(Superword* superword, RewriterBase& rewriter) {
   // Rewrite 'ln(x + y)' with 'a = ln(x), b = ln(y) and a > b' as 'a + ln(e^(b - a) + 1)'.
   auto lhs = conversionManager.getValue(superword->getOperand(0));
   auto rhs = conversionManager.getValue(superword->getOperand(1));
@@ -445,7 +445,7 @@ void VectorizeLogAdd::accept(PatternVisitor& visitor, Superword* superword) cons
 
 // === VectorizeLogMul === //
 
-Value VectorizeLogMul::rewrite(Superword* superword, PatternRewriter& rewriter) {
+Value VectorizeLogMul::rewrite(Superword* superword, RewriterBase& rewriter) {
   SmallVector<Value, 2> operands;
   for (unsigned i = 0; i < superword->numOperands(); ++i) {
     operands.emplace_back(conversionManager.getValue(superword->getOperand(i)));
@@ -461,7 +461,7 @@ void VectorizeLogMul::accept(PatternVisitor& visitor, Superword* superword) cons
 
 // Helper functions in anonymous namespace.
 namespace {
-  Value expandOrTruncateInput(Value const& input, VectorType targetType, PatternRewriter& rewriter) {
+  Value expandOrTruncateInput(Value const& input, VectorType targetType, RewriterBase& rewriter) {
     auto inputType = input.getType().dyn_cast<VectorType>();
     assert(inputType && "vector with scalar operand");
     if (inputType.getElementTypeBitWidth() < targetType.getElementTypeBitWidth()) {
@@ -473,7 +473,7 @@ namespace {
   }
 }
 
-Value VectorizeLogGaussian::rewrite(Superword* superword, PatternRewriter& rewriter) {
+Value VectorizeLogGaussian::rewrite(Superword* superword, RewriterBase& rewriter) {
 
   auto vectorType = superword->getVectorType();
 

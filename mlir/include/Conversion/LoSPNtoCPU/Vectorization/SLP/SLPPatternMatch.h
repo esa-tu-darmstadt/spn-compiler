@@ -23,7 +23,7 @@ namespace mlir {
           SLPPatternApplicator(std::shared_ptr<CostModel> costModel,
                                SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>&& patterns);
           SLPVectorizationPattern* bestMatch(Superword* superword);
-          void matchAndRewrite(Superword* superword, PatternRewriter& rewriter);
+          void matchAndRewrite(Superword* superword, RewriterBase& rewriter);
         private:
           std::shared_ptr<CostModel> costModel;
           DenseMap<Superword*, SLPVectorizationPattern*> bestMatches;

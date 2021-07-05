@@ -23,52 +23,32 @@ using namespace mlir::spn;
 using namespace mlir::spn::low;
 using namespace mlir::spn::low::slp;
 
-LogicalResult VectorizeTask::createFunctionIfVectorizable(SPNTask& task,
-                                                          ArrayRef<Value> const& operands,
-                                                          ConversionPatternRewriter& rewriter,
-                                                          FuncOp* function) const {
-  static int taskCount = 0;
-
-  assert(operands.back().getType().isa<MemRefType>());
-  auto computationType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
-  auto hwVectorWidth = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
-
-  if (hwVectorWidth <= 1) {
-    return rewriter.notifyMatchFailure(task,
-                                       llvm::formatv(
-                                           "No vectorization possible for data-type {} on the requested target",
-                                           computationType));
-  }
-
-  if (requireAllOpsVectorizable) {
-    // Check if all nodes can be vectorized before trying to do so.
-    auto allVectorizable = task.body().walk([hwVectorWidth](low::LoSPNVectorizable vOp) {
-      if (!vOp.isVectorizable(hwVectorWidth)) {
-        vOp.emitRemark() << "Operation cannot be vectorized with vector width " << hwVectorWidth;
-        return WalkResult::interrupt();
+namespace {
+  SmallPtrSet<Operation*, 32> computeDeadOps(Block* block) {
+    SmallPtrSet<Operation*, 32> deadOps;
+    llvm::SmallSetVector<Operation*, 32> worklist;
+    block->walk<WalkOrder::PreOrder>([&](Operation* op) {
+      if (isOpTriviallyDead(op)) {
+        worklist.insert(op);
+        deadOps.insert(op);
       }
-      return WalkResult::advance();
     });
-
-    if (allVectorizable.wasInterrupted()) {
-      return rewriter.notifyMatchFailure(task, "Not all nested operations can be vectorized, aborting vectorization");
+    while (!worklist.empty()) {
+      auto* op = worklist.pop_back_val();
+      for (auto const& operand : op->getOperands()) {
+        if (auto* operandOp = operand.getDefiningOp()) {
+          auto users = operandOp->getUsers();
+          if (std::all_of(std::begin(users), std::end(users), [&](Operation* user) {
+            return deadOps.contains(user);
+          })) {
+            worklist.insert(operandOp);
+            deadOps.insert(operandOp);
+          }
+        }
+      }
     }
+    return deadOps;
   }
-
-  // Let the user know which vector width will be used.
-  task->emitRemark() << "Attempting to vectorize with vector width " << hwVectorWidth << " for data-type "
-                     << computationType;
-
-  auto const& insertionPoint = rewriter.saveInsertionPoint();
-  rewriter.setInsertionPointToStart(task->getParentOfType<ModuleOp>().getBody());
-  SmallVector<Type, 5> inputTypes;
-  for (auto operand : operands) {
-    inputTypes.push_back(operand.getType());
-  }
-  auto funcType = FunctionType::get(rewriter.getContext(), inputTypes, {});
-  *function = rewriter.create<FuncOp>(task->getLoc(), Twine("vec_task_", std::to_string(taskCount++)).str(), funcType);
-  rewriter.restoreInsertionPoint(insertionPoint);
-  return success();
 }
 
 LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
@@ -115,9 +95,12 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   // Apply SLP vectorization.
   task->emitRemark() << "Beginning SLP vectorization...";
   task->emitRemark() << "Total number of operations in function: " << taskFunc.body().front().getOperations().size();
-  //taskFunc.dump();
+  // We don't want to carry thousands of needlessly created operations with us to the next vectorization attempt.
+  // Therefore, use an IRRewriter that erases operations *immediately* instead of at the end of the conversion process
+  // (as would be the case for PatterRewriter::eraseOp()).
+  IRRewriter graphRewriter{rewriter};
   auto costModel = std::make_shared<UnitCostModel>();
-  ConversionManager conversionManager{rewriter, taskBlock, costModel};
+  ConversionManager conversionManager{graphRewriter, taskBlock, costModel};
 
   SmallVector<std::unique_ptr<SLPVectorizationPattern>, 10> patterns;
   populateSLPVectorizationPatterns(patterns, conversionManager);
@@ -135,7 +118,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     }
   }
 
-  auto currentFunctionCost = costModel->getBlockCost(taskBlock);
+  auto currentFunctionCost = costModel->getBlockCost(taskBlock, computeDeadOps(taskBlock));
 
   for (auto seed = seedAnalysis->next(); !seed.empty(); seed = seedAnalysis->next()) {
     //dumpOpGraph(seed);
@@ -160,8 +143,8 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         for (auto& op : taskBlock->getOperations()) {
           rewriter.eraseOp(&op);
         }
-        rewriter.setInsertionPointToStart(taskBlock);
-        rewriter.create<ReturnOp>(task->getLoc());
+        graphRewriter.setInsertionPointToStart(taskBlock);
+        graphRewriter.create<ReturnOp>(task->getLoc());
         break;
       }
     }
@@ -174,24 +157,23 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
     // Traverse the SLP graph and apply the vectorization patterns.
     for (auto* superword : order) {
-      //llvm::dbgs() << "CURRENT SUPERWORD:\t";
       //dumpSuperword(*superword);
-      applicator.matchAndRewrite(superword, rewriter);
+      applicator.matchAndRewrite(superword, graphRewriter);
     }
     //taskFunc->dump();
-    conversionManager.finishConversion();
-    //taskFunc->dump();
+    conversionManager.reorderOperations();
+    taskFunc->dump();
     task->emitRemark("Conversion complete.");
-    auto vectorizedFunctionCost = costModel->getBlockCost(taskBlock);
-    if (vectorizedFunctionCost >= currentFunctionCost) {
+    auto vectorizedFunctionCost = costModel->getBlockCost(taskBlock, computeDeadOps(taskBlock));
+    if (vectorizedFunctionCost >= (currentFunctionCost * 0)) {
       task->emitRemark("Vectorization not profitable, reverting back to non-vectorized state.");
       conversionManager.cancelConversion();
     } else {
       seedAnalysis->update(order);
       currentFunctionCost = vectorizedFunctionCost;
-      conversionManager.acceptConversion();
+      conversionManager.finishConversion();
     }
-    //taskFunc->dump();
+    taskFunc->dump();
   }
 
   task->emitRemark("SLP vectorization complete.");
@@ -302,4 +284,52 @@ LogicalResult VectorizeBatchTask::matchAndRewrite(SPNTask op,
   rewriter.replaceOpWithNewOp<CallOp>(op, taskFunc, operands);
   return success();
 
+}
+
+LogicalResult VectorizeTask::createFunctionIfVectorizable(SPNTask& task,
+                                                          ArrayRef<Value> const& operands,
+                                                          ConversionPatternRewriter& rewriter,
+                                                          FuncOp* function) const {
+  static int taskCount = 0;
+
+  assert(operands.back().getType().isa<MemRefType>());
+  auto computationType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
+  auto hwVectorWidth = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
+
+  if (hwVectorWidth <= 1) {
+    return rewriter.notifyMatchFailure(task,
+                                       llvm::formatv(
+                                           "No vectorization possible for data-type {} on the requested target",
+                                           computationType));
+  }
+
+  if (requireAllOpsVectorizable) {
+    // Check if all nodes can be vectorized before trying to do so.
+    auto allVectorizable = task.body().walk([hwVectorWidth](low::LoSPNVectorizable vOp) {
+      if (!vOp.isVectorizable(hwVectorWidth)) {
+        vOp.emitRemark() << "Operation cannot be vectorized with vector width " << hwVectorWidth;
+        return WalkResult::interrupt();
+      }
+      return WalkResult::advance();
+    });
+
+    if (allVectorizable.wasInterrupted()) {
+      return rewriter.notifyMatchFailure(task, "Not all nested operations can be vectorized, aborting vectorization");
+    }
+  }
+
+  // Let the user know which vector width will be used.
+  task->emitRemark() << "Attempting to vectorize with vector width " << hwVectorWidth << " for data-type "
+                     << computationType;
+
+  auto const& insertionPoint = rewriter.saveInsertionPoint();
+  rewriter.setInsertionPointToStart(task->getParentOfType<ModuleOp>().getBody());
+  SmallVector<Type, 5> inputTypes;
+  for (auto operand : operands) {
+    inputTypes.push_back(operand.getType());
+  }
+  auto funcType = FunctionType::get(rewriter.getContext(), inputTypes, {});
+  *function = rewriter.create<FuncOp>(task->getLoc(), Twine("vec_task_", std::to_string(taskCount++)).str(), funcType);
+  rewriter.restoreInsertionPoint(insertionPoint);
+  return success();
 }

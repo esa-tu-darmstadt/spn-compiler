@@ -34,7 +34,7 @@ SLPVectorizationPattern* SLPPatternApplicator::bestMatch(Superword* superword) {
   return it.first->second;
 }
 
-void SLPPatternApplicator::matchAndRewrite(Superword* superword, PatternRewriter& rewriter) {
+void SLPPatternApplicator::matchAndRewrite(Superword* superword, RewriterBase& rewriter) {
   auto* pattern = bestMatch(superword);
   if (!pattern) {
     llvm_unreachable("could not apply any pattern to superword. did you forget to add a default pattern?");

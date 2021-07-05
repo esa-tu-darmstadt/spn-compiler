@@ -176,9 +176,9 @@ void ConversionState::addExtractionUndoCallback(std::function<void(Value)> callb
 
 // === ConversionManager === //
 
-ConversionManager::ConversionManager(PatternRewriter& rewriter, Block* block, std::shared_ptr<CostModel> costModel)
-    : block{block}, trashBlock{nullptr}, costModel{std::move(costModel)},
-      conversionState{std::make_shared<ConversionState>()}, rewriter{rewriter}, folder{rewriter.getContext()} {
+ConversionManager::ConversionManager(RewriterBase& rewriter, Block* block, std::shared_ptr<CostModel> costModel)
+    : block{block}, costModel{std::move(costModel)}, conversionState{std::make_shared<ConversionState>()},
+      rewriter{rewriter}, folder{rewriter.getContext()} {
   this->costModel->setConversionState(conversionState);
 }
 
@@ -198,7 +198,7 @@ SmallVector<Superword*> ConversionManager::startConversion(SLPGraph const& graph
   auto order = conversionState->unconvertedPostOrder();
   for (auto* superword : order) {
     for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
-      auto const& element = superword->getElement(lane);
+      auto element = superword->getElement(lane);
       if (auto* elementOp = element.getDefiningOp()) {
         if (elementOp->hasTrait<OpTrait::ConstantLike>()) {
           continue;
@@ -208,7 +208,7 @@ SmallVector<Superword*> ConversionManager::startConversion(SLPGraph const& graph
         }
         if (!superword->isLeaf()) {
           for (size_t i = 0; i < superword->numOperands(); ++i) {
-            auto const& operand = superword->getOperand(i)->getElement(lane);
+            auto operand = superword->getOperand(i)->getElement(lane);
             auto& users = escapingUsers[operand];
             users.erase(std::remove(std::begin(users), std::end(users), elementOp), std::end(users));
           }
@@ -226,6 +226,94 @@ SmallVector<Superword*> ConversionManager::startConversion(SLPGraph const& graph
 }
 
 void ConversionManager::finishConversion() {
+  conversionState->finishConversion();
+}
+
+void ConversionManager::cancelConversion() {
+  Operation* lastOp = nullptr;
+  for (auto* op : originalOperations) {
+    auto operands = originalOperands.lookup(op);
+    if (!operands.empty()) {
+      op->setOperands(operands);
+    }
+    if (lastOp) {
+      op->moveAfter(lastOp);
+    } else {
+      op->moveBefore(block, block->begin());
+    }
+    lastOp = op;
+  }
+  SmallPtrSet<Operation*, 32> erasableOps;
+  // Every op that appears after the last 'original' op can be erased.
+  while (auto* trashOp = lastOp->getNextNode()) {
+    erasableOps.insert(trashOp);
+    lastOp = trashOp;
+  }
+  conversionState->cancelConversion();
+  for (auto* op : erasableOps) {
+    if (op->hasTrait<OpTrait::ConstantLike>()) {
+      folder.notifyRemoval(op);
+    }
+    op->dropAllUses();
+    rewriter.eraseOp(op);
+  }
+}
+
+void ConversionManager::setupConversionFor(Superword* superword, SLPVectorizationPattern const* pattern) {
+  rewriter.setInsertionPoint(block->getTerminator());
+  // Create extractions if needed.
+  auto scalarInputs = leafVisitor.getRequiredScalarValues(pattern, superword);
+  for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
+    auto element = superword->getElement(lane);
+    if (std::find(std::begin(scalarInputs), std::end(scalarInputs), element) != std::end(scalarInputs)) {
+      superword->setElement(lane, getOrExtractValue(element));
+    }
+  }
+}
+
+void ConversionManager::update(Superword* superword, Value operation, SLPVectorizationPattern const* appliedPattern) {
+  if (conversionState->alreadyComputed(superword)) {
+    dumpSuperword(*superword);
+    getValue(superword).dump();
+  }
+  conversionState->markComputed(superword, operation);
+  auto scalarInputs = leafVisitor.getRequiredScalarValues(appliedPattern, superword);
+  for (auto scalarInput : scalarInputs) {
+    conversionState->markComputed(scalarInput);
+  }
+  // Create vector extractions for escaping uses.
+  for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
+    auto element = superword->getElement(lane);
+    if (conversionState->alreadyComputed(element)) {
+      continue;
+    }
+    if (hasEscapingUsers(element)) {
+      Value extractOp = getOrExtractValue(element);
+      // Nothing to do if it's being computed in scalar form somewhere else.
+      if (extractOp != element) {
+        Value logExtractOp = nullptr;
+        for (auto* escapingUser : escapingUsers.lookup(element)) {
+          for (size_t i = 0; i < escapingUser->getNumOperands(); ++i) {
+            if (escapingUser->getOperand(i) != element) {
+              continue;
+            }
+            if (escapingUser->getOperand(i).getType().isa<LogType>()) {
+              if (!logExtractOp) {
+                logExtractOp = rewriter.create<SPNAttachLog>(element.getLoc(), extractOp, extractOp.getType());
+              }
+              escapingUser->setOperand(i, logExtractOp);
+            } else {
+              escapingUser->setOperand(i, extractOp);
+            }
+          }
+        }
+      }
+      escapingUsers.erase(element);
+    }
+  }
+}
+
+void ConversionManager::reorderOperations() {
   // Sort operations topologically.
   DenseMap<Operation*, unsigned> depths;
   llvm::SmallSetVector<Operation*, 32> worklist;
@@ -267,116 +355,6 @@ void ConversionManager::finishConversion() {
       lastOp = op;
     }
   }
-  // Perform DCE on the resulting block. This is required for correct cost analyses.
-  SmallPtrSet<Operation*, 32> deadOps;
-  block->walk<WalkOrder::PreOrder>([&](Operation* op) {
-    if (isOpTriviallyDead(op)) {
-      worklist.insert(op);
-      deadOps.insert(op);
-    }
-  });
-  while (!worklist.empty()) {
-    auto* op = worklist.pop_back_val();
-    for (auto const& operand : op->getOperands()) {
-      if (auto* operandOp = operand.getDefiningOp()) {
-        auto users = operandOp->getUsers();
-        if (std::all_of(std::begin(users), std::end(users), [&](Operation* user) {
-          return deadOps.contains(user);
-        })) {
-          worklist.insert(operandOp);
-          deadOps.insert(operandOp);
-        }
-      }
-    }
-  }
-  moveToTrash(deadOps);
-}
-
-void ConversionManager::acceptConversion() {
-  conversionState->finishConversion();
-  emptyTrash();
-}
-
-void ConversionManager::cancelConversion() {
-  Operation* lastOp = nullptr;
-  for (auto* op : originalOperations) {
-    auto operands = originalOperands.lookup(op);
-    if (!operands.empty()) {
-      op->setOperands(operands);
-    }
-    if (lastOp) {
-      op->moveAfter(lastOp);
-    } else {
-      op->moveBefore(block, block->begin());
-    }
-    lastOp = op;
-  }
-  SmallPtrSet<Operation*, 32> erasableOps;
-  // Every op that appears after the last 'original' op can be erased.
-  while (auto* trashOp = lastOp->getNextNode()) {
-    erasableOps.insert(trashOp);
-    lastOp = trashOp;
-  }
-  conversionState->cancelConversion();
-  // Move all created vector operations to a trash block, so that they can be destroyed *immediately* instead of at the
-  // end of the conversion process. We don't want to carry thousands or millions of erased operations with us to the
-  // next vectorization attempt.
-  moveToTrash(erasableOps);
-  emptyTrash();
-}
-
-void ConversionManager::setupConversionFor(Superword* superword, SLPVectorizationPattern const* pattern) {
-  rewriter.setInsertionPoint(block->getTerminator());
-  // Create extractions if needed.
-  auto scalarInputs = leafVisitor.getRequiredScalarValues(pattern, superword);
-  for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
-    auto const& element = superword->getElement(lane);
-    if (std::find(std::begin(scalarInputs), std::end(scalarInputs), element) != std::end(scalarInputs)) {
-      superword->setElement(lane, getOrExtractValue(element));
-    }
-  }
-}
-
-void ConversionManager::update(Superword* superword, Value operation, SLPVectorizationPattern const* appliedPattern) {
-  if (conversionState->alreadyComputed(superword)) {
-    dumpSuperword(*superword);
-    getValue(superword).dump();
-  }
-  conversionState->markComputed(superword, operation);
-  auto scalarInputs = leafVisitor.getRequiredScalarValues(appliedPattern, superword);
-  for (auto const& scalarInput : scalarInputs) {
-    conversionState->markComputed(scalarInput);
-  }
-  // Create vector extractions for escaping uses.
-  for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
-    auto const& element = superword->getElement(lane);
-    if (conversionState->alreadyComputed(element)) {
-      continue;
-    }
-    if (hasEscapingUsers(element)) {
-      Value extractOp = getOrExtractValue(element);
-      // Nothing to do if it's being computed in scalar form somewhere else.
-      if (extractOp != element) {
-        Value logExtractOp = nullptr;
-        for (auto* escapingUser : escapingUsers.lookup(element)) {
-          for (size_t i = 0; i < escapingUser->getNumOperands(); ++i) {
-            if (escapingUser->getOperand(i) != element) {
-              continue;
-            }
-            if (escapingUser->getOperand(i).getType().isa<LogType>()) {
-              if (!logExtractOp) {
-                logExtractOp = rewriter.create<SPNAttachLog>(element.getLoc(), extractOp, extractOp.getType());
-              }
-              escapingUser->setOperand(i, logExtractOp);
-            } else {
-              escapingUser->setOperand(i, extractOp);
-            }
-          }
-        }
-      }
-      escapingUsers.erase(element);
-    }
-  }
 }
 
 Value ConversionManager::getValue(Superword* superword) const {
@@ -405,33 +383,9 @@ Value ConversionManager::getOrExtractValue(Value value) {
   }
   auto const& wordPosition = conversionState->getSuperwordContainingValue(value);
   assert(wordPosition.superword && "extraction deemed profitable, but value does not appear in any vector");
-  auto const& source = conversionState->getValue(wordPosition.superword);
-  auto const& pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) wordPosition.index));
+  auto source = conversionState->getValue(wordPosition.superword);
+  auto pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) wordPosition.index));
   auto extractOp = rewriter.create<vector::ExtractElementOp>(value.getLoc(), source, pos);
   conversionState->markExtracted(value);
   return extractOp;
-}
-
-void ConversionManager::moveToTrash(SmallPtrSetImpl<Operation*> const& deadOps) {
-  if (!trashBlock) {
-    trashBlock = rewriter.createBlock(block);
-    block->moveBefore(trashBlock);
-  }
-  for (auto* op : deadOps) {
-    op->dropAllUses();
-    if (op->getNumOperands() > 0) {
-      op->eraseOperands(0, op->getNumOperands());
-    }
-    op->moveBefore(trashBlock, trashBlock->end());
-  }
-}
-
-void ConversionManager::emptyTrash() {
-  trashBlock->walk([&](Operation* op) {
-    if (op->hasTrait<OpTrait::ConstantLike>()) {
-      folder.notifyRemoval(op);
-    }
-  });
-  rewriter.eraseBlock(trashBlock);
-  trashBlock = nullptr;
 }

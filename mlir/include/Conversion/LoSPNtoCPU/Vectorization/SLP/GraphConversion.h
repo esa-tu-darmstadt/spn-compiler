@@ -109,15 +109,15 @@ namespace mlir {
 
         public:
 
-          ConversionManager(PatternRewriter& rewriter, Block* block, std::shared_ptr<CostModel> costModel);
+          ConversionManager(RewriterBase& rewriter, Block* block, std::shared_ptr<CostModel> costModel);
 
           SmallVector<Superword*> startConversion(SLPGraph const& graph);
           void finishConversion();
-          void acceptConversion();
           void cancelConversion();
 
           void setupConversionFor(Superword* superword, SLPVectorizationPattern const* pattern);
           void update(Superword* superword, Value operation, SLPVectorizationPattern const* appliedPattern);
+          void reorderOperations();
 
           Value getValue(Superword* superword) const;
           Value getOrCreateConstant(Location const& loc, Attribute const& attribute);
@@ -127,11 +127,7 @@ namespace mlir {
           bool hasEscapingUsers(Value value) const;
           Value getOrExtractValue(Value value);
 
-          void moveToTrash(SmallPtrSetImpl<Operation*> const& deadOps);
-          void emptyTrash();
-
           Block* block;
-          Block* trashBlock;
           std::shared_ptr<CostModel> costModel;
           std::shared_ptr<ConversionState> conversionState;
 
@@ -145,8 +141,8 @@ namespace mlir {
           /// Helps find out which vector elements can be erased.
           LeafPatternVisitor leafVisitor;
 
-          /// For creating constants & setting insertion points.
-          PatternRewriter& rewriter;
+          /// For creating constants, setting insertion points, creating extractions, ....
+          RewriterBase& rewriter;
 
           /// Helps avoid creating duplicate constants.
           OperationFolder folder;

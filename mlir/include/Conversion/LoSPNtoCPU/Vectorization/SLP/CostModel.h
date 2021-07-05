@@ -24,7 +24,7 @@ namespace mlir {
           double getSuperwordCost(Superword* superword, SLPVectorizationPattern* pattern);
           bool isExtractionProfitable(Value const& value);
           void setConversionState(std::shared_ptr<ConversionState> newConversionState);
-          double getBlockCost(Block* block) const;
+          double getBlockCost(Block* block, SmallPtrSetImpl<Operation*> const& deadOps) const;
         protected:
           virtual double computeScalarCost(Value const& value) const = 0;
           virtual double computeExtractionCost(Superword* superword, size_t index) const = 0;
