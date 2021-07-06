@@ -67,7 +67,7 @@ namespace {
                                         mlir::Type targetElementType,
                                         mlir::ConversionPatternRewriter& rewriter) {
     auto inputVectorType = input.getType().dyn_cast<mlir::VectorType>();
-    assert(inputVectorType && "cannot expand or truncate scalar type to vector type");
+    assert(inputVectorType && "cannot extend or truncate scalar type to vector type");
     assert(targetElementType.isa<mlir::FloatType>() && "target element type must be float type");
     auto targetVectorType = mlir::VectorType::get(inputVectorType.getShape(), targetElementType);
     if (inputVectorType.getElementTypeBitWidth() < targetVectorType.getElementTypeBitWidth()) {
