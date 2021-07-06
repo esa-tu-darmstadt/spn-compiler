@@ -64,12 +64,11 @@ namespace {
   }
 
   mlir::Value extendTruncateOrGetVector(mlir::Value input,
-                                        mlir::Type targetElementType,
+                                        mlir::VectorType targetVectorType,
                                         mlir::ConversionPatternRewriter& rewriter) {
     auto inputVectorType = input.getType().dyn_cast<mlir::VectorType>();
     assert(inputVectorType && "cannot extend or truncate scalar type to vector type");
-    assert(targetElementType.isa<mlir::FloatType>() && "target element type must be float type");
-    auto targetVectorType = mlir::VectorType::get(inputVectorType.getShape(), targetElementType);
+    assert(targetVectorType.getElementType().isa<mlir::FloatType>() && "target element type must be float type");
     if (inputVectorType.getElementTypeBitWidth() < targetVectorType.getElementTypeBitWidth()) {
       return rewriter.create<mlir::FPExtOp>(input.getLoc(), input, targetVectorType);
     } else if (inputVectorType.getElementTypeBitWidth() > targetVectorType.getElementTypeBitWidth()) {
@@ -343,19 +342,20 @@ mlir::LogicalResult mlir::spn::VectorizeGaussian::matchAndRewrite(mlir::spn::low
   auto featureType = vectorType.getElementType().dyn_cast<FloatType>();
   assert(featureType);
 
-  feature = extendTruncateOrGetVector(feature, floatResultType, rewriter);
+  auto targetVectorType = mlir::VectorType::get(vectorType.getShape(), floatResultType);
+  feature = extendTruncateOrGetVector(feature, targetVectorType, rewriter);
 
   // Calculate Gaussian distribution using e^(-(x - mean)^2/2*variance))/sqrt(2*PI*variance)
   // Variance from standard deviation.
   double variance = op.stddev().convertToDouble() * op.stddev().convertToDouble();
   // 1/sqrt(2*PI*variance)
   double coefficient = 1.0 / (std::sqrt(2.0 * M_PI * variance));
-  auto coefficientConst = broadcastVectorConstant(vectorType, coefficient, rewriter, op.getLoc());
+  auto coefficientConst = broadcastVectorConstant(targetVectorType, coefficient, rewriter, op.getLoc());
   // -1/(2*variance)
   double denominator = -1.0 / (2.0 * variance);
-  auto denominatorConst = broadcastVectorConstant(vectorType, denominator, rewriter, op.getLoc());
+  auto denominatorConst = broadcastVectorConstant(targetVectorType, denominator, rewriter, op.getLoc());
   // x - mean
-  auto meanConst = broadcastVectorConstant(vectorType, op.mean().convertToDouble(), rewriter, op.getLoc());
+  auto meanConst = broadcastVectorConstant(targetVectorType, op.mean().convertToDouble(), rewriter, op.getLoc());
   auto subtraction = rewriter.create<mlir::SubFOp>(op.getLoc(), feature, meanConst);
   // (x-mean)^2
   auto numerator = rewriter.create<mlir::MulFOp>(op.getLoc(), subtraction, subtraction);
@@ -367,7 +367,7 @@ mlir::LogicalResult mlir::spn::VectorizeGaussian::matchAndRewrite(mlir::spn::low
   Value gaussian = rewriter.create<mlir::MulFOp>(op->getLoc(), coefficientConst, exp);
   if (op.supportMarginal()) {
     auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), CmpFPredicate::UNO, feature, feature);
-    auto constOne = broadcastVectorConstant(vectorType, 1.0, rewriter, op.getLoc());
+    auto constOne = broadcastVectorConstant(targetVectorType, 1.0, rewriter, op.getLoc());
     gaussian = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, gaussian);
   }
   rewriter.replaceOp(op, gaussian);
@@ -410,7 +410,8 @@ mlir::LogicalResult mlir::spn::VectorizeLogGaussian::matchAndRewrite(mlir::spn::
   auto featureType = vectorType.getElementType().dyn_cast<FloatType>();
   assert(featureType);
 
-  feature = extendTruncateOrGetVector(feature, floatResultType, rewriter);
+  auto targetVectorType = mlir::VectorType::get(vectorType.getShape(), floatResultType);
+  feature = extendTruncateOrGetVector(feature, targetVectorType, rewriter);
 
   // Calculate Gaussian distribution using the logarithm of the PDF of the Normal (Gaussian) distribution,
   // given as '-ln(stddev) - 1/2 ln(2*pi) - (x - mean)^2 / 2*stddev^2'
@@ -420,13 +421,13 @@ mlir::LogicalResult mlir::spn::VectorizeLogGaussian::matchAndRewrite(mlir::spn::
   double secondTerm = -0.5 * log(2 * M_PI);
   // Denominator, - 1/2*(stddev^2)
   double denominator = -(1.0 / (2.0 * op.stddev().convertToDouble() * op.stddev().convertToDouble()));
-  auto denominatorConst = broadcastVectorConstant(vectorType, denominator, rewriter, op->getLoc());
+  auto denominatorConst = broadcastVectorConstant(targetVectorType, denominator, rewriter, op->getLoc());
   // Coefficient, summing up the first two constant terms
   double coefficient = firstTerm + secondTerm;
-  auto coefficientConst = broadcastVectorConstant(vectorType, coefficient, rewriter, op.getLoc());
+  auto coefficientConst = broadcastVectorConstant(targetVectorType, coefficient, rewriter, op.getLoc());
   // x - mean
-  auto meanConst = broadcastVectorConstant(vectorType, op.meanAttr().getValueAsDouble(),
-                                           rewriter, op.getLoc());
+  auto meanConst = broadcastVectorConstant(targetVectorType, op.meanAttr().getValueAsDouble(), rewriter, op.getLoc());
+
   auto subtraction = rewriter.create<mlir::SubFOp>(op.getLoc(), feature, meanConst);
   // (x-mean)^2
   auto numerator = rewriter.create<mlir::MulFOp>(op.getLoc(), subtraction, subtraction);
@@ -436,7 +437,7 @@ mlir::LogicalResult mlir::spn::VectorizeLogGaussian::matchAndRewrite(mlir::spn::
   Value gaussian = rewriter.create<mlir::AddFOp>(op->getLoc(), coefficientConst, fraction);
   if (op.supportMarginal()) {
     auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), CmpFPredicate::UNO, feature, feature);
-    auto constOne = broadcastVectorConstant(vectorType, 0.0, rewriter, op.getLoc());
+    auto constOne = broadcastVectorConstant(targetVectorType, 0.0, rewriter, op.getLoc());
     gaussian = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, gaussian);
   }
   rewriter.replaceOp(op, gaussian);
