@@ -118,8 +118,28 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     }
   }
 
+  auto maxIterations = 3;
+  auto iteration = 0;
+
   auto currentFunctionCost = costModel->getBlockCost(taskBlock, computeDeadOps(taskBlock));
   for (auto seed = seedAnalysis->next(); !seed.empty(); seed = seedAnalysis->next()) {
+
+    // ============================================================================================================= //
+    {
+      bool printCostModelAnalysis = true;
+      if (printCostModelAnalysis) {
+        auto line = Twine("SLP Iteration: ").concat(std::to_string(iteration)).str();
+        appendLineToFile("costAnalysis.log", line);
+        line = Twine("Estimated Cost: ").concat(std::to_string(currentFunctionCost)).str();
+        appendLineToFile("costAnalysis.log", line);
+      }
+    }
+    // ============================================================================================================= //
+
+    if (iteration++ == maxIterations) {
+      break;
+    }
+
     task->emitRemark("Computing graph...");
     SLPGraph graph{seed, 3};
 
@@ -169,6 +189,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       seedAnalysis->update(order);
       currentFunctionCost = vectorizedFunctionCost;
     }
+
   }
   task->emitRemark("SLP vectorization complete.");
   rewriter.restoreInsertionPoint(callPoint);

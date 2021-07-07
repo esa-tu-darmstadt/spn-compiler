@@ -18,7 +18,14 @@ namespace mlir {
     namespace low {
       namespace slp {
 
-        void appendLineToFile(StringRef filename, StringRef header, StringRef line, bool alwaysPrintHeader = false) {
+        void appendLineToFile(StringRef filename, StringRef line) {
+          std::ofstream outfile;
+          outfile.open(filename.str(), std::ios_base::app);
+          assert(outfile.good() && "could not open file");
+          outfile << line.str() << "\n";
+        }
+
+        void appendCSVLineToFile(StringRef filename, StringRef header, StringRef line, bool alwaysPrintHeader = false) {
           std::ofstream outfile;
           bool exists = std::ifstream{filename.str()}.good();
           outfile.open(filename.str(), std::ios_base::app);
@@ -116,7 +123,7 @@ namespace mlir {
               .concat(",")
               .str();
 
-          appendLineToFile("topologicalMixingAnalysis.csv", header, line);
+          appendCSVLineToFile("topologicalMixingAnalysis.csv", header, line);
 
         }
 
