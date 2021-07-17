@@ -94,7 +94,20 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
   // Apply SLP vectorization.
   task->emitRemark() << "Beginning SLP vectorization...";
+  // ============================================================================================================= //
+  // Useful for when we are only interested in some stats, not the compiled kernel or output comparisons (brings
+  // compilation time practically down to zero).
+  bool deleteAllOps = false;
+  // ============================================================================================================= //
   task->emitRemark() << "Total number of operations in function: " << taskFunc.body().front().getOperations().size();
+  // ============================================================================================================= //
+  bool doSizeAnalysis = true;
+  if (doSizeAnalysis) {
+    unsigned numOps = taskBlock->getOperations().size();
+    llvm::outs() << "#ops: " << std::to_string(numOps);
+    deleteAllOps = true;
+  }
+  // ============================================================================================================= //
   // We don't want to carry thousands of needlessly created operations with us to the next vectorization attempt.
   // Therefore, use an IRRewriter that erases operations *immediately* instead of at the end of the conversion process
   // (as would be the case for PatterRewriter::eraseOp()).
@@ -118,7 +131,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     }
   }
 
-  auto maxIterations = 3;
+  auto maxIterations = 1;
   auto iteration = 0;
 
   auto currentFunctionCost = costModel->getBlockCost(taskBlock, computeDeadOps(taskBlock));
@@ -126,12 +139,13 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
     // ============================================================================================================= //
     {
-      bool printCostModelAnalysis = true;
+      bool printCostModelAnalysis = false;
       if (printCostModelAnalysis) {
         auto line = Twine("SLP Iteration: ").concat(std::to_string(iteration)).str();
         appendLineToFile("costAnalysis.log", line);
         line = Twine("Estimated Cost: ").concat(std::to_string(currentFunctionCost)).str();
         appendLineToFile("costAnalysis.log", line);
+        deleteAllOps = true;
       }
     }
     // ============================================================================================================= //
@@ -145,25 +159,19 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
     // ============================================================================================================= //
     {
-      bool dependencyStuff = false;
-      if (dependencyStuff) {
+      bool doDependencyAnalysis = false;
+      if (doDependencyAnalysis) {
         auto dependencyGraph = graph.dependencyGraph();
         task->emitRemark("#Nodes in dependency graph: ") << dependencyGraph.numNodes();
         task->emitRemark("#Edges in dependency graph: ") << dependencyGraph.numEdges();
         dumpDependencyGraph(dependencyGraph);
-        for (auto* superword : dependencyGraph.postOrder()) {
-          dumpSuperword(*superword);
-        }
+        deleteAllOps = true;
         break;
       }
-      bool analysisStuff = false;
-      if (analysisStuff) {
+      bool doTopologicalMixingAnalysis = false;
+      if (doTopologicalMixingAnalysis) {
         analyzeTopologicalMixing(graph);
-        for (auto& op : taskBlock->getOperations()) {
-          rewriter.eraseOp(&op);
-        }
-        graphRewriter.setInsertionPointToStart(taskBlock);
-        graphRewriter.create<ReturnOp>(task->getLoc());
+        deleteAllOps = true;
         break;
       }
     }
@@ -192,6 +200,15 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
   }
   task->emitRemark("SLP vectorization complete.");
+  // ============================================================================================================= //
+  if (deleteAllOps) {
+    for (auto& op : taskBlock->getOperations()) {
+      rewriter.eraseOp(&op);
+    }
+    graphRewriter.setInsertionPointToStart(taskBlock);
+    graphRewriter.create<ReturnOp>(task->getLoc());
+  }
+  // ============================================================================================================= //
   rewriter.restoreInsertionPoint(callPoint);
   rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
   return success();
