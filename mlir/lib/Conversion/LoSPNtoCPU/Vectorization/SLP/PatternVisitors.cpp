@@ -7,7 +7,6 @@
 //==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/SLP/PatternVisitors.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -37,7 +36,11 @@ void PatternVisitor::visit(VectorizeSPNConstant const* pattern, Superword* super
   visitDefault(pattern, superword);
 }
 
-void PatternVisitor::visit(VectorizeBatchRead const* pattern, Superword* superword) {
+void PatternVisitor::visit(CreateConsecutiveLoad const* pattern, Superword* superword) {
+  visitDefault(pattern, superword);
+}
+
+void PatternVisitor::visit(CreateGatherLoad const* pattern, Superword* superword) {
   visitDefault(pattern, superword);
 }
 

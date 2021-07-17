@@ -27,7 +27,8 @@ namespace mlir {
           virtual void visit(ShuffleSuperword const* pattern, Superword* superword);
           virtual void visit(VectorizeConstant const* pattern, Superword* superword);
           virtual void visit(VectorizeSPNConstant const* pattern, Superword* superword);
-          virtual void visit(VectorizeBatchRead const* pattern, Superword* superword);
+          virtual void visit(CreateConsecutiveLoad const* pattern, Superword* superword);
+          virtual void visit(CreateGatherLoad const* pattern, Superword* superword);
           virtual void visit(VectorizeAdd const* pattern, Superword* superword);
           virtual void visit(VectorizeMul const* pattern, Superword* superword);
           virtual void visit(VectorizeGaussian const* pattern, Superword* superword);

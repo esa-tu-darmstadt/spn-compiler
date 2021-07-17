@@ -122,7 +122,14 @@ namespace mlir {
           void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
-        struct VectorizeBatchRead : public OpSpecificVectorizationPattern<SPNBatchRead> {
+        struct CreateConsecutiveLoad : public OpSpecificVectorizationPattern<SPNBatchRead> {
+          using OpSpecificVectorizationPattern<SPNBatchRead>::OpSpecificVectorizationPattern;
+          LogicalResult match(Superword* superword) override;
+          Value rewrite(Superword* superword, RewriterBase& rewriter) override;
+          void accept(PatternVisitor& visitor, Superword* superword) const override;
+        };
+
+        struct CreateGatherLoad : public OpSpecificVectorizationPattern<SPNBatchRead> {
           using OpSpecificVectorizationPattern<SPNBatchRead>::OpSpecificVectorizationPattern;
           LogicalResult match(Superword* superword) override;
           Value rewrite(Superword* superword, RewriterBase& rewriter) override;
@@ -178,7 +185,8 @@ namespace mlir {
           patterns.emplace_back(std::make_unique<ShuffleSuperword>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeConstant>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeSPNConstant>(conversionManager));
-          patterns.emplace_back(std::make_unique<VectorizeBatchRead>(conversionManager));
+          patterns.emplace_back(std::make_unique<CreateConsecutiveLoad>(conversionManager));
+          patterns.emplace_back(std::make_unique<CreateGatherLoad>(conversionManager));
           // === Normal space patterns === //
           patterns.emplace_back(std::make_unique<VectorizeAdd>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeMul>(conversionManager));

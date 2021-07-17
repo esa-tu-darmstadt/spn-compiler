@@ -297,9 +297,9 @@ void VectorizeSPNConstant::accept(PatternVisitor& visitor, Superword* superword)
   visitor.visit(this, superword);
 }
 
-// === VectorizeBatchRead === //
+// === CreateConsecutiveLoad === //
 
-LogicalResult VectorizeBatchRead::match(Superword* superword) {
+LogicalResult CreateConsecutiveLoad::match(Superword* superword) {
   if (!consecutiveLoads(superword->begin(), superword->end())) {
     // Pattern only applicable to consecutive loads.
     return failure();
@@ -307,7 +307,7 @@ LogicalResult VectorizeBatchRead::match(Superword* superword) {
   return success();
 }
 
-Value VectorizeBatchRead::rewrite(Superword* superword, RewriterBase& rewriter) {
+Value CreateConsecutiveLoad::rewrite(Superword* superword, RewriterBase& rewriter) {
   auto batchRead = cast<SPNBatchRead>(superword->getElement(0).getDefiningOp());
   auto sampleIndex =
       conversionManager.getOrCreateConstant(superword->getLoc(), rewriter.getIndexAttr(batchRead.sampleIndex()));
@@ -318,7 +318,101 @@ Value VectorizeBatchRead::rewrite(Superword* superword, RewriterBase& rewriter) 
                                          indices);
 }
 
-void VectorizeBatchRead::accept(PatternVisitor& visitor, Superword* superword) const {
+void CreateConsecutiveLoad::accept(PatternVisitor& visitor, Superword* superword) const {
+  visitor.visit(this, superword);
+}
+
+// === CreateGatherLoad === //
+
+LogicalResult CreateGatherLoad::match(Superword* superword) {
+  Value batchMem = nullptr;
+  Value batchIndex = nullptr;
+  for (auto element : *superword) {
+    auto batchRead = element.getDefiningOp<SPNBatchRead>();
+    if (!batchRead) {
+      return failure();
+    }
+    // We can only gather from the same memory location.
+    if (!batchMem) {
+      batchMem = batchRead.batchMem();
+    } else if (batchRead.batchMem() != batchMem) {
+      return failure();
+    }
+    if (!batchIndex) {
+      batchIndex = batchRead.batchIndex();
+      // We require the batch index to be 0.
+      if (auto* definingOp = batchIndex.getDefiningOp()) {
+        auto constant = dyn_cast<ConstantOp>(definingOp);
+        if (!constant || !constant.getType().isIntOrIndex() || constant.getValue().cast<IntegerAttr>().getInt() != 0) {
+          return failure();
+        }
+      } else {
+        return failure();
+      }
+    } else if (batchRead.batchIndex() != batchIndex) {
+      return failure();
+    }
+  }
+  return success();
+}
+
+// Helper function in anonymous namespace.
+namespace {
+  template<typename T>
+  DenseElementsAttr constantPassThrough(VectorType const& vectorType) {
+    SmallVector<T, 4> elements;
+    for (auto i = 0; i < vectorType.getNumElements(); ++i) {
+      elements.template emplace_back(T());
+    }
+    return DenseElementsAttr::get(vectorType, static_cast<ArrayRef<T>>(elements));
+  }
+}
+
+Value CreateGatherLoad::rewrite(Superword* superword, RewriterBase& rewriter) {
+  Value base = nullptr;
+  Value index = nullptr;
+  SmallVector<uint32_t, 4> samples;
+  SmallVector<bool, 4> maskBits;
+  for (auto element : *superword) {
+    auto batchRead = cast<SPNBatchRead>(element.getDefiningOp());
+    if (!base && !index) {
+      base = batchRead.batchMem();
+      index = batchRead.batchIndex();
+    }
+    samples.emplace_back(batchRead.sampleIndex());
+    maskBits.emplace_back(true);
+  }
+
+  // Access the base memref beginning at [0, 0].
+  ValueRange indices{index, index};
+
+  auto loc = superword->getLoc();
+  auto vectorType = superword->getVectorType();
+
+  auto indexType = VectorType::get(vectorType.getShape(), rewriter.getI32Type());
+  auto indexElements = DenseElementsAttr::get(indexType, static_cast<ArrayRef<uint32_t>>(samples));
+  auto indexVector = conversionManager.getOrCreateConstant(loc, indexElements);
+
+  auto maskType = VectorType::get(vectorType.getShape(), rewriter.getI1Type());
+  auto maskElements = DenseElementsAttr::get(maskType, static_cast<ArrayRef<bool>>(maskBits));
+  auto mask = conversionManager.getOrCreateConstant(loc, maskElements);
+
+  DenseElementsAttr passThroughElements;
+  if (superword->getElementType().isIntOrIndex()) {
+    passThroughElements = constantPassThrough<int>(vectorType);
+  } else if (superword->getElementType().isF32()) {
+    passThroughElements = constantPassThrough<float>(vectorType);
+  } else if (superword->getElementType().isF64()) {
+    passThroughElements = constantPassThrough<double>(vectorType);
+  } else {
+    llvm_unreachable("unsupported vector element type for gather op");
+  }
+  auto passThrough = conversionManager.getOrCreateConstant(loc, passThroughElements);
+
+  return rewriter.create<vector::GatherOp>(loc, vectorType, base, indices, indexVector, mask, passThrough);
+}
+
+void CreateGatherLoad::accept(PatternVisitor& visitor, Superword* superword) const {
   visitor.visit(this, superword);
 }
 
