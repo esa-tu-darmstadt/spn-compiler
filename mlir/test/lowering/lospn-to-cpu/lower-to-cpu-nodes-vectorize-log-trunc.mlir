@@ -173,52 +173,46 @@ module  {
 // CHECK:             %[[VAL_107:.*]] = select %[[VAL_105]], %[[VAL_104]], %[[VAL_103]] : vector<8xi1>, vector<8xf32>
 // CHECK:             %[[VAL_108:.*]] = subf %[[VAL_107]], %[[VAL_106]] : vector<8xf32>
 // CHECK:             %[[VAL_109:.*]] = math.exp %[[VAL_108]] : vector<8xf32>
-// CHECK:             %[[VAL_110:.*]] = constant dense<1.000000e+00> : vector<8xf32>
-// CHECK:             %[[VAL_111:.*]] = addf %[[VAL_110]], %[[VAL_109]] : vector<8xf32>
-// CHECK:             %[[VAL_112:.*]] = math.log %[[VAL_111]] : vector<8xf32>
-// CHECK:             %[[VAL_113:.*]] = addf %[[VAL_106]], %[[VAL_112]] : vector<8xf32>
-// CHECK:             %[[VAL_114:.*]] = addf %[[VAL_93]], %[[VAL_102]] : vector<8xf32>
-// CHECK:             %[[VAL_115:.*]] = addf %[[VAL_101]], %[[VAL_102]] : vector<8xf32>
-// CHECK:             %[[VAL_116:.*]] = cmpf ogt, %[[VAL_114]], %[[VAL_115]] : vector<8xf32>
-// CHECK:             %[[VAL_117:.*]] = select %[[VAL_116]], %[[VAL_114]], %[[VAL_115]] : vector<8xi1>, vector<8xf32>
-// CHECK:             %[[VAL_118:.*]] = select %[[VAL_116]], %[[VAL_115]], %[[VAL_114]] : vector<8xi1>, vector<8xf32>
-// CHECK:             %[[VAL_119:.*]] = subf %[[VAL_118]], %[[VAL_117]] : vector<8xf32>
-// CHECK:             %[[VAL_120:.*]] = math.exp %[[VAL_119]] : vector<8xf32>
-// CHECK:             %[[VAL_121:.*]] = constant dense<1.000000e+00> : vector<8xf32>
-// CHECK:             %[[VAL_122:.*]] = addf %[[VAL_121]], %[[VAL_120]] : vector<8xf32>
-// CHECK:             %[[VAL_123:.*]] = math.log %[[VAL_122]] : vector<8xf32>
-// CHECK:             %[[VAL_124:.*]] = addf %[[VAL_117]], %[[VAL_123]] : vector<8xf32>
-// CHECK:             %[[VAL_125:.*]] = cmpf ogt, %[[VAL_113]], %[[VAL_124]] : vector<8xf32>
-// CHECK:             %[[VAL_126:.*]] = select %[[VAL_125]], %[[VAL_113]], %[[VAL_124]] : vector<8xi1>, vector<8xf32>
-// CHECK:             %[[VAL_127:.*]] = select %[[VAL_125]], %[[VAL_124]], %[[VAL_113]] : vector<8xi1>, vector<8xf32>
-// CHECK:             %[[VAL_128:.*]] = subf %[[VAL_127]], %[[VAL_126]] : vector<8xf32>
-// CHECK:             %[[VAL_129:.*]] = math.exp %[[VAL_128]] : vector<8xf32>
-// CHECK:             %[[VAL_130:.*]] = constant dense<1.000000e+00> : vector<8xf32>
-// CHECK:             %[[VAL_131:.*]] = addf %[[VAL_130]], %[[VAL_129]] : vector<8xf32>
-// CHECK:             %[[VAL_132:.*]] = math.log %[[VAL_131]] : vector<8xf32>
-// CHECK:             %[[VAL_133:.*]] = addf %[[VAL_126]], %[[VAL_132]] : vector<8xf32>
-// CHECK:             vector.transfer_write %[[VAL_133]], %[[VAL_1]]{{\[}}%[[VAL_9]]] : vector<8xf32>, memref<?xf32>
+// CHECK:             %[[VAL_110:.*]] = math.log1p %[[VAL_109]] : vector<8xf32>
+// CHECK:             %[[VAL_111:.*]] = addf %[[VAL_106]], %[[VAL_110]] : vector<8xf32>
+// CHECK:             %[[VAL_112:.*]] = addf %[[VAL_93]], %[[VAL_102]] : vector<8xf32>
+// CHECK:             %[[VAL_113:.*]] = addf %[[VAL_101]], %[[VAL_102]] : vector<8xf32>
+// CHECK:             %[[VAL_114:.*]] = cmpf ogt, %[[VAL_112]], %[[VAL_113]] : vector<8xf32>
+// CHECK:             %[[VAL_115:.*]] = select %[[VAL_114]], %[[VAL_112]], %[[VAL_113]] : vector<8xi1>, vector<8xf32>
+// CHECK:             %[[VAL_116:.*]] = select %[[VAL_114]], %[[VAL_113]], %[[VAL_112]] : vector<8xi1>, vector<8xf32>
+// CHECK:             %[[VAL_117:.*]] = subf %[[VAL_116]], %[[VAL_115]] : vector<8xf32>
+// CHECK:             %[[VAL_118:.*]] = math.exp %[[VAL_117]] : vector<8xf32>
+// CHECK:             %[[VAL_119:.*]] = math.log1p %[[VAL_118]] : vector<8xf32>
+// CHECK:             %[[VAL_120:.*]] = addf %[[VAL_115]], %[[VAL_119]] : vector<8xf32>
+// CHECK:             %[[VAL_121:.*]] = cmpf ogt, %[[VAL_111]], %[[VAL_120]] : vector<8xf32>
+// CHECK:             %[[VAL_122:.*]] = select %[[VAL_121]], %[[VAL_111]], %[[VAL_120]] : vector<8xi1>, vector<8xf32>
+// CHECK:             %[[VAL_123:.*]] = select %[[VAL_121]], %[[VAL_120]], %[[VAL_111]] : vector<8xi1>, vector<8xf32>
+// CHECK:             %[[VAL_124:.*]] = subf %[[VAL_123]], %[[VAL_122]] : vector<8xf32>
+// CHECK:             %[[VAL_125:.*]] = math.exp %[[VAL_124]] : vector<8xf32>
+// CHECK:             %[[VAL_126:.*]] = math.log1p %[[VAL_125]] : vector<8xf32>
+// CHECK:             %[[VAL_127:.*]] = addf %[[VAL_122]], %[[VAL_126]] : vector<8xf32>
+// CHECK:             vector.transfer_write %[[VAL_127]], %[[VAL_1]]{{\[}}%[[VAL_9]]] : vector<8xf32>, memref<?xf32>
 // CHECK:           }
-// CHECK:           %[[VAL_134:.*]] = constant 1 : index
-// CHECK:           scf.for %[[VAL_135:.*]] = %[[VAL_6]] to %[[VAL_3]] step %[[VAL_134]] {
-// CHECK:             %[[VAL_136:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_135]]) {sampleIndex = 0 : ui32} : (memref<?x4xf64>, index) -> f64
-// CHECK:             %[[VAL_137:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_135]]) {sampleIndex = 1 : ui32} : (memref<?x4xf64>, index) -> f64
-// CHECK:             %[[VAL_138:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_135]]) {sampleIndex = 2 : ui32} : (memref<?x4xf64>, index) -> f64
-// CHECK:             %[[VAL_139:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_135]]) {sampleIndex = 3 : ui32} : (memref<?x4xf64>, index) -> f64
-// CHECK:             %[[VAL_140:.*]] = "lo_spn.gaussian"(%[[VAL_136]]) {mean = 1.100000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false} : (f64) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_141:.*]] = "lo_spn.gaussian"(%[[VAL_137]]) {mean = 1.200000e-01 : f64, stddev = 7.500000e-01 : f64, supportMarginal = false} : (f64) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_142:.*]] = "lo_spn.gaussian"(%[[VAL_138]]) {mean = 1.300000e-01 : f64, stddev = 5.000000e-01 : f64, supportMarginal = false} : (f64) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_143:.*]] = "lo_spn.gaussian"(%[[VAL_139]]) {mean = 1.400000e-01 : f64, stddev = 2.500000e-01 : f64, supportMarginal = false} : (f64) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_144:.*]] = "lo_spn.constant"() {type = !lo_spn.log<f32>, value = -1.3862943611198906 : f64} : () -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_145:.*]] = "lo_spn.mul"(%[[VAL_140]], %[[VAL_144]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_146:.*]] = "lo_spn.mul"(%[[VAL_141]], %[[VAL_144]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_147:.*]] = "lo_spn.add"(%[[VAL_145]], %[[VAL_146]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_148:.*]] = "lo_spn.mul"(%[[VAL_142]], %[[VAL_144]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_149:.*]] = "lo_spn.mul"(%[[VAL_143]], %[[VAL_144]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_150:.*]] = "lo_spn.add"(%[[VAL_148]], %[[VAL_149]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_151:.*]] = "lo_spn.add"(%[[VAL_147]], %[[VAL_150]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_152:.*]] = "lo_spn.strip_log"(%[[VAL_151]]) {target = f32} : (!lo_spn.log<f32>) -> f32
-// CHECK:             "lo_spn.batch_write"(%[[VAL_152]], %[[VAL_1]], %[[VAL_135]]) : (f32, memref<?xf32>, index) -> ()
+// CHECK:           %[[VAL_128:.*]] = constant 1 : index
+// CHECK:           scf.for %[[VAL_129:.*]] = %[[VAL_6]] to %[[VAL_3]] step %[[VAL_128]] {
+// CHECK:             %[[VAL_130:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_129]]) {sampleIndex = 0 : ui32} : (memref<?x4xf64>, index) -> f64
+// CHECK:             %[[VAL_131:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_129]]) {sampleIndex = 1 : ui32} : (memref<?x4xf64>, index) -> f64
+// CHECK:             %[[VAL_132:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_129]]) {sampleIndex = 2 : ui32} : (memref<?x4xf64>, index) -> f64
+// CHECK:             %[[VAL_133:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_129]]) {sampleIndex = 3 : ui32} : (memref<?x4xf64>, index) -> f64
+// CHECK:             %[[VAL_134:.*]] = "lo_spn.gaussian"(%[[VAL_130]]) {mean = 1.100000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false} : (f64) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_135:.*]] = "lo_spn.gaussian"(%[[VAL_131]]) {mean = 1.200000e-01 : f64, stddev = 7.500000e-01 : f64, supportMarginal = false} : (f64) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_136:.*]] = "lo_spn.gaussian"(%[[VAL_132]]) {mean = 1.300000e-01 : f64, stddev = 5.000000e-01 : f64, supportMarginal = false} : (f64) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_137:.*]] = "lo_spn.gaussian"(%[[VAL_133]]) {mean = 1.400000e-01 : f64, stddev = 2.500000e-01 : f64, supportMarginal = false} : (f64) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_138:.*]] = "lo_spn.constant"() {type = !lo_spn.log<f32>, value = -1.3862943611198906 : f64} : () -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_139:.*]] = "lo_spn.mul"(%[[VAL_134]], %[[VAL_138]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_140:.*]] = "lo_spn.mul"(%[[VAL_135]], %[[VAL_138]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_141:.*]] = "lo_spn.add"(%[[VAL_139]], %[[VAL_140]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_142:.*]] = "lo_spn.mul"(%[[VAL_136]], %[[VAL_138]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_143:.*]] = "lo_spn.mul"(%[[VAL_137]], %[[VAL_138]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_144:.*]] = "lo_spn.add"(%[[VAL_142]], %[[VAL_143]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_145:.*]] = "lo_spn.add"(%[[VAL_141]], %[[VAL_144]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_146:.*]] = "lo_spn.strip_log"(%[[VAL_145]]) {target = f32} : (!lo_spn.log<f32>) -> f32
+// CHECK:             "lo_spn.batch_write"(%[[VAL_146]], %[[VAL_1]], %[[VAL_129]]) : (f32, memref<?xf32>, index) -> ()
 // CHECK:           }
 // CHECK:           return
 // CHECK:         }
