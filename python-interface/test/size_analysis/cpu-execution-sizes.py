@@ -14,7 +14,7 @@ def translateBool(flag: bool):
     return translation
 
 
-def estimate_costs(name: str, spn_file: str, vectorize: str, vectorLibrary: str, shuffle: str):
+def compute_sizes(name: str, spn_file: str, vectorize: str, vectorLibrary: str, shuffle: str):
     # Read the trained SPN from file
     model = BinaryDeserializer(spn_file).deserialize_from_file()
 
@@ -58,4 +58,4 @@ def estimate_costs(name: str, spn_file: str, vectorize: str, vectorLibrary: str,
 
 
 if __name__ == '__main__':
-    fire.Fire(estimate_costs)
+    fire.Fire(compute_sizes)
