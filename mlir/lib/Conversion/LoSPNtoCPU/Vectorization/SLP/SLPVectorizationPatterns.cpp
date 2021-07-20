@@ -9,8 +9,9 @@
 #include "LoSPNtoCPU/Vectorization/SLP/SLPVectorizationPatterns.h"
 #include "LoSPNtoCPU/Vectorization/SLP/GraphConversion.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
+#include "LoSPNtoCPU/Vectorization/Util.h"
 #include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Dialect/Vector/VectorOps.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -553,20 +554,6 @@ void VectorizeLogMul::accept(PatternVisitor& visitor, Superword* superword) cons
 
 // === VectorizeLogGaussian === //
 
-// Helper functions in anonymous namespace.
-namespace {
-  Value expandOrTruncateInput(Value const& input, VectorType targetType, RewriterBase& rewriter) {
-    auto inputType = input.getType().dyn_cast<VectorType>();
-    assert(inputType && "vector with scalar operand");
-    if (inputType.getElementTypeBitWidth() < targetType.getElementTypeBitWidth()) {
-      return rewriter.create<FPExtOp>(input.getLoc(), input, targetType);
-    } else if (inputType.getElementTypeBitWidth() > targetType.getElementTypeBitWidth()) {
-      return rewriter.create<FPTruncOp>(input.getLoc(), input, targetType);
-    }
-    return input;
-  }
-}
-
 Value VectorizeLogGaussian::rewrite(Superword* superword, RewriterBase& rewriter) {
 
   auto vectorType = superword->getVectorType();
@@ -604,7 +591,8 @@ Value VectorizeLogGaussian::rewrite(Superword* superword, RewriterBase& rewriter
   }
 
   // x - mean
-  auto inputVector = expandOrTruncateInput(conversionManager.getValue(superword->getOperand(0)), vectorType, rewriter);
+  auto input = conversionManager.getValue(superword->getOperand(0));
+  auto inputVector = util::extendTruncateOrGetVector(input, vectorType, rewriter);
   auto meanVector = conversionManager.getOrCreateConstant(superword->getLoc(), means);
   Value gaussianVector = rewriter.create<SubFOp>(superword->getLoc(), vectorType, inputVector, meanVector);
 
