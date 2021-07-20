@@ -59,12 +59,20 @@ bool CostModel::isExtractionProfitable(Value const& value) {
 
 void CostModel::setConversionState(std::shared_ptr<ConversionState> newConversionState) {
   conversionState = std::move(newConversionState);
-  conversionState->addScalarCallback([&](Value value) {
-    updateCost(value, 0, false);
-  });
-  conversionState->addExtractionCallback([&](Value value) {
-    updateCost(value, 0, true);
-  });
+  conversionState->addScalarCallbacks(
+      [&](Value value) {
+        updateCost(value, 0, false);
+      }, [&](Value value) {
+        cachedScalarCost.erase(value);
+      }
+  );
+  conversionState->addExtractionCallbacks(
+      [&](Value value) {
+        updateCost(value, 0, true);
+      }, [&](Value value) {
+        cachedScalarCost.erase(value);
+      }
+  );
 }
 
 double CostModel::getBlockCost(Block* block, SmallPtrSetImpl<Operation*> const& deadOps) const {

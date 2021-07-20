@@ -51,32 +51,37 @@ namespace mlir {
           SmallVector<Superword*> unconvertedPostOrder() const;
 
           // Callback registration.
-          /// Callback for when a superword was converted.
-          void addVectorCallback(std::function<void(Superword*)> callback);
-          /// Callback for when a scalar value is being used as input for some vector.
-          void addScalarCallback(std::function<void(Value)> callback);
-          /// Callback for when an extraction for some value has been created.
-          void addExtractionCallback(std::function<void(Value)> callback);
-          /// Callback for when the conversion of a superword has been undone because its graph was not deemed
-          /// profitable.
-          void addVectorUndoCallback(std::function<void(Superword*)> callback);
-          /// Callback for when a scalar that was previously used as input for some vector is no longer an input
-          /// because the corresponding graph was not deemed profitable.
-          void addScalarUndoCallback(std::function<void(Value)> callback);
-          /// Callback for when an extraction for some value has been undone because the corresponding graph was
+          /// Callbacks for when a superword was converted and for when its value has been removed because the graph
+          /// it was contained in was not deemed profitable.
+          void addVectorCallbacks(std::function<void(Superword*)> createCallback,
+                                  std::function<void(Superword*)> undoCallback);
+          /// Callbacks for when a scalar value is being used as input for some vector and for when a scalar that was
+          /// previously used as input for some vector is no longer an input because the corresponding graph was
           /// not deemed profitable.
-          void addExtractionUndoCallback(std::function<void(Value)> callback);
+          void addScalarCallbacks(std::function<void(Value)> inputCallback, std::function<void(Value)> undoCallback);
+          /// Callbacks for when an extraction for some value has been created and for when an extraction for some
+          /// value has been undone because the corresponding graph was not deemed profitable.
+          void addExtractionCallbacks(std::function<void(Value)> extractCallback,
+                                      std::function<void(Value)> undoCallback);
         private:
           // Take ownership of the graphs to prevent dangling pointers when they go out of scope.
           SmallVector<std::shared_ptr<Superword>, 5> correspondingGraphs;
+
+          // For bookkeeping of computed superwords and values.
           struct ConversionData {
+
+            bool alreadyComputed(Value value) const {
+              return computedScalarValues.contains(value) || extractedScalarValues.contains(value);
+            }
+
             void clear() {
               computedScalarValues.clear();
               computedSuperwords.clear();
               extractedScalarValues.clear();
               extractableScalarValues.clear();
             }
-            void copyFrom(ConversionData& other) {
+
+            void mergeWith(ConversionData& other) {
               computedScalarValues.insert(std::begin(other.computedScalarValues), std::end(other.computedScalarValues));
               computedSuperwords.copyFrom(other.computedSuperwords);
               extractedScalarValues.insert(std::begin(other.extractedScalarValues),
@@ -92,6 +97,7 @@ namespace mlir {
             /// Store vector element data for faster extraction lookup.
             DenseMap<Value, ValuePosition> extractableScalarValues;
           };
+
           // Permanent conversion data.
           ConversionData permanentData;
           // Temporary conversion data. These might need to be 'undone' when a graph is not deemed profitable.

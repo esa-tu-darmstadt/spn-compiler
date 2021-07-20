@@ -8,7 +8,6 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/GraphConversion.h"
 #include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
-#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 
 using namespace mlir;
@@ -21,13 +20,16 @@ void ConversionState::startConversion(std::shared_ptr<Superword> root) {
 }
 
 void ConversionState::finishConversion() {
-  permanentData.copyFrom(temporaryData);
+  permanentData.mergeWith(temporaryData);
   temporaryData.clear();
 }
 
 void ConversionState::cancelConversion() {
   for (auto const& callback : scalarUndoCallbacks) {
     for (auto value : temporaryData.computedScalarValues) {
+      if (permanentData.alreadyComputed(value)) {
+        continue;
+      }
       callback(value);
     }
   }
@@ -38,6 +40,9 @@ void ConversionState::cancelConversion() {
   }
   for (auto const& callback : extractionUndoCallbacks) {
     for (auto value : temporaryData.extractedScalarValues) {
+      if (permanentData.alreadyComputed(value)) {
+        continue;
+      }
       callback(value);
     }
   }
@@ -53,8 +58,7 @@ bool ConversionState::alreadyComputed(Superword* superword) const {
 }
 
 bool ConversionState::alreadyComputed(Value value) const {
-  return temporaryData.computedScalarValues.contains(value) || temporaryData.extractedScalarValues.contains(value)
-      || permanentData.computedScalarValues.contains(value) || permanentData.extractedScalarValues.contains(value);
+  return permanentData.alreadyComputed(value) || temporaryData.alreadyComputed(value);
 }
 
 bool ConversionState::isExtractable(Value value) {
@@ -65,14 +69,17 @@ bool ConversionState::isExtractable(Value value) {
 }
 
 void ConversionState::markComputed(Value value) {
+  assert(!alreadyComputed(value) && "marking already computed value as computed");
   if (temporaryData.computedScalarValues.insert(value).second) {
-    if (auto* definingOp = value.getDefiningOp()) {
-      for (auto const& operand : definingOp->getOperands()) {
-        markComputed(operand);
-      }
-    }
     for (auto const& callback : scalarCallbacks) {
       callback(value);
+    }
+    if (auto* definingOp = value.getDefiningOp()) {
+      for (auto const& operand : definingOp->getOperands()) {
+        if (!alreadyComputed(operand)) {
+          markComputed(operand);
+        }
+      }
     }
   }
 }
@@ -92,6 +99,7 @@ void ConversionState::markComputed(Superword* superword, Value value) {
 }
 
 void ConversionState::markExtracted(Value value) {
+  assert(!alreadyComputed(value) && "extracting value that has been marked as computed already");
   if (temporaryData.extractedScalarValues.insert(value).second) {
     for (auto const& callback : extractionCallbacks) {
       callback(value);
@@ -150,28 +158,22 @@ SmallVector<Superword*> ConversionState::unconvertedPostOrder() const {
   return order;
 }
 
-void ConversionState::addVectorCallback(std::function<void(Superword*)> callback) {
-  vectorCallbacks.emplace_back(std::move(callback));
+void ConversionState::addVectorCallbacks(std::function<void(Superword*)> createCallback,
+                                         std::function<void(Superword*)> undoCallback) {
+  vectorCallbacks.emplace_back(std::move(createCallback));
+  vectorUndoCallbacks.emplace_back(std::move(undoCallback));
 }
 
-void ConversionState::addScalarCallback(std::function<void(Value)> callback) {
-  scalarCallbacks.emplace_back(std::move(callback));
+void ConversionState::addScalarCallbacks(std::function<void(Value)> inputCallback,
+                                         std::function<void(Value)> undoCallback) {
+  scalarCallbacks.emplace_back(std::move(inputCallback));
+  scalarUndoCallbacks.emplace_back(std::move(undoCallback));
 }
 
-void ConversionState::addExtractionCallback(std::function<void(Value)> callback) {
-  extractionCallbacks.emplace_back(std::move(callback));
-}
-
-void ConversionState::addVectorUndoCallback(std::function<void(Superword*)> callback) {
-  vectorUndoCallbacks.emplace_back(std::move(callback));
-}
-
-void ConversionState::addScalarUndoCallback(std::function<void(Value)> callback) {
-  scalarUndoCallbacks.emplace_back(std::move(callback));
-}
-
-void ConversionState::addExtractionUndoCallback(std::function<void(Value)> callback) {
-  extractionUndoCallbacks.emplace_back(std::move(callback));
+void ConversionState::addExtractionCallbacks(std::function<void(Value)> extractCallback,
+                                             std::function<void(Value)> undoCallback) {
+  extractionCallbacks.emplace_back(std::move(extractCallback));
+  extractionUndoCallbacks.emplace_back(std::move(undoCallback));
 }
 
 // === ConversionManager === //
@@ -276,7 +278,9 @@ void ConversionManager::update(Superword* superword, Value operation, SLPVectori
   conversionState->markComputed(superword, operation);
   auto scalarInputs = leafVisitor.getRequiredScalarValues(appliedPattern, superword);
   for (auto scalarInput : scalarInputs) {
-    conversionState->markComputed(scalarInput);
+    if (!conversionState->alreadyComputed(scalarInput)) {
+      conversionState->markComputed(scalarInput);
+    }
   }
   // Create vector extractions for escaping uses.
   for (size_t lane = 0; lane < superword->numLanes(); ++lane) {

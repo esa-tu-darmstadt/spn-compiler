@@ -129,17 +129,18 @@ void BroadcastInsertSuperword::accept(PatternVisitor& visitor, Superword* superw
 // === ShuffleSuperword === //
 
 ShuffleSuperword::ShuffleSuperword(ConversionManager& conversionManager) : SLPVectorizationPattern(conversionManager) {
-  conversionManager.getConversionState().addVectorCallback([&](Superword* superword) {
-    for (auto element : *superword) {
-      superwordsByValue[element].insert(superword);
-    }
-  });
-  conversionManager.getConversionState().addVectorUndoCallback([&](Superword* superword) {
-    for (auto element : *superword) {
-      superwordsByValue[element].erase(superword);
-    }
-    shuffleMatches.erase(superword);
-  });
+  conversionManager.getConversionState().addVectorCallbacks(
+      [&](Superword* superword) {
+        for (auto element : *superword) {
+          superwordsByValue[element].insert(superword);
+        }
+      }, [&](Superword* superword) {
+        for (auto element : *superword) {
+          superwordsByValue[element].erase(superword);
+        }
+        shuffleMatches.erase(superword);
+      }
+  );
 }
 
 LogicalResult ShuffleSuperword::match(Superword* superword) {
@@ -591,8 +592,8 @@ Value VectorizeLogGaussian::rewrite(Superword* superword, RewriterBase& rewriter
   }
 
   // x - mean
-  auto input = conversionManager.getValue(superword->getOperand(0));
-  auto inputVector = util::extendTruncateOrGetVector(input, vectorType, rewriter);
+  auto inputVector = conversionManager.getValue(superword->getOperand(0));
+  inputVector = util::extendTruncateOrGetVector(inputVector, vectorType, rewriter);
   auto meanVector = conversionManager.getOrCreateConstant(superword->getLoc(), means);
   Value gaussianVector = rewriter.create<SubFOp>(superword->getLoc(), vectorType, inputVector, meanVector);
 
