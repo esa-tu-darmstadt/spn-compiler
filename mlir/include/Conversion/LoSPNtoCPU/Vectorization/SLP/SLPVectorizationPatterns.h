@@ -98,14 +98,14 @@ namespace mlir {
           void accept(PatternVisitor& visitor, Superword* superword) const override;
         };
 
-        struct ShuffleSuperword : public SLPVectorizationPattern {
-          explicit ShuffleSuperword(ConversionManager& conversionManager);
+        struct ShuffleTwoSuperwords : public SLPVectorizationPattern {
+          explicit ShuffleTwoSuperwords(ConversionManager& conversionManager);
           LogicalResult match(Superword* superword) override;
           Value rewrite(Superword* superword, RewriterBase& rewriter) override;
           void accept(PatternVisitor& visitor, Superword* superword) const override;
         private:
           DenseMap<Value, SmallPtrSet<Superword*, 8>> superwordsByValue;
-          DenseMap<Superword*, Superword*> shuffleMatches;
+          DenseMap<Superword*, std::tuple<Superword*, Superword*, SmallVector<int64_t, 4>>> shuffleMatches;
         };
 
         // === Op-specific patterns === //
@@ -182,7 +182,7 @@ namespace mlir {
                                                      ConversionManager& conversionManager) {
           patterns.emplace_back(std::make_unique<BroadcastSuperword>(conversionManager));
           patterns.emplace_back(std::make_unique<BroadcastInsertSuperword>(conversionManager));
-          patterns.emplace_back(std::make_unique<ShuffleSuperword>(conversionManager));
+          patterns.emplace_back(std::make_unique<ShuffleTwoSuperwords>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeConstant>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeSPNConstant>(conversionManager));
           patterns.emplace_back(std::make_unique<CreateConsecutiveLoad>(conversionManager));

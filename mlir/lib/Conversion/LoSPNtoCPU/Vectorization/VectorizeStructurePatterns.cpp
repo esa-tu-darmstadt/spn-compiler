@@ -101,7 +101,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   // ============================================================================================================= //
   task->emitRemark() << "Total number of operations in function: " << taskFunc.body().front().getOperations().size();
   // ============================================================================================================= //
-  bool doSizeAnalysis = true;
+  bool doSizeAnalysis = false;
   if (doSizeAnalysis) {
     unsigned numOps = taskBlock->getOperations().size();
     llvm::outs() << "#ops: " << std::to_string(numOps);

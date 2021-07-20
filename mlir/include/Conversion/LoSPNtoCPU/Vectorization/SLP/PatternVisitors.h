@@ -24,7 +24,7 @@ namespace mlir {
           // Individual pattern visits.
           virtual void visit(BroadcastSuperword const* pattern, Superword* superword);
           virtual void visit(BroadcastInsertSuperword const* pattern, Superword* superword);
-          virtual void visit(ShuffleSuperword const* pattern, Superword* superword);
+          virtual void visit(ShuffleTwoSuperwords const* pattern, Superword* superword);
           virtual void visit(VectorizeConstant const* pattern, Superword* superword);
           virtual void visit(VectorizeSPNConstant const* pattern, Superword* superword);
           virtual void visit(CreateConsecutiveLoad const* pattern, Superword* superword);

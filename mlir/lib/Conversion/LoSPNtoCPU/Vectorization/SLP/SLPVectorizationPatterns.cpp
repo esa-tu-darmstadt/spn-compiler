@@ -126,9 +126,10 @@ void BroadcastInsertSuperword::accept(PatternVisitor& visitor, Superword* superw
   visitor.visit(this, superword);
 }
 
-// === ShuffleSuperword === //
+// === ShuffleTwoSuperwords === //
 
-ShuffleSuperword::ShuffleSuperword(ConversionManager& conversionManager) : SLPVectorizationPattern(conversionManager) {
+ShuffleTwoSuperwords::ShuffleTwoSuperwords(ConversionManager& conversionManager) : SLPVectorizationPattern(
+    conversionManager) {
   conversionManager.getConversionState().addVectorCallbacks(
       [&](Superword* superword) {
         for (auto element : *superword) {
@@ -143,42 +144,64 @@ ShuffleSuperword::ShuffleSuperword(ConversionManager& conversionManager) : SLPVe
   );
 }
 
-LogicalResult ShuffleSuperword::match(Superword* superword) {
-  for (auto* existingSuperword : superwordsByValue.lookup(superword->getElement(0))) {
-    bool canBeShuffled = true;
-    for (size_t lane = 1; lane < superword->numLanes(); ++lane) {
-      if (!superwordsByValue.lookup(superword->getElement(lane)).contains(existingSuperword)) {
-        canBeShuffled = false;
-        break;
-      }
+LogicalResult ShuffleTwoSuperwords::match(Superword* superword) {
+  SmallPtrSet<Superword*, 32> relevantSuperwords;
+  for (auto value : *superword) {
+    auto const& existingSuperwords = superwordsByValue.lookup(value);
+    if (existingSuperwords.empty()) {
+      return failure();
     }
-    if (canBeShuffled) {
-      shuffleMatches[superword] = existingSuperword;
+    relevantSuperwords.insert(std::begin(existingSuperwords), std::end(existingSuperwords));
+  }
+  // Check if any pair of relevant superwords can be combined to convert the target superword.
+  for (auto* existingSuperword : relevantSuperwords) {
+    SmallPtrSet<Value, 4> remainingValues{superword->begin(), superword->end()};
+    for (auto value : *existingSuperword) {
+      remainingValues.erase(value);
+    }
+    for (auto* otherSuperword : relevantSuperwords) {
+      SmallPtrSet<Value, 4> finalRemainingValues{remainingValues};
+      for (auto value : *otherSuperword) {
+        finalRemainingValues.erase(value);
+      }
+      if (!finalRemainingValues.empty()) {
+        continue;
+      }
+      SmallVector<int64_t, 4> indices;
+      for (auto value : *superword) {
+        for (size_t i = 0; i < existingSuperword->numLanes() + otherSuperword->numLanes(); ++i) {
+          Value element;
+          if (i < existingSuperword->numLanes()) {
+            element = existingSuperword->getElement(i);
+          } else {
+            element = otherSuperword->getElement(i - existingSuperword->numLanes());
+          }
+          if (element == value) {
+            indices.emplace_back(i);
+            break;
+          }
+        }
+      }
+      assert(indices.size() == superword->numLanes() && "invalid shuffle match determined");
+      shuffleMatches.try_emplace(superword, existingSuperword, otherSuperword, indices);
       return success();
     }
   }
   return failure();
 }
 
-Value ShuffleSuperword::rewrite(Superword* superword, RewriterBase& rewriter) {
-  assert(shuffleMatches.lookup(superword) && "no match determined yet for superword");
-  auto* existingSuperword = shuffleMatches.lookup(superword);
-  // Erase match immediately to keep the map as small as possible.
+Value ShuffleTwoSuperwords::rewrite(Superword* superword, RewriterBase& rewriter) {
+  assert(shuffleMatches.count(superword) && "no match determined yet for superword");
+  auto const& shuffleMatch = shuffleMatches.lookup(superword);
+  auto v1 = conversionManager.getValue(std::get<0>(shuffleMatch));
+  auto v2 = conversionManager.getValue(std::get<1>(shuffleMatch));
+  auto maskElements = std::get<2>(shuffleMatch);
+  // Erase match to keep the map as small as possible.
   shuffleMatches.erase(superword);
-  DenseMap<Value, int64_t> indices;
-  for (size_t lane = 0; lane < existingSuperword->numLanes(); ++lane) {
-    indices.try_emplace(existingSuperword->getElement(lane), lane);
-  }
-  SmallVector<int64_t, 4> maskElements;
-  for (auto element : *superword) {
-    assert(indices.count(element) && "shuffle match is invalid");
-    maskElements.emplace_back(indices[element]);
-  }
-  auto v = conversionManager.getValue(existingSuperword);
-  return rewriter.create<vector::ShuffleOp>(superword->getLoc(), v, v, maskElements);
+  return rewriter.create<vector::ShuffleOp>(superword->getLoc(), v1, v2, maskElements);
 }
 
-void ShuffleSuperword::accept(PatternVisitor& visitor, Superword* superword) const {
+void ShuffleTwoSuperwords::accept(PatternVisitor& visitor, Superword* superword) const {
   visitor.visit(this, superword);
 }
 
