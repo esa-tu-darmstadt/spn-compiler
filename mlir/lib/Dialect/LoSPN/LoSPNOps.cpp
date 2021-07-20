@@ -367,30 +367,5 @@ void mlir::spn::low::SPNConvertLog::build(::mlir::OpBuilder& odsBuilder,
   return nullptr;
 }
 
-//===----------------------------------------------------------------------===//
-// SPNGaussianLeaf
-//===----------------------------------------------------------------------===//
-
-bool mlir::spn::low::SPNGaussianLeaf::isVectorizable(unsigned vectorFactor) {
-  // Floating point narrowing (FPTrunc) and widening (FPExt) cannot be performed in
-  // vectorized mode, hence vectorization is not possible if such a transformation
-  // of the input value is required.
-  if (auto inputFloatType = this->index().getType().dyn_cast<FloatType>()) {
-    if (auto outputFloatType = this->getResult().getType().dyn_cast<FloatType>()) {
-      if (inputFloatType.getWidth() != outputFloatType.getWidth()) {
-        return false;
-      }
-    }
-    if (auto outputLogType = this->getResult().getType().dyn_cast<low::LogType>()) {
-      if (auto logFloatType = outputLogType.getBaseType().dyn_cast<FloatType>()) {
-        if (inputFloatType.getWidth() != logFloatType.getWidth()) {
-          return false;
-        }
-      }
-    }
-  }
-  return true;
-}
-
 #define GET_OP_CLASSES
 #include "LoSPN/LoSPNOps.cpp.inc"

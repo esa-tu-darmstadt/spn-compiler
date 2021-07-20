@@ -369,7 +369,7 @@ def SPNCategoricalLeaf : LoSPNBodyOp<"categorical", [NoSideEffect,
 /// Gaussian distribution as SPN leaf node.
 ///
 def SPNGaussianLeaf : LoSPNBodyOp<"gaussian", [NoSideEffect,
-                                               DeclareOpInterfaceMethods<LoSPNVectorizable, ["isVectorizable"]>,
+                                               DeclareOpInterfaceMethods<LoSPNVectorizable>,
                                                DeclareOpInterfaceMethods<LeafNodeInterface>]> {
 
     let summary = "Gaussian leaf distribution";
