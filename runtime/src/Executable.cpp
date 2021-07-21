@@ -11,13 +11,14 @@
 #include <util/Logging.h>
 #include "Executable.h"
 #include <omp.h>
+#include <chrono>
 
 using namespace spnc_rt;
 
 Executable::Executable(const Kernel& _kernel) : kernel{&_kernel}, handle{nullptr}, kernel_func{nullptr} {}
 
-Executable::Executable(spnc_rt::Executable&& other) noexcept : kernel{other.kernel}, handle{other.handle},
-                                                               kernel_func{other.kernel_func} {
+Executable::Executable(spnc_rt::Executable&& other) noexcept: kernel{other.kernel}, handle{other.handle},
+                                                              kernel_func{other.kernel_func} {
   other.handle = nullptr;
   other.kernel = nullptr;
 }
@@ -53,13 +54,28 @@ void Executable::execute(size_t num_elements, void* inputs, void* outputs) {
   }
 
 }
-
+// =======================================================================================================//
+namespace {
+  typedef std::chrono::high_resolution_clock::time_point TimePoint;
+}
+// =======================================================================================================//
 void Executable::executeSingle(size_t num_samples, void* inputs, void* outputs) {
   if (num_samples > 1) {
     SPDLOG_WARN("Executing a kernel optimized for single evaluation, computing only the first sample!");
   }
   assert(kernel_func);
+  // =======================================================================================================//
+  bool printExecutionTime = true;
+  TimePoint start = std::chrono::high_resolution_clock::now();
+  // =======================================================================================================//
   kernel_func(inputs, inputs, 0, 1, 1, kernel->numFeatures(), 1, outputs, outputs, 0, 1, 1);
+  // =======================================================================================================//
+  TimePoint end = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+  if (printExecutionTime) {
+    std::cout << "EXECUTION TIME: " << duration.count() << " ns" << std::endl;
+  }
+  // =======================================================================================================//
 }
 
 void Executable::executeBatch(size_t num_samples, void* inputs, void* outputs) {

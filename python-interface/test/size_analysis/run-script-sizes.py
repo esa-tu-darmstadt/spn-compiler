@@ -74,9 +74,17 @@ def get_speakers(speakersDir: str):
     return models
 
 
-def traverseSpeakers(speakersDir: str, ratspnDir: str, logDir: str, vecLib: bool, shuffle: bool):
-    models = get_ratspns(ratspnDir)
-    models.extend(get_speakers(speakersDir))
+def traverseModels(speakersDir: str, ratspnDir: str, logDir: str, vecLib: bool, shuffle: bool):
+    models = []
+    models.extend(get_ratspns(ratspnDir))
+    # models.extend(get_speakers(speakersDir))
+
+    # Sort models s.t. smaller ones are executed first
+    models = sorted(models, key=lambda m: os.path.getsize(m[1]))
+    for m in [models[-13], models[-12], models[-11], models[-10], models[-9], models[-8], models[-7], models[-6],
+              models[-5], models[-4], models[-3], models[-2], models[-1]]:
+        print(f"Skipping model {m} because of traversal limit in words problems.")
+        print(f"\tFile size of model: {os.path.getsize(m[1])}")
 
     for m in models:
         print(f"Current model: {m[0]}")
@@ -96,4 +104,4 @@ def traverseSpeakers(speakersDir: str, ratspnDir: str, logDir: str, vecLib: bool
 
 
 if __name__ == '__main__':
-    fire.Fire(traverseSpeakers)
+    fire.Fire(traverseModels)
