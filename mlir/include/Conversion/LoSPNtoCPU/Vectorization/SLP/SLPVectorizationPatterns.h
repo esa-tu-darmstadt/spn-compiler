@@ -180,18 +180,20 @@ namespace mlir {
 
         static void populateSLPVectorizationPatterns(SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>& patterns,
                                                      ConversionManager& conversionManager) {
+          // === Op-agnostic patterns === //
           patterns.emplace_back(std::make_unique<BroadcastSuperword>(conversionManager));
           patterns.emplace_back(std::make_unique<BroadcastInsertSuperword>(conversionManager));
           patterns.emplace_back(std::make_unique<ShuffleTwoSuperwords>(conversionManager));
+          // === Op-specific patterns === //
           patterns.emplace_back(std::make_unique<VectorizeConstant>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeSPNConstant>(conversionManager));
           patterns.emplace_back(std::make_unique<CreateConsecutiveLoad>(conversionManager));
           patterns.emplace_back(std::make_unique<CreateGatherLoad>(conversionManager));
-          // === Normal space patterns === //
+          // === Op-specific normal space patterns === //
           patterns.emplace_back(std::make_unique<VectorizeAdd>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeMul>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeGaussian>(conversionManager));
-          // === Log-space patterns === //
+          // === Op-specific log-space patterns === //
           patterns.emplace_back(std::make_unique<VectorizeLogAdd>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeLogMul>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeLogGaussian>(conversionManager));
