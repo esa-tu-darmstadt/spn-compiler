@@ -154,14 +154,14 @@ LogicalResult ShuffleTwoSuperwords::match(Superword* superword) {
     relevantSuperwords.insert(std::begin(existingSuperwords), std::end(existingSuperwords));
   }
   // Check if any pair of relevant superwords can be combined to convert the target superword.
-  for (auto* existingSuperword : relevantSuperwords) {
+  for (auto* v1 : relevantSuperwords) {
     SmallPtrSet<Value, 4> remainingValues{superword->begin(), superword->end()};
-    for (auto value : *existingSuperword) {
+    for (auto value : *v1) {
       remainingValues.erase(value);
     }
-    for (auto* otherSuperword : relevantSuperwords) {
+    for (auto* v2 : relevantSuperwords) {
       SmallPtrSet<Value, 4> finalRemainingValues{remainingValues};
-      for (auto value : *otherSuperword) {
+      for (auto value : *v2) {
         finalRemainingValues.erase(value);
       }
       if (!finalRemainingValues.empty()) {
@@ -169,13 +169,8 @@ LogicalResult ShuffleTwoSuperwords::match(Superword* superword) {
       }
       SmallVector<int64_t, 4> indices;
       for (auto value : *superword) {
-        for (size_t i = 0; i < existingSuperword->numLanes() + otherSuperword->numLanes(); ++i) {
-          Value element;
-          if (i < existingSuperword->numLanes()) {
-            element = existingSuperword->getElement(i);
-          } else {
-            element = otherSuperword->getElement(i - existingSuperword->numLanes());
-          }
+        for (size_t i = 0; i < v1->numLanes() + v2->numLanes(); ++i) {
+          Value element = i < v1->numLanes() ? v1->getElement(i) : v2->getElement(i - v1->numLanes());
           if (element == value) {
             indices.emplace_back(i);
             break;
@@ -183,7 +178,7 @@ LogicalResult ShuffleTwoSuperwords::match(Superword* superword) {
         }
       }
       assert(indices.size() == superword->numLanes() && "invalid shuffle match determined");
-      shuffleMatches.try_emplace(superword, existingSuperword, otherSuperword, indices);
+      shuffleMatches.try_emplace(superword, v1, v2, indices);
       return success();
     }
   }
