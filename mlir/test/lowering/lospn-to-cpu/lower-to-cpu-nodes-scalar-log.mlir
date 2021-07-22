@@ -427,11 +427,9 @@ module  {
 // CHECK:             %[[VAL_209:.*]] = select %[[VAL_207]], %[[VAL_206]], %[[VAL_202]] : f32
 // CHECK:             %[[VAL_210:.*]] = subf %[[VAL_209]], %[[VAL_208]] : f32
 // CHECK:             %[[VAL_211:.*]] = math.exp %[[VAL_210]] : f32
-// CHECK:             %[[VAL_212:.*]] = constant 1.000000e+00 : f32
-// CHECK:             %[[VAL_213:.*]] = addf %[[VAL_212]], %[[VAL_211]] : f32
-// CHECK:             %[[VAL_214:.*]] = math.log %[[VAL_213]] : f32
-// CHECK:             %[[VAL_215:.*]] = addf %[[VAL_208]], %[[VAL_214]] : f32
-// CHECK:             memref.store %[[VAL_215]], %[[VAL_1]]{{\[}}%[[VAL_156]]] : memref<?xf32>
+// CHECK:             %[[VAL_212:.*]] = math.log1p %[[VAL_211]] : f32
+// CHECK:             %[[VAL_213:.*]] = addf %[[VAL_208]], %[[VAL_212]] : f32
+// CHECK:             memref.store %[[VAL_213]], %[[VAL_1]]{{\[}}%[[VAL_156]]] : memref<?xf32>
 // CHECK:           }
 // CHECK:           return
 // CHECK:         }
