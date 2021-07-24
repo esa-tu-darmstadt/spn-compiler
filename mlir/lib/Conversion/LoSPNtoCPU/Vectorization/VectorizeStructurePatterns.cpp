@@ -9,7 +9,6 @@
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Analysis.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Seeding.h"
-#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPPatternMatch.h"
 #include "../Target/TargetInformation.h"
 #include "mlir/Dialect/SCF/SCF.h"
@@ -51,6 +50,11 @@ namespace {
   }
 }
 
+// =======================================================================================================//
+namespace {
+  typedef std::chrono::high_resolution_clock::time_point TimePoint;
+}
+// =======================================================================================================//
 LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
                                                    llvm::ArrayRef<Value> operands,
                                                    ConversionPatternRewriter& rewriter) const {
@@ -60,7 +64,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   }
 
   if (task.body().getBlocks().size() > 1) {
-    return rewriter.notifyMatchFailure(task, "SLP vectorization only applicable to single basic blocks (yet)");
+    return rewriter.notifyMatchFailure(task, "SLP vectorization only applicable to single basic blocks");
   }
 
   auto const& callPoint = rewriter.saveInsertionPoint();
@@ -94,20 +98,25 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
   // Apply SLP vectorization.
   task->emitRemark() << "Beginning SLP vectorization...";
-  // ============================================================================================================= //
+  // v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v //
   // Useful for when we are only interested in some stats, not the compiled kernel or output comparisons (brings
   // compilation time practically down to zero).
   bool deleteAllOps = false;
-  // ============================================================================================================= //
-  task->emitRemark() << "Total number of operations in function: " << taskFunc.body().front().getOperations().size();
-  // ============================================================================================================= //
+  // NOTE: most of these are mutually exclusive.
   bool doSizeAnalysis = false;
+  bool doDependencyAnalysis = false;
+  bool printCostModelAnalysis = false;
+  bool doTopologicalMixingAnalysis = false;
+  bool printTimes = true;
+  // ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
+  task->emitRemark() << "Total number of operations in function: " << taskFunc.body().front().getOperations().size();
+  // v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v //
   if (doSizeAnalysis) {
     unsigned numOps = taskBlock->getOperations().size();
     llvm::outs() << "#ops: " << std::to_string(numOps);
     deleteAllOps = true;
   }
-  // ============================================================================================================= //
+  // ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
   // We don't want to carry thousands of needlessly created operations with us to the next vectorization attempt.
   // Therefore, use an IRRewriter that erases operations *immediately* instead of at the end of the conversion process
   // (as would be the case for PatterRewriter::eraseOp()).
@@ -135,11 +144,27 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   auto iteration = 0;
 
   auto currentFunctionCost = costModel->getBlockCost(taskBlock, computeDeadOps(taskBlock));
-  for (auto seed = seedAnalysis->next(); !seed.empty(); seed = seedAnalysis->next()) {
+  // v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v //
+  TimePoint totalStart = std::chrono::high_resolution_clock::now();
+  // ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
 
-    // ============================================================================================================= //
+  SmallVector<Value, 4> seed;
+  while (iteration != maxIterations) {
+
+    // v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v //
+    TimePoint seedStart = std::chrono::high_resolution_clock::now();
+    // ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
+    seed.assign(seedAnalysis->next());
+    if (seed.empty()) {
+      break;
+    }
+    // v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v //
+    TimePoint seedEnd = std::chrono::high_resolution_clock::now();
+    auto seedDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(seedEnd - seedStart);
+    if (printTimes) {
+      llvm::outs() << "SLP SEED TIME: " << seedDuration.count() << " ns\n";
+    }
     {
-      bool printCostModelAnalysis = false;
       if (printCostModelAnalysis) {
         auto line = Twine("SLP Iteration: ").concat(std::to_string(iteration)).str();
         appendLineToFile("costAnalysis.log", line);
@@ -148,18 +173,20 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         deleteAllOps = true;
       }
     }
-    // ============================================================================================================= //
-
-    if (iteration++ == maxIterations) {
-      break;
-    }
+    // ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
 
     task->emitRemark("Computing graph...");
+    // v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v //
+    TimePoint graphStart = std::chrono::high_resolution_clock::now();
+    // ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
     SLPGraph graph{seed, 3};
-
-    // ============================================================================================================= //
+    // v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v //
+    TimePoint graphEnd = std::chrono::high_resolution_clock::now();
+    auto graphDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(graphEnd - graphStart);
+    if (printTimes) {
+      llvm::outs() << "SLP GRAPH TIME: " << graphDuration.count() << " ns\n";
+    }
     {
-      bool doDependencyAnalysis = false;
       if (doDependencyAnalysis) {
         auto dependencyGraph = graph.dependencyGraph();
         task->emitRemark("#Nodes in dependency graph: ") << dependencyGraph.numNodes();
@@ -168,14 +195,13 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         deleteAllOps = true;
         break;
       }
-      bool doTopologicalMixingAnalysis = false;
       if (doTopologicalMixingAnalysis) {
         analyzeTopologicalMixing(graph);
         deleteAllOps = true;
         break;
       }
     }
-    // ============================================================================================================= //
+    // ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
 
     task->emitRemark("Converting graph...");
     auto order = conversionManager.startConversion(graph);
@@ -183,9 +209,19 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     auto numVectors = order.size();
     task->emitRemark("Number of SLP vectors in graph: " + std::to_string(numVectors));
     task->emitRemark("Number of unique ops in graph:  " + std::to_string(numUniqueOps(order)));
+    // v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v //
+    TimePoint rewriteStart = std::chrono::high_resolution_clock::now();
+    // ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
     for (auto* superword : order) {
       applicator.matchAndRewrite(superword, graphRewriter);
     }
+    // v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v //
+    TimePoint rewriteEnd = std::chrono::high_resolution_clock::now();
+    auto rewriteDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(rewriteEnd - rewriteStart);
+    if (printTimes) {
+      llvm::outs() << "SLP PATTERN REWRITE TIME: " << rewriteDuration.count() << " ns\n";
+    }
+    // ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
     task->emitRemark("Conversion complete.");
     auto vectorizedFunctionCost = costModel->getBlockCost(taskBlock, computeDeadOps(taskBlock));
     if (vectorizedFunctionCost >= currentFunctionCost) {
@@ -196,11 +232,18 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       conversionManager.finishConversion();
       seedAnalysis->update(order);
       currentFunctionCost = vectorizedFunctionCost;
+      ++iteration;
     }
 
   }
   task->emitRemark("SLP vectorization complete.");
-  // ============================================================================================================= //
+  // v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v v //
+  TimePoint totalEnd = std::chrono::high_resolution_clock::now();
+  auto totalDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(totalEnd - totalStart);
+  if (printTimes) {
+    llvm::outs() << "SLP TOTAL TIME: " << totalDuration.count() << " ns\n";
+  }
+  // ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
   if (deleteAllOps) {
     for (auto& op : taskBlock->getOperations()) {
       rewriter.eraseOp(&op);
@@ -208,7 +251,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     graphRewriter.setInsertionPointToStart(taskBlock);
     graphRewriter.create<ReturnOp>(task->getLoc());
   }
-  // ============================================================================================================= //
+  // ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
   rewriter.restoreInsertionPoint(callPoint);
   rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
   return success();
