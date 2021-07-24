@@ -3,8 +3,8 @@
 import fire
 import numpy as np
 import os
-import spncpy as spnc
 import tempfile
+import spnc.spncpy as spncpy
 from datetime import datetime
 from time import perf_counter_ns
 from xspn.serialization.binary.BinarySerialization import BinaryDeserializer, BinarySerializer
@@ -38,7 +38,7 @@ def measure_execution_time(name: str, spn_file: str, input_data: str, reference_
         raise RuntimeError("Serialization of the SPN failed")
 
     # Invoke the compiler.
-    compiler = spnc.SPNCompiler()
+    compiler = spncpy.SPNCompiler()
 
     # Compile the query into a Kernel.
     cpuVectorize = translateBool(bool(vectorize))
@@ -62,7 +62,7 @@ def measure_execution_time(name: str, spn_file: str, input_data: str, reference_
 
     # Execute the compiled Kernel.
     numSamples = inputs.shape[0]
-
+    print("Comparing with reference...")
     for i in range(numSamples):
         results = k.execute(1, np.atleast_2d(inputs[i]))
         # Compare computed result and reference to make sure the computation by the compiled Kernel is correct.

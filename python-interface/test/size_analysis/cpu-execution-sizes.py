@@ -2,7 +2,7 @@
 
 import fire
 import os
-import spncpy as spnc
+import spnc.spncpy as spncpy
 import tempfile
 from datetime import datetime
 from xspn.serialization.binary.BinarySerialization import BinaryDeserializer, BinarySerializer
@@ -35,7 +35,7 @@ def compute_sizes(name: str, spn_file: str, vectorize: str, vectorLibrary: str, 
         raise RuntimeError("Serialization of the SPN failed")
 
     # Invoke the compiler.
-    compiler = spnc.SPNCompiler()
+    compiler = spncpy.SPNCompiler()
 
     # Compile the query into a Kernel.
     cpuVectorize = translateBool(bool(vectorize))

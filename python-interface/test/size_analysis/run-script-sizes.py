@@ -32,10 +32,10 @@ def parse_output(output):
     return {"#lospn ops": size}
 
 
-def invokeCompileAndExecute(model, vecLib, shuffle):
+def invokeCompileAndExecute(model):
     command = ["python3", os.path.join(os.path.dirname(os.path.realpath(__file__)), "cpu-execution-sizes.py")]
     command.extend((model[0], model[1]))
-    command.extend((str(True), str(vecLib), str(shuffle)))
+    command.extend((str(True), str(None), str(False)))
     run_result = subprocess.run(command, capture_output=True, text=True)
     if run_result.returncode == 0:
         return parse_output(run_result.stdout)
@@ -74,21 +74,25 @@ def get_speakers(speakersDir: str):
     return models
 
 
-def traverseModels(speakersDir: str, ratspnDir: str, logDir: str, vecLib: bool, shuffle: bool):
+def traverseModels(speakersDir: str, ratspnDir: str, logDir: str):
     models = []
     models.extend(get_ratspns(ratspnDir))
-    # models.extend(get_speakers(speakersDir))
+    models.extend(get_speakers(speakersDir))
 
     # Sort models s.t. smaller ones are executed first
+    counter = 0
     models = sorted(models, key=lambda m: os.path.getsize(m[1]))
     for m in [models[-13], models[-12], models[-11], models[-10], models[-9], models[-8], models[-7], models[-6],
               models[-5], models[-4], models[-3], models[-2], models[-1]]:
         print(f"Skipping model {m} because of traversal limit in words problems.")
-        print(f"\tFile size of model: {os.path.getsize(m[1])}")
+        print(f"\tFile size of model: {os.path.getsize(m[1])} bytes")
+        counter = counter + 1
 
-    for m in models:
-        print(f"Current model: {m[0]}")
-        sizes = invokeCompileAndExecute(m, vecLib, shuffle)
+    for m in models[:-13]:
+        counter = counter + 1
+        print(f"Current model ({counter}/{len(models)}): {m[0]}")
+        continue
+        sizes = invokeCompileAndExecute(m)
         data = {"Name": m[0], "file size (bytes)": os.path.getsize(m[1])}
         data.update(sizes)
 
