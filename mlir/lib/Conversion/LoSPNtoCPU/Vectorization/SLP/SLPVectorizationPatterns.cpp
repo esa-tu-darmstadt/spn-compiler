@@ -154,17 +154,19 @@ LogicalResult ShuffleTwoSuperwords::match(Superword* superword) {
     relevantSuperwords.insert(std::begin(existingSuperwords), std::end(existingSuperwords));
   }
   // Check if any pair of relevant superwords can be combined to convert the target superword.
+  SmallPtrSet<Value, 4> remainingValuesFirst;
+  SmallPtrSet<Value, 4> remainingValuesSecond;
   for (auto* v1 : relevantSuperwords) {
-    SmallPtrSet<Value, 4> remainingValues{superword->begin(), superword->end()};
+    remainingValuesFirst.insert(superword->begin(), superword->end());
     for (auto value : *v1) {
-      remainingValues.erase(value);
+      remainingValuesFirst.erase(value);
     }
     for (auto* v2 : relevantSuperwords) {
-      SmallPtrSet<Value, 4> finalRemainingValues{remainingValues};
+      remainingValuesSecond = remainingValuesFirst;
       for (auto value : *v2) {
-        finalRemainingValues.erase(value);
+        remainingValuesSecond.erase(value);
       }
-      if (!finalRemainingValues.empty()) {
+      if (!remainingValuesSecond.empty()) {
         continue;
       }
       SmallVector<int64_t, 4> indices;
@@ -404,7 +406,7 @@ Value CreateGatherLoad::rewrite(Superword* superword, RewriterBase& rewriter) {
   }
 
   // Access the base memref beginning at [0, 0].
-  ValueRange indices{index, index};
+  SmallVector<Value, 2> indices{index, index};
 
   auto loc = superword->getLoc();
   auto vectorType = superword->getVectorType();
