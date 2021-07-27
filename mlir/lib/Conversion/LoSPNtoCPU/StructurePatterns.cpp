@@ -47,7 +47,14 @@ mlir::LogicalResult mlir::spn::BatchTaskLowering::matchAndRewrite(mlir::spn::low
   auto taskBlock = taskFunc.addEntryBlock();
   rewriter.setInsertionPointToStart(taskBlock);
   auto const0 = rewriter.create<ConstantOp>(op->getLoc(), rewriter.getIndexAttr(0));
-  auto ub = rewriter.create<memref::DimOp>(op.getLoc(), taskBlock->getArgument(0), 0);
+  // The upper bound can be derived from the dynamic dimension of one of the input memrefs.
+  auto inputMemRef = taskBlock->getArgument(0);
+  auto inputMemRefTy = inputMemRef.getType().dyn_cast<MemRefType>();
+  assert(inputMemRefTy);
+  assert(inputMemRefTy.hasRank() && inputMemRefTy.getRank() == 2);
+  assert(inputMemRefTy.isDynamicDim(0) ^ inputMemRefTy.isDynamicDim(1));
+  auto index = (inputMemRefTy.isDynamicDim(0)) ? 0 : 1;
+  auto ub = rewriter.create<memref::DimOp>(op.getLoc(), inputMemRef, index);
   auto step = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
   auto loop = rewriter.create<scf::ForOp>(op.getLoc(), const0, ub, step);
   rewriter.create<ReturnOp>(op->getLoc());

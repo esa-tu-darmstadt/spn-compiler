@@ -129,7 +129,7 @@ mlir::LogicalResult mlir::spn::Vectorize2DBatchRead::matchAndRewrite(mlir::spn::
   // Create a constant vector with the offsets of the elements from the first sample.
   SmallVector<unsigned long, 4> offsets;
   for (unsigned i = 0; i < op.vectorFactor(); ++i) {
-    offsets.push_back(i * numFeatures + op.sampleIndex());
+    offsets.push_back(i * numFeatures + op.staticIndex());
   }
   auto constAttr = mlir::DenseElementsAttr::get(vectorOfIndex, (llvm::ArrayRef<unsigned long>) offsets);
   auto constOffset = rewriter.create<ConstantOp>(op.getLoc(), constAttr);

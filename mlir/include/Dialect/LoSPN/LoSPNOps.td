@@ -113,8 +113,9 @@ def SPNBatchExtract : LoSPN_Op<"batch_extract", [HasParent<"SPNTask">]> {
     let summary = "Extract a particular index from each sample in a batch";
 
     let arguments = (ins RankedTensorOf<[LoSPNInputType, LoSPNComputeType]>:$input,
-                        Index:$batchIndex,
-                        UI32Attr:$sampleIndex);
+                        Index:$dynamicIndex,
+                        UI32Attr:$staticIndex,
+                        OptionalAttr<BoolAttr>:$transposed);
 
     let results = (outs AnyTypeOf<[LoSPNInputType, LoSPNComputeType]>:$result);
 
@@ -128,24 +129,35 @@ def SPNBatchRead : LoSPN_Op<"batch_read", [
     let summary = "Read a particular index from each sample in a batch represented by  a memref";
 
     let arguments = (ins Arg<MemRefOf<[LoSPNInputType, LoSPNComputeType]>, "", [MemRead]>:$batchMem,
-                        Index:$batchIndex,
-                        UI32Attr:$sampleIndex);
+                        Index:$dynamicIndex,
+                        UI32Attr:$staticIndex,
+                        OptionalAttr<BoolAttr>:$transposed);
 
     let results = (outs AnyTypeOf<[LoSPNInputType, LoSPNComputeType]>:$result);
 
     let verifier = [{ return mlir::spn::low::verifyBatchRead(*this); }];
+
+    let builders = [
+        OpBuilder<(ins "Value":$batchMem, "Value":$dynamicIndex, "unsigned":$staticIndex,
+                    "llvm::Optional<bool>":$transposed)>
+    ];
 }
 
 def SPNBatchCollect : LoSPN_Op<"batch_collect", [HasParent<"SPNTask">]> {
 
     let summary = "Collect one or multiple results for each sample in a batch";
 
-    let arguments = (ins Variadic<LoSPNComputeType>:$resultValues,
-                            Index:$batchIndex);
+    let arguments = (ins Index:$batchIndex,
+                            Variadic<LoSPNComputeType>:$resultValues,
+                            OptionalAttr<BoolAttr>:$transposed);
 
-    let results = (outs Variadic<RankedTensorOf<[LoSPNComputeType]>>:$tensors);
+    let results = (outs RankedTensorOf<[LoSPNComputeType]>:$tensor);
 
     let verifier = [{ return mlir::spn::low::verifyBatchCollect(*this); }];
+
+    let builders = [
+        OpBuilder<(ins "ValueRange":$resultValues, "Value":$batchIndex, "bool":$transposed)>
+    ];
 }
 
 def SPNBatchWrite : LoSPN_Op<"batch_write", [
@@ -154,9 +166,10 @@ def SPNBatchWrite : LoSPN_Op<"batch_write", [
 
     let summary = "Write one or multiple results for each sample in a batch";
 
-    let arguments = (ins LoSPNComputeType:$resultValue,
-                        Arg<MemRefOf<[LoSPNComputeType]>, "", [MemWrite]>:$batchMem,
-                        Index:$batchIndex);
+    let arguments = (ins Arg<MemRefOf<[LoSPNComputeType]>, "", [MemWrite]>:$batchMem,
+                        Index:$batchIndex,
+                        Variadic<LoSPNComputeType>:$resultValues,
+                        OptionalAttr<BoolAttr>:$transposed);
 
     let verifier = [{ return mlir::spn::low::verifyBatchWrite(*this); }];
 }
