@@ -32,20 +32,29 @@ SmallVector<Value, 4> SeedAnalysis::next() {
   auto seed = nextSeed();
   for (auto const& value : seed) {
     if (auto* definingOp = value.getDefiningOp()) {
-      availableOps.erase(definingOp);
+      availableOps.remove(definingOp);
     }
   }
   return seed;
 }
 
 void SeedAnalysis::update(ArrayRef<Superword*> convertedSuperwords) {
+  SmallPtrSet<Operation*, 32> convertedOps;
   for (auto* superword : convertedSuperwords) {
     for (auto const& element : *superword) {
       if (auto* definingOp = element.getDefiningOp()) {
-        availableOps.erase(definingOp);
+        convertedOps.insert(definingOp);
       }
     }
   }
+  // Construct anew and swap because erasing many ops one after one takes a lot of time in set vectors.
+  llvm::SmallSetVector<Operation*, 32> newAvailableOps;
+  for (auto* op : availableOps) {
+    if (!convertedOps.contains(op)) {
+      newAvailableOps.insert(op);
+    }
+  }
+  availableOps.swap(newAvailableOps);
 }
 
 // === TopDownSeedAnalysis === //
@@ -74,7 +83,7 @@ namespace {
   }
 
   SmallVector<SmallVector<Value, 4>> computeSeedsByOpName(DenseMap<Value, unsigned int>& opDepths,
-                                                          SmallPtrSetImpl<Operation*> const& availableOps,
+                                                          llvm::SmallSetVector<Operation*, 32> const& availableOps,
                                                           unsigned width) {
     llvm::StringMap<SmallVector<SmallVector<Value, 4>>> seedsByOpName;
     for (auto& entry : opDepths) {

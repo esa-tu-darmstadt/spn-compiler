@@ -11,6 +11,7 @@
 
 #include "SLPGraph.h"
 #include "mlir/IR/Operation.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/BitVector.h"
 
@@ -31,7 +32,8 @@ namespace mlir {
           virtual SmallVector<Value, 4> nextSeed() const = 0;
           Operation* const rootOp;
           unsigned const width;
-          SmallPtrSet<Operation*, 32> availableOps;
+          // SetVector to make seeding deterministic from run to run.
+          llvm::SmallSetVector<Operation*, 32> availableOps;
         private:
           bool availableComputed = false;
         };
