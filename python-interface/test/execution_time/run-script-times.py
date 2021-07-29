@@ -83,8 +83,6 @@ def parse_output(output):
             continue
 
     if not status or compile_time is None or execution_time is None:
-        for line in output.splitlines():
-            print(line)
         print(f"Status: {status}")
         print(f"Compile time: {compile_time}")
         print(f"Execution time: {execution_time}")
@@ -100,13 +98,13 @@ def parse_output(output):
 
 
 def invokeCompileAndExecute(model, vectorize, vecLib, shuffle):
-    command = ["python3", os.path.join(os.path.dirname(os.path.realpath(__file__)), "cpu-execution-times.py")]
+    command = ["python3", os.path.join(os.path.dirname(os.path.realpath(__file__)), "cpuExecutionTimes.py")]
     # model name and model file
     command.extend((model[0], model[1]))
     # input and reference paths
     command.extend((model[2], model[3]))
     command.extend((str(vectorize), str(vecLib), str(shuffle)))
-    run_result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+    run_result = subprocess.run(command, capture_output=True, text=True)
     if run_result.returncode == 0:
         return parse_output(run_result.stdout)
     else:
