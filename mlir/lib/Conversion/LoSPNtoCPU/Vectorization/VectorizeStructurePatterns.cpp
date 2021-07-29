@@ -114,7 +114,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   if (doSizeAnalysis) {
     unsigned numOps = taskBlock->getOperations().size();
     llvm::outs() << "#ops: " << std::to_string(numOps);
-    deleteAllOps = true;
   }
   // ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
   // We don't want to carry thousands of needlessly created operations with us to the next vectorization attempt.
@@ -170,7 +169,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         appendLineToFile("costAnalysis.log", line);
         line = Twine("Estimated Cost: ").concat(std::to_string(currentFunctionCost)).str();
         appendLineToFile("costAnalysis.log", line);
-        deleteAllOps = true;
       }
     }
     // ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
@@ -192,12 +190,10 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         task->emitRemark("#Nodes in dependency graph: ") << dependencyGraph.numNodes();
         task->emitRemark("#Edges in dependency graph: ") << dependencyGraph.numEdges();
         dumpDependencyGraph(dependencyGraph);
-        deleteAllOps = true;
         break;
       }
       if (doTopologicalMixingAnalysis) {
         analyzeTopologicalMixing(graph);
-        deleteAllOps = true;
         break;
       }
     }
@@ -252,6 +248,12 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     graphRewriter.create<ReturnOp>(task->getLoc());
   }
   // ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ //
+  // A lot of operations won't probably be needed anymore if we vectorized at least once.
+  if (iteration > 0) {
+    for (auto* op : computeDeadOps(taskBlock)) {
+      rewriter.eraseOp(op);
+    }
+  }
   rewriter.restoreInsertionPoint(callPoint);
   rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
   return success();
