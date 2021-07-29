@@ -347,46 +347,97 @@ Value ConversionManager::getOrExtractValue(Value value) {
   return extractOp;
 }
 
-void ConversionManager::reorderOperations() {
-  // Sort operations topologically.
-  DenseMap<Operation*, unsigned> depths;
-  llvm::SmallSetVector<Operation*, 32> worklist;
-  block->walk<WalkOrder::PreOrder>([&](Operation* op) {
-    depths[op] = 0;
-    worklist.insert(op);
-  });
-  unsigned maxDepth = 0;
-  while (!worklist.empty()) {
-    auto* currentOp = worklist.pop_back_val();
-    for (auto const& operand : currentOp->getOperands()) {
-      if (auto* operandOp = operand.getDefiningOp()) {
-        unsigned operandDepth = depths[currentOp] + 1;
-        if (operandDepth > depths[operandOp]) {
-          depths[operandOp] = operandDepth;
-          maxDepth = std::max(maxDepth, operandDepth);
-          worklist.insert(operandOp);
+// Helper functions in anonymous namespace.
+namespace {
+  void reorderOperationsBFS(Block* block) {
+    DenseMap<Operation*, unsigned> depths;
+    llvm::SmallSetVector<Operation*, 32> worklist;
+    block->walk<WalkOrder::PreOrder>([&](Operation* op) {
+      depths[op] = 0;
+      worklist.insert(op);
+    });
+    unsigned maxDepth = 0;
+    while (!worklist.empty()) {
+      auto* currentOp = worklist.pop_back_val();
+      for (auto const& operand : currentOp->getOperands()) {
+        if (auto* operandOp = operand.getDefiningOp()) {
+          unsigned operandDepth = depths[currentOp] + 1;
+          if (operandDepth > depths[operandOp]) {
+            depths[operandOp] = operandDepth;
+            maxDepth = std::max(maxDepth, operandDepth);
+            worklist.insert(operandOp);
+          }
         }
       }
     }
+    SmallVector<SmallVector<Operation*>> opsSortedByDepth{maxDepth + 1};
+    for (auto const& entry : depths) {
+      opsSortedByDepth[maxDepth - entry.second].emplace_back(entry.first);
+    }
+    for (auto& ops: opsSortedByDepth) {
+      llvm::sort(std::begin(ops), std::end(ops), [&](Operation* lhs, Operation* rhs) {
+        return lhs->isBeforeInBlock(rhs);
+      });
+    }
+    Operation* lastOp = nullptr;
+    for (auto const& ops : opsSortedByDepth) {
+      for (auto* op : ops) {
+        if (lastOp) {
+          op->moveAfter(lastOp);
+        } else {
+          op->moveBefore(block, block->begin());
+        }
+        lastOp = op;
+      }
+    }
   }
-  SmallVector<SmallVector<Operation*>> opsSortedByDepth{maxDepth + 1};
-  for (auto const& entry : depths) {
-    opsSortedByDepth[maxDepth - entry.second].emplace_back(entry.first);
-  }
-  for (auto& ops: opsSortedByDepth) {
-    llvm::sort(std::begin(ops), std::end(ops), [&](Operation* lhs, Operation* rhs) {
-      return lhs->isBeforeInBlock(rhs);
-    });
-  }
-  Operation* lastOp = nullptr;
-  for (auto const& ops : opsSortedByDepth) {
-    for (auto* op : ops) {
+
+  void reorderOperationsDFS(Block* block) {
+    llvm::SmallSetVector<Operation*, 128> order;
+    for (auto it = block->rbegin(); it != block->rend(); ++it) {
+      auto* op = &(*it);
+      if (order.contains(op) || op->getNumOperands() == 0 || op == block->getTerminator()) {
+        continue;
+      }
+      // true: all operands done, can be inserted into order
+      // false: need to visit operands
+      SmallVector<std::pair<Operation*, bool>> stack;
+      stack.emplace_back(op, false);
+      while (!stack.empty()) {
+        auto pair = stack.pop_back_val();
+        if (order.contains(pair.first) || pair.first->getNumOperands() == 0) {
+          continue;
+        }
+        if (pair.second) {
+          order.insert(pair.first);
+          continue;
+        }
+        stack.emplace_back(pair.first, true);
+        // Reverse order due to LIFO stack. Otherwise, RHS operands would appear before LHS operands in the final order.
+        for (unsigned i = pair.first->getNumOperands(); i-- > 0;) {
+          auto operand = pair.first->getOperand(i);
+          if (auto* definingOp = operand.getDefiningOp()) {
+            // Skip finished operations.
+            if (order.contains(definingOp) || definingOp->getNumOperands() == 0) {
+              continue;
+            }
+            stack.emplace_back(definingOp, false);
+          }
+        }
+      }
+    }
+    Operation* lastOp = nullptr;
+    for (auto* op : order) {
       if (lastOp) {
         op->moveAfter(lastOp);
       } else {
-        op->moveBefore(block, block->begin());
+        op->moveBefore(block->getTerminator());
       }
       lastOp = op;
     }
   }
+}
+
+void ConversionManager::reorderOperations() {
+  reorderOperationsDFS(block);
 }
