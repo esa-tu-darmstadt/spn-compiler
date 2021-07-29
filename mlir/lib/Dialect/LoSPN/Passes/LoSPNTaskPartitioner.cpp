@@ -74,7 +74,7 @@ namespace mlir {
                 // to the external operand of the task.
                 assert(externalTensors.count(tensorArg.cast<BlockArgument>()));
                 auto externalTensor = externalTensors[tensorArg.cast<BlockArgument>()];
-                inputs[blockArg] = InputInfo{externalTensor, extract.sampleIndex()};
+                inputs[blockArg] = InputInfo{externalTensor, llvm::None, extract.staticIndex()};
                 // All users of the entry block args potentially do not have outside operands.
                 for (auto* U : blockArg.getUsers()) {
                   inNodes.insert(U);
@@ -116,9 +116,20 @@ namespace mlir {
           // Post-processing of constants: If a constant has a use in a different partition,
           // clone the constant to the other partition to avoid unnecessary edges crossing partitions.
           postprocessConstants(partitions, rewriter);
+          // Handle the special case that a partition only contains constants.
+          for (auto I = partitions.begin(); I != partitions.end();) {
+            auto allConstant = llvm::all_of(*I->first, [](Operation* o) {
+              return o->hasTrait<OpTrait::ConstantLike>();
+            });
+            if (allConstant) {
+              I = partitions.erase(I);
+            } else {
+              ++I;
+            }
+          }
 
+          // Create a new LoSPN task for each partition.
           for (auto& p : partitions) {
-            // Create a new LoSPN task for each partition.
             createTaskForPartition(p, rewriter, op.getLoc(), op.batchSize(), inputs, partitions);
           }
 
@@ -130,7 +141,7 @@ namespace mlir {
           // the original task by the newly created tasks.
           SmallVector<Value> newResults;
           for (auto res : taskResults) {
-            newResults.push_back(inputs.lookup(res).first);
+            newResults.push_back(inputs.lookup(res).tensor);
           }
           rewriter.replaceOp(op, newResults);
           return mlir::success();
@@ -138,7 +149,16 @@ namespace mlir {
 
       private:
 
-        using InputInfo = std::pair<mlir::Value, unsigned>;
+        struct InputInfo {
+          Value tensor;
+          llvm::Optional<unsigned> rowIndex;
+          llvm::Optional<unsigned> colIndex;
+
+          bool transposed() const {
+            assert(rowIndex.hasValue() ^ colIndex.hasValue());
+            return rowIndex.hasValue();
+          }
+        };
 
         using InputMap = llvm::DenseMap<mlir::Value, InputInfo>;
 
@@ -159,7 +179,7 @@ namespace mlir {
                   // First, check the map for pre-existing entries.
                   // If no mapping is present, the input must be produced by another partition.
                   auto otherPartition = findPartition(operand, partitions);
-                  assert(otherPartition.first);
+                  assert(otherPartition.first && "Did not find partition producing this value");
                   // Convert the partition producing the input to a task first.
                   createTaskForPartition(otherPartition, rewriter, loc, batchSize, inputs, partitions);
                   // Input should be present after conversion.
@@ -168,37 +188,46 @@ namespace mlir {
                 auto inputInfo = inputs[operand];
                 nonPartitionInputs[operand] = inputInfo;
                 // Remember which output from the outside will be provided by which argument to this task.
-                if (!inputArgs.count(inputInfo.first)) {
-                  inputArgs[inputInfo.first] = inputArgIndex++;
+                if (!inputArgs.count(inputInfo.tensor)) {
+                  inputArgs.insert({inputInfo.tensor, inputArgIndex++});
                 }
               }
             }
           }
           // Collect information about which values this task will provide to other partitions.
           SmallVector<Value> nonPartitionOutputs;
-          SmallVector<Type> resultTypes;
+          llvm::Optional<Type> resultType;
           SmallVector<Type> bodyResults;
           for (auto* o : partition.first->hasExternalOutputs()) {
             for (auto result : o->getResults()) {
               // Only add to nonPartitionOutputs if there's at least one user outside of the partition.
-              for (auto* U : result.getUsers()) {
-                if (!partition.first->contains(U)) {
-                  nonPartitionOutputs.push_back(result);
-                  auto resultType = performTypeConversion(result.getType());
-                  resultTypes.push_back(RankedTensorType::get({-1}, resultType));
-                  bodyResults.push_back(resultType);
-                  break;
+              auto hasExternalUser = llvm::any_of(result.getUsers(), [&partition](auto* U) {
+                return !partition.first->contains(U);
+              });
+              if (hasExternalUser) {
+                auto rType = performTypeConversion(result.getType());
+                if (!resultType.hasValue()) {
+                  resultType = rType;
+                } else {
+                  // Currently we assume that all results from one partition have the same type.
+                  assert(resultType.getValue() == rType && "Multiple results with different types");
                 }
+                bodyResults.push_back(rType);
+                nonPartitionOutputs.push_back(result);
               }
             }
           }
+          assert(resultType.hasValue() && "Expecting at least one output from every partition");
+          // All results of a partition are stored into one tensor (later on buffer).
+          auto outputType = RankedTensorType::get({static_cast<long>(bodyResults.size()), -1},
+                                                  resultType.getValue());
           // Add all input tensors as operands of the new task.
           SmallVector<Value> taskInputs;
           for (auto& in : inputArgs) {
             taskInputs.push_back(in.first);
           }
           // Create the actual LoSPN task.
-          auto task = rewriter.create<SPNTask>(loc, resultTypes, taskInputs, batchSize);
+          auto task = rewriter.create<SPNTask>(loc, outputType, taskInputs, batchSize);
           auto restore = rewriter.saveInsertionPoint();
           auto taskBlock = task.addEntryBlock();
           // Create a batch extract for each tensor argument of the new task.
@@ -211,14 +240,17 @@ namespace mlir {
           for (auto& in : nonPartitionInputs) {
             auto value = in.getFirst();
             auto inputInfo = in.getSecond();
-            auto index = inputArgs[inputInfo.first];
+            auto index = inputArgs[inputInfo.tensor];
             hasLogType[bodyArgIndex] = value.getType().isa<low::LogType>();
             // Remember which input value is associated with which input index for the body.
             inputIndices[value] = bodyArgIndex++;
+            bool transposed = inputInfo.transposed();
+            unsigned staticIndex = (transposed) ? inputInfo.rowIndex.getValue() : inputInfo.colIndex.getValue();
             auto extract = rewriter.create<SPNBatchExtract>(loc,
                                                             performTypeConversion(value.getType()),
                                                             taskBlock->getArgument(index),
-                                                            task.getBatchIndex(), inputInfo.second);
+                                                            task.getBatchIndex(), staticIndex,
+                                                            rewriter.getBoolAttr(transposed));
             bodyInputs.push_back(extract);
           }
           auto body = rewriter.create<SPNBody>(loc, bodyResults, bodyInputs);
@@ -246,22 +278,21 @@ namespace mlir {
           SmallVector<Value> bodyYields;
           unsigned resultIndex = 0;
           // Create a SPNYield with all results at the end of the body.
+          llvm::dbgs() << "Return values:\n";
           for (auto retVal : nonPartitionOutputs) {
             bodyYields.push_back(mapper.lookupOrNull(retVal));
-            inputs[retVal] = InputInfo{task->getResult(resultIndex++), 0};
+            inputs[retVal] = InputInfo{task->getResult(0), resultIndex++, llvm::None};
           }
+          llvm::dbgs() << "End of return values\n";
           rewriter.create<SPNYield>(loc, bodyYields);
           rewriter.restoreInsertionPoint(restoreBody);
-          // Create a SPNBatchCollect for each result value to yield tensors.
-          SmallVector<Value> taskReturns;
-          for (auto r : body.getResults()) {
-            auto rType = RankedTensorType::get({-1}, r.getType());
-            auto collect = rewriter.create<SPNBatchCollect>(loc, rType, r, task.getBatchIndex());
-            taskReturns.push_back(collect.getResult(0));
-          }
+          // Create a SPNBatchCollect collecting all scalar results into a single tensor.
+          auto collect = rewriter.create<SPNBatchCollect>(loc, body->getResults(), task.getBatchIndex(), true);
           // Create a Return at the end of the task, returning all results as tensors.
-          rewriter.create<SPNReturn>(loc, taskReturns);
+          rewriter.create<SPNReturn>(loc, collect.getResult());
           rewriter.restoreInsertionPoint(restore);
+          task->emitRemark() << "Task " << task->getName() << " has " << task->getNumOperands() << " inputs and "
+                             << task->getNumResults() << "outputs";
         }
 
         void copyOperation(Operation* op, PatternRewriter& rewriter, BlockAndValueMapping& mapper) const {
