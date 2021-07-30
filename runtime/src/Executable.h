@@ -20,14 +20,16 @@ namespace spnc_rt {
                                    void* aligned_input_ptr,
                                    int64_t input_offset,
                                    int64_t input_size_dim1,
-                                   int64_t input_stride_dim1,
                                    int64_t input_size_dim2,
+                                   int64_t input_stride_dim1,
                                    int64_t input_stride_dim2,
                                    void* output_ptr,
                                    void* output_aligned_ptr,
                                    int64_t output_offset,
-                                   int64_t output_size,
-                                   int64_t output_stride);
+                                   int64_t output_size_dim1,
+                                   int64_t output_size_dim2,
+                                   int64_t output_stride_dim1,
+                                   int64_t output_stride_dim2);
 
   ///
   /// Manages a Kernel by loading it from the shared object using libelf.
