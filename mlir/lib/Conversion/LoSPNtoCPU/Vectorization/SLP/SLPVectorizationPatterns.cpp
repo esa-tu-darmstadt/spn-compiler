@@ -506,6 +506,7 @@ Value VectorizeGaussian::rewrite(Superword* superword, RewriterBase& rewriter) {
 
   // (x - mean)
   auto inputVector = conversionManager.getValue(superword->getOperand(0));
+  inputVector = util::extendTruncateOrGetVector(inputVector, vectorType, rewriter);
   auto meanVector = conversionManager.getOrCreateConstant(superword->getLoc(), means);
   Value gaussianVector = rewriter.create<SubFOp>(superword->getLoc(), vectorType, inputVector, meanVector);
 
