@@ -86,14 +86,29 @@ namespace {
                                                           llvm::SmallSetVector<Operation*, 32> const& availableOps,
                                                           unsigned width) {
     llvm::StringMap<SmallVector<SmallVector<Value, 4>>> seedsByOpName;
+    SmallVector<Value> sortedCandidates;
     for (auto& entry : opDepths) {
-      auto& value = entry.first;
+      sortedCandidates.emplace_back(entry.first);
+    }
+    // Required for deterministic seed retrieval.
+    // Sort s.t. operations that appear later in the program come first.
+    llvm::sort(std::begin(sortedCandidates), std::end(sortedCandidates), [&](Value lhs, Value rhs) {
+      if (auto* definingLhs = lhs.getDefiningOp()) {
+        if (auto* definingRhs = rhs.getDefiningOp()) {
+          return definingRhs->isBeforeInBlock(definingLhs);
+        } else {
+          return true;
+        }
+      }
+      return false;
+    });
+    for (auto value : sortedCandidates) {
       auto* definingOp = value.getDefiningOp();
       if (!definingOp || definingOp->hasTrait<OpTrait::ConstantLike>() || !vectorizable(definingOp)
           || !availableOps.contains(definingOp)) {
         continue;
       }
-      auto const& depth = entry.second;
+      auto const& depth = opDepths.lookup(value);
       auto const& opName = definingOp->getName().getStringRef();
       if (depth < log2(width)) {
         continue;
@@ -126,6 +141,11 @@ namespace {
         seeds.emplace_back(potentialSeed);
       }
     }
+    // Required for deterministic seed retrieval.
+    // Sort s.t. seeds whose first operation appears later in the program come first.
+    llvm::sort(std::begin(seeds), std::end(seeds), [&](auto const& lhs, auto const& rhs) {
+      return rhs.front().getDefiningOp()->isBeforeInBlock(lhs.front().getDefiningOp());
+    });
     return seeds;
   }
 }
