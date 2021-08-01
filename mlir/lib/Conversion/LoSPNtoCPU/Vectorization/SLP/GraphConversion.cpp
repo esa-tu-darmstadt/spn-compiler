@@ -127,6 +127,25 @@ ValuePosition ConversionState::getSuperwordContainingValue(Value value) const {
   return valuePosition;
 }
 
+// Helper functions in anonymous namespace.
+namespace {
+  bool isBeforeInBlock(Value lhs, Value rhs) {
+    if (auto* lhsOp = lhs.getDefiningOp()) {
+      if (auto* rhsOp = rhs.getDefiningOp()) {
+        return lhsOp->isBeforeInBlock(rhsOp);
+      }
+      return false;
+    } else if (rhs.getDefiningOp()) {
+      return true;
+    } else if (auto lhsBlockArg = lhs.dyn_cast<BlockArgument>()) {
+      if (auto rhsBlockArg = rhs.dyn_cast<BlockArgument>()) {
+        return lhsBlockArg.getArgNumber() < rhsBlockArg.getArgNumber();
+      }
+    }
+    return false;
+  }
+}
+
 SmallVector<Superword*> ConversionState::unconvertedPostOrder() const {
   SmallVector<Superword*> order;
   DenseMap<Superword*, unsigned> depths;
@@ -149,9 +168,12 @@ SmallVector<Superword*> ConversionState::unconvertedPostOrder() const {
     order.emplace_back(entry.first);
   }
   llvm::sort(std::begin(order), std::end(order), [&](Superword* lhs, Superword* rhs) {
-    // This comparison maximizes the re-use potential of non-leaf elements in leaf nodes through extractions.
     if (depths[lhs] == depths[rhs]) {
-      return !lhs->isLeaf() && rhs->isLeaf();
+      if (lhs->isLeaf() == rhs->isLeaf()) {
+        return isBeforeInBlock(lhs->getElement(0), rhs->getElement(0));
+      }
+      // Returning this maximizes the re-use potential of non-leaf elements in leaf nodes through extractions.
+      return rhs->isLeaf();
     }
     return depths[lhs] > depths[rhs];
   });
