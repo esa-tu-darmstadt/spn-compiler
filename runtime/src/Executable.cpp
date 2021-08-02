@@ -88,7 +88,11 @@ void Executable::executeGPU(size_t num_samples, void* inputs, void* outputs) {
   assert(kernel_func);
   // For GPUs, we launch all inputs at once. The host-part of the compiled kernel will split the samples
   // into multiple blocks, which in turn are processed by multiple GPU threads at once.
-  kernel_func(inputs, inputs, 0, num_samples, kernel->numFeatures(), 1, 1, outputs, outputs, 0, 1, num_samples, 1, 1);
+  // TODO: We need to specify the number of features as stride in the first dimension here,
+  // as the inserted runtime calls otherwise calculate the amount of data to be tranfered wrong.
+  // Investigate this further.
+  kernel_func(inputs, inputs, 0, num_samples, kernel->numFeatures(), kernel->numFeatures(), 1,
+              outputs, outputs, 0, 1, num_samples, 1, 1);
 }
 
 void Executable::initialize() {
