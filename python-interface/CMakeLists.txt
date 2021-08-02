@@ -24,10 +24,6 @@ target_include_directories(spncpy
 if (${CUDA_GPU_SUPPORT})
     set(INCLUDE_MLIR_CUDA_WRAPPERS "True")
     set(SPNC_MLIR_CUDA_WRAPPERS "$<TARGET_FILE_NAME:spnc-cuda-wrappers>")
-    # Copy MLIR CUDA wrappers to spnc package directory.
-    add_custom_command(TARGET spncpy POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy
-            $<TARGET_FILE:spnc-cuda-wrappers> ${CMAKE_CURRENT_SOURCE_DIR}/spnc)
 else ()
     set(INCLUDE_MLIR_CUDA_WRAPPERS "False")
     set(SPNC_MLIR_CUDA_WRAPPERS "NO_CUDA_SUPPORT")
