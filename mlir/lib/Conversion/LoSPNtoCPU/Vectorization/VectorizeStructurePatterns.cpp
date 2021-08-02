@@ -127,9 +127,10 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   });
 #endif
 
-  // We don't want to carry thousands of needlessly created operations with us to the next vectorization attempt.
+  // In case an SLP graph is not deemed profitable, we don't want to carry thousands of needlessly created operations
+  // with us to the next vectorization attempt.
   // Therefore, use an IRRewriter that erases operations *immediately* instead of at the end of the conversion process
-  // (as would be the case for PatterRewriter::eraseOp()).
+  // (as would be the case for ConversionPatterRewriter::eraseOp()).
   IRRewriter graphRewriter{rewriter};
   auto costModel = std::make_shared<UnitCostModel>();
   ConversionManager conversionManager{graphRewriter, taskBlock, costModel};
@@ -204,7 +205,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
     task->emitRemark("Converting graph...");
     auto order = conversionManager.startConversion(graph);
-    // Traverse the SLP graph and apply the vectorization patterns.
 
 #if PRINT_SLP_GRAPH_SIZE
     llvm::outs() << "#superwords in graph " << iteration << ": " + std::to_string(order.size()) << "\n";
@@ -215,6 +215,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     TimePoint rewriteStart = std::chrono::high_resolution_clock::now();
 #endif
 
+    // Traverse the SLP graph and apply the vectorization patterns.
     for (auto* superword : order) {
       applicator.matchAndRewrite(superword, graphRewriter);
     }
@@ -261,10 +262,13 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 #endif
 #if DELETE_OPS
   for (auto& op : taskBlock->getOperations()) {
-    rewriter.eraseOp(&op);
+    if(taskBlock->getTerminator() != &op) {
+      rewriter.eraseOp(&op);
+    }
   }
-  graphRewriter.setInsertionPointToStart(taskBlock);
-  graphRewriter.create<ReturnOp>(task->getLoc());
+  rewriter.restoreInsertionPoint(callPoint);
+  rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
+  return success();
 #endif
 
   // A lot of operations won't be needed anymore if we vectorized at least once.
