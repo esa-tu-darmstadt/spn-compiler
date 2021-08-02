@@ -699,9 +699,9 @@ mlir::LogicalResult mlir::spn::VectorizeSelectLeaf::matchAndRewrite(mlir::spn::l
     val_false = broadcastVectorConstant(vectorType, op.val_falseAttr().getValueAsDouble(), rewriter, op.getLoc());
   }
 
-  mlir::Value leaf = rewriter.template create<SelectOp>(op.getLoc(), cond, val_true, val_false);
+  mlir::Value leaf = rewriter.create<SelectOp>(op.getLoc(), cond, val_true, val_false);
   if (op.supportMarginal()) {
-    assert(inputTy.template isa<mlir::FloatType>());
+    assert(inputTy.isa<mlir::FloatType>());
     auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), CmpFPredicate::UNO, inputVec, inputVec);
     auto marginalValue = (computesLog) ? 0.0 : 1.0;
     auto constOne = broadcastVectorConstant(vectorType, marginalValue, rewriter, op.getLoc());

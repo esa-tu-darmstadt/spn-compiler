@@ -323,7 +323,6 @@ mlir::LogicalResult mlir::spn::GaussianLogLowering::matchAndRewrite(mlir::spn::l
   Value gaussian = rewriter.create<mlir::AddFOp>(op->getLoc(), coefficientConst, fraction);
   if (op.supportMarginal()) {
     auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), CmpFPredicate::UNO, index, index);
-    // FixMe / Question: Could this be a bug? (Either rename to 'constZero' -OR- set to 1.0 (instead of 0.0))
     auto constOne = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, 0.0));
     gaussian = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, gaussian);
   }
@@ -530,9 +529,10 @@ mlir::LogicalResult mlir::spn::SelectLowering::matchAndRewrite(mlir::spn::low::S
     val_false = rewriter.create<mlir::ConstantOp>(op->getLoc(), op.val_falseAttr().getType(), op.val_falseAttr());
   }
 
-  mlir::Value leaf = rewriter.template create<SelectOp>(op.getLoc(), cond, val_true, val_false);
+
+  mlir::Value leaf = rewriter.create<SelectOp>(op.getLoc(), cond, val_true, val_false);
   if (op.supportMarginal()) {
-    assert(inputTy.template isa<mlir::FloatType>());
+    assert(inputTy.isa<mlir::FloatType>());
     auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), mlir::CmpFPredicate::UNO, op.input(), op.input());
     auto marginalValue = (computesLog) ? 0.0 : 1.0;
     auto constOne = rewriter.create<mlir::ConstantOp>(op.getLoc(),

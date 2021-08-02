@@ -388,7 +388,7 @@ void mlir::spn::low::SPNConvertLog::build(::mlir::OpBuilder& odsBuilder,
                                                op.supportMarginalAttr());
     return success();
   }
-  return failure();
+  return rewriter.notifyMatchFailure(op, "Categorical held != 2 probabilities (no reduction to select possible)");
 }
 
 //===----------------------------------------------------------------------===//
@@ -423,7 +423,7 @@ void mlir::spn::low::SPNConvertLog::build(::mlir::OpBuilder& odsBuilder,
       return success();
     }
   }
-  return failure();
+  return rewriter.notifyMatchFailure(op, "Histogram held != 2 buckets (no reduction to select possible)");
 }
 
 #define GET_OP_CLASSES
