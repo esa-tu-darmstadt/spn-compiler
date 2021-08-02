@@ -101,9 +101,12 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
 
   // Determine the total number of samples to compute from the size of the memref passed as the
   // first argument to the Task.
-  auto inputMemRef = operands[0].getType().dyn_cast<MemRefType>();
-  assert(inputMemRef && inputMemRef.hasRank() && inputMemRef.isDynamicDim(0));
-  auto numSamples = rewriter.create<memref::DimOp>(op.getLoc(), operands[0], 0);
+  auto inputMemRefTy = operands[0].getType().dyn_cast<MemRefType>();
+  assert(inputMemRefTy);
+  assert(inputMemRefTy.hasRank() && inputMemRefTy.getRank() == 2);
+  assert(inputMemRefTy.isDynamicDim(0) ^ inputMemRefTy.isDynamicDim(1));
+  auto index = (inputMemRefTy.isDynamicDim(0)) ? 0 : 1;
+  auto numSamples = rewriter.create<memref::DimOp>(op.getLoc(), operands[0], index);
   // We assume 1D layout of threads and blocks and use the user-specified batchSize as blockSize.
   if ((op.batchSize() % 32) != 0) {
     op.emitWarning() << "Batch size should be a multiple of the warp-size (32)";
