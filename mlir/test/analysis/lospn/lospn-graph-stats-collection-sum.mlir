@@ -8,11 +8,11 @@ module  {
   ^bb0(%arg0: tensor<?x5xi32>):  // no predecessors
     %0 = "lo_spn.task"(%arg0) ( {
     ^bb0(%arg1: index, %arg2: tensor<?x5xi32>):  // no predecessors
-      %1 = "lo_spn.batch_extract"(%arg2, %arg1) {sampleIndex = 0 : ui32} : (tensor<?x5xi32>, index) -> i32
-      %2 = "lo_spn.batch_extract"(%arg2, %arg1) {sampleIndex = 1 : ui32} : (tensor<?x5xi32>, index) -> i32
-      %3 = "lo_spn.batch_extract"(%arg2, %arg1) {sampleIndex = 2 : ui32} : (tensor<?x5xi32>, index) -> i32
-      %4 = "lo_spn.batch_extract"(%arg2, %arg1) {sampleIndex = 3 : ui32} : (tensor<?x5xi32>, index) -> i32
-      %5 = "lo_spn.batch_extract"(%arg2, %arg1) {sampleIndex = 4 : ui32} : (tensor<?x5xi32>, index) -> i32
+      %1 = "lo_spn.batch_extract"(%arg2, %arg1) {staticIndex = 0 : ui32} : (tensor<?x5xi32>, index) -> i32
+      %2 = "lo_spn.batch_extract"(%arg2, %arg1) {staticIndex = 1 : ui32} : (tensor<?x5xi32>, index) -> i32
+      %3 = "lo_spn.batch_extract"(%arg2, %arg1) {staticIndex = 2 : ui32} : (tensor<?x5xi32>, index) -> i32
+      %4 = "lo_spn.batch_extract"(%arg2, %arg1) {staticIndex = 3 : ui32} : (tensor<?x5xi32>, index) -> i32
+      %5 = "lo_spn.batch_extract"(%arg2, %arg1) {staticIndex = 4 : ui32} : (tensor<?x5xi32>, index) -> i32
       %6 = "lo_spn.body"(%1, %2, %3, %4, %5) ( {
       ^bb0(%arg3: i32, %arg4: i32, %arg5: i32, %arg6: i32, %arg7: i32):  // no predecessors
         %8 = "lo_spn.categorical"(%arg3) {probabilities = [3.500000e-01, 5.500000e-01, 1.000000e-01], supportMarginal = false} : (i32) -> f64
@@ -37,11 +37,11 @@ module  {
         %27 = "lo_spn.log"(%26) : (f64) -> f64
         "lo_spn.yield"(%27) : (f64) -> ()
       }) : (i32, i32, i32, i32, i32) -> f64
-      %7 = "lo_spn.batch_collect"(%6, %arg1) : (f64, index) -> tensor<?xf64>
-      "lo_spn.return"(%7) : (tensor<?xf64>) -> ()
-    }) {batchSize = 36 : ui32} : (tensor<?x5xi32>) -> tensor<?xf64>
-    "lo_spn.return"(%0) : (tensor<?xf64>) -> ()
-  }) {sym_name = "spn_kernel", type = (tensor<?x5xi32>) -> tensor<?xf64>} : () -> ()
+      %7 = "lo_spn.batch_collect"(%arg1, %6) {transposed=true} : (index, f64) -> tensor<1x?xf64>
+      "lo_spn.return"(%7) : (tensor<1x?xf64>) -> ()
+    }) {batchSize = 36 : ui32} : (tensor<?x5xi32>) -> tensor<1x?xf64>
+    "lo_spn.return"(%0) : (tensor<1x?xf64>) -> ()
+  }) {sym_name = "spn_kernel", type = (tensor<?x5xi32>) -> tensor<1x?xf64>} : () -> ()
 }
 
 // CHECK: {
