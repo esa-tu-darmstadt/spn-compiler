@@ -666,16 +666,14 @@ mlir::LogicalResult mlir::spn::VectorizeSelectLeaf::matchAndRewrite(mlir::spn::l
   // If the input type is not an integer, but also not a float, we cannot convert it and this pattern fails.
   mlir::Value cond;
   auto booleanVectorTy = VectorType::get(vectorType.getShape(), IntegerType::get(op.getContext(), 1));
-  Value thresholdVec =
-      broadcastVectorConstant(vectorType, op.input_true_thresholdAttr().getValueAsDouble(), rewriter, op.getLoc());
   if (inputTy.isa<mlir::FloatType>()) {
+    auto thresholdVec =
+        broadcastVectorConstant(vectorType, op.input_true_thresholdAttr().getValueAsDouble(), rewriter, op.getLoc());
     cond =
         rewriter.create<mlir::CmpFOp>(op->getLoc(), booleanVectorTy, mlir::CmpFPredicate::ULT, inputVec, thresholdVec);
   } else if (inputTy.isa<mlir::IntegerType>()) {
-    // Convert from floating-point input to integer value if necessary.
-    // This conversion is also possible in vectorized mode.
-    auto intVectorTy = VectorType::get(vectorType.getShape(), inputTy);
-    thresholdVec = rewriter.create<FPToSIOp>(op->getLoc(), thresholdVec, intVectorTy);
+    auto thresholdVec =
+        broadcastVectorConstant(vectorType, op.input_true_thresholdAttr().getValueAsDouble(), rewriter, op.getLoc());
     cond =
         rewriter.create<mlir::CmpIOp>(op->getLoc(), booleanVectorTy, mlir::CmpIPredicate::ult, inputVec, thresholdVec);
   } else {
