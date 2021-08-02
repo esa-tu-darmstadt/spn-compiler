@@ -20,7 +20,7 @@ SLPPatternApplicator::SLPPatternApplicator(std::shared_ptr<CostModel> costModel,
 void SLPPatternApplicator::matchAndRewrite(Superword* superword, RewriterBase& rewriter) {
   auto* pattern = bestMatch(superword);
   if (!pattern) {
-    llvm_unreachable("could not apply any pattern to superword. did you forget to add a default pattern?");
+    llvm_unreachable("could not apply any pattern to superword");
   }
   pattern->rewriteSuperword(superword, rewriter);
 }

@@ -85,26 +85,11 @@ namespace mlir {
                   continue;
                 }
                 ++topologicallyMixed;
-                lowest = std::min(superwordDepths[superword], lowest);/*
-                for (auto const& element2: *superword) {
-                  llvm::dbgs() << element2 << " (depth: " << depths[element2] << ")\n";
-                }
-                for (auto* operand : superword->getOperands()) {
-                  llvm::dbgs() << "\n";
-                  for (auto const& element2: *operand) {
-                    llvm::dbgs() << element2 << " (depth: " << depths[element2] << ")\n";
-                  }
-                }*/
+                lowest = std::min(superwordDepths[superword], lowest);
                 break;
               }
             }
           }
-/*
-          for (auto const& entry : superwordDepths) {
-            dumpSuperword(*entry.first);
-            llvm::dbgs() << "\t> depth: " << entry.second << "\n";
-          }
-*/
           auto header =
               "#ops in function,#ops in graph,width,#superwords,#mixed superwords,lowest mixed occurrence,max depth";
           auto line = Twine(graph.getRoot()->getElement(0).getParentBlock()->getOperations().size())
