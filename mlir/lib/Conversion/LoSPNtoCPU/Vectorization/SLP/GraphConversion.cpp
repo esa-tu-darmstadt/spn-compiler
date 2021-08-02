@@ -75,7 +75,7 @@ void ConversionState::markComputed(Value value) {
       callback(value);
     }
     if (auto* definingOp = value.getDefiningOp()) {
-      for (auto const& operand : definingOp->getOperands()) {
+      for (auto operand : definingOp->getOperands()) {
         if (!alreadyComputed(operand)) {
           markComputed(operand);
         }
@@ -384,7 +384,7 @@ namespace {
     unsigned maxDepth = 0;
     while (!worklist.empty()) {
       auto* currentOp = worklist.pop_back_val();
-      for (auto const& operand : currentOp->getOperands()) {
+      for (auto operand : currentOp->getOperands()) {
         if (auto* operandOp = operand.getDefiningOp()) {
           unsigned operandDepth = depths[currentOp] + 1;
           if (operandDepth > depths[operandOp]) {

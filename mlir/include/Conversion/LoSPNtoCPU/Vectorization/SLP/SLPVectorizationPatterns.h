@@ -41,7 +41,7 @@ namespace mlir {
         public:
           LogicalResult match(Superword* superword) override {
             bool checkedOperands = false;
-            for (auto const& value : *superword) {
+            for (auto value : *superword) {
               SourceOp op = value.getDefiningOp<SourceOp>();
               // Pattern only applicable to uniform superwords of type SourceOp.
               if (!op) {

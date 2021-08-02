@@ -81,7 +81,7 @@ namespace {
                                                           OperationName const& currentOpCode) {
     SmallVector<SmallVector<Value, 2>> allOperands;
     allOperands.reserve(superword.numLanes());
-    for (auto const& value : superword) {
+    for (auto value : superword) {
       allOperands.emplace_back(getOperands(value));
     }
     for (auto& operands : allOperands) {
@@ -245,7 +245,7 @@ void SLPGraphBuilder::reorderOperands(SLPNode* multinode) const {
         mode[lane].emplace_back(FAILED);
         continue;
       }
-      auto const& last = finalOrder[lane - 1][i];
+      auto last = finalOrder[lane - 1][i];
       auto const& bestResult = getBest(mode[lane - 1][i], last, candidates);
       // Update output
       finalOrder[lane].emplace_back(bestResult.first);
@@ -257,7 +257,7 @@ void SLPGraphBuilder::reorderOperands(SLPNode* multinode) const {
       }
     }
     // Distribute remaining candidates in case we encountered a FAILED.
-    for (auto const& candidate : candidates) {
+    for (auto candidate : candidates) {
       for (size_t i = 0; i < numOperands; ++i) {
         if (finalOrder[lane][i] == nullptr) {
           finalOrder[lane][i] = candidate;
@@ -323,7 +323,7 @@ std::pair<Value, SLPGraphBuilder::Mode> SLPGraphBuilder::getBest(Mode mode,
         // Best is the candidate with max score
         unsigned bestScore = 0;
         llvm::SmallSet<unsigned, 4> scores;
-        for (auto const& candidate : bestCandidates) {
+        for (auto candidate : bestCandidates) {
           // Get the look-ahead score
           unsigned score = getLookAheadScore(last, candidate, level);
           if (scores.empty() || score > bestScore) {

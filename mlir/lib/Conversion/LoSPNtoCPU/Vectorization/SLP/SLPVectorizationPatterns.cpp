@@ -32,7 +32,7 @@ void SLPVectorizationPattern::rewriteSuperword(Superword* superword, RewriterBas
 // Helper functions in anonymous namespace.
 namespace {
 
-  Value stripLogOrValue(Value const& value, RewriterBase& rewriter) {
+  Value stripLogOrValue(Value value, RewriterBase& rewriter) {
     if (auto logType = value.getType().dyn_cast<LogType>()) {
       return rewriter.create<SPNStripLog>(value.getLoc(), value, logType.getBaseType());
     }
@@ -40,7 +40,7 @@ namespace {
   }
 
   /// Might be useful in the future.
-  Value castToFloatOrValue(Value const& value, FloatType targetType, RewriterBase& rewriter) {
+  Value castToFloatOrValue(Value value, FloatType targetType, RewriterBase& rewriter) {
     if (auto floatType = value.getType().dyn_cast<FloatType>()) {
       if (floatType.getWidth() < targetType.getWidth()) {
         return rewriter.create<FPExtOp>(value.getLoc(), value, targetType);
@@ -86,7 +86,7 @@ LogicalResult BroadcastSuperword::match(Superword* superword) {
 }
 
 Value BroadcastSuperword::rewrite(Superword* superword, RewriterBase& rewriter) {
-  auto const& element = stripLogOrValue(superword->getElement(0), rewriter);
+  auto element = stripLogOrValue(superword->getElement(0), rewriter);
   return rewriter.create<vector::BroadcastOp>(element.getLoc(), superword->getVectorType(), element);
 }
 
@@ -109,7 +109,7 @@ Value BroadcastInsertSuperword::rewrite(Superword* superword, RewriterBase& rewr
   DenseMap<Value, unsigned> elementCounts;
   Value broadcastVal;
   unsigned maxCount = 0;
-  for (auto const& element : *superword) {
+  for (auto element : *superword) {
     if (++elementCounts[element] > maxCount) {
       broadcastVal = element;
       maxCount = elementCounts[element];
@@ -295,7 +295,7 @@ namespace {
 
 Value VectorizeConstant::rewrite(Superword* superword, RewriterBase& rewriter) {
   SmallVector<Attribute, 4> constants;
-  for (auto const& value : *superword) {
+  for (auto value : *superword) {
     constants.emplace_back(static_cast<ConstantOp>(value.getDefiningOp()).value());
   }
   auto const& elements = denseElements(std::begin(constants), std::end(constants), superword->getVectorType());
@@ -313,20 +313,20 @@ Value VectorizeSPNConstant::rewrite(Superword* superword, RewriterBase& rewriter
   if (auto logType = superword->getElementType().dyn_cast<LogType>()) {
     if (logType.getBaseType().getIntOrFloatBitWidth() == 32) {
       SmallVector<float, 4> array;
-      for (auto const& element : *superword) {
+      for (auto element : *superword) {
         array.push_back((float) static_cast<SPNConstant>(element.getDefiningOp()).valueAttr().getValueAsDouble());
       }
       elements = DenseElementsAttr::get(superword->getVectorType(), static_cast<llvm::ArrayRef<float>>(array));
     } else {
       SmallVector<double, 4> array;
-      for (auto const& element : *superword) {
+      for (auto element : *superword) {
         array.push_back(static_cast<SPNConstant>(element.getDefiningOp()).valueAttr().getValueAsDouble());
       }
       elements = DenseElementsAttr::get(superword->getVectorType(), static_cast<llvm::ArrayRef<double>>(array));
     }
   } else {
     SmallVector<Attribute, 4> constants;
-    for (auto const& value : *superword) {
+    for (auto value : *superword) {
       constants.emplace_back(static_cast<ConstantOp>(value.getDefiningOp()).valueAttr());
     }
     elements = denseElements(std::begin(constants), std::end(constants), superword->getVectorType());
@@ -499,7 +499,7 @@ Value VectorizeGaussian::rewrite(Superword* superword, RewriterBase& rewriter) {
     SmallVector<float, 4> meansArray;
     SmallVector<float, 4> variancesArray;
     SmallVector<float, 4> rootsArray;
-    for (auto const& value : *superword) {
+    for (auto value : *superword) {
       meansArray.emplace_back((float) static_cast<SPNGaussianLeaf>(value.getDefiningOp()).meanAttr().getValueAsDouble());
       float stddev = (float) static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddevAttr().getValueAsDouble();
       variancesArray.emplace_back(-2 * stddev * stddev);
@@ -512,7 +512,7 @@ Value VectorizeGaussian::rewrite(Superword* superword, RewriterBase& rewriter) {
     SmallVector<double, 4> meansArray;
     SmallVector<double, 4> variancesArray;
     SmallVector<double, 4> rootsArray;
-    for (auto const& value : *superword) {
+    for (auto value : *superword) {
       meansArray.emplace_back(static_cast<SPNGaussianLeaf>(value.getDefiningOp()).meanAttr().getValueAsDouble());
       double stddev = static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddevAttr().getValueAsDouble();
       variancesArray.emplace_back(-2 * stddev * stddev);
@@ -607,7 +607,7 @@ Value VectorizeLogGaussian::rewrite(Superword* superword, RewriterBase& rewriter
     SmallVector<float, 4> meansArray;
     SmallVector<float, 4> minuendsArray;
     SmallVector<float, 4> factorsArray;
-    for (auto const& value : *superword) {
+    for (auto value : *superword) {
       meansArray.emplace_back((float) static_cast<SPNGaussianLeaf>(value.getDefiningOp()).meanAttr().getValueAsDouble());
       float stddev = (float) static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddevAttr().getValueAsDouble();
       minuendsArray.emplace_back(-logf(stddev) - 0.5 * logf(2 * M_PIf32));
@@ -620,7 +620,7 @@ Value VectorizeLogGaussian::rewrite(Superword* superword, RewriterBase& rewriter
     SmallVector<double, 4> meansArray;
     SmallVector<double, 4> minuendsArray;
     SmallVector<double, 4> factorsArray;
-    for (auto const& value : *superword) {
+    for (auto value : *superword) {
       meansArray.emplace_back(static_cast<SPNGaussianLeaf>(value.getDefiningOp()).meanAttr().getValueAsDouble());
       double stddev = static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddevAttr().getValueAsDouble();
       minuendsArray.emplace_back(-log(stddev) - 0.5 * log(2 * M_PI));

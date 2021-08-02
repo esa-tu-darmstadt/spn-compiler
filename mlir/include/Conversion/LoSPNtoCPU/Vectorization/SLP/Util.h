@@ -19,7 +19,7 @@ namespace mlir {
       namespace slp {
 
         bool vectorizable(Operation* op);
-        bool vectorizable(Value const& value);
+        bool vectorizable(Value value);
 
         template<typename ValueIterator>
         bool vectorizable(ValueIterator begin, ValueIterator end) {
@@ -37,7 +37,7 @@ namespace mlir {
           return true;
         }
 
-        bool ofVectorizableType(Value const& value);
+        bool ofVectorizableType(Value value);
 
         template<typename ValueIterator>
         bool ofVectorizableType(ValueIterator begin, ValueIterator end) {
@@ -58,7 +58,7 @@ namespace mlir {
           return true;
         }
 
-        bool consecutiveLoads(Value const& lhs, Value const& rhs);
+        bool consecutiveLoads(Value lhs, Value rhs);
 
         template<typename ValueIterator>
         bool consecutiveLoads(ValueIterator begin, ValueIterator end) {
@@ -77,12 +77,12 @@ namespace mlir {
           return true;
         }
 
-        size_t numUniqueOps(ArrayRef<Superword*> const& superwords);
+        size_t numUniqueOps(ArrayRef<Superword*> superwords);
 
         void dumpSuperword(Superword const& superword);
         void dumpSLPNode(SLPNode const& node);
 
-        void dumpOpGraph(ArrayRef<Value> const& values);
+        void dumpOpGraph(ArrayRef<Value> values);
         void dumpSuperwordGraph(Superword* root);
         void dumpSLPGraph(SLPNode* root, bool includeInputs = false);
         void dumpDependencyGraph(DependencyGraph const& dependencyGraph);

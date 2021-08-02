@@ -20,27 +20,27 @@ namespace mlir {
 
         class CostModel : public PatternVisitor {
         public:
-          double getScalarCost(Value const& value);
+          double getScalarCost(Value value);
           double getSuperwordCost(Superword* superword, SLPVectorizationPattern* pattern);
-          bool isExtractionProfitable(Value const& value);
+          bool isExtractionProfitable(Value value);
           void setConversionState(std::shared_ptr<ConversionState> newConversionState);
           double getBlockCost(Block* block, SmallPtrSetImpl<Operation*> const& deadOps) const;
         protected:
-          virtual double computeScalarCost(Value const& value) const = 0;
+          virtual double computeScalarCost(Value value) const = 0;
           virtual double computeExtractionCost(Superword* superword, size_t index) const = 0;
           double cost;
           // For insertion/extraction cost computation.
           LeafPatternVisitor leafVisitor;
           std::shared_ptr<ConversionState> conversionState;
         private:
-          void updateCost(Value const& value, double newCost, bool updateUses);
-          double getExtractionCost(Value const& value) const;
+          void updateCost(Value value, double newCost, bool updateUses);
+          double getExtractionCost(Value value) const;
           static constexpr double MAX_COST = std::numeric_limits<double>::max();
           DenseMap<Value, double> cachedScalarCost;
         };
 
         class UnitCostModel : public CostModel {
-          double computeScalarCost(Value const& value) const override;
+          double computeScalarCost(Value value) const override;
           double computeExtractionCost(Superword* superword, size_t index) const override;
           void visitDefault(SLPVectorizationPattern const* pattern, Superword* superword) override;
           void visit(BroadcastSuperword const* pattern, Superword* superword) override;

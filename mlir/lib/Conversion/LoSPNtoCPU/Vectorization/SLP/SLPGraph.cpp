@@ -18,7 +18,7 @@ using namespace mlir::spn::low::slp;
 
 Superword::Superword(ArrayRef<Value> values) : semanticsAltered{static_cast<unsigned>(values.size())} {
   assert(!values.empty());
-  for (auto const& value : values) {
+  for (auto value : values) {
     assert(value.isa<BlockArgument>() || value.getDefiningOp()->hasTrait<OpTrait::OneResult>());
     this->values.emplace_back(value);
   }
@@ -37,7 +37,7 @@ Value Superword::getElement(size_t lane) const {
   return values[lane];
 }
 
-void Superword::setElement(size_t lane, Value const& value) {
+void Superword::setElement(size_t lane, Value value) {
   assert(lane < numLanes());
   values[lane] = value;
 }
@@ -46,7 +46,7 @@ Value Superword::operator[](size_t lane) const {
   return getElement(lane);
 }
 
-bool Superword::contains(Value const& value) const {
+bool Superword::contains(Value value) const {
   return std::find(std::begin(values), std::end(values), value) != std::end(values);
 }
 
@@ -55,7 +55,7 @@ bool Superword::isLeaf() const {
 }
 
 bool Superword::constant() const {
-  for (auto const& value : values) {
+  for (auto value : values) {
     if (auto* definingOp = value.getDefiningOp()) {
       if (!definingOp->hasTrait<OpTrait::ConstantLike>()) {
         return false;
@@ -162,12 +162,12 @@ Value SLPNode::getValue(size_t lane, size_t index) const {
   return superwords[index]->values[lane];
 }
 
-void SLPNode::setValue(size_t lane, size_t index, Value const& newValue) {
+void SLPNode::setValue(size_t lane, size_t index, Value newValue) {
   assert(lane <= numLanes() && index <= numSuperwords());
   superwords[index]->values[lane] = newValue;
 }
 
-bool SLPNode::contains(Value const& value) const {
+bool SLPNode::contains(Value value) const {
   return std::any_of(std::begin(superwords), std::end(superwords), [&](auto const& superword) {
     return superword->contains(value);
   });
@@ -204,7 +204,7 @@ ArrayRef<std::shared_ptr<SLPNode>> SLPNode::getOperands() const {
 
 // === SLPGraph === //
 
-SLPGraph::SLPGraph(ArrayRef<Value> const& seed, unsigned lookAhead) : lookAhead{lookAhead} {
+SLPGraph::SLPGraph(ArrayRef<Value> seed, unsigned lookAhead) : lookAhead{lookAhead} {
   SLPGraphBuilder builder{*this};
   builder.build(seed);
 }
@@ -217,7 +217,7 @@ DependencyGraph SLPGraph::dependencyGraph() const {
   DependencyGraph dependencyGraph;
   DenseMap<Value, SmallPtrSet<Superword*, 2>> valueOccurrences;
   graph::walk(root.get(), [&](Superword* superword) {
-    for (auto const& element : *superword) {
+    for (auto element : *superword) {
       valueOccurrences[element].insert(superword);
     }
     dependencyGraph.nodes.insert(superword);
@@ -226,9 +226,9 @@ DependencyGraph SLPGraph::dependencyGraph() const {
   llvm::SmallSetVector<Value, 32> worklist;
   llvm::SmallSetVector<Value, 32> nextWorklist;
   DenseMap<Value, SmallPtrSet<Superword*, 32>> reachableUses;
-  for (auto const& element : *root) {
+  for (auto element : *root) {
     if (auto* definingOp = element.getDefiningOp()) {
-      for (auto const& operand : definingOp->getOperands()) {
+      for (auto operand : definingOp->getOperands()) {
         reachableUses[operand].insert(root.get());
         nextWorklist.insert(operand);
       }
@@ -245,14 +245,14 @@ DependencyGraph SLPGraph::dependencyGraph() const {
         }
       }
       if (auto* definingOp = element.getDefiningOp()) {
-        for (auto const& operand : definingOp->getOperands()) {
+        for (auto operand : definingOp->getOperands()) {
           nextWorklist.insert(operand);
         }
       }
     }
   }
   for (auto* node : dependencyGraph.nodes) {
-    for (auto const& element : *node) {
+    for (auto element : *node) {
       for (auto const& reachableUse : reachableUses[element]) {
         dependencyGraph.dependencyEdges[node].insert(reachableUse);
       }

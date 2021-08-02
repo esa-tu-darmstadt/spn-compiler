@@ -13,14 +13,14 @@ using namespace mlir::spn::low::slp;
 
 // === CostModel === //
 
-double CostModel::getScalarCost(Value const& value) {
+double CostModel::getScalarCost(Value value) {
   if (conversionState->alreadyComputed(value)) {
     return 0;
   }
   auto it = cachedScalarCost.try_emplace(value, computeScalarCost(value));
   if (it.second) {
     if (auto* definingOp = value.getDefiningOp()) {
-      for (auto const& operand : definingOp->getOperands()) {
+      for (auto operand : definingOp->getOperands()) {
         if (isExtractionProfitable(operand)) {
           cachedScalarCost[value] += getExtractionCost(operand);
         } else {
@@ -48,7 +48,7 @@ double CostModel::getSuperwordCost(Superword* superword, SLPVectorizationPattern
   return vectorCost;
 }
 
-bool CostModel::isExtractionProfitable(Value const& value) {
+bool CostModel::isExtractionProfitable(Value value) {
   auto extractionCost = getExtractionCost(value);
   if (extractionCost == MAX_COST) {
     return false;
@@ -91,7 +91,7 @@ double CostModel::getBlockCost(Block* block, SmallPtrSetImpl<Operation*> const& 
   return blockCost;
 }
 
-void CostModel::updateCost(Value const& value, double newCost, bool updateUses) {
+void CostModel::updateCost(Value value, double newCost, bool updateUses) {
   auto it = cachedScalarCost.try_emplace(value, newCost);
   if (!it.second && it.first->second <= newCost) {
     return;
@@ -107,7 +107,7 @@ void CostModel::updateCost(Value const& value, double newCost, bool updateUses) 
   }
 }
 
-double CostModel::getExtractionCost(Value const& value) const {
+double CostModel::getExtractionCost(Value value) const {
   if (conversionState->isExtractable(value)) {
     auto valuePosition = conversionState->getSuperwordContainingValue(value);
     return computeExtractionCost(valuePosition.superword, valuePosition.index);
@@ -118,7 +118,7 @@ double CostModel::getExtractionCost(Value const& value) const {
 // === UnitCostModel === //
 
 /// Individual cost taken from NodePatterns.cpp
-double UnitCostModel::computeScalarCost(Value const& value) const {
+double UnitCostModel::computeScalarCost(Value value) const {
   auto* definingOp = value.getDefiningOp();
   if (!definingOp) {
     return 0;
@@ -162,14 +162,14 @@ void UnitCostModel::visitDefault(SLPVectorizationPattern const* pattern, Superwo
 
 void UnitCostModel::visit(BroadcastSuperword const* pattern, Superword* superword) {
   this->cost = 1;
-  for (auto const& element : leafVisitor.getRequiredScalarValues(pattern, superword)) {
+  for (auto element : leafVisitor.getRequiredScalarValues(pattern, superword)) {
     this->cost += getScalarCost(element);
   }
 }
 
 void UnitCostModel::visit(BroadcastInsertSuperword const* pattern, Superword* superword) {
   this->cost = 0;
-  for (auto const& element : leafVisitor.getRequiredScalarValues(pattern, superword)) {
+  for (auto element : leafVisitor.getRequiredScalarValues(pattern, superword)) {
     this->cost += getScalarCost(element) + 1;
   }
 }

@@ -20,7 +20,7 @@ bool slp::vectorizable(Operation* op) {
       && op->hasTrait<OpTrait::OneResult>() && ofVectorizableType(op->getResult(0));
 }
 
-bool slp::vectorizable(Value const& value) {
+bool slp::vectorizable(Value value) {
   if (auto* definingOp = value.getDefiningOp()) {
     if (!vectorizable(definingOp)) {
       return false;
@@ -29,14 +29,14 @@ bool slp::vectorizable(Value const& value) {
   return ofVectorizableType(value);
 }
 
-bool slp::ofVectorizableType(Value const& value) {
+bool slp::ofVectorizableType(Value value) {
   if (auto logType = value.getType().dyn_cast<LogType>()) {
     return VectorType::isValidElementType(logType.getBaseType());
   }
   return VectorType::isValidElementType(value.getType());
 }
 
-bool slp::consecutiveLoads(Value const& lhs, Value const& rhs) {
+bool slp::consecutiveLoads(Value lhs, Value rhs) {
   if (lhs == rhs || lhs.isa<BlockArgument>() || rhs.isa<BlockArgument>()) {
     return false;
   }
@@ -57,10 +57,10 @@ bool slp::consecutiveLoads(Value const& lhs, Value const& rhs) {
   return true;
 }
 
-size_t slp::numUniqueOps(ArrayRef<Superword*> const& superwords) {
+size_t slp::numUniqueOps(ArrayRef<Superword*> superwords) {
   SmallPtrSet<Operation*, 32> uniqueOps;
   for (auto* superword: superwords) {
-    for (auto const& value : *superword) {
+    for (auto value : *superword) {
       if (auto definingOp = value.getDefiningOp()) {
         uniqueOps.insert(definingOp);
       }
@@ -107,12 +107,12 @@ void slp::dumpSLPNode(SLPNode const& node) {
   }
 }
 
-void slp::dumpOpGraph(ArrayRef<Value> const& values) {
+void slp::dumpOpGraph(ArrayRef<Value> values) {
   DenseMap<Value, unsigned> nodes;
   SmallVector<std::tuple<Value, Value, unsigned>> edges;
 
   std::vector<Value> worklist;
-  for (auto const& value : values) {
+  for (auto value : values) {
     worklist.emplace_back(value);
   }
 
@@ -125,7 +125,7 @@ void slp::dumpOpGraph(ArrayRef<Value> const& values) {
     nodes[value] = nodes.size();
     if (auto* definingOp = value.getDefiningOp()) {
       for (unsigned i = 0; i < definingOp->getNumOperands(); ++i) {
-        auto const& operand = definingOp->getOperand(i);
+        auto operand = definingOp->getOperand(i);
         edges.emplace_back(std::make_tuple(value, operand, i));
         worklist.emplace_back(operand);
       }
@@ -136,7 +136,7 @@ void slp::dumpOpGraph(ArrayRef<Value> const& values) {
   llvm::dbgs() << "rankdir = BT;\n";
   llvm::dbgs() << "node[shape=box];\n";
   for (auto const& entry : nodes) {
-    auto const& value = entry.first;
+    auto value = entry.first;
     auto const& id = entry.second;
     llvm::dbgs() << "\tnode_" << id << "[label=\"";
     if (auto* definingOp = value.getDefiningOp()) {
@@ -235,7 +235,7 @@ void slp::dumpSuperwordGraph(Superword* root) {
     llvm::dbgs() << ">];\n";
 
     for (size_t i = 0; i < superword->numOperands(); ++i) {
-      auto const& operand = superword->getOperand(i);
+      auto* operand = superword->getOperand(i);
       llvm::dbgs() << "node_" << superword << "->" << "node_" << operand << "[label=\"" << std::to_string(i)
                    << "\"];\n";
     }
@@ -282,7 +282,7 @@ void slp::dumpSLPGraph(SLPNode* root, bool includeInputs) {
 
     if (node->numOperands() > 0) {
       for (size_t i = 0; i < node->numOperands(); ++i) {
-        auto const& operand = node->getOperand(i);
+        auto* operand = node->getOperand(i);
         llvm::dbgs() << "node_" << node << "->" << "node_" << operand << "[label=\"" << std::to_string(i) << "\"];\n";
       }
     } else if (includeInputs) {

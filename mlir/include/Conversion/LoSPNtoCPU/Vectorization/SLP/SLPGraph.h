@@ -30,9 +30,9 @@ namespace mlir {
           explicit Superword(ArrayRef<Operation*> operations);
 
           Value getElement(size_t lane) const;
-          void setElement(size_t lane, Value const& value);
+          void setElement(size_t lane, Value value);
           Value operator[](size_t lane) const;
-          bool contains(Value const& value) const;
+          bool contains(Value value) const;
 
           bool isLeaf() const;
           bool constant() const;
@@ -72,9 +72,9 @@ namespace mlir {
           std::shared_ptr<Superword> getSuperword(size_t index) const;
 
           Value getValue(size_t lane, size_t index) const;
-          void setValue(size_t lane, size_t index, Value const& newValue);
+          void setValue(size_t lane, size_t index, Value newValue);
 
-          bool contains(Value const& value) const;
+          bool contains(Value value) const;
 
           bool isSuperwordRoot(Superword const& superword) const;
 
@@ -102,7 +102,7 @@ namespace mlir {
         class SLPGraph {
           friend class SLPGraphBuilder;
         public:
-          SLPGraph(ArrayRef<Value> const& seed, unsigned lookAhead);
+          SLPGraph(ArrayRef<Value> seed, unsigned lookAhead);
           std::shared_ptr<Superword> getRoot() const;
           DependencyGraph dependencyGraph() const;
         private:

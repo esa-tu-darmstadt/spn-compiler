@@ -30,7 +30,7 @@ SmallVector<Value, 4> SeedAnalysis::next() {
   }
   rootOp->emitRemark("Computing seed out of " + std::to_string(availableOps.size()) + " operations...");
   auto seed = nextSeed();
-  for (auto const& value : seed) {
+  for (auto value : seed) {
     if (auto* definingOp = value.getDefiningOp()) {
       availableOps.remove(definingOp);
     }
@@ -41,7 +41,7 @@ SmallVector<Value, 4> SeedAnalysis::next() {
 void SeedAnalysis::update(ArrayRef<Superword*> convertedSuperwords) {
   SmallPtrSet<Operation*, 32> convertedOps;
   for (auto* superword : convertedSuperwords) {
-    for (auto const& element : *superword) {
+    for (auto element : *superword) {
       if (auto* definingOp = element.getDefiningOp()) {
         convertedOps.insert(definingOp);
       }
@@ -69,7 +69,7 @@ namespace {
     while (!worklist.empty()) {
       auto* op = worklist.pop_back_val();
       auto depth = opDepths[op->getResult(0)];
-      for (auto const& operand : op->getOperands()) {
+      for (auto operand : op->getOperands()) {
         if (auto* definingOp = operand.getDefiningOp()) {
           auto& operandDepth = opDepths[operand];
           if (depth + 1 > operandDepth) {
@@ -187,7 +187,7 @@ SmallVector<Value, 4> TopDownAnalysis::nextSeed() const {
 
 // Helper functions in anonymous namespace.
 namespace {
-  llvm::BitVector leafCoverage(DenseMap<Operation*, llvm::BitVector>& reachableLeaves, ArrayRef<Value> const& seed) {
+  llvm::BitVector leafCoverage(DenseMap<Operation*, llvm::BitVector>& reachableLeaves, ArrayRef<Value> seed) {
     llvm::BitVector disjunction = reachableLeaves.lookup(seed.front().getDefiningOp());
     for (size_t i = 1; i < seed.size(); ++i) {
       disjunction |= reachableLeaves.lookup(seed[i].getDefiningOp());
