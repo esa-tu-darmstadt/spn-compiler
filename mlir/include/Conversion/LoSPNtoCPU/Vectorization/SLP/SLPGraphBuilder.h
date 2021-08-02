@@ -65,6 +65,8 @@ namespace mlir {
           DenseMap<Value, SmallVector<std::shared_ptr<Superword>>> superwordsByValue;
           /// Prevents building nodes more than once in case they appear several times in the graph.
           SmallPtrSet<SLPNode*, 8> buildWorklist;
+          /// Prevents building superwords that are topologically mixed.
+          DenseMap<Value, unsigned> valueDepths;
 
         };
       }

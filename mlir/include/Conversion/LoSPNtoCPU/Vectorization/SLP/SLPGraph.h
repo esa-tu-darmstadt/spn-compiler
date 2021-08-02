@@ -39,6 +39,7 @@ namespace mlir {
           bool uniform() const;
 
           size_t numLanes() const;
+          size_t numUniqueElements() const;
           SmallVectorImpl<Value>::const_iterator begin() const;
           SmallVectorImpl<Value>::const_iterator end() const;
 

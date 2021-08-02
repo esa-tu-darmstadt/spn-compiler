@@ -15,8 +15,33 @@ using namespace mlir::spn::low::slp;
 
 SLPGraphBuilder::SLPGraphBuilder(SLPGraph& graph) : graph{graph} {}
 
+// Some helper functions in an anonymous namespace.
+namespace {
+  void computeDepths(ArrayRef<Value> seed, DenseMap<Value, unsigned>& depths) {
+    llvm::SmallSetVector<Value, 32> worklist;
+    for (auto value : seed) {
+      depths[value] = 0;
+      worklist.insert(value);
+    }
+    while (!worklist.empty()) {
+      auto value = worklist.pop_back_val();
+      if (auto* definingOp = value.getDefiningOp()) {
+        for (auto operand: definingOp->getOperands()) {
+          auto currentDepth = depths.lookup(operand);
+          auto newDepth = depths[value] + 1;
+          if (newDepth > currentDepth) {
+            depths[operand] = newDepth;
+            worklist.insert(operand);
+          }
+        }
+      }
+    }
+  }
+}
+
 void SLPGraphBuilder::build(ArrayRef<Value> seed) {
   graph.root = std::make_shared<Superword>(seed);
+  computeDepths(seed, valueDepths);
   auto rootNode = nodeBySuperword.try_emplace(graph.root.get(), std::make_shared<SLPNode>(graph.root)).first->second;
   superwordsByValue[graph.root->getElement(0)].emplace_back(graph.root);
   buildWorklist.insert(rootNode.get());
@@ -26,6 +51,21 @@ void SLPGraphBuilder::build(ArrayRef<Value> seed) {
 
 // Some helper functions in an anonymous namespace.
 namespace {
+
+  bool continueBuilding(Superword const& superword, DenseMap<Value, unsigned> const& valueDepths) {
+    if (!vectorizable(superword.begin(), superword.end())) {
+      return false;
+    }
+    if (superword.numUniqueElements() < superword.numLanes()) {
+      return false;
+    }
+    if (std::any_of(superword.begin(), superword.end(), [&](Value element) {
+      return valueDepths.lookup(element) != valueDepths.lookup(superword.getElement(0));
+    })) {
+      return false;
+    }
+    return true;
+  }
 
   bool appendable(SLPNode const& node,
                   OperationName const& opCode,
@@ -146,7 +186,7 @@ namespace {
 
 void SLPGraphBuilder::buildGraph(std::shared_ptr<Superword> const& superword) {
   // Stop growing graph
-  if (!vectorizable(superword->begin(), superword->end())) {
+  if (!continueBuilding(*superword, valueDepths)) {
     return;
   }
   auto currentNode = nodeBySuperword[superword.get()];

@@ -77,8 +77,6 @@ namespace mlir {
           return true;
         }
 
-        size_t numUniqueOps(ArrayRef<Superword*> superwords);
-
         void dumpSuperword(Superword const& superword);
         void dumpSLPNode(SLPNode const& node);
 

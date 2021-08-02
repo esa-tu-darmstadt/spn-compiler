@@ -91,10 +91,8 @@ namespace mlir {
             }
           }
           auto header =
-              "#ops in function,#ops in graph,width,#superwords,#mixed superwords,lowest mixed occurrence,max depth";
+              "#ops in function,width,#superwords,#mixed superwords,lowest mixed occurrence,max depth";
           auto line = Twine(graph.getRoot()->getElement(0).getParentBlock()->getOperations().size())
-              .concat(",")
-              .concat(std::to_string(numUniqueOps(order)))
               .concat(",")
               .concat(std::to_string(graph.getRoot()->numLanes()))
               .concat(",")

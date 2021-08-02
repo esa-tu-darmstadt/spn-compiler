@@ -57,18 +57,6 @@ bool slp::consecutiveLoads(Value lhs, Value rhs) {
   return true;
 }
 
-size_t slp::numUniqueOps(ArrayRef<Superword*> superwords) {
-  SmallPtrSet<Operation*, 32> uniqueOps;
-  for (auto* superword: superwords) {
-    for (auto value : *superword) {
-      if (auto definingOp = value.getDefiningOp()) {
-        uniqueOps.insert(definingOp);
-      }
-    }
-  }
-  return uniqueOps.size();
-}
-
 // Helper functions in an anonymous namespace.
 namespace {
   void dumpBlockArgOrDefiningAddress(Value val) {

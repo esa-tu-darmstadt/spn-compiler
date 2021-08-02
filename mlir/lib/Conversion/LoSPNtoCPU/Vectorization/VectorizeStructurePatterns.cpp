@@ -208,7 +208,21 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
 #if PRINT_SLP_GRAPH_SIZE
     llvm::outs() << "#superwords in graph " << iteration << ": " + std::to_string(order.size()) << "\n";
-    llvm::outs() << "#unique ops in graph " << iteration << ":  " + std::to_string(numUniqueOps(order)) << "\n";
+    SmallPtrSet<Operation*, 32> uniqueOps;
+    for (auto* superword: order) {
+      if (superword->constant()) {
+        continue;
+      }
+      for (auto value : *superword) {
+        if (auto definingOp = value.getDefiningOp()) {
+          if (dyn_cast<SPNBatchRead>(definingOp)) {
+            continue;
+          }
+          uniqueOps.insert(definingOp);
+        }
+      }
+    }
+    llvm::outs() << "#unique arithmetic ops in graph " << iteration << ":  " + std::to_string(uniqueOps.size()) << "\n";
 #endif
 
 #if PRINT_TIMINGS
