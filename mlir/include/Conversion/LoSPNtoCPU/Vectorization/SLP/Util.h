@@ -84,7 +84,7 @@ namespace mlir {
 
         void dumpOpGraph(ArrayRef<Value> const& values);
         void dumpSuperwordGraph(Superword* root);
-        void dumpSLPGraph(SLPNode* root);
+        void dumpSLPGraph(SLPNode* root, bool includeInputs = false);
         void dumpDependencyGraph(DependencyGraph const& dependencyGraph);
 
       }

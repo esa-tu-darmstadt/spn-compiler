@@ -71,14 +71,14 @@ size_t slp::numUniqueOps(ArrayRef<Superword*> const& superwords) {
 
 // Helper functions in an anonymous namespace.
 namespace {
-  void dumpBlockArgOrDefiningAddress(Value const& val) {
+  void dumpBlockArgOrDefiningAddress(Value val) {
     if (auto* definingOp = val.getDefiningOp()) {
       llvm::dbgs() << definingOp;
     } else {
       llvm::dbgs() << "block arg #" << val.cast<BlockArgument>().getArgNumber();
     }
   }
-  void dumpBlockArgOrDefiningOpName(Value const& val) {
+  void dumpBlockArgOrDefiningOpName(Value val) {
     if (auto* definingOp = val.getDefiningOp()) {
       llvm::dbgs() << definingOp->getName();
     } else {
@@ -164,51 +164,9 @@ void slp::dumpOpGraph(ArrayRef<Value> const& values) {
   llvm::dbgs() << "}\n";
 }
 
-void slp::dumpSuperwordGraph(Superword* root) {
-
-  llvm::dbgs() << "digraph debug_graph {\n";
-  llvm::dbgs() << "rankdir = BT;\n";
-  llvm::dbgs() << "node[shape=box];\n";
-
-  for (auto* superword : graph::postOrder(root)) {
-    llvm::dbgs() << "node_" << superword << "[label=<\n";
-    llvm::dbgs() << "\t<TABLE ALIGN=\"CENTER\" BORDER=\"0\" CELLSPACING=\"10\" CELLPADDING=\"0\">\n";
-    llvm::dbgs() << "\t\t<TR>\n";
-    for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
-      auto value = superword->getElement(lane);
-      llvm::dbgs() << "\t\t\t<TD>";
-      llvm::dbgs() << "<B>";
-      dumpBlockArgOrDefiningOpName(value);
-      llvm::dbgs() << "</B>";
-      // --- Additional operation information ---
-      if (auto* definingOp = value.getDefiningOp()) {
-        llvm::dbgs() << "<BR/><FONT COLOR=\"#bbbbbb\">";
-        llvm::dbgs() << "(" << definingOp << ")";
-        llvm::dbgs() << "</FONT>";
-      }
-      // --- ================================ ---
-      llvm::dbgs() << "</TD>";
-      if (lane < superword->numLanes() - 1) {
-        llvm::dbgs() << "<VR/>";
-      }
-      llvm::dbgs() << "\n";
-    }
-    llvm::dbgs() << "\t\t</TR>\n";
-    llvm::dbgs() << "\t</TABLE>\n";
-    llvm::dbgs() << ">];\n";
-
-    for (size_t i = 0; i < superword->numOperands(); ++i) {
-      auto const& operand = superword->getOperand(i);
-      llvm::dbgs() << "node_" << superword << "->" << "node_" << operand << "[label=\"" << std::to_string(i)
-                   << "\"];\n";
-    }
-  }
-  llvm::dbgs() << "}\n";
-}
-
 // Helper functions in anonymous namespace.
 namespace {
-  void dumpAdditionalInformation(Value const& value) {
+  void dumpAdditionalInformation(Value value) {
     if (auto* definingOp = value.getDefiningOp()) {
       llvm::dbgs() << "<BR/><FONT COLOR=\"#bbbbbb\">";
       llvm::dbgs() << "(" << definingOp << ")";
@@ -241,7 +199,51 @@ namespace {
   }
 }
 
-void slp::dumpSLPGraph(SLPNode* root) {
+void slp::dumpSuperwordGraph(Superword* root) {
+
+  llvm::dbgs() << "digraph debug_graph {\n";
+  llvm::dbgs() << "rankdir = BT;\n";
+  llvm::dbgs() << "node[shape=box];\n";
+
+  for (auto* superword : graph::postOrder(root)) {
+    llvm::dbgs() << "node_" << superword << "[label=<\n";
+    llvm::dbgs() << "\t<TABLE ALIGN=\"CENTER\" BORDER=\"0\" CELLSPACING=\"10\" CELLPADDING=\"0\">\n";
+    llvm::dbgs() << "\t\t<TR>\n";
+    for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
+      auto value = superword->getElement(lane);
+      llvm::dbgs() << "\t\t\t<TD>";
+      llvm::dbgs() << "<B>";
+      if (superword->hasAlteredSemanticsInLane(lane)) {
+        llvm::dbgs() << "<FONT COLOR=\"crimson\">";
+      }
+      dumpBlockArgOrDefiningOpName(value);
+      if (superword->hasAlteredSemanticsInLane(lane)) {
+        llvm::dbgs() << "</FONT>";
+      }
+      llvm::dbgs() << "</B>";
+      // --- Additional operation information ---
+      dumpAdditionalInformation(value);
+      // --- ================================ ---
+      llvm::dbgs() << "</TD>";
+      if (lane < superword->numLanes() - 1) {
+        llvm::dbgs() << "<VR/>";
+      }
+      llvm::dbgs() << "\n";
+    }
+    llvm::dbgs() << "\t\t</TR>\n";
+    llvm::dbgs() << "\t</TABLE>\n";
+    llvm::dbgs() << ">];\n";
+
+    for (size_t i = 0; i < superword->numOperands(); ++i) {
+      auto const& operand = superword->getOperand(i);
+      llvm::dbgs() << "node_" << superword << "->" << "node_" << operand << "[label=\"" << std::to_string(i)
+                   << "\"];\n";
+    }
+  }
+  llvm::dbgs() << "}\n";
+}
+
+void slp::dumpSLPGraph(SLPNode* root, bool includeInputs) {
 
   llvm::dbgs() << "digraph debug_graph {\n";
   llvm::dbgs() << "rankdir = BT;\n";
@@ -256,7 +258,13 @@ void slp::dumpSLPGraph(SLPNode* root) {
         auto value = node->getValue(lane, i);
         llvm::dbgs() << "\t\t\t<TD>";
         llvm::dbgs() << "<B>";
+        if (node->getSuperword(i)->hasAlteredSemanticsInLane(lane)) {
+          llvm::dbgs() << "<FONT COLOR=\"crimson\">";
+        }
         dumpBlockArgOrDefiningOpName(value);
+        if (node->getSuperword(i)->hasAlteredSemanticsInLane(lane)) {
+          llvm::dbgs() << "</FONT>";
+        }
         llvm::dbgs() << "</B>";
         // --- Additional operation information ---
         dumpAdditionalInformation(value);
@@ -272,9 +280,41 @@ void slp::dumpSLPGraph(SLPNode* root) {
     llvm::dbgs() << "\t</TABLE>\n";
     llvm::dbgs() << ">];\n";
 
-    for (size_t i = 0; i < node->numOperands(); ++i) {
-      auto const& operand = node->getOperand(i);
-      llvm::dbgs() << "node_" << node << "->" << "node_" << operand << "[label=\"" << std::to_string(i) << "\"];\n";
+    if (node->numOperands() > 0) {
+      for (size_t i = 0; i < node->numOperands(); ++i) {
+        auto const& operand = node->getOperand(i);
+        llvm::dbgs() << "node_" << node << "->" << "node_" << operand << "[label=\"" << std::to_string(i) << "\"];\n";
+      }
+    } else if (includeInputs) {
+      llvm::SmallPtrSet<Operation*, 8> inputs;
+      for (size_t lane = 0; lane < node->numLanes(); ++lane) {
+        auto element = node->getValue(lane, node->numSuperwords() - 1);
+        if (auto* definingOp = element.getDefiningOp()) {
+          for (unsigned n = 0; n < definingOp->getNumOperands(); ++n) {
+            auto operand = definingOp->getOperand(n);
+            if (auto* input = operand.getDefiningOp()) {
+              if (inputs.insert(input).second) {
+                llvm::dbgs() << "input_" << input << "[label=<\n";
+                llvm::dbgs() << "\t<TABLE ALIGN=\"CENTER\" BORDER=\"0\" CELLSPACING=\"0\" CELLPADDING=\"0\">\n";
+                llvm::dbgs() << "\t\t<TR>\n";
+                llvm::dbgs() << "\t\t\t<TD>";
+                llvm::dbgs() << "<B>";
+                dumpBlockArgOrDefiningOpName(operand);
+                llvm::dbgs() << "</B>";
+                // --- Additional operation information ---
+                dumpAdditionalInformation(operand);
+                // --- ================================ ---
+                llvm::dbgs() << "</TD>";
+                llvm::dbgs() << "</TR>\n";
+                llvm::dbgs() << "\t</TABLE>\n";
+                llvm::dbgs() << ">];\n";
+              }
+              llvm::dbgs() << "node_" << node << "->" << "input_" << input << "[label=\"" << lane << "." << n
+                           << "\"];\n";
+            }
+          }
+        }
+      }
     }
   }
   llvm::dbgs() << "}\n";
