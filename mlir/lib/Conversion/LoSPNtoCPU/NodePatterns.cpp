@@ -80,16 +80,38 @@ mlir::LogicalResult mlir::spn::CopyLowering::matchAndRewrite(mlir::spn::low::SPN
   assert(operands[1].getType().isa<MemRefType>());
   auto srcType = op.source().getType().cast<MemRefType>();
   auto tgtType = op.target().getType().cast<MemRefType>();
-  if (srcType.getRank() != tgtType.getRank() || srcType.getRank() != 1) {
-    return rewriter.notifyMatchFailure(op, "Expecting one dimensional memories");
+  assert(srcType.hasRank());
+  assert(tgtType.hasRank());
+  if (srcType.getRank() != tgtType.getRank() || srcType.getRank() != 2) {
+    return rewriter.notifyMatchFailure(op, "Expecting two dimensional memories");
   }
-  auto dim1 = rewriter.create<memref::DimOp>(op.getLoc(), op.source(), 0);
+  if (srcType.getShape() != tgtType.getShape()) {
+    return rewriter.notifyMatchFailure(op, "Shape of both arguments must match");
+  }
+  assert(srcType.isDynamicDim(0) ^ srcType.isDynamicDim(1));
+  auto transposed = srcType.isDynamicDim(1);
+  auto dynIdx = (!transposed) ? 0 : 1;
+  auto staticIdx = (!transposed) ? 1 : 0;
+  auto staticDim = srcType.getDimSize(staticIdx);
+  assert(staticDim > 0);
+  auto dim1 = rewriter.create<memref::DimOp>(op.getLoc(), op.source(), dynIdx);
   auto lb = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
   auto step = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
   auto outer = rewriter.create<scf::ForOp>(op.getLoc(), lb, dim1, step);
   rewriter.setInsertionPointToStart(&outer.getLoopBody().front());
-  auto load = rewriter.create<memref::LoadOp>(op.getLoc(), op.source(), outer.getInductionVar());
-  (void) rewriter.create<memref::StoreOp>(op.getLoc(), load, op.target(), outer.getInductionVar());
+  for (int i = 0; i < staticDim; ++i) {
+    SmallVector<Value, 2> indices;
+    auto constIdx = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(i));
+    if (transposed) {
+      indices.push_back(constIdx);
+      indices.push_back(outer.getInductionVar());
+    } else {
+      indices.push_back(outer.getInductionVar());
+      indices.push_back(constIdx);
+    }
+    auto load = rewriter.create<memref::LoadOp>(op.getLoc(), op.source(), indices);
+    (void) rewriter.create<memref::StoreOp>(op.getLoc(), load, op.target(), indices);
+  }
   rewriter.eraseOp(op);
   return success();
 }
