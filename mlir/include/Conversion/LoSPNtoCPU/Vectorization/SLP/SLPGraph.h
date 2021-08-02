@@ -11,6 +11,7 @@
 
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
 
@@ -25,8 +26,8 @@ namespace mlir {
 
         public:
 
-          explicit Superword(ArrayRef<Value> const& values);
-          explicit Superword(ArrayRef<Operation*> const& operations);
+          explicit Superword(ArrayRef<Value> values);
+          explicit Superword(ArrayRef<Operation*> operations);
 
           Value getElement(size_t lane) const;
           void setElement(size_t lane, Value const& value);
@@ -46,6 +47,9 @@ namespace mlir {
           Superword* getOperand(size_t index) const;
           SmallVector<Superword*, 2> getOperands() const;
 
+          bool hasAlteredSemanticsInLane(size_t lane) const;
+          void markSemanticsAlteredInLane(size_t lane);
+
           VectorType getVectorType() const;
           Type getElementType() const;
           Location getLoc() const;
@@ -53,6 +57,9 @@ namespace mlir {
         private:
           SmallVector<Value, 4> values;
           SmallVector<std::shared_ptr<Superword>, 2> operandWords;
+          /// Stores a bit for each lane. If the bit is set to true, the semantics of that lane have been altered and
+          /// the value that is present there is not actually being computed anymore.
+          llvm::BitVector semanticsAltered;
         };
 
         class SLPNode {

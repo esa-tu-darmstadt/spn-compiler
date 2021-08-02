@@ -24,56 +24,46 @@ namespace mlir {
 
           explicit SLPGraphBuilder(SLPGraph& graph);
 
-          void build(ArrayRef<Value> const& seed);
+          void build(ArrayRef<Value> seed);
 
         private:
 
           enum Mode {
-            // look for a constant
+            /// look for a constant
             CONST,
-            // look for a consecutive load to that in the previous lane
+            /// look for a consecutive load to that in the previous lane
             LOAD,
-            // look for an operation of the same opcode
+            /// look for an operation of the same opcode
             OPCODE,
-            // look for the exact same operation
+            /// look for the exact same operation
             SPLAT,
-            // vectorization has failed, give higher priority to others
+            /// vectorization has failed, give higher priority to others
             FAILED
           };
 
           void buildGraph(std::shared_ptr<Superword> const& superword);
           void reorderOperands(SLPNode* multinode) const;
-          std::pair<Value, Mode> getBest(Mode const& mode, Value const& last, SmallVector<Value>& candidates) const;
-          unsigned getLookAheadScore(Value const& last, Value const& candidate, unsigned maxLevel) const;
+          std::pair<Value, Mode> getBest(Mode mode, Value last, SmallVector<Value>& candidates) const;
+          unsigned getLookAheadScore(Value last, Value candidate, unsigned maxLevel) const;
 
           // === Utilities === //
 
-          Mode modeFromValue(Value const& value) const {
-            if (value.isa<BlockArgument>()) {
-              return SPLAT;
-            }
-            auto* definingOp = value.getDefiningOp();
-            if (definingOp->hasTrait<OpTrait::ConstantLike>()) {
-              return CONST;
-            } else if (dyn_cast<mlir::spn::low::SPNBatchRead>(definingOp)) {
-              return LOAD;
-            }
-            return OPCODE;
-          }
+          static Mode modeFromValue(Value value);
 
-          std::shared_ptr<Superword> appendSuperwordToNode(ArrayRef<Value> const& values,
+          std::shared_ptr<Superword> appendSuperwordToNode(ArrayRef<Value> values,
                                                            std::shared_ptr<SLPNode> const& node,
                                                            std::shared_ptr<Superword> const& usingSuperword);
-          std::shared_ptr<SLPNode> addOperandToNode(ArrayRef<Value> const& operandValues,
+          std::shared_ptr<SLPNode> addOperandToNode(ArrayRef<Value> operandValues,
                                                     std::shared_ptr<SLPNode> const& node,
                                                     std::shared_ptr<Superword> const& usingSuperword);
-          std::shared_ptr<Superword> superwordOrNull(ArrayRef<Value> const& values) const;
+          std::shared_ptr<Superword> superwordOrNull(ArrayRef<Value> values) const;
 
           // ================= //
 
           SLPGraph& graph;
           DenseMap<Superword*, std::shared_ptr<SLPNode>> nodeBySuperword;
           DenseMap<Value, SmallVector<std::shared_ptr<Superword>>> superwordsByValue;
+          /// Prevents building nodes more than once in case they appear several times in the graph.
           SmallPtrSet<SLPNode*, 8> buildWorklist;
 
         };

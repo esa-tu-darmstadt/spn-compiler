@@ -66,16 +66,19 @@ namespace {
 
 LogicalResult BroadcastSuperword::match(Superword* superword) {
   Operation* firstOp = nullptr;
-  for (size_t i = 0; i < superword->numLanes(); ++i) {
-    if (auto* definingOp = superword->getElement(i).getDefiningOp()) {
-      if (i == 0) {
+  for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
+    if (superword->hasAlteredSemanticsInLane(lane)) {
+      return failure();
+    }
+    if (auto* definingOp = superword->getElement(lane).getDefiningOp()) {
+      if (lane == 0) {
         firstOp = definingOp;
         continue;
       }
       if (!OperationEquivalence::isEquivalentTo(definingOp, firstOp)) {
         return failure();
       }
-    } else if (firstOp || superword->getElement(i) != superword->getElement(0)) {
+    } else if (firstOp || superword->getElement(lane) != superword->getElement(0)) {
       return failure();
     }
   }
@@ -94,32 +97,37 @@ void BroadcastSuperword::accept(PatternVisitor& visitor, Superword* superword) c
 // === BroadcastInsert === //
 
 LogicalResult BroadcastInsertSuperword::match(Superword* superword) {
+  for (unsigned lane = 0; lane < superword->numLanes(); ++lane) {
+    if (superword->hasAlteredSemanticsInLane(lane)) {
+      return failure();
+    }
+  }
   return success();
 }
 
 Value BroadcastInsertSuperword::rewrite(Superword* superword, RewriterBase& rewriter) {
   DenseMap<Value, unsigned> elementCounts;
-  Value broadcastValue;
+  Value broadcastVal;
   unsigned maxCount = 0;
   for (auto const& element : *superword) {
     if (++elementCounts[element] > maxCount) {
-      broadcastValue = element;
+      broadcastVal = element;
       maxCount = elementCounts[element];
     }
   }
-  auto loc = superword->getLoc();
-  Value vectorizedOp =
-      rewriter.create<vector::BroadcastOp>(loc, superword->getVectorType(), stripLogOrValue(broadcastValue, rewriter));
+  broadcastVal = stripLogOrValue(broadcastVal, rewriter);
+
+  Value vectorOp = rewriter.create<vector::BroadcastOp>(superword->getLoc(), superword->getVectorType(), broadcastVal);
   for (size_t i = 0; i < superword->numLanes(); ++i) {
-    auto const& element = superword->getElement(i);
-    if (element == broadcastValue) {
+    auto element = superword->getElement(i);
+    if (element == broadcastVal) {
       continue;
     }
-    auto index = conversionManager.getOrCreateConstant(loc, rewriter.getI32IntegerAttr((int) i));
-    vectorizedOp =
-        rewriter.create<vector::InsertElementOp>(loc, stripLogOrValue(element, rewriter), vectorizedOp, index);
+    auto index = conversionManager.getOrCreateConstant(superword->getLoc(), rewriter.getI32IntegerAttr((int) i));
+    element = stripLogOrValue(element, rewriter);
+    vectorOp = rewriter.create<vector::InsertElementOp>(superword->getLoc(), element, vectorOp, index);
   }
-  return vectorizedOp;
+  return vectorOp;
 }
 
 void BroadcastInsertSuperword::accept(PatternVisitor& visitor, Superword* superword) const {
@@ -132,8 +140,13 @@ ShuffleTwoSuperwords::ShuffleTwoSuperwords(ConversionManager& conversionManager)
     conversionManager) {
   conversionManager.getConversionState().addVectorCallbacks(
       [&](Superword* superword) {
-        for (auto element : *superword) {
-          superwordsByValue[element].insert(superword);
+        if (superword->constant()) {
+          return;
+        }
+        for (unsigned lane = 0; lane < superword->numLanes(); ++lane) {
+          if (!superword->hasAlteredSemanticsInLane(lane)) {
+            superwordsByValue[superword->getElement(lane)].insert(superword);
+          }
         }
       }, [&](Superword* superword) {
         for (auto element : *superword) {
@@ -145,9 +158,15 @@ ShuffleTwoSuperwords::ShuffleTwoSuperwords(ConversionManager& conversionManager)
 }
 
 LogicalResult ShuffleTwoSuperwords::match(Superword* superword) {
+  if (superword->constant()) {
+    return failure();
+  }
   SmallPtrSet<Superword*, 32> relevantSuperwords;
-  for (auto value : *superword) {
-    auto const& existingSuperwords = superwordsByValue.lookup(value);
+  for (unsigned lane = 0; lane < superword->numLanes(); ++lane) {
+    if (superword->hasAlteredSemanticsInLane(lane)) {
+      return failure();
+    }
+    auto const& existingSuperwords = superwordsByValue.lookup(superword->getElement(lane));
     if (existingSuperwords.empty()) {
       return failure();
     }

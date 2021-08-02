@@ -91,7 +91,9 @@ void ConversionState::markComputed(Superword* superword, Value value) {
   }
   temporaryData.computedSuperwords[superword] = value;
   for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
-    temporaryData.extractableScalarValues.try_emplace(superword->getElement(lane), superword, lane);
+    if (!superword->hasAlteredSemanticsInLane(lane)) {
+      temporaryData.extractableScalarValues.try_emplace(superword->getElement(lane), superword, lane);
+    }
   }
   for (auto const& callback : vectorCallbacks) {
     callback(superword);
@@ -361,6 +363,7 @@ Value ConversionManager::getOrExtractValue(Value value) {
     return value;
   }
   auto const& wordPosition = conversionState->getSuperwordContainingValue(value);
+  assert(!wordPosition.superword->hasAlteredSemanticsInLane(wordPosition.index));
   assert(wordPosition.superword && "extraction deemed profitable, but value does not appear in any vector");
   auto source = conversionState->getValue(wordPosition.superword);
   auto pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) wordPosition.index));
@@ -435,7 +438,7 @@ namespace {
           continue;
         }
         stack.emplace_back(pair.first, true);
-        // Reverse order due to LIFO stack. Otherwise, RHS operands would appear before LHS operands in the final order.
+        // Reverse order due to LIFO stack. Otherwise, RHS operands would appear before LHS operands in the final code.
         for (unsigned i = pair.first->getNumOperands(); i-- > 0;) {
           auto operand = pair.first->getOperand(i);
           if (auto* definingOp = operand.getDefiningOp()) {

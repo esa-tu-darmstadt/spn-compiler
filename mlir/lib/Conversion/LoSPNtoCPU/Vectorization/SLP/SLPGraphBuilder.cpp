@@ -15,7 +15,7 @@ using namespace mlir::spn::low::slp;
 
 SLPGraphBuilder::SLPGraphBuilder(SLPGraph& graph) : graph{graph} {}
 
-void SLPGraphBuilder::build(ArrayRef<Value> const& seed) {
+void SLPGraphBuilder::build(ArrayRef<Value> seed) {
   graph.root = std::make_shared<Superword>(seed);
   auto rootNode = nodeBySuperword.try_emplace(graph.root.get(), std::make_shared<SLPNode>(graph.root)).first->second;
   superwordsByValue[graph.root->getElement(0)].emplace_back(graph.root);
@@ -29,7 +29,7 @@ namespace {
 
   bool appendable(SLPNode const& node,
                   OperationName const& opCode,
-                  ArrayRef<SmallVector<Value, 2>> const& allOperands,
+                  ArrayRef<SmallVector<Value, 2>> allOperands,
                   unsigned operandIndex) {
     return std::all_of(std::begin(allOperands), std::end(allOperands), [&](auto const& operands) {
       auto const& operand = operands[operandIndex];
@@ -37,14 +37,13 @@ namespace {
         return false;
       }
       // Check if any operand escapes the current node.
-      // TODO: determine if multinodes should stop building if an operation escapes it or if simply disallowing reordering in this lane might be better
       return std::all_of(std::begin(operand.getUsers()), std::end(operand.getUsers()), [&](auto* user) {
         return node.contains(user->getResult(0));
       });
     });
   }
 
-  SmallVector<Value, 2> getOperands(Value const& value) {
+  SmallVector<Value, 2> getOperands(Value value) {
     SmallVector<Value, 2> operands;
     operands.reserve(value.getDefiningOp()->getNumOperands());
     for (auto operand : value.getDefiningOp()->getOperands()) {
@@ -54,7 +53,7 @@ namespace {
   }
 
   void sortByOpcode(SmallVector<Value, 2>& values, Optional<OperationName> const& smallestOpcode) {
-    llvm::sort(std::begin(values), std::end(values), [&](Value const& lhs, Value const& rhs) {
+    llvm::sort(std::begin(values), std::end(values), [&](Value lhs, Value rhs) {
       auto* lhsOp = lhs.getDefiningOp();
       auto* rhsOp = rhs.getDefiningOp();
       if (!lhsOp && !rhsOp) {
@@ -70,6 +69,9 @@ namespace {
         } else if (rhsOp->getName() == smallestOpcode.getValue()) {
           return false;
         }
+      }
+      if (lhsOp->getName().getStringRef() == rhsOp->getName().getStringRef()) {
+        return lhsOp->isBeforeInBlock(rhsOp);
       }
       return lhsOp->getName().getStringRef() < rhsOp->getName().getStringRef();
     });
@@ -87,6 +89,58 @@ namespace {
     }
     return allOperands;
   }
+
+  struct SuperwordSemantics {
+    SuperwordSemantics() = default;
+    SuperwordSemantics(Superword* superword, DenseMap<Superword*, SuperwordSemantics> const& parentSemantics)
+        : operandDifference{superword->numLanes()} {
+      for (unsigned lane = 0; lane < superword->numLanes(); ++lane) {
+        auto op = superword->getElement(lane).getDefiningOp();
+        for (unsigned i = 0; i < op->getNumOperands(); ++i) {
+          auto operand = op->getOperand(i);
+          auto operandElement = superword->getOperand(i)->getElement(lane);
+          if (operand != operandElement) {
+            if (operandDifference[lane][operand] == 1) {
+              // Keep the map as small as possible.
+              operandDifference[lane].erase(operand);
+            } else {
+              --operandDifference[lane][operand];
+            }
+            if (operandDifference[lane][operandElement] == -1) {
+              // Keep the map as small as possible.
+              operandDifference[lane].erase(operandElement);
+            } else {
+              ++operandDifference[lane][operandElement];
+            }
+          }
+        }
+      }
+      for (unsigned lane = 0; lane < superword->numLanes(); ++lane) {
+        for (auto* operandWord : superword->getOperands()) {
+          auto const& semantics = parentSemantics.lookup(operandWord);
+          if (semantics.operandDifference.empty()) {
+            continue;
+          }
+          for (auto const& differenceEntry : semantics.operandDifference[lane]) {
+            auto newDifference = operandDifference[lane].lookup(differenceEntry.first) + differenceEntry.second;
+            if (newDifference == 0) {
+              operandDifference[lane].erase(differenceEntry.first);
+            } else {
+              operandDifference[lane][differenceEntry.first] = newDifference;
+            }
+          }
+        }
+      }
+    }
+
+    bool areSemanticsAlteredInLane(size_t lane) const {
+      return !operandDifference[lane].empty();
+    }
+
+    // positive: surplus of that value in the computation chain
+    // negative: deficiency of that value in the computation chain
+    SmallVector<DenseMap<Value, int>, 4> operandDifference;
+  };
 
 } // end namespace
 
@@ -108,22 +162,37 @@ void SLPGraphBuilder::buildGraph(std::shared_ptr<Superword> const& superword) {
       for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
         superwordValues.emplace_back(allOperands[lane][i]);
       }
-      auto existingSuperword = superwordOrNull(superwordValues);
-      if (existingSuperword) {
+      if (auto existingSuperword = superwordOrNull(superwordValues)) {
         superword->addOperand(existingSuperword);
         currentNode->addOperand(nodeBySuperword[existingSuperword.get()]);
       } else if (appendable(*currentNode, currentOpCode, allOperands, i)) {
         auto newSuperword = appendSuperwordToNode(superwordValues, currentNode, superword);
         buildGraph(newSuperword);
       } else if (ofVectorizableType(std::begin(superwordValues), std::end(superwordValues))) {
-        // TODO: here might be a good place to implement variable vector width
         auto operandNode = addOperandToNode(superwordValues, currentNode, superword);
         buildWorklist.insert(operandNode.get());
       }
     }
     // B. Normal Mode: Finished building multi-node
     if (currentNode->isSuperwordRoot(*superword)) {
-      //reorderOperands(currentNode.get());
+      reorderOperands(currentNode.get());
+      // We might want to shuffle superwords later on. We can not shuffle them if their operands have been reordered
+      // by more than just a simple commutative swap, since otherwise their semantics would be different.
+      // Note: the semantics of the node's root cannot be changed as it accumulates everything, no matter the order.
+      if (currentNode->numSuperwords() > 1) {
+        DenseMap<Superword*, SuperwordSemantics> semantics;
+        for (unsigned i = currentNode->numSuperwords(); i-- > 0;) {
+          auto* nodeWord = currentNode->getSuperword(i).get();
+          semantics.try_emplace(nodeWord, nodeWord, semantics);
+        }
+        for (unsigned i = 0; i < currentNode->numSuperwords(); ++i) {
+          for (unsigned lane = 0; lane < currentNode->numLanes(); ++lane) {
+            if (semantics.lookup(currentNode->getSuperword(i).get()).areSemanticsAlteredInLane(lane)) {
+              currentNode->getSuperword(i)->markSemanticsAlteredInLane(lane);
+            }
+          }
+        }
+      }
       for (auto const& operandNode : currentNode->getOperands()) {
         if (buildWorklist.erase(operandNode.get())) {
           buildGraph(operandNode->getSuperword(operandNode->numSuperwords() - 1));
@@ -139,8 +208,7 @@ void SLPGraphBuilder::buildGraph(std::shared_ptr<Superword> const& superword) {
         auto operand = currentNode->getValue(lane, 0).getDefiningOp()->getOperand(i);
         operandValues.emplace_back(operand);
       }
-      auto existingSuperword = superwordOrNull(operandValues);
-      if (existingSuperword) {
+      if (auto existingSuperword = superwordOrNull(operandValues)) {
         superword->addOperand(existingSuperword);
         currentNode->addOperand(nodeBySuperword[existingSuperword.get()]);
       } else if (ofVectorizableType(std::begin(operandValues), std::end(operandValues))) {
@@ -154,7 +222,7 @@ void SLPGraphBuilder::buildGraph(std::shared_ptr<Superword> const& superword) {
 
 void SLPGraphBuilder::reorderOperands(SLPNode* multinode) const {
   auto const& numOperands = multinode->numOperands();
-  //llvm::dbgs() << "Reordering multinode " << multinode << " with " << numOperands << " operands (" << multinode->numVectors() << " vectors)\n";
+  assert(numOperands > 0 && "trying to reorder a node with zero operands");
   SmallVector<SmallVector<Value, 4>> finalOrder{multinode->numLanes()};
   SmallVector<SmallVector<Mode, 4>> mode{multinode->numLanes()};
   // 1. Strip first lane
@@ -172,7 +240,6 @@ void SLPGraphBuilder::reorderOperands(SLPNode* multinode) const {
     // Look for a matching candidate
     for (size_t i = 0; i < numOperands; ++i) {
       // Skip if we can't vectorize
-      // TODO: here might also be a good place to start looking for variable-width
       if (mode[lane - 1][i] == FAILED) {
         finalOrder[lane].emplace_back(nullptr);
         mode[lane].emplace_back(FAILED);
@@ -201,13 +268,15 @@ void SLPGraphBuilder::reorderOperands(SLPNode* multinode) const {
   }
   for (size_t operandIndex = 0; operandIndex < multinode->numOperands(); ++operandIndex) {
     for (size_t lane = 0; lane < multinode->numLanes(); ++lane) {
-      multinode->getOperand(operandIndex)->setValue(lane, 0, finalOrder[lane][operandIndex]);
+      if (multinode->getOperand(operandIndex)->getValue(lane, 0) != finalOrder[lane][operandIndex]) {
+        multinode->getOperand(operandIndex)->setValue(lane, 0, finalOrder[lane][operandIndex]);
+      }
     }
   }
 }
 
-std::pair<Value, SLPGraphBuilder::Mode> SLPGraphBuilder::getBest(Mode const& mode,
-                                                                 Value const& last,
+std::pair<Value, SLPGraphBuilder::Mode> SLPGraphBuilder::getBest(Mode mode,
+                                                                 Value last,
                                                                  SmallVector<Value>& candidates) const {
   Value best;
   Mode resultMode = mode;
@@ -247,27 +316,25 @@ std::pair<Value, SLPGraphBuilder::Mode> SLPGraphBuilder::getBest(Mode const& mod
       best = bestCandidates.front();
     }
       // 2. Look-ahead to choose from best candidates
-    else {
-      if (mode == OPCODE) {
-        // Look-ahead on various levels
-        // TODO: when the level is increased, we recompute everything from the level before. change that maybe?
-        for (size_t level = 1; level <= graph.lookAhead; ++level) {
-          // Best is the candidate with max score
-          unsigned bestScore = 0;
-          llvm::SmallSet<unsigned, 4> scores;
-          for (auto const& candidate : bestCandidates) {
-            // Get the look-ahead score
-            unsigned score = getLookAheadScore(last, candidate, level);
-            if (scores.empty() || score > bestScore) {
-              best = candidate;
-              bestScore = score;
-              scores.insert(score);
-            }
+    else if (mode == OPCODE) {
+      // Look-ahead on various levels
+      // TODO: when the level is increased, we recompute everything from the level before. change that maybe?
+      for (size_t level = 1; level <= graph.lookAhead; ++level) {
+        // Best is the candidate with max score
+        unsigned bestScore = 0;
+        llvm::SmallSet<unsigned, 4> scores;
+        for (auto const& candidate : bestCandidates) {
+          // Get the look-ahead score
+          unsigned score = getLookAheadScore(last, candidate, level);
+          if (scores.empty() || score > bestScore) {
+            best = candidate;
+            bestScore = score;
+            scores.insert(score);
           }
-          // If found best at level don't go deeper
-          if (best != nullptr && scores.size() > 1) {
-            break;
-          }
+        }
+        // If found best at level don't go deeper
+        if (best != nullptr && scores.size() > 1) {
+          break;
         }
       }
     }
@@ -279,20 +346,19 @@ std::pair<Value, SLPGraphBuilder::Mode> SLPGraphBuilder::getBest(Mode const& mod
   return {best, resultMode};
 }
 
-unsigned SLPGraphBuilder::getLookAheadScore(Value const& last, Value const& candidate, unsigned maxLevel) const {
-  if (maxLevel == 0 || last.isa<BlockArgument>() || candidate.isa<BlockArgument>()) {
-    if (last == candidate) {
-      return 1;
+unsigned SLPGraphBuilder::getLookAheadScore(Value last, Value candidate, unsigned maxLevel) const {
+  auto* lastOp = last.getDefiningOp();
+  auto* candidateOp = candidate.getDefiningOp();
+  if (maxLevel == 0 || !lastOp || !candidateOp) {
+    if (lastOp && candidateOp) {
+      if (consecutiveLoads(last, candidate)) {
+        return 1;
+      }
+      return lastOp->getName() == candidateOp->getName();
     }
-    if (last.getDefiningOp<SPNBatchRead>()) {
-      return consecutiveLoads(last, candidate);
-    }
-    if (!last.isa<BlockArgument>() && !candidate.isa<BlockArgument>()) {
-      return last.getDefiningOp()->getName() == candidate.getDefiningOp()->getName();
-    }
-    return 0;
+    return last == candidate;
   }
-  auto scoreSum = 0;
+  unsigned scoreSum = 0;
   for (auto& lastOperand : getOperands(last)) {
     for (auto& candidateOperand : getOperands(candidate)) {
       scoreSum += getLookAheadScore(lastOperand, candidateOperand, maxLevel - 1);
@@ -303,7 +369,19 @@ unsigned SLPGraphBuilder::getLookAheadScore(Value const& last, Value const& cand
 
 // === Utilities === //
 
-std::shared_ptr<Superword> SLPGraphBuilder::appendSuperwordToNode(ArrayRef<Value> const& values,
+SLPGraphBuilder::Mode SLPGraphBuilder::modeFromValue(Value value) {
+  if (auto* definingOp = value.getDefiningOp()) {
+    if (definingOp->hasTrait<OpTrait::ConstantLike>()) {
+      return Mode::CONST;
+    } else if (dyn_cast<spn::low::SPNBatchRead>(definingOp)) {
+      return Mode::LOAD;
+    }
+    return Mode::OPCODE;
+  }
+  return Mode::SPLAT;
+}
+
+std::shared_ptr<Superword> SLPGraphBuilder::appendSuperwordToNode(ArrayRef<Value> values,
                                                                   std::shared_ptr<SLPNode> const& node,
                                                                   std::shared_ptr<Superword> const& usingSuperword) {
   auto superword = std::make_shared<Superword>(values);
@@ -314,7 +392,7 @@ std::shared_ptr<Superword> SLPGraphBuilder::appendSuperwordToNode(ArrayRef<Value
   return superword;
 }
 
-std::shared_ptr<SLPNode> SLPGraphBuilder::addOperandToNode(ArrayRef<Value> const& operandValues,
+std::shared_ptr<SLPNode> SLPGraphBuilder::addOperandToNode(ArrayRef<Value> operandValues,
                                                            std::shared_ptr<SLPNode> const& node,
                                                            std::shared_ptr<Superword> const& usingSuperword) {
   auto superword = std::make_shared<Superword>(operandValues);
@@ -326,7 +404,7 @@ std::shared_ptr<SLPNode> SLPGraphBuilder::addOperandToNode(ArrayRef<Value> const
   return operandNode;
 }
 
-std::shared_ptr<Superword> SLPGraphBuilder::superwordOrNull(ArrayRef<Value> const& values) const {
+std::shared_ptr<Superword> SLPGraphBuilder::superwordOrNull(ArrayRef<Value> values) const {
   if (superwordsByValue.count(values[0])) {
     auto const& superwords = superwordsByValue.lookup(values[0]);
     auto const& it = std::find_if(std::begin(superwords), std::end(superwords), [&](auto const& superword) {
@@ -334,7 +412,7 @@ std::shared_ptr<Superword> SLPGraphBuilder::superwordOrNull(ArrayRef<Value> cons
         return false;
       }
       for (size_t lane = 1; lane < superword->numLanes(); ++lane) {
-        if (superword->getElement(lane) != values[lane]) {
+        if (superword->hasAlteredSemanticsInLane(lane) || superword->getElement(lane) != values[lane]) {
           return false;
         }
       }

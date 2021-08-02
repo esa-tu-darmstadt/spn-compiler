@@ -8,7 +8,6 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraph.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraphBuilder.h"
-#include "LoSPN/LoSPNTypes.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -17,7 +16,7 @@ using namespace mlir::spn::low::slp;
 
 // === Superword === //
 
-Superword::Superword(ArrayRef<Value> const& values) {
+Superword::Superword(ArrayRef<Value> values) : semanticsAltered{static_cast<unsigned>(values.size())} {
   assert(!values.empty());
   for (auto const& value : values) {
     assert(value.isa<BlockArgument>() || value.getDefiningOp()->hasTrait<OpTrait::OneResult>());
@@ -25,7 +24,7 @@ Superword::Superword(ArrayRef<Value> const& values) {
   }
 }
 
-Superword::Superword(ArrayRef<Operation*> const& operations) {
+Superword::Superword(ArrayRef<Operation*> operations) : semanticsAltered{static_cast<unsigned>(values.size())} {
   assert(!operations.empty());
   for (auto* op : operations) {
     assert(op->hasTrait<OpTrait::OneResult>());
@@ -117,6 +116,15 @@ SmallVector<Superword*, 2> Superword::getOperands() const {
     operands.emplace_back(operand.get());
   }
   return operands;
+}
+
+bool Superword::hasAlteredSemanticsInLane(size_t lane) const {
+  return semanticsAltered.test(lane);
+}
+
+void Superword::markSemanticsAlteredInLane(size_t lane) {
+  assert(lane < numLanes());
+  semanticsAltered.set(lane);
 }
 
 VectorType Superword::getVectorType() const {
