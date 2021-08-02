@@ -22,7 +22,6 @@ def test_vector_fashion_mnist():
 
     # Deserialize model
     model = BinaryDeserializer(os.path.join(scriptPath, "nltcs_100_200_2_10_8_8_1_True.bin")).deserialize_from_file()
-    # model = BinaryDeserializer(os.path.join(scriptPath, "spn_0.bin")).deserialize_from_file()
     spn = model.root
 
     inputs = np.genfromtxt(os.path.join(scriptPath, "input.csv"), delimiter=",", dtype="float64")
@@ -30,7 +29,7 @@ def test_vector_fashion_mnist():
                               dtype="float64")
     reference = reference.reshape(10000)
     # Compile the kernel.
-    compiler = CPUCompiler(vectorize=True, computeInLogSpace=False)
+    compiler = CPUCompiler(vectorize=True, computeInLogSpace=True)
     kernel = compiler.compile_ll(spn=spn, batchSize=1, supportMarginal=False)
     # Execute the compiled Kernel.
     time_sum = 0
