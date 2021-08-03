@@ -24,11 +24,9 @@ SmallVector<Value, 4> SeedAnalysis::next() {
       computeAvailableOps();
       availableComputed = true;
     } else {
-      rootOp->emitRemark("No seed found.");
       return {};
     }
   }
-  rootOp->emitRemark("Computing seed out of " + std::to_string(availableOps.size()) + " operations...");
   auto seed = nextSeed();
   for (auto value : seed) {
     if (auto* definingOp = value.getDefiningOp()) {

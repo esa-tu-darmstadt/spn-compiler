@@ -108,9 +108,12 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 #define DELETE_OPS false
 // Print the number of loSPN ops in the entire function
 #define PRINT_SIZE true
+// Count how often each opcode appears in the entire function and print it.
+#define PRINT_OP_STATS true
 // Print how much of the original function has been covered by all SLP graphs combined
 #define PRINT_SLP_COVER true
 #define PRINT_SLP_GRAPH_SIZE true
+#define PRINT_SUCCESSFUL_ITERATION_COUNT true
 
 #define DEPENDENCY_ANALYSIS false
 #define COST_MODEL_ANALYSIS false
@@ -121,8 +124,17 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 #define TOP_DOWN_SEEDING true
 
 #if PRINT_SIZE
-  unsigned numOps = taskBlock->getOperations().size();
-  llvm::outs() << "#lospn ops: " << std::to_string(numOps) << "\n";
+  unsigned liveOps = taskBlock->getOperations().size() - computeDeadOps(taskBlock).size();
+  llvm::outs() << "#ops before vectorization: " << std::to_string(liveOps) << "\n";
+#endif
+#if PRINT_OP_STATS
+  llvm::StringMap<unsigned> opCounts;
+  taskBlock->walk([&](Operation* op) {
+    ++opCounts[op->getName().getStringRef()];
+  });
+  for (auto const& entry : opCounts) {
+    llvm::outs() << "OPCOUNT: " << entry.first() << ", count: " << entry.second << "\n";
+  }
 #endif
 #if PRINT_SLP_COVER
   SmallPtrSet<Operation*, 32> allOps;
@@ -182,9 +194,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     line = Twine("Estimated Cost: ").concat(std::to_string(currentFunctionCost)).str();
     appendLineToFile("costAnalysis.log", line);
 #endif
-
-    task->emitRemark("Computing graph...");
-
 #if PRINT_TIMINGS
     TimePoint graphStart = std::chrono::high_resolution_clock::now();
 #endif
@@ -205,11 +214,16 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     analyzeTopologicalMixing(graph);
 #endif
 
-    task->emitRemark("Converting graph...");
     auto order = conversionManager.startConversion(graph);
 
 #if PRINT_SLP_GRAPH_SIZE
-    llvm::outs() << "#superwords in graph " << iteration << ": " + std::to_string(order.size()) << "\n";
+    unsigned numSuperwords = 0;
+    for (auto* superword : order) {
+      if (!superword->constant()) {
+        ++numSuperwords;
+      }
+    }
+    llvm::outs() << "#superwords in graph " << iteration << ": " + std::to_string(numSuperwords) << "\n";
     SmallPtrSet<Operation*, 32> uniqueOps;
     for (auto* superword: order) {
       if (superword->constant()) {
@@ -242,13 +256,13 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     llvm::outs() << "SLP PATTERN REWRITE TIME: " << rewriteDuration.count() << " ns\n";
 #endif
 
-    task->emitRemark("Conversion complete.");
     auto vectorizedFunctionCost = costModel->getBlockCost(taskBlock, computeDeadOps(taskBlock));
+    // Vectorization profitable.
     if (vectorizedFunctionCost >= currentFunctionCost) {
-      task->emitRemark("Vectorization not profitable, reverting back to non-vectorized state.");
       conversionManager.cancelConversion();
-    } else {
-      task->emitRemark("Vectorization profitable, keeping vectorized state.");
+    }
+      // Vectorization not profitable.
+    else {
       conversionManager.finishConversion();
       seedAnalysis->update(order);
       currentFunctionCost = vectorizedFunctionCost;
@@ -275,6 +289,13 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   TimePoint totalEnd = std::chrono::high_resolution_clock::now();
   auto totalDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(totalEnd - totalStart);
   llvm::outs() << "SLP TOTAL TIME: " << totalDuration.count() << " ns\n";
+#endif
+#if PRINT_SIZE
+  liveOps = taskBlock->getOperations().size() - computeDeadOps(taskBlock).size();
+  llvm::outs() << "#ops after vectorization: " << std::to_string(liveOps) << "\n";
+#endif
+#if PRINT_SUCCESSFUL_ITERATION_COUNT
+  llvm::outs() << "profitable SLP iterations: " << iteration << "\n";
 #endif
 #if DELETE_OPS
   for (auto& op : taskBlock->getOperations()) {
