@@ -19,8 +19,8 @@ unsigned option::maxNodeSize = 10;
 unsigned option::maxLookAhead = 3;
 unsigned option::maxIterations = 1;
 bool option::reorderInstructionsDFS = true;
-bool option::allowDuplicateElements = true;
-bool option::allowTopologicalMixing = true;
+bool option::allowDuplicateElements = false;
+bool option::allowTopologicalMixing = false;
 
 bool slp::vectorizable(Operation* op) {
   return (op->hasTrait<OpTrait::spn::low::VectorizableOp>() || op->hasTrait<OpTrait::ConstantLike>())
