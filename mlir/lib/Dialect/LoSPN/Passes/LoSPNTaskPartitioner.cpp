@@ -302,7 +302,11 @@ namespace mlir {
               copyOperation(operand.getDefiningOp(), rewriter, mapper);
             }
           }
-          (void) rewriter.clone(*op, mapper);
+          // Make sure we do not copy an operation twice, if it has previously
+          // been copied as an operand of another operation.
+          if (!mapper.contains(op->getResult(0))) {
+            (void) rewriter.clone(*op, mapper);
+          }
         }
 
         /// Find which partition contains the operation producing the given value.
