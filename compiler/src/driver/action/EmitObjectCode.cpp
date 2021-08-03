@@ -7,12 +7,12 @@
 //==============================================================================
 
 #include "EmitObjectCode.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/raw_ostream.h"
-#include "util/Logging.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include <driver/GlobalOptions.h>
+#include "driver/GlobalOptions.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/PassTimingInfo.h"
+#include "llvm/Support/FileSystem.h"
 
 spnc::EmitObjectCode::EmitObjectCode(ActionWithOutput<llvm::Module>& _module,
                                      ObjectFile outputFile,
@@ -51,8 +51,12 @@ spnc::ObjectFile& spnc::EmitObjectCode::execute() {
       SPNC_FATAL_ERROR("Cannot emit object file");
     }
 
+    llvm::TimePassesIsEnabled = true;
+    llvm::EnableStatistics(false);
     pass.run(input.execute());
     dest.flush();
+    llvm::PrintStatistics();
+    reportAndResetTimings(&llvm::dbgs());
   }
   return outFile;
 }
