@@ -278,12 +278,10 @@ namespace mlir {
           SmallVector<Value> bodyYields;
           unsigned resultIndex = 0;
           // Create a SPNYield with all results at the end of the body.
-          llvm::dbgs() << "Return values:\n";
           for (auto retVal : nonPartitionOutputs) {
             bodyYields.push_back(mapper.lookupOrNull(retVal));
             inputs[retVal] = InputInfo{task->getResult(0), resultIndex++, llvm::None};
           }
-          llvm::dbgs() << "End of return values\n";
           rewriter.create<SPNYield>(loc, bodyYields);
           rewriter.restoreInsertionPoint(restoreBody);
           // Create a SPNBatchCollect collecting all scalar results into a single tensor.
@@ -291,8 +289,6 @@ namespace mlir {
           // Create a Return at the end of the task, returning all results as tensors.
           rewriter.create<SPNReturn>(loc, collect.getResult());
           rewriter.restoreInsertionPoint(restore);
-          task->emitRemark() << "Task " << task->getName() << " has " << task->getNumOperands() << " inputs and "
-                             << task->getNumResults() << "outputs";
         }
 
         void copyOperation(Operation* op, PatternRewriter& rewriter, BlockAndValueMapping& mapper) const {
