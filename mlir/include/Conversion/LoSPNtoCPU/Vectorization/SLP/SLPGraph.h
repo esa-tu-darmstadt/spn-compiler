@@ -39,7 +39,6 @@ namespace mlir {
           bool uniform() const;
 
           size_t numLanes() const;
-          size_t numUniqueElements() const;
           SmallVectorImpl<Value>::const_iterator begin() const;
           SmallVectorImpl<Value>::const_iterator end() const;
 
@@ -103,12 +102,11 @@ namespace mlir {
         class SLPGraph {
           friend class SLPGraphBuilder;
         public:
-          SLPGraph(ArrayRef<Value> seed, unsigned lookAhead);
+          SLPGraph(ArrayRef<Value> seed);
           std::shared_ptr<Superword> getRoot() const;
           DependencyGraph dependencyGraph() const;
         private:
           std::shared_ptr<Superword> root;
-          unsigned const lookAhead;
         };
 
         namespace graph {

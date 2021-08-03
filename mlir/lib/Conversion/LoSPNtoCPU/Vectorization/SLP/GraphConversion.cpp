@@ -8,6 +8,7 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/GraphConversion.h"
 #include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
+#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 
 using namespace mlir;
@@ -464,5 +465,9 @@ namespace {
 }
 
 void ConversionManager::reorderOperations() {
-  reorderOperationsDFS(block);
+  if (option::reorderInstructionsDFS) {
+    reorderOperationsDFS(block);
+  } else {
+    reorderOperationsBFS(block);
+  }
 }

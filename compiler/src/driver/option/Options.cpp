@@ -16,12 +16,12 @@ std::unordered_map<std::string, Opt*>& Options::options() {
   return *_options;
 };
 
-std::vector<std::unique_ptr<OptModifier>>& Options::allModifiers(){
+std::vector<std::unique_ptr<OptModifier>>& Options::allModifiers() {
   static auto* _modifiers = new std::vector<std::unique_ptr<OptModifier>>();
   return *_modifiers;
 };
 
-std::vector<OptModifier*>& Options::activeModifiers(){
+std::vector<OptModifier*>& Options::activeModifiers() {
   static auto* _modifiers = new std::vector<OptModifier*>();
   return *_modifiers;
 };
@@ -43,6 +43,15 @@ Value detail::OptionParsers::parse(const std::string& value) {
 template<>
 int detail::OptionParsers::parse(const std::string& value) {
   return std::stoi(value);
+}
+
+/// Specialization to parse unsigned integer options,
+/// using standard library facilities to parse the unsigned int from the string.
+/// \param value String.
+/// \return Unsigned integer value.
+template<>
+unsigned detail::OptionParsers::parse(const std::string& value) {
+  return std::stol(value);
 }
 
 /// Specialization to parse floating-point options,

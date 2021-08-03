@@ -17,7 +17,15 @@
 
 void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   bool vectorize = spnc::option::cpuVectorize.get(*this->config);
-  pm->addPass(mlir::spn::createLoSPNtoCPUStructureConversionPass(vectorize));
+  pm->addPass(mlir::spn::createLoSPNtoCPUStructureConversionPass(
+      vectorize,
+      spnc::option::slpMaxIterations.get(*this->config),
+      spnc::option::slpMaxNodeSize.get(*this->config),
+      spnc::option::slpMaxLookAhead.get(*this->config),
+      spnc::option::slpReorderInstructionsDFS.get(*this->config),
+      spnc::option::slpAllowDuplicateElements.get(*this->config),
+      spnc::option::slpAllowTopologicalMixing.get(*this->config))
+  );
   if (vectorize) {
     auto useShuffle = spnc::option::replaceGatherWithShuffle.get(*this->config);
     if (useShuffle) {

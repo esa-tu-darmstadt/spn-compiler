@@ -97,7 +97,11 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   });
 
   // Apply SLP vectorization.
-  task->emitRemark() << "Beginning SLP vectorization...";
+  task->emitRemark() << "Beginning SLP vectorization (max iterations: " << option::maxIterations
+                     << ", max multinode size: " << option::maxNodeSize << ", max look-ahead: " << option::maxLookAhead
+                     << ", reordering DFS: " << option::reorderInstructionsDFS << ", duplicates allowed: "
+                     << option::allowDuplicateElements << ", topological mixing allowed: "
+                     << option::allowTopologicalMixing << ").";
 
 // Useful for when we are only interested in some stats, not the compiled kernel or output comparisons (reduces time
 // spent in subsequent passes practically to zero).
@@ -148,9 +152,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   seedAnalysis = std::make_unique<FirstRootAnalysis>(taskFunc, width);
 #endif
 
-  auto maxIterations = 1;
-  auto iteration = 0;
-
   auto currentFunctionCost = costModel->getBlockCost(taskBlock, computeDeadOps(taskBlock));
 
 #if PRINT_TIMINGS
@@ -158,7 +159,8 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 #endif
 
   SmallVector<Value, 4> seed;
-  while (iteration != maxIterations) {
+  unsigned iteration = 0;
+  while (iteration != option::maxIterations) {
 
 #if PRINT_TIMINGS
     TimePoint seedStart = std::chrono::high_resolution_clock::now();
@@ -187,7 +189,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     TimePoint graphStart = std::chrono::high_resolution_clock::now();
 #endif
 
-    SLPGraph graph{seed, 3};
+    SLPGraph graph{seed};
 
 #if PRINT_TIMINGS
     TimePoint graphEnd = std::chrono::high_resolution_clock::now();

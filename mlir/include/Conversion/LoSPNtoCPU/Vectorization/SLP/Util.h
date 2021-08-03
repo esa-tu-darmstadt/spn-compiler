@@ -18,6 +18,16 @@ namespace mlir {
     namespace low {
       namespace slp {
 
+        namespace option {
+          // For explanations, see GlobalOptions.h.
+          extern unsigned maxNodeSize;
+          extern unsigned maxLookAhead;
+          extern unsigned maxIterations;
+          extern bool reorderInstructionsDFS;
+          extern bool allowDuplicateElements;
+          extern bool allowTopologicalMixing;
+        }
+
         bool vectorizable(Operation* op);
         bool vectorizable(Value value);
 

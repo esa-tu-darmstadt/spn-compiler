@@ -68,8 +68,20 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::getDependentDialects(mlir::Di
   registry.insert<mlir::math::MathDialect>();
 }
 
-std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoCPUStructureConversionPass(bool enableVectorization) {
-  return std::make_unique<LoSPNtoCPUStructureConversionPass>(enableVectorization);
+std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoCPUStructureConversionPass(bool enableVectorization,
+                                                                               unsigned slpMaxIterations,
+                                                                               unsigned slpMaxNodeSize,
+                                                                               unsigned slpMaxLookAhead,
+                                                                               bool slpReorderInstructionsDFS,
+                                                                               bool slpAllowDuplicateElements,
+                                                                               bool slpAllowTopologicalMixing) {
+  return std::make_unique<LoSPNtoCPUStructureConversionPass>(enableVectorization,
+                                                             slpMaxIterations,
+                                                             slpMaxNodeSize,
+                                                             slpMaxLookAhead,
+                                                             slpReorderInstructionsDFS,
+                                                             slpAllowDuplicateElements,
+                                                             slpAllowTopologicalMixing);
 }
 
 void mlir::spn::LoSPNtoCPUNodeConversionPass::runOnOperation() {

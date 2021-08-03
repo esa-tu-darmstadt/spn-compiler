@@ -89,10 +89,6 @@ size_t Superword::numLanes() const {
   return values.size();
 }
 
-size_t Superword::numUniqueElements() const {
-  return SmallPtrSet<Value, 4>{std::begin(values), std::end(values)}.size();
-}
-
 SmallVectorImpl<Value>::const_iterator Superword::begin() const {
   return values.begin();
 }
@@ -208,7 +204,7 @@ ArrayRef<std::shared_ptr<SLPNode>> SLPNode::getOperands() const {
 
 // === SLPGraph === //
 
-SLPGraph::SLPGraph(ArrayRef<Value> seed, unsigned lookAhead) : lookAhead{lookAhead} {
+SLPGraph::SLPGraph(ArrayRef<Value> seed) {
   SLPGraphBuilder builder{*this};
   builder.build(seed);
 }

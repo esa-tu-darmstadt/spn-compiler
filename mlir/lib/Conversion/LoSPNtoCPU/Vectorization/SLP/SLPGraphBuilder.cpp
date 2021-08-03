@@ -56,13 +56,17 @@ namespace {
     if (!vectorizable(superword.begin(), superword.end())) {
       return false;
     }
-    if (superword.numUniqueElements() < superword.numLanes()) {
-      return false;
+    if (!option::allowDuplicateElements) {
+      if (SmallPtrSet<Value, 4>{std::begin(superword), std::end(superword)}.size() < superword.numLanes()) {
+        return false;
+      }
     }
-    if (std::any_of(superword.begin(), superword.end(), [&](Value element) {
-      return valueDepths.lookup(element) != valueDepths.lookup(superword.getElement(0));
-    })) {
-      return false;
+    if (!option::allowTopologicalMixing) {
+      for (size_t lane = 1; lane < superword.numLanes(); ++lane) {
+        if (valueDepths.lookup(superword.getElement(lane)) != valueDepths.lookup(superword.getElement(0))) {
+          return false;
+        }
+      }
     }
     return true;
   }
@@ -71,6 +75,9 @@ namespace {
                   OperationName const& opCode,
                   ArrayRef<SmallVector<Value, 2>> allOperands,
                   unsigned operandIndex) {
+    if (node.numSuperwords() == option::maxNodeSize) {
+      return false;
+    }
     return std::all_of(std::begin(allOperands), std::end(allOperands), [&](auto const& operands) {
       auto const& operand = operands[operandIndex];
       if (operand.getDefiningOp()->getName() != opCode) {
@@ -359,7 +366,7 @@ std::pair<Value, SLPGraphBuilder::Mode> SLPGraphBuilder::getBest(Mode mode,
     else if (mode == OPCODE) {
       // Look-ahead on various levels
       // TODO: when the level is increased, we recompute everything from the level before. change that maybe?
-      for (size_t level = 1; level <= graph.lookAhead; ++level) {
+      for (size_t level = 1; level <= option::maxLookAhead; ++level) {
         // Best is the candidate with max score
         unsigned bestScore = 0;
         llvm::SmallSet<unsigned, 4> scores;

@@ -7,13 +7,20 @@
 //==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
-#include "LoSPN/LoSPNTypes.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::low;
 using namespace mlir::spn::low::slp;
+
+// TODO: I don't like this redefinition of default options. Maybe find a way to include GlobalOptions.h?
+unsigned option::maxNodeSize = 10;
+unsigned option::maxLookAhead = 3;
+unsigned option::maxIterations = 1;
+bool option::reorderInstructionsDFS = true;
+bool option::allowDuplicateElements = true;
+bool option::allowTopologicalMixing = true;
 
 bool slp::vectorizable(Operation* op) {
   return (op->hasTrait<OpTrait::spn::low::VectorizableOp>() || op->hasTrait<OpTrait::ConstantLike>())

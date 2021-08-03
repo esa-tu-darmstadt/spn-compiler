@@ -10,6 +10,7 @@
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_LOSPNTOCPUCONVERSIONPASSES_H
 
 #include "mlir/Pass/Pass.h"
+#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 
 namespace mlir {
   namespace spn {
@@ -19,7 +20,20 @@ namespace mlir {
 
     public:
 
-      explicit LoSPNtoCPUStructureConversionPass(bool enableVectorization) : vectorize{enableVectorization} {}
+      LoSPNtoCPUStructureConversionPass(bool enableVectorization,
+                                        unsigned slpMaxIterations,
+                                        unsigned slpMaxNodeSize,
+                                        unsigned slpMaxLookAhead,
+                                        bool slpReorderInstructionsDFS,
+                                        bool slpAllowDuplicateElements,
+                                        bool slpAllowTopologicalMixing) : vectorize{enableVectorization} {
+        low::slp::option::maxIterations = slpMaxIterations;
+        low::slp::option::maxNodeSize = slpMaxNodeSize;
+        low::slp::option::maxLookAhead = slpMaxLookAhead;
+        low::slp::option::reorderInstructionsDFS = slpReorderInstructionsDFS;
+        low::slp::option::allowDuplicateElements = slpAllowDuplicateElements;
+        low::slp::option::allowTopologicalMixing = slpAllowTopologicalMixing;
+      }
 
     protected:
       void runOnOperation() override;
@@ -33,7 +47,13 @@ namespace mlir {
 
     };
 
-    std::unique_ptr<Pass> createLoSPNtoCPUStructureConversionPass(bool enableVectorization);
+    std::unique_ptr<Pass> createLoSPNtoCPUStructureConversionPass(bool enableVectorization,
+                                                                  unsigned slpMaxIterations,
+                                                                  unsigned slpMaxNodeSize,
+                                                                  unsigned slpMaxLookAhead,
+                                                                  bool slpReorderInstructionsDFS,
+                                                                  bool slpAllowDuplicateElements,
+                                                                  bool slpAllowTopologicalMixing);
 
     struct LoSPNtoCPUNodeConversionPass : public PassWrapper<LoSPNtoCPUNodeConversionPass, OperationPass<ModuleOp>> {
 

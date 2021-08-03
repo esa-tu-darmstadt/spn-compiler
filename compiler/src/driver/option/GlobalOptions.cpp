@@ -42,6 +42,21 @@ EnumOpt spnc::option::vectorLibrary{"vector-library", NONE,
 
 Option<bool> spnc::option::replaceGatherWithShuffle{"use-shuffle", false};
 
+Option<unsigned> spnc::option::slpMaxIterations{"slp-max-iterations", 1, {depends(spnc::option::cpuVectorize, true)}};
+
+Option<unsigned> spnc::option::slpMaxNodeSize{"slp-max-node-size", 10, {depends(spnc::option::cpuVectorize, true)}};
+
+Option<unsigned> spnc::option::slpMaxLookAhead{"slp-max-look-ahead", 3, {depends(spnc::option::cpuVectorize, true)}};
+
+Option<bool>
+    spnc::option::slpReorderInstructionsDFS{"slp-reorder-dfs", true, {depends(spnc::option::cpuVectorize, true)}};
+
+Option<bool>spnc::option::slpAllowDuplicateElements
+    {"slp-allow-duplicate-elements", false, {depends(spnc::option::cpuVectorize, true)}};
+
+Option<bool>spnc::option::slpAllowTopologicalMixing
+    {"slp-allow-topological-mixing", false, {depends(spnc::option::cpuVectorize, true)}};
+
 Option<bool> spnc::option::logSpace{"use-log-space", false};
 
 Option<bool> spnc::option::gpuSharedMem{"gpu-shared-mem", true};
