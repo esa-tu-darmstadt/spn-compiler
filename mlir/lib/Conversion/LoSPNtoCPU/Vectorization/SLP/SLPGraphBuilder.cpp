@@ -46,7 +46,17 @@ void SLPGraphBuilder::build(ArrayRef<Value> seed) {
   superwordsByValue[graph.root->getElement(0)].emplace_back(graph.root);
   buildWorklist.insert(rootNode.get());
   buildGraph(graph.root);
-  //dumpSLPGraph(rootNode.get());
+  //dumpSLPGraph(rootNode.get(), true);
+#define PRINT_NODE_SIZES true
+#if PRINT_NODE_SIZES
+  DenseMap<unsigned, unsigned> nodeSizes;
+  graph::walk(rootNode.get(), [&](SLPNode* node) {
+    ++nodeSizes[node->numSuperwords()];
+  });
+  for (auto const& entry : nodeSizes) {
+    llvm::outs() << "NODE SIZE: " << entry.first << ", count: " << entry.second << "\n";
+  }
+#endif
 }
 
 // Some helper functions in an anonymous namespace.
