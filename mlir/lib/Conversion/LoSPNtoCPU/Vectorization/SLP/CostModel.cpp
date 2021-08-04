@@ -13,6 +13,8 @@ using namespace mlir::spn::low::slp;
 
 // === CostModel === //
 
+CostModel::CostModel(SLPPatternApplicator const& applicator) : patternApplicator{applicator} {}
+
 double CostModel::getScalarCost(Value value) {
   if (conversionState->alreadyComputed(value)) {
     return 0;
@@ -41,7 +43,8 @@ double CostModel::getSuperwordCost(Superword* superword, SLPVectorizationPattern
   double vectorCost = cost;
   for (auto* operand: superword->getOperands()) {
     if (!conversionState->alreadyComputed(superword)) {
-      pattern->accept(*this, operand);
+      auto* operandPattern = patternApplicator.bestMatch(operand);
+      operandPattern->accept(*this, operand);
       vectorCost += cost;
     }
   }

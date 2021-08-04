@@ -12,6 +12,7 @@
 #include "SLPGraph.h"
 #include "GraphConversion.h"
 #include "PatternVisitors.h"
+#include "SLPPatternMatch.h"
 
 namespace mlir {
   namespace spn {
@@ -20,6 +21,7 @@ namespace mlir {
 
         class CostModel : public PatternVisitor {
         public:
+          explicit CostModel(SLPPatternApplicator const& applicator);
           double getScalarCost(Value value);
           double getSuperwordCost(Superword* superword, SLPVectorizationPattern* pattern);
           bool isExtractionProfitable(Value value);
@@ -37,9 +39,11 @@ namespace mlir {
           double getExtractionCost(Value value) const;
           static constexpr double MAX_COST = std::numeric_limits<double>::max();
           DenseMap<Value, double> cachedScalarCost;
+          SLPPatternApplicator const& patternApplicator;
         };
 
         class UnitCostModel : public CostModel {
+          using CostModel::CostModel;
           double computeScalarCost(Value value) const override;
           double computeExtractionCost(Superword* superword, size_t index) const override;
           void visitDefault(SLPVectorizationPattern const* pattern, Superword* superword) override;

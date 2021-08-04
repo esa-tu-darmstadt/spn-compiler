@@ -7,15 +7,14 @@
 //==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPPatternMatch.h"
+#include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
 
 using namespace mlir;
 using namespace mlir::spn;
 using namespace mlir::spn::low;
 using namespace mlir::spn::low::slp;
 
-SLPPatternApplicator::SLPPatternApplicator(std::shared_ptr<CostModel> costModel,
-                                           SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>&& patterns)
-    : costModel{std::move(costModel)}, patterns{std::move(patterns)} {}
+// === SLPPatternApplicator === //
 
 void SLPPatternApplicator::matchAndRewrite(Superword* superword, RewriterBase& rewriter) {
   auto* pattern = bestMatch(superword);
@@ -25,17 +24,6 @@ void SLPPatternApplicator::matchAndRewrite(Superword* superword, RewriterBase& r
   pattern->rewriteSuperword(superword, rewriter);
 }
 
-SLPVectorizationPattern* SLPPatternApplicator::bestMatch(Superword* superword) {
-  SLPVectorizationPattern* bestPattern = nullptr;
-  double bestCost = 0;
-  for (auto const& pattern : patterns) {
-    if (succeeded(pattern->match(superword))) {
-      auto cost = costModel->getSuperwordCost(superword, pattern.get());
-      if (!bestPattern || cost < bestCost) {
-        bestPattern = pattern.get();
-        bestCost = cost;
-      }
-    }
-  }
-  return bestPattern;
+void SLPPatternApplicator::setPatterns(SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>&& slpVectorizationPatterns) {
+  this->patterns = std::move(slpVectorizationPatterns);
 }

@@ -8,6 +8,7 @@
 
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Analysis.h"
+#include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Seeding.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPPatternMatch.h"
 #include "../Target/TargetInformation.h"
@@ -148,12 +149,12 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   // Therefore, use an IRRewriter that erases operations *immediately* instead of at the end of the conversion process
   // (as would be the case for ConversionPatterRewriter::eraseOp()).
   IRRewriter graphRewriter{rewriter};
-  auto costModel = std::make_shared<UnitCostModel>();
-  ConversionManager conversionManager{graphRewriter, taskBlock, costModel};
 
-  SmallVector<std::unique_ptr<SLPVectorizationPattern>, 10> patterns;
-  populateSLPVectorizationPatterns(patterns, conversionManager);
-  SLPPatternApplicator applicator{costModel, std::move(patterns)};
+  CostModelPatternApplicator<UnitCostModel> applicator;
+  auto costModel = applicator.getCostModel();
+
+  ConversionManager conversionManager{graphRewriter, taskBlock, costModel};
+  applicator.setPatterns(allSLPVectorizationPatterns(conversionManager));
 
   auto elementType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
   std::unique_ptr<SeedAnalysis> seedAnalysis;

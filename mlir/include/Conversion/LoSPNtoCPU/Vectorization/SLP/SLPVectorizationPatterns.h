@@ -178,8 +178,8 @@ namespace mlir {
 
         // TODO: add vector reduction patterns
 
-        static void populateSLPVectorizationPatterns(SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>& patterns,
-                                                     ConversionManager& conversionManager) {
+        static SmallVector<std::unique_ptr<SLPVectorizationPattern>> allSLPVectorizationPatterns(ConversionManager& conversionManager) {
+          SmallVector<std::unique_ptr<SLPVectorizationPattern>> patterns;
           // === Op-agnostic patterns === //
           patterns.emplace_back(std::make_unique<BroadcastSuperword>(conversionManager));
           patterns.emplace_back(std::make_unique<BroadcastInsertSuperword>(conversionManager));
@@ -197,6 +197,8 @@ namespace mlir {
           patterns.emplace_back(std::make_unique<VectorizeLogAdd>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeLogMul>(conversionManager));
           patterns.emplace_back(std::make_unique<VectorizeLogGaussian>(conversionManager));
+          // ====================================== //
+          return patterns;
         }
 
       }
