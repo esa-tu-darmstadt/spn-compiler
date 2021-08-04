@@ -40,23 +40,14 @@ namespace {
 }
 
 void SLPGraphBuilder::build(ArrayRef<Value> seed) {
-  graph.root = std::make_shared<Superword>(seed);
+  graph.superwordRoot = std::make_shared<Superword>(seed);
+  graph.nodeRoot = std::make_shared<SLPNode>(graph.superwordRoot);
+  nodeBySuperword[graph.superwordRoot.get()] = graph.nodeRoot;
+  superwordsByValue[graph.superwordRoot->getElement(0)].emplace_back(graph.superwordRoot);
   computeDepths(seed, valueDepths);
-  auto rootNode = nodeBySuperword.try_emplace(graph.root.get(), std::make_shared<SLPNode>(graph.root)).first->second;
-  superwordsByValue[graph.root->getElement(0)].emplace_back(graph.root);
-  buildWorklist.insert(rootNode.get());
-  buildGraph(graph.root);
+  buildWorklist.insert(graph.nodeRoot.get());
+  buildGraph(graph.superwordRoot);
   //dumpSLPGraph(rootNode.get(), true);
-#define PRINT_NODE_SIZES true
-#if PRINT_NODE_SIZES
-  DenseMap<unsigned, unsigned> nodeSizes;
-  graph::walk(rootNode.get(), [&](SLPNode* node) {
-    ++nodeSizes[node->numSuperwords()];
-  });
-  for (auto const& entry : nodeSizes) {
-    llvm::outs() << "NODE SIZE: " << entry.first << ", count: " << entry.second << "\n";
-  }
-#endif
 }
 
 // Some helper functions in an anonymous namespace.

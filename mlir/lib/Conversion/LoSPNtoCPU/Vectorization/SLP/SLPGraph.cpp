@@ -209,14 +209,18 @@ SLPGraph::SLPGraph(ArrayRef<Value> seed) {
   builder.build(seed);
 }
 
-std::shared_ptr<Superword> SLPGraph::getRoot() const {
-  return root;
+std::shared_ptr<Superword> SLPGraph::getRootSuperword() const {
+  return superwordRoot;
+}
+
+std::shared_ptr<SLPNode> SLPGraph::getRootNode() const {
+  return nodeRoot;
 }
 
 DependencyGraph SLPGraph::dependencyGraph() const {
   DependencyGraph dependencyGraph;
   DenseMap<Value, SmallPtrSet<Superword*, 2>> valueOccurrences;
-  graph::walk(root.get(), [&](Superword* superword) {
+  graph::walk(superwordRoot.get(), [&](Superword* superword) {
     for (auto element : *superword) {
       valueOccurrences[element].insert(superword);
     }
@@ -226,10 +230,10 @@ DependencyGraph SLPGraph::dependencyGraph() const {
   llvm::SmallSetVector<Value, 32> worklist;
   llvm::SmallSetVector<Value, 32> nextWorklist;
   DenseMap<Value, SmallPtrSet<Superword*, 32>> reachableUses;
-  for (auto element : *root) {
+  for (auto element : *superwordRoot) {
     if (auto* definingOp = element.getDefiningOp()) {
       for (auto operand : definingOp->getOperands()) {
-        reachableUses[operand].insert(root.get());
+        reachableUses[operand].insert(superwordRoot.get());
         nextWorklist.insert(operand);
       }
     }

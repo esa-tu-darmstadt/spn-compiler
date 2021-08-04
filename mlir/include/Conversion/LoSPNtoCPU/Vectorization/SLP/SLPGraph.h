@@ -102,11 +102,13 @@ namespace mlir {
         class SLPGraph {
           friend class SLPGraphBuilder;
         public:
-          SLPGraph(ArrayRef<Value> seed);
-          std::shared_ptr<Superword> getRoot() const;
+          explicit SLPGraph(ArrayRef<Value> seed);
+          std::shared_ptr<Superword> getRootSuperword() const;
+          std::shared_ptr<SLPNode> getRootNode() const;
           DependencyGraph dependencyGraph() const;
         private:
-          std::shared_ptr<Superword> root;
+          std::shared_ptr<Superword> superwordRoot;
+          std::shared_ptr<SLPNode> nodeRoot;
         };
 
         namespace graph {

@@ -39,7 +39,7 @@ namespace mlir {
         void analyzeTopologicalMixing(SLPGraph const& graph) {
           DenseMap<Value, unsigned> depths;
           llvm::SmallSetVector<Value, 32> worklist;
-          for (auto& op : graph.getRoot()->getElement(0).getParentRegion()->getOps()) {
+          for (auto& op : graph.getRootSuperword()->getElement(0).getParentRegion()->getOps()) {
             for (auto const& result : op.getResults()) {
               worklist.insert(result);
               depths[result] = 0;
@@ -61,8 +61,8 @@ namespace mlir {
           DenseMap<Superword*, unsigned> superwordDepths;
           unsigned maxSuperwordDepth = 0;
           llvm::SmallSetVector<Superword*, 32> graphWorklist;
-          graphWorklist.insert(graph.getRoot().get());
-          superwordDepths[graph.getRoot().get()] = 0;
+          graphWorklist.insert(graph.getRootSuperword().get());
+          superwordDepths[graph.getRootSuperword().get()] = 0;
 
           while (!graphWorklist.empty()) {
             auto* superword = graphWorklist.pop_back_val();
@@ -75,7 +75,7 @@ namespace mlir {
             }
           }
 
-          auto order = graph::postOrder(graph.getRoot().get());
+          auto order = graph::postOrder(graph.getRootSuperword().get());
           unsigned topologicallyMixed = 0;
           unsigned lowest = std::numeric_limits<unsigned>::max();
           for (auto* superword : order) {
@@ -92,9 +92,9 @@ namespace mlir {
           }
           auto header =
               "#ops in function,width,#superwords,#mixed superwords,lowest mixed occurrence,max depth";
-          auto line = Twine(graph.getRoot()->getElement(0).getParentBlock()->getOperations().size())
+          auto line = Twine(graph.getRootSuperword()->getElement(0).getParentBlock()->getOperations().size())
               .concat(",")
-              .concat(std::to_string(graph.getRoot()->numLanes()))
+              .concat(std::to_string(graph.getRootSuperword()->numLanes()))
               .concat(",")
               .concat(std::to_string(order.size()))
               .concat(",")

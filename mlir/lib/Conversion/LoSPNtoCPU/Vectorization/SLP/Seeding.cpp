@@ -164,7 +164,6 @@ SmallVector<Value, 4> TopDownAnalysis::nextSeed() const {
   auto seeds = computeSeedsByOpName(opDepths, availableOps, width);
 
   if (seeds.empty()) {
-    rootOp->emitRemark("No seed found.");
     return {};
   }
 

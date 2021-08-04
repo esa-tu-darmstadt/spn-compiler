@@ -215,7 +215,7 @@ SmallVector<Superword*> ConversionManager::startConversion(SLPGraph const& graph
   originalOperations.clear();
   originalOperands.clear();
   // Work on a new, temporary conversion state.
-  conversionState->startConversion(graph.getRoot());
+  conversionState->startConversion(graph.getRootSuperword());
   // Store original block state for undoing graph conversions.
   block->walk([&](Operation* op) {
     originalOperations.emplace_back(op);

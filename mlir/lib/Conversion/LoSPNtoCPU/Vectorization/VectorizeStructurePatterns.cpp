@@ -10,7 +10,6 @@
 #include "LoSPNtoCPU/Vectorization/SLP/Analysis.h"
 #include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Seeding.h"
-#include "LoSPNtoCPU/Vectorization/SLP/SLPPatternMatch.h"
 #include "../Target/TargetInformation.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
@@ -114,6 +113,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 // Print how much of the original function has been covered by all SLP graphs combined
 #define PRINT_SLP_COVER true
 #define PRINT_SLP_GRAPH_SIZE true
+#define PRINT_SLP_GRAPH_NODE_SIZES true
 #define PRINT_SUCCESSFUL_ITERATION_COUNT true
 
 #define DEPENDENCY_ANALYSIS false
@@ -172,8 +172,8 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 #endif
 
   SmallVector<Value, 4> seed;
-  unsigned iteration = 0;
-  while (iteration != option::maxIterations) {
+  unsigned successfulIterations = 0;
+  while (successfulIterations != option::maxIterations) {
 
 #if PRINT_TIMINGS
     TimePoint seedStart = std::chrono::high_resolution_clock::now();
@@ -181,16 +181,16 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
     seed.assign(seedAnalysis->next());
     if (seed.empty()) {
+      task->emitRemark("No seed found.");
       break;
     }
 
 #if PRINT_TIMINGS
     TimePoint seedEnd = std::chrono::high_resolution_clock::now();
     auto seedDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(seedEnd - seedStart);
-    llvm::outs() << "SLP SEED TIME: " << seedDuration.count() << " ns\n";
 #endif
 #if COST_MODEL_ANALYSIS
-    auto line = Twine("SLP Iteration: ").concat(std::to_string(iteration)).str();
+    auto line = Twine("SLP Iteration: ").concat(std::to_string(successfulIterations)).str();
     appendLineToFile("costAnalysis.log", line);
     line = Twine("Estimated Cost: ").concat(std::to_string(currentFunctionCost)).str();
     appendLineToFile("costAnalysis.log", line);
@@ -204,7 +204,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 #if PRINT_TIMINGS
     TimePoint graphEnd = std::chrono::high_resolution_clock::now();
     auto graphDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(graphEnd - graphStart);
-    llvm::outs() << "SLP GRAPH TIME: " << graphDuration.count() << " ns\n";
 #endif
 #if DEPENDENCY_ANALYSIS
     auto dependencyGraph = graph.dependencyGraph();
@@ -216,31 +215,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 #endif
 
     auto order = conversionManager.startConversion(graph);
-
-#if PRINT_SLP_GRAPH_SIZE
-    unsigned numSuperwords = 0;
-    for (auto* superword : order) {
-      if (!superword->constant()) {
-        ++numSuperwords;
-      }
-    }
-    llvm::outs() << "#superwords in graph " << iteration << ": " + std::to_string(numSuperwords) << "\n";
-    SmallPtrSet<Operation*, 32> uniqueOps;
-    for (auto* superword: order) {
-      if (superword->constant()) {
-        continue;
-      }
-      for (auto value : *superword) {
-        if (auto definingOp = value.getDefiningOp()) {
-          if (dyn_cast<SPNBatchRead>(definingOp)) {
-            continue;
-          }
-          uniqueOps.insert(definingOp);
-        }
-      }
-    }
-    llvm::outs() << "#unique arithmetic ops in graph " << iteration << ":  " + std::to_string(uniqueOps.size()) << "\n";
-#endif
 
 #if PRINT_TIMINGS
     TimePoint rewriteStart = std::chrono::high_resolution_clock::now();
@@ -254,20 +228,55 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 #if PRINT_TIMINGS
     TimePoint rewriteEnd = std::chrono::high_resolution_clock::now();
     auto rewriteDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(rewriteEnd - rewriteStart);
-    llvm::outs() << "SLP PATTERN REWRITE TIME: " << rewriteDuration.count() << " ns\n";
 #endif
 
     auto vectorizedFunctionCost = costModel->getBlockCost(taskBlock, computeDeadOps(taskBlock));
-    // Vectorization profitable.
+    // Vectorization not profitable.
     if (vectorizedFunctionCost >= currentFunctionCost) {
       conversionManager.cancelConversion();
     }
-      // Vectorization not profitable.
+      // Vectorization profitable.
     else {
       conversionManager.finishConversion();
       seedAnalysis->update(order);
       currentFunctionCost = vectorizedFunctionCost;
+      ++successfulIterations;
 
+#if PRINT_SLP_GRAPH_SIZE
+      unsigned numSuperwords = 0;
+      for (auto* superword : order) {
+        if (!superword->constant()) {
+          ++numSuperwords;
+        }
+      }
+      llvm::outs() << "#superwords in graph (" << successfulIterations << "): " + std::to_string(numSuperwords) << "\n";
+      SmallPtrSet<Operation*, 32> uniqueOps;
+      for (auto* superword: order) {
+        if (superword->constant()) {
+          continue;
+        }
+        for (auto value : *superword) {
+          if (auto definingOp = value.getDefiningOp()) {
+            if (dyn_cast<SPNBatchRead>(definingOp)) {
+              continue;
+            }
+            uniqueOps.insert(definingOp);
+          }
+        }
+      }
+      llvm::outs() << "#unique arithmetic graph ops (" << successfulIterations
+                   << "):  " + std::to_string(uniqueOps.size()) << "\n";
+#endif
+#if PRINT_SLP_GRAPH_NODE_SIZES
+      DenseMap<unsigned, unsigned> nodeSizes;
+      graph::walk(graph.getRootNode().get(), [&](SLPNode* node) {
+        ++nodeSizes[node->numSuperwords()];
+      });
+      for (auto const& entry : nodeSizes) {
+        llvm::outs() << "NODE SIZE (" << successfulIterations << "): " << entry.first << ", count: " << entry.second
+                     << "\n";
+      }
+#endif
 #if PRINT_SLP_COVER
       auto deadOps = computeDeadOps(taskBlock);
       unsigned coveredOps = 0;
@@ -276,11 +285,15 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
           ++coveredOps;
         }
       }
-      double percentage = static_cast<double>(coveredOps) / allOps.size();
-      llvm::outs() << "% of ops made dead after SLP iteration " << iteration << ": " << percentage << "\n";
+      double percentage = static_cast<double>(coveredOps * 100) / allOps.size();
+      llvm::outs() << "% function ops dead (" << successfulIterations << "): " << percentage << "\n";
+#endif
+#if PRINT_TIMINGS
+      llvm::outs() << "SEED TIME (" << successfulIterations << "): " << seedDuration.count() << " ns\n";
+      llvm::outs() << "GRAPH TIME (" << successfulIterations << "): " << graphDuration.count() << " ns\n";
+      llvm::outs() << "PATTERN REWRITE TIME (" << successfulIterations << "): " << rewriteDuration.count() << " ns\n";
 #endif
 
-      ++iteration;
     }
 
   }
@@ -296,7 +309,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   llvm::outs() << "#ops after vectorization: " << std::to_string(liveOps) << "\n";
 #endif
 #if PRINT_SUCCESSFUL_ITERATION_COUNT
-  llvm::outs() << "profitable SLP iterations: " << iteration << "\n";
+  llvm::outs() << "profitable SLP iterations: " << successfulIterations << "\n";
 #endif
 #if DELETE_OPS
   for (auto& op : taskBlock->getOperations()) {
@@ -310,7 +323,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 #endif
 
   // A lot of operations won't be needed anymore if we vectorized at least once.
-  if (iteration > 0) {
+  if (successfulIterations > 0) {
     for (auto* op : computeDeadOps(taskBlock)) {
       rewriter.eraseOp(op);
     }
