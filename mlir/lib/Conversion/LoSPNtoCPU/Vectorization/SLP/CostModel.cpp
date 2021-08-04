@@ -14,7 +14,7 @@ using namespace mlir::spn::low::slp;
 
 // === CostModel === //
 
-CostModel::CostModel(SLPPatternApplicator const& applicator) : patternApplicator{applicator} {}
+CostModel::CostModel(SLPPatternApplicator const& applicator) : cost{0}, patternApplicator{applicator} {}
 
 double CostModel::getScalarCost(Value value) {
   if (conversionState->alreadyComputed(value)) {
