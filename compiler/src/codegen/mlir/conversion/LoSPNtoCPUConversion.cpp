@@ -19,7 +19,8 @@ void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, m
   bool vectorize = spnc::option::cpuVectorize.get(*this->config);
   pm->addPass(mlir::spn::createLoSPNtoCPUStructureConversionPass(
       vectorize,
-      spnc::option::slpMaxIterations.get(*this->config),
+      spnc::option::slpMaxAttempts.get(*this->config),
+      spnc::option::slpMaxSuccessfulIterations.get(*this->config),
       spnc::option::slpMaxNodeSize.get(*this->config),
       spnc::option::slpMaxLookAhead.get(*this->config),
       spnc::option::slpReorderInstructionsDFS.get(*this->config),

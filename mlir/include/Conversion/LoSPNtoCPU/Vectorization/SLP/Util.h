@@ -22,7 +22,8 @@ namespace mlir {
           // For explanations, see GlobalOptions.h.
           extern unsigned maxNodeSize;
           extern unsigned maxLookAhead;
-          extern unsigned maxIterations;
+          extern unsigned maxAttempts;
+          extern unsigned maxSuccessfulIterations;
           extern bool reorderInstructionsDFS;
           extern bool allowDuplicateElements;
           extern bool allowTopologicalMixing;

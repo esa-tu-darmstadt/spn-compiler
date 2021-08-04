@@ -69,14 +69,16 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::getDependentDialects(mlir::Di
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoCPUStructureConversionPass(bool enableVectorization,
-                                                                               unsigned slpMaxIterations,
+                                                                               unsigned slpMaxAttempts,
+                                                                               unsigned slpMaxSuccessfulIterations,
                                                                                unsigned slpMaxNodeSize,
                                                                                unsigned slpMaxLookAhead,
                                                                                bool slpReorderInstructionsDFS,
                                                                                bool slpAllowDuplicateElements,
                                                                                bool slpAllowTopologicalMixing) {
   return std::make_unique<LoSPNtoCPUStructureConversionPass>(enableVectorization,
-                                                             slpMaxIterations,
+                                                             slpMaxAttempts,
+                                                             slpMaxSuccessfulIterations,
                                                              slpMaxNodeSize,
                                                              slpMaxLookAhead,
                                                              slpReorderInstructionsDFS,

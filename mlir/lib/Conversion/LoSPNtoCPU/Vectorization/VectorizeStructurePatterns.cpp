@@ -97,9 +97,10 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   });
 
   // Apply SLP vectorization.
-  task->emitRemark() << "Beginning SLP vectorization (max iterations: " << option::maxIterations
-                     << ", max multinode size: " << option::maxNodeSize << ", max look-ahead: " << option::maxLookAhead
-                     << ", reordering DFS: " << option::reorderInstructionsDFS << ", duplicates allowed: "
+  task->emitRemark() << "Beginning SLP vectorization (max attempts: " << option::maxAttempts
+                     << ", max successful iterations: " << option::maxSuccessfulIterations << ", max multinode size: "
+                     << option::maxNodeSize << ", max look-ahead: " << option::maxLookAhead << ", reordering DFS: "
+                     << option::reorderInstructionsDFS << ", duplicates allowed: "
                      << option::allowDuplicateElements << ", topological mixing allowed: "
                      << option::allowTopologicalMixing << ").";
 
@@ -113,7 +114,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 // Print how much of the original function has been covered by all SLP graphs combined
 #define PRINT_SLP_COVER true
 #define PRINT_SLP_GRAPH_SIZE true
-#define PRINT_SLP_GRAPH_NODE_SIZES true
+#define PRINT_SLP_GRAPH_NODE_SIZES false
 #define PRINT_SUCCESSFUL_ITERATION_COUNT true
 
 #define DEPENDENCY_ANALYSIS false
@@ -173,7 +174,8 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
   SmallVector<Value, 4> seed;
   unsigned successfulIterations = 0;
-  while (successfulIterations != option::maxIterations) {
+  unsigned attempts = 0;
+  while (successfulIterations < option::maxSuccessfulIterations && attempts++ < option::maxAttempts) {
 
 #if PRINT_TIMINGS
     TimePoint seedStart = std::chrono::high_resolution_clock::now();
@@ -181,7 +183,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
     seed.assign(seedAnalysis->next());
     if (seed.empty()) {
-      task->emitRemark("No seed found.");
       break;
     }
 
@@ -295,7 +296,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 #endif
 
     }
-
   }
   task->emitRemark("SLP vectorization complete.");
 

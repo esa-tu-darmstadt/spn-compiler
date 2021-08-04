@@ -21,13 +21,15 @@ namespace mlir {
     public:
 
       LoSPNtoCPUStructureConversionPass(bool enableVectorization,
-                                        unsigned slpMaxIterations,
+                                        unsigned slpMaxAttempts,
+                                        unsigned slpMaxSuccessfulIterations,
                                         unsigned slpMaxNodeSize,
                                         unsigned slpMaxLookAhead,
                                         bool slpReorderInstructionsDFS,
                                         bool slpAllowDuplicateElements,
                                         bool slpAllowTopologicalMixing) : vectorize{enableVectorization} {
-        low::slp::option::maxIterations = slpMaxIterations;
+        low::slp::option::maxAttempts = slpMaxAttempts;
+        low::slp::option::maxSuccessfulIterations = slpMaxSuccessfulIterations;
         low::slp::option::maxNodeSize = slpMaxNodeSize;
         low::slp::option::maxLookAhead = slpMaxLookAhead;
         low::slp::option::reorderInstructionsDFS = slpReorderInstructionsDFS;
@@ -48,7 +50,8 @@ namespace mlir {
     };
 
     std::unique_ptr<Pass> createLoSPNtoCPUStructureConversionPass(bool enableVectorization,
-                                                                  unsigned slpMaxIterations,
+                                                                  unsigned slpMaxAttempts,
+                                                                  unsigned slpMaxSuccessfulIterations,
                                                                   unsigned slpMaxNodeSize,
                                                                   unsigned slpMaxLookAhead,
                                                                   bool slpReorderInstructionsDFS,
