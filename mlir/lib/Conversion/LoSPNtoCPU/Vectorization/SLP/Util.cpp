@@ -64,6 +64,17 @@ bool slp::consecutiveLoads(Value lhs, Value rhs) {
   return true;
 }
 
+bool slp::anyGaussianMarginalized(Superword const& superword) {
+  for (auto value : superword) {
+    auto gaussianOp = value.getDefiningOp<SPNGaussianLeaf>();
+    assert(gaussianOp && "only applicable to gaussian leaf vectors");
+    if (gaussianOp.supportMarginal()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Helper functions in an anonymous namespace.
 namespace {
   void dumpBlockArgOrDefiningAddress(Value val) {

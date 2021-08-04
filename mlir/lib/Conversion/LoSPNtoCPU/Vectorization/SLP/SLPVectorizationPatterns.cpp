@@ -541,7 +541,23 @@ Value VectorizeGaussian::rewrite(Superword* superword, RewriterBase& rewriter) {
 
   // e^((x - mean)^2 / (-2 * variance)) / sqrt(2 * PI * variance)
   auto rootsVector = conversionManager.getOrCreateConstant(superword->getLoc(), roots);
-  return rewriter.create<DivFOp>(superword->getLoc(), gaussianVector, rootsVector);
+  gaussianVector = rewriter.create<DivFOp>(superword->getLoc(), gaussianVector, rootsVector);
+
+  if (anyGaussianMarginalized(*superword)) {
+    DenseElementsAttr denseOne;
+    if (vectorType.getElementType().cast<FloatType>().getWidth() == 32) {
+      SmallVector<float, 4> ones(superword->numLanes(), 1.0f);
+      denseOne = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<float>>(ones));
+    } else {
+      SmallVector<double, 4> ones(superword->numLanes(), 1.0);
+      denseOne = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<double>>(ones));
+    }
+    auto isNan = rewriter.create<mlir::CmpFOp>(superword->getLoc(), CmpFPredicate::UNO, inputVector, inputVector);
+    auto constOne = conversionManager.getOrCreateConstant(superword->getLoc(), denseOne);
+    gaussianVector = rewriter.create<mlir::SelectOp>(superword->getLoc(), isNan, constOne, gaussianVector);
+  }
+
+  return gaussianVector;
 }
 
 void VectorizeGaussian::accept(PatternVisitor& visitor, Superword* superword) const {
@@ -646,7 +662,23 @@ Value VectorizeLogGaussian::rewrite(Superword* superword, RewriterBase& rewriter
 
   // -ln(stddev) - 0.5 * ln(2*pi) - (x - mean)^2 / (2 * stddev^2)
   auto minuendVector = conversionManager.getOrCreateConstant(superword->getLoc(), minuends);
-  return rewriter.create<SubFOp>(superword->getLoc(), vectorType, minuendVector, gaussianVector);
+  gaussianVector = rewriter.create<SubFOp>(superword->getLoc(), vectorType, minuendVector, gaussianVector);
+
+  if (anyGaussianMarginalized(*superword)) {
+    DenseElementsAttr denseZero;
+    if (vectorType.getElementType().cast<FloatType>().getWidth() == 32) {
+      SmallVector<float, 4> zeros(superword->numLanes(), 0.0f);
+      denseZero = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<float>>(zeros));
+    } else {
+      SmallVector<double, 4> zeros(superword->numLanes(), 0.0);
+      denseZero = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<double>>(zeros));
+    }
+    auto isNan = rewriter.create<mlir::CmpFOp>(superword->getLoc(), CmpFPredicate::UNO, inputVector, inputVector);
+    auto constZero = conversionManager.getOrCreateConstant(superword->getLoc(), denseZero);
+    gaussianVector = rewriter.create<mlir::SelectOp>(superword->getLoc(), isNan, constZero, gaussianVector);
+  }
+
+  return gaussianVector;
 }
 
 void VectorizeLogGaussian::accept(PatternVisitor& visitor, Superword* superword) const {

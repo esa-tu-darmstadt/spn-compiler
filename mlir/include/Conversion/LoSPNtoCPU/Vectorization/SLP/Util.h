@@ -87,6 +87,8 @@ namespace mlir {
           return true;
         }
 
+        bool anyGaussianMarginalized(Superword const& superword);
+
         void dumpSuperword(Superword const& superword);
         void dumpSLPNode(SLPNode const& node);
 

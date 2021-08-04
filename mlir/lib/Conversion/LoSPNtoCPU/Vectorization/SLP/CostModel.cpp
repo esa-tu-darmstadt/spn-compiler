@@ -7,6 +7,7 @@
 //==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
+#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 
 using namespace mlir;
 using namespace mlir::spn::low::slp;
@@ -186,6 +187,9 @@ void UnitCostModel::visit(VectorizeSPNConstant const* pattern, Superword* superw
 }
 
 void UnitCostModel::visit(VectorizeGaussian const* pattern, Superword* superword) {
+  if (anyGaussianMarginalized(*superword)) {
+    this->cost = 7;
+  }
   this->cost = 5;
 }
 
@@ -194,5 +198,8 @@ void UnitCostModel::visit(VectorizeLogAdd const* pattern, Superword* superword) 
 }
 
 void UnitCostModel::visit(VectorizeLogGaussian const* pattern, Superword* superword) {
+  if (anyGaussianMarginalized(*superword)) {
+    this->cost = 6;
+  }
   this->cost = 4;
 }
