@@ -68,8 +68,12 @@ namespace spnc {
     // SLP vectorization options.
 
     ///
-    /// Maximum number of successful SLP vectorization iterations.
-    extern Option<unsigned> slpMaxIterations;
+    /// Maximum number of SLP vectorization attempts.
+    extern Option<unsigned> slpMaxAttempts;
+
+    ///
+    /// Maximum number of successful SLP vectorization runs to be applied to a function.
+    extern Option<unsigned> slpMaxSuccessfulIterations;
 
     ///
     /// Maximum multinode size during SLP vectorization in terms of the number of vectors they may contain.

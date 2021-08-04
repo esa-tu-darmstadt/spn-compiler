@@ -3,8 +3,8 @@
 import fire
 import numpy as np
 import os
-import tempfile
 import spnc.spncpy as spncpy
+import tempfile
 from datetime import datetime
 from time import perf_counter_ns
 from xspn.serialization.binary.BinarySerialization import BinaryDeserializer, BinarySerializer
@@ -17,7 +17,9 @@ def translateBool(flag: bool):
 
 
 def measure_execution_time(name: str, spn_file: str, input_data: str, reference_data: str, vectorize: str,
-                           vectorLibrary: str, shuffle: str):
+                           vectorLibrary: str, shuffle: str, maxAttempts=None, maxSuccessfulIterations=None,
+                           maxNodeSize=None, maxLookAhead=None, reorderInstructionsDFS=None,
+                           allowDuplicateElements=None, allowTopologicalMixing=None):
     # Read the trained SPN from file
     model = BinaryDeserializer(spn_file).deserialize_from_file()
 
@@ -45,8 +47,30 @@ def measure_execution_time(name: str, spn_file: str, input_data: str, reference_
     print(f"CPU Vectorize {cpuVectorize}")
     vecLib = "LIBMVEC" if bool(vectorLibrary) else "None"
     useShuffle = translateBool(bool(shuffle))
-    options = dict({"target": "CPU", "dump-ir": "false", "use-log-space": "true", "cpu-vectorize": cpuVectorize,
-                    "vector-library": vecLib, "use-shuffle": useShuffle})
+
+    options = dict({
+        "target": "CPU",
+        "dump-ir": "false",
+        "use-log-space": "true",
+        "cpu-vectorize": cpuVectorize,
+        "vector-library": vecLib,
+        "use-shuffle": useShuffle,
+    })
+
+    if maxAttempts is not None:
+        options["slp-max-attempts"] = str(maxAttempts)
+    if maxSuccessfulIterations is not None:
+        options["slp-max-successful-iterations"] = str(maxSuccessfulIterations)
+    if maxNodeSize is not None:
+        options["slp-max-node-size"] = str(maxNodeSize)
+    if maxLookAhead is not None:
+        options["slp-max-look-ahead"] = str(maxLookAhead)
+    if reorderInstructionsDFS is not None:
+        options["slp-reorder-dfs"] = translateBool(bool(reorderInstructionsDFS))
+    if allowDuplicateElements is not None:
+        options["slp-allow-duplicate-elements"] = translateBool(bool(allowDuplicateElements))
+    if allowTopologicalMixing is not None:
+        options["slp-allow-topological-mixing"] = translateBool(bool(allowTopologicalMixing))
 
     compile_start = perf_counter_ns()
     k = compiler.compileQuery(tmpfile, options)

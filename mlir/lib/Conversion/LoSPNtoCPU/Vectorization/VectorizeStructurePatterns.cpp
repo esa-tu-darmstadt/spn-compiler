@@ -110,7 +110,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 // Print the number of loSPN ops in the entire function
 #define PRINT_SIZE true
 // Count how often each opcode appears in the entire function and print it.
-#define PRINT_OP_STATS true
+#define PRINT_OP_STATS false
 // Print how much of the original function has been covered by all SLP graphs combined
 #define PRINT_SLP_COVER true
 #define PRINT_SLP_GRAPH_SIZE true
@@ -241,7 +241,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       conversionManager.finishConversion();
       seedAnalysis->update(order);
       currentFunctionCost = vectorizedFunctionCost;
-      ++successfulIterations;
 
 #if PRINT_SLP_GRAPH_SIZE
       unsigned numSuperwords = 0;
@@ -287,7 +286,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
         }
       }
       double percentage = static_cast<double>(coveredOps * 100) / allOps.size();
-      llvm::outs() << "% function ops dead (" << successfulIterations << "): " << percentage << "\n";
+      llvm::outs() << "% function ops dead (" << successfulIterations << "): " << percentage << "%\n";
 #endif
 #if PRINT_TIMINGS
       llvm::outs() << "SEED TIME (" << successfulIterations << "): " << seedDuration.count() << " ns\n";
@@ -295,6 +294,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       llvm::outs() << "PATTERN REWRITE TIME (" << successfulIterations << "): " << rewriteDuration.count() << " ns\n";
 #endif
 
+      ++successfulIterations;
     }
   }
   task->emitRemark("SLP vectorization complete.");
