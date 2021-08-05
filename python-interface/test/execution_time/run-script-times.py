@@ -206,8 +206,8 @@ def get_speakers(speakersDir: str, dataDir: str):
     return models
 
 
-def traverseModels(speakersDir: str, speakersDataDir: str, ratspnDir: str, ratspnDataDir: str, logDirNormal: str,
-                   logDirVectorized: str, vecLib: bool, shuffle: bool, maxAttempts=None, maxSuccessfulIterations=None,
+def traverseModels(speakersDir: str, speakersDataDir: str, ratspnDir: str, ratspnDataDir: str, logDir: str,
+                   vectorize: bool, vecLib: bool, shuffle: bool, maxAttempts=None, maxSuccessfulIterations=None,
                    maxNodeSize=None, maxLookAhead=None, reorderInstructionsDFS=None, allowDuplicateElements=None,
                    allowTopologicalMixing=None):
     models = []
@@ -226,28 +226,20 @@ def traverseModels(speakersDir: str, speakersDataDir: str, ratspnDir: str, ratsp
 
     for m in models[:-13]:
         counter = counter + 1
-        # for vectorize in [False, True]:
-        for vectorize in [True]:
-            print(f"Current model ({counter}/{len(models)}): {m[0]} ({vectorize})")
-            data = {"Name": m[0]}
-            data.update(invokeCompileAndExecute(m, vectorize, vecLib, shuffle, maxAttempts, maxSuccessfulIterations,
-                                                maxNodeSize, maxLookAhead, reorderInstructionsDFS,
-                                                allowDuplicateElements, allowTopologicalMixing))
-
-            if vectorize:
-                logDir = logDirVectorized
-            else:
-                logDir = logDirNormal
-
-            log_file_all = os.path.join(logDir, "times.csv")
-            file_exists = os.path.isfile(log_file_all)
-            if not os.path.isdir(logDir):
-                os.mkdir(logDir)
-            with open(log_file_all, 'a') as log_file:
-                writer = csv.DictWriter(log_file, delimiter=",", fieldnames=data.keys())
-                if not file_exists:
-                    writer.writeheader()
-                writer.writerow(data)
+        print(f"Current model ({counter}/{len(models)}): {m[0]} ({vectorize})")
+        data = {"Name": m[0]}
+        data.update(invokeCompileAndExecute(m, vectorize, vecLib, shuffle, maxAttempts, maxSuccessfulIterations,
+                                            maxNodeSize, maxLookAhead, reorderInstructionsDFS,
+                                            allowDuplicateElements, allowTopologicalMixing))
+        log_file_all = os.path.join(logDir, "times.csv")
+        file_exists = os.path.isfile(log_file_all)
+        if not os.path.isdir(logDir):
+            os.mkdir(logDir)
+        with open(log_file_all, 'a') as log_file:
+            writer = csv.DictWriter(log_file, delimiter=",", fieldnames=data.keys())
+            if not file_exists:
+                writer.writeheader()
+            writer.writerow(data)
 
 
 if __name__ == '__main__':
