@@ -28,7 +28,6 @@ def measure_execution_time(name: str, spn_file: str, input_data: str, reference_
                            allowDuplicateElements=None, allowTopologicalMixing=None):
     # Read the trained SPN from file
     model = BinaryDeserializer(spn_file).deserialize_from_file()
-
     # Set the name and feature type
     model.name = name
     model.featureType = "float32"

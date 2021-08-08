@@ -33,7 +33,11 @@ def test_vector_fashion_mnist():
                               dtype="float64")
     reference = reference.reshape(10000)
     # Compile the kernel.
-    compiler = CPUCompiler(vectorize=True, computeInLogSpace=False)
+    options = {}
+    options["slp-max-node-size"] = 10000
+    options["slp-max-successful-iterations"] = 5
+    options["slp-max-look-ahead"] = 1
+    compiler = CPUCompiler(vectorize=True, computeInLogSpace=True, **options)
     kernel = compiler.compile_ll(spn=spn, batchSize=1, supportMarginal=False)
     # Execute the compiled Kernel.
     time_sum = 0

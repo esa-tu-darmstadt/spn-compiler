@@ -128,14 +128,14 @@ def parse_output(output, expected_iterations=1):
     return data
 
 
-def invokeCompileAndExecute(model, vectorize, vecLib, shuffle, maxAttempts=None, maxSuccessfulIterations=None,
-                            maxNodeSize=None, maxLookAhead=None, reorderInstructionsDFS=None,
-                            allowDuplicateElements=None, allowTopologicalMixing=None):
-    command = ["python3", os.path.join(os.path.dirname(os.path.realpath(__file__)), "cpuExecutionTimes.py")]
+def invokeCompileAndExecute(logDir, modelName, modelFile, inputFile, referenceFile, vectorize, vecLib, shuffle,
+                            maxAttempts=None, maxSuccessfulIterations=None, maxNodeSize=None, maxLookAhead=None,
+                            reorderInstructionsDFS=None, allowDuplicateElements=None, allowTopologicalMixing=None):
+    command = ["python3", os.path.join(os.path.dirname(os.path.realpath(__file__)), "cpuExecutionSlurm.py")]
     # model name and model file
-    command.extend((model[0], model[1]))
+    command.extend((modelName, modelFile))
     # input and reference paths
-    command.extend((model[2], model[3]))
+    command.extend((inputFile, referenceFile))
     command.extend((str(vectorize), str(vecLib), str(shuffle)))
 
     if maxAttempts is not None:
@@ -155,90 +155,13 @@ def invokeCompileAndExecute(model, vectorize, vecLib, shuffle, maxAttempts=None,
 
     run_result = subprocess.run(command, capture_output=True, text=True)
     if run_result.returncode == 0:
-        return parse_output(run_result.stdout, maxSuccessfulIterations)
-    else:
-        print(f"Compilation and execution of {model[0]} failed with error code {run_result.returncode}")
-        print(run_result.stdout)
-        print(run_result.stderr)
-    return None
-
-
-def getIOFolder(ratspnModel: str):
-    if "fashion_mnist" in ratspnModel:
-        return "fashion_mnist"
-    elif "pumsb_star" in ratspnModel:
-        return "pumsb_star"
-    return ratspnModel[0:ratspnModel.index("_")]
-
-
-def get_ratspns(ratspnDir: str, dataDir: str):
-    models = []
-    for subdir, dirs, files in os.walk(ratspnDir):
-        for file in files:
-            baseName = os.path.basename(file)
-            extension = os.path.splitext(baseName)[-1].lower()
-            modelName = subdir.replace(ratspnDir, '') + "_" + os.path.splitext(baseName)[0]
-            if extension == ".bin":
-                inputFile = os.path.join(dataDir, getIOFolder(modelName), "input.csv")
-                if not os.path.isfile(inputFile):
-                    print(f"Did not find input data for {modelName}, skipping")
-                referenceFile = os.path.join(dataDir, getIOFolder(modelName), f"{modelName}.csv")
-                if not os.path.isfile(referenceFile):
-                    print(f"Did not find reference data for {modelName}, skipping")
-                else:
-                    modelFile = os.path.join(subdir, file)
-                    models.append((modelName, modelFile, inputFile, referenceFile))
-    print(f"Number of RAT-SPN models found: {len(models)}")
-    return models
-
-
-def get_speakers(speakersDir: str, dataDir: str):
-    models = []
-    for subdir, dirs, files in os.walk(speakersDir):
-        for file in files:
-            baseName = os.path.basename(file)
-            extension = os.path.splitext(baseName)[-1].lower()
-            modelName = os.path.splitext(baseName)[0]
-            if extension == ".bin":
-                inputFile = os.path.join(dataDir, "input.csv")
-                if not os.path.isfile(inputFile):
-                    print(f"Did not find input data for {modelName}, skipping")
-                referenceFile = os.path.join(dataDir, f"{modelName}.csv")
-                if not os.path.isfile(referenceFile):
-                    print(f"Did not find reference data for {modelName}, skipping")
-                else:
-                    modelFile = os.path.join(subdir, file)
-                    models.append((modelName, modelFile, inputFile, referenceFile))
-    print(f"Number of speaker models found: {len(models)}")
-    return models
-
-
-def traverseModels(speakersDir: str, speakersDataDir: str, ratspnDir: str, ratspnDataDir: str, logDir: str,
-                   vectorize: bool, vecLib: bool, shuffle: bool, maxAttempts=None, maxSuccessfulIterations=None,
-                   maxNodeSize=None, maxLookAhead=None, reorderInstructionsDFS=None, allowDuplicateElements=None,
-                   allowTopologicalMixing=None):
-    models = []
-    models.extend(get_speakers(speakersDir, speakersDataDir))
-    models.extend(get_ratspns(ratspnDir, ratspnDataDir))
-
-    # Sort models s.t. smaller ones are executed first
-    models = sorted(models, key=lambda m: os.path.getsize(m[1]))
-
-    counter = 0
-    for m in [models[-13], models[-12], models[-11], models[-10], models[-9], models[-8], models[-7], models[-6],
-              models[-5], models[-4], models[-3], models[-2], models[-1]]:
-        print(f"Skipping model {m} because of traversal limit in words problems.")
-        print(f"\tFile size of model: {os.path.getsize(m[1])} bytes")
-        counter = counter + 1
-
-    for m in models[:-13]:
-        counter = counter + 1
-        print(f"Current model ({counter}/{len(models)}): {m[0]} ({vectorize})")
-        data = {"Name": m[0]}
-        data.update(invokeCompileAndExecute(m, vectorize, vecLib, shuffle, maxAttempts, maxSuccessfulIterations,
-                                            maxNodeSize, maxLookAhead, reorderInstructionsDFS,
-                                            allowDuplicateElements, allowTopologicalMixing))
-        log_file_all = os.path.join(logDir, "times.csv")
+        if maxSuccessfulIterations is not None:
+            parsed_data = parse_output(run_result.stdout, maxSuccessfulIterations)
+        else:
+            parsed_data = parse_output(run_result.stdout)
+        data = {"Name": modelName}
+        data.update(parsed_data)
+        log_file_all = os.path.join(logDir, "data.csv")
         file_exists = os.path.isfile(log_file_all)
         if not os.path.isdir(logDir):
             os.mkdir(logDir)
@@ -247,7 +170,12 @@ def traverseModels(speakersDir: str, speakersDataDir: str, ratspnDir: str, ratsp
             if not file_exists:
                 writer.writeheader()
             writer.writerow(data)
+    else:
+        print(f"Compilation and execution of {modelName} failed with error code {run_result.returncode}")
+        print(f"Command was: {command}")
+        print(run_result.stdout)
+        print(run_result.stderr)
 
 
 if __name__ == '__main__':
-    fire.Fire(traverseModels)
+    fire.Fire(invokeCompileAndExecute)
