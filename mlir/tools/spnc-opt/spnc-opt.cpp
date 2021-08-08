@@ -21,10 +21,13 @@ static llvm::cl::opt<bool> cpuVectorize("cpu-vectorize",
                                         llvm::cl::desc("Vectorize code generated for CPU targets"),
                                         llvm::cl::init(false));
 
-static llvm::cl::opt<unsigned> slpMaxIterations("slp-max-iterations",
-                                                llvm::cl::desc(
-                                                    "Maximum number of successful SLP vectorization iterations"),
-                                                llvm::cl::init(1));
+static llvm::cl::opt<unsigned> slpMaxAttempts
+    ("slp-max-attempts", llvm::cl::desc("Maximum number of SLP vectorization attempts"), llvm::cl::init(1));
+
+static llvm::cl::opt<unsigned> slpMaxSuccessfulIterations("slp-max-successful-iterations",
+                                                          llvm::cl::desc(
+                                                              "Maximum number of successful SLP vectorization runs to be applied to a function"),
+                                                          llvm::cl::init(1));
 
 static llvm::cl::opt<unsigned> slpMaxNodeSize("slp-max-node-size",
                                               llvm::cl::desc(
@@ -37,19 +40,19 @@ static llvm::cl::opt<unsigned> slpMaxLookAhead("slp-max-look-ahead",
                                                llvm::cl::init(3));
 
 static llvm::cl::opt<bool> slpReorderInstructionsDFS("slp-reorder-dfs",
-                                                         llvm::cl::desc(
-                                                             "Flag to indicate the order in which SLP-vectorized instructions should be arranged"),
-                                                         llvm::cl::init(true));
+                                                     llvm::cl::desc(
+                                                         "Flag to indicate the order in which SLP-vectorized instructions should be arranged"),
+                                                     llvm::cl::init(true));
 
 static llvm::cl::opt<bool> slpAllowDuplicateElements("slp-allow-duplicate-elements",
-                                                         llvm::cl::desc(
-                                                             "Flag to indicate whether duplicate elements are allowed in vectors during SLP graph building"),
-                                                         llvm::cl::init(false));
+                                                     llvm::cl::desc(
+                                                         "Flag to indicate whether duplicate elements are allowed in vectors during SLP graph building"),
+                                                     llvm::cl::init(false));
 
 static llvm::cl::opt<bool> slpAllowTopologicalMixing("slp-allow-topological-mixing",
-                                                         llvm::cl::desc(
-                                                             "Flag to indicate if elements with different topological depths are allowed in vectors during SLP graph building"),
-                                                         llvm::cl::init(false));
+                                                     llvm::cl::desc(
+                                                         "Flag to indicate if elements with different topological depths are allowed in vectors during SLP graph building"),
+                                                     llvm::cl::init(false));
 
 static llvm::cl::opt<bool> logSpace("use-log-space",
                                     llvm::cl::desc("Use log-space computation"),
@@ -84,7 +87,8 @@ int main(int argc, char** argv) {
   mlir::registerPass("convert-lospn-structure-to-cpu", "Convert structure from LoSPN to CPU target",
                      []() -> std::unique_ptr<mlir::Pass> {
                        return mlir::spn::createLoSPNtoCPUStructureConversionPass(cpuVectorize,
-                                                                                 slpMaxIterations,
+                                                                                 slpMaxAttempts,
+                                                                                 slpMaxSuccessfulIterations,
                                                                                  slpMaxNodeSize,
                                                                                  slpMaxLookAhead,
                                                                                  slpReorderInstructionsDFS,
