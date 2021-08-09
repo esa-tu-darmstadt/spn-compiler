@@ -9,8 +9,8 @@
 import fire
 import numpy as np
 import os
+import shutil
 import spnc.spncpy as spncpy
-import tempfile
 from datetime import datetime
 from time import perf_counter_ns
 from xspn.serialization.binary.BinarySerialization import BinaryDeserializer, BinarySerializer
@@ -22,10 +22,10 @@ def translateBool(flag: bool):
     return translation
 
 
-def measure_execution_time(name: str, spn_file: str, input_data: str, reference_data: str, vectorize: str,
-                           vectorLibrary: str, shuffle: str, maxAttempts=None, maxSuccessfulIterations=None,
-                           maxNodeSize=None, maxLookAhead=None, reorderInstructionsDFS=None,
-                           allowDuplicateElements=None, allowTopologicalMixing=None):
+def measure_execution_time(name: str, spn_file: str, input_data: str, reference_data: str, kernel_dir: str,
+                           remove_kernel: bool, vectorize: str, vectorLibrary: str, shuffle: str, maxAttempts=None,
+                           maxSuccessfulIterations=None, maxNodeSize=None, maxLookAhead=None,
+                           reorderInstructionsDFS=None, allowDuplicateElements=None, allowTopologicalMixing=None):
     # Read the trained SPN from file
     model = BinaryDeserializer(spn_file).deserialize_from_file()
     # Set the name and feature type
@@ -36,7 +36,7 @@ def measure_execution_time(name: str, spn_file: str, input_data: str, reference_
 
     # Construct a temporary file that we will use to serialize the SPN to.
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    tmpfile = os.path.join(tempfile.gettempdir(), f"{name}_{timestamp}.bin")
+    tmpfile = os.path.join(kernel_dir, f"{name}_{timestamp}.bin")
 
     # Serialize the SPN to binary format as input to the compiler.
     BinarySerializer(tmpfile).serialize_to_file(query)
@@ -84,6 +84,8 @@ def measure_execution_time(name: str, spn_file: str, input_data: str, reference_
     # Check that the comiled Kernel actually exists.
     if not os.path.isfile(k.fileName()):
         raise RuntimeError("Compilation failed, not Kernel produced")
+    if not remove_kernel:
+        shutil.copyfile(k.fileName(), os.path.join(kernel_dir, name))
 
     # Read input and reference data
     inputs = np.genfromtxt(input_data, delimiter=",", dtype="float32")
@@ -103,6 +105,8 @@ def measure_execution_time(name: str, spn_file: str, input_data: str, reference_
     # Remove the serialized SPN file and the compiled Kernel.
     os.remove(tmpfile)
     os.remove(k.fileName())
+    if remove_kernel:
+        os.remove(os.path.join(kernel_dir, name))
 
 
 if __name__ == '__main__':

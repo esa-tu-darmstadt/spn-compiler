@@ -128,14 +128,16 @@ def parse_output(output, expected_iterations=1):
     return data
 
 
-def invokeCompileAndExecute(logDir, modelName, modelFile, inputFile, referenceFile, vectorize, vecLib, shuffle,
-                            maxAttempts=None, maxSuccessfulIterations=None, maxNodeSize=None, maxLookAhead=None,
-                            reorderInstructionsDFS=None, allowDuplicateElements=None, allowTopologicalMixing=None):
+def invokeCompileAndExecute(logDir, modelName, modelFile, inputFile, referenceFile, kernelDir, removeKernel,
+                            vectorize, vecLib, shuffle, maxAttempts=None, maxSuccessfulIterations=None,
+                            maxNodeSize=None, maxLookAhead=None, reorderInstructionsDFS=None,
+                            allowDuplicateElements=None, allowTopologicalMixing=None):
     command = ["python3", os.path.join(os.path.dirname(os.path.realpath(__file__)), "cpuExecutionSlurm.py")]
     # model name and model file
     command.extend((modelName, modelFile))
     # input and reference paths
     command.extend((inputFile, referenceFile))
+    command.extend((kernelDir, str(removeKernel)))
     command.extend((str(vectorize), str(vecLib), str(shuffle)))
 
     if maxAttempts is not None:

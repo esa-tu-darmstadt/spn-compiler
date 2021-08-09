@@ -61,9 +61,9 @@ def get_speakers(speakersDir: str, dataDir: str):
 
 
 def traverseModels(speakersDir: str, speakersDataDir: str, ratspnDir: str, ratspnDataDir: str, arrayDir: str,
-                   arrayFile: str, vectorize: bool, vecLib: str, shuffle: bool, maxAttempts=None,
-                   maxSuccessfulIterations=None, maxNodeSize=None, maxLookAhead=None, reorderInstructionsDFS=None,
-                   allowDuplicateElements=None, allowTopologicalMixing=None):
+                   arrayFile: str, kernelDir: str, removeKernels: bool, vectorize: bool, vecLib: str, shuffle: bool,
+                   maxAttempts=None, maxSuccessfulIterations=None, maxNodeSize=None, maxLookAhead=None,
+                   reorderInstructionsDFS=None, allowDuplicateElements=None, allowTopologicalMixing=None):
     models = []
     models.extend(get_speakers(speakersDir, speakersDataDir))
     models.extend(get_ratspns(ratspnDir, ratspnDataDir))
@@ -78,14 +78,19 @@ def traverseModels(speakersDir: str, speakersDataDir: str, ratspnDir: str, ratsp
         counter = counter + 1
 
     if not os.path.isdir(arrayDir):
-        os.mkdir(arrayDir)
+        os.makedirs(arrayDir)
+
+    if not os.path.isdir(kernelDir):
+        os.makedirs(kernelDir)
 
     with open(os.path.join(arrayDir, arrayFile), 'w') as file:
-        optionals = [maxAttempts, maxSuccessfulIterations, maxNodeSize, maxLookAhead,
-                     reorderInstructionsDFS, allowDuplicateElements, allowTopologicalMixing]
-        optionals_string = ' '.join(filter(None, optionals))
+        optionals = [str(maxAttempts), str(maxSuccessfulIterations), str(maxNodeSize), str(maxLookAhead),
+                     str(reorderInstructionsDFS), str(allowDuplicateElements), str(allowTopologicalMixing)]
+        optionals_string = ' '.join(opt for opt in optionals if opt != "None")
         for m in models[:-13]:
-            file.write(f"{m[0]} {m[1]} {m[2]} {m[3]} {vectorize} {vecLib} {shuffle} {optionals_string}\n")
+            file.write(
+                f"{m[0]} {m[1]} {m[2]} {m[3]} {kernelDir} {removeKernels} {vectorize} {vecLib} {shuffle} {optionals_string}\n"
+            )
 
 
 if __name__ == '__main__':
