@@ -8,11 +8,13 @@
 
 #include "LoSPNtoGPUConversion.h"
 #include "LoSPNtoGPU/LoSPNtoGPUConversionPasses.h"
+#include "LoSPN/LoSPNPasses.h"
 #include "mlir/InitAllPasses.h"
 #include <driver/GlobalOptions.h>
 
 void spnc::LoSPNtoGPUConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   pm->addPass(mlir::spn::createLoSPNtoGPUStructureConversionPass());
+  pm->addPass(mlir::spn::low::createGPUCopyElisionPass());
   pm->addPass(mlir::createGpuKernelOutliningPass());
   if (spnc::option::gpuSharedMem.get(*(this->config))) {
     // Add the pass transforming accesses to global memory with

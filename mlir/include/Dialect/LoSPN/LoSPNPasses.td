@@ -36,4 +36,9 @@ def ReplaceARMOptimizedRoutines : Pass<"replace-arm-optimized-routines", "Module
   let constructor = "mlir::spn::low::createReplaceARMOptimizedRoutinesPass()";
 }
 
+def GPUCopyElision : Pass<"gpu-copy-elision", "ModuleOp"> {
+  let summary = "Eliminate unnecessary data transfers between host and GPU device";
+  let constructor = "mlir::spn::low::createGPUCopyElisionPass()";
+}
+
 #endif // MLIR_DIALECT_LoSPN_PASSES

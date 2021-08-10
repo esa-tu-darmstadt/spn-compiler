@@ -15,6 +15,7 @@ add_mlir_dialect_library(MLIRLoSPN
         Passes/LoSPNGraphStatsCollection.cpp
         Passes/LoSPNTaskPartitioner.cpp
         Passes/ReplaceARMOptimizedRoutines.cpp
+        Passes/GPUCopyElision.cpp
         Bufferize/LoSPNBufferizationPatterns.cpp
         Analysis/SPNGraphStatistics.cpp
         Analysis/SPNNodeLevel.cpp
@@ -36,6 +37,7 @@ add_mlir_dialect_library(MLIRLoSPN
         MLIRTransforms
         MLIRTransformUtils
         MLIRMath
+        MLIRGPU
         )
 
 include_directories(${PROJECT_SOURCE_DIR}/common/include)
