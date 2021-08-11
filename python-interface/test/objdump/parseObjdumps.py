@@ -40,42 +40,59 @@ def parse_output(output, vectorized):
     move_insts = {
         "mov",
         "vmovss",
+        "vmovd",
         "vmovq",
         "vmovupd",
         "vmovddup",
         "vmovdqu",
         "vmovsldup",
+        "vmovlps",
         "vmovlhps",
         "vmovups",
         "vmovapd",
         "vmovaps",
         "vmovdqa",
         "vmovshdup",
+        "vpmovzxdq",
     }
     vector_packing_insts = {
         "vbroadcastss",
         "vbroadcastsd",
+        "vpbroadcastd",
         "vpbroadcastq",
+        "vbroadcasti128",
         "vbroadcastf128",
         "vpextrq",
         "vgatherdpd",
+        "vinserti128",
         "vinsertf128",
         "vinsertps",
         "vextracti128",
         "vextractf128",
         "vunpcklps",
         "vunpcklpd",
+        "vunpckhps",
+        "vunpckhpd",
+        "vpunpckldq",
+        "vpunpckhdq",
+        "vpunpckhqdq",
         "vpermps",
         "vpermpd",
+        "vpermd",
+        "vpermq",
+        "vperm2i128",
         "vperm2f128",
         "vshufps",
         "vshufpd",
+        "vpshufd",
         "vpermilpd",
         "vpermilps",
-        "vxorps", # used to fill a vector with zeros: vxorps xmm0, xmm0, xmm0
-        "vpcmpeqd", # used to fill a vector with ones: vpcmpeqd ymm0, ymm0, ymm0
+        "vxorps",  # used to fill a vector with zeros: vxorps xmm0, xmm0, xmm0
+        "vpcmpeqd",  # used to fill a vector with ones: vpcmpeqd ymm0, ymm0, ymm0
+        "vpblendd",
         "vblendps",
         "vblendpd",
+        "vpalignr",
     }
     other_insts = {
         "push",
@@ -94,7 +111,7 @@ def parse_output(output, vectorized):
     symbol_re = re.compile(r"(\d+)\s+<(.*)>:")
     symbol_found = False
 
-    instruction_re = re.compile(r"\s+(\d+):\s+(\S+)\s+.*")
+    instruction_re = re.compile(r"\s+([0-9a-z]+):\s+(\S+)\s+.*")
     total_count = 0
     arithmetic_count = 0
     move_count = 0
@@ -106,21 +123,18 @@ def parse_output(output, vectorized):
         if not line or line.isspace():
             continue
 
-        if m := header_re.match(line):
+        elif m := header_re.match(line):
             header_found = True
             kernel_format = m.group(2)
-            continue
 
-        if m := disassembly_re.match(line):
+        elif m := disassembly_re.match(line):
             sections.append(m.group(1))
-            continue
 
-        if m := symbol_re.match(line):
+        elif m := symbol_re.match(line):
             if (vectorized and m.group(2) == "vec_task_0") or (not vectorized and m.group(2) == "task_0"):
                 symbol_found = True
-            continue
 
-        if m := instruction_re.match(line):
+        elif m := instruction_re.match(line):
             mnemonic = m.group(2)
             if mnemonic in arithmetic_insts:
                 arithmetic_count = arithmetic_count + 1
@@ -130,11 +144,17 @@ def parse_output(output, vectorized):
                 packing_count = packing_count + 1
             elif mnemonic not in other_insts:
                 print(f"Unknown op: {mnemonic}")
+                raise RuntimeError("Objdump failed: unknown mnemonic")
             total_count = total_count + 1
-            continue
 
-    if not header_found or not symbol_found:
-        raise RuntimeError("Objdump failed")
+        else:
+            print(line)
+            raise RuntimeError("objdump failed: unexpected line")
+
+    if not header_found:
+        raise RuntimeError("objdump failed: no header found")
+    elif not symbol_found:
+        raise RuntimeError("objdump failed: requested symbol not found")
 
     data = {
         "kernel format": kernel_format,
