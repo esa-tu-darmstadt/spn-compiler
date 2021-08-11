@@ -11,6 +11,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/Dominance.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
 #include "LoSPNPassDetails.h"
@@ -18,6 +19,7 @@
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
+#include "llvm/ADT/SmallSet.h"
 
 namespace mlir {
   namespace spn {
@@ -58,8 +60,6 @@ namespace mlir {
             return rewriter.notifyMatchFailure(op, "Did not perform any replacements");
           }
           rewriter.finalizeRootUpdate(op);
-          op.dump();
-          //sert(false);
           return success();
         }
 
@@ -142,6 +142,7 @@ namespace mlir {
           return replacementPerformed;
         }
 
+        // TODO Make static?
         bool potentiallyWrites(Operation* op, Value memRef) const {
           if (auto memEffect = dyn_cast<MemoryEffectOpInterface>(op)) {
             SmallVector<MemoryEffects::EffectInstance> effects;
@@ -185,6 +186,80 @@ namespace mlir {
         }
       };
 
+      struct CopyOpElimination : public OpRewritePattern<FuncOp> {
+
+        using OpRewritePattern<FuncOp>::OpRewritePattern;
+
+        LogicalResult matchAndRewrite(FuncOp op, PatternRewriter& rewriter) const override {
+          PostDominanceInfo domInfo(op);
+          auto changed = false;
+          rewriter.startRootUpdate(op);
+          // Copies to the function arguments (i.e., the block arguments of the entry block)
+          // must not be eliminated, as they might be used outside the function.
+          llvm::SmallPtrSet<Value, 10> funcArgs;
+          funcArgs.insert(op.body().front().args_begin(), op.body().front().args_end());
+          for (auto& region : op->getRegions()) {
+            if (domInfo.hasDominanceInfo(&region)) {
+              // Skip regions for which no dominance info is available.
+              for (auto& block : region.getBlocks()) {
+                changed |= eliminateLocal(block, rewriter, domInfo, funcArgs);
+              }
+            }
+          }
+          if (!changed) {
+            rewriter.cancelRootUpdate(op);
+            llvm::dbgs() << "Did not eliminate any data transfers\n";
+            return rewriter.notifyMatchFailure(op, "Did not eliminate any data transfers");
+          }
+          rewriter.finalizeRootUpdate(op);
+          return success();
+        }
+
+        static bool eliminateLocal(Block& block, PatternRewriter& rewriter, PostDominanceInfo& domInfo,
+                                   llvm::SmallPtrSetImpl<Value>& funcArgs) {
+          bool changed = false;
+          SmallPtrSet<Operation*, 10> eliminated;
+          for (auto it = block.getOperations().rbegin(); it != block.getOperations().rend(); ++it) {
+            if (auto copy = dyn_cast<gpu::MemcpyOp>(*it)) {
+              auto canBeEliminated = !funcArgs.contains(copy.dst()) &&
+                  llvm::all_of(copy.dst().getUsers(), [&](Operation* op) {
+                    return eliminated.contains(op) || domInfo.postDominates(copy, op) || writes(op, copy.dst());
+                  });
+              if (canBeEliminated) {
+                llvm::dbgs() << "Eliminating copy " << copy << "\n";
+                eliminated.insert(copy);
+                changed = true;
+              }
+            }
+          }
+          for (auto* op : eliminated) {
+            rewriter.eraseOp(op);
+          }
+          return changed;
+        }
+
+        static bool writes(Operation* op, Value memRef) {
+          if (auto memEffect = dyn_cast<MemoryEffectOpInterface>(op)) {
+            SmallVector<MemoryEffects::EffectInstance> effects;
+            memEffect.getEffectsOnValue(memRef, effects);
+            return llvm::all_of(effects, [](MemoryEffects::EffectInstance effect) {
+              return isa<MemoryEffects::Write>(effect.getEffect());
+            });
+          }
+          if (auto gpuLaunch = dyn_cast<gpu::LaunchOp>(op)) {
+            auto walkResult = gpuLaunch.body().walk([&memRef](Operation* op) {
+              if (!writes(op, memRef)) {
+                return WalkResult::interrupt();
+              }
+              return WalkResult::advance();
+            });
+            return walkResult.wasInterrupted();
+          }
+          return false;
+        }
+
+      };
+
       struct GPUCopyElisionPass : public GPUCopyElisionBase<GPUCopyElisionPass> {
 
       protected:
@@ -192,8 +267,10 @@ namespace mlir {
           llvm::dbgs() << "Running on function\n";
           auto module = getOperation();
           RewritePatternSet patterns(module.getContext());
-          patterns.insert<BufferCopyPropagation>(module.getContext());
+          patterns.insert<BufferCopyPropagation>(module.getContext(), 2);
+          patterns.insert<CopyOpElimination>(module.getContext());
           (void) mlir::applyPatternsAndFoldGreedily(module, FrozenRewritePatternSet(std::move(patterns)));
+          module.dump();
           //assert(false);
         }
 
