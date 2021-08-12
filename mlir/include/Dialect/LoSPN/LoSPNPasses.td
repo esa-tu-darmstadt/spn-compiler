@@ -41,4 +41,9 @@ def GPUCopyElision : Pass<"gpu-copy-elision", "ModuleOp"> {
   let constructor = "mlir::spn::low::createGPUCopyElisionPass()";
 }
 
+def GPUBufferDeallocation : Pass<"gpu-buffer-deallocation", "FuncOp"> {
+  let summary = "Insert de-allocation for buffers in GPU memory";
+  let constructor = "mlir::spn::low::createGPUBufferDeallocationPass()";
+}
+
 #endif // MLIR_DIALECT_LoSPN_PASSES

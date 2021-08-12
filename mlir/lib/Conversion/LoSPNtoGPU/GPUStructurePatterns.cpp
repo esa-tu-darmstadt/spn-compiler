@@ -144,11 +144,9 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
     auto hostMem = deviceHost.second;
     rewriter.create<gpu::MemcpyOp>(op->getLoc(), llvm::None, ValueRange{}, hostMem, deviceMem);
   }
-  for (auto& dMem : deviceMemories) {
-    // Deallocate all input and output device memories after copying the result
-    // to the host.
-    rewriter.create<gpu::DeallocOp>(op->getLoc(), llvm::None, ValueRange{}, dMem);
-  }
+  // Deallocation is not performed here, because the buffer might be re-used by other tasks on the GPU to
+  // eliminate unnecessary copies between host and device for intermediate results.
+  // Therefore, deallocations are later on inserted by a dedicated pass.
   rewriter.eraseOp(op);
   return success();
 }

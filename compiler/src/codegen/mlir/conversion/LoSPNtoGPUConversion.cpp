@@ -21,6 +21,7 @@ void spnc::LoSPNtoGPUConversion::initializePassPipeline(mlir::PassManager* pm, m
     // preloads to shared memory depending on option value.
     pm->addPass(mlir::spn::createLoSPNGPUSharedMemoryInsertionPass());
   }
+  pm->nest<mlir::FuncOp>().addPass(mlir::spn::low::createGPUBufferDeallocationPass());
   pm->addPass(mlir::spn::createLoSPNtoGPUNodeConversionPass());
   // The remaining bufferization, buffer deallocation and copy removal passes
   // currently need to be placed at this point in the pipeline, as they operate
