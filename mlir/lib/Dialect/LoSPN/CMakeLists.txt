@@ -15,8 +15,6 @@ add_mlir_dialect_library(MLIRLoSPN
         Passes/LoSPNGraphStatsCollection.cpp
         Passes/LoSPNTaskPartitioner.cpp
         Passes/ReplaceARMOptimizedRoutines.cpp
-        Passes/GPUCopyElision.cpp
-        Passes/GPUBufferDeallocation.cpp
         Bufferize/LoSPNBufferizationPatterns.cpp
         Analysis/SPNGraphStatistics.cpp
         Analysis/SPNNodeLevel.cpp

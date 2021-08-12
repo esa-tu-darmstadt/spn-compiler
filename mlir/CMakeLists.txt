@@ -43,6 +43,7 @@ include_directories(${MLIR_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/Dialect)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/Conversion)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include/Dialect)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/include/Conversion)
 link_directories(${LLVM_BUILD_LIBRARY_DIR})
 add_definitions(${LLVM_DEFINITIONS})
 
@@ -50,6 +51,7 @@ set(SPN_DIALECT_INCLUDE_DIRS
         ${CMAKE_CURRENT_SOURCE_DIR}/include/Dialect
         ${CMAKE_CURRENT_SOURCE_DIR}/include/Conversion
         ${CMAKE_CURRENT_BINARY_DIR}/include/Dialect
+        ${CMAKE_CURRENT_BINARY_DIR}/include/Conversion
         PARENT_SCOPE)
 
 add_subdirectory(include)
