@@ -20,6 +20,72 @@
 namespace mlir {
   namespace spn {
 
+    namespace {
+
+      class GPUKernelAnalysis {
+
+      public:
+
+        explicit GPUKernelAnalysis(gpu::LaunchOp launch) {
+          launch.body().walk([this](Operation* op) {
+            for (auto operand : op->getOperands()) {
+              if (operand.getType().isa<MemRefType>()) {
+                if (auto memEffect = dyn_cast<MemoryEffectOpInterface>(op)) {
+                  SmallVector<MemoryEffects::EffectInstance> effects;
+                  memEffect.getEffectsOnValue(operand, effects);
+                  auto reads = llvm::any_of(effects, [](MemoryEffects::EffectInstance effect) {
+                    return isa<MemoryEffects::Read>(effect.getEffect());
+                  });
+                  auto writes = llvm::any_of(effects, [](MemoryEffects::EffectInstance effect) {
+                    return isa<MemoryEffects::Write>(effect.getEffect());
+                  });
+                  if (reads) {
+                    read.insert(operand);
+                    addToReaders(operand, op);
+                  }
+                  if (writes) {
+                    written.insert(operand);
+                  }
+                } else {
+                  // Conservatively assume users without side effect interface write
+                  written.insert(operand);
+                }
+              }
+            }
+          });
+        }
+
+        llvm::SmallPtrSetImpl<Value>& readBuffers() {
+          return read;
+        }
+
+        llvm::SmallPtrSetImpl<Value>& writeBuffers() {
+          return written;
+        }
+
+        llvm::SmallVectorImpl<Operation*>& readersOf(Value memRef) {
+          assert(readers.count(memRef));
+          return *(readers[memRef]);
+        }
+
+      private:
+
+        llvm::SmallPtrSet<Value, 10> read;
+        llvm::SmallPtrSet<Value, 10> written;
+
+        llvm::DenseMap<Value, std::unique_ptr<llvm::SmallVectorImpl<Operation*>>> readers;
+
+        void addToReaders(Value memRef, Operation* reader) {
+          if (!readers.count(memRef)) {
+            readers.insert({memRef, std::make_unique<llvm::SmallVector<Operation*, 10>>()});
+          }
+          readers[memRef]->push_back(reader);
+        }
+
+      };
+
+    }
+
     ///
     /// Pattern to replace GPU buffers with other GPU buffers that are already present on the device,
     /// e.g., for intermediate results.
@@ -74,18 +140,20 @@ namespace mlir {
         bool replacementPerformed = false;
         for (auto& op : block.getOperations()) {
           if (auto gpuLaunch = dyn_cast<gpu::LaunchOp>(op)) {
-            SmallVector<Value> replace;
+            GPUKernelAnalysis analysis{gpuLaunch};
+            auto& written = analysis.writeBuffers();
+            auto& read = analysis.readBuffers();
             for (auto it = identicalBuffers.begin(); it != identicalBuffers.end();) {
               Value copy = it->first;
               Value original = it->second;
-              if (potentiallyWrites(gpuLaunch, copy)) {
+              if (written.contains(copy)) {
                 // We cannot perform the transformation, if this GPU kernel writes %device2, because using
                 // %device1 instead of %device2 would then alter the contents of %device1.
                 it = identicalBuffers.erase(it);
                 // We also need to kill any pair (%host, %device2), because the content of %device2 will not
                 // be identical to %host after this kernel has executed.
                 killWritten(copies, copy);
-              } else if (potentiallyWrites(gpuLaunch, original)) {
+              } else if (written.contains(original)) {
                 // We cannot perform the transformation, if this GPU kernel writes %device1, because using
                 // %device1 instead of %device2 would then alter the contents of %device2.
                 it = identicalBuffers.erase(it);
@@ -93,15 +161,13 @@ namespace mlir {
                 // be identical to %host after this kernel has executed.
                 killWritten(copies, original);
               } else {
-                // It is legal to use %device1 (which might already be present on the GPU) instead of %device2,
-                // so we replace any use.
-                auto numUsesBefore = std::distance(copy.getUses().begin(), copy.getUses().end());
-                gpuLaunch->walk([&](Operation* op) {
-                  op->replaceUsesOfWith(copy, original);
-                });
-                auto numUsesAfter = std::distance(copy.getUses().begin(), copy.getUses().end());
-                // Check if any actual replacement was performed based on the number of users.
-                if (numUsesAfter < numUsesBefore) {
+                if (read.contains(copy)) {
+                  // It is legal to use %device1 (which might already be present on the GPU) instead of %device2,
+                  // so we replace any use.
+                  auto numUsesBefore = std::distance(copy.getUses().begin(), copy.getUses().end());
+                  for (auto reader: analysis.readersOf(copy)) {
+                    reader->replaceUsesOfWith(copy, original);
+                  }
                   replacementPerformed = true;
                 }
                 ++it;
@@ -174,16 +240,6 @@ namespace mlir {
           return llvm::any_of(effects, [](MemoryEffects::EffectInstance effect) {
             return !isa<MemoryEffects::Read>(effect.getEffect()) && !isa<MemoryEffects::Allocate>(effect.getEffect());
           });
-        }
-        // For a GPU kernel, analyze the body of the kernel to find potential writes.
-        if (auto gpuLaunch = dyn_cast<gpu::LaunchOp>(op)) {
-          auto walkResult = gpuLaunch.body().walk([&memRef](Operation* op) {
-            if (potentiallyWrites(op, memRef)) {
-              return WalkResult::interrupt();
-            }
-            return WalkResult::advance();
-          });
-          return walkResult.wasInterrupted();
         }
         // Conservatively assume a user with no side effect interface writes.
         return (llvm::find(memRef.getUsers(), op) != memRef.getUsers().end());
