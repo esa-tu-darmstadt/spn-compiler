@@ -15,6 +15,7 @@ set(LIBS
         MLIRLoSPN
         MLIRHiSPNtoLoSPNTransforms
         MLIRLoSPNtoCPUTransforms
+        MLIRLoSPNtoGPUTransforms
         MLIROptLib
         cpu_targetinfo
         )

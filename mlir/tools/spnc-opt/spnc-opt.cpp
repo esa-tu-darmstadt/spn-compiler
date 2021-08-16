@@ -16,6 +16,7 @@
 #include "LoSPN/LoSPNPasses.h"
 #include "HiSPNtoLoSPN/HiSPNtoLoSPNConversionPasses.h"
 #include "LoSPNtoCPU/LoSPNtoCPUConversionPasses.h"
+#include "LoSPNtoGPU/LoSPNtoGPUPasses.h"
 
 static llvm::cl::opt<bool> cpuVectorize("cpu-vectorize",
                                         llvm::cl::desc("Vectorize code generated for CPU targets"),
@@ -40,6 +41,7 @@ int main(int argc, char** argv) {
 
   mlir::registerAllPasses();
   mlir::spn::low::registerLoSPNPasses();
+  mlir::spn::registerLoSPNtoGPUPasses();
 
   mlir::registerPass("convert-hispn-query-to-lospn", "Convert queries from HiSPN to LoSPN dialect",
                      []() -> std::unique_ptr<mlir::Pass> {
