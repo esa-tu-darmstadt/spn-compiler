@@ -44,7 +44,9 @@ void SLPGraphBuilder::build(ArrayRef<Value> seed) {
   graph.nodeRoot = std::make_shared<SLPNode>(graph.superwordRoot);
   nodeBySuperword[graph.superwordRoot.get()] = graph.nodeRoot;
   superwordsByValue[graph.superwordRoot->getElement(0)].emplace_back(graph.superwordRoot);
-  computeDepths(seed, valueDepths);
+  if (!option::allowTopologicalMixing) {
+    computeDepths(seed, valueDepths);
+  }
   buildWorklist.insert(graph.nodeRoot.get());
   buildGraph(graph.superwordRoot);
   //dumpSLPGraph(rootNode.get(), true);
