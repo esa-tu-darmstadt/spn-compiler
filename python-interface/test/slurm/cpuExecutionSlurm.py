@@ -6,6 +6,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 # ==============================================================================
 
+import contextlib
 import fire
 import numpy as np
 import os
@@ -103,8 +104,11 @@ def measure_execution_time(name: str, spn_file: str, input_data: str, reference_
     print("STATUS OK")
 
     # Remove the serialized SPN file and the compiled Kernel.
-    os.remove(tmpfile)
-    os.remove(k.fileName())
+    # Suppress FileNotFoundErrors that might occur because the kernels etc. are created in the /tmp/ directory.
+    with contextlib.suppress(FileNotFoundError):
+        os.remove(tmpfile)
+    with contextlib.suppress(FileNotFoundError):
+        os.remove(k.fileName())
     if remove_kernel:
         os.remove(os.path.join(kernel_dir, name))
 

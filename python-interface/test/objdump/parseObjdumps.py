@@ -76,6 +76,7 @@ def parse_output(output, vectorized):
         "vpunpckldq",
         "vpunpckhdq",
         "vpunpckhqdq",
+        "vpunpcklqdq",
         "vpermps",
         "vpermpd",
         "vpermd",
@@ -189,7 +190,7 @@ def get_kernels(kernelDir: str):
         baseName = os.path.basename(file)
         extension = os.path.splitext(baseName)[-1].lower()
         kernelName = os.path.splitext(baseName)[0]
-        if extension == ".so":
+        if extension == ".so" or (extension != ".csv" and extension != ".bin" and extension != ".txt"):
             kernelFile = os.path.join(kernelDir, file)
             kernels.append((kernelName, kernelFile))
     print(f"Number of kernels found: {len(kernels)}")
