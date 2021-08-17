@@ -150,7 +150,7 @@ ShuffleTwoSuperwords::ShuffleTwoSuperwords(ConversionManager& conversionManager)
         }
       }, [&](Superword* superword) {
         for (auto element : *superword) {
-          superwordsByValue[element].erase(superword);
+          superwordsByValue[element].remove(superword);
         }
         shuffleMatches.erase(superword);
       }
@@ -161,7 +161,8 @@ LogicalResult ShuffleTwoSuperwords::match(Superword* superword) {
   if (superword->constant()) {
     return failure();
   }
-  SmallPtrSet<Superword*, 32> relevantSuperwords;
+  // For determinism purposes, use a set vector with deterministic iteration order instead of a set.
+  llvm::SmallSetVector<Superword*, 32> relevantSuperwords;
   for (unsigned lane = 0; lane < superword->numLanes(); ++lane) {
     if (superword->hasAlteredSemanticsInLane(lane)) {
       return failure();

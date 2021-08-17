@@ -104,7 +104,8 @@ namespace mlir {
           Value rewrite(Superword* superword, RewriterBase& rewriter) override;
           void accept(PatternVisitor& visitor, Superword* superword) const override;
         private:
-          DenseMap<Value, SmallPtrSet<Superword*, 8>> superwordsByValue;
+          // For determinism purposes, use a set vector with deterministic iteration order instead of a set.
+          DenseMap<Value, llvm::SmallSetVector<Superword*, 8>> superwordsByValue;
           DenseMap<Superword*, std::tuple<Superword*, Superword*, SmallVector<int64_t, 4>>> shuffleMatches;
         };
 
