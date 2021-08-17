@@ -173,7 +173,13 @@ SmallVector<Superword*> ConversionState::unconvertedPostOrder() const {
   llvm::sort(std::begin(order), std::end(order), [&](Superword* lhs, Superword* rhs) {
     if (depths[lhs] == depths[rhs]) {
       if (lhs->isLeaf() == rhs->isLeaf()) {
-        return isBeforeInBlock(lhs->getElement(0), rhs->getElement(0));
+        for (size_t lane = 0; lane < lhs->numLanes(); ++lane) {
+          if (lhs->getElement(lane) == rhs->getElement(lane)) {
+            continue;
+          }
+          return isBeforeInBlock(lhs->getElement(lane), rhs->getElement(lane));
+        }
+        return false;
       }
       // Returning this maximizes the re-use potential of non-leaf elements in leaf nodes through extractions.
       return rhs->isLeaf();
