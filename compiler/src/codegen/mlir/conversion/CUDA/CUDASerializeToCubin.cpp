@@ -74,8 +74,10 @@ std::unique_ptr<llvm::Module> mlir::spn::CUDASerializeToCubinPass::translateToLL
   // Link the generated LLVM/NVVM IR with libdevice.
   linkWithLibdevice(llvmModule.get());
 
-  // Apply optimization passes to the LLVM/NVVM IR after linking with libdevice.
-  optimizeNVVMIR(llvmModule.get());
+  if (optLevel > 0) {
+    // Apply optimization passes to the LLVM/NVVM IR after linking with libdevice.
+    optimizeNVVMIR(llvmModule.get());
+  }
 
   if (this->printIR) {
     llvm::dbgs() << "// *** IR Dump After conversion and optimization of NVVM IR ***\n\n";
@@ -106,9 +108,9 @@ void mlir::spn::CUDASerializeToCubinPass::optimizeNVVMIR(llvm::Module* module) {
   llvm::legacy::PassManager modulePM;
   llvm::legacy::FunctionPassManager funcPM(module);
   llvm::PassManagerBuilder builder;
-  builder.OptLevel = 3;
+  builder.OptLevel = optLevel;
   builder.SizeLevel = 0;
-  builder.Inliner = llvm::createFunctionInliningPass(3, 0, /*DisableInlineHotCallSite=*/false);
+  builder.Inliner = llvm::createFunctionInliningPass(optLevel, 0, /*DisableInlineHotCallSite=*/false);
   builder.LoopVectorize = false; // Not required on GPU
   builder.SLPVectorize = false; // Not required on GPU
   builder.DisableUnrollLoops = false; // Allow loop unrolling.
@@ -216,9 +218,11 @@ std::unique_ptr<std::vector<char>> mlir::spn::CUDASerializeToCubinPass::serializ
 }
 
 mlir::spn::CUDASerializeToCubinPass::CUDASerializeToCubinPass(llvm::ArrayRef<llvm::StringRef> kernelFuctions,
-                                                              bool shouldPrintIR) : printIR{shouldPrintIR},
-                                                                                    kernelFuncs(kernelFuctions.begin(),
-                                                                                                kernelFuctions.end()) {
+                                                              bool shouldPrintIR, unsigned _optLevel) :
+    printIR{shouldPrintIR},
+    kernelFuncs(kernelFuctions.begin(),
+                kernelFuctions.end()),
+    optLevel(_optLevel) {
   this->triple = "nvptx64-nvidia-cuda";
   this->chip = getGPUArchitecture();
   this->features = "+ptx60";
@@ -264,6 +268,6 @@ std::string mlir::spn::CUDASerializeToCubinPass::getGPUArchitecture() {
 }
 
 std::unique_ptr<mlir::OperationPass<mlir::gpu::GPUModuleOp>> mlir::spn::createSerializeToCubinPass(
-    ArrayRef<llvm::StringRef> kernelFunctions, bool shouldPrintIR) {
-  return std::make_unique<CUDASerializeToCubinPass>(kernelFunctions, shouldPrintIR);
+    ArrayRef<llvm::StringRef> kernelFunctions, bool shouldPrintIR, unsigned optLevel) {
+  return std::make_unique<CUDASerializeToCubinPass>(kernelFunctions, shouldPrintIR, optLevel);
 }
