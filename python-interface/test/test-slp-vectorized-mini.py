@@ -1,6 +1,6 @@
 import numpy as np
 import os
-import spncpy as spnc
+import spnc.spncpy as spncpy
 import tempfile
 from datetime import datetime
 from spn.algorithms.Inference import log_likelihood
@@ -34,7 +34,7 @@ if not os.path.isfile(tempfile):
 
 # Invoke the compiler.
 print("Invoking compiler...")
-compiler = spnc.SPNCompiler()
+compiler = spncpy.SPNCompiler()
 
 # Compile the query into a Kernel.
 options = dict({"target": "CPU", "cpu-vectorize": "true"})

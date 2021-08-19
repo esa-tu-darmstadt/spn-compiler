@@ -13,7 +13,7 @@ import re
 import subprocess
 
 
-def parse_output(output, expected_iterations=1):
+def parse_output(output, vectorize, expected_iterations=1):
     compile_time_re = re.compile(r"COMPILATION TIME:\s+(.+)\s+ns")
     compile_time = None
     execution_time_re = re.compile(r"EXECUTION TIME:\s+(\d+)\s+ns")
@@ -25,8 +25,10 @@ def parse_output(output, expected_iterations=1):
     # Optional SLP output if SLP vectorization took place.
     slp_num_ops_pre_re = re.compile(r"#ops before vectorization:\s+(\d+)")
     num_ops_pre = None
-    slp_num_ops_post_re = re.compile(r"#ops after vectorization:\s+(\d+)")
-    num_ops_post = None
+    slp_num_ops_post_total_re = re.compile(r"#ops after vectorization \(total\):\s+(\d+)")
+    num_ops_post_total = None
+    slp_num_ops_post_not_dead_re = re.compile(r"#ops after vectorization \(not dead\):\s+(\d+)")
+    num_ops_post_not_dead = None
     slp_num_profitable_iterations_re = re.compile(r"profitable SLP iterations:\s+(\d+)")
     num_profitable_iterations = None
     slp_num_superwords_re = re.compile(r"#superwords in graph \((\d+)\):\s+(\d+)")
@@ -50,60 +52,52 @@ def parse_output(output, expected_iterations=1):
 
         if m := compile_time_re.match(line):
             compile_time = int(m.group(1))
-            continue
 
-        if m := slp_num_ops_pre_re.match(line):
-            num_ops_pre = int(m.group(1))
-            continue
-
-        if m := slp_num_ops_post_re.match(line):
-            num_ops_post = int(m.group(1))
-            continue
-
-        if m := slp_num_profitable_iterations_re.match(line):
-            num_profitable_iterations = int(m.group(1))
-            continue
-
-        if m := slp_num_superwords_re.match(line):
-            num_superwords[int(m.group(1))] = m.group(2)
-            continue
-
-        if m := slp_num_arith_ops_re.match(line):
-            num_arith_ops[int(m.group(1))] = m.group(2)
-            continue
-
-        if m := slp_cover_re.match(line):
-            slp_cover[int(m.group(1))] = m.group(2)
-            continue
-
-        if m := slp_seed_re.match(line):
-            slp_seed_time[int(m.group(1))] = int(m.group(2))
-            continue
-
-        if m := slp_graph_re.match(line):
-            slp_graph_time[int(m.group(1))] = int(m.group(2))
-            continue
-
-        if m := slp_rewrite_re.match(line):
-            slp_match_rewrite_time[int(m.group(1))] = int(m.group(2))
-            continue
-
-        if m := slp_total_re.match(line):
-            slp_total_time = slp_total_time + int(m.group(1))
-            continue
-
-        if m := execution_time_re.match(line):
+        elif m := execution_time_re.match(line):
             if execution_time is None:
                 execution_time = 0
             execution_time = execution_time + int(m.group(1))
             num_executions = num_executions + 1
-            continue
 
-        if status_re.match(line):
+        elif status_re.match(line):
             status = True
-            continue
 
-    if not status or compile_time is None or execution_time is None:
+        elif vectorize:
+
+            if m := slp_num_ops_pre_re.match(line):
+                num_ops_pre = int(m.group(1))
+
+            elif m := slp_num_ops_post_total_re.match(line):
+                num_ops_post_total = int(m.group(1))
+
+            elif m := slp_num_ops_post_not_dead_re.match(line):
+                num_ops_post_not_dead = int(m.group(1))
+
+            elif m := slp_num_profitable_iterations_re.match(line):
+                num_profitable_iterations = int(m.group(1))
+
+            elif m := slp_num_superwords_re.match(line):
+                num_superwords[int(m.group(1))] = m.group(2)
+
+            elif m := slp_num_arith_ops_re.match(line):
+                num_arith_ops[int(m.group(1))] = m.group(2)
+
+            elif m := slp_cover_re.match(line):
+                slp_cover[int(m.group(1))] = m.group(2)
+
+            elif m := slp_seed_re.match(line):
+                slp_seed_time[int(m.group(1))] = int(m.group(2))
+
+            elif m := slp_graph_re.match(line):
+                slp_graph_time[int(m.group(1))] = int(m.group(2))
+
+            elif m := slp_rewrite_re.match(line):
+                slp_match_rewrite_time[int(m.group(1))] = int(m.group(2))
+
+            elif m := slp_total_re.match(line):
+                slp_total_time = slp_total_time + int(m.group(1))
+
+    if not status or compile_time is None or execution_time is None or (vectorize and num_ops_post_total is None):
         print(f"Status: {status}")
         print(f"Compile time: {compile_time}")
         print(f"Execution time: {execution_time}")
@@ -112,7 +106,8 @@ def parse_output(output, expected_iterations=1):
     data = {
         "compile time (ns)": compile_time,
         "#lospn ops pre SLP": num_ops_pre,
-        "#lospn ops post SLP": num_ops_post,
+        "#lospn ops post SLP (total)": num_ops_post_total,
+        "#lospn ops post SLP (not dead)": num_ops_post_not_dead,
         "#profitable iterations": num_profitable_iterations,
         "execution time total (ns)": execution_time,
         "#inferences": num_executions,
@@ -131,36 +126,38 @@ def parse_output(output, expected_iterations=1):
 def invokeCompileAndExecute(logDir, modelName, modelFile, inputFile, referenceFile, kernelDir, removeKernel,
                             vectorize, vecLib, shuffle, maxAttempts=None, maxSuccessfulIterations=None,
                             maxNodeSize=None, maxLookAhead=None, reorderInstructionsDFS=None,
-                            allowDuplicateElements=None, allowTopologicalMixing=None):
+                            allowDuplicateElements=None, allowTopologicalMixing=None, maxTaskSize=None):
     command = ["python3", os.path.join(os.path.dirname(os.path.realpath(__file__)), "cpuExecutionSlurm.py")]
     # model name and model file
-    command.extend((modelName, modelFile))
+    command.extend(("--name", modelName, "--spn_file", modelFile))
     # input and reference paths
-    command.extend((inputFile, referenceFile))
-    command.extend((kernelDir, str(removeKernel)))
-    command.extend((str(vectorize), str(vecLib), str(shuffle)))
+    command.extend(("--input_data", inputFile, "--reference_data", referenceFile))
+    command.extend(("--kernel_dir", kernelDir, "--remove_kernel", str(removeKernel)))
+    command.extend(("--vectorize", str(vectorize), "--vectorLibrary", str(vecLib), "--shuffle", str(shuffle)))
 
     if maxAttempts is not None:
-        command.append(str((maxAttempts)))
+        command.extend(("--maxAttempts", str(maxAttempts)))
     if maxSuccessfulIterations is not None:
-        command.append(str((maxSuccessfulIterations)))
+        command.extend(("--maxSuccessfulIterations", str(maxSuccessfulIterations)))
     if maxNodeSize is not None:
-        command.append(str((maxNodeSize)))
+        command.extend(("--maxNodeSize", str(maxNodeSize)))
     if maxLookAhead is not None:
-        command.append(str((maxLookAhead)))
+        command.extend(("--maxLookAhead", str(maxLookAhead)))
     if reorderInstructionsDFS is not None:
-        command.append(str((reorderInstructionsDFS)))
+        command.extend(("--reorderInstructionsDFS", str(reorderInstructionsDFS)))
     if allowDuplicateElements is not None:
-        command.append(str((allowDuplicateElements)))
+        command.extend(("--allowDuplicateElements", str(allowDuplicateElements)))
     if allowTopologicalMixing is not None:
-        command.append(str((allowTopologicalMixing)))
+        command.extend(("--allowTopologicalMixing", str(allowTopologicalMixing)))
+    if maxTaskSize is not None:
+        command.extend(("--maxTaskSize", str(maxTaskSize)))
 
     run_result = subprocess.run(command, capture_output=True, text=True)
     if run_result.returncode == 0:
         if maxSuccessfulIterations is not None:
-            parsed_data = parse_output(run_result.stdout, maxSuccessfulIterations)
+            parsed_data = parse_output(run_result.stdout, vectorize, maxSuccessfulIterations)
         else:
-            parsed_data = parse_output(run_result.stdout)
+            parsed_data = parse_output(run_result.stdout, vectorize)
         data = {"Name": modelName}
         data.update(parsed_data)
         log_file_all = os.path.join(logDir, "data.csv")

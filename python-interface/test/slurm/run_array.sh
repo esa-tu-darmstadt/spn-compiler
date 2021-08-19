@@ -1,19 +1,18 @@
 #! /bin/bash
 
-#SBATCH -J spnc-eval
-#SBATCH -a 1-897%12
-#SBATCH -e /net/celebdil/csv/eval/slurm-logs/stderr_%A_%a.out
-#SBATCH -o /net/celebdil/csv/eval/slurm-logs/stdout_%A_%a.out
+#SBATCH -J spnc-dfs
+#SBATCH -a 1-897%4
+#SBATCH -e /net/celebdil/csv/eval/slurm-logs/kernels/stderr_%A_%a.out
+#SBATCH -o /net/celebdil/csv/eval/slurm-logs/kernels/stdout_%A_%a.out
 #SBATCH -n 1
-#SBATCH -c 2
+#SBATCH -c 8
 #SBATCH --partition=Epyc
-#SBATCH --mem-per-cpu=8192
-#SBATCH -t 96:00:00
+#SBATCH --mem-per-cpu=4096
+#SBATCH -t 168:00:00
 
 PARAMETERS_FILE=$1
 LOG_DIR=$2
-
-# modelName modelFile inputFile referenceFile vectorize vecLib shuffle maxAttempts maxSuccessfulIterations maxNodeSize maxLookAhead reorderInstructionsDFS allowDuplicateElements allowTopologicalMixing
+LOG_PREFIX=$3
 
 SPN_NAME=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$1}}" ${PARAMETERS_FILE})
 SPN_MODEL_FILE=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$2}}" ${PARAMETERS_FILE})
@@ -33,11 +32,10 @@ ALLOW_DUPLICATES=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$15}}" ${PARAME
 ALLOW_TOPOLOGICAL_MIXING=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$16}}" ${PARAMETERS_FILE})
 
 echo "Sourcing virtual environment"
-cd /net/celebdil/csv/spnc-dynamic/
+cd /net/celebdil/csv/spnc-static/
 source venv/bin/activate
 
 echo "Running Python script"
-#python -v /net/bifur/csv/spn-compiler-eval/python-interface/test/slurm/cpuExecutionSlurm.py nltcs_100_200_4_3_3_3_1.0_True_spn_0 /net/celebdil/spn-benchmarks/ratspn-classification/models/nltcs_100_200_4_3_3_3_1.0_True/spn_0.bin /net/celebdil/spn-benchmarks/ratspn-classification/io_files/nltcs/input.csv /net/celebdil/spn-benchmarks/ratspn-classification/io_files/nltcs/nltcs_100_200_4_3_3_3_1.0_True_spn_0.csv True None False 1 1 10000 3 True False False &> /net/celebdil/csv/eval/slurm-logs/param-spn_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out
-time python -u /net/bifur/csv/spn-compiler-eval/python-interface/test/slurm/invoke.py ${LOG_DIR} ${SPN_NAME} ${SPN_MODEL_FILE} ${SPN_INPUT_FILE} ${SPN_REFERENCE_FILE} ${KERNEL_DIR} ${REMOVE_KERNELS} ${VECTORIZE} ${VECTOR_LIBRARY} ${SHUFFLE} ${MAX_ATTEMPTS} ${MAX_SUCCESSFUL_ITERATIONS} ${MAX_NODE_SIZE} ${MAX_LOOK_AHEAD} ${REORDER_DFS} ${ALLOW_DUPLICATES} ${ALLOW_TOPOLOGICAL_MIXING} &> /net/celebdil/csv/eval/slurm-logs/param-spn_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out
+time python -u /net/bifur/csv/spn-compiler-eval/python-interface/test/slurm/invoke.py --logDir ${LOG_DIR} --modelName ${SPN_NAME} --modelFile ${SPN_MODEL_FILE} --inputFile ${SPN_INPUT_FILE} --referenceFile ${SPN_REFERENCE_FILE} --kernelDir ${KERNEL_DIR} --removeKernel ${REMOVE_KERNELS} --vectorize ${VECTORIZE} --vecLib ${VECTOR_LIBRARY} --shuffle ${SHUFFLE} --maxAttempts ${MAX_ATTEMPTS} --maxSuccessfulIterations ${MAX_SUCCESSFUL_ITERATIONS} --maxNodeSize ${MAX_NODE_SIZE} --maxLookAhead ${MAX_LOOK_AHEAD} --reorderInstructionsDFS ${REORDER_DFS} --allowDuplicateElements ${ALLOW_DUPLICATES} --allowTopologicalMixing ${ALLOW_TOPOLOGICAL_MIXING} &> /net/celebdil/csv/eval/slurm-logs/kernels/${LOG_PREFIX}_spn_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out
 
 echo "Done"

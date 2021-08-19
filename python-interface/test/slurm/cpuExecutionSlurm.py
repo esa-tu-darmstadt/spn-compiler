@@ -26,7 +26,8 @@ def translateBool(flag: bool):
 def measure_execution_time(name: str, spn_file: str, input_data: str, reference_data: str, kernel_dir: str,
                            remove_kernel: bool, vectorize: str, vectorLibrary: str, shuffle: str, maxAttempts=None,
                            maxSuccessfulIterations=None, maxNodeSize=None, maxLookAhead=None,
-                           reorderInstructionsDFS=None, allowDuplicateElements=None, allowTopologicalMixing=None):
+                           reorderInstructionsDFS=None, allowDuplicateElements=None, allowTopologicalMixing=None,
+                           maxTaskSize=None):
     # Read the trained SPN from file
     model = BinaryDeserializer(spn_file).deserialize_from_file()
     # Set the name and feature type
@@ -77,6 +78,8 @@ def measure_execution_time(name: str, spn_file: str, input_data: str, reference_
         options["slp-allow-duplicate-elements"] = translateBool(bool(allowDuplicateElements))
     if allowTopologicalMixing is not None:
         options["slp-allow-topological-mixing"] = translateBool(bool(allowTopologicalMixing))
+    if maxTaskSize is not None:
+        options["maxTaskSize"] = str(maxTaskSize)
 
     compile_start = perf_counter_ns()
     k = compiler.compileQuery(tmpfile, options)
@@ -86,7 +89,7 @@ def measure_execution_time(name: str, spn_file: str, input_data: str, reference_
     if not os.path.isfile(k.fileName()):
         raise RuntimeError("Compilation failed, not Kernel produced")
     if not remove_kernel:
-        shutil.copyfile(k.fileName(), os.path.join(kernel_dir, name))
+        shutil.copyfile(k.fileName(), os.path.join(kernel_dir, name + ".so"))
 
     # Read input and reference data
     inputs = np.genfromtxt(input_data, delimiter=",", dtype="float32")
@@ -99,6 +102,8 @@ def measure_execution_time(name: str, spn_file: str, input_data: str, reference_
         results = k.execute(1, np.atleast_2d(inputs[i]))
         # Compare computed result and reference to make sure the computation by the compiled Kernel is correct.
         if not np.all(np.isclose(results, reference[i])):
+            print(f"Result: {results}")
+            print(f"Reference: {reference[i]}")
             raise RuntimeError("COMPUTATION FAILED: Results did not match reference!")
 
     print("STATUS OK")
