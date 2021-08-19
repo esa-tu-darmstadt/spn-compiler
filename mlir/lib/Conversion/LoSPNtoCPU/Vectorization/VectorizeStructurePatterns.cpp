@@ -203,6 +203,16 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     TimePoint graphEnd = std::chrono::high_resolution_clock::now();
     auto graphDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(graphEnd - graphStart);
 #endif
+#if PRINT_SLP_GRAPH_NODE_SIZES
+    DenseMap<unsigned, unsigned> nodeSizes;
+    graph::walk(graph.getRootNode().get(), [&](SLPNode* node) {
+      ++nodeSizes[node->numSuperwords()];
+    });
+    for (auto const& entry : nodeSizes) {
+      llvm::outs() << "NODE SIZE (" << successfulIterations << "): " << entry.first << ", count: " << entry.second
+      << "\n";
+    }
+#endif
 #if DEPENDENCY_ANALYSIS
     auto dependencyGraph = graph.dependencyGraph();
     llvm::outs() << "#Nodes in dependency graph: " << dependencyGraph.numNodes() << "\n";
@@ -213,6 +223,31 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 #endif
 
     auto order = conversionManager.startConversion(graph);
+
+#if PRINT_SLP_GRAPH_SIZE
+    unsigned numSuperwords = 0;
+    for (auto* superword : order) {
+      if (!superword->constant()) {
+        ++numSuperwords;
+      }
+    }
+    llvm::outs() << "#superwords in graph (" << successfulIterations << "): " << numSuperwords << "\n";
+    SmallPtrSet<Operation*, 32> uniqueOps;
+    for (auto* superword: order) {
+      if (superword->constant()) {
+        continue;
+      }
+      for (auto value : *superword) {
+        if (auto definingOp = value.getDefiningOp()) {
+          if (dyn_cast<SPNBatchRead>(definingOp)) {
+            continue;
+          }
+          uniqueOps.insert(definingOp);
+        }
+      }
+    }
+    llvm::outs() << "#unique arithmetic graph ops (" << successfulIterations << "): " << uniqueOps.size() << "\n";
+#endif
 
 #if PRINT_TIMINGS
     TimePoint rewriteStart = std::chrono::high_resolution_clock::now();
@@ -239,41 +274,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
       seedAnalysis->update(order);
       currentFunctionCost = vectorizedFunctionCost;
 
-#if PRINT_SLP_GRAPH_SIZE
-      unsigned numSuperwords = 0;
-      for (auto* superword : order) {
-        if (!superword->constant()) {
-          ++numSuperwords;
-        }
-      }
-      llvm::outs() << "#superwords in graph (" << successfulIterations << "): " + std::to_string(numSuperwords) << "\n";
-      SmallPtrSet<Operation*, 32> uniqueOps;
-      for (auto* superword: order) {
-        if (superword->constant()) {
-          continue;
-        }
-        for (auto value : *superword) {
-          if (auto definingOp = value.getDefiningOp()) {
-            if (dyn_cast<SPNBatchRead>(definingOp)) {
-              continue;
-            }
-            uniqueOps.insert(definingOp);
-          }
-        }
-      }
-      llvm::outs() << "#unique arithmetic graph ops (" << successfulIterations
-                   << "):  " + std::to_string(uniqueOps.size()) << "\n";
-#endif
-#if PRINT_SLP_GRAPH_NODE_SIZES
-      DenseMap<unsigned, unsigned> nodeSizes;
-      graph::walk(graph.getRootNode().get(), [&](SLPNode* node) {
-        ++nodeSizes[node->numSuperwords()];
-      });
-      for (auto const& entry : nodeSizes) {
-        llvm::outs() << "NODE SIZE (" << successfulIterations << "): " << entry.first << ", count: " << entry.second
-                     << "\n";
-      }
-#endif
 #if PRINT_SLP_COVER
       auto deadOps = computeDeadOps(taskBlock);
       unsigned coveredOps = 0;
