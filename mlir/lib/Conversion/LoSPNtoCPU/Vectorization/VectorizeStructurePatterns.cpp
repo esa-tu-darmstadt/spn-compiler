@@ -104,9 +104,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
                      << option::allowDuplicateElements << ", topological mixing allowed: "
                      << option::allowTopologicalMixing << ").";
 
-// Useful for when we are only interested in some stats, not the compiled kernel or output comparisons (reduces time
-// spent in subsequent passes practically to zero).
-#define DELETE_OPS false
 // Print the number of loSPN ops in the entire function
 #define PRINT_SIZE true
 // Count how often each opcode appears in the entire function and print it.
@@ -306,20 +303,11 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 #endif
 #if PRINT_SIZE
   liveOps = taskBlock->getOperations().size() - computeDeadOps(taskBlock).size();
-  llvm::outs() << "#ops after vectorization: " << std::to_string(liveOps) << "\n";
+  llvm::outs() << "#ops after vectorization (total): " << taskBlock->getOperations().size() << "\n";
+  llvm::outs() << "#ops after vectorization (not dead): " << liveOps << "\n";
 #endif
 #if PRINT_SUCCESSFUL_ITERATION_COUNT
   llvm::outs() << "profitable SLP iterations: " << successfulIterations << "\n";
-#endif
-#if DELETE_OPS
-  for (auto& op : taskBlock->getOperations()) {
-    if(taskBlock->getTerminator() != &op) {
-      rewriter.eraseOp(&op);
-    }
-  }
-  rewriter.restoreInsertionPoint(callPoint);
-  rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
-  return success();
 #endif
 
   // A lot of operations won't be needed anymore if we vectorized at least once.

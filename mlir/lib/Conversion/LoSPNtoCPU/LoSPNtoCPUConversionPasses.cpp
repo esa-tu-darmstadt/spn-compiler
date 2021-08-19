@@ -58,6 +58,47 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   if (failed(applyPartialConversion(getOperation(), target, frozenPatterns))) {
     signalPassFailure();
   }
+#define DO_LIVENESS_ANALYSIS true
+#if DO_LIVENESS_ANALYSIS
+  getOperation().walk([&](FuncOp function) {
+    unsigned lifeTimeTotal = 0;
+    llvm::SmallVector<Operation*> operations;
+    DenseMap<Operation*, size_t> indexOf;
+    {
+      unsigned opIndex = 0;
+      for (auto& block: function.getBlocks()) {
+        for (auto& op : block) {
+          operations.emplace_back(&op);
+          indexOf[&op] = opIndex++;
+        }
+      }
+    }
+    for (size_t i = 0; i < operations.size(); ++i) {
+      auto opIndex = indexOf[operations[i]];
+      size_t lastUserIndex = opIndex;
+      for (auto* user : operations[i]->getUsers()) {
+        lastUserIndex = std::max(lastUserIndex, indexOf[user]);
+      }
+      lifeTimeTotal += lastUserIndex - opIndex;
+    }
+    llvm::outs() << "lifetime total in function (" << function.getName() << "): " << lifeTimeTotal << "\n";
+  });
+#endif
+
+  // Useful for when we are only interested in some stats, not the compiled kernel or output comparisons (reduces time
+  // spent in subsequent passes practically to zero).
+#define DELETE_OPS false
+#if DELETE_OPS
+  getOperation().walk([&](FuncOp function) {
+    function.back().getTerminator()->moveBefore(&function.front().front());
+    while (&function.back() != &function.front()) {
+      function.getBlocks().pop_back();
+    }
+    while (&function.front().front() != &function.front().back()) {
+      function.front().getOperations().pop_back();
+    }
+  });
+#endif
 
 }
 void mlir::spn::LoSPNtoCPUStructureConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
