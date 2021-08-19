@@ -146,7 +146,7 @@ namespace {
         : operandDifference{superword->numLanes()} {
       for (unsigned lane = 0; lane < superword->numLanes(); ++lane) {
         auto op = superword->getElement(lane).getDefiningOp();
-        for (unsigned i = 0; i < op->getNumOperands(); ++i) {
+        for (unsigned i = 0; i < superword->numOperands(); ++i) {
           auto operand = op->getOperand(i);
           auto operandElement = superword->getOperand(i)->getElement(lane);
           if (operand != operandElement) {
