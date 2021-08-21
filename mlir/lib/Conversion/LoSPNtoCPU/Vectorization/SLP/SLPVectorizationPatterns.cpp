@@ -342,11 +342,8 @@ void VectorizeSPNConstant::accept(PatternVisitor& visitor, Superword* superword)
 // === CreateConsecutiveLoad === //
 
 LogicalResult CreateConsecutiveLoad::match(Superword* superword) {
-  if (!consecutiveLoads(superword->begin(), superword->end())) {
-    // Pattern only applicable to consecutive loads.
-    return failure();
-  }
-  return success();
+  // Pattern only applicable to consecutive loads.
+  return success(consecutiveLoads(superword->begin(), superword->end()));
 }
 
 Value CreateConsecutiveLoad::rewrite(Superword* superword, RewriterBase& rewriter) {

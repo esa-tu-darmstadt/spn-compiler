@@ -45,7 +45,7 @@ bool slp::ofVectorizableType(Value value) {
 }
 
 bool slp::consecutiveLoads(Value lhs, Value rhs) {
-  if (lhs == rhs || lhs.isa<BlockArgument>() || rhs.isa<BlockArgument>()) {
+  if (lhs == rhs || lhs.getDefiningOp() || rhs.getDefiningOp()) {
     return false;
   }
   auto lhsLoad = dyn_cast<SPNBatchRead>(lhs.getDefiningOp());
@@ -59,10 +59,7 @@ bool slp::consecutiveLoads(Value lhs, Value rhs) {
   if (lhsLoad.batchIndex() != rhsLoad.batchIndex()) {
     return false;
   }
-  if (lhsLoad.sampleIndex() + 1 != rhsLoad.sampleIndex()) {
-    return false;
-  }
-  return true;
+  return lhsLoad.sampleIndex() + 1 == rhsLoad.sampleIndex();
 }
 
 bool slp::anyGaussianMarginalized(Superword const& superword) {
