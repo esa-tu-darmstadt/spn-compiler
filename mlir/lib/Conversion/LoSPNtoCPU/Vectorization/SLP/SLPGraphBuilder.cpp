@@ -59,7 +59,7 @@ namespace {
     if (!vectorizable(superword.begin(), superword.end())) {
       return false;
     }
-    if (!option::allowDuplicateElements) {
+    if (!option::allowDuplicateElements && !allLeaf(superword.begin(), superword.end())) {
       if (SmallPtrSet<Value, 4>{std::begin(superword), std::end(superword)}.size() < superword.numLanes()) {
         return false;
       }
