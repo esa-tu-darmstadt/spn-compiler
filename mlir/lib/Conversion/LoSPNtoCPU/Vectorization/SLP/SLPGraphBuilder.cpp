@@ -49,7 +49,7 @@ void SLPGraphBuilder::build(ArrayRef<Value> seed) {
   }
   buildWorklist.insert(graph.nodeRoot.get());
   buildGraph(graph.superwordRoot);
-  //dumpSLPGraph(rootNode.get(), true);
+  //dumpSLPGraph(graph.nodeRoot.get(), true);
 }
 
 // Some helper functions in an anonymous namespace.
@@ -399,14 +399,32 @@ std::pair<Value, SLPGraphBuilder::Mode> SLPGraphBuilder::getBest(Mode mode,
 unsigned SLPGraphBuilder::getLookAheadScore(Value last, Value candidate, unsigned maxLevel) const {
   auto* lastOp = last.getDefiningOp();
   auto* candidateOp = candidate.getDefiningOp();
-  if (maxLevel == 0 || !lastOp || !candidateOp) {
-    if (lastOp && candidateOp) {
-      if (consecutiveLoads(last, candidate)) {
-        return 1;
-      }
-      return lastOp->getName() == candidateOp->getName();
-    }
+  if (!lastOp || !candidateOp) {
     return last == candidate;
+  }
+  if (lastOp->getName() != candidateOp->getName()) {
+    return 0;
+  }
+  if (auto lhsLoad = dyn_cast<SPNBatchRead>(lastOp)) {
+    // We know both operations share the same opcode.
+    auto rhsLoad = cast<SPNBatchRead>(candidateOp);
+    if (lhsLoad.batchMem() == rhsLoad.batchMem() && lhsLoad.batchIndex() == rhsLoad.batchIndex()) {
+      if (lhsLoad.sampleIndex() + 1 == rhsLoad.sampleIndex()) {
+        // Returning 3 prefers consecutive loads to gather loads and broadcast loads.
+        return 3;
+      }
+      // Returning 2 prefers gather loads to broadcast loads.
+      if (lhsLoad.sampleIndex() != rhsLoad.sampleIndex()) {
+        return 2;
+      }
+      // Broadcast load.
+      return 1;
+    } else {
+      return 0;
+    }
+  }
+  if (maxLevel == 0) {
+    return 1;
   }
   unsigned scoreSum = 0;
   for (auto& lastOperand : getOperands(last)) {
