@@ -88,6 +88,21 @@ namespace mlir {
           return true;
         }
 
+        template<typename ValueIterator>
+        bool allLeaf(ValueIterator begin, ValueIterator end) {
+          while (begin != end) {
+            if (auto* definingOp = begin->getDefiningOp()) {
+              if (!dyn_cast<LeafNodeInterface>(definingOp)) {
+                return false;
+              }
+              ++begin;
+            } else {
+              return false;
+            }
+          }
+          return true;
+        }
+
         bool anyGaussianMarginalized(Superword const& superword);
 
         void dumpSuperword(Superword const& superword);

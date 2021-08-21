@@ -64,7 +64,7 @@ namespace {
         return false;
       }
     }
-    if (!option::allowTopologicalMixing) {
+    if (!option::allowTopologicalMixing && !allLeaf(superword.begin(), superword.end())) {
       for (size_t lane = 1; lane < superword.numLanes(); ++lane) {
         if (valueDepths.lookup(superword.getElement(lane)) != valueDepths.lookup(superword.getElement(0))) {
           return false;
