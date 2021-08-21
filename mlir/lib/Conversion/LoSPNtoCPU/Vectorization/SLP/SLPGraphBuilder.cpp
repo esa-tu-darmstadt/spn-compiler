@@ -350,7 +350,7 @@ std::pair<Value, SLPGraphBuilder::Mode> SLPGraphBuilder::getBest(Mode mode,
         if (consecutiveLoads(last, candidate)) {
           bestCandidates.emplace_back(candidate);
         }
-      } else if (!last.isa<BlockArgument>() && !candidate.isa<BlockArgument>()) {
+      } else if (last.getDefiningOp() && candidate.getDefiningOp()) {
         if (last.getDefiningOp()->getName() == candidate.getDefiningOp()->getName()) {
           bestCandidates.emplace_back(candidate);
         }
