@@ -107,20 +107,20 @@ Value XorChainModel::getBest(Value value, ArrayRef<Value> candidates) {
     computeBitCodes(value.getParentBlock());
   }
   cachedChains.try_emplace(value, value, lookAhead, bitMap);
-  SmallVector<unsigned, 8> scores;
+  SmallVector<unsigned, 8> penalties;
   for (auto candidate : candidates) {
     cachedChains.try_emplace(candidate, candidate, lookAhead, bitMap);
     // Retrieve chains *after* insertion because insertion invalidates DenseMap iterators.
     auto& valueChain = cachedChains.find(value)->getSecond();
     auto& candidateChain = cachedChains.find(candidate)->getSecond();
-    scores.emplace_back(valueChain.computeScore(candidateChain));
+    penalties.emplace_back(valueChain.computePenalty(candidateChain));
   }
   size_t minIndex = 0;
-  unsigned minScore = scores[0];
-  for (size_t i = 1; i < scores.size(); ++i) {
-    if (scores[i] < minScore) {
+  unsigned minPenalty = penalties[0];
+  for (size_t i = 1; i < penalties.size(); ++i) {
+    if (penalties[i] < minPenalty) {
       minIndex = i;
-      minScore = scores[i];
+      minPenalty = penalties[i];
     }
   }
   return candidates[minIndex];
@@ -135,7 +135,6 @@ void XorChainModel::computeBitCodes(Block* block) {
       bitMap.encode(value);
     }
   });
-  //bitMap.dump();
 }
 
 void XorChainModel::BitCodeMap::encode(Value value) {
@@ -218,12 +217,9 @@ XorChainModel::XorChain::XorChain(Value value, unsigned lookAhead, BitCodeMap co
     currentValues.swap(operands);
   }
   unsigned oldSize = sequence.size();
-  //dumpBitVector(sequence, "O: ", "\n");
   sequence.resize(oldSize + (allOperands.size() * bitMap.codeWidth()));
-  //dumpBitVector(sequence, "R: ", "\n");
   for (size_t i = 0; i < allOperands.size(); ++i) {
     auto const& bitVector = bitMap.lookup(allOperands[i]);
-    //dumpBitVector(bitVector, "A: ", "\n");
     for (auto it = bitVector.set_bits_begin(); it != bitVector.set_bits_end(); ++it) {
       sequence.set(oldSize + (bitMap.codeWidth() * i) + *it);
     }
@@ -233,15 +229,12 @@ XorChainModel::XorChain::XorChain(Value value, unsigned lookAhead, BitCodeMap co
       }
     }
   }
-  //dumpBitVector(sequence, "N: ", "\n");
 }
 
-unsigned XorChainModel::XorChain::computeScore(XorChainModel::XorChain const& rhs) {
-  //dumpBitVector(sequence, "LHS: ", "\n");
-  //dumpBitVector(rhs.sequence, "RHS: ", "\n");
+unsigned XorChainModel::XorChain::computePenalty(XorChainModel::XorChain const& rhs) {
   // Unfortunately, there is no simple '^' operator. There probably is some better way of doing it, but I don't see it.
   sequence ^= rhs.sequence;
-  unsigned score = sequence.count();
+  unsigned penalty = sequence.count();
   // Restore original sequence.
   sequence ^= rhs.sequence;
   // Search for consecutive loads, then for gathers, then for broadcasts.
@@ -262,13 +255,13 @@ unsigned XorChainModel::XorChain::computeScore(XorChainModel::XorChain const& rh
           matched = true;
         }
           // Gathers.
-        else if (i == 1 && loads[lhsIndex].consecutive(rhs.loads[rhsIndex])) {
-          score += 1;
+        else if (i == 1 && loads[lhsIndex].gatherable(rhs.loads[rhsIndex])) {
+          penalty += 1;
           matched = true;
         }
           // Broadcasts.
         else if (i == 2 && loads[lhsIndex] == rhs.loads[rhsIndex]) {
-          score += 2;
+          penalty += 2;
           matched = true;
         }
         if (matched) {
@@ -280,9 +273,8 @@ unsigned XorChainModel::XorChain::computeScore(XorChainModel::XorChain const& rh
     }
   }
   // No match for a load? Downgrade the score.
-  // Use 3 since it should be taken into account as worse than a consecutive loads, gathers or broadcasts.
-  score += (loads.size() - matchedLoads.size() + (rhs.loads.size() - rhsMatchedLoads.size())) * 3;
-  return score;
+  // Use 3 since it should be taken into account as worse than consecutive loads, gathers or broadcasts.
+  return penalty + (loads.size() - matchedLoads.size() + (rhs.loads.size() - rhsMatchedLoads.size())) * 3;
 }
 
 void XorChainModel::XorChain::dump() const {

@@ -74,7 +74,7 @@ namespace mlir {
             XorChain(Value value,
                      unsigned lookAhead,
                      BitCodeMap const& bitMap);
-            unsigned computeScore(XorChain const& rhs);
+            unsigned computePenalty(XorChain const& rhs);
             void dump() const;
           private:
             /// Stores the chain as a sequence of operation codes.
