@@ -99,6 +99,11 @@ namespace spnc {
     extern Option<bool> slpAllowTopologicalMixing;
 
     ///
+    /// Flag to indicate if XOR chains should be used to compute look-ahead scores instead of Porpodas's algorithm.
+    /// True to use XOR chains, false to use Porpodas's algorithm.
+    extern Option<bool> slpUseXorChains;
+
+    ///
     /// Flag to indicate whether log-space computation should be used.
     extern Option<bool> logSpace;
 

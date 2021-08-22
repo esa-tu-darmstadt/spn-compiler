@@ -27,6 +27,7 @@ namespace mlir {
           extern bool reorderInstructionsDFS;
           extern bool allowDuplicateElements;
           extern bool allowTopologicalMixing;
+          extern bool useXorChains;
         }
 
         bool vectorizable(Operation* op);
@@ -57,11 +58,12 @@ namespace mlir {
           });
         }
 
+        bool commutative(Value value);
+
         template<typename ValueIterator>
         bool commutative(ValueIterator begin, ValueIterator end) {
           while (begin != end) {
-            if (begin->template isa<BlockArgument>()
-                || !begin->getDefiningOp()->template hasTrait<OpTrait::IsCommutative>()) {
+            if (!commutative(*begin)) {
               return false;
             }
             ++begin;
@@ -104,6 +106,10 @@ namespace mlir {
         }
 
         bool anyGaussianMarginalized(Superword const& superword);
+
+        SmallVector<Value, 2> getOperands(Value value);
+
+        void sortByOpcode(SmallVectorImpl<Value>& values, Optional<OperationName> smallestOpcode = llvm::None);
 
         void dumpSuperword(Superword const& superword);
         void dumpSLPNode(SLPNode const& node);

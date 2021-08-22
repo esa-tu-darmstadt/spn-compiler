@@ -60,6 +60,8 @@ Option<bool>spnc::option::slpAllowDuplicateElements
 Option<bool>spnc::option::slpAllowTopologicalMixing
     {"slp-allow-topological-mixing", false, {depends(spnc::option::cpuVectorize, true)}};
 
+Option<bool>spnc::option::slpUseXorChains{"slp-use-xor-chains", false, {depends(spnc::option::cpuVectorize, true)}};
+
 Option<bool> spnc::option::logSpace{"use-log-space", false};
 
 Option<bool> spnc::option::gpuSharedMem{"gpu-shared-mem", true};

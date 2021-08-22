@@ -18,12 +18,13 @@ add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
         Vectorization/SLP/CostModel.cpp
         Vectorization/SLP/GraphConversion.cpp
         Vectorization/SLP/PatternVisitors.cpp
+        Vectorization/SLP/ScoreModel.cpp
         Vectorization/SLP/Seeding.cpp
-        Vectorization/SLP/Util.cpp
         Vectorization/SLP/SLPGraph.cpp
         Vectorization/SLP/SLPGraphBuilder.cpp
         Vectorization/SLP/SLPPatternMatch.cpp
         Vectorization/SLP/SLPVectorizationPatterns.cpp
+        Vectorization/SLP/Util.cpp
         LoSPNtoCPUConversionPasses.cpp
 
         ADDITIONAL_HEADER_DIRS

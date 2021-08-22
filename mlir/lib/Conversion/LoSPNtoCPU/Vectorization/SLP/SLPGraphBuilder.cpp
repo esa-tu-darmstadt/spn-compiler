@@ -13,7 +13,13 @@
 using namespace mlir;
 using namespace mlir::spn::low::slp;
 
-SLPGraphBuilder::SLPGraphBuilder(SLPGraph& graph) : graph{graph} {}
+SLPGraphBuilder::SLPGraphBuilder(SLPGraph& graph) : graph{graph} {
+  if (option::useXorChains) {
+    scoreModel = std::make_unique<XorChainModel>(option::maxLookAhead);
+  } else {
+    scoreModel = std::make_unique<PorpodasModel>(option::maxLookAhead);
+  }
+}
 
 // Some helper functions in an anonymous namespace.
 namespace {
@@ -90,40 +96,6 @@ namespace {
       return std::all_of(std::begin(operand.getUsers()), std::end(operand.getUsers()), [&](auto* user) {
         return node.contains(user->getResult(0));
       });
-    });
-  }
-
-  SmallVector<Value, 2> getOperands(Value value) {
-    SmallVector<Value, 2> operands;
-    operands.reserve(value.getDefiningOp()->getNumOperands());
-    for (auto operand : value.getDefiningOp()->getOperands()) {
-      operands.emplace_back(operand);
-    }
-    return operands;
-  }
-
-  void sortByOpcode(SmallVector<Value, 2>& values, Optional<OperationName> const& smallestOpcode) {
-    llvm::sort(std::begin(values), std::end(values), [&](Value lhs, Value rhs) {
-      auto* lhsOp = lhs.getDefiningOp();
-      auto* rhsOp = rhs.getDefiningOp();
-      if (!lhsOp && !rhsOp) {
-        return lhs.cast<BlockArgument>().getArgNumber() < rhs.cast<BlockArgument>().getArgNumber();
-      } else if (lhsOp && !rhsOp) {
-        return true;
-      } else if (!lhsOp && rhsOp) {
-        return false;
-      }
-      if (smallestOpcode.hasValue()) {
-        if (lhsOp->getName() == smallestOpcode.getValue()) {
-          return rhsOp->getName() != smallestOpcode.getValue();
-        } else if (rhsOp->getName() == smallestOpcode.getValue()) {
-          return false;
-        }
-      }
-      if (lhsOp->getName().getStringRef() == rhsOp->getName().getStringRef()) {
-        return lhsOp->isBeforeInBlock(rhsOp);
-      }
-      return lhsOp->getName().getStringRef() < rhsOp->getName().getStringRef();
     });
   }
 
@@ -367,26 +339,7 @@ std::pair<Value, SLPGraphBuilder::Mode> SLPGraphBuilder::getBest(Mode mode,
     }
       // 2. Look-ahead to choose from best candidates
     else if (mode == OPCODE) {
-      // Look-ahead on various levels
-      // TODO: when the level is increased, we recompute everything from the level before. change that maybe?
-      for (size_t level = 1; level <= option::maxLookAhead; ++level) {
-        // Best is the candidate with max score
-        unsigned bestScore = 0;
-        llvm::SmallSet<unsigned, 4> scores;
-        for (auto candidate : bestCandidates) {
-          // Get the look-ahead score
-          unsigned score = getLookAheadScore(last, candidate, level);
-          if (scores.empty() || score > bestScore) {
-            best = candidate;
-            bestScore = score;
-            scores.insert(score);
-          }
-        }
-        // If found best at level don't go deeper
-        if (best != nullptr && scores.size() > 1) {
-          break;
-        }
-      }
+      best = scoreModel->getBest(last, bestCandidates);
     }
   }
   // Remove best from candidates
@@ -394,45 +347,6 @@ std::pair<Value, SLPGraphBuilder::Mode> SLPGraphBuilder::getBest(Mode mode,
     candidates.erase(std::find(std::begin(candidates), std::end(candidates), best));
   }
   return {best, resultMode};
-}
-
-unsigned SLPGraphBuilder::getLookAheadScore(Value last, Value candidate, unsigned maxLevel) const {
-  auto* lastOp = last.getDefiningOp();
-  auto* candidateOp = candidate.getDefiningOp();
-  if (!lastOp || !candidateOp) {
-    return last == candidate;
-  }
-  if (lastOp->getName() != candidateOp->getName()) {
-    return 0;
-  }
-  if (auto lhsLoad = dyn_cast<SPNBatchRead>(lastOp)) {
-    // We know both operations share the same opcode.
-    auto rhsLoad = cast<SPNBatchRead>(candidateOp);
-    if (lhsLoad.batchMem() == rhsLoad.batchMem() && lhsLoad.batchIndex() == rhsLoad.batchIndex()) {
-      if (lhsLoad.sampleIndex() + 1 == rhsLoad.sampleIndex()) {
-        // Returning 3 prefers consecutive loads to gather loads and broadcast loads.
-        return 3;
-      }
-      // Returning 2 prefers gather loads to broadcast loads.
-      if (lhsLoad.sampleIndex() != rhsLoad.sampleIndex()) {
-        return 2;
-      }
-      // Broadcast load.
-      return 1;
-    } else {
-      return 0;
-    }
-  }
-  if (maxLevel == 0) {
-    return 1;
-  }
-  unsigned scoreSum = 0;
-  for (auto& lastOperand : getOperands(last)) {
-    for (auto& candidateOperand : getOperands(candidate)) {
-      scoreSum += getLookAheadScore(lastOperand, candidateOperand, maxLevel - 1);
-    }
-  }
-  return scoreSum;
 }
 
 // === Utilities === //

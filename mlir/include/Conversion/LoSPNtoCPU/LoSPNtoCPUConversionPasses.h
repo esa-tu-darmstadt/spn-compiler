@@ -27,7 +27,8 @@ namespace mlir {
                                         unsigned slpMaxLookAhead,
                                         bool slpReorderInstructionsDFS,
                                         bool slpAllowDuplicateElements,
-                                        bool slpAllowTopologicalMixing) : vectorize{enableVectorization} {
+                                        bool slpAllowTopologicalMixing,
+                                        bool slpUseXorChains) : vectorize{enableVectorization} {
         low::slp::option::maxAttempts = slpMaxAttempts;
         low::slp::option::maxSuccessfulIterations = slpMaxSuccessfulIterations;
         low::slp::option::maxNodeSize = slpMaxNodeSize;
@@ -35,6 +36,7 @@ namespace mlir {
         low::slp::option::reorderInstructionsDFS = slpReorderInstructionsDFS;
         low::slp::option::allowDuplicateElements = slpAllowDuplicateElements;
         low::slp::option::allowTopologicalMixing = slpAllowTopologicalMixing;
+        low::slp::option::useXorChains = slpUseXorChains;
       }
 
     protected:
@@ -56,7 +58,8 @@ namespace mlir {
                                                                   unsigned slpMaxLookAhead,
                                                                   bool slpReorderInstructionsDFS,
                                                                   bool slpAllowDuplicateElements,
-                                                                  bool slpAllowTopologicalMixing);
+                                                                  bool slpAllowTopologicalMixing,
+                                                                  bool slpUseXorChains);
 
     struct LoSPNtoCPUNodeConversionPass : public PassWrapper<LoSPNtoCPUNodeConversionPass, OperationPass<ModuleOp>> {
 

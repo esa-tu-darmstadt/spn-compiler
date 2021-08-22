@@ -10,6 +10,7 @@
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_SLP_SLPGRAPHBUILDER_H
 
 #include "SLPGraph.h"
+#include "ScoreModel.h"
 #include "LoSPN/LoSPNOps.h"
 #include "mlir/IR/Operation.h"
 
@@ -44,7 +45,6 @@ namespace mlir {
           void buildGraph(std::shared_ptr<Superword> const& superword);
           void reorderOperands(SLPNode* multinode) const;
           std::pair<Value, Mode> getBest(Mode mode, Value last, SmallVector<Value>& candidates) const;
-          unsigned getLookAheadScore(Value last, Value candidate, unsigned maxLevel) const;
 
           // === Utilities === //
 
@@ -61,6 +61,8 @@ namespace mlir {
           // ================= //
 
           SLPGraph& graph;
+          /// The model to use for look-ahead computation.
+          std::unique_ptr<ScoreModel> scoreModel;
           DenseMap<Superword*, std::shared_ptr<SLPNode>> nodeBySuperword;
           DenseMap<Value, SmallVector<std::shared_ptr<Superword>>> superwordsByValue;
           /// Prevents building nodes more than once in case they appear several times in the graph.

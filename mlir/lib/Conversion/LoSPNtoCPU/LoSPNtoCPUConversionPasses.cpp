@@ -116,7 +116,8 @@ std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoCPUStructureConversionPass(b
                                                                                unsigned slpMaxLookAhead,
                                                                                bool slpReorderInstructionsDFS,
                                                                                bool slpAllowDuplicateElements,
-                                                                               bool slpAllowTopologicalMixing) {
+                                                                               bool slpAllowTopologicalMixing,
+                                                                               bool slpUseXorChains) {
   return std::make_unique<LoSPNtoCPUStructureConversionPass>(enableVectorization,
                                                              slpMaxAttempts,
                                                              slpMaxSuccessfulIterations,
@@ -124,7 +125,8 @@ std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoCPUStructureConversionPass(b
                                                              slpMaxLookAhead,
                                                              slpReorderInstructionsDFS,
                                                              slpAllowDuplicateElements,
-                                                             slpAllowTopologicalMixing);
+                                                             slpAllowTopologicalMixing,
+                                                             slpUseXorChains);
 }
 
 void mlir::spn::LoSPNtoCPUNodeConversionPass::runOnOperation() {

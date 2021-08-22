@@ -25,7 +25,8 @@ void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, m
       spnc::option::slpMaxLookAhead.get(*this->config),
       spnc::option::slpReorderInstructionsDFS.get(*this->config),
       spnc::option::slpAllowDuplicateElements.get(*this->config),
-      spnc::option::slpAllowTopologicalMixing.get(*this->config))
+      spnc::option::slpAllowTopologicalMixing.get(*this->config),
+      spnc::option::slpUseXorChains.get(*this->config))
   );
   if (vectorize) {
     auto useShuffle = spnc::option::replaceGatherWithShuffle.get(*this->config);

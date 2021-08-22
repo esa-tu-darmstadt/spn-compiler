@@ -22,6 +22,7 @@ unsigned option::maxSuccessfulIterations = 1;
 bool option::reorderInstructionsDFS = true;
 bool option::allowDuplicateElements = false;
 bool option::allowTopologicalMixing = false;
+bool option::useXorChains = false;
 
 bool slp::vectorizable(Operation* op) {
   return (op->hasTrait<OpTrait::spn::low::VectorizableOp>() || op->hasTrait<OpTrait::ConstantLike>())
@@ -42,6 +43,10 @@ bool slp::ofVectorizableType(Value value) {
     return VectorType::isValidElementType(logType.getBaseType());
   }
   return VectorType::isValidElementType(value.getType());
+}
+
+bool slp::commutative(Value value) {
+  return value.getDefiningOp() && value.getDefiningOp()->hasTrait<OpTrait::IsCommutative>();
 }
 
 bool slp::consecutiveLoads(Value lhs, Value rhs) {
@@ -71,6 +76,41 @@ bool slp::anyGaussianMarginalized(Superword const& superword) {
     }
   }
   return false;
+}
+
+SmallVector<Value, 2> slp::getOperands(Value value) {
+  SmallVector<Value, 2> operands;
+  operands.reserve(value.getDefiningOp()->getNumOperands());
+  for (auto operand : value.getDefiningOp()->getOperands()) {
+    operands.emplace_back(operand);
+  }
+  return operands;
+}
+
+void slp::sortByOpcode(SmallVectorImpl<Value>& values, Optional<OperationName> smallestOpcode) {
+  llvm::sort(std::begin(values), std::end(values), [&](Value lhs, Value rhs) {
+    auto* lhsOp = lhs.getDefiningOp();
+    auto* rhsOp = rhs.getDefiningOp();
+    if (!lhsOp && !rhsOp) {
+      return lhs.cast<BlockArgument>().getArgNumber() < rhs.cast<BlockArgument>().getArgNumber();
+    } else if (lhsOp && !rhsOp) {
+      return true;
+    } else if (!lhsOp && rhsOp) {
+      return false;
+    }
+    if (smallestOpcode.hasValue()) {
+      if (lhsOp->getName() == smallestOpcode.getValue()) {
+        return rhsOp->getName() != smallestOpcode.getValue();
+      } else if (rhsOp->getName() == smallestOpcode.getValue()) {
+        return false;
+      }
+    }
+    // Avoid tiebreaks.
+    if (lhsOp->getName().getStringRef() == rhsOp->getName().getStringRef()) {
+      return lhsOp->isBeforeInBlock(rhsOp);
+    }
+    return lhsOp->getName().getStringRef() < rhsOp->getName().getStringRef();
+  });
 }
 
 // Helper functions in an anonymous namespace.
