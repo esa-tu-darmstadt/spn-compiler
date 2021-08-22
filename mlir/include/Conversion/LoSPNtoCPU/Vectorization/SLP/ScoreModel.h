@@ -79,7 +79,7 @@ namespace mlir {
           private:
             /// Stores the chain as a sequence of operation codes.
             llvm::BitVector sequence;
-            SmallVector<LoadIndex, 8> loadIndices;
+            SmallVector<LoadIndex, 8> loads;
           };
 
           BitCodeMap bitMap;
