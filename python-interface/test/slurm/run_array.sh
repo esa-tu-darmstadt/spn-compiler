@@ -15,7 +15,7 @@ if [[ $# -ne 5 ]]; then
   >&2 echo "parameter #1: the array file with python parameters"
   >&2 echo "parameter #2: the directory to write python data to (where csv data will be stored, ...)"
   >&2 echo "parameter #3: the prefix to attach to log files"
-  >&2 echo "parameter #4: the spnc source code directory"
+  >&2 echo "parameter #4: the spnc source code directory containing the python script"
   >&2 echo "parameter #5: the spnc build directory"
   exit 2
 fi
