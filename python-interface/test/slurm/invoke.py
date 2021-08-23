@@ -20,7 +20,7 @@ def toListOrAppend(variable, value):
     return variable
 
 
-def parse_output(output):
+def parse_output(output, skip_execution):
     # Outputs that appear only once.
     compile_time_re = re.compile(r"COMPILATION TIME:\s+(.+)\s+ns")
     compile_time = None
@@ -116,39 +116,52 @@ def parse_output(output):
         elif m := slp_rewrite_re.match(line):
             slp_match_rewrite_time = toListOrAppend(slp_match_rewrite_time, int(m.group(2)))
 
-    if not status or compile_time is None or execution_time is None:
+    if not status or compile_time is None or (not skip_execution and execution_time is None):
         print(f"Status: {status}")
         print(f"Compile time: {compile_time}")
         print(f"Execution time: {execution_time}")
         raise RuntimeError("Time measurement failed")
 
-    data = {
-        "compile time (ns)": compile_time,
-        "#profitable iterations": num_profitable_iterations,
-        "#lospn ops pre SLP": num_ops_pre,
-        "#lospn ops post SLP (total)": num_ops_post_total,
-        "#lospn ops post SLP (not dead)": num_ops_post_not_dead,
-        "slp time total (ns)": slp_total_time,
-        "execution time total (ns)": execution_time,
-        "#inferences": num_executions,
-    }
+    data = {"compile time (ns)": compile_time}
 
-    for i in range(len(lifetimes)):
-        data[f"lifetime total in task {i}"] = lifetimes[i]
-    for i in range(len(op_names)):
-        data[f"#{op_names[i]}"] = op_counts[i]
-    for i in range(len(num_superwords)):
-        data[f"#superwords in graph {i}"] = num_superwords[i]
-    for i in range(len(num_arith_ops)):
-        data[f"#unique arithmetic op in graph {i}"] = num_arith_ops[i]
-    for i in range(len(slp_cover)):
-        data[f"% function ops dead after iteration {i}"] = slp_cover[i]
-    for i in range(len(slp_seed_time)):
-        data[f"slp seed time {i} (ns)"] = slp_seed_time[i]
-    for i in range(len(slp_graph_time)):
-        data[f"slp graph time {i} (ns)"] = slp_graph_time[i]
-    for i in range(len(slp_match_rewrite_time)):
-        data[f"slp pattern match/rewrite time {i} (ns)"] = slp_match_rewrite_time[i]
+    if num_profitable_iterations is not None:
+        data["#profitable iterations"] = num_profitable_iterations
+    if num_ops_pre is not None:
+        data["#lospn ops pre SLP"] = num_ops_pre
+    if num_ops_post_total is not None:
+        data["#lospn ops post SLP (total)"] = num_ops_post_total
+    if num_ops_post_not_dead is not None:
+        data["#lospn ops post SLP (not dead)"] = num_ops_post_not_dead
+    if slp_total_time is not None:
+        data["slp time total (ns)"] = slp_total_time
+    if execution_time is not None:
+        data["execution time total (ns)"] = execution_time
+    if num_executions is not None:
+        data["#inferences"] = num_executions
+    if lifetimes is not None:
+        for i in range(len(lifetimes)):
+            data[f"lifetime total in task {i}"] = lifetimes[i]
+    if op_names is not None:
+        for i in range(len(op_names)):
+            data[f"#{op_names[i]}"] = op_counts[i]
+    if num_superwords is not None:
+        for i in range(len(num_superwords)):
+            data[f"#superwords in graph {i}"] = num_superwords[i]
+    if num_arith_ops is not None:
+        for i in range(len(num_arith_ops)):
+            data[f"#unique arithmetic op in graph {i}"] = num_arith_ops[i]
+    if slp_cover is not None:
+        for i in range(len(slp_cover)):
+            data[f"% function ops dead after iteration {i}"] = slp_cover[i]
+    if slp_seed_time is not None:
+        for i in range(len(slp_seed_time)):
+            data[f"slp seed time {i} (ns)"] = slp_seed_time[i]
+    if slp_graph_time is not None:
+        for i in range(len(slp_graph_time)):
+            data[f"slp graph time {i} (ns)"] = slp_graph_time[i]
+    if slp_match_rewrite_time is not None:
+        for i in range(len(slp_match_rewrite_time)):
+            data[f"slp pattern match/rewrite time {i} (ns)"] = slp_match_rewrite_time[i]
 
     return data
 
@@ -190,7 +203,7 @@ def invokeCompileAndExecute(logDir, modelName, modelFile, inputFile, referenceFi
 
     run_result = subprocess.run(command, capture_output=True, text=True)
     if run_result.returncode == 0:
-        parsed_data = parse_output(run_result.stdout)
+        parsed_data = parse_output(run_result.stdout, skipExecution)
         data = {"Name": modelName}
         data.update(parsed_data)
         if not os.path.isdir(logDir):

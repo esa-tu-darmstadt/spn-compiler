@@ -96,9 +96,9 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   });
 #endif
 
-  // Useful for when we are only interested in some stats, not the compiled kernel or output comparisons (reduces time
-  // spent in subsequent passes practically to zero).
-#define DELETE_OPS false
+  // Useful for when we are only interested in some intermediate stats and not the compiled kernel. This reduces time
+  // spent in subsequent passes practically to zero.
+#define DELETE_OPS true
 #if DELETE_OPS
   getOperation().walk([&](FuncOp function) {
     function.back().getTerminator()->moveBefore(&function.front().front());
