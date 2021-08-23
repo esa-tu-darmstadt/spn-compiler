@@ -126,7 +126,7 @@ def parse_output(output, vectorize, expected_iterations=1):
 def invokeCompileAndExecute(logDir, modelName, modelFile, inputFile, referenceFile, kernelDir, removeKernel,
                             vectorize, vecLib, shuffle, maxAttempts=None, maxSuccessfulIterations=None,
                             maxNodeSize=None, maxLookAhead=None, reorderInstructionsDFS=None,
-                            allowDuplicateElements=None, allowTopologicalMixing=None, useXorChains=False,
+                            allowDuplicateElements=None, allowTopologicalMixing=None, useXorChains=None,
                             maxTaskSize=None, skipExecution=False):
     command = ["python3", os.path.join(os.path.dirname(os.path.realpath(__file__)), "cpuExecutionSlurm.py")]
     # model name and model file

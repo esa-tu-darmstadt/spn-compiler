@@ -27,7 +27,7 @@ def measure_execution_time(name: str, spn_file: str, input_data: str, reference_
                            remove_kernel: bool, vectorize: str, vectorLibrary: str, shuffle: str, maxAttempts=None,
                            maxSuccessfulIterations=None, maxNodeSize=None, maxLookAhead=None,
                            reorderInstructionsDFS=None, allowDuplicateElements=None, allowTopologicalMixing=None,
-                           useXorChains=False, maxTaskSize=None, skipExecution=False):
+                           useXorChains=None, maxTaskSize=None, skipExecution=False):
     # Read the trained SPN from file
     model = BinaryDeserializer(spn_file).deserialize_from_file()
     # Set the name and feature type
