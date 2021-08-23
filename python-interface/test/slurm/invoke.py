@@ -126,7 +126,8 @@ def parse_output(output, vectorize, expected_iterations=1):
 def invokeCompileAndExecute(logDir, modelName, modelFile, inputFile, referenceFile, kernelDir, removeKernel,
                             vectorize, vecLib, shuffle, maxAttempts=None, maxSuccessfulIterations=None,
                             maxNodeSize=None, maxLookAhead=None, reorderInstructionsDFS=None,
-                            allowDuplicateElements=None, allowTopologicalMixing=None, maxTaskSize=None):
+                            allowDuplicateElements=None, allowTopologicalMixing=None, useXorChains=False,
+                            maxTaskSize=None, skipExecution=False):
     command = ["python3", os.path.join(os.path.dirname(os.path.realpath(__file__)), "cpuExecutionSlurm.py")]
     # model name and model file
     command.extend(("--name", modelName, "--spn_file", modelFile))
@@ -149,8 +150,12 @@ def invokeCompileAndExecute(logDir, modelName, modelFile, inputFile, referenceFi
         command.extend(("--allowDuplicateElements", str(allowDuplicateElements)))
     if allowTopologicalMixing is not None:
         command.extend(("--allowTopologicalMixing", str(allowTopologicalMixing)))
+    if useXorChains is not None:
+        command.extend(("--useXorChains", str(useXorChains)))
     if maxTaskSize is not None:
         command.extend(("--maxTaskSize", str(maxTaskSize)))
+    if skipExecution:
+        command.extend(("--skipExecution", str(skipExecution)))
 
     run_result = subprocess.run(command, capture_output=True, text=True)
     if run_result.returncode == 0:

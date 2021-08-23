@@ -8,6 +8,7 @@
 
 import fire
 import os
+import pandas
 
 
 def getIOFolder(ratspnModel: str):
@@ -63,7 +64,8 @@ def get_speakers(speakersDir: str, dataDir: str):
 def traverseModels(speakersDir: str, speakersDataDir: str, ratspnDir: str, ratspnDataDir: str, arrayDir: str,
                    arrayFile: str, kernelDir: str, removeKernels: bool, vectorize: bool, vecLib: str, shuffle: bool,
                    maxAttempts=None, maxSuccessfulIterations=None, maxNodeSize=None, maxLookAhead=None,
-                   reorderInstructionsDFS=None, allowDuplicateElements=None, allowTopologicalMixing=None):
+                   reorderInstructionsDFS=None, allowDuplicateElements=None, allowTopologicalMixing=None,
+                   useXorChains=None, taskPartitions=None, skipExecution=False):
     models = []
     models.extend(get_speakers(speakersDir, speakersDataDir))
     models.extend(get_ratspns(ratspnDir, ratspnDataDir))
@@ -84,13 +86,42 @@ def traverseModels(speakersDir: str, speakersDataDir: str, ratspnDir: str, ratsp
         os.makedirs(kernelDir)
 
     with open(os.path.join(arrayDir, arrayFile), 'w') as file:
-        optionals = [str(maxAttempts), str(maxSuccessfulIterations), str(maxNodeSize), str(maxLookAhead),
-                     str(reorderInstructionsDFS), str(allowDuplicateElements), str(allowTopologicalMixing)]
-        optionals_string = ' '.join(opt for opt in optionals if opt != "None")
         for m in models[:-13]:
-            file.write(
-                f"{m[0]} {m[1]} {m[2]} {m[3]} {kernelDir} {removeKernels} {vectorize} {vecLib} {shuffle} {optionals_string}\n"
-            )
+            arguments = [
+                "--modelName", m[0],
+                "--modelFile", m[1],
+                "--inputFile", m[2],
+                "--referenceFile", m[3],
+                "--kernelDir", kernelDir,
+                "--removeKernel", str(removeKernels),
+                "--vectorize", str(vectorize),
+                "--vecLib", str(vecLib),
+                "--shuffle", str(shuffle)
+            ]
+            if maxAttempts is not None:
+                arguments.extend(("--maxAttempts", str(maxAttempts)))
+            if maxSuccessfulIterations is not None:
+                arguments.extend(("--maxSuccessfulIterations", str(maxSuccessfulIterations)))
+            if maxNodeSize is not None:
+                arguments.extend(("--maxNodeSize", str(maxNodeSize)))
+            if maxLookAhead is not None:
+                arguments.extend(("--maxLookAhead", str(maxLookAhead)))
+            if reorderInstructionsDFS is not None:
+                arguments.extend(("--reorderInstructionsDFS", str(reorderInstructionsDFS)))
+            if allowDuplicateElements is not None:
+                arguments.extend(("--allowDuplicateElements", str(allowDuplicateElements)))
+            if allowTopologicalMixing is not None:
+                arguments.extend(("--allowTopologicalMixing", str(allowTopologicalMixing)))
+            if useXorChains is not None:
+                arguments.extend(("--useXorChains", str(useXorChains)))
+            if taskPartitions is not None and taskPartitions > 1:
+                spn_sizes = pandas.read_csv("lo_spn_sizes_all.csv", index_col="Name")
+                max_task_size = spn_sizes.loc[m[0], "#lospn ops"] // taskPartitions
+                arguments.extend(("--maxTaskSize", str(max_task_size)))
+            if skipExecution:
+                arguments.extend(("--skipExecution", str(skipExecution)))
+            file.write(' '.join(arguments))
+            file.write('\n')
 
 
 if __name__ == '__main__':

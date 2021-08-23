@@ -27,7 +27,7 @@ def measure_execution_time(name: str, spn_file: str, input_data: str, reference_
                            remove_kernel: bool, vectorize: str, vectorLibrary: str, shuffle: str, maxAttempts=None,
                            maxSuccessfulIterations=None, maxNodeSize=None, maxLookAhead=None,
                            reorderInstructionsDFS=None, allowDuplicateElements=None, allowTopologicalMixing=None,
-                           maxTaskSize=None):
+                           useXorChains=False, maxTaskSize=None, skipExecution=False):
     # Read the trained SPN from file
     model = BinaryDeserializer(spn_file).deserialize_from_file()
     # Set the name and feature type
@@ -78,6 +78,8 @@ def measure_execution_time(name: str, spn_file: str, input_data: str, reference_
         options["slp-allow-duplicate-elements"] = translateBool(bool(allowDuplicateElements))
     if allowTopologicalMixing is not None:
         options["slp-allow-topological-mixing"] = translateBool(bool(allowTopologicalMixing))
+    if useXorChains is not None:
+        options["slp-use-xor-chains"] = translateBool(bool(useXorChains))
     if maxTaskSize is not None:
         options["maxTaskSize"] = str(maxTaskSize)
 
@@ -91,20 +93,22 @@ def measure_execution_time(name: str, spn_file: str, input_data: str, reference_
     if not remove_kernel:
         shutil.copyfile(k.fileName(), os.path.join(kernel_dir, name + ".so"))
 
-    # Read input and reference data
-    inputs = np.genfromtxt(input_data, delimiter=",", dtype="float32")
-    reference = np.genfromtxt(reference_data, delimiter=",", dtype="float32")
+    if not skipExecution:
 
-    # Execute the compiled Kernel.
-    numSamples = inputs.shape[0]
-    print("Comparing with reference...")
-    for i in range(numSamples):
-        results = k.execute(1, np.atleast_2d(inputs[i]))
-        # Compare computed result and reference to make sure the computation by the compiled Kernel is correct.
-        if not np.all(np.isclose(results, reference[i])):
-            print(f"Result: {results}")
-            print(f"Reference: {reference[i]}")
-            raise RuntimeError("COMPUTATION FAILED: Results did not match reference!")
+        # Read input and reference data
+        inputs = np.genfromtxt(input_data, delimiter=",", dtype="float32")
+        reference = np.genfromtxt(reference_data, delimiter=",", dtype="float32")
+
+        # Execute the compiled Kernel.
+        numSamples = inputs.shape[0]
+        print("Comparing with reference...")
+        for i in range(numSamples):
+            results = k.execute(1, np.atleast_2d(inputs[i]))
+            # Compare computed result and reference to make sure the computation by the compiled Kernel is correct.
+            if not np.all(np.isclose(results, reference[i])):
+                print(f"Result: {results}")
+                print(f"Reference: {reference[i]}")
+                raise RuntimeError("COMPUTATION FAILED: Results did not match reference!")
 
     print("STATUS OK")
 

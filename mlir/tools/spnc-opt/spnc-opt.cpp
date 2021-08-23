@@ -54,6 +54,11 @@ static llvm::cl::opt<bool> slpAllowTopologicalMixing("slp-allow-topological-mixi
                                                          "Flag to indicate if elements with different topological depths are allowed in vectors during SLP graph building"),
                                                      llvm::cl::init(false));
 
+static llvm::cl::opt<bool> slpUseXorChains("slp-use-xor-chains",
+                                           llvm::cl::desc(
+                                               "Flag to indicate if XOR chains should be used to compute look-ahead scores instead of Porpodas's algorithm"),
+                                           llvm::cl::init(false));
+
 static llvm::cl::opt<bool> logSpace("use-log-space",
                                     llvm::cl::desc("Use log-space computation"),
                                     llvm::cl::init(false));
@@ -93,7 +98,8 @@ int main(int argc, char** argv) {
                                                                                  slpMaxLookAhead,
                                                                                  slpReorderInstructionsDFS,
                                                                                  slpAllowDuplicateElements,
-                                                                                 slpAllowTopologicalMixing);
+                                                                                 slpAllowTopologicalMixing,
+                                                                                 slpUseXorChains);
                      });
 
   mlir::registerPass("convert-lospn-nodes-to-cpu", "Convert nodes from LoSPN to CPU target",

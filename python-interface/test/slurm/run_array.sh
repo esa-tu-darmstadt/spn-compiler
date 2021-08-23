@@ -26,34 +26,13 @@ LOG_PREFIX=$3
 SRC_DIR=$4
 BUILD_DIR=$5
 
-NUM_COLUMNS=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print NF}}" ${PARAMETERS_FILE})
-if [[ ${NUM_COLUMNS} -ne 16 ]]; then
-  >&2 echo "expected 16 columns in parameter file at line ${SLURM_ARRAY_TASK_ID}, but got ${NUM_COLUMNS}"
-  exit 2
-fi
-
-SPN_NAME=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$1}}" ${PARAMETERS_FILE})
-SPN_MODEL_FILE=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$2}}" ${PARAMETERS_FILE})
-SPN_INPUT_FILE=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$3}}" ${PARAMETERS_FILE})
-SPN_REFERENCE_FILE=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$4}}" ${PARAMETERS_FILE})
-KERNEL_DIR=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$5}}" ${PARAMETERS_FILE})
-REMOVE_KERNELS=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$6}}" ${PARAMETERS_FILE})
-VECTORIZE=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$7}}" ${PARAMETERS_FILE})
-VECTOR_LIBRARY=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$8}}" ${PARAMETERS_FILE})
-SHUFFLE=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$9}}" ${PARAMETERS_FILE})
-MAX_ATTEMPTS=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$10}}" ${PARAMETERS_FILE})
-MAX_SUCCESSFUL_ITERATIONS=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$11}}" ${PARAMETERS_FILE})
-MAX_NODE_SIZE=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$12}}" ${PARAMETERS_FILE})
-MAX_LOOK_AHEAD=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$13}}" ${PARAMETERS_FILE})
-REORDER_DFS=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$14}}" ${PARAMETERS_FILE})
-ALLOW_DUPLICATES=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$15}}" ${PARAMETERS_FILE})
-ALLOW_TOPOLOGICAL_MIXING=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print \$16}}" ${PARAMETERS_FILE})
+ARGUMENTS=$(awk "{if (NR==${SLURM_ARRAY_TASK_ID}) {print}}" ${PARAMETERS_FILE})
 
 echo "Sourcing virtual environment"
 cd ${BUILD_DIR}
 source venv/bin/activate
 
 echo "Running Python script"
-time python -u ${SRC_DIR}/python-interface/test/slurm/invoke.py --logDir ${LOG_DIR} --modelName ${SPN_NAME} --modelFile ${SPN_MODEL_FILE} --inputFile ${SPN_INPUT_FILE} --referenceFile ${SPN_REFERENCE_FILE} --kernelDir ${KERNEL_DIR} --removeKernel ${REMOVE_KERNELS} --vectorize ${VECTORIZE} --vecLib ${VECTOR_LIBRARY} --shuffle ${SHUFFLE} --maxAttempts ${MAX_ATTEMPTS} --maxSuccessfulIterations ${MAX_SUCCESSFUL_ITERATIONS} --maxNodeSize ${MAX_NODE_SIZE} --maxLookAhead ${MAX_LOOK_AHEAD} --reorderInstructionsDFS ${REORDER_DFS} --allowDuplicateElements ${ALLOW_DUPLICATES} --allowTopologicalMixing ${ALLOW_TOPOLOGICAL_MIXING} &> /net/celebdil/csv/eval/slurm-logs/kernels/${LOG_PREFIX}_spn_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out
+time python -u ${SRC_DIR}/python-interface/test/slurm/invoke.py --logDir ${LOG_DIR} ${ARGUMENTS} &> /net/celebdil/csv/eval/slurm-logs/${LOG_PREFIX}_spn_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out
 
 echo "Done"
