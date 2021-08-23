@@ -98,11 +98,13 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
   // Apply SLP vectorization.
   task->emitRemark() << "Beginning SLP vectorization (max attempts: " << option::maxAttempts
-                     << ", max successful iterations: " << option::maxSuccessfulIterations << ", max multinode size: "
-                     << option::maxNodeSize << ", max look-ahead: " << option::maxLookAhead << ", reordering DFS: "
-                     << option::reorderInstructionsDFS << ", duplicates allowed: "
-                     << option::allowDuplicateElements << ", topological mixing allowed: "
-                     << option::allowTopologicalMixing << ").";
+                     << ", max successful iterations: " << option::maxSuccessfulIterations
+                     << ", max multinode size: " << option::maxNodeSize
+                     << ", max look-ahead: " << option::maxLookAhead
+                     << ", reordering DFS: " << option::reorderInstructionsDFS
+                     << ", duplicates allowed: " << option::allowDuplicateElements
+                     << ", topological mixing allowed: " << option::allowTopologicalMixing
+                     << ", use XOR chains: " << option::useXorChains << ").";
 
 // Print the number of loSPN ops in the entire function
 #define PRINT_SIZE true

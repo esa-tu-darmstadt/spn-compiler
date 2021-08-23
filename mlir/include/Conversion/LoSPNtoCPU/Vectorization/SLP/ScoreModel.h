@@ -57,32 +57,29 @@ namespace mlir {
           };
 
           struct LoadIndex {
-            LoadIndex(Value batchMem, Value batchIndex, uint32_t sampleIndex) : batchMem{batchMem},
-                                                                                batchIndex{batchIndex},
-                                                                                sampleIndex{sampleIndex} {}
-
+            LoadIndex(Value batchMem, Value batchIndex, uint32_t sampleIndex);
             bool consecutive(LoadIndex const& rhs) const;
             bool gatherable(LoadIndex const& rhs) const;
             bool operator==(LoadIndex const& rhs) const;
-
+          private:
             Value batchMem;
             Value batchIndex;
             uint32_t sampleIndex;
           };
 
           struct XorChain {
-            XorChain(Value value,
-                     unsigned lookAhead,
-                     BitCodeMap const& bitMap);
+            XorChain(Value value, unsigned lookAhead, BitCodeMap const& encodings);
             unsigned computePenalty(XorChain const& rhs);
             void dump() const;
           private:
             /// Stores the chain as a sequence of operation codes.
+            // Since each operation encoding contains many zeros and only a single bit that is 1, llvm::SparseBitVector
+            // would be extraordinarily useful. Unfortunately, these do not support XOR operations.
             llvm::BitVector sequence;
             SmallVector<LoadIndex, 8> loads;
           };
 
-          BitCodeMap bitMap;
+          BitCodeMap encodings;
           DenseMap<Value, XorChain> cachedChains;
 
         };

@@ -23,7 +23,7 @@ ScoreModel::ScoreModel(unsigned lookAhead) : lookAhead{lookAhead} {}
 Value PorpodasModel::getBest(Value value, ArrayRef<Value> candidates) {
   Value best = nullptr;
   // Look-ahead on various levels
-  // TODO: when the level is increased, we recompute everything from the level before. change that maybe?
+  // TODO: when the level is increased, we recompute everything from the level before. that could be changed...
   for (size_t level = 1; level <= lookAhead; ++level) {
     // Best is the candidate with max score
     unsigned bestScore = 0;
@@ -103,13 +103,13 @@ namespace {
 
 Value XorChainModel::getBest(Value value, ArrayRef<Value> candidates) {
   assert(!candidates.empty() && "candidates must not be empty");
-  if (bitMap.empty()) {
+  if (encodings.empty()) {
     computeBitCodes(value.getParentBlock());
   }
-  cachedChains.try_emplace(value, value, lookAhead, bitMap);
+  cachedChains.try_emplace(value, value, lookAhead, encodings);
   SmallVector<unsigned, 8> penalties;
   for (auto candidate : candidates) {
-    cachedChains.try_emplace(candidate, candidate, lookAhead, bitMap);
+    cachedChains.try_emplace(candidate, candidate, lookAhead, encodings);
     // Retrieve chains *after* insertion because insertion invalidates DenseMap iterators.
     auto& valueChain = cachedChains.find(value)->getSecond();
     auto& candidateChain = cachedChains.find(candidate)->getSecond();
@@ -129,10 +129,10 @@ Value XorChainModel::getBest(Value value, ArrayRef<Value> candidates) {
 void XorChainModel::computeBitCodes(Block* block) {
   block->walk([&](Operation* op) {
     for (auto result: op->getResults()) {
-      bitMap.encode(result);
+      encodings.encode(result);
     }
     for (auto value : op->getOperands()) {
-      bitMap.encode(value);
+      encodings.encode(value);
     }
   });
 }
@@ -186,6 +186,12 @@ void XorChainModel::BitCodeMap::dump() const {
   }
 }
 
+XorChainModel::LoadIndex::LoadIndex(Value batchMem, Value batchIndex, uint32_t sampleIndex) : batchMem{batchMem},
+                                                                                              batchIndex{batchIndex},
+                                                                                              sampleIndex{sampleIndex} {
+
+}
+
 bool XorChainModel::LoadIndex::consecutive(LoadIndex const& rhs) const {
   return batchMem == rhs.batchMem && batchIndex == rhs.batchIndex && sampleIndex + 1 == rhs.sampleIndex;
 }
@@ -198,32 +204,39 @@ bool XorChainModel::LoadIndex::operator==(LoadIndex const& rhs) const {
   return batchMem == rhs.batchMem && batchIndex == rhs.batchIndex && sampleIndex == rhs.sampleIndex;
 }
 
-XorChainModel::XorChain::XorChain(Value value, unsigned lookAhead, BitCodeMap const& bitMap) {
-  SmallVector<Value, 2> currentValues{value};
-  SmallVector<Value, 8> allOperands;
-  for (unsigned remainingLookAhead = lookAhead; remainingLookAhead-- > 0;) {
-    SmallVector<Value, 4> operands;
-    bool allCommutative = commutative(currentValues.begin(), currentValues.end());
-    for (auto currentValue : currentValues) {
-      auto currentOperands = getOperands(currentValue);
-      if (!allCommutative && commutative(currentValue)) {
-        sortByOpcode(currentOperands);
+// Helper functions in anonymous namespace.
+namespace {
+  SmallVector<Value, 8> getOperandChain(Value value, unsigned lookAhead) {
+    SmallVector<Value, 8> allOperands;
+    SmallVector<Value, 2> currentValues{value};
+    for (unsigned remainingLookAhead = lookAhead; remainingLookAhead-- > 0;) {
+      SmallVector<Value, 4> operands;
+      bool allCommutative = commutative(currentValues.begin(), currentValues.end());
+      for (auto currentValue : currentValues) {
+        auto currentOperands = getOperands(currentValue);
+        if (!allCommutative && commutative(currentValue)) {
+          sortByOpcode(currentOperands);
+        }
+        allOperands.append(currentOperands);
       }
-      allOperands.append(currentOperands);
+      if (allCommutative) {
+        sortByOpcode(operands);
+      }
+      currentValues.swap(operands);
     }
-    if (allCommutative) {
-      sortByOpcode(operands);
-    }
-    currentValues.swap(operands);
+    return allOperands;
   }
-  unsigned oldSize = sequence.size();
-  sequence.resize(oldSize + (allOperands.size() * bitMap.codeWidth()));
-  for (size_t i = 0; i < allOperands.size(); ++i) {
-    auto const& bitVector = bitMap.lookup(allOperands[i]);
+}
+
+XorChainModel::XorChain::XorChain(Value value, unsigned lookAhead, BitCodeMap const& encodings) {
+  auto operandChain = getOperandChain(value, lookAhead);
+  sequence.resize(operandChain.size() * encodings.codeWidth());
+  for (size_t i = 0; i < operandChain.size(); ++i) {
+    auto const& bitVector = encodings.lookup(operandChain[i]);
     for (auto it = bitVector.set_bits_begin(); it != bitVector.set_bits_end(); ++it) {
-      sequence.set(oldSize + (bitMap.codeWidth() * i) + *it);
+      sequence.set((i * encodings.codeWidth()) + *it);
     }
-    if (auto* definingOp = allOperands[i].getDefiningOp()) {
+    if (auto* definingOp = operandChain[i].getDefiningOp()) {
       if (auto batchRead = dyn_cast<SPNBatchRead>(definingOp)) {
         loads.emplace_back(batchRead.batchMem(), batchRead.batchIndex(), batchRead.sampleIndex());
       }
@@ -237,7 +250,7 @@ unsigned XorChainModel::XorChain::computePenalty(XorChainModel::XorChain const& 
   unsigned penalty = sequence.count();
   // Restore original sequence.
   sequence ^= rhs.sequence;
-  // Search for consecutive loads, then for gathers, then for broadcasts.
+  // Search for consecutive loads (i=0), then for gathers (i=1), then for broadcasts (i=2).
   SmallPtrSet<size_t, 8> matchedLoads;
   SmallPtrSet<size_t, 8> rhsMatchedLoads;
   for (unsigned i = 0; i < 3 && loads.size() != matchedLoads.size(); ++i) {
@@ -252,6 +265,7 @@ unsigned XorChainModel::XorChain::computePenalty(XorChainModel::XorChain const& 
         bool matched = false;
         // Consecutive loads.
         if (i == 0 && loads[lhsIndex].consecutive(rhs.loads[rhsIndex])) {
+          // Consecutive loads do not impose any penalties.
           matched = true;
         }
           // Gathers.
@@ -272,8 +286,8 @@ unsigned XorChainModel::XorChain::computePenalty(XorChainModel::XorChain const& 
       }
     }
   }
-  // No match for a load? Downgrade the score.
-  // Use 3 since it should be taken into account as worse than consecutive loads, gathers or broadcasts.
+  // No match for a load? Impose high penalties.
+  // Use 3 since unmatched loads should be taken into account as worse than consecutive loads, gathers or broadcasts.
   return penalty + (loads.size() - matchedLoads.size() + (rhs.loads.size() - rhsMatchedLoads.size())) * 3;
 }
 
