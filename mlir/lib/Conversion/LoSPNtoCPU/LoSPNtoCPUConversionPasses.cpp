@@ -38,6 +38,17 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   spn::populateLoSPNtoCPUStructurePatterns(patterns, &getContext(), typeConverter);
   FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 
+#define PRINT_OP_COUNTS true
+#if PRINT_OP_COUNTS
+  llvm::StringMap<unsigned> opCounts;
+  getOperation()->walk([&](Operation* op) {
+    ++opCounts[op->getName().getStringRef()];
+  });
+  for (auto const& entry : opCounts) {
+    llvm::outs() << "op count: \"" << entry.first() << "\": " << entry.second << "\n";
+  }
+#endif
+
   // We split this pass into two conversion pattern applications because the single task vectorization relies on
   // the structure being converted beforehand. Otherwise, the SPNBatchReads wouldn't be converted into vector loads
   // since they aren't contained in the SPNBody region like the other operations.
