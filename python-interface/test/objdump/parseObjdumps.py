@@ -35,11 +35,13 @@ def parse_output(output, vectorized):
         "vminps",
         "vmaxss",
         "vmaxps",
+        "vorps",
         "vzeroupper",
     }
     move_insts = {
         "mov",
         "vmovss",
+        "vmovsd",
         "vmovd",
         "vmovq",
         "vmovupd",
@@ -63,6 +65,7 @@ def parse_output(output, vectorized):
         "vbroadcasti128",
         "vbroadcastf128",
         "vpextrq",
+        "vgatherdps",
         "vgatherdpd",
         "vinserti128",
         "vinsertf128",
@@ -89,6 +92,7 @@ def parse_output(output, vectorized):
         "vpermilpd",
         "vpermilps",
         "vxorps",  # used to fill a vector with zeros: vxorps xmm0, xmm0, xmm0
+        "vpxor",  # used to fill a vector with zeros: vpxor xmm0, xmm0, xmm0
         "vpcmpeqd",  # used to fill a vector with ones: vpcmpeqd ymm0, ymm0, ymm0
         "vpblendd",
         "vblendps",
@@ -100,6 +104,13 @@ def parse_output(output, vectorized):
         "pop",
         "call",
         "ret",
+    }
+    arithmetic_call_targets = {
+        "expf",
+        "logf"
+    }
+    other_call_targets = {
+
     }
 
     header_re = re.compile(r"(.*):\s+file\s+format\s+(.*)")
@@ -113,6 +124,7 @@ def parse_output(output, vectorized):
     symbol_found = False
 
     instruction_re = re.compile(r"\s+([0-9a-z]+):\s+(\S+)\s+.*")
+    call_re = re.compile(r"\s+([0-9a-z]+):\s+(\S+)\s+([0-9a-z]+)\s+<(\w+)@plt>.*")
     total_count = 0
     arithmetic_count = 0
     move_count = 0
@@ -143,8 +155,15 @@ def parse_output(output, vectorized):
                 move_count = move_count + 1
             elif mnemonic in vector_packing_insts:
                 packing_count = packing_count + 1
+            elif mnemonic == "call":
+                call_target = call_re.match(line).group(4)
+                if call_target in arithmetic_call_targets:
+                    arithmetic_count = arithmetic_count + 1
+                elif call_target not in other_call_targets:
+                    print(f"Unknown call target: {call_target} (instruction: {line})")
+                    raise RuntimeError("Objdump failed: unknown call target")
             elif mnemonic not in other_insts:
-                print(f"Unknown op: {mnemonic}")
+                print(f"Unknown op: {mnemonic} (instruction: {line})")
                 raise RuntimeError("Objdump failed: unknown mnemonic")
             total_count = total_count + 1
 
