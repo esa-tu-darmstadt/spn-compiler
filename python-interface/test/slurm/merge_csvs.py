@@ -25,6 +25,7 @@ def merge(output_csv: str, how: str, base_csv: str, *csv_suffix_list):
         df_csv = pandas.read_csv(csv_files[i])
         df_csv.rename(columns=dict([(c, f"{c} {suffixes[i]}") for c in df_csv.columns if c != "Name"]), inplace=True)
         df = df.merge(right=df_csv, how=how, on="Name")
+    df = df.reindex(sorted(df.columns, key=lambda x:(x!='Name', x)), axis=1)
     df.to_csv(output_csv, index=False)
 
 
