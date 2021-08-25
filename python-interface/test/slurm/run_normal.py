@@ -63,10 +63,10 @@ def get_speakers(speakersDir: str, dataDir: str):
 
 
 def traverseModels(logDir: str, speakersDir: str, speakersDataDir: str, ratspnDir: str, ratspnDataDir: str,
-                   kernelDir: str, removeKernels: bool, vectorize: bool, vecLib: str, shuffle: bool, maxAttempts=None,
-                   maxSuccessfulIterations=None, maxNodeSize=None, maxLookAhead=None, reorderInstructionsDFS=None,
-                   allowDuplicateElements=None, allowTopologicalMixing=None, useXorChains=None, taskPartitions=None,
-                   skipExecution=False):
+                   vectorize: bool, vecLib: str, shuffle: bool, maxAttempts=None, maxSuccessfulIterations=None,
+                   maxNodeSize=None, maxLookAhead=None, reorderInstructionsDFS=None, allowDuplicateElements=None,
+                   allowTopologicalMixing=None, useXorChains=None, taskPartitions=None, skipExecution=None,
+                   kernelDir=None):
     """
     Example invocation (for easy copy & pasting):
     python python-interface/test/slurm/run_normal.py \
@@ -75,8 +75,6 @@ def traverseModels(logDir: str, speakersDir: str, speakersDataDir: str, ratspnDi
         --speakersDataDir=/net/celebdil/spn-benchmarks/speaker-identification/io_clean/ \
         --ratspnDir=/net/celebdil/spn-benchmarks/ratspn-classification/models/ \
         --ratspnDataDir=/net/celebdil/spn-benchmarks/ratspn-classification/io_files/ \
-        --kernelDir=/net/bifur/csv/spn-compiler-dev/ \
-        --removeKernels=False \
         --vectorize=True \
         --vecLib=None \
         --shuffle=False \
@@ -89,7 +87,8 @@ def traverseModels(logDir: str, speakersDir: str, speakersDataDir: str, ratspnDi
         --allowTopologicalMixing=False \
         --useXorChains=True \
         --taskPartitions=1 \
-        --skipExecution=False
+        --skipExecution=False \
+        --kernelDir=/net/bifur/csv/spn-compiler-dev/
     """
     models = []
     models.extend(get_speakers(speakersDir, speakersDataDir))
@@ -104,7 +103,7 @@ def traverseModels(logDir: str, speakersDir: str, speakersDataDir: str, ratspnDi
         print(f"Skipping model {m} because of traversal limit in words problems.")
         counter = counter + 1
 
-    if not os.path.isdir(kernelDir):
+    if kernelDir is not None and not os.path.isdir(kernelDir):
         os.makedirs(kernelDir)
 
     for m in models[:-counter]:
@@ -117,8 +116,6 @@ def traverseModels(logDir: str, speakersDir: str, speakersDataDir: str, ratspnDi
             "--modelFile", m[1],
             "--inputFile", m[2],
             "--referenceFile", m[3],
-            "--kernelDir", kernelDir,
-            "--removeKernel", str(removeKernels),
             "--vectorize", str(vectorize),
             "--vecLib", str(vecLib),
             "--shuffle", str(shuffle)
@@ -143,8 +140,10 @@ def traverseModels(logDir: str, speakersDir: str, speakersDataDir: str, ratspnDi
             spn_sizes = pandas.read_csv("lo_spn_sizes_all.csv", index_col="Name")
             max_task_size = spn_sizes.loc[m[0], "#lospn ops"] // taskPartitions
             command.extend(("--maxTaskSize", str(max_task_size)))
-        if skipExecution:
+        if skipExecution is not None:
             command.extend(("--skipExecution", str(skipExecution)))
+        if kernelDir is not None:
+            command.extend(("--kernelDir", kernelDir))
 
         run_result = subprocess.run(command, capture_output=True, text=True)
         if run_result.returncode != 0:

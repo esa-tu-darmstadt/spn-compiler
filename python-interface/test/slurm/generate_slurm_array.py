@@ -62,10 +62,10 @@ def get_speakers(speakersDir: str, dataDir: str):
 
 
 def traverseModels(speakersDir: str, speakersDataDir: str, ratspnDir: str, ratspnDataDir: str, arrayDir: str,
-                   arrayFile: str, kernelDir: str, removeKernels: bool, vectorize: bool, vecLib: str, shuffle: bool,
-                   maxAttempts=None, maxSuccessfulIterations=None, maxNodeSize=None, maxLookAhead=None,
-                   reorderInstructionsDFS=None, allowDuplicateElements=None, allowTopologicalMixing=None,
-                   useXorChains=None, taskPartitions=None, skipExecution=False):
+                   arrayFile: str, vectorize: bool, vecLib: str, shuffle: bool, maxAttempts=None,
+                   maxSuccessfulIterations=None, maxNodeSize=None, maxLookAhead=None, reorderInstructionsDFS=None,
+                   allowDuplicateElements=None, allowTopologicalMixing=None, useXorChains=None, taskPartitions=None,
+                   skipExecution=None, kernelDir=None):
     models = []
     models.extend(get_speakers(speakersDir, speakersDataDir))
     models.extend(get_ratspns(ratspnDir, ratspnDataDir))
@@ -82,7 +82,7 @@ def traverseModels(speakersDir: str, speakersDataDir: str, ratspnDir: str, ratsp
     if not os.path.isdir(arrayDir):
         os.makedirs(arrayDir)
 
-    if not os.path.isdir(kernelDir):
+    if kernelDir is not None and not os.path.isdir(kernelDir):
         os.makedirs(kernelDir)
 
     with open(os.path.join(arrayDir, arrayFile), 'w') as file:
@@ -92,8 +92,6 @@ def traverseModels(speakersDir: str, speakersDataDir: str, ratspnDir: str, ratsp
                 "--modelFile", m[1],
                 "--inputFile", m[2],
                 "--referenceFile", m[3],
-                "--kernelDir", kernelDir,
-                "--removeKernel", str(removeKernels),
                 "--vectorize", str(vectorize),
                 "--vecLib", str(vecLib),
                 "--shuffle", str(shuffle)
@@ -118,8 +116,10 @@ def traverseModels(speakersDir: str, speakersDataDir: str, ratspnDir: str, ratsp
                 spn_sizes = pandas.read_csv("lo_spn_sizes_all.csv", index_col="Name")
                 max_task_size = spn_sizes.loc[m[0], "#lospn ops"] // taskPartitions
                 arguments.extend(("--maxTaskSize", str(max_task_size)))
-            if skipExecution:
+            if skipExecution is not None:
                 arguments.extend(("--skipExecution", str(skipExecution)))
+            if kernelDir is not None:
+                arguments.extend(("--kernelDir", kernelDir))
             file.write(' '.join(arguments))
             file.write('\n')
 

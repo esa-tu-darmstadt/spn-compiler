@@ -166,17 +166,15 @@ def parse_output(output, skip_execution):
     return data
 
 
-def invokeCompileAndExecute(logDir, modelName, modelFile, inputFile, referenceFile, kernelDir, removeKernel,
-                            vectorize, vecLib, shuffle, maxAttempts=None, maxSuccessfulIterations=None,
-                            maxNodeSize=None, maxLookAhead=None, reorderInstructionsDFS=None,
-                            allowDuplicateElements=None, allowTopologicalMixing=None, useXorChains=None,
-                            maxTaskSize=None, skipExecution=False):
+def invokeCompileAndExecute(logDir, modelName, modelFile, inputFile, referenceFile, vectorize, vecLib, shuffle,
+                            maxAttempts=None, maxSuccessfulIterations=None, maxNodeSize=None, maxLookAhead=None,
+                            reorderInstructionsDFS=None, allowDuplicateElements=None, allowTopologicalMixing=None,
+                            useXorChains=None, maxTaskSize=None, skipExecution=None, kernelDir=None):
     command = ["python3", os.path.join(os.path.dirname(os.path.realpath(__file__)), "cpuExecutionSlurm.py")]
     # model name and model file
     command.extend(("--name", modelName, "--spn_file", modelFile))
     # input and reference paths
     command.extend(("--input_data", inputFile, "--reference_data", referenceFile))
-    command.extend(("--kernel_dir", kernelDir, "--remove_kernel", str(removeKernel)))
     command.extend(("--vectorize", str(vectorize), "--vectorLibrary", str(vecLib), "--shuffle", str(shuffle)))
 
     if maxAttempts is not None:
@@ -198,8 +196,10 @@ def invokeCompileAndExecute(logDir, modelName, modelFile, inputFile, referenceFi
     if maxTaskSize is not None:
         print("WARNING: output parsing does not fully work for partitioned tasks")
         command.extend(("--maxTaskSize", str(maxTaskSize)))
-    if skipExecution:
+    if skipExecution is not None and skipExecution:
         command.extend(("--skipExecution", str(skipExecution)))
+    if kernelDir is not None:
+        command.extend(("--kernel_dir", kernelDir))
 
     run_result = subprocess.run(command, capture_output=True, text=True)
     if run_result.returncode == 0:
