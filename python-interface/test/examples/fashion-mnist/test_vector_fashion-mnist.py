@@ -9,6 +9,7 @@
 import numpy as np
 import os
 import time
+import shutil
 from spnc.cpu import CPUCompiler
 from xspn.serialization.binary.BinarySerialization import BinaryDeserializer
 
@@ -31,8 +32,18 @@ def test_vector_fashion_mnist():
                               dtype="float64")
     reference = reference.reshape(1000)
     # Compile the kernel.
-    compiler = CPUCompiler(vectorize=True, computeInLogSpace=True)
+    options = {}
+    options["slp-max-look-ahead"] = 30
+    options["slp-max-node-size"] = 10000
+    options["slp-max-attempts"] = 5
+    options["slp-max-successful-iterations"] = 1
+    options["slp-reorder-dfs"] = True
+    options["slp-allow-duplicate-elements"] = False
+    options["slp-allow-topological-mixing"] = False
+    options["slp-use-xor-chains"] = True
+    compiler = CPUCompiler(vectorize=True, computeInLogSpace=True, vectorLibrary="LIBMVEC", **options)
     kernel = compiler.compile_ll(spn=spn, batchSize=1, supportMarginal=False)
+    shutil.copyfile(kernel.fileName(), os.path.join(scriptPath, "fashion.so"))
     # Execute the compiled Kernel.
     time_sum = 0
     for i in range(len(reference)):

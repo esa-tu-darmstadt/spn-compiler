@@ -41,11 +41,18 @@ def parse_output(output, skip_execution):
     execution_time_re = re.compile(r"EXECUTION TIME:\s+(\d+)\s+ns")
     num_executions = 0
     execution_time = None
-    lifetime_re = re.compile(r"lifetime total in function \(.*task_\d+\):\s+(\d+)")
-    lifetimes = None
-    op_count_re = re.compile(r"op count: \"(.*)\": (\d+)")
-    op_names = None
-    op_counts = None
+    lifetime_totals_re = re.compile(r"lifetime total in function \(.*task_\d+\):\s+(\S+)")
+    lifetime_totals = None
+    lifetime_averages_re = re.compile(r"lifetime average % in function \(.*task_\d+\):\s+(\S+)")
+    lifetime_averages = None
+    lifetime_stddevs_re = re.compile(r"lifetime stddev in function \(.*task_\d+\):\s+(\S+)")
+    lifetime_stddevs = None
+    op_counts_pre_re = re.compile(r"op count pre conversion: \"(.*)\": (\d+)")
+    op_names_pre = None
+    op_counts_pre = None
+    op_counts_post_re = re.compile(r"op count post conversion: \"(.*)\": (\d+)")
+    op_names_post = None
+    op_counts_post = None
     slp_num_superwords_re = re.compile(r"#superwords in graph \((\d+)\):\s+(\d+)")
     num_superwords = None
     slp_num_arith_ops_re = re.compile(r"#unique arithmetic graph ops \((\d+)\):\s+(\d+)")
@@ -91,12 +98,22 @@ def parse_output(output, skip_execution):
             execution_time = execution_time + int(m.group(1))
             num_executions = num_executions + 1
 
-        elif m := lifetime_re.match(line):
-            lifetimes = toListOrAppend(lifetimes, int(m.group(1)))
+        elif m := lifetime_totals_re.match(line):
+            lifetime_totals = toListOrAppend(lifetime_totals, float(m.group(1)))
 
-        elif m := op_count_re.match(line):
-            op_names = toListOrAppend(op_names, m.group(1))
-            op_counts = toListOrAppend(op_counts, m.group(2))
+        elif m := lifetime_averages_re.match(line):
+            lifetime_averages = toListOrAppend(lifetime_averages, float(m.group(1)))
+
+        elif m := lifetime_stddevs_re.match(line):
+            lifetime_stddevs = toListOrAppend(lifetime_stddevs, float(m.group(1)))
+
+        elif m := op_counts_pre_re.match(line):
+            op_names_pre = toListOrAppend(op_names_pre, m.group(1))
+            op_counts_pre = toListOrAppend(op_counts_pre, m.group(2))
+
+        elif m := op_counts_post_re.match(line):
+            op_names_post = toListOrAppend(op_names_post, m.group(1))
+            op_counts_post = toListOrAppend(op_counts_post, m.group(2))
 
         elif m := slp_num_superwords_re.match(line):
             num_superwords = toListOrAppend(num_superwords, m.group(2))
@@ -138,12 +155,21 @@ def parse_output(output, skip_execution):
         data["execution time total (ns)"] = execution_time
     if num_executions is not None:
         data["#inferences"] = num_executions
-    if lifetimes is not None:
-        for i in range(len(lifetimes)):
-            data[f"lifetime total in task {i}"] = lifetimes[i]
-    if op_names is not None:
-        for i in range(len(op_names)):
-            data[f"#{op_names[i]}"] = op_counts[i]
+    if lifetime_totals is not None:
+        for i in range(len(lifetime_totals)):
+            data[f"lifetime total in task {i}"] = lifetime_totals[i]
+    if lifetime_averages is not None:
+        for i in range(len(lifetime_averages)):
+            data[f"lifetime average (%) in task {i}"] = lifetime_averages[i]
+    if lifetime_stddevs is not None:
+        for i in range(len(lifetime_stddevs)):
+            data[f"lifetime stddev in task {i}"] = lifetime_stddevs[i]
+    if op_names_pre is not None:
+        for i in range(len(op_names_pre)):
+            data[f"#{op_names_pre[i]} pre"] = op_counts_pre[i]
+    if op_names_post is not None:
+        for i in range(len(op_names_post)):
+            data[f"#{op_names_post[i]} post"] = op_counts_post[i]
     if num_superwords is not None:
         for i in range(len(num_superwords)):
             data[f"#superwords in graph {i}"] = num_superwords[i]
@@ -162,7 +188,6 @@ def parse_output(output, skip_execution):
     if slp_match_rewrite_time is not None:
         for i in range(len(slp_match_rewrite_time)):
             data[f"slp pattern match/rewrite time {i} (ns)"] = slp_match_rewrite_time[i]
-
     return data
 
 

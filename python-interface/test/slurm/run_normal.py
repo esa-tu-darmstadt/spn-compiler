@@ -100,7 +100,7 @@ def traverseModels(logDir: str, speakersDir: str, speakersDataDir: str, ratspnDi
     counter = 0
     for m in [models[-13], models[-12], models[-11], models[-10], models[-9], models[-8], models[-7], models[-6],
               models[-5], models[-4], models[-3], models[-2], models[-1]]:
-        print(f"Skipping model {m} because of traversal limit in words problems.")
+        print(f"Skipping model {m[0]} because of traversal limit in words problems.")
         counter = counter + 1
 
     if kernelDir is not None and not os.path.isdir(kernelDir):

@@ -45,7 +45,7 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
     ++opCounts[op->getName().getStringRef()];
   });
   for (auto const& entry : opCounts) {
-    llvm::outs() << "op count: \"" << entry.first() << "\": " << entry.second << "\n";
+    llvm::outs() << "op count pre conversion: \"" << entry.first() << "\": " << entry.second << "\n";
   }
 #endif
 
@@ -69,11 +69,22 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   if (failed(applyPartialConversion(getOperation(), target, frozenPatterns))) {
     signalPassFailure();
   }
+
+#if PRINT_OP_COUNTS
+  opCounts.clear();
+  getOperation()->walk([&](Operation* op) {
+    ++opCounts[op->getName().getStringRef()];
+  });
+  for (auto const& entry : opCounts) {
+    llvm::outs() << "op count post conversion: \"" << entry.first() << "\": " << entry.second << "\n";
+  }
+#endif
 #define DO_LIVENESS_ANALYSIS true
 #if DO_LIVENESS_ANALYSIS
   getOperation().walk([&](FuncOp function) {
     unsigned lifeTimeTotal = 0;
-    llvm::SmallVector<Operation*> operations;
+    SmallVector<double> livePercentages;
+    SmallVector<Operation*> operations;
     DenseMap<Operation*, size_t> indexOf;
     {
       unsigned opIndex = 0;
@@ -90,15 +101,30 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
       for (auto* user : operations[i]->getUsers()) {
         lastUserIndex = std::max(lastUserIndex, indexOf[user]);
       }
-      lifeTimeTotal += lastUserIndex - opIndex;
+      auto isLiveFor = lastUserIndex - opIndex;
+      livePercentages.emplace_back(static_cast<double>(isLiveFor) / static_cast<double>(operations.size()));
+      lifeTimeTotal += isLiveFor;
     }
-    llvm::outs() << "lifetime total in function (" << function.getName() << "): " << lifeTimeTotal << "\n";
+    double normalizedTotal = static_cast<double>(lifeTimeTotal) / static_cast<double>(operations.size());
+    llvm::outs() << "lifetime total in function (" << function.getName() << "): " << normalizedTotal << "\n";
+    double liveForAverage = 0;
+    for (auto livePercentage : livePercentages) {
+      liveForAverage += livePercentage;
+    }
+    liveForAverage /= indexOf.size();
+    llvm::outs() << "lifetime average % in function (" << function.getName() << "): " << liveForAverage * 100 << "\n";
+    double liveForStdDev = 0;
+    for (auto livePercentage : livePercentages) {
+      liveForStdDev += pow(livePercentage - liveForAverage, 2);
+    }
+    liveForStdDev = sqrt(liveForStdDev) / static_cast<double>(operations.size());
+    llvm::outs() << "lifetime stddev in function (" << function.getName() << "): " << liveForStdDev * 100 << "\n";
   });
 #endif
 
   // Useful for when we are only interested in some intermediate stats and not the compiled kernel. This reduces time
   // spent in subsequent passes practically to zero.
-#define DELETE_OPS true
+#define DELETE_OPS false
 #if DELETE_OPS
   getOperation().walk([&](FuncOp function) {
     function.back().getTerminator()->moveBefore(&function.front().front());

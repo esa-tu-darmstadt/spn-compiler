@@ -114,7 +114,6 @@ namespace {
       bool needsNewSeed = true;
       for (auto& potentialSeed : seedsByOpName[opName]) {
         if (potentialSeed.size() < width && opDepths.lookup(potentialSeed.front()) == depth) {
-          //if (potentialSeed.size() < width && (opDepths.lookup(potentialSeed.front()) == 3 || opDepths.lookup(potentialSeed.front()) == 4)) {
           // Cannot use values for seeds that are defined in different blocks.
           if (potentialSeed.front().getParentBlock() != value.getParentBlock()) {
             continue;

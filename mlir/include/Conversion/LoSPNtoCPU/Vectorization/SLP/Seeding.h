@@ -46,6 +46,7 @@ namespace mlir {
           void computeAvailableOps() override;
         };
 
+        /// Deprecated (worse runtime compared to topdown for same results).
         class FirstRootAnalysis : public SeedAnalysis {
         public:
           FirstRootAnalysis(Operation* rootOp, unsigned width);

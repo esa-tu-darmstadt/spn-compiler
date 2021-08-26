@@ -21,16 +21,19 @@ def parse_output(output, vectorized):
         "vaddsd",
         "vaddps",
         "vaddpd",
+        "vhaddps",
         "vpaddq",
         "vsubss",
         "vsubsd",
         "vsubps",
         "vsubpd",
+        "vhsubps",
         "vmulss",
         "vmulsd",
         "vmulps",
         "vmulpd",
         "vdivpd",
+        "vpslld",
         "vminss",
         "vminps",
         "vmaxss",
@@ -55,11 +58,14 @@ def parse_output(output, vectorized):
         "vmovaps",
         "vmovdqa",
         "vmovshdup",
+        "vmovmskpd",
+        "vpmovsxdq",
         "vpmovzxdq",
     }
     vector_packing_insts = {
         "vbroadcastss",
         "vbroadcastsd",
+        "vpbroadcastb",
         "vpbroadcastd",
         "vpbroadcastq",
         "vbroadcasti128",
@@ -96,6 +102,7 @@ def parse_output(output, vectorized):
         "vpcmpeqd",  # used to fill a vector with ones: vpcmpeqd ymm0, ymm0, ymm0
         "vpblendd",
         "vblendps",
+        "vblendvps",
         "vblendpd",
         "vpalignr",
     }
@@ -103,6 +110,11 @@ def parse_output(output, vectorized):
         "push",
         "pop",
         "call",
+        "vcmpltps",
+        "vucomiss",
+        "test",
+        "seta",
+        "jne",
         "ret",
     }
     arithmetic_call_targets = {
@@ -124,7 +136,7 @@ def parse_output(output, vectorized):
     symbol_found = False
 
     instruction_re = re.compile(r"\s+([0-9a-z]+):\s+(\S+)\s+.*")
-    call_re = re.compile(r"\s+([0-9a-z]+):\s+(\S+)\s+([0-9a-z]+)\s+<(\w+)@plt>.*")
+    call_re = re.compile(r"\s+([0-9a-z]+):\s+(\S+)\s+([0-9a-z]+)\s+<(_\S+_)?(\w+)@plt>.*")
     total_count = 0
     arithmetic_count = 0
     move_count = 0
@@ -156,7 +168,7 @@ def parse_output(output, vectorized):
             elif mnemonic in vector_packing_insts:
                 packing_count = packing_count + 1
             elif mnemonic == "call":
-                call_target = call_re.match(line).group(4)
+                call_target = call_re.match(line).group(5)
                 if call_target in arithmetic_call_targets:
                     arithmetic_count = arithmetic_count + 1
                 elif call_target not in other_call_targets:
