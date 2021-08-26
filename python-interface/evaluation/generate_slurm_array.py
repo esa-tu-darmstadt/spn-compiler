@@ -61,11 +61,11 @@ def get_speakers(speakersDir: str, dataDir: str):
     return models
 
 
-def traverseModels(speakersDir: str, speakersDataDir: str, ratspnDir: str, ratspnDataDir: str, arrayDir: str,
-                   arrayFile: str, vectorize: bool, vecLib: str, shuffle: bool, maxAttempts=None,
-                   maxSuccessfulIterations=None, maxNodeSize=None, maxLookAhead=None, reorderInstructionsDFS=None,
-                   allowDuplicateElements=None, allowTopologicalMixing=None, useXorChains=None, taskPartitions=None,
-                   skipExecution=None, kernelDir=None):
+def traverseModels(arrayFile: str, speakersDir: str, speakersDataDir: str, ratspnDir: str, ratspnDataDir: str,
+                   vectorize: bool, vecLib: str, shuffle: bool, maxAttempts=None, maxSuccessfulIterations=None,
+                   maxNodeSize=None, maxLookAhead=None, reorderInstructionsDFS=None, allowDuplicateElements=None,
+                   allowTopologicalMixing=None, useXorChains=None, taskPartitions=None, skipExecution=None,
+                   kernelDir=None):
     models = []
     models.extend(get_speakers(speakersDir, speakersDataDir))
     models.extend(get_ratspns(ratspnDir, ratspnDataDir))
@@ -76,16 +76,15 @@ def traverseModels(speakersDir: str, speakersDataDir: str, ratspnDir: str, ratsp
     counter = 0
     for m in [models[-13], models[-12], models[-11], models[-10], models[-9], models[-8], models[-7], models[-6],
               models[-5], models[-4], models[-3], models[-2], models[-1]]:
-        print(f"Skipping model {m} because of traversal limit in words problems.")
+        print(f"Skipping model {m[0]} because of traversal limit in words problems.")
         counter = counter + 1
-
-    if not os.path.isdir(arrayDir):
-        os.makedirs(arrayDir)
 
     if kernelDir is not None and not os.path.isdir(kernelDir):
         os.makedirs(kernelDir)
 
-    with open(os.path.join(arrayDir, arrayFile), 'w') as file:
+    os.makedirs(os.path.dirname(arrayFile), exist_ok=True)
+
+    with open(arrayFile, 'w') as file:
         for m in models[:-13]:
             arguments = [
                 "--modelName", m[0],
