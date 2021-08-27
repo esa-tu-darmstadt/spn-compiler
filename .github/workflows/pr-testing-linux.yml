@@ -129,18 +129,5 @@ jobs:
           source $GITHUB_WORKSPACE/python/venv/bin/activate
           python -m pytest
 
-      - name: Run clang-tidy
-        run: |
-          cd spn-compiler/build
-          sh wrap-clang-tidy.sh
-
-      - name: Run clang-tidy-pr-comments action
-        uses: sommerlukas/clang-tidy-pr-comments@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          clang_tidy_fixes: spn-compiler/build/fixes-clang-tidy.yaml
-          request_changes: false
-          repository_root: spn-compiler
-
 
 
