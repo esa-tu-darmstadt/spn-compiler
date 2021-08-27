@@ -1,7 +1,7 @@
 // RUN: %optcall --vectorize-lospn-nodes %s | FileCheck %s
 
 module  {
-  func @vec_task_0(%arg0: memref<?x4xf32>, %arg1: memref<?xf64>) {
+  func @vec_task_0(%arg0: memref<?x4xf32>, %arg1: memref<1x?xf64>) {
     %c0 = constant 0 : index
     %0 = memref.dim %arg0, %c0 : memref<?x4xf32>
     %c8 = constant 8 : index
@@ -10,10 +10,10 @@ module  {
     %c0_0 = constant 0 : index
     %c8_1 = constant 8 : index
     scf.for %arg2 = %c0_0 to %2 step %c8_1 {
-      %3 = "lo_spn.batch_read"(%arg0, %arg2) {sampleIndex = 0 : ui32, vector_width = 4 : i32} : (memref<?x4xf32>, index) -> f32
-      %4 = "lo_spn.batch_read"(%arg0, %arg2) {sampleIndex = 1 : ui32, vector_width = 4 : i32} : (memref<?x4xf32>, index) -> f32
-      %5 = "lo_spn.batch_read"(%arg0, %arg2) {sampleIndex = 2 : ui32, vector_width = 4 : i32} : (memref<?x4xf32>, index) -> f32
-      %6 = "lo_spn.batch_read"(%arg0, %arg2) {sampleIndex = 3 : ui32, vector_width = 4 : i32} : (memref<?x4xf32>, index) -> f32
+      %3 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 0 : ui32, vector_width = 4 : i32} : (memref<?x4xf32>, index) -> f32
+      %4 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 1 : ui32, vector_width = 4 : i32} : (memref<?x4xf32>, index) -> f32
+      %5 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 2 : ui32, vector_width = 4 : i32} : (memref<?x4xf32>, index) -> f32
+      %6 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 3 : ui32, vector_width = 4 : i32} : (memref<?x4xf32>, index) -> f32
       %7 = "lo_spn.gaussian"(%3) {mean = 1.100000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false, vector_width = 4 : i32} : (f32) -> !lo_spn.log<f64>
       %8 = "lo_spn.gaussian"(%4) {mean = 1.200000e-01 : f64, stddev = 7.500000e-01 : f64, supportMarginal = false, vector_width = 4 : i32} : (f32) -> !lo_spn.log<f64>
       %9 = "lo_spn.gaussian"(%5) {mean = 1.300000e-01 : f64, stddev = 5.000000e-01 : f64, supportMarginal = false, vector_width = 4 : i32} : (f32) -> !lo_spn.log<f64>
@@ -27,14 +27,14 @@ module  {
       %17 = "lo_spn.add"(%15, %16) {vector_width = 4 : i32} : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
       %18 = "lo_spn.add"(%14, %17) {vector_width = 4 : i32} : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
       %19 = "lo_spn.strip_log"(%18) {target = f64, vector_width = 4 : i32} : (!lo_spn.log<f64>) -> f64
-      "lo_spn.batch_write"(%19, %arg1, %arg2) {vector_width = 4 : i32} : (f64, memref<?xf64>, index) -> ()
+      "lo_spn.batch_write"(%arg1, %arg2, %19) {vector_width = 4 : i32, transposed = true} : (memref<1x?xf64>, index, f64) -> ()
     }
     %c1 = constant 1 : index
     scf.for %arg2 = %2 to %0 step %c1 {
-      %3 = "lo_spn.batch_read"(%arg0, %arg2) {sampleIndex = 0 : ui32} : (memref<?x4xf32>, index) -> f32
-      %4 = "lo_spn.batch_read"(%arg0, %arg2) {sampleIndex = 1 : ui32} : (memref<?x4xf32>, index) -> f32
-      %5 = "lo_spn.batch_read"(%arg0, %arg2) {sampleIndex = 2 : ui32} : (memref<?x4xf32>, index) -> f32
-      %6 = "lo_spn.batch_read"(%arg0, %arg2) {sampleIndex = 3 : ui32} : (memref<?x4xf32>, index) -> f32
+      %3 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 0 : ui32} : (memref<?x4xf32>, index) -> f32
+      %4 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 1 : ui32} : (memref<?x4xf32>, index) -> f32
+      %5 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 2 : ui32} : (memref<?x4xf32>, index) -> f32
+      %6 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 3 : ui32} : (memref<?x4xf32>, index) -> f32
       %7 = "lo_spn.gaussian"(%3) {mean = 1.100000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f64>
       %8 = "lo_spn.gaussian"(%4) {mean = 1.200000e-01 : f64, stddev = 7.500000e-01 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f64>
       %9 = "lo_spn.gaussian"(%5) {mean = 1.300000e-01 : f64, stddev = 5.000000e-01 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f64>
@@ -48,12 +48,12 @@ module  {
       %17 = "lo_spn.add"(%15, %16) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
       %18 = "lo_spn.add"(%14, %17) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
       %19 = "lo_spn.strip_log"(%18) {target = f64} : (!lo_spn.log<f64>) -> f64
-      "lo_spn.batch_write"(%19, %arg1, %arg2) : (f64, memref<?xf64>, index) -> ()
+      "lo_spn.batch_write"(%arg1, %arg2, %19) {transposed = true} : (memref<1x?xf64>, index, f64) -> ()
     }
     return
   }
-  func @spn_vector(%arg0: memref<?x4xf32>, %arg1: memref<?xf64>) {
-    call @vec_task_0(%arg0, %arg1) : (memref<?x4xf32>, memref<?xf64>) -> ()
+  func @spn_vector(%arg0: memref<?x4xf32>, %arg1: memref<1x?xf64>) {
+    call @vec_task_0(%arg0, %arg1) : (memref<?x4xf32>, memref<1x?xf64>) -> ()
     "lo_spn.return"() : () -> ()
   }
 }
@@ -63,7 +63,7 @@ module  {
 
 // CHECK-LABEL:   func @vec_task_0(
 // CHECK-SAME:                     %[[VAL_0:.*]]: memref<?x4xf32>,
-// CHECK-SAME:                     %[[VAL_1:.*]]: memref<?xf64>) {
+// CHECK-SAME:                     %[[VAL_1:.*]]: memref<1x?xf64>) {
 // CHECK:           %[[VAL_2:.*]] = constant 0 : index
 // CHECK:           %[[VAL_3:.*]] = memref.dim %[[VAL_0]], %[[VAL_2]] : memref<?x4xf32>
 // CHECK:           %[[VAL_4:.*]] = constant 8 : index
@@ -190,35 +190,36 @@ module  {
 // CHECK:             %[[VAL_125:.*]] = math.exp %[[VAL_124]] : vector<4xf64>
 // CHECK:             %[[VAL_126:.*]] = math.log1p %[[VAL_125]] : vector<4xf64>
 // CHECK:             %[[VAL_127:.*]] = addf %[[VAL_122]], %[[VAL_126]] : vector<4xf64>
-// CHECK:             vector.transfer_write %[[VAL_127]], %[[VAL_1]]{{\[}}%[[VAL_9]]] : vector<4xf64>, memref<?xf64>
+// CHECK:             %[[VAL_128:.*]] = constant 0 : index
+// CHECK:             vector.transfer_write %[[VAL_127]], %[[VAL_1]]{{\[}}%[[VAL_128]], %[[VAL_9]]] : vector<4xf64>, memref<1x?xf64>
 // CHECK:           }
-// CHECK:           %[[VAL_128:.*]] = constant 1 : index
-// CHECK:           scf.for %[[VAL_129:.*]] = %[[VAL_6]] to %[[VAL_3]] step %[[VAL_128]] {
-// CHECK:             %[[VAL_130:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_129]]) {sampleIndex = 0 : ui32} : (memref<?x4xf32>, index) -> f32
-// CHECK:             %[[VAL_131:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_129]]) {sampleIndex = 1 : ui32} : (memref<?x4xf32>, index) -> f32
-// CHECK:             %[[VAL_132:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_129]]) {sampleIndex = 2 : ui32} : (memref<?x4xf32>, index) -> f32
-// CHECK:             %[[VAL_133:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_129]]) {sampleIndex = 3 : ui32} : (memref<?x4xf32>, index) -> f32
-// CHECK:             %[[VAL_134:.*]] = "lo_spn.gaussian"(%[[VAL_130]]) {mean = 1.100000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f64>
-// CHECK:             %[[VAL_135:.*]] = "lo_spn.gaussian"(%[[VAL_131]]) {mean = 1.200000e-01 : f64, stddev = 7.500000e-01 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f64>
-// CHECK:             %[[VAL_136:.*]] = "lo_spn.gaussian"(%[[VAL_132]]) {mean = 1.300000e-01 : f64, stddev = 5.000000e-01 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f64>
-// CHECK:             %[[VAL_137:.*]] = "lo_spn.gaussian"(%[[VAL_133]]) {mean = 1.400000e-01 : f64, stddev = 2.500000e-01 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f64>
-// CHECK:             %[[VAL_138:.*]] = "lo_spn.constant"() {type = !lo_spn.log<f64>, value = -1.3862943611198906 : f64} : () -> !lo_spn.log<f64>
-// CHECK:             %[[VAL_139:.*]] = "lo_spn.mul"(%[[VAL_134]], %[[VAL_138]]) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
-// CHECK:             %[[VAL_140:.*]] = "lo_spn.mul"(%[[VAL_135]], %[[VAL_138]]) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
-// CHECK:             %[[VAL_141:.*]] = "lo_spn.add"(%[[VAL_139]], %[[VAL_140]]) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
-// CHECK:             %[[VAL_142:.*]] = "lo_spn.mul"(%[[VAL_136]], %[[VAL_138]]) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
-// CHECK:             %[[VAL_143:.*]] = "lo_spn.mul"(%[[VAL_137]], %[[VAL_138]]) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
-// CHECK:             %[[VAL_144:.*]] = "lo_spn.add"(%[[VAL_142]], %[[VAL_143]]) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
-// CHECK:             %[[VAL_145:.*]] = "lo_spn.add"(%[[VAL_141]], %[[VAL_144]]) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
-// CHECK:             %[[VAL_146:.*]] = "lo_spn.strip_log"(%[[VAL_145]]) {target = f64} : (!lo_spn.log<f64>) -> f64
-// CHECK:             "lo_spn.batch_write"(%[[VAL_146]], %[[VAL_1]], %[[VAL_129]]) : (f64, memref<?xf64>, index) -> ()
+// CHECK:           %[[VAL_129:.*]] = constant 1 : index
+// CHECK:           scf.for %[[VAL_130:.*]] = %[[VAL_6]] to %[[VAL_3]] step %[[VAL_129]] {
+// CHECK:             %[[VAL_131:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_130]]) {staticIndex = 0 : ui32} : (memref<?x4xf32>, index) -> f32
+// CHECK:             %[[VAL_132:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_130]]) {staticIndex = 1 : ui32} : (memref<?x4xf32>, index) -> f32
+// CHECK:             %[[VAL_133:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_130]]) {staticIndex = 2 : ui32} : (memref<?x4xf32>, index) -> f32
+// CHECK:             %[[VAL_134:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_130]]) {staticIndex = 3 : ui32} : (memref<?x4xf32>, index) -> f32
+// CHECK:             %[[VAL_135:.*]] = "lo_spn.gaussian"(%[[VAL_131]]) {mean = 1.100000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f64>
+// CHECK:             %[[VAL_136:.*]] = "lo_spn.gaussian"(%[[VAL_132]]) {mean = 1.200000e-01 : f64, stddev = 7.500000e-01 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f64>
+// CHECK:             %[[VAL_137:.*]] = "lo_spn.gaussian"(%[[VAL_133]]) {mean = 1.300000e-01 : f64, stddev = 5.000000e-01 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f64>
+// CHECK:             %[[VAL_138:.*]] = "lo_spn.gaussian"(%[[VAL_134]]) {mean = 1.400000e-01 : f64, stddev = 2.500000e-01 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f64>
+// CHECK:             %[[VAL_139:.*]] = "lo_spn.constant"() {type = !lo_spn.log<f64>, value = -1.3862943611198906 : f64} : () -> !lo_spn.log<f64>
+// CHECK:             %[[VAL_140:.*]] = "lo_spn.mul"(%[[VAL_135]], %[[VAL_139]]) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
+// CHECK:             %[[VAL_141:.*]] = "lo_spn.mul"(%[[VAL_136]], %[[VAL_139]]) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
+// CHECK:             %[[VAL_142:.*]] = "lo_spn.add"(%[[VAL_140]], %[[VAL_141]]) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
+// CHECK:             %[[VAL_143:.*]] = "lo_spn.mul"(%[[VAL_137]], %[[VAL_139]]) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
+// CHECK:             %[[VAL_144:.*]] = "lo_spn.mul"(%[[VAL_138]], %[[VAL_139]]) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
+// CHECK:             %[[VAL_145:.*]] = "lo_spn.add"(%[[VAL_143]], %[[VAL_144]]) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
+// CHECK:             %[[VAL_146:.*]] = "lo_spn.add"(%[[VAL_142]], %[[VAL_145]]) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
+// CHECK:             %[[VAL_147:.*]] = "lo_spn.strip_log"(%[[VAL_146]]) {target = f64} : (!lo_spn.log<f64>) -> f64
+// CHECK:             "lo_spn.batch_write"(%[[VAL_1]], %[[VAL_130]], %[[VAL_147]]) {transposed = true} : (memref<1x?xf64>, index, f64) -> ()
 // CHECK:           }
 // CHECK:           return
 // CHECK:         }
 
 // CHECK-LABEL:   func @spn_vector(
 // CHECK-SAME:                     %[[VAL_0:.*]]: memref<?x4xf32>,
-// CHECK-SAME:                     %[[VAL_1:.*]]: memref<?xf64>) {
-// CHECK:           call @vec_task_0(%[[VAL_0]], %[[VAL_1]]) : (memref<?x4xf32>, memref<?xf64>) -> ()
+// CHECK-SAME:                     %[[VAL_1:.*]]: memref<1x?xf64>) {
+// CHECK:           call @vec_task_0(%[[VAL_0]], %[[VAL_1]]) : (memref<?x4xf32>, memref<1x?xf64>) -> ()
 // CHECK:           "lo_spn.return"() : () -> ()
 // CHECK:         }

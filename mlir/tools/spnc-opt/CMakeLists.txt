@@ -21,6 +21,15 @@ set(LIBS
 
 add_llvm_executable(spnc-opt spnc-opt.cpp)
 
+# Set a compiler definition for the CUDA GPU support for use
+# of conditional compilation inside source files
+if (${CUDA_GPU_SUPPORT})
+    target_compile_definitions(spnc-opt PRIVATE SPNC_CUDA_SUPPORT=1)
+    target_link_libraries(spnc-opt PRIVATE MLIRLoSPNtoGPUTransforms)
+else (${CUDA_GPU_SUPPORT})
+    target_compile_definitions(spnc-opt PRIVATE SPNC_CUDA_SUPPORT=0)
+endif (${CUDA_GPU_SUPPORT})
+
 llvm_update_compile_flags(spnc-opt)
 target_link_libraries(spnc-opt PRIVATE ${LIBS})
 

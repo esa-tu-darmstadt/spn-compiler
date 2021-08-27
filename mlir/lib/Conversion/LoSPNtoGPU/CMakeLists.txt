@@ -15,6 +15,8 @@ add_mlir_conversion_library(MLIRLoSPNtoGPUTransforms
         GPUStructurePatterns.cpp
         LoSPNtoGPUConversionPasses.cpp
         LoSPNGPUSharedMemoryInsertion.cpp
+        Passes/GPUBufferDeallocation.cpp
+        Passes/GPUCopyElimination.cpp
 
         ADDITIONAL_HEADER_DIRS
         ${PROJECT_SOURCE_DIR}/mlir/include/Conversion
@@ -30,6 +32,7 @@ add_mlir_conversion_library(MLIRLoSPNtoGPUTransforms
         MLIRGPU
 
         DEPENDS
+        MLIRLoSPNtoGPUPassesIncGen
         cuda_targetinfo
         )
 
