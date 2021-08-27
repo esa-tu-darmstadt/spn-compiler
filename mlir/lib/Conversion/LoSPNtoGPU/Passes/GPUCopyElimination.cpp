@@ -130,7 +130,7 @@ namespace mlir {
 
     private:
 
-      bool propagateLocal(Block& block, PatternRewriter& rewriter) const {
+      static bool propagateLocal(Block& block, PatternRewriter& rewriter) {
         // Contains a pair (%host, %device) if the content of %host and %device is identical
         // due to a copy from one to the other.
         SmallVector<std::pair<Value, Value>> copies;
@@ -138,7 +138,7 @@ namespace mlir {
         // after %device1 has been copied to/from a host-buffer, which was then copied to %device2.
         SmallVector<std::pair<Value, Value>> identicalBuffers;
         bool replacementPerformed = false;
-        for (auto& op : block.getOperations()) {
+        for (auto& op: block.getOperations()) {
           if (auto gpuLaunch = dyn_cast<gpu::LaunchOp>(op)) {
             GPUKernelAnalysis analysis{gpuLaunch};
             auto& written = analysis.writeBuffers();
@@ -164,7 +164,6 @@ namespace mlir {
                 if (read.contains(copy)) {
                   // It is legal to use %device1 (which might already be present on the GPU) instead of %device2,
                   // so we replace any use.
-                  auto numUsesBefore = std::distance(copy.getUses().begin(), copy.getUses().end());
                   for (auto reader: analysis.readersOf(copy)) {
                     reader->replaceUsesOfWith(copy, original);
                   }
