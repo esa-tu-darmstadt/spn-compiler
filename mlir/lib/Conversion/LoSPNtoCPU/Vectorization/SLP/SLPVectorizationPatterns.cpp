@@ -174,27 +174,35 @@ LogicalResult ShuffleTwoSuperwords::match(Superword* superword) {
     relevantSuperwords.insert(std::begin(existingSuperwords), std::end(existingSuperwords));
   }
   // Check if any pair of relevant superwords can be combined to convert the target superword.
-  SmallPtrSet<Value, 4> remainingValuesFirst;
-  SmallPtrSet<Value, 4> remainingValuesSecond;
   for (auto* v1 : relevantSuperwords) {
-    remainingValuesFirst.insert(superword->begin(), superword->end());
-    for (auto value : *v1) {
-      remainingValuesFirst.erase(value);
+    SmallPtrSet<Value, 4> remainingValuesFirst(superword->begin(), superword->end());
+    for (size_t lane = 0; lane < v1->numLanes(); ++lane) {
+      if (v1->hasAlteredSemanticsInLane(lane)) {
+        continue;
+      }
+      remainingValuesFirst.erase(v1->getElement(lane));
     }
     for (auto* v2 : relevantSuperwords) {
-      remainingValuesSecond = remainingValuesFirst;
-      for (auto value : *v2) {
-        remainingValuesSecond.erase(value);
+      auto remainingValuesSecond = remainingValuesFirst;
+      for (size_t lane = 0; lane < v2->numLanes(); ++lane) {
+        if (v2->hasAlteredSemanticsInLane(lane)) {
+          continue;
+        }
+        remainingValuesSecond.erase(v2->getElement(lane));
       }
       if (!remainingValuesSecond.empty()) {
         continue;
       }
       SmallVector<int64_t, 4> indices;
       for (auto value : *superword) {
-        for (size_t i = 0; i < v1->numLanes() + v2->numLanes(); ++i) {
-          Value element = i < v1->numLanes() ? v1->getElement(i) : v2->getElement(i - v1->numLanes());
-          if (element == value) {
-            indices.emplace_back(i);
+        for (size_t index = 0; index < v1->numLanes() + v2->numLanes(); ++index) {
+          auto* v = index < v1->numLanes() ? v1 : v2;
+          size_t lane = index < v1->numLanes() ? index : index - v1->numLanes();
+          if (v->getElement(lane) == value) {
+            if (v->hasAlteredSemanticsInLane(lane)) {
+              continue;
+            }
+            indices.emplace_back(index);
             break;
           }
         }

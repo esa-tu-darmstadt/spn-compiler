@@ -107,10 +107,10 @@ def measure_execution_time(name: str, spn_file: str, input_data: str, reference_
         for i in range(numSamples):
             results = k.execute(1, np.atleast_2d(inputs[i]))
             # Compare computed result and reference to make sure the computation by the compiled Kernel is correct.
-            """if not np.all(np.isclose(results, reference[i])):
+            if not np.all(np.isclose(results, reference[i])):
                 print(f"Result: {results}")
                 print(f"Reference: {reference[i]}")
-                raise RuntimeError("COMPUTATION FAILED: Results did not match reference!")"""
+                raise RuntimeError("COMPUTATION FAILED: Results did not match reference!")
 
     print("STATUS OK")
 
