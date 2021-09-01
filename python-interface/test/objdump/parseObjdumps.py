@@ -132,7 +132,7 @@ def parse_output(output, vectorized):
     disassembly_re = re.compile(r"Disassembly\s+of\s+section\s+(.*):")
     sections = []
 
-    symbol_re = re.compile(r"(\d+)\s+<(.*)>:")
+    symbol_re = re.compile(r"([0-9a-z]+)\s+<(.*)>:")
     symbol_found = False
 
     instruction_re = re.compile(r"\s+([0-9a-z]+):\s+(\S+)\s+.*")
