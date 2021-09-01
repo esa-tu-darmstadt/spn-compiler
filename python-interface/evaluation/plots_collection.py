@@ -56,8 +56,10 @@ def make_plots(csv_file: str, sans_serif: bool, number: int):
     speaker_df = df[df['Name'].str.len() <= 5]
     ratspn_df = df[df['Name'].str.len() > 5]
 
+    plot_number = 1
+
     # ops covered -> (arithmetic ops normal / arithmetic ops dfs)
-    if number == 1:
+    if number == plot_number:
         x_speaker = speaker_df['% function ops dead after iteration 0 dfs']
         y_speaker = speaker_df['#arithmetic ops normal'] / speaker_df['#arithmetic ops dfs']
         plt.scatter(x_speaker, y_speaker, color=speaker_color, marker=marker, label="speaker", zorder=3.0)
@@ -73,19 +75,51 @@ def make_plots(csv_file: str, sans_serif: bool, number: int):
         order = [1, 2, 0]
         plt.legend([handles[idx] for idx in order], [labels[idx] for idx in order])
         plt.show()
+    plot_number = plot_number + 1
 
-    # ops covered -> SLP graph overhead
-    if number == 2:
-        x = df['#unique arithmetic op in graph 0 dfs'] / df['#superwords in graph 0 dfs']
-        y = df['#arithmetic ops normal'] / df['#arithmetic ops dfs']
-        plt.grid()
-        plt.scatter(x, y, color=two_colors(df), marker=marker)
+    # ops covered -> (arithmetic ops normal / arithmetic ops dfs)
+    if number == plot_number:
+        filtered_speaker = speaker_df[speaker_df['% function ops dead after iteration 0 dfs'] > 92]
+        x_speaker = filtered_speaker['% function ops dead after iteration 0 dfs']
+        y_speaker = filtered_speaker['#arithmetic ops normal'] / filtered_speaker['#arithmetic ops dfs']
+        plt.scatter(x_speaker, y_speaker, color=speaker_color, marker=marker, label="speaker", zorder=3.0)
+        filtered_ratspn = ratspn_df[ratspn_df['% function ops dead after iteration 0 dfs'] > 92]
+        x_ratspn = filtered_ratspn['% function ops dead after iteration 0 dfs']
+        y_ratspn = filtered_ratspn['#arithmetic ops normal'] / filtered_ratspn['#arithmetic ops dfs']
+        plt.scatter(x_ratspn, y_ratspn, color=ratspn_color, marker=marker, label="RAT-SPN", zorder=3.0)
+        include_optimal_arith_reduction(filtered_ratspn['% function ops dead after iteration 0 dfs'])
+        plt.grid(zorder=0.0)
         plt.xlabel(xlabel='Abgedeckte Operationen [%]')
         plt.ylabel(ylabel='#arithmetisch unvektorisiert / #arithmetisch DFS')
+        plt.legend()
+        handles, labels = plt.gca().get_legend_handles_labels()
+        order = [1, 2, 0]
+        plt.legend([handles[idx] for idx in order], [labels[idx] for idx in order])
         plt.show()
+    plot_number = plot_number + 1
+
+    # ops covered -> SLP graph overhead
+    if number == plot_number:
+        x_speaker = speaker_df['#unique arithmetic op in graph 0 dfs'] / speaker_df['#superwords in graph 0 dfs']
+        y_speaker = speaker_df['% function ops dead after iteration 0 dfs']
+        plt.scatter(x_speaker, y_speaker, color=speaker_color, marker=marker, label="speaker", zorder=3.0)
+        x_ratspn = ratspn_df['#unique arithmetic op in graph 0 dfs'] / ratspn_df['#superwords in graph 0 dfs']
+        y_ratspn = ratspn_df['% function ops dead after iteration 0 dfs']
+        plt.scatter(x_ratspn, y_ratspn, color=ratspn_color, marker=marker, label="RAT-SPN", zorder=3.0)
+        plt.grid(zorder=0.0)
+        plt.xlabel(xlabel='Abgedeckte Operationen [%]')
+        plt.ylabel(ylabel='#arithmetisch unvektorisiert / #arithmetisch DFS')
+        plt.xlabel(xlabel='Verhältnis Operationen : Vektoren im SLP-Graph')
+        plt.ylabel(ylabel='Abgedeckte Operationen [%]')
+        plt.legend()
+        handles, labels = plt.gca().get_legend_handles_labels()
+        order = [1, 0]
+        plt.legend([handles[idx] for idx in order], [labels[idx] for idx in order])
+        plt.show()
+    plot_number = plot_number + 1
 
     # ops covered (99%+) -> (arithmetic ops normal / arithmetic ops dfs)
-    if number == 3:
+    if number == plot_number:
         filtered_df = df[df['% function ops dead after iteration 0 dfs'] > 95]
         x = filtered_df['% function ops dead after iteration 0 dfs']
         y = filtered_df['#arithmetic ops normal'] / filtered_df['#arithmetic ops dfs']
@@ -94,30 +128,7 @@ def make_plots(csv_file: str, sans_serif: bool, number: int):
         plt.xlabel(xlabel='Abgedeckte Operationen [%]')
         plt.ylabel(ylabel='#arithmetisch unvektorisiert / #arithmetisch DFS')
         plt.show()
-
-    #
-    if number == 4:
-        x = filtered_df['% function ops dead after iteration 0 dfs']
-        for i in [0, 1]:
-            if i == 0:
-                y = filtered_df['#unique arithmetic op in graph 0 dfs'] / filtered_df['#superwords in graph 0 dfs']
-            else:
-                y = filtered_df['#arithmetic ops normal'] / filtered_df['#arithmetic ops dfs']
-            plt.grid()
-            plt.scatter(x, y)
-            plt.xlabel(xlabel='Abgedeckte Operationen [%]')
-            plt.ylabel(ylabel='#arithmetisch unvektorisiert / #arithmetisch DFS')
-            plt.show()
-
-    #
-    if number == 5:
-        x = filtered_df['#unique arithmetic op in graph 0 dfs'] / filtered_df['#superwords in graph 0 dfs']
-        y = filtered_df['#arithmetic ops normal'] / filtered_df['#arithmetic ops dfs']
-        plt.grid()
-        plt.scatter(x, y)
-        plt.xlabel(xlabel='Abgedeckte Operationen [%]')
-        plt.ylabel(ylabel='#arithmetisch unvektorisiert / #arithmetisch DFS')
-        plt.show()
+    plot_number = plot_number + 1
 
 
 if __name__ == '__main__':
