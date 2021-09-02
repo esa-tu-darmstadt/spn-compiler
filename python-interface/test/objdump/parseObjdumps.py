@@ -137,8 +137,13 @@ def parse_output(output, vectorized):
 
     instruction_re = re.compile(r"\s+([0-9a-z]+):\s+(\S+)\s+.*")
     call_re = re.compile(r"\s+([0-9a-z]+):\s+(\S+)\s+([0-9a-z]+)\s+<(_\S+_)?(\w+)@plt>.*")
+    spill_re = re.compile(r"\s+([0-9a-z]+):\s+([a-z]*mov[a-z]*).+\[rsp\S+\],(\S+).*")
+    restore_re = re.compile(r"\s+([0-9a-z]+):\s+([a-z]*mov[a-z]*)\s+(\S+),.+\[rsp\S+\].*")
     total_count = 0
+    spill_count = 0
+    restore_count = 0
     arithmetic_count = 0
+    costly_call_count = 0
     move_count = 0
     packing_count = 0
 
@@ -164,6 +169,10 @@ def parse_output(output, vectorized):
             if mnemonic in arithmetic_insts:
                 arithmetic_count = arithmetic_count + 1
             elif mnemonic in move_insts:
+                if spill_re.match(line):
+                    spill_count = spill_count + 1
+                if restore_re.match(line):
+                    restore_count = restore_count + 1
                 move_count = move_count + 1
             elif mnemonic in vector_packing_insts:
                 packing_count = packing_count + 1
@@ -171,6 +180,7 @@ def parse_output(output, vectorized):
                 call_target = call_re.match(line).group(5)
                 if call_target in arithmetic_call_targets:
                     arithmetic_count = arithmetic_count + 1
+                    costly_call_count = costly_call_count + 1
                 elif call_target not in other_call_targets:
                     print(f"Unknown call target: {call_target} (instruction: {line})")
                     raise RuntimeError("Objdump failed: unknown call target")
@@ -192,7 +202,10 @@ def parse_output(output, vectorized):
         "kernel format": kernel_format,
         "#ops": total_count,
         "#arithmetic ops": arithmetic_count,
+        "#costly call ops": costly_call_count,
         "#move ops": move_count,
+        "#spill ops": spill_count,
+        "#restore ops": restore_count,
         "#packing ops": packing_count
     }
     return data
