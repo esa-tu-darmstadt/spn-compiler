@@ -21,8 +21,12 @@ ratspn_color = '#ff6325'
 
 low = (0.094, 0.310, 0.635)
 high = (0.565, 0.392, 0.173)
+high_g = (0, 0.8, 0)
+black = (0, 0, 0)
+
 medium_grey = '#555555'
 medium_red = '#cc0000'
+medium_green = '#00cc00'
 
 marker = "x"
 
@@ -96,7 +100,7 @@ def include_optimal_arith_reduction(x_axis, vector_width=8):
 def include_linear_line(ax, x_axis, color, label, zorder):
     min = np.min(x_axis)
     max = np.max(x_axis)
-    return ax.axline(xy1=[min, min], xy2=[max, max], color=color, label=label, zorder=zorder)
+    return ax.axline(xy1=[min, min], xy2=[max, max], color=color, label=label, zorder=zorder, linestyle='--')
 
 
 def draw_constant_line(ax, value, color, label, zorder):
@@ -186,7 +190,7 @@ def make_plots(csv_file: str, sans_serif: bool, number: int):
         y = df['#ops dfs']
         color_values = df['% function ops dead after iteration 0 dfs']
         fig, ax = plt.subplots()
-        plot = ax.scatter(x, y, c=color_values, cmap=make_colormap([low, high]), marker=marker, label="Kernels DFS", zorder=3.0, vmin=0, vmax=100)
+        plot = ax.scatter(x, y, c=color_values, cmap='viridis', marker=marker, label="Kernels DFS", zorder=3.0, vmin=0, vmax=100)
         colorbar = fig.colorbar(plot)
         colorbar.set_label('Abgedeckte Operationen [%]')
         line = include_linear_line(ax, df['#ops normal'], medium_red, "Unverändert", 2.0)
@@ -205,7 +209,7 @@ def make_plots(csv_file: str, sans_serif: bool, number: int):
         y = df['#ops bfs']
         color_values = df['% function ops dead after iteration 0 bfs']
         fig, ax = plt.subplots()
-        plot = ax.scatter(x, y, c=color_values, cmap=make_colormap([low, high]), marker=marker, label="Kernels BFS", zorder=3.0, vmin=0, vmax=100)
+        plot = ax.scatter(x, y, c=color_values, cmap='viridis', marker=marker, label="Kernels BFS", zorder=3.0, vmin=0, vmax=100)
         colorbar = fig.colorbar(plot)
         colorbar.set_label('Abgedeckte Operationen [%]')
         line = include_linear_line(ax, df['#ops normal'], medium_red, "Unverändert", 2.0)

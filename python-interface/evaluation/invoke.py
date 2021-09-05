@@ -191,7 +191,7 @@ def parse_output(output, skip_execution):
     return data
 
 
-def invokeCompileAndExecute(logDir, modelName, modelFile, inputFile, referenceFile, vectorize, vecLib, shuffle,
+def invokeCompileAndExecute(logFile, modelName, modelFile, inputFile, referenceFile, vectorize, vecLib, shuffle,
                             maxAttempts=None, maxSuccessfulIterations=None, maxNodeSize=None, maxLookAhead=None,
                             reorderInstructionsDFS=None, allowDuplicateElements=None, allowTopologicalMixing=None,
                             useXorChains=None, maxTaskSize=None, skipExecution=None, kernelDir=None):
@@ -231,18 +231,16 @@ def invokeCompileAndExecute(logDir, modelName, modelFile, inputFile, referenceFi
         parsed_data = parse_output(run_result.stdout, skipExecution)
         data = {"Name": modelName}
         data.update(parsed_data)
-        if not os.path.isdir(logDir):
-            os.mkdir(logDir)
-        log_file = os.path.join(logDir, "data.csv")
-        if not os.path.exists(log_file):
+        os.makedirs(os.path.dirname(logFile), exist_ok=True)
+        if not os.path.exists(logFile):
             df = pandas.DataFrame(data, index=[0])
-            df.to_csv(log_file, index=False)
+            df.to_csv(logFile, index=False)
         else:
-            df = pandas.read_csv(log_file)
+            df = pandas.read_csv(logFile)
             for column in [key for key in data.keys() if key not in df.columns]:
                 df.insert(len(df.columns), column=column, value="")
             df = df.append(data, ignore_index=True)
-            df.to_csv(log_file, index=False)
+            df.to_csv(logFile, index=False)
     else:
         print(f"Compilation and execution of {modelName} failed with error code {run_result.returncode}")
         print(f"Command was: {command}")
