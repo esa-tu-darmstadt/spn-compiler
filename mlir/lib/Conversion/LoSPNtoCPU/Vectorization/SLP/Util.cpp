@@ -50,7 +50,7 @@ bool slp::commutative(Value value) {
 }
 
 bool slp::consecutiveLoads(Value lhs, Value rhs) {
-  if (lhs == rhs || lhs.getDefiningOp() || rhs.getDefiningOp()) {
+  if (lhs == rhs || !lhs.getDefiningOp() || !rhs.getDefiningOp()) {
     return false;
   }
   auto lhsLoad = dyn_cast<SPNBatchRead>(lhs.getDefiningOp());
@@ -80,6 +80,7 @@ bool slp::anyGaussianMarginalized(Superword const& superword) {
 
 SmallVector<Value, 2> slp::getOperands(Value value) {
   SmallVector<Value, 2> operands;
+  assert(value.getDefiningOp() && "operations without defining op do not have operands");
   operands.reserve(value.getDefiningOp()->getNumOperands());
   for (auto operand : value.getDefiningOp()->getOperands()) {
     operands.emplace_back(operand);
