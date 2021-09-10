@@ -206,6 +206,34 @@ bool XorChainModel::LoadIndex::operator==(LoadIndex const& rhs) const {
 
 // Helper functions in anonymous namespace.
 namespace {
+  void dumpBlockArgOrConstantValueOrValue(Value value) {
+    if (auto blockArgument = value.dyn_cast<BlockArgument>()) {
+      llvm::dbgs() << "BlockArgument" << blockArgument.getArgNumber();
+      return;
+    } else if (auto* definingOp = value.getDefiningOp()) {
+      if (auto constant = dyn_cast<ConstantOp>(definingOp)) {
+        if (auto floatAttr = constant.getValue().dyn_cast<FloatAttr>()) {
+          llvm::dbgs() << floatAttr.getValueAsDouble();
+          return;
+        } else if (auto intAttr = constant.getValue().dyn_cast<IntegerAttr>()) {
+          llvm::dbgs() << intAttr.getInt();
+          return;
+        }
+      }
+    }
+    llvm::dbgs() << value;
+  }
+}
+
+void XorChainModel::LoadIndex::dump() const {
+  dumpBlockArgOrConstantValueOrValue(batchMem);
+  llvm::dbgs() << "[";
+  dumpBlockArgOrConstantValueOrValue(batchIndex);
+  llvm::dbgs() << "[" << sampleIndex << "]]";
+}
+
+// Helper functions in anonymous namespace.
+namespace {
   SmallVector<Value, 8> getOperandChain(Value value, unsigned lookAhead) {
     SmallVector<Value, 8> allOperands;
     SmallVector<Value, 2> currentValues{value};
@@ -213,15 +241,20 @@ namespace {
       SmallVector<Value, 4> operands;
       bool allCommutative = commutative(currentValues.begin(), currentValues.end());
       for (auto currentValue : currentValues) {
+        // Skip block arguments.
+        if (!currentValue.getDefiningOp()) {
+          continue;
+        }
         auto currentOperands = getOperands(currentValue);
         if (!allCommutative && commutative(currentValue)) {
           sortByOpcode(currentOperands);
         }
-        allOperands.append(currentOperands);
+        operands.append(currentOperands);
       }
       if (allCommutative) {
         sortByOpcode(operands);
       }
+      allOperands.append(operands);
       currentValues.swap(operands);
     }
     return allOperands;
@@ -292,5 +325,12 @@ unsigned XorChainModel::XorChain::computePenalty(XorChainModel::XorChain const& 
 }
 
 void XorChainModel::XorChain::dump() const {
-  dumpBitVector(sequence, "", "\n");
+  dumpBitVector(sequence, "");
+  llvm::dbgs() << ", loads: {\n";
+  for (size_t i = 0; i < loads.size(); ++i) {
+    llvm::dbgs() << "\t";
+    loads[i].dump();
+    llvm::dbgs() << "\n";
+  }
+  llvm::dbgs() << "}\n";
 }

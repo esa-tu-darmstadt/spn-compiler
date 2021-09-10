@@ -61,6 +61,7 @@ namespace mlir {
             bool consecutive(LoadIndex const& rhs) const;
             bool gatherable(LoadIndex const& rhs) const;
             bool operator==(LoadIndex const& rhs) const;
+            void dump() const;
           private:
             Value batchMem;
             Value batchIndex;
