@@ -55,7 +55,6 @@ void SLPGraphBuilder::build(ArrayRef<Value> seed) {
   }
   buildWorklist.insert(graph.nodeRoot.get());
   buildGraph(graph.superwordRoot);
-  //dumpSLPGraph(graph.nodeRoot.get(), true);
 }
 
 // Some helper functions in an anonymous namespace.
@@ -119,21 +118,22 @@ namespace {
       for (unsigned lane = 0; lane < superword->numLanes(); ++lane) {
         auto op = superword->getElement(lane).getDefiningOp();
         for (unsigned i = 0; i < superword->numOperands(); ++i) {
-          auto operand = op->getOperand(i);
+          auto elementOperand = op->getOperand(i);
           auto operandElement = superword->getOperand(i)->getElement(lane);
-          if (operand != operandElement) {
-            if (operandDifference[lane][operand] == 1) {
-              // Keep the map as small as possible.
-              operandDifference[lane].erase(operand);
-            } else {
-              --operandDifference[lane][operand];
-            }
-            if (operandDifference[lane][operandElement] == -1) {
-              // Keep the map as small as possible.
-              operandDifference[lane].erase(operandElement);
-            } else {
-              ++operandDifference[lane][operandElement];
-            }
+          if (elementOperand == operandElement) {
+            continue;
+          }
+          if (operandDifference[lane][elementOperand] == 1) {
+            // Keep the map as small as possible.
+            operandDifference[lane].erase(elementOperand);
+          } else {
+            --operandDifference[lane][elementOperand];
+          }
+          if (operandDifference[lane][operandElement] == -1) {
+            // Keep the map as small as possible.
+            operandDifference[lane].erase(operandElement);
+          } else {
+            ++operandDifference[lane][operandElement];
           }
         }
       }

@@ -234,24 +234,42 @@ void XorChainModel::LoadIndex::dump() const {
 
 // Helper functions in anonymous namespace.
 namespace {
+
+  template<typename ValueIterator>
+  bool sameOpcode(ValueIterator begin, ValueIterator end) {
+    if (!begin->getDefiningOp()) {
+      return false;
+    }
+    auto const& name = begin->getDefiningOp()->getName();
+    ++begin;
+    while (begin != end) {
+      if (!begin->getDefiningOp() || begin->getDefiningOp()->getName() != name) {
+        return false;
+      }
+      ++begin;
+    }
+    return true;
+  }
+
   SmallVector<Value, 8> getOperandChain(Value value, unsigned lookAhead) {
     SmallVector<Value, 8> allOperands;
     SmallVector<Value, 2> currentValues{value};
     for (unsigned remainingLookAhead = lookAhead; remainingLookAhead-- > 0;) {
       SmallVector<Value, 4> operands;
-      bool allCommutative = commutative(currentValues.begin(), currentValues.end());
+      bool sortAll = sameOpcode(currentValues.begin(), currentValues.end())
+          && commutative(currentValues.begin(), currentValues.end());
       for (auto currentValue : currentValues) {
         // Skip block arguments.
         if (!currentValue.getDefiningOp()) {
           continue;
         }
         auto currentOperands = getOperands(currentValue);
-        if (!allCommutative && commutative(currentValue)) {
+        if (!sortAll && commutative(currentValue)) {
           sortByOpcode(currentOperands);
         }
         operands.append(currentOperands);
       }
-      if (allCommutative) {
+      if (sortAll) {
         sortByOpcode(operands);
       }
       allOperands.append(operands);
