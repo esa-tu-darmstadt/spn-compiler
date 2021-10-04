@@ -446,6 +446,8 @@ namespace {
   mlir::LogicalResult replaceOpWithGatherFromGlobalMemref(SourceOp op,
                                                           mlir::ConversionPatternRewriter& rewriter,
                                                           mlir::Value indexOperand,
+                                                          int lowerBound,
+                                                          int upperBound,
                                                           llvm::ArrayRef<mlir::Attribute> arrayValues,
                                                           mlir::Type resultType,
                                                           const std::string& tablePrefix, bool computesLog) {
@@ -453,7 +455,7 @@ namespace {
     auto inputType = indexOperand.getType();
     if (!inputType.template isa<mlir::VectorType>()) {
       // This pattern only handles vectorized implementations and fails if the input is not a vector.
-      return mlir::failure();
+      return rewriter.notifyMatchFailure(op, "Match failed because input is not a VectorType");
     }
 
     // Construct a DenseElementsAttr to hold the array values.
@@ -483,20 +485,53 @@ namespace {
     auto indexType = inputType.template dyn_cast<mlir::VectorType>().getElementType();
     if (!indexType.isIntOrIndex()) {
       if (indexType.template isa<mlir::FloatType>()) {
+        indexType = rewriter.getI64Type();
         index = rewriter.template create<mlir::FPToUIOp>(op.getLoc(), index,
-                                                         mlir::VectorType::get(vectorShape, rewriter.getI64Type()));
+                                                         mlir::VectorType::get(vectorShape, indexType));
       } else {
         // The input type is neither int/index nor float, conversion unknown, fail this pattern.
-        return mlir::failure();
+        return rewriter.notifyMatchFailure(op, "Match failed because input is neither float nor integer/index");
       }
     }
     // Construct the constant pass-thru value (values used if the mask is false for an element of the vector).
     auto vectorType = mlir::VectorType::get(vectorShape, resultType);
-    auto passThru = broadcastVectorConstant(vectorType, 0.0,
+    double defaultValue = (computesLog) ? static_cast<double>(-INFINITY) : 0.0;
+    auto passThru = broadcastVectorConstant(vectorType, defaultValue,
                                             rewriter, op->getLoc());
-    // Construct the constant mask.
-    auto mask = broadcastVectorConstant(mlir::VectorType::get(vectorShape, rewriter.getI1Type()), true,
-                                        rewriter, op->getLoc());
+
+    mlir::ConstantOp idxMinVec;
+    mlir::ConstantOp idxMaxVec;
+    if (indexType.isInteger(32)) {
+      idxMinVec =
+          broadcastVectorConstant(mlir::VectorType::get(vectorShape, indexType), lowerBound, rewriter, op->getLoc());
+      idxMaxVec =
+          broadcastVectorConstant(mlir::VectorType::get(vectorShape, indexType), upperBound, rewriter, op->getLoc());
+    } else {
+      idxMinVec = broadcastVectorConstant(mlir::VectorType::get(vectorShape, indexType),
+                                          static_cast<long>(lowerBound),
+                                          rewriter,
+                                          op->getLoc());
+      idxMaxVec = broadcastVectorConstant(mlir::VectorType::get(vectorShape, indexType),
+                                          static_cast<long>(upperBound),
+                                          rewriter,
+                                          op->getLoc());
+    }
+
+    auto boolVecTy = mlir::VectorType::get(vectorShape, rewriter.getI1Type());
+    auto inBoundsLB =
+        rewriter.create<mlir::CmpIOp>(op->getLoc(), boolVecTy, mlir::CmpIPredicate::sge, index, idxMinVec);
+    auto inBoundsUB =
+        rewriter.create<mlir::CmpIOp>(op->getLoc(), boolVecTy, mlir::CmpIPredicate::slt, index, idxMaxVec);
+    auto inBounds = rewriter.create<mlir::AndOp>(op->getLoc(), inBoundsLB, inBoundsUB);
+    auto trueVec =
+        broadcastVectorConstant(mlir::VectorType::get(vectorShape, rewriter.getI1Type()), true, rewriter, op->getLoc());
+    auto falseVec = broadcastVectorConstant(mlir::VectorType::get(vectorShape, rewriter.getI1Type()),
+                                            false,
+                                            rewriter,
+                                            op->getLoc());
+    // Create mask, dependant on an "inBounds" select -> Mask all out-of-bounds accesses.
+    auto mask = rewriter.create<mlir::SelectOp>(op.getLoc(), inBounds, trueVec, falseVec);
+
     // Replace the source operation with a gather load from the global memref.
     mlir::Value constIndex = rewriter.template create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
     mlir::Value leaf = rewriter.template create<mlir::vector::GatherOp>(op.getLoc(), vectorType, addressOf,
@@ -539,7 +574,8 @@ mlir::LogicalResult mlir::spn::VectorizeCategorical::matchAndRewrite(mlir::spn::
       values.push_back(val);
     }
   }
-  return replaceOpWithGatherFromGlobalMemref<low::SPNCategoricalLeaf>(op, rewriter, operands[0],
+  int idxMax = op.probabilities().size();
+  return replaceOpWithGatherFromGlobalMemref<low::SPNCategoricalLeaf>(op, rewriter, operands[0], 0, idxMax,
                                                                       values, resultType, "categorical_vec_",
                                                                       computesLog);
 }
@@ -558,7 +594,7 @@ mlir::LogicalResult mlir::spn::VectorizeHistogram::matchAndRewrite(mlir::spn::lo
   llvm::DenseMap<int, double> values;
   int minLB = std::numeric_limits<int>::max();
   int maxUB = std::numeric_limits<int>::min();
-  for (auto& b : op.bucketsAttr()) {
+  for (auto& b: op.bucketsAttr()) {
     auto bucket = b.cast<low::Bucket>();
     auto lb = bucket.lb().getInt();
     auto ub = bucket.ub().getInt();
@@ -604,7 +640,7 @@ mlir::LogicalResult mlir::spn::VectorizeHistogram::matchAndRewrite(mlir::spn::lo
     }
 
   }
-  return replaceOpWithGatherFromGlobalMemref<low::SPNHistogramLeaf>(op, rewriter, operands[0], valArray,
+  return replaceOpWithGatherFromGlobalMemref<low::SPNHistogramLeaf>(op, rewriter, operands[0], minLB, maxUB, valArray,
                                                                     resultType, "histogram_vec_",
                                                                     computesLog);
 }

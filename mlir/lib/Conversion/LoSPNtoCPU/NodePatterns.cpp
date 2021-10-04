@@ -336,11 +336,28 @@ namespace {
   mlir::LogicalResult replaceOpWithGlobalMemref(SourceOp op, mlir::ConversionPatternRewriter& rewriter,
                                                 mlir::Value indexOperand, llvm::ArrayRef<mlir::Attribute> arrayValues,
                                                 mlir::Type resultType, const std::string& tablePrefix,
-                                                bool computesLog) {
+                                                bool computesLog, int lowerBound, int upperBound) {
     static int tableCount = 0;
     if (!resultType.isIntOrFloat()) {
       // Currently only handling Int and Float result types.
-      return mlir::failure();
+      return rewriter.notifyMatchFailure(op, "Match failed because result is neither float nor integer");
+    }
+
+    // Convert input value from float to integer if necessary.
+    mlir::Value index = indexOperand;
+    if (!index.getType().isIntOrIndex()) {
+      // If the input type is not an integer, but also not a float, we cannot convert it and this pattern fails.
+      if (!index.getType().isIntOrFloat()) {
+        return rewriter.notifyMatchFailure(op, "Match failed because input is neither float nor integer/index");
+      }
+      index = rewriter.template create<mlir::FPToUIOp>(op.getLoc(), index, rewriter.getI64Type());
+    }
+    auto integerIndex = index;
+    auto idxTy = index.getType();
+
+    // Cast input value to index if necessary.
+    if (!index.getType().isIndex()) {
+      index = rewriter.template create<mlir::IndexCastOp>(op.getLoc(), rewriter.getIndexType(), index);
     }
 
     // Construct a DenseElementsAttr to hold the array values.
@@ -361,34 +378,66 @@ namespace {
     // Restore insertion point
     rewriter.restoreInsertionPoint(restore);
 
+    auto idxMin = rewriter.create<mlir::ConstantOp>(op->getLoc(),
+                                                    idxTy,
+                                                    rewriter.getIntegerAttr(idxTy, lowerBound));
+    auto idxMax = rewriter.create<mlir::ConstantOp>(op->getLoc(),
+                                                    idxTy,
+                                                    rewriter.getIntegerAttr(idxTy, upperBound));
+
+    auto boolTy = mlir::IntegerType::get(op.getContext(), 1);
+    auto inBoundsLB =
+        rewriter.create<mlir::CmpIOp>(op->getLoc(), boolTy, mlir::CmpIPredicate::sge, integerIndex, idxMin);
+    auto inBoundsUB =
+        rewriter.create<mlir::CmpIOp>(op->getLoc(), boolTy, mlir::CmpIPredicate::slt, integerIndex, idxMax);
+    auto inBounds = rewriter.create<mlir::AndOp>(op->getLoc(), inBoundsLB, inBoundsUB);
+
+    // Perform range-check: if (inBoundsUB) { return memRefValue; } else { return defaultValue; }
+    auto boundaryIf = rewriter.create<mlir::scf::IfOp>(op->getLoc(), resultType, inBounds, true);
+
+    // If-Then branch: Legal range access -> memref load
+    rewriter.setInsertionPointToStart(&boundaryIf.thenRegion().front());
+
     // Use GetGlobalMemref operation to access the global created above.
     auto addressOf = rewriter.template create<mlir::memref::GetGlobalOp>(op.getLoc(), memrefType, symbolName);
-    // Convert input value from float to integer if necessary.
-    mlir::Value index = indexOperand;
-    if (!index.getType().isIntOrIndex()) {
-      // If the input type is not an integer, but also not a float, we cannot convert it and this pattern fails.
-      if (!index.getType().isIntOrFloat()) {
-        return mlir::failure();
-      }
-      index = rewriter.template create<mlir::FPToUIOp>(op.getLoc(), index, rewriter.getI64Type());
-    }
-    // Cast input value to index if necessary.
-    if (!index.getType().isIndex()) {
-      index = rewriter.template create<mlir::IndexCastOp>(op.getLoc(), rewriter.getIndexType(), index);
-    }
+
     // Replace the source operation with a load from the global memref,
     // using the source operation's input value as index.
-    mlir::Value leaf = rewriter.template create<mlir::memref::LoadOp>(op.getLoc(), addressOf, mlir::ValueRange{index});
+    mlir::Value leafThen = rewriter.template create<mlir::memref::LoadOp>(op.getLoc(), addressOf, mlir::ValueRange{index});
+
+    // If-Else branch: Illegal range access -> default return
+    rewriter.setInsertionPointToStart(&boundaryIf.elseRegion().front());
+    double defaultValue = (computesLog) ? static_cast<double>(-INFINITY) : 0.0;
+    mlir::Value leafElse = rewriter.create<mlir::ConstantOp>(op.getLoc(), resultType, rewriter.getFloatAttr(resultType, defaultValue));
+
     if (op.supportMarginal()) {
-      assert(indexOperand.getType().template isa<mlir::FloatType>());
+      // Set the insertion point right before the if-op
+      rewriter.setInsertionPoint(boundaryIf);
+      // Define the values needed for marginal-support (for both [then/else] branches)
       auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), mlir::CmpFPredicate::UNO,
                                                  indexOperand, indexOperand);
       auto marginalValue = (computesLog) ? 0.0 : 1.0;
       auto constOne = rewriter.create<mlir::ConstantOp>(op.getLoc(),
                                                         rewriter.getFloatAttr(resultType, marginalValue));
-      leaf = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, leaf);
+
+      // Place select and yield ops in the corresponding branches
+      rewriter.setInsertionPointToEnd(&boundaryIf.thenRegion().back());
+      mlir::Value leaf = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, leafThen);
+      rewriter.create<mlir::scf::YieldOp>(op->getLoc(), leaf);
+
+      rewriter.setInsertionPointToEnd(&boundaryIf.elseRegion().back());
+      leaf = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, leafElse);
+      rewriter.create<mlir::scf::YieldOp>(op->getLoc(), leaf);
+    } else {
+      // Place yield ops in the corresponding branches
+      rewriter.setInsertionPointToEnd(&boundaryIf.thenRegion().back());
+      rewriter.create<mlir::scf::YieldOp>(op->getLoc(), leafThen);
+      rewriter.setInsertionPointToEnd(&boundaryIf.elseRegion().back());
+      rewriter.create<mlir::scf::YieldOp>(op->getLoc(), leafElse);
     }
-    rewriter.replaceOp(op, leaf);
+
+    // Replace access by result(s) of created if-op
+    rewriter.replaceOp(op, boundaryIf.results());
     return mlir::success();
   }
 
@@ -408,7 +457,7 @@ mlir::LogicalResult mlir::spn::HistogramLowering::matchAndRewrite(mlir::spn::low
   llvm::DenseMap<int, double> values;
   int minLB = std::numeric_limits<int>::max();
   int maxUB = std::numeric_limits<int>::min();
-  for (auto& b : op.bucketsAttr()) {
+  for (auto& b: op.bucketsAttr()) {
     auto bucket = b.cast<low::Bucket>();
     auto lb = bucket.lb().getInt();
     auto ub = bucket.ub().getInt();
@@ -443,7 +492,7 @@ mlir::LogicalResult mlir::spn::HistogramLowering::matchAndRewrite(mlir::spn::low
     if (values.count(i)) {
       indexVal = (computesLog) ? log(values[i]) : values[i];
     } else {
-      // Fill up with 0 if no value was defined by the histogram.
+      // Fill up with corresponding zero if no value was defined by the histogram.
       indexVal = (computesLog) ? static_cast<double>(-INFINITY) : 0;
     }
     // Construct attribute with constant value. Need to distinguish cases here due to different builder methods.
@@ -455,7 +504,7 @@ mlir::LogicalResult mlir::spn::HistogramLowering::matchAndRewrite(mlir::spn::low
   }
 
   return replaceOpWithGlobalMemref<low::SPNHistogramLeaf>(op, rewriter, operands[0], valArray,
-                                                          resultType, "histogram_", computesLog);
+                                                          resultType, "histogram_", computesLog, minLB, maxUB);
 }
 mlir::LogicalResult mlir::spn::CategoricalLowering::matchAndRewrite(mlir::spn::low::SPNCategoricalLeaf op,
                                                                     llvm::ArrayRef<mlir::Value> operands,
@@ -471,8 +520,9 @@ mlir::LogicalResult mlir::spn::CategoricalLowering::matchAndRewrite(mlir::spn::l
     resultType = logType.getBaseType();
     computesLog = true;
   }
+
   SmallVector<Attribute, 5> values;
-  for (auto val : op.probabilities().getValue()) {
+  for (auto val: op.probabilities().getValue()) {
     if (computesLog) {
       auto floatVal = val.dyn_cast<FloatAttr>();
       assert(floatVal);
@@ -481,8 +531,15 @@ mlir::LogicalResult mlir::spn::CategoricalLowering::matchAndRewrite(mlir::spn::l
       values.push_back(val);
     }
   }
-  return replaceOpWithGlobalMemref<low::SPNCategoricalLeaf>(op, rewriter, operands[0],
-                                                            values, resultType, "categorical_", computesLog);
+  return replaceOpWithGlobalMemref<low::SPNCategoricalLeaf>(op,
+                                                            rewriter,
+                                                            operands[0],
+                                                            values,
+                                                            resultType,
+                                                            "categorical_",
+                                                            computesLog,
+                                                            0,
+                                                            op.probabilities().size());
 }
 
 mlir::LogicalResult mlir::spn::SelectLowering::matchAndRewrite(mlir::spn::low::SPNSelectLeaf op,
@@ -491,21 +548,56 @@ mlir::LogicalResult mlir::spn::SelectLowering::matchAndRewrite(mlir::spn::low::S
   if (op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches non-vectorized SelectLeaf");
   }
-  // If the input type is not an integer, but also not a float, we cannot convert it and this pattern fails.
-  mlir::Value cond;
+
   auto inputTy = op.input().getType();
+  if (!inputTy.isIntOrFloat()) {
+    return rewriter.notifyMatchFailure(op, "Input type should be either int or float.");
+  }
+
+  mlir::Value cond;
+  mlir::Value idxMin, idxMax;
+  mlir::Value inBoundsLB, inBoundsUB;
+  auto boolTy = IntegerType::get(op.getContext(), 1);
+  // Regarding the actual LB/UB values we will use the knowledge that:
+  // (UB - LB = 2) && input_true_thresholdAttr == LB + 1 == UB - 1
   if (inputTy.isa<mlir::FloatType>()) {
+    idxMin = rewriter.create<mlir::ConstantOp>(op->getLoc(),
+                                               rewriter.getF64Type(),
+                                               rewriter.getFloatAttr(rewriter.getF64Type(),
+                                                                     op.input_true_thresholdAttr().getValueAsDouble()
+                                                                         - 1.0));
+    idxMax = rewriter.create<mlir::ConstantOp>(op->getLoc(),
+                                               rewriter.getF64Type(),
+                                               rewriter.getFloatAttr(rewriter.getF64Type(),
+                                                                     op.input_true_thresholdAttr().getValueAsDouble()
+                                                                         + 1.0));
+    inBoundsLB =
+        rewriter.create<mlir::CmpFOp>(op->getLoc(), boolTy, mlir::CmpFPredicate::UGE, op.input(), idxMin);
+    inBoundsUB =
+        rewriter.create<mlir::CmpFOp>(op->getLoc(), boolTy, mlir::CmpFPredicate::ULT, op.input(), idxMax);
     auto thresholdAttr = FloatAttr::get(inputTy, op.input_true_thresholdAttr().getValueAsDouble());
     auto input_true_threshold = rewriter.create<mlir::ConstantOp>(op->getLoc(), inputTy, thresholdAttr);
-    cond = rewriter.create<mlir::CmpFOp>(op->getLoc(), IntegerType::get(op.getContext(), 1),
-                                         mlir::CmpFPredicate::ULT, op.input(), input_true_threshold);
+    cond =
+        rewriter.create<mlir::CmpFOp>(op->getLoc(), boolTy, mlir::CmpFPredicate::ULT, op.input(), input_true_threshold);
   } else if (inputTy.isa<mlir::IntegerType>()) {
+    idxMin = rewriter.create<mlir::ConstantOp>(op->getLoc(),
+                                               op.input().getType(),
+                                               rewriter.getIntegerAttr(op.input().getType(),
+                                                                       op.input_true_thresholdAttr().getValueAsDouble()
+                                                                           - 1.0));
+    idxMax = rewriter.create<mlir::ConstantOp>(op->getLoc(),
+                                               op.input().getType(),
+                                               rewriter.getIntegerAttr(op.input().getType(),
+                                                                       op.input_true_thresholdAttr().getValueAsDouble()
+                                                                           + 1.0));
+    inBoundsLB =
+        rewriter.create<mlir::CmpIOp>(op->getLoc(), boolTy, mlir::CmpIPredicate::sge, op.input(), idxMin);
+    inBoundsUB =
+        rewriter.create<mlir::CmpIOp>(op->getLoc(), boolTy, mlir::CmpIPredicate::slt, op.input(), idxMax);
     auto thresholdAttr = IntegerAttr::get(inputTy, op.input_true_thresholdAttr().getValueAsDouble());
     auto input_true_threshold = rewriter.create<mlir::ConstantOp>(op->getLoc(), inputTy, thresholdAttr);
-    cond = rewriter.create<mlir::CmpIOp>(op->getLoc(), IntegerType::get(op.getContext(), 1),
-                                         mlir::CmpIPredicate::ult, op.input(), input_true_threshold);
-  } else {
-    return rewriter.notifyMatchFailure(op, "Expected condition-value to be either Float- or IntegerType");
+    cond =
+        rewriter.create<mlir::CmpIOp>(op->getLoc(), boolTy, mlir::CmpIPredicate::ult, op.input(), input_true_threshold);
   }
 
   Type resultType = op.getResult().getType();
@@ -529,7 +621,6 @@ mlir::LogicalResult mlir::spn::SelectLowering::matchAndRewrite(mlir::spn::low::S
     val_false = rewriter.create<mlir::ConstantOp>(op->getLoc(), op.val_falseAttr().getType(), op.val_falseAttr());
   }
 
-
   mlir::Value leaf = rewriter.create<SelectOp>(op.getLoc(), cond, val_true, val_false);
   if (op.supportMarginal()) {
     assert(inputTy.isa<mlir::FloatType>());
@@ -539,6 +630,13 @@ mlir::LogicalResult mlir::spn::SelectLowering::matchAndRewrite(mlir::spn::low::S
                                                       rewriter.getFloatAttr(resultType, marginalValue));
     leaf = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, leaf);
   }
+
+  auto inBounds = rewriter.create<mlir::AndOp>(op->getLoc(), inBoundsLB, inBoundsUB);
+  double defaultValue = (computesLog) ? static_cast<double>(-INFINITY) : 0.0;
+  mlir::Value defaultReturn =
+      rewriter.create<mlir::ConstantOp>(op.getLoc(), resultType, rewriter.getFloatAttr(resultType, defaultValue));
+
+  leaf = rewriter.create<SelectOp>(op.getLoc(), inBounds, leaf, defaultReturn);
   rewriter.replaceOp(op, leaf);
 
   return success();

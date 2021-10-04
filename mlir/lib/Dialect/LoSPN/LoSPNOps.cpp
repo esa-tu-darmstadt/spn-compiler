@@ -10,6 +10,7 @@
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNAttributes.h"
 #include "LoSPN/LoSPNInterfaces.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -423,7 +424,7 @@ void mlir::spn::low::SPNConvertLog::build(::mlir::OpBuilder& odsBuilder,
       return success();
     }
   }
-  return rewriter.notifyMatchFailure(op, "Histogram held != 2 buckets (no reduction to select possible)");
+  return rewriter.notifyMatchFailure(op, "Histogram was not eligible for reduction to select");
 }
 
 #define GET_OP_CLASSES

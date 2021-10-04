@@ -18,11 +18,18 @@ module  {
 // CHECK-SAME:                 %[[VAL_1:.*]]: memref<?xf64>) {
 // CHECK:           %[[VAL_2:.*]] = constant 1.000000e-01 : f64
 // CHECK:           %[[VAL_3:.*]] = constant 1 : index
-// CHECK:           %[[VAL_4:.*]] = constant 1.000000e+00 : f64
-// CHECK:           %[[VAL_5:.*]] = cmpf ult, %[[VAL_2]], %[[VAL_4]] : f64
-// CHECK:           %[[VAL_6:.*]] = constant 3.500000e-01 : f64
-// CHECK:           %[[VAL_7:.*]] = constant 5.500000e-01 : f64
-// CHECK:           %[[VAL_8:.*]] = select %[[VAL_5]], %[[VAL_6]], %[[VAL_7]] : f64
-// CHECK:           memref.store %[[VAL_8]], %[[VAL_1]]{{\[}}%[[VAL_3]]] : memref<?xf64>
+// CHECK:           %[[VAL_4:.*]] = constant 0.000000e+00 : f64
+// CHECK:           %[[VAL_5:.*]] = constant 2.000000e+00 : f64
+// CHECK:           %[[VAL_6:.*]] = cmpf uge, %[[VAL_2]], %[[VAL_4]] : f64
+// CHECK:           %[[VAL_7:.*]] = cmpf ult, %[[VAL_2]], %[[VAL_5]] : f64
+// CHECK:           %[[VAL_8:.*]] = constant 1.000000e+00 : f64
+// CHECK:           %[[VAL_9:.*]] = cmpf ult, %[[VAL_2]], %[[VAL_8]] : f64
+// CHECK:           %[[VAL_10:.*]] = constant 3.500000e-01 : f64
+// CHECK:           %[[VAL_11:.*]] = constant 5.500000e-01 : f64
+// CHECK:           %[[VAL_12:.*]] = select %[[VAL_9]], %[[VAL_10]], %[[VAL_11]] : f64
+// CHECK:           %[[VAL_13:.*]] = and %[[VAL_6]], %[[VAL_7]] : i1
+// CHECK:           %[[VAL_14:.*]] = constant 0.000000e+00 : f64
+// CHECK:           %[[VAL_15:.*]] = select %[[VAL_13]], %[[VAL_12]], %[[VAL_14]] : f64
+// CHECK:           memref.store %[[VAL_15]], %[[VAL_1]]{{\[}}%[[VAL_3]]] : memref<?xf64>
 // CHECK:           return
 // CHECK:         }

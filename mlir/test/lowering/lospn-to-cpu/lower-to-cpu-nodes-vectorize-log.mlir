@@ -184,84 +184,112 @@ module  {
 // CHECK:             %[[VAL_99:.*]] = vector.gather %[[VAL_97]]{{\[}}%[[VAL_98]]] {{\[}}%[[VAL_90]]], %[[VAL_92]], %[[VAL_91]] : memref<?xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
 // CHECK:             %[[VAL_100:.*]] = memref.get_global @categorical_vec_0 : memref<3xf32>
 // CHECK:             %[[VAL_101:.*]] = fptoui %[[VAL_24]] : vector<8xf32> to vector<8xi64>
-// CHECK:             %[[VAL_102:.*]] = constant dense<0.000000e+00> : vector<8xf32>
-// CHECK:             %[[VAL_103:.*]] = constant dense<true> : vector<8xi1>
-// CHECK:             %[[VAL_104:.*]] = constant 0 : index
-// CHECK:             %[[VAL_105:.*]] = vector.gather %[[VAL_100]]{{\[}}%[[VAL_104]]] {{\[}}%[[VAL_101]]], %[[VAL_103]], %[[VAL_102]] : memref<3xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
-// CHECK:             %[[VAL_106:.*]] = memref.get_global @categorical_vec_1 : memref<3xf32>
-// CHECK:             %[[VAL_107:.*]] = fptoui %[[VAL_39]] : vector<8xf32> to vector<8xi64>
-// CHECK:             %[[VAL_108:.*]] = constant dense<0.000000e+00> : vector<8xf32>
-// CHECK:             %[[VAL_109:.*]] = constant dense<true> : vector<8xi1>
-// CHECK:             %[[VAL_110:.*]] = constant 0 : index
-// CHECK:             %[[VAL_111:.*]] = vector.gather %[[VAL_106]]{{\[}}%[[VAL_110]]] {{\[}}%[[VAL_107]]], %[[VAL_109]], %[[VAL_108]] : memref<3xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
-// CHECK:             %[[VAL_112:.*]] = memref.get_global @histogram_vec_0 : memref<2xf32>
-// CHECK:             %[[VAL_113:.*]] = fptoui %[[VAL_54]] : vector<8xf32> to vector<8xi64>
-// CHECK:             %[[VAL_114:.*]] = constant dense<0.000000e+00> : vector<8xf32>
-// CHECK:             %[[VAL_115:.*]] = constant dense<true> : vector<8xi1>
-// CHECK:             %[[VAL_116:.*]] = constant 0 : index
-// CHECK:             %[[VAL_117:.*]] = vector.gather %[[VAL_112]]{{\[}}%[[VAL_116]]] {{\[}}%[[VAL_113]]], %[[VAL_115]], %[[VAL_114]] : memref<2xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
-// CHECK:             %[[VAL_118:.*]] = memref.get_global @histogram_vec_1 : memref<2xf32>
-// CHECK:             %[[VAL_119:.*]] = fptoui %[[VAL_69]] : vector<8xf32> to vector<8xi64>
-// CHECK:             %[[VAL_120:.*]] = constant dense<0.000000e+00> : vector<8xf32>
+// CHECK:             %[[VAL_102:.*]] = constant dense<0xFF800000> : vector<8xf32>
+// CHECK:             %[[VAL_103:.*]] = constant dense<0> : vector<8xi64>
+// CHECK:             %[[VAL_104:.*]] = constant dense<3> : vector<8xi64>
+// CHECK:             %[[VAL_105:.*]] = cmpi sge, %[[VAL_101]], %[[VAL_103]] : vector<8xi64>
+// CHECK:             %[[VAL_106:.*]] = cmpi slt, %[[VAL_101]], %[[VAL_104]] : vector<8xi64>
+// CHECK:             %[[VAL_107:.*]] = and %[[VAL_105]], %[[VAL_106]] : vector<8xi1>
+// CHECK:             %[[VAL_108:.*]] = constant dense<true> : vector<8xi1>
+// CHECK:             %[[VAL_109:.*]] = constant dense<false> : vector<8xi1>
+// CHECK:             %[[VAL_110:.*]] = select %[[VAL_107]], %[[VAL_108]], %[[VAL_109]] : vector<8xi1>, vector<8xi1>
+// CHECK:             %[[VAL_111:.*]] = constant 0 : index
+// CHECK:             %[[VAL_112:.*]] = vector.gather %[[VAL_100]]{{\[}}%[[VAL_111]]] {{\[}}%[[VAL_101]]], %[[VAL_110]], %[[VAL_102]] : memref<3xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
+// CHECK:             %[[VAL_113:.*]] = memref.get_global @categorical_vec_1 : memref<3xf32>
+// CHECK:             %[[VAL_114:.*]] = fptoui %[[VAL_39]] : vector<8xf32> to vector<8xi64>
+// CHECK:             %[[VAL_115:.*]] = constant dense<0xFF800000> : vector<8xf32>
+// CHECK:             %[[VAL_116:.*]] = constant dense<0> : vector<8xi64>
+// CHECK:             %[[VAL_117:.*]] = constant dense<3> : vector<8xi64>
+// CHECK:             %[[VAL_118:.*]] = cmpi sge, %[[VAL_114]], %[[VAL_116]] : vector<8xi64>
+// CHECK:             %[[VAL_119:.*]] = cmpi slt, %[[VAL_114]], %[[VAL_117]] : vector<8xi64>
+// CHECK:             %[[VAL_120:.*]] = and %[[VAL_118]], %[[VAL_119]] : vector<8xi1>
 // CHECK:             %[[VAL_121:.*]] = constant dense<true> : vector<8xi1>
-// CHECK:             %[[VAL_122:.*]] = constant 0 : index
-// CHECK:             %[[VAL_123:.*]] = vector.gather %[[VAL_118]]{{\[}}%[[VAL_122]]] {{\[}}%[[VAL_119]]], %[[VAL_121]], %[[VAL_120]] : memref<2xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
-// CHECK:             %[[VAL_124:.*]] = constant dense<-5.000000e-01> : vector<8xf32>
-// CHECK:             %[[VAL_125:.*]] = constant dense<-0.918938517> : vector<8xf32>
-// CHECK:             %[[VAL_126:.*]] = constant dense<5.000000e-01> : vector<8xf32>
-// CHECK:             %[[VAL_127:.*]] = subf %[[VAL_84]], %[[VAL_126]] : vector<8xf32>
-// CHECK:             %[[VAL_128:.*]] = mulf %[[VAL_127]], %[[VAL_127]] : vector<8xf32>
-// CHECK:             %[[VAL_129:.*]] = mulf %[[VAL_128]], %[[VAL_124]] : vector<8xf32>
-// CHECK:             %[[VAL_130:.*]] = addf %[[VAL_125]], %[[VAL_129]] : vector<8xf32>
-// CHECK:             %[[VAL_131:.*]] = constant dense<-5.000000e+01> : vector<8xf32>
-// CHECK:             %[[VAL_132:.*]] = constant dense<1.38364661> : vector<8xf32>
-// CHECK:             %[[VAL_133:.*]] = constant dense<2.500000e-01> : vector<8xf32>
-// CHECK:             %[[VAL_134:.*]] = subf %[[VAL_99]], %[[VAL_133]] : vector<8xf32>
-// CHECK:             %[[VAL_135:.*]] = mulf %[[VAL_134]], %[[VAL_134]] : vector<8xf32>
-// CHECK:             %[[VAL_136:.*]] = mulf %[[VAL_135]], %[[VAL_131]] : vector<8xf32>
-// CHECK:             %[[VAL_137:.*]] = addf %[[VAL_132]], %[[VAL_136]] : vector<8xf32>
-// CHECK:             %[[VAL_138:.*]] = addf %[[VAL_105]], %[[VAL_111]] : vector<8xf32>
-// CHECK:             %[[VAL_139:.*]] = addf %[[VAL_138]], %[[VAL_117]] : vector<8xf32>
-// CHECK:             %[[VAL_140:.*]] = constant dense<1.000000e-01> : vector<8xf32>
-// CHECK:             %[[VAL_141:.*]] = addf %[[VAL_139]], %[[VAL_140]] : vector<8xf32>
-// CHECK:             %[[VAL_142:.*]] = addf %[[VAL_123]], %[[VAL_130]] : vector<8xf32>
-// CHECK:             %[[VAL_143:.*]] = addf %[[VAL_142]], %[[VAL_137]] : vector<8xf32>
-// CHECK:             %[[VAL_144:.*]] = constant dense<1.000000e-01> : vector<8xf32>
-// CHECK:             %[[VAL_145:.*]] = addf %[[VAL_143]], %[[VAL_144]] : vector<8xf32>
-// CHECK:             %[[VAL_146:.*]] = cmpf ogt, %[[VAL_141]], %[[VAL_145]] : vector<8xf32>
-// CHECK:             %[[VAL_147:.*]] = select %[[VAL_146]], %[[VAL_141]], %[[VAL_145]] : vector<8xi1>, vector<8xf32>
-// CHECK:             %[[VAL_148:.*]] = select %[[VAL_146]], %[[VAL_145]], %[[VAL_141]] : vector<8xi1>, vector<8xf32>
-// CHECK:             %[[VAL_149:.*]] = subf %[[VAL_148]], %[[VAL_147]] : vector<8xf32>
-// CHECK:             %[[VAL_150:.*]] = math.exp %[[VAL_149]] : vector<8xf32>
-// CHECK:             %[[VAL_151:.*]] = math.log1p %[[VAL_150]] : vector<8xf32>
-// CHECK:             %[[VAL_152:.*]] = addf %[[VAL_147]], %[[VAL_151]] : vector<8xf32>
-// CHECK:             vector.transfer_write %[[VAL_152]], %[[VAL_1]]{{\[}}%[[VAL_9]]] : vector<8xf32>, memref<?xf32>
+// CHECK:             %[[VAL_122:.*]] = constant dense<false> : vector<8xi1>
+// CHECK:             %[[VAL_123:.*]] = select %[[VAL_120]], %[[VAL_121]], %[[VAL_122]] : vector<8xi1>, vector<8xi1>
+// CHECK:             %[[VAL_124:.*]] = constant 0 : index
+// CHECK:             %[[VAL_125:.*]] = vector.gather %[[VAL_113]]{{\[}}%[[VAL_124]]] {{\[}}%[[VAL_114]]], %[[VAL_123]], %[[VAL_115]] : memref<3xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
+// CHECK:             %[[VAL_126:.*]] = memref.get_global @histogram_vec_0 : memref<2xf32>
+// CHECK:             %[[VAL_127:.*]] = fptoui %[[VAL_54]] : vector<8xf32> to vector<8xi64>
+// CHECK:             %[[VAL_128:.*]] = constant dense<0xFF800000> : vector<8xf32>
+// CHECK:             %[[VAL_129:.*]] = constant dense<0> : vector<8xi64>
+// CHECK:             %[[VAL_130:.*]] = constant dense<2> : vector<8xi64>
+// CHECK:             %[[VAL_131:.*]] = cmpi sge, %[[VAL_127]], %[[VAL_129]] : vector<8xi64>
+// CHECK:             %[[VAL_132:.*]] = cmpi slt, %[[VAL_127]], %[[VAL_130]] : vector<8xi64>
+// CHECK:             %[[VAL_133:.*]] = and %[[VAL_131]], %[[VAL_132]] : vector<8xi1>
+// CHECK:             %[[VAL_134:.*]] = constant dense<true> : vector<8xi1>
+// CHECK:             %[[VAL_135:.*]] = constant dense<false> : vector<8xi1>
+// CHECK:             %[[VAL_136:.*]] = select %[[VAL_133]], %[[VAL_134]], %[[VAL_135]] : vector<8xi1>, vector<8xi1>
+// CHECK:             %[[VAL_137:.*]] = constant 0 : index
+// CHECK:             %[[VAL_138:.*]] = vector.gather %[[VAL_126]]{{\[}}%[[VAL_137]]] {{\[}}%[[VAL_127]]], %[[VAL_136]], %[[VAL_128]] : memref<2xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
+// CHECK:             %[[VAL_139:.*]] = memref.get_global @histogram_vec_1 : memref<2xf32>
+// CHECK:             %[[VAL_140:.*]] = fptoui %[[VAL_69]] : vector<8xf32> to vector<8xi64>
+// CHECK:             %[[VAL_141:.*]] = constant dense<0xFF800000> : vector<8xf32>
+// CHECK:             %[[VAL_142:.*]] = constant dense<0> : vector<8xi64>
+// CHECK:             %[[VAL_143:.*]] = constant dense<2> : vector<8xi64>
+// CHECK:             %[[VAL_144:.*]] = cmpi sge, %[[VAL_140]], %[[VAL_142]] : vector<8xi64>
+// CHECK:             %[[VAL_145:.*]] = cmpi slt, %[[VAL_140]], %[[VAL_143]] : vector<8xi64>
+// CHECK:             %[[VAL_146:.*]] = and %[[VAL_144]], %[[VAL_145]] : vector<8xi1>
+// CHECK:             %[[VAL_147:.*]] = constant dense<true> : vector<8xi1>
+// CHECK:             %[[VAL_148:.*]] = constant dense<false> : vector<8xi1>
+// CHECK:             %[[VAL_149:.*]] = select %[[VAL_146]], %[[VAL_147]], %[[VAL_148]] : vector<8xi1>, vector<8xi1>
+// CHECK:             %[[VAL_150:.*]] = constant 0 : index
+// CHECK:             %[[VAL_151:.*]] = vector.gather %[[VAL_139]]{{\[}}%[[VAL_150]]] {{\[}}%[[VAL_140]]], %[[VAL_149]], %[[VAL_141]] : memref<2xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
+// CHECK:             %[[VAL_152:.*]] = constant dense<-5.000000e-01> : vector<8xf32>
+// CHECK:             %[[VAL_153:.*]] = constant dense<-0.918938517> : vector<8xf32>
+// CHECK:             %[[VAL_154:.*]] = constant dense<5.000000e-01> : vector<8xf32>
+// CHECK:             %[[VAL_155:.*]] = subf %[[VAL_84]], %[[VAL_154]] : vector<8xf32>
+// CHECK:             %[[VAL_156:.*]] = mulf %[[VAL_155]], %[[VAL_155]] : vector<8xf32>
+// CHECK:             %[[VAL_157:.*]] = mulf %[[VAL_156]], %[[VAL_152]] : vector<8xf32>
+// CHECK:             %[[VAL_158:.*]] = addf %[[VAL_153]], %[[VAL_157]] : vector<8xf32>
+// CHECK:             %[[VAL_159:.*]] = constant dense<-5.000000e+01> : vector<8xf32>
+// CHECK:             %[[VAL_160:.*]] = constant dense<1.38364661> : vector<8xf32>
+// CHECK:             %[[VAL_161:.*]] = constant dense<2.500000e-01> : vector<8xf32>
+// CHECK:             %[[VAL_162:.*]] = subf %[[VAL_99]], %[[VAL_161]] : vector<8xf32>
+// CHECK:             %[[VAL_163:.*]] = mulf %[[VAL_162]], %[[VAL_162]] : vector<8xf32>
+// CHECK:             %[[VAL_164:.*]] = mulf %[[VAL_163]], %[[VAL_159]] : vector<8xf32>
+// CHECK:             %[[VAL_165:.*]] = addf %[[VAL_160]], %[[VAL_164]] : vector<8xf32>
+// CHECK:             %[[VAL_166:.*]] = addf %[[VAL_112]], %[[VAL_125]] : vector<8xf32>
+// CHECK:             %[[VAL_167:.*]] = addf %[[VAL_166]], %[[VAL_138]] : vector<8xf32>
+// CHECK:             %[[VAL_168:.*]] = constant dense<1.000000e-01> : vector<8xf32>
+// CHECK:             %[[VAL_169:.*]] = addf %[[VAL_167]], %[[VAL_168]] : vector<8xf32>
+// CHECK:             %[[VAL_170:.*]] = addf %[[VAL_151]], %[[VAL_158]] : vector<8xf32>
+// CHECK:             %[[VAL_171:.*]] = addf %[[VAL_170]], %[[VAL_165]] : vector<8xf32>
+// CHECK:             %[[VAL_172:.*]] = constant dense<1.000000e-01> : vector<8xf32>
+// CHECK:             %[[VAL_173:.*]] = addf %[[VAL_171]], %[[VAL_172]] : vector<8xf32>
+// CHECK:             %[[VAL_174:.*]] = cmpf ogt, %[[VAL_169]], %[[VAL_173]] : vector<8xf32>
+// CHECK:             %[[VAL_175:.*]] = select %[[VAL_174]], %[[VAL_169]], %[[VAL_173]] : vector<8xi1>, vector<8xf32>
+// CHECK:             %[[VAL_176:.*]] = select %[[VAL_174]], %[[VAL_173]], %[[VAL_169]] : vector<8xi1>, vector<8xf32>
+// CHECK:             %[[VAL_177:.*]] = subf %[[VAL_176]], %[[VAL_175]] : vector<8xf32>
+// CHECK:             %[[VAL_178:.*]] = math.exp %[[VAL_177]] : vector<8xf32>
+// CHECK:             %[[VAL_179:.*]] = math.log1p %[[VAL_178]] : vector<8xf32>
+// CHECK:             %[[VAL_180:.*]] = addf %[[VAL_175]], %[[VAL_179]] : vector<8xf32>
+// CHECK:             vector.transfer_write %[[VAL_180]], %[[VAL_1]]{{\[}}%[[VAL_9]]] : vector<8xf32>, memref<?xf32>
 // CHECK:           }
-// CHECK:           %[[VAL_153:.*]] = constant 1 : index
-// CHECK:           scf.for %[[VAL_154:.*]] = %[[VAL_6]] to %[[VAL_3]] step %[[VAL_153]] {
-// CHECK:             %[[VAL_155:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_154]]) {sampleIndex = 0 : ui32} : (memref<?x6xf32>, index) -> f32
-// CHECK:             %[[VAL_156:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_154]]) {sampleIndex = 1 : ui32} : (memref<?x6xf32>, index) -> f32
-// CHECK:             %[[VAL_157:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_154]]) {sampleIndex = 2 : ui32} : (memref<?x6xf32>, index) -> f32
-// CHECK:             %[[VAL_158:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_154]]) {sampleIndex = 3 : ui32} : (memref<?x6xf32>, index) -> f32
-// CHECK:             %[[VAL_159:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_154]]) {sampleIndex = 4 : ui32} : (memref<?x6xf32>, index) -> f32
-// CHECK:             %[[VAL_160:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_154]]) {sampleIndex = 5 : ui32} : (memref<?x6xf32>, index) -> f32
-// CHECK:             %[[VAL_161:.*]] = "lo_spn.categorical"(%[[VAL_155]]) {probabilities = [3.500000e-01, 5.500000e-01, 1.000000e-01], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_162:.*]] = "lo_spn.categorical"(%[[VAL_156]]) {probabilities = [2.500000e-01, 6.250000e-01, 1.250000e-01], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_163:.*]] = "lo_spn.histogram"(%[[VAL_157]]) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_164:.*]] = "lo_spn.histogram"(%[[VAL_158]]) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 4.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 5.500000e-01 : f64}], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_165:.*]] = "lo_spn.gaussian"(%[[VAL_159]]) {mean = 5.000000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_166:.*]] = "lo_spn.gaussian"(%[[VAL_160]]) {mean = 2.500000e-01 : f64, stddev = 1.000000e-01 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_167:.*]] = "lo_spn.mul"(%[[VAL_161]], %[[VAL_162]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_168:.*]] = "lo_spn.mul"(%[[VAL_167]], %[[VAL_163]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_169:.*]] = "lo_spn.constant"() {type = !lo_spn.log<f32>, value = 1.000000e-01 : f64} : () -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_170:.*]] = "lo_spn.mul"(%[[VAL_168]], %[[VAL_169]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_171:.*]] = "lo_spn.mul"(%[[VAL_164]], %[[VAL_165]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_172:.*]] = "lo_spn.mul"(%[[VAL_171]], %[[VAL_166]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_173:.*]] = "lo_spn.constant"() {type = !lo_spn.log<f32>, value = 1.000000e-01 : f64} : () -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_174:.*]] = "lo_spn.mul"(%[[VAL_172]], %[[VAL_173]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_175:.*]] = "lo_spn.add"(%[[VAL_170]], %[[VAL_174]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_176:.*]] = "lo_spn.strip_log"(%[[VAL_175]]) {target = f32} : (!lo_spn.log<f32>) -> f32
-// CHECK:             "lo_spn.batch_write"(%[[VAL_176]], %[[VAL_1]], %[[VAL_154]]) : (f32, memref<?xf32>, index) -> ()
+// CHECK:           %[[VAL_181:.*]] = constant 1 : index
+// CHECK:           scf.for %[[VAL_182:.*]] = %[[VAL_6]] to %[[VAL_3]] step %[[VAL_181]] {
+// CHECK:             %[[VAL_183:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_182]]) {sampleIndex = 0 : ui32} : (memref<?x6xf32>, index) -> f32
+// CHECK:             %[[VAL_184:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_182]]) {sampleIndex = 1 : ui32} : (memref<?x6xf32>, index) -> f32
+// CHECK:             %[[VAL_185:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_182]]) {sampleIndex = 2 : ui32} : (memref<?x6xf32>, index) -> f32
+// CHECK:             %[[VAL_186:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_182]]) {sampleIndex = 3 : ui32} : (memref<?x6xf32>, index) -> f32
+// CHECK:             %[[VAL_187:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_182]]) {sampleIndex = 4 : ui32} : (memref<?x6xf32>, index) -> f32
+// CHECK:             %[[VAL_188:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_182]]) {sampleIndex = 5 : ui32} : (memref<?x6xf32>, index) -> f32
+// CHECK:             %[[VAL_189:.*]] = "lo_spn.categorical"(%[[VAL_183]]) {probabilities = [3.500000e-01, 5.500000e-01, 1.000000e-01], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_190:.*]] = "lo_spn.categorical"(%[[VAL_184]]) {probabilities = [2.500000e-01, 6.250000e-01, 1.250000e-01], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_191:.*]] = "lo_spn.histogram"(%[[VAL_185]]) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_192:.*]] = "lo_spn.histogram"(%[[VAL_186]]) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 4.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 5.500000e-01 : f64}], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_193:.*]] = "lo_spn.gaussian"(%[[VAL_187]]) {mean = 5.000000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_194:.*]] = "lo_spn.gaussian"(%[[VAL_188]]) {mean = 2.500000e-01 : f64, stddev = 1.000000e-01 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_195:.*]] = "lo_spn.mul"(%[[VAL_189]], %[[VAL_190]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_196:.*]] = "lo_spn.mul"(%[[VAL_195]], %[[VAL_191]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_197:.*]] = "lo_spn.constant"() {type = !lo_spn.log<f32>, value = 1.000000e-01 : f64} : () -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_198:.*]] = "lo_spn.mul"(%[[VAL_196]], %[[VAL_197]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_199:.*]] = "lo_spn.mul"(%[[VAL_192]], %[[VAL_193]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_200:.*]] = "lo_spn.mul"(%[[VAL_199]], %[[VAL_194]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_201:.*]] = "lo_spn.constant"() {type = !lo_spn.log<f32>, value = 1.000000e-01 : f64} : () -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_202:.*]] = "lo_spn.mul"(%[[VAL_200]], %[[VAL_201]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_203:.*]] = "lo_spn.add"(%[[VAL_198]], %[[VAL_202]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_204:.*]] = "lo_spn.strip_log"(%[[VAL_203]]) {target = f32} : (!lo_spn.log<f32>) -> f32
+// CHECK:             "lo_spn.batch_write"(%[[VAL_204]], %[[VAL_1]], %[[VAL_182]]) : (f32, memref<?xf32>, index) -> ()
 // CHECK:           }
 // CHECK:           return
 // CHECK:         }
