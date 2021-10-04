@@ -1,25 +1,25 @@
 // RUN: %optcall --convert-lospn-nodes-to-cpu %s | FileCheck %s
 
 module  {
-  func @task_0(%arg0: memref<?x1xi32>, %arg1: memref<?xf64>) {
+  func @task_0(%arg0: memref<?x1xi32>, %arg1: memref<1x?xf64>) {
     %c0 = constant 0 : index
     %c0_0 = constant 0 : index
     %0 = memref.dim %arg0, %c0_0 : memref<?x1xi32>
     %c1 = constant 1 : index
     scf.for %arg2 = %c0 to %0 step %c1 {
-      %1 = "lo_spn.batch_read"(%arg0, %arg2) {sampleIndex = 0 : ui32} : (memref<?x1xi32>, index) -> i32
+      %1 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 0 : ui32} : (memref<?x1xi32>, index) -> i32
       %2 = "lo_spn.select"(%1) {input_true_threshold = 1.000000e+00 : f64, supportMarginal = false, val_false = 7.500000e-01 : f64, val_true = 2.500000e-01 : f64} : (i32) -> f64
       %3 = "lo_spn.log"(%2) : (f64) -> f64
-      "lo_spn.batch_write"(%3, %arg1, %arg2) : (f64, memref<?xf64>, index) -> ()
+      "lo_spn.batch_write"(%arg1, %arg2, %3) {transposed = true} : (memref<1x?xf64>, index, f64) -> ()
     }
     return
   }
-  func @spn_kernel(%arg0: memref<?x1xi32>, %arg1: memref<?xf64>) {
+  func @spn_kernel(%arg0: memref<?x1xi32>, %arg1: memref<1x?xf64>) {
     %c0 = constant 0 : index
     %0 = memref.dim %arg0, %c0 : memref<?x1xi32>
-    %1 = memref.alloc(%0) : memref<?xf64>
-    call @task_0(%arg0, %1) : (memref<?x1xi32>, memref<?xf64>) -> ()
-    "lo_spn.copy"(%1, %arg1) : (memref<?xf64>, memref<?xf64>) -> ()
+    %1 = memref.alloc(%0) : memref<1x?xf64>
+    call @task_0(%arg0, %1) : (memref<?x1xi32>, memref<1x?xf64>) -> ()
+    "lo_spn.copy"(%1, %arg1) : (memref<1x?xf64>, memref<1x?xf64>) -> ()
     "lo_spn.return"() : () -> ()
   }
 }
@@ -29,7 +29,7 @@ module  {
 
 // CHECK-LABEL:   func @task_0(
 // CHECK-SAME:                 %[[VAL_0:.*]]: memref<?x1xi32>,
-// CHECK-SAME:                 %[[VAL_1:.*]]: memref<?xf64>) {
+// CHECK-SAME:                 %[[VAL_1:.*]]: memref<1x?xf64>) {
 // CHECK:           %[[VAL_2:.*]] = constant 0 : index
 // CHECK:           %[[VAL_3:.*]] = constant 0 : index
 // CHECK:           %[[VAL_4:.*]] = memref.dim %[[VAL_0]], %[[VAL_3]] : memref<?x1xi32>
@@ -50,25 +50,27 @@ module  {
 // CHECK:             %[[VAL_19:.*]] = constant 0.000000e+00 : f64
 // CHECK:             %[[VAL_20:.*]] = select %[[VAL_18]], %[[VAL_17]], %[[VAL_19]] : f64
 // CHECK:             %[[VAL_21:.*]] = math.log %[[VAL_20]] : f64
-// CHECK:             memref.store %[[VAL_21]], %[[VAL_1]]{{\[}}%[[VAL_6]]] : memref<?xf64>
+// CHECK:             %[[VAL_22:.*]] = constant 0 : index
+// CHECK:             memref.store %[[VAL_21]], %[[VAL_1]]{{\[}}%[[VAL_22]], %[[VAL_6]]] : memref<1x?xf64>
 // CHECK:           }
 // CHECK:           return
 // CHECK:         }
 
 // CHECK-LABEL:   func @spn_kernel(
 // CHECK-SAME:                     %[[VAL_0:.*]]: memref<?x1xi32>,
-// CHECK-SAME:                     %[[VAL_1:.*]]: memref<?xf64>) {
+// CHECK-SAME:                     %[[VAL_1:.*]]: memref<1x?xf64>) {
 // CHECK:           %[[VAL_2:.*]] = constant 0 : index
 // CHECK:           %[[VAL_3:.*]] = memref.dim %[[VAL_0]], %[[VAL_2]] : memref<?x1xi32>
-// CHECK:           %[[VAL_4:.*]] = memref.alloc(%[[VAL_3]]) : memref<?xf64>
-// CHECK:           call @task_0(%[[VAL_0]], %[[VAL_4]]) : (memref<?x1xi32>, memref<?xf64>) -> ()
-// CHECK:           %[[VAL_5:.*]] = constant 0 : index
-// CHECK:           %[[VAL_6:.*]] = memref.dim %[[VAL_4]], %[[VAL_5]] : memref<?xf64>
+// CHECK:           %[[VAL_4:.*]] = memref.alloc(%[[VAL_3]]) : memref<1x?xf64>
+// CHECK:           call @task_0(%[[VAL_0]], %[[VAL_4]]) : (memref<?x1xi32>, memref<1x?xf64>) -> ()
+// CHECK:           %[[VAL_5:.*]] = constant 1 : index
+// CHECK:           %[[VAL_6:.*]] = memref.dim %[[VAL_4]], %[[VAL_5]] : memref<1x?xf64>
 // CHECK:           %[[VAL_7:.*]] = constant 0 : index
 // CHECK:           %[[VAL_8:.*]] = constant 1 : index
 // CHECK:           scf.for %[[VAL_9:.*]] = %[[VAL_7]] to %[[VAL_6]] step %[[VAL_8]] {
-// CHECK:             %[[VAL_10:.*]] = memref.load %[[VAL_4]]{{\[}}%[[VAL_9]]] : memref<?xf64>
-// CHECK:             memref.store %[[VAL_10]], %[[VAL_1]]{{\[}}%[[VAL_9]]] : memref<?xf64>
+// CHECK:             %[[VAL_10:.*]] = constant 0 : index
+// CHECK:             %[[VAL_11:.*]] = memref.load %[[VAL_4]]{{\[}}%[[VAL_10]], %[[VAL_9]]] : memref<1x?xf64>
+// CHECK:             memref.store %[[VAL_11]], %[[VAL_1]]{{\[}}%[[VAL_10]], %[[VAL_9]]] : memref<1x?xf64>
 // CHECK:           }
 // CHECK:           return
 // CHECK:         }

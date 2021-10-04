@@ -87,7 +87,7 @@ mlir::ModuleOp& spnc::GPUtoLLVMConversion::execute() {
     kernelPm.addPass(mlir::createStripDebugInfoPass());
     kernelPm.addPass(mlir::createLowerGpuOpsToNVVMOpsPass());
     // Convert the GPU-part to a binary blob and annotate it as an atttribute to the MLIR module.
-    kernelPm.addPass(mlir::spn::createSerializeToCubinPass(gpuKernels, printIR));
+    kernelPm.addPass(mlir::spn::createSerializeToCubinPass(gpuKernels, printIR, irOptLevel));
     auto& funcPm = pm.nest<mlir::FuncOp>();
     funcPm.addPass(mlir::createStdExpandOpsPass());
     funcPm.addPass(mlir::createGpuAsyncRegionPass());
@@ -113,6 +113,8 @@ mlir::ModuleOp& spnc::GPUtoLLVMConversion::execute() {
 }
 
 spnc::GPUtoLLVMConversion::GPUtoLLVMConversion(ActionWithOutput<mlir::ModuleOp>& input,
-                                               std::shared_ptr<mlir::MLIRContext> ctx) :
+                                               std::shared_ptr<mlir::MLIRContext> ctx,
+                                               unsigned optLevel) :
     ActionSingleInput<mlir::ModuleOp, mlir::ModuleOp>(input),
-    mlirContext{std::move(ctx)} {}
+    mlirContext{std::move(ctx)},
+    irOptLevel{optLevel} {}

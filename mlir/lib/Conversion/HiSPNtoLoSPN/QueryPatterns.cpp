@@ -33,7 +33,7 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
   // 1 x numFeatures x inputType for batchSize == 1, ? x numFeatures x inputType else.
   auto inputType = RankedTensorType::get({dynamicBatchSize, op.getNumFeatures()}, op.getFeatureDataType());
   // 1 x compType for batchSize == 1, ? x compType else.
-  auto resultType = RankedTensorType::get({dynamicBatchSize}, compType);
+  auto resultType = RankedTensorType::get({1, dynamicBatchSize}, compType);
   // Create the function type of the kernel.
   auto kernelType = FunctionType::get(rewriter.getContext(), TypeRange{inputType}, TypeRange{resultType});
   auto kernel = rewriter.create<low::SPNKernel>(op.getLoc(), op.kernelName(), kernelType);
@@ -56,7 +56,8 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
   SmallVector<Type> inputTypes;
   for (unsigned i = 0; i < op.numFeatures(); ++i) {
     auto arg = rewriter.create<low::SPNBatchExtract>(op.getLoc(), op.getFeatureDataType(),
-                                                     inputArg, batchIndex, i);
+                                                     inputArg, batchIndex, i,
+                                                     rewriter.getBoolAttr(false));
     inputValues.push_back(arg);
     inputTypes.push_back(arg.getType());
   }
@@ -74,10 +75,10 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
   rewriter.mergeBlocks(&spnDAG.graph().front(), bodyBlock, bodyBlock->getArguments());
   rewriter.restoreInsertionPoint(restoreTask);
   // Create a SPNBatchCollect for the result produced by the body, terminating the task.
-  auto output = rewriter.create<low::SPNBatchCollect>(op.getLoc(), resultType,
+  auto output = rewriter.create<low::SPNBatchCollect>(op.getLoc(), resultType, batchIndex,
                                                       ValueRange{body.getResult(0)},
-                                                      batchIndex);
-  rewriter.create<low::SPNReturn>(op.getLoc(), output.tensors());
+                                                      rewriter.getBoolAttr(true));
+  rewriter.create<low::SPNReturn>(op.getLoc(), output.getResult());
   rewriter.restoreInsertionPoint(restoreKernel);
   rewriter.create<low::SPNReturn>(op.getLoc(), task.getResult(0));
   // Erase the original JointQuery that is now represented by the SPNKernel.

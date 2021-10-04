@@ -23,12 +23,18 @@ mlir::LogicalResult mlir::spn::BatchReadLowering::matchAndRewrite(mlir::spn::low
   assert(operands.size() == 2 && "Expecting two operands for BatchRead");
   assert(operands[0].getType().isa<MemRefType>());
   auto memRefType = operands[0].getType().cast<MemRefType>();
+  assert(memRefType.hasRank() && memRefType.getRank() == 2);
   assert(operands[1].getType().isa<IndexType>());
   SmallVector<Value> indices;
-  indices.push_back(operands[1]);
-  if (memRefType.getRank() == 2) {
-    auto constSampleIndex = rewriter.create<ConstantOp>(op->getLoc(), rewriter.getIndexAttr(op.sampleIndex()));
-    indices.push_back(constSampleIndex);
+  auto constStaticIndex = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(op.staticIndex()));
+  if (op.transposed().hasValue() && op.transposed().getValue()) {
+    // Transposed access is memref[staticIndex][dynamicIndex]
+    indices.push_back(constStaticIndex);
+    indices.push_back(operands[1]);
+  } else {
+    // Non-transposed access is memref[dynamicIndex][staticIndex]
+    indices.push_back(operands[1]);
+    indices.push_back(constStaticIndex);
   }
   rewriter.replaceOpWithNewOp<memref::LoadOp>(op, operands[0], indices);
   return success();
@@ -40,14 +46,29 @@ mlir::LogicalResult mlir::spn::BatchWriteLowering::matchAndRewrite(mlir::spn::lo
   if (op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
   }
-  // Replace the BatchWrite with a store to the input memref,
+  assert(operands.size() == op.resultValues().size() + 2 && "Expecting correct number of operands for BatchWrite");
+  // Replace the BatchWrite with stores to the input memref,
   // using the batchIndex.
-  assert(operands.size() == 3 && "Expecting three operands for BatchWrite");
-  assert(operands[1].getType().isa<MemRefType>());
-  assert(operands[1].getType().dyn_cast<MemRefType>().getElementType() == operands[0].getType()
-             && "Result type and element type of MemRef must match");
-  assert(operands[2].getType().isa<IndexType>());
-  rewriter.replaceOpWithNewOp<memref::StoreOp>(op, operands[0], operands[1], operands[2]);
+  auto memRef = operands[0];
+  auto memRefType = memRef.getType().dyn_cast<MemRefType>();
+  assert(memRefType);
+  assert(memRefType.hasRank() && memRefType.getRank() == 2);
+  auto dynIndex = operands[1];
+  assert(dynIndex.getType().isa<IndexType>());
+  bool transposed = op.transposed().getValueOr(false);
+  for (unsigned i = 0; i < op.resultValues().size(); ++i) {
+    SmallVector<Value, 2> indices;
+    auto constStaticIndex = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(i));
+    if (transposed) {
+      indices.push_back(constStaticIndex);
+      indices.push_back(dynIndex);
+    } else {
+      indices.push_back(dynIndex);
+      indices.push_back(constStaticIndex);
+    }
+    rewriter.create<memref::StoreOp>(op.getLoc(), operands[i + 2], memRef, indices);
+  }
+  rewriter.eraseOp(op);
   return success();
 }
 
@@ -59,16 +80,38 @@ mlir::LogicalResult mlir::spn::CopyLowering::matchAndRewrite(mlir::spn::low::SPN
   assert(operands[1].getType().isa<MemRefType>());
   auto srcType = op.source().getType().cast<MemRefType>();
   auto tgtType = op.target().getType().cast<MemRefType>();
-  if (srcType.getRank() != tgtType.getRank() || srcType.getRank() != 1) {
-    return rewriter.notifyMatchFailure(op, "Expecting one dimensional memories");
+  assert(srcType.hasRank());
+  assert(tgtType.hasRank());
+  if (srcType.getRank() != tgtType.getRank() || srcType.getRank() != 2) {
+    return rewriter.notifyMatchFailure(op, "Expecting two dimensional memories");
   }
-  auto dim1 = rewriter.create<memref::DimOp>(op.getLoc(), op.source(), 0);
+  if (srcType.getShape() != tgtType.getShape()) {
+    return rewriter.notifyMatchFailure(op, "Shape of both arguments must match");
+  }
+  assert(srcType.isDynamicDim(0) ^ srcType.isDynamicDim(1));
+  auto transposed = srcType.isDynamicDim(1);
+  auto dynIdx = (!transposed) ? 0 : 1;
+  auto staticIdx = (!transposed) ? 1 : 0;
+  auto staticDim = srcType.getDimSize(staticIdx);
+  assert(staticDim > 0);
+  auto dim1 = rewriter.create<memref::DimOp>(op.getLoc(), op.source(), dynIdx);
   auto lb = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
   auto step = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
   auto outer = rewriter.create<scf::ForOp>(op.getLoc(), lb, dim1, step);
   rewriter.setInsertionPointToStart(&outer.getLoopBody().front());
-  auto load = rewriter.create<memref::LoadOp>(op.getLoc(), op.source(), outer.getInductionVar());
-  (void) rewriter.create<memref::StoreOp>(op.getLoc(), load, op.target(), outer.getInductionVar());
+  for (int i = 0; i < staticDim; ++i) {
+    SmallVector<Value, 2> indices;
+    auto constIdx = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(i));
+    if (transposed) {
+      indices.push_back(constIdx);
+      indices.push_back(outer.getInductionVar());
+    } else {
+      indices.push_back(outer.getInductionVar());
+      indices.push_back(constIdx);
+    }
+    auto load = rewriter.create<memref::LoadOp>(op.getLoc(), op.source(), indices);
+    (void) rewriter.create<memref::StoreOp>(op.getLoc(), load, op.target(), indices);
+  }
   rewriter.eraseOp(op);
   return success();
 }

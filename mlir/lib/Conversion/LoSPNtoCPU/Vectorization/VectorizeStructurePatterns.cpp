@@ -75,7 +75,14 @@ mlir::LogicalResult mlir::spn::VectorizeBatchTask::matchAndRewrite(mlir::spn::lo
                                           funcType);
   auto taskBlock = taskFunc.addEntryBlock();
   rewriter.setInsertionPointToStart(taskBlock);
-  auto numSamples = rewriter.create<memref::DimOp>(op.getLoc(), taskBlock->getArgument(0), 0);
+  // The number of samples can be derived from the dynamic dimension of one of the input memrefs.
+  auto inputMemRef = taskBlock->getArgument(0);
+  auto inputMemRefTy = inputMemRef.getType().dyn_cast<MemRefType>();
+  assert(inputMemRefTy);
+  assert(inputMemRefTy.hasRank() && inputMemRefTy.getRank() == 2);
+  assert(inputMemRefTy.isDynamicDim(0) ^ inputMemRefTy.isDynamicDim(1));
+  auto index = (inputMemRefTy.isDynamicDim(0)) ? 0 : 1;
+  auto numSamples = rewriter.create<memref::DimOp>(op.getLoc(), inputMemRef, index);
   auto vectorWidthConst = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(hwVectorWidth));
   auto remainder = rewriter.create<mlir::UnsignedRemIOp>(op.getLoc(), numSamples, vectorWidthConst);
   auto ubVectorized = rewriter.create<mlir::SubIOp>(op.getLoc(), numSamples, remainder);

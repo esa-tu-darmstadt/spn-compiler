@@ -6,5 +6,6 @@
 #  SPDX-License-Identifier: Apache-2.0
 # ==============================================================================
 
-add_subdirectory(Dialect)
-add_subdirectory(Conversion)
+set(LLVM_TARGET_DEFINITIONS LoSPNtoGPUPasses.td)
+mlir_tablegen(LoSPNtoGPUPasses.h.inc -gen-pass-decls -name LoSPNtoGPU)
+add_public_tablegen_target(MLIRLoSPNtoGPUPassesIncGen)

@@ -1,11 +1,11 @@
 // RUN: %optcall --convert-lospn-nodes-to-cpu %s | FileCheck %s
 
 module  {
-  func @task_0(%arg0: memref<?x6xf64>, %arg1: memref<?xf64>) {
+  func @task_0(%arg0: memref<?x6xf64>, %arg1: memref<1x?xf64>) {
     %cst1 = constant 1.000000e-01 : f64
     %ind1 = constant 1 : index
     %0 = "lo_spn.select"(%cst1) {input_true_threshold = 1.000000e+00 : f64, supportMarginal = false, val_false = 5.500000e-01 : f64, val_true = 3.500000e-01 : f64} : (f64) -> f64
-    "lo_spn.batch_write"(%0, %arg1, %ind1) : (f64, memref<?xf64>, index) -> ()
+    "lo_spn.batch_write"(%arg1, %ind1, %0) {transposed = true} : (memref<1x?xf64>, index, f64) -> ()
     return
   }
 }
@@ -15,7 +15,7 @@ module  {
 
 // CHECK-LABEL:   func @task_0(
 // CHECK-SAME:                 %[[VAL_0:.*]]: memref<?x6xf64>,
-// CHECK-SAME:                 %[[VAL_1:.*]]: memref<?xf64>) {
+// CHECK-SAME:                 %[[VAL_1:.*]]: memref<1x?xf64>) {
 // CHECK:           %[[VAL_2:.*]] = constant 1.000000e-01 : f64
 // CHECK:           %[[VAL_3:.*]] = constant 1 : index
 // CHECK:           %[[VAL_4:.*]] = constant 0.000000e+00 : f64
@@ -30,6 +30,8 @@ module  {
 // CHECK:           %[[VAL_13:.*]] = and %[[VAL_6]], %[[VAL_7]] : i1
 // CHECK:           %[[VAL_14:.*]] = constant 0.000000e+00 : f64
 // CHECK:           %[[VAL_15:.*]] = select %[[VAL_13]], %[[VAL_12]], %[[VAL_14]] : f64
-// CHECK:           memref.store %[[VAL_15]], %[[VAL_1]]{{\[}}%[[VAL_3]]] : memref<?xf64>
+// CHECK:           %[[VAL_16:.*]] = constant 0 : index
+// CHECK:           memref.store %[[VAL_15]], %[[VAL_1]]{{\[}}%[[VAL_16]], %[[VAL_3]]] : memref<1x?xf64>
 // CHECK:           return
 // CHECK:         }
+

@@ -27,7 +27,7 @@ namespace spnc {
   public:
 
     GPUtoLLVMConversion(ActionWithOutput<mlir::ModuleOp>& input,
-                        std::shared_ptr<mlir::MLIRContext> ctx);
+                        std::shared_ptr<mlir::MLIRContext> ctx, unsigned optLevel);
 
     mlir::ModuleOp& execute() override;
 
@@ -36,6 +36,8 @@ namespace spnc {
     bool cached = false;
 
     std::shared_ptr<mlir::MLIRContext> mlirContext;
+
+    unsigned irOptLevel;
 
     std::unique_ptr<mlir::ModuleOp> module;
 

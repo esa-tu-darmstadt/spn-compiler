@@ -1,13 +1,13 @@
 // RUN: %optcall --vectorize-lospn-nodes %s | FileCheck %s
 
 module  {
-  func @vec_task_0(%arg0: memref<?x1xf64>, %arg1: memref<?xf64>) {
+  func @vec_task_0(%arg0: memref<?x1xf64>, %arg1: memref<1x?xf64>) {
     %c0 = constant 0 : index
     %c4 = constant 4 : index
     scf.for %arg2 = %c0 to %c4 step %c4 {
-      %0 = "lo_spn.batch_read"(%arg0, %arg2) {sampleIndex = 0 : ui32, vector_width = 4 : i32} : (memref<?x1xf64>, index) -> f64
+      %0 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 0 : ui32, vector_width = 4 : i32} : (memref<?x1xf64>, index) -> f64
       %1 = "lo_spn.select"(%0) {input_true_threshold = 1.000000e+00 : f64, supportMarginal = false, val_false = 5.500000e-01 : f64, val_true = 3.500000e-01 : f64, vector_width = 4 : i32} : (f64) -> f64
-      "lo_spn.batch_write"(%1, %arg1, %arg2) {vector_width = 4 : i32} : (f64, memref<?xf64>, index) -> ()
+      "lo_spn.batch_write"(%arg1, %arg2, %1) {vector_width = 4 : i32, transposed = true} : (memref<1x?xf64>, index, f64) -> ()
     }
     return
   }
@@ -18,7 +18,7 @@ module  {
 
 // CHECK-LABEL:   func @vec_task_0(
 // CHECK-SAME:                     %[[VAL_0:.*]]: memref<?x1xf64>,
-// CHECK-SAME:                     %[[VAL_1:.*]]: memref<?xf64>) {
+// CHECK-SAME:                     %[[VAL_1:.*]]: memref<1x?xf64>) {
 // CHECK:           %[[VAL_2:.*]] = constant 0 : index
 // CHECK:           %[[VAL_3:.*]] = constant 4 : index
 // CHECK:           scf.for %[[VAL_4:.*]] = %[[VAL_2]] to %[[VAL_3]] step %[[VAL_3]] {
@@ -42,7 +42,9 @@ module  {
 // CHECK:             %[[VAL_22:.*]] = constant dense<3.500000e-01> : vector<4xf64>
 // CHECK:             %[[VAL_23:.*]] = constant dense<5.500000e-01> : vector<4xf64>
 // CHECK:             %[[VAL_24:.*]] = select %[[VAL_21]], %[[VAL_22]], %[[VAL_23]] : vector<4xi1>, vector<4xf64>
-// CHECK:             vector.transfer_write %[[VAL_24]], %[[VAL_1]]{{\[}}%[[VAL_4]]] : vector<4xf64>, memref<?xf64>
+// CHECK:             %[[VAL_25:.*]] = constant 0 : index
+// CHECK:             vector.transfer_write %[[VAL_24]], %[[VAL_1]]{{\[}}%[[VAL_25]], %[[VAL_4]]] : vector<4xf64>, memref<1x?xf64>
 // CHECK:           }
 // CHECK:           return
 // CHECK:         }
+

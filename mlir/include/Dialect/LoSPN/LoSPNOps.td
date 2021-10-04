@@ -112,9 +112,30 @@ def SPNBatchExtract : LoSPN_Op<"batch_extract", [HasParent<"SPNTask">]> {
 
     let summary = "Extract a particular index from each sample in a batch";
 
+    let description = [{
+        Extract a particular feature for each sample from the input tensor
+        representing all features and all samples.
+
+        More specifically,
+        ```
+        %result = "lo_spn.batch_extract"(%tensor, %dynamicIndex) {staticIndex = $staticIndex, transposed = $transposed}
+        ```
+        corresponds to
+        ```
+        if($transposed)
+            %result = %tensor[$staticIndex, %dynamicIndex]
+        else
+            %result = %tensor[%dynamicIndex, $staticIndex]
+        ```
+        Note how the value of the attribute `$transposed` changes the order of indices.
+
+        Bufferization of the LoSPN dialect will replace this operation with a `batch_read`.
+    }];
+
     let arguments = (ins RankedTensorOf<[LoSPNInputType, LoSPNComputeType]>:$input,
-                        Index:$batchIndex,
-                        UI32Attr:$sampleIndex);
+                        Index:$dynamicIndex,
+                        UI32Attr:$staticIndex,
+                        OptionalAttr<BoolAttr>:$transposed);
 
     let results = (outs AnyTypeOf<[LoSPNInputType, LoSPNComputeType]>:$result);
 
@@ -125,27 +146,80 @@ def SPNBatchRead : LoSPN_Op<"batch_read", [
                               VectorizableOp,
                               DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
-    let summary = "Read a particular index from each sample in a batch represented by  a memref";
+    let summary = "Read a particular index from each sample in a batch represented by a memref";
+
+    let description = [{
+        Extract a particular feature for each sample from the input memref
+        representing all features and all samples.
+
+        More specifically,
+        ```
+        %result = "lo_spn.batch_read"(%memref, %dynamicIndex) {staticIndex = $staticIndex, transposed = $transposed}
+        ```
+        corresponds to
+        ```
+        if($transposed)
+            %result = %memref[$staticIndex, %dynamicIndex]
+        else
+            %result = %memref[%dynamicIndex, $staticIndex]
+        ```
+        Note how the value of the attribute `$transposed` changes the order of indices.
+    }];
 
     let arguments = (ins Arg<MemRefOf<[LoSPNInputType, LoSPNComputeType]>, "", [MemRead]>:$batchMem,
-                        Index:$batchIndex,
-                        UI32Attr:$sampleIndex);
+                        Index:$dynamicIndex,
+                        UI32Attr:$staticIndex,
+                        OptionalAttr<BoolAttr>:$transposed);
 
     let results = (outs AnyTypeOf<[LoSPNInputType, LoSPNComputeType]>:$result);
 
     let verifier = [{ return mlir::spn::low::verifyBatchRead(*this); }];
+
+    let builders = [
+        OpBuilder<(ins "Value":$batchMem, "Value":$dynamicIndex, "unsigned":$staticIndex,
+                    "llvm::Optional<bool>":$transposed)>
+    ];
 }
 
 def SPNBatchCollect : LoSPN_Op<"batch_collect", [HasParent<"SPNTask">]> {
 
     let summary = "Collect one or multiple results for each sample in a batch";
 
-    let arguments = (ins Variadic<LoSPNComputeType>:$resultValues,
-                            Index:$batchIndex);
+    let description = [{
+        Collect one or multiple results for each sample in a batch into a tensor
+        representing all the results from all samples.
 
-    let results = (outs Variadic<RankedTensorOf<[LoSPNComputeType]>>:$tensors);
+        More specifically,
+        ```
+        %tensor = "lo_spn.batch_collect"(%batchIndex, %result1, ..., %resultN) {transposed = $transposed}
+        ```
+        corresponds to
+        ```
+        if($transposed)
+            %tensor[1, %batchIndex] = %result1
+            ...
+            %tensor[N, %batchIndex] = %resultN
+        else
+            %tensor[%batchIndex, 1] = %result1
+            ...
+            %tensor[%batchIndex, N] = %resultN
+        ```
+        Note how the value of the attribute `$transposed` changes the order of indices.
+
+        Bufferization of the LoSPN dialect will replace this operation with a `batch_write`.
+    }];
+
+    let arguments = (ins Index:$batchIndex,
+                            Variadic<LoSPNComputeType>:$resultValues,
+                            OptionalAttr<BoolAttr>:$transposed);
+
+    let results = (outs RankedTensorOf<[LoSPNComputeType]>:$tensor);
 
     let verifier = [{ return mlir::spn::low::verifyBatchCollect(*this); }];
+
+    let builders = [
+        OpBuilder<(ins "ValueRange":$resultValues, "Value":$batchIndex, "bool":$transposed)>
+    ];
 }
 
 def SPNBatchWrite : LoSPN_Op<"batch_write", [
@@ -154,9 +228,32 @@ def SPNBatchWrite : LoSPN_Op<"batch_write", [
 
     let summary = "Write one or multiple results for each sample in a batch";
 
-    let arguments = (ins LoSPNComputeType:$resultValue,
-                        Arg<MemRefOf<[LoSPNComputeType]>, "", [MemWrite]>:$batchMem,
-                        Index:$batchIndex);
+    let description = [{
+        Store one or multiple results for each sample in a batch into a buffer
+        holding all the results from all samples.
+
+        More specifically,
+        ```
+        "lo_spn.batch_write"(%memref, %batchIndex, %result1, ..., %resultN) {transposed = $transposed}
+        ```
+        corresponds to
+        ```
+        if($transposed)
+            %memref[1, %batchIndex] = %result1
+            ...
+            %memref[N, %batchIndex] = %resultN
+        else
+            %memref[%batchIndex, 1] = %result1
+            ...
+            %memref[%batchIndex, N] = %resultN
+        ```
+        Note how the value of the attribute `$transposed` changes the order of indices.
+    }];
+
+    let arguments = (ins Arg<MemRefOf<[LoSPNComputeType]>, "", [MemWrite]>:$batchMem,
+                        Index:$batchIndex,
+                        Variadic<LoSPNComputeType>:$resultValues,
+                        OptionalAttr<BoolAttr>:$transposed);
 
     let verifier = [{ return mlir::spn::low::verifyBatchWrite(*this); }];
 }
