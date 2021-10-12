@@ -4,10 +4,6 @@ The SLP directory contains 11 files, each dealing with a different SLP topic.
 
 Please note that a _superword_ in this project describes an SLP vector containing the elements. This term was chosen because a _vector_ is slightly overloaded with meanings in C++. 
 
-* Analysis.h
-  * Was used for analyzing topological mixing in vectors (i.e. how many vectors contained elements with different topological depths)
-  * Deprecated, can be deleted sometime in the future.
-
 * CostModel.h
   * Contains the cost model, which assigns cost to scalar operations, superwords and entire patterns using a visitor pattern.
 
@@ -18,7 +14,7 @@ Please note that a _superword_ in this project describes an SLP vector containin
   * Contains the visitor template and the LeafPatternVisitor, which can determine the scalar values that need to be computed for every leaf pattern (e.h. a BroadcastInsertPattern needs a scalar broadcast value and scalar insert values).
 
 * ScoreModel.h
-  * Contains the Look-Ahead-Score score model from the original Look-Ahead SLP publication. Also contains the XOR chain model.
+  * Contains the Look-Ahead-Score score model from the original Look-Ahead SLP publication [[1]](https://dl.acm.org/doi/10.1145/3168807). Also contains the XOR chain model.
 
 * Seeding.h
   * Contains the classes used for top-down and bottom-up seeding.
@@ -30,10 +26,10 @@ Please note that a _superword_ in this project describes an SLP vector containin
   * Contains a graph builder that constructs SLP graphs as described in Porpodas et al. [[1]](https://dl.acm.org/doi/10.1145/3168807).
 
 * SLPPatternMatch.h
-  * Responsible for selecting the best patterns based on the cost model and the current conversion state
+  * Responsible for selecting the best patterns based on the cost model and the current conversion state.
 
 * SLPVectorizationPatterns.h
-  * The individual patterns that can be applied to superwords and their match and rewrite logic. They were designed in a somewhat similar fashion compared to MLIR's pattern rewrite framework
+  * The individual patterns that can be applied to superwords and their match and rewrite logic. They were designed in a somewhat similar fashion compared to MLIR's pattern rewrite framework.
 
 * Util.h
   * Some utility functions, such as _vectorizable(...)_ or _commutative(...)_.

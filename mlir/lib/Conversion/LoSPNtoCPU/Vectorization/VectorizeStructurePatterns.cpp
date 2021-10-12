@@ -7,9 +7,9 @@
 //==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
-#include "LoSPNtoCPU/Vectorization/SLP/Analysis.h"
 #include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Seeding.h"
+#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "../Target/TargetInformation.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
@@ -118,7 +118,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
 
 #define DEPENDENCY_ANALYSIS false
 #define COST_MODEL_ANALYSIS false
-#define TOPOLOGICAL_MIXING_ANALYSIS false
 
 // Prints how much time each step took (seeding, graph building, pattern matching, ...)
 #define PRINT_TIMINGS true
@@ -219,9 +218,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     auto dependencyGraph = graph.dependencyGraph();
     llvm::outs() << "#Nodes in dependency graph: " << dependencyGraph.numNodes() << "\n";
     llvm::outs() << "#Edges in dependency graph: " << dependencyGraph.numEdges() << "\n";
-#endif
-#if TOPOLOGICAL_MIXING_ANALYSIS
-    analyzeTopologicalMixing(graph);
 #endif
 
     auto order = conversionManager.startConversion(graph);
