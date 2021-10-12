@@ -43,7 +43,7 @@ double CostModel::getSuperwordCost(Superword* superword, SLPVectorizationPattern
   pattern->accept(*this, superword);
   double vectorCost = cost;
   for (auto* operand: superword->getOperands()) {
-    if (!conversionState->alreadyComputed(superword)) {
+    if (!conversionState->alreadyComputed(operand)) {
       auto* operandPattern = patternApplicator.bestMatch(operand);
       operandPattern->accept(*this, operand);
       vectorCost += cost;
