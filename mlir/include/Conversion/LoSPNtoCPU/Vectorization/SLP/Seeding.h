@@ -54,7 +54,8 @@ namespace mlir {
         protected:
           void computeAvailableOps() override;
         private:
-          Operation* findFirstRoot(llvm::StringMap<DenseMap<Operation*, llvm::BitVector>>& reachableLeaves) const;
+          Operation* findRoot(SmallPtrSet<Operation*, 32> const& leaves,
+                              llvm::StringMap<DenseMap<Operation*, llvm::BitVector>>& reachableLeaves) const;
         };
 
       }

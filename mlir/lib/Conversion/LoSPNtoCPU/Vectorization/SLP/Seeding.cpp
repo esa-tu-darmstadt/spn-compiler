@@ -61,7 +61,7 @@ void SeedAnalysis::update(ArrayRef<Superword*> convertedSuperwords) {
 namespace {
 
   template<typename OpIterator>
-  DenseMap<Value, unsigned> computeOpDepths(OpIterator begin, OpIterator end) {
+  DenseMap<Value, unsigned> depths(OpIterator begin, OpIterator end) {
     DenseMap<Value, unsigned> opDepths;
     llvm::SmallVector<Operation*, 32> worklist{begin, end};
     while (!worklist.empty()) {
@@ -159,7 +159,7 @@ void TopDownAnalysis::computeAvailableOps() {
 }
 
 SmallVector<Value, 4> TopDownAnalysis::nextSeed() const {
-  auto opDepths = computeOpDepths(std::begin(availableOps), std::end(availableOps));
+  auto opDepths = depths(std::begin(availableOps), std::end(availableOps));
   auto seeds = computeSeedsByOpName(opDepths, availableOps, width);
 
   if (seeds.empty()) {
@@ -190,34 +190,32 @@ namespace {
     }
     return disjunction;
   }
+
+  SmallPtrSet<Operation*, 32> getLeaves(Operation* rootOp) {
+    SmallPtrSet<Operation*, 32> leaves;
+    rootOp->walk([&](spn::low::LeafNodeInterface leaf) {
+      leaves.insert(leaf);
+    });
+    return leaves;
+  }
 }
 
 FirstRootAnalysis::FirstRootAnalysis(Operation* rootOp, unsigned width) : SeedAnalysis{rootOp, width} {}
 
 SmallVector<Value, 4> FirstRootAnalysis::nextSeed() const {
+  auto const& leaves = getLeaves(rootOp);
   llvm::StringMap<DenseMap<Operation*, llvm::BitVector>> reachableLeaves;
-  auto* root = findFirstRoot(reachableLeaves);
 
-  for (auto const& nameEntry : reachableLeaves) {
-    llvm::dbgs() << nameEntry.first() << ":\n";
-    for (auto const& entry : nameEntry.second) {
-      llvm::dbgs() << "\t" << entry.first << ":\t";
-      for (size_t i = 0; i < entry.second.size(); ++i) {
-        llvm::dbgs() << (entry.second.test(i) ? "1" : "0");
-      }
-      llvm::dbgs() << "\n";
-    }
-  }
-
-  auto opDepths = computeOpDepths(&root, &root + 1);
-  // TODO: available ops computation
+  auto* root = findRoot(leaves, reachableLeaves);
+  auto opDepths = root ? depths(&root, &root + 1) : depths(std::begin(availableOps), std::end(availableOps));
   auto seeds = computeSeedsByOpName(opDepths, availableOps, width);
 
   if (seeds.empty()) {
     rootOp->emitRemark("No seed found.");
     return {};
   }
-  SmallVector<Value, 4>* bestSeed;
+
+  SmallVector<Value, 4>* bestSeed = nullptr;
   unsigned bestLeafCoverage = 0;
   for (size_t i = 0; i < seeds.size(); ++i) {
     auto const& opName = seeds[i].front().getDefiningOp()->getName().getStringRef();
@@ -234,26 +232,29 @@ SmallVector<Value, 4> FirstRootAnalysis::nextSeed() const {
 }
 
 void FirstRootAnalysis::computeAvailableOps() {
-  rootOp->walk([&](LeafNodeInterface leaf) {
-    if (!vectorizable(leaf)) {
+  rootOp->walk([&](Operation* op) {
+    if (!vectorizable(op) || op->hasTrait<OpTrait::ConstantLike>()) {
       return;
     }
-    availableOps.insert(leaf);
+    availableOps.insert(op);
   });
 }
 
-Operation* FirstRootAnalysis::findFirstRoot(llvm::StringMap<DenseMap<Operation*,
-                                                                     llvm::BitVector>>& reachableLeaves) const {
+Operation* FirstRootAnalysis::findRoot(SmallPtrSet<Operation*, 32> const& leaves,
+                                       llvm::StringMap<DenseMap<Operation*, llvm::BitVector>>& reachableLeaves) const {
   SmallPtrSet<Operation*, 32> uniqueWorklist;
   std::queue<Operation*> worklist;
   unsigned index = 0;
-  for (auto* op : availableOps) {
-    for (auto* user : op->getUsers()) {
-      auto it = reachableLeaves[user->getName().getStringRef()].try_emplace(user, availableOps.size());
+  for (auto* leaf : leaves) {
+    for (auto* user : leaf->getUsers()) {
+      if (!availableOps.contains(user)) {
+        continue;
+      }
+      auto it = reachableLeaves[user->getName().getStringRef()].try_emplace(user, leaves.size());
       auto& userReachable = it.first->second;
       userReachable.set(index);
       if (userReachable.all()) {
-        return op;
+        return user;
       }
       if (uniqueWorklist.insert(user).second) {
         worklist.emplace(user);
@@ -265,7 +266,10 @@ Operation* FirstRootAnalysis::findFirstRoot(llvm::StringMap<DenseMap<Operation*,
     auto* currentOp = worklist.front();
     auto const& currentName = currentOp->getName().getStringRef();
     for (auto* user : currentOp->getUsers()) {
-      auto it = reachableLeaves[user->getName().getStringRef()].try_emplace(user, availableOps.size());
+      if (!availableOps.contains(user)) {
+        continue;
+      }
+      auto it = reachableLeaves[user->getName().getStringRef()].try_emplace(user, leaves.size());
       bool isNewUser = it.second;
       auto& userReachable = it.first->second;
       if (!isNewUser) {
@@ -284,5 +288,5 @@ Operation* FirstRootAnalysis::findFirstRoot(llvm::StringMap<DenseMap<Operation*,
     worklist.pop();
     uniqueWorklist.erase(currentOp);
   }
-  llvm_unreachable("block contains unreachable operations");
+  return nullptr;
 }

@@ -11,7 +11,7 @@ Please note that a _superword_ in this project describes an SLP vector containin
   * A very important file that contains the ConversionManager class. The conversion manager keeps track of created vector operations, extractions and maintains a ConversionState. The conversion state is responsible for remembering which scalar/superword values have been computed already. The conversion manager is also responsible for gracefully resetting the function state in case an SLP graph is not deemed profitable. 
 
 * PatternVisitors.h
-  * Contains the visitor template and the LeafPatternVisitor, which can determine the scalar values that need to be computed for every leaf pattern (e.h. a BroadcastInsertPattern needs a scalar broadcast value and scalar insert values).
+  * Contains the visitor template and the LeafPatternVisitor, which can determine the scalar values that need to be computed for every leaf pattern (e.g. a BroadcastInsertPattern needs a scalar broadcast value and scalar insert values).
 
 * ScoreModel.h
   * Contains the Look-Ahead-Score score model from the original Look-Ahead SLP publication [[1]](https://dl.acm.org/doi/10.1145/3168807). Also contains the XOR chain model.
@@ -35,7 +35,6 @@ Please note that a _superword_ in this project describes an SLP vector containin
   * Some utility functions, such as _vectorizable(...)_ or _commutative(...)_.
 
 ### Known Issues ###
-* Seeding: Bottom-up seeding currently does not work properly. As it hasn't been used in a while, it wasn't kept in a state consistent with the rest of the framework
 * ShufflePattern: With shuffle patterns enabled, the output of the kernels sometimes does not match the expected output. This might be due to the reordering changing semantics and the shuffle pattern accessing elements with changed semantics by accident.
 * The SPN compiler options are replicated inside the util class. This is a little bit annoying.
 
