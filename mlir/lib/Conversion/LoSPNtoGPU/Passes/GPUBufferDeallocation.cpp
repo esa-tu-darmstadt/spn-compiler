@@ -168,7 +168,7 @@ namespace mlir {
       void runOnOperation() override {
         auto func = getOperation();
         PostDominanceInfo domInfo{func};
-        if (!domInfo.hasDominanceInfo(&func.body())) {
+        if (!domInfo.hasSSADominance(&func.body())) {
           signalPassFailure();
         }
         RewritePatternSet patterns(func.getContext());
