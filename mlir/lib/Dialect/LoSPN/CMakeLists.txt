@@ -36,7 +36,7 @@ add_mlir_dialect_library(MLIRLoSPN
         MLIRTransforms
         MLIRTransformUtils
         MLIRMath
-        MLIRGPU
+        MLIRGPUOps
         )
 
 include_directories(${PROJECT_SOURCE_DIR}/common/include)

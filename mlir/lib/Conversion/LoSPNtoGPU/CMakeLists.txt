@@ -29,7 +29,7 @@ add_mlir_conversion_library(MLIRLoSPNtoGPUTransforms
         MLIRSupport
         MLIRTransforms
         MLIRMath
-        MLIRGPU
+        MLIRGPUOps
 
         DEPENDS
         MLIRLoSPNtoGPUPassesIncGen
