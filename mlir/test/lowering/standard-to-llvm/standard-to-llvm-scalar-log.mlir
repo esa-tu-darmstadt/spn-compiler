@@ -1,4 +1,4 @@
-// RUN: %optcall --convert-std-to-llvm %s | FileCheck %s
+// RUN: %optcall --convert-math-to-llvm --convert-memref-to-llvm --convert-std-to-llvm %s | FileCheck %s
 
 module  {
   func @task_0(%arg0: memref<?x4xf64>, %arg1: memref<?xf32>) {
