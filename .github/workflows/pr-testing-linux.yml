@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           repository: llvm/llvm-project
-          ref: 4a6ee23d832f823d71faf7d0dca1b6eec71df253
+          ref: cf15ccdeb6d5254ee7d46c7535c29200003a3880
           path: llvm/llvm-src
 
       - name: Build LLVM
