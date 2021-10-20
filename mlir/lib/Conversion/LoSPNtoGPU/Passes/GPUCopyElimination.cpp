@@ -281,8 +281,8 @@ namespace mlir {
         funcArgs.insert(op.body().front().args_begin(), op.body().front().args_end());
         for (auto& region : op->getRegions()) {
           // Skip regions for which no dominance info is available.
-          if (domInfo.hasDominanceInfo(&region)) {
-            for (auto& block : region.getBlocks()) {
+          if (domInfo.hasSSADominance(&region)) {
+            for (auto& block: region.getBlocks()) {
               changed |= eliminateLocal(block, rewriter, domInfo, funcArgs);
             }
           }

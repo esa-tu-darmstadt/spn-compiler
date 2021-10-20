@@ -1,4 +1,4 @@
-// RUN: %optcall --convert-std-to-llvm %s | FileCheck %s
+// RUN: %optcall --convert-math-to-llvm --convert-memref-to-llvm --convert-std-to-llvm %s | FileCheck %s
 
 module  {
   func @vec_task_0(%arg0: memref<?x4xf64>, %arg1: memref<?xf32>) {
@@ -56,8 +56,8 @@ module  {
     %9 = memref.dim %arg0, %c0 : memref<?x4xf64>
     %10 = muli %9, %c4 : index
     %11 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%10], strides: [1] : memref<?x4xf64> to memref<?xf64>
-    %12 = llvm.mlir.cast %11 : memref<?xf64> to !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<1 x i64>, array<1 x i64>)>
-    %13 = llvm.mlir.cast %c0 : index to i64
+    %12 = unrealized_conversion_cast %11 : memref<?xf64> to !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<1 x i64>, array<1 x i64>)>
+    %13 = unrealized_conversion_cast %c0 : index to i64
     %14 = llvm.extractvalue %12[1] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<1 x i64>, array<1 x i64>)>
     %15 = llvm.getelementptr %14[%13] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
     %16 = llvm.getelementptr %15[%8] : (!llvm.ptr<f64>, vector<8xi64>) -> !llvm.vec<8 x ptr<f64>>
@@ -69,8 +69,8 @@ module  {
     %22 = memref.dim %arg0, %c0 : memref<?x4xf64>
     %23 = muli %22, %c4 : index
     %24 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%23], strides: [1] : memref<?x4xf64> to memref<?xf64>
-    %25 = llvm.mlir.cast %24 : memref<?xf64> to !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<1 x i64>, array<1 x i64>)>
-    %26 = llvm.mlir.cast %c0 : index to i64
+    %25 = unrealized_conversion_cast %24 : memref<?xf64> to !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<1 x i64>, array<1 x i64>)>
+    %26 = unrealized_conversion_cast %c0 : index to i64
     %27 = llvm.extractvalue %25[1] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<1 x i64>, array<1 x i64>)>
     %28 = llvm.getelementptr %27[%26] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
     %29 = llvm.getelementptr %28[%21] : (!llvm.ptr<f64>, vector<8xi64>) -> !llvm.vec<8 x ptr<f64>>
@@ -82,8 +82,8 @@ module  {
     %35 = memref.dim %arg0, %c0 : memref<?x4xf64>
     %36 = muli %35, %c4 : index
     %37 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%36], strides: [1] : memref<?x4xf64> to memref<?xf64>
-    %38 = llvm.mlir.cast %37 : memref<?xf64> to !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<1 x i64>, array<1 x i64>)>
-    %39 = llvm.mlir.cast %c0 : index to i64
+    %38 = unrealized_conversion_cast %37 : memref<?xf64> to !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<1 x i64>, array<1 x i64>)>
+    %39 = unrealized_conversion_cast %c0 : index to i64
     %40 = llvm.extractvalue %38[1] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<1 x i64>, array<1 x i64>)>
     %41 = llvm.getelementptr %40[%39] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
     %42 = llvm.getelementptr %41[%34] : (!llvm.ptr<f64>, vector<8xi64>) -> !llvm.vec<8 x ptr<f64>>
@@ -95,8 +95,8 @@ module  {
     %48 = memref.dim %arg0, %c0 : memref<?x4xf64>
     %49 = muli %48, %c4 : index
     %50 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%49], strides: [1] : memref<?x4xf64> to memref<?xf64>
-    %51 = llvm.mlir.cast %50 : memref<?xf64> to !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<1 x i64>, array<1 x i64>)>
-    %52 = llvm.mlir.cast %c0 : index to i64
+    %51 = unrealized_conversion_cast %50 : memref<?xf64> to !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<1 x i64>, array<1 x i64>)>
+    %52 = unrealized_conversion_cast %c0 : index to i64
     %53 = llvm.extractvalue %51[1] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<1 x i64>, array<1 x i64>)>
     %54 = llvm.getelementptr %53[%52] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
     %55 = llvm.getelementptr %54[%47] : (!llvm.ptr<f64>, vector<8xi64>) -> !llvm.vec<8 x ptr<f64>>
@@ -155,8 +155,8 @@ module  {
     %106 = index_cast %102 : index to i32
     %107 = splat %106 : vector<8xi32>
     %108 = cmpi slt, %105, %107 : vector<8xi32>
-    %109 = llvm.mlir.cast %arg1 : memref<?xf32> to !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
-    %110 = llvm.mlir.cast %3 : index to i64
+    %109 = unrealized_conversion_cast %arg1 : memref<?xf32> to !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
+    %110 = unrealized_conversion_cast %3 : index to i64
     %111 = llvm.extractvalue %109[1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
     %112 = llvm.getelementptr %111[%110] : (!llvm.ptr<f32>, i64) -> !llvm.ptr<f32>
     %113 = llvm.bitcast %112 : !llvm.ptr<f32> to !llvm.ptr<vector<8xf32>>

@@ -85,7 +85,7 @@ if (${CUDA_GPU_SUPPORT})
     target_include_directories(spnc PRIVATE ${CUDA_INCLUDE_DIRS})
 
     # Additional libraries to link
-    target_link_libraries(spnc PRIVATE ${CUDA_RUNTIME_LIBRARY} MLIRLoSPNtoGPUTransforms)
+    target_link_libraries(spnc PRIVATE ${CUDA_RUNTIME_LIBRARY} MLIRLoSPNtoGPUTransforms MLIRNVVMToLLVMIRTranslation)
 
     if (MLIR_CUDA_WRAPPERS)
         get_filename_component(MLIR_CUDA_RUNTIME_WRAPPERS_DIR ${MLIR_CUDA_WRAPPERS} DIRECTORY)

@@ -10,11 +10,15 @@
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
-#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
+#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
+#include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
+#include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 
 void spnc::CPUtoLLVMConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   pm->nest<mlir::FuncOp>().addPass(mlir::createConvertVectorToSCFPass());
   pm->addPass(mlir::createLowerToCFGPass());
   pm->addPass(mlir::createConvertVectorToLLVMPass());
+  pm->nest<mlir::FuncOp>().addPass(mlir::createConvertMathToLLVMPass());
+  pm->addPass(mlir::createMemRefToLLVMPass());
   pm->addPass(mlir::createLowerToLLVMPass());
 }
