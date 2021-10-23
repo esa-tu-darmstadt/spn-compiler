@@ -8,8 +8,8 @@
 
 import numpy as np
 import os
-import time
 import shutil
+import time
 from spnc.cpu import CPUCompiler
 from xspn.serialization.binary.BinarySerialization import BinaryDeserializer
 
@@ -32,8 +32,8 @@ def test_vector_fashion_mnist():
                               dtype="float64")
     reference = reference.reshape(1000)
     # Compile the kernel.
-    options = {}
-    options["slp-max-look-ahead"] = 30
+    options = dict()
+    options["slp-max-look-ahead"] = 10
     options["slp-max-node-size"] = 10000
     options["slp-max-attempts"] = 5
     options["slp-max-successful-iterations"] = 1

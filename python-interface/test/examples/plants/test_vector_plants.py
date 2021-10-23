@@ -8,8 +8,8 @@
 
 import numpy as np
 import os
-import time
 import shutil
+import time
 from spnc.cpu import CPUCompiler
 from xspn.serialization.binary.BinarySerialization import BinaryDeserializer
 
@@ -23,19 +23,17 @@ def test_vector_fashion_mnist():
 
     # Deserialize model
     model = BinaryDeserializer(
-        # os.path.join(scriptPath, "plants_100_200_3_3_5_3_1_True.bin")).deserialize_from_file()
         os.path.join(scriptPath, "plants_100_200_1_50_45_10_1_True.bin")).deserialize_from_file()
     spn = model.graph.root
 
     inputs = np.genfromtxt(os.path.join(scriptPath, "input.csv"), delimiter=",", dtype="float64")
-    # reference = np.genfromtxt(os.path.join(scriptPath, "plants_100_200_3_3_5_3_1_True_output.csv"),
     reference = np.genfromtxt(os.path.join(scriptPath, "plants_100_200_1_50_45_10_1_True_output.csv"),
                               delimiter=",",
                               dtype="float64")
     reference = reference.reshape(10000)
     # Compile the kernel.
     options = {}
-    options["slp-max-look-ahead"] = 30
+    options["slp-max-look-ahead"] = 10
     options["slp-max-node-size"] = 10000
     options["slp-max-attempts"] = 5
     options["slp-max-successful-iterations"] = 1

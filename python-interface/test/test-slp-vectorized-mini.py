@@ -10,12 +10,12 @@ from xspn.serialization.binary.BinarySerialization import BinarySerializer
 from xspn.structure.Model import SPNModel
 from xspn.structure.Query import JointProbability
 
-g0 = Gaussian(mean=0.11, stdev=1, scope=0)
-g1 = Gaussian(mean=0.12, stdev=0.75, scope=1)
-g2 = Gaussian(mean=0.13, stdev=0.5, scope=2)
-g3 = Gaussian(mean=0.14, stdev=0.25, scope=3)
+g0 = Gaussian(mean=0.13, stdev=0.5, scope=0)
+g1 = Gaussian(mean=0.14, stdev=0.25, scope=2)
+g2 = Gaussian(mean=0.11, stdev=1.0, scope=3)
+g3 = Gaussian(mean=0.12, stdev=0.75, scope=1)
 
-s = Sum(children=[g0, g1, g2, g3], weights=[0.25, 0.25, 0.25, 0.25])
+s = Sum(children=[g0, g1, g2, g3], weights=[0.2, 0.4, 0.1, 0.3])
 
 # Wrap the SPN in a model and query.
 model = SPNModel(s, "float64", "spn_vector")
@@ -37,7 +37,7 @@ print("Invoking compiler...")
 compiler = spncpy.SPNCompiler()
 
 # Compile the query into a Kernel.
-options = dict({"target": "CPU", "cpu-vectorize": "true"})
+options = dict({"target": "CPU", "cpu-vectorize": "true", "use-log-space": "true"})
 k = compiler.compileQuery(tempfile, options)
 # Check that the comiled Kernel actually exists.
 if not os.path.isfile(k.fileName()):
