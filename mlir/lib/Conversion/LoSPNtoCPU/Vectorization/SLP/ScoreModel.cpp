@@ -58,13 +58,13 @@ unsigned PorpodasModel::getLookAheadScore(Value last, Value candidate, unsigned 
   if (auto lhsLoad = dyn_cast<SPNBatchRead>(lastOp)) {
     // We know both operations share the same opcode.
     auto rhsLoad = cast<SPNBatchRead>(candidateOp);
-    if (lhsLoad.batchMem() == rhsLoad.batchMem() && lhsLoad.batchIndex() == rhsLoad.batchIndex()) {
-      if (lhsLoad.sampleIndex() + 1 == rhsLoad.sampleIndex()) {
+    if (lhsLoad.batchMem() == rhsLoad.batchMem() && lhsLoad.dynamicIndex() == rhsLoad.dynamicIndex()) {
+      if (lhsLoad.staticIndex() + 1 == rhsLoad.staticIndex()) {
         // Returning 3 prefers consecutive loads to gather loads and broadcast loads.
         return 3;
       }
       // Returning 2 prefers gather loads to broadcast loads.
-      if (lhsLoad.sampleIndex() != rhsLoad.sampleIndex()) {
+      if (lhsLoad.staticIndex() != rhsLoad.staticIndex()) {
         return 2;
       }
       // Broadcast load.
@@ -289,7 +289,7 @@ XorChainModel::XorChain::XorChain(Value value, unsigned lookAhead, BitCodeMap co
     }
     if (auto* definingOp = operandChain[i].getDefiningOp()) {
       if (auto batchRead = dyn_cast<SPNBatchRead>(definingOp)) {
-        loads.emplace_back(batchRead.batchMem(), batchRead.batchIndex(), batchRead.sampleIndex());
+        loads.emplace_back(batchRead.batchMem(), batchRead.dynamicIndex(), batchRead.staticIndex());
       }
     }
   }

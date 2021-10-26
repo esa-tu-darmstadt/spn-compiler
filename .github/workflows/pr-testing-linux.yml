@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           repository: llvm/llvm-project
-          ref: 4a6ee23d832f823d71faf7d0dca1b6eec71df253
+          ref: cf15ccdeb6d5254ee7d46c7535c29200003a3880
           path: llvm/llvm-src
 
       - name: Build LLVM
@@ -106,7 +106,7 @@ jobs:
           cd spn-compiler
           mkdir -p build
           cd build
-          cmake -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/llvm/llvm-bin/lib/cmake/llvm;$GITHUB_WORKSPACE/llvm/llvm-bin/lib/cmake/mlir;$GITHUB_WORKSPACE/pybind11/install/share/cmake/pybind11;$GITHUB_WORKSPACE/spdlog/install/lib/cmake/spdlog;$GITHUB_WORKSPACE/capnproto/install" -DLLVM_ENABLE_LLD=ON -DLLVM_ENABLE_ASSERTIONS=ON -DSPNC_BUILD_DOC=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+          cmake -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/llvm/llvm-bin/lib/cmake/llvm;$GITHUB_WORKSPACE/llvm/llvm-bin/lib/cmake/mlir;$GITHUB_WORKSPACE/pybind11/install/share/cmake/pybind11;$GITHUB_WORKSPACE/spdlog/install/lib/cmake/spdlog;$GITHUB_WORKSPACE/capnproto/install" -DLLVM_ENABLE_LLD=ON -DLLVM_ENABLE_ASSERTIONS=ON -DSPNC_BUILD_DOC=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_C_COMPILER=/usr/bin/clang  -DCMAKE_CXX_COMPILER=/usr/bin/clang++ ..
           make -j
 
       - name: Test spnc
@@ -128,19 +128,6 @@ jobs:
           cd spn-compiler/python-interface
           source $GITHUB_WORKSPACE/python/venv/bin/activate
           python -m pytest
-
-      - name: Run clang-tidy
-        run: |
-          cd spn-compiler/build
-          sh wrap-clang-tidy.sh
-
-      - name: Run clang-tidy-pr-comments action
-        uses: sommerlukas/clang-tidy-pr-comments@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          clang_tidy_fixes: spn-compiler/build/fixes-clang-tidy.yaml
-          request_changes: false
-          repository_root: spn-compiler
 
 
 

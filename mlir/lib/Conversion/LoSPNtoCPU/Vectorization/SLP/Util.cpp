@@ -61,10 +61,10 @@ bool slp::consecutiveLoads(Value lhs, Value rhs) {
   if (lhsLoad.batchMem() != rhsLoad.batchMem()) {
     return false;
   }
-  if (lhsLoad.batchIndex() != rhsLoad.batchIndex()) {
+  if (lhsLoad.dynamicIndex() != rhsLoad.dynamicIndex()) {
     return false;
   }
-  return lhsLoad.sampleIndex() + 1 == rhsLoad.sampleIndex();
+  return lhsLoad.staticIndex() + 1 == rhsLoad.staticIndex();
 }
 
 bool slp::anyGaussianMarginalized(Superword const& superword) {
@@ -194,8 +194,8 @@ void slp::dumpOpGraph(ArrayRef<Value> values) {
         }
       } else if (auto batchReadOp = dyn_cast<SPNBatchRead>(definingOp)) {
         llvm::dbgs() << "\\nbatch mem: " << batchReadOp.batchMem().dyn_cast<BlockArgument>().getArgNumber();
-        llvm::dbgs() << "\\nbatch index: " << batchReadOp.batchMem().dyn_cast<BlockArgument>().getArgNumber();
-        llvm::dbgs() << "\\nsample index: " << batchReadOp.sampleIndex();
+        llvm::dbgs() << "\\dynamic index: " << batchReadOp.dynamicIndex();
+        llvm::dbgs() << "\\nstatic index: " << batchReadOp.staticIndex();
       }
     } else {
       dumpBlockArgOrDefiningAddress(value);
@@ -223,8 +223,8 @@ namespace {
         llvm::dbgs() << "<BR/>mem: ";
         dumpBlockArgOrDefiningAddress(readOp.batchMem());
         llvm::dbgs() << "<BR/>batch: ";
-        dumpBlockArgOrDefiningAddress(readOp.batchIndex());
-        llvm::dbgs() << "<BR/>sample: " << readOp.sampleIndex();
+        dumpBlockArgOrDefiningAddress(readOp.dynamicIndex());
+        llvm::dbgs() << "<BR/>sample: " << readOp.staticIndex();
       } else if (auto gaussianOp = dyn_cast<SPNGaussianLeaf>(definingOp)) {
         llvm::dbgs() << "<BR/>index: ";
         dumpBlockArgOrDefiningAddress(gaussianOp.index());

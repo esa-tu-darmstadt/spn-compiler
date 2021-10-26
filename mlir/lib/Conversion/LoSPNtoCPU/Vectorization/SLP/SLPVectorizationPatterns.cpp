@@ -356,9 +356,10 @@ LogicalResult CreateConsecutiveLoad::match(Superword* superword) {
 
 Value CreateConsecutiveLoad::rewrite(Superword* superword, RewriterBase& rewriter) {
   auto batchRead = cast<SPNBatchRead>(superword->getElement(0).getDefiningOp());
-  auto sampleIndex =
-      conversionManager.getOrCreateConstant(superword->getLoc(), rewriter.getIndexAttr(batchRead.sampleIndex()));
-  ValueRange indices{batchRead.batchIndex(), sampleIndex};
+  ValueRange indices{
+      batchRead.dynamicIndex(),
+      conversionManager.getOrCreateConstant(superword->getLoc(), rewriter.getIndexAttr(batchRead.staticIndex()))
+  };
   return rewriter.create<vector::LoadOp>(superword->getLoc(),
                                          superword->getVectorType(),
                                          batchRead.batchMem(),
@@ -373,7 +374,7 @@ void CreateConsecutiveLoad::accept(PatternVisitor& visitor, Superword* superword
 
 LogicalResult CreateGatherLoad::match(Superword* superword) {
   Value batchMem = nullptr;
-  Value batchIndex = nullptr;
+  Value dynamicIndex = nullptr;
   for (auto element : *superword) {
     auto batchRead = element.getDefiningOp<SPNBatchRead>();
     if (!batchRead) {
@@ -385,10 +386,10 @@ LogicalResult CreateGatherLoad::match(Superword* superword) {
     } else if (batchRead.batchMem() != batchMem) {
       return failure();
     }
-    if (!batchIndex) {
-      batchIndex = batchRead.batchIndex();
-      // We require the batch index to be 0.
-      if (auto* definingOp = batchIndex.getDefiningOp()) {
+    if (!dynamicIndex) {
+      dynamicIndex = batchRead.dynamicIndex();
+      // We require the dynamic index to be 0.
+      if (auto* definingOp = dynamicIndex.getDefiningOp()) {
         auto constant = dyn_cast<ConstantOp>(definingOp);
         if (!constant || !constant.getType().isIntOrIndex() || constant.getValue().cast<IntegerAttr>().getInt() != 0) {
           return failure();
@@ -396,7 +397,7 @@ LogicalResult CreateGatherLoad::match(Superword* superword) {
       } else {
         return failure();
       }
-    } else if (batchRead.batchIndex() != batchIndex) {
+    } else if (batchRead.dynamicIndex() != dynamicIndex) {
       return failure();
     }
   }
@@ -424,9 +425,9 @@ Value CreateGatherLoad::rewrite(Superword* superword, RewriterBase& rewriter) {
     auto batchRead = cast<SPNBatchRead>(element.getDefiningOp());
     if (!base && !index) {
       base = batchRead.batchMem();
-      index = batchRead.batchIndex();
+      index = batchRead.dynamicIndex();
     }
-    samples.emplace_back(batchRead.sampleIndex());
+    samples.emplace_back(batchRead.staticIndex());
     maskBits.emplace_back(true);
   }
 

@@ -18,10 +18,11 @@ from xspn.serialization.binary.BinarySerialization import BinaryDeserializer
 
 from spnc.cpu import CPUCompiler
 
+import pytest
+
+
+@pytest.mark.skipif(not CPUCompiler.isVectorizationSupported(), reason="CPU vectorization not supported")
 def test_vector_NIPS5():
-    if not CPUCompiler.isVectorizationSupported():
-        print("Test not supported by the compiler installation")
-        return 0
     # Locate test resources located in same directory as this script.
     scriptPath = os.path.realpath(os.path.dirname(__file__))
 

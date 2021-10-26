@@ -38,6 +38,14 @@ if (${CHECK_SPNC_VERBOSE})
     set(CHECK_SPNC_LIT_ARGS "${CHECK_SPNC_LIT_ARGS};-v")
 endif ()
 
+# Mark the directory containing the GPU/CUDA tests as unsupported if no CUDA GPU support was requested.
+if (NOT ${CUDA_GPU_SUPPORT})
+    file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/transform/gpu/cuda/lit.local.cfg config.unsupported=True)
+else ()
+    file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/transform/gpu/cuda/lit.local.cfg config.unsupported=False)
+endif ()
+
+
 # Run regression tests
 add_lit_testsuite(check-spnc-mlir-tests "Running spnc-mlir regression tests"
         ${CMAKE_CURRENT_BINARY_DIR}

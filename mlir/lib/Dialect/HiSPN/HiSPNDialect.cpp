@@ -32,5 +32,8 @@ void HiSPNDialect::printType(::mlir::Type type, ::mlir::DialectAsmPrinter& os) c
   os << "probability";
 }
 
+// Table-gen output for dialect implementation
+#include "HiSPN/HiSPNOpsDialect.cpp.inc"
+
 // Add definitions/implementation of SPN dialect/operation interfaces.
 #include "HiSPN/HiSPNInterfaces.cpp.inc"

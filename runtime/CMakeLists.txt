@@ -39,3 +39,5 @@ doxygen_doc(TARGET_NAME spnc-rt
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         DEPENDS
         spnc-common)
+
+add_subdirectory(wrappers)

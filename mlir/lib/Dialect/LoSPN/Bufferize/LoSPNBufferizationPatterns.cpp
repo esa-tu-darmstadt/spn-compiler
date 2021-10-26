@@ -15,7 +15,8 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
                                                                    llvm::ArrayRef<mlir::Value> operands,
                                                                    mlir::ConversionPatternRewriter& rewriter) const {
   assert(!operands.empty() && "Expecting at least one input to a task");
-  assert(operands[0].getType().isa<MemRefType>());
+  auto inputMemRefTy = operands[0].getType().dyn_cast<MemRefType>();
+  assert(inputMemRefTy);
   // All inputs to this Task will also become inputs to the newly create task.
   SmallVector<Value, 10> inputs;
   for (auto operand : operands) {
@@ -25,7 +26,10 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
   // to the actual number of samples in the batch.
   // This value will be used for the allocation for the results of this task and
   // assumes that all inputs/outputs use the same number of samples.
-  auto batchDim = rewriter.create<mlir::memref::DimOp>(op.getLoc(), operands[0], 0);
+  assert(inputMemRefTy.hasRank() && inputMemRefTy.getRank() == 2);
+  assert(inputMemRefTy.isDynamicDim(0) ^ inputMemRefTy.isDynamicDim(1));
+  auto index = (inputMemRefTy.isDynamicDim(0)) ? 0 : 1;
+  auto batchDim = rewriter.create<mlir::memref::DimOp>(op.getLoc(), operands[0], index);
   SmallVector<Value, 1> dynSizes;
   dynSizes.push_back(batchDim);
   // Create a MemRef via allocation for each result. Instead of returning a Tensor, the task
@@ -70,10 +74,8 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
     auto collect = dyn_cast<SPNBatchCollect>(std::get<0>(collectArg).getDefiningOp());
     assert(collect);
     auto outArg = std::get<1>(collectArg);
-    // TODO Handle BatchCollect summarizing multiple return values into one tensor.
-    assert(collect.resultValues().size() == 1);
-    auto retVal = collect.resultValues().front();
-    rewriter.create<low::SPNBatchWrite>(collect.getLoc(), retVal, outArg, batchIndex);
+    rewriter.create<low::SPNBatchWrite>(collect.getLoc(), outArg, batchIndex, collect.resultValues(),
+                                        collect.transposedAttr());
     rewriter.eraseOp(collect);
   }
   // Erase the old return and replace it with an empty return,
@@ -91,8 +93,8 @@ mlir::LogicalResult mlir::spn::low::BatchExtractBufferize::matchAndRewrite(mlir:
                                                                            mlir::ConversionPatternRewriter& rewriter) const {
   assert(operands[0].getType().isa<MemRefType>());
   assert(operands[1].getType().isa<IndexType>());
-  rewriter.replaceOpWithNewOp<low::SPNBatchRead>(op, op.getType(), operands[0],
-                                                 operands[1], op.sampleIndex());
+  rewriter.replaceOpWithNewOp<low::SPNBatchRead>(op, operands[0], operands[1],
+                                                 op.staticIndex(), op.transposed());
   return success();
 }
 

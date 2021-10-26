@@ -63,45 +63,45 @@ namespace {
 
 }
 
-mlir::LogicalResult mlir::spn::Vectorize1DBatchRead::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
-                                                                     llvm::ArrayRef<mlir::Value> operands,
-                                                                     mlir::ConversionPatternRewriter& rewriter) const {
-  // Replace the vectorized version of a BatchRead with a Gather load from the input memref.
+mlir::LogicalResult mlir::spn::VectorizeTransposedBatchRead::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
+                                                                             llvm::ArrayRef<mlir::Value> operands,
+                                                                             mlir::ConversionPatternRewriter& rewriter) const {
+  // Replace the vectorized version of a transposed BatchRead with a vector load from the input memref.
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized BatchRead");
+  }
+  if (!op.transposed().getValueOr(false)) {
+    return rewriter.notifyMatchFailure(op, "Pattern only matches transposed BatchRead");
   }
   assert(operands.size() == 2);
   assert(operands[0].getType().isa<MemRefType>());
   assert(operands[1].getType().isa<IndexType>());
   auto memRef = operands[0].getType().dyn_cast<MemRefType>();
-  assert(memRef.hasRank());
-  if (memRef.getRank() != 1) {
-    // This pattern only handles 1-dimensional memrefs. For 2D memrefs, a more generic implementation
-    // using gather operations is required, see Vectorize2DBatchRead.
-    return rewriter.notifyMatchFailure(op, "Pattern only matches 1D BatchReads");
-  }
+  assert(memRef.hasRank() && memRef.getRank() == 2);
+  SmallVector<Value, 2> indices;
+  auto constStaticIndex = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(op.staticIndex()));
+  indices.push_back(constStaticIndex);
+  indices.push_back(operands[1]);
   auto vectorType = VectorType::get({op.vectorFactor()}, memRef.getElementType());
-  rewriter.replaceOpWithNewOp<vector::TransferReadOp>(op, vectorType, operands[0], operands[1]);
+  rewriter.replaceOpWithNewOp<vector::TransferReadOp>(op, vectorType, operands[0], indices);
   return success();
 }
 
-mlir::LogicalResult mlir::spn::Vectorize2DBatchRead::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
-                                                                     llvm::ArrayRef<mlir::Value> operands,
-                                                                     mlir::ConversionPatternRewriter& rewriter) const {
-  // Replace the vectorized version of a BatchRead with a Gather load from the input memref.
+mlir::LogicalResult mlir::spn::VectorizeBatchRead::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
+                                                                   llvm::ArrayRef<mlir::Value> operands,
+                                                                   mlir::ConversionPatternRewriter& rewriter) const {
+  // Replace the vectorized version of a non-transposed BatchRead with a Gather load from the input memref.
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized BatchRead");
+  }
+  if (op.transposed().getValueOr(false)) {
+    return rewriter.notifyMatchFailure(op, "Pattern only matches non-transposed BatchRead");
   }
   assert(operands.size() == 2);
   assert(operands[0].getType().isa<MemRefType>());
   assert(operands[1].getType().isa<IndexType>());
   auto memRef = operands[0].getType().dyn_cast<MemRefType>();
-  assert(memRef.hasRank());
-  if (memRef.getRank() != 2) {
-    // This pattern only handles 2-dimensional memrefs. For 1D memrefs, a more optimized implementation
-    // using regular (vector) loads instead of gathers is possible (see Vectorize1DBatchRead).
-    return rewriter.notifyMatchFailure(op, "Pattern only matches 2D BatchReads");
-  }
+  assert(memRef.hasRank() && memRef.getRank() == 2);
   // Assume that the second dimension (i.e., the number of features per sample is a static dimension).
   assert(!memRef.isDynamicDim(1));
   auto numFeatures = memRef.getDimSize(1);
@@ -113,7 +113,7 @@ mlir::LogicalResult mlir::spn::Vectorize2DBatchRead::matchAndRewrite(mlir::spn::
   // Create a constant vector with the offsets of the elements from the first sample.
   SmallVector<unsigned long, 4> offsets;
   for (unsigned i = 0; i < op.vectorFactor(); ++i) {
-    offsets.push_back(i * numFeatures + op.sampleIndex());
+    offsets.push_back(i * numFeatures + op.staticIndex());
   }
   auto constAttr = mlir::DenseElementsAttr::get(vectorOfIndex, (llvm::ArrayRef<unsigned long>) offsets);
   auto constOffset = rewriter.create<ConstantOp>(op.getLoc(), constAttr);
@@ -158,22 +158,38 @@ mlir::LogicalResult mlir::spn::VectorizeBatchWrite::matchAndRewrite(mlir::spn::l
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized BatchWrite");
   }
-  assert(operands.size() == 3);
-  VectorType vectorType;
-  auto result = operands[0];
-  if (!result.getType().isa<VectorType>()) {
-    vectorType = VectorType::get({op.vectorFactor()}, result.getType());
-    result = typeConverter->materializeTargetConversion(rewriter, op->getLoc(), vectorType, result);
-    assert(result);
-  } else {
-    vectorType = result.getType().dyn_cast<VectorType>();
+  if (!op.transposed().getValueOr(false)) {
+    // Currently, no step of the compilation pipeline will create non-transposed BatchWrite,
+    // therefore this is currently the only implementation.
+    return rewriter.notifyMatchFailure(op, "Pattern only matches transposed BatchWrite");
   }
-  assert(operands[1].getType().dyn_cast<MemRefType>().getElementType() == vectorType.getElementType()
-             && "Result type and element type of MemRef must match");
-  assert(operands[1].getType().isa<MemRefType>());
-  assert(operands[2].getType().isa<IndexType>());
-  rewriter.replaceOpWithNewOp<vector::TransferWriteOp>(op, result, operands[1],
-                                                       operands[2]);
+  auto memRef = operands[0];
+  auto memRefTy = memRef.getType().dyn_cast<MemRefType>();
+  assert(memRefTy);
+  assert(memRefTy.hasRank() && memRefTy.getRank() == 2);
+  auto dynIndex = operands[1];
+  assert(dynIndex.getType().isa<IndexType>());
+
+  for (unsigned i = 0; i < op.resultValues().size(); ++i) {
+    VectorType vectorType;
+    auto result = operands[i + 2];
+    if (!result.getType().isa<VectorType>()) {
+      vectorType = VectorType::get({op.vectorFactor()}, result.getType());
+      result = typeConverter->materializeTargetConversion(rewriter, op->getLoc(), vectorType, result);
+      assert(result);
+    } else {
+      vectorType = result.getType().cast<VectorType>();
+    }
+    assert(memRefTy.getElementType() == vectorType.getElementType()
+               && "Result type and element type of MemRef must match");
+    SmallVector<Value, 2> indices;
+    auto constStaticIndex = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(i));
+    indices.push_back(constStaticIndex);
+    indices.push_back(dynIndex);
+    rewriter.create<vector::TransferWriteOp>(op.getLoc(), result, memRef,
+                                             indices);
+  }
+  rewriter.eraseOp(op);
   return success();
 }
 
@@ -248,12 +264,7 @@ mlir::LogicalResult mlir::spn::VectorizeLogAdd::matchAndRewrite(mlir::spn::low::
   auto b = rewriter.create<SelectOp>(op->getLoc(), compare, operands[1], operands[0]);
   auto sub = rewriter.create<SubFOp>(op->getLoc(), b, a);
   auto exp = rewriter.create<math::ExpOp>(op.getLoc(), sub);
-  // TODO Currently, lowering of log1p to LLVM is not supported,
-  // therefore we perform the computation manually here.
-  auto constantOne = broadcastVectorConstant(typeConverter->convertType(op.getResult().getType()).cast<VectorType>(),
-                                             1.0, rewriter, op.getLoc());
-  auto onePlus = rewriter.create<AddFOp>(op->getLoc(), constantOne, exp);
-  auto log = rewriter.create<math::LogOp>(op.getLoc(), onePlus);
+  auto log = rewriter.create<math::Log1pOp>(op.getLoc(), exp);
   rewriter.replaceOpWithNewOp<AddFOp>(op, a, log);
   return success();
 }

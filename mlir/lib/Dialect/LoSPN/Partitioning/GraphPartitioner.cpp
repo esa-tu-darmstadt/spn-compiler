@@ -42,6 +42,8 @@ llvm::SmallPtrSetImpl<mlir::Operation*>::iterator mlir::spn::low::Partition::end
 }
 
 void mlir::spn::low::Partition::computeExternalConnections() {
+  extIn.clear();
+  exOut.clear();
   for (auto* n : nodes) {
     auto usesExt = llvm::any_of(n->getOperands(), [this](Value op) {
       return !this->nodes.contains(op.getDefiningOp());

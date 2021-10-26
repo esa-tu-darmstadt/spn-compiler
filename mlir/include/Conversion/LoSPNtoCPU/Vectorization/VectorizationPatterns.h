@@ -71,7 +71,7 @@ namespace mlir {
       patterns.insert<VectorizeSingleTask, VectorizeBatchTask>(typeConverter, context, 5);
     }
 
-    struct Vectorize2DBatchRead : public OpConversionPattern<low::SPNBatchRead> {
+    struct VectorizeTransposedBatchRead : public OpConversionPattern<low::SPNBatchRead> {
 
       using OpConversionPattern<low::SPNBatchRead>::OpConversionPattern;
 
@@ -80,7 +80,7 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
-    struct Vectorize1DBatchRead : public OpConversionPattern<low::SPNBatchRead> {
+    struct VectorizeBatchRead : public OpConversionPattern<low::SPNBatchRead> {
 
       using OpConversionPattern<low::SPNBatchRead>::OpConversionPattern;
 
@@ -209,7 +209,7 @@ namespace mlir {
     static inline void populateLoSPNCPUVectorizationNodePatterns(OwningRewritePatternList& patterns,
                                                                  MLIRContext* context,
                                                                  TypeConverter& typeConverter) {
-      patterns.insert<Vectorize1DBatchRead, Vectorize2DBatchRead, VectorizeBatchWrite>(typeConverter, context, 2);
+      patterns.insert<VectorizeTransposedBatchRead, VectorizeBatchRead, VectorizeBatchWrite>(typeConverter, context, 2);
       patterns.insert<VectorizeCategorical, VectorizeHistogram>(typeConverter, context, 2);
       patterns.insert<VectorizeGaussian, VectorizeLogGaussian>(typeConverter, context, 2);
       patterns.insert<VectorizeAdd, VectorizeMul, VectorizeLog>(typeConverter, context, 2);

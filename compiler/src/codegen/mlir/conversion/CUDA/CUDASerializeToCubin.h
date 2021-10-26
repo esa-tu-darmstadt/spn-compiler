@@ -23,7 +23,8 @@ namespace mlir {
 
     public:
 
-      explicit CUDASerializeToCubinPass(ArrayRef<llvm::StringRef> kernelFunctions, bool shouldPrintIR = false);
+      explicit CUDASerializeToCubinPass(ArrayRef<llvm::StringRef> kernelFunctions, bool shouldPrintIR = false,
+                                        unsigned _optLevel = 2);
 
     protected:
       void getDependentDialects(DialectRegistry& registry) const override;
@@ -39,10 +40,13 @@ namespace mlir {
 
       llvm::SmallVector<llvm::StringRef> kernelFuncs;
 
+      unsigned optLevel;
+
     };
 
-    std::unique_ptr<OperationPass<gpu::GPUModuleOp>> createSerializeToCubinPass(
-        ArrayRef<llvm::StringRef> kernelFunctions, bool shouldPrintIR = false);
+    std::unique_ptr<OperationPass<gpu::GPUModuleOp>> createSerializeToCubinPass(ArrayRef<StringRef> kernelFunctions,
+                                                                                bool shouldPrintIR = false,
+                                                                                unsigned optLevel = 2);
 
   }
 }
