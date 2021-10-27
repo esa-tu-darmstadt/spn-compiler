@@ -1,0 +1,97 @@
+//==============================================================================
+// This file is part of the SPNC project under the Apache License v2.0 by the
+// Embedded Systems and Applications Group, TU Darmstadt.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
+// SPDX-License-Identifier: Apache-2.0
+//==============================================================================
+
+#ifndef SPNC_COMPILER_INCLUDE_DRIVER_PIPELINE_BASICSTEPS_H
+#define SPNC_COMPILER_INCLUDE_DRIVER_PIPELINE_BASICSTEPS_H
+
+#include "PipelineStep.h"
+#include "util/FileSystem.h"
+#if __cplusplus < 201700
+#include <experimental/filesystem>
+#else
+#include <filesystem>
+#endif
+
+namespace spnc {
+
+  template<FileType FT>
+  class LocateFile : public StepBase, public StepWithResult<File < FT>>
+{
+
+  public:
+
+  explicit LocateFile(std::string fileName) : StepBase("locate-file"), fName{std::move(fileName)}, file{"tmp", false} {}
+
+  ExecutionResult execute()
+  override {
+  // Check for existence of the file.
+#if __cplusplus < 201700
+  auto isPresent = std::experimental::filesystem::exists(fName);
+#else
+  auto isPresent = std::filesystem::exists(fName);
+#endif
+  if(!isPresent) {
+  // TODO Enhance error message.
+  return failure("Failed to located file");
+}
+file = File < FT > {fName, false};
+valid = true;
+return
+success();
+}
+
+File <FT>* result()
+override {
+return &
+file;
+}
+
+private:
+
+std::string fName;
+
+File <FT> file;
+
+bool valid = false;
+
+};
+
+template<FileType FT>
+class CreateTmpFile : public StepBase, public StepWithResult<File < FT>>
+{
+
+public:
+
+explicit CreateTmpFile(bool deleteOnExit) : StepBase("create-tmp-file"), deleteFile{deleteOnExit}, file{"tmp", false} {}
+
+ExecutionResult execute()
+override {
+file = FileSystem::createTempFile<FT>(deleteFile);
+return
+success();
+}
+
+File <FT>* result()
+override {
+return &
+file;
+}
+
+private:
+
+bool deleteFile;
+
+bool valid = false;
+
+File <FT> file;
+
+};
+
+}
+
+#endif //SPNC_COMPILER_INCLUDE_DRIVER_PIPELINE_BASICSTEPS_H
