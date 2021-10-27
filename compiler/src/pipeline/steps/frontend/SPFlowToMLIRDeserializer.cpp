@@ -39,7 +39,7 @@ std::string spnc::SPFlowToMLIRDeserializer::stepName = "spflow-to-mlir-deseriali
 spnc::ExecutionResult spnc::SPFlowToMLIRDeserializer::executeStep(BinarySPN* inputFile) {
   ctx = getContext()->get<mlir::MLIRContext>();
   builder = std::make_unique<mlir::OpBuilder>(ctx);
-  module = std::make_unique<mlir::ModuleOp>(mlir::ModuleOp::create(builder->getUnknownLoc()));
+  module = mlir::ModuleOp::create(builder->getUnknownLoc());
   BinaryFileHandler fileHandler{inputFile->fileName()};
   StreamFdMessageReader message{fileHandler.getFileDescriptor()};
 
@@ -62,7 +62,7 @@ spnc::ExecutionResult spnc::SPFlowToMLIRDeserializer::executeStep(BinarySPN* inp
 }
 
 mlir::ModuleOp* spnc::SPFlowToMLIRDeserializer::result() {
-  return module.get();
+  return module.operator->();
 }
 
 void spnc::SPFlowToMLIRDeserializer::deserializeQuery(Query::Reader&& query) {

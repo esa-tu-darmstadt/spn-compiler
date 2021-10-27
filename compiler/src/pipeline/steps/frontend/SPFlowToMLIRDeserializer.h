@@ -63,7 +63,7 @@ namespace spnc {
 
     unsigned sizeInByte(mlir::Type type);
 
-    std::unique_ptr<::mlir::ModuleOp> module;
+    mlir::OwningModuleRef module;
 
     mlir::MLIRContext* ctx;
 
