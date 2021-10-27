@@ -16,7 +16,8 @@ void spnc::LoSPNtoGPUConversion::initializePassPipeline(mlir::PassManager* pm, m
   pm->addPass(mlir::spn::createLoSPNtoGPUStructureConversionPass());
   pm->addPass(mlir::spn::createGPUCopyEliminationPass());
   pm->addPass(mlir::createGpuKernelOutliningPass());
-  if (spnc::option::gpuSharedMem.get(*(this->config))) {
+  auto* config = getContext()->get<Configuration>();
+  if (spnc::option::gpuSharedMem.get(*config)) {
     // Add the pass transforming accesses to global memory with
     // preloads to shared memory depending on option value.
     pm->addPass(mlir::spn::createLoSPNGPUSharedMemoryInsertionPass());
@@ -33,3 +34,5 @@ void spnc::LoSPNtoGPUConversion::initializePassPipeline(mlir::PassManager* pm, m
   pm->nest<mlir::FuncOp>().addPass(mlir::createFinalizingBufferizePass());
   pm->nest<mlir::FuncOp>().addPass(mlir::createBufferDeallocationPass());
 }
+
+std::string spnc::LoSPNtoGPUConversion::stepName = "lospn-to-gpu";

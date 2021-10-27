@@ -9,16 +9,17 @@
 #ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_LOSPNTOGPUCONVERSION_H
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_LOSPNTOGPUCONVERSION_H
 
-#include "../MLIRPassPipeline.h"
+#include "pipeline/steps/codegen/mlir/MLIRPassPipeline.h"
 
 namespace spnc {
 
-  struct LoSPNtoGPUConversion : public MLIRPipelineBase<LoSPNtoGPUConversion> {
+  struct LoSPNtoGPUConversion : public MLIRPassPipeline<LoSPNtoGPUConversion> {
 
-    using MLIRPipelineBase<LoSPNtoGPUConversion>::MLIRPipelineBase;
+    using MLIRPassPipeline<LoSPNtoGPUConversion>::MLIRPassPipeline;
 
     void initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx);
 
+    static std::string stepName;
   };
 
 }

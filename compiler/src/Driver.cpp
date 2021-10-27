@@ -14,7 +14,7 @@
 #include <TargetInformation.h>
 #if SPNC_CUDA_SUPPORT
 // Only include if CUDA GPU support was enabled.
-#include <driver/toolchain/CUDAGPUToolchain.h>
+#include "toolchain/CUDAGPUToolchain.h"
 #endif
 
 using namespace spnc;
@@ -25,7 +25,7 @@ Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t&
   std::unique_ptr<Pipeline<Kernel>> pipeline;
   if (spnc::option::compilationTarget.get(*config) == option::TargetMachine::CUDA) {
 #if SPNC_CUDA_SUPPORT
-    job = CUDAGPUToolchain::constructJobFromFile(inputFile, config);
+    pipeline = CUDAGPUToolchain::setupPipeline(inputFile, std::move(config));
 #else
     SPNC_FATAL_ERROR("Target was 'CUDA', but the compiler does not support CUDA GPUs. "
                      "Enable with CUDA_GPU_SUPPORT=ON during build")

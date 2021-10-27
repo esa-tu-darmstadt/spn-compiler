@@ -9,7 +9,7 @@
 #ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_GPUTOLLVMCONVERSION_H
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_GPUTOLLVMCONVERSION_H
 
-#include <driver/Actions.h>
+#include "driver/pipeline/PipelineStep.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
@@ -22,24 +22,24 @@ namespace spnc {
   ///
   /// Action performing a series of transformations on an MLIR module
   /// to lower from GPU (and other dialects) to LLVM dialect.
-  class GPUtoLLVMConversion : public ActionSingleInput<mlir::ModuleOp, mlir::ModuleOp> {
+  class GPUtoLLVMConversion : public StepSingleInput<GPUtoLLVMConversion, mlir::ModuleOp>,
+                              public StepWithResult<mlir::ModuleOp> {
 
   public:
 
-    GPUtoLLVMConversion(ActionWithOutput<mlir::ModuleOp>& input,
-                        std::shared_ptr<mlir::MLIRContext> ctx, unsigned optLevel);
+    using StepSingleInput<GPUtoLLVMConversion, mlir::ModuleOp>::StepSingleInput;
 
-    mlir::ModuleOp& execute() override;
+    ExecutionResult executeStep(mlir::ModuleOp* mlirModule);
+
+    mlir::ModuleOp* result() override;
+
+    static std::string stepName;
 
   private:
 
-    bool cached = false;
+    int retrieveOptLevel();
 
-    std::shared_ptr<mlir::MLIRContext> mlirContext;
-
-    unsigned irOptLevel;
-
-    std::unique_ptr<mlir::ModuleOp> module;
+    mlir::ModuleOp* module;
 
   };
 
