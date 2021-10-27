@@ -22,44 +22,51 @@
 
 using namespace spnc;
 
-MLIRtoLLVMIRConversion::MLIRtoLLVMIRConversion(spnc::ActionWithOutput<mlir::ModuleOp>& _input,
-                                               std::shared_ptr<mlir::MLIRContext> context,
-                                               std::shared_ptr<llvm::TargetMachine> targetMachine,
-                                               int optLevel)
-    : ActionSingleInput<mlir::ModuleOp, llvm::Module>{_input}, cached{false}, irOptLevel{optLevel},
-      ctx{std::move(context)}, machine{std::move(targetMachine)}, llvmCtx{} {}
+spnc::MLIRtoLLVMIRConversion::MLIRtoLLVMIRConversion(StepWithResult<mlir::ModuleOp>& input) : StepSingleInput<
+    MLIRtoLLVMIRConversion,
+    mlir::ModuleOp>(input), llvmCtx{} {}
 
-llvm::Module& spnc::MLIRtoLLVMIRConversion::execute() {
-  if (!cached) {
-    auto inputModule = input.execute();
-    module = mlir::translateModuleToLLVMIR(inputModule, llvmCtx);
-    if (spnc::option::dumpIR.get(*this->config)) {
-      llvm::dbgs() << "\n// *** IR after conversion to LLVM IR ***\n";
-      module->dump();
-    }
-    if (!module) {
-      SPNC_FATAL_ERROR("Conversion to LLVM IR failed");
-    }
-
-    SPDLOG_INFO("Finished conversion to LLVM IR");
-
-    llvm::InitializeNativeTarget();
-    llvm::InitializeNativeTargetAsmPrinter();
-    // NOTE: If we want to support cross-compilation, we need to replace the following line, as it will
-    // always set the modules target triple to the native CPU target.
-    mlir::ExecutionEngine::setupTargetTriple(module.get());
-    // Run optimization pipeline to get rid of some clutter introduced during conversion to LLVM dialect in MLIR.
-    optimizeLLVMIR();
-    if (irOptLevel > 0 && spnc::option::dumpIR.get(*this->config)) {
-      llvm::dbgs() << "\n// *** IR after optimization of LLVM IR ***\n";
-      module->dump();
-    }
-    cached = true;
+ExecutionResult spnc::MLIRtoLLVMIRConversion::executeStep(mlir::ModuleOp* mlirModule) {
+  module = mlir::translateModuleToLLVMIR(mlirModule->getOperation(), llvmCtx);
+  auto* config = getContext()->get<Configuration>();
+  if (spnc::option::dumpIR.get(*config)) {
+    llvm::dbgs() << "\n// *** IR after conversion to LLVM IR ***\n";
+    module->dump();
   }
-  return *module;
+  if (!module) {
+    return failure("Conversion to LLVM IR failed");
+  }
+
+  SPDLOG_INFO("Finished conversion to LLVM IR");
+
+  llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmPrinter();
+  // NOTE: If we want to support cross-compilation, we need to replace the following line, as it will
+  // always set the modules target triple to the native CPU target.
+  mlir::ExecutionEngine::setupTargetTriple(module.get());
+  // Run optimization pipeline to get rid of some clutter introduced during conversion to LLVM dialect in MLIR.
+  auto optLevel = retrieveOptLevel();
+  optimizeLLVMIR(optLevel);
+  if (optLevel > 0 && spnc::option::dumpIR.get(*config)) {
+    llvm::dbgs() << "\n// *** IR after optimization of LLVM IR ***\n";
+    module->dump();
+  }
+  return success();
 }
 
-void MLIRtoLLVMIRConversion::optimizeLLVMIR() {
+int spnc::MLIRtoLLVMIRConversion::retrieveOptLevel() {
+  auto* config = getContext()->get<Configuration>();
+  int irOptLevel = spnc::option::optLevel.get(*config);
+  if (spnc::option::irOptLevel.isPresent(*config) && spnc::option::irOptLevel.get(*config) != irOptLevel) {
+    auto optionValue = spnc::option::irOptLevel.get(*config);
+    SPDLOG_INFO("Option ir-opt-level (value: {}) takes precedence over option opt-level (value: {})",
+                optionValue, irOptLevel);
+    irOptLevel = optionValue;
+  }
+  return irOptLevel;
+}
+
+void MLIRtoLLVMIRConversion::optimizeLLVMIR(int irOptLevel) {
   llvm::legacy::PassManager modulePM;
   llvm::legacy::FunctionPassManager funcPM(module.get());
   llvm::PassManagerBuilder builder;
@@ -76,7 +83,8 @@ void MLIRtoLLVMIRConversion::optimizeLLVMIR() {
   // Add all coroutine passes to the builder.
   llvm::addCoroutinePassesToExtensionPoints(builder);
 
-  if (machine.get()) {
+  auto machine = getContext()->get<llvm::TargetMachine>();
+  if (machine) {
     // Add pass to initialize TTI for this specific target. Otherwise, TTI will
     // be initialized to NoTTIImpl by default.
     modulePM.add(createTargetTransformInfoWrapperPass(
@@ -91,9 +99,15 @@ void MLIRtoLLVMIRConversion::optimizeLLVMIR() {
 
   // Run the pipelines on the module and the contained functions.
   funcPM.doInitialization();
-  for (auto& F : *module) {
+  for (auto& F: *module) {
     funcPM.run(F);
   }
   funcPM.doFinalization();
   modulePM.run(*module);
 }
+
+llvm::Module* MLIRtoLLVMIRConversion::result() {
+  return module.get();
+}
+
+std::string spnc::MLIRtoLLVMIRConversion::stepName = "mlir-to-llvm";

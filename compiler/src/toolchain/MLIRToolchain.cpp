@@ -45,10 +45,10 @@ void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext& ctx) {
   }
 }
 
-std::shared_ptr<mlir::ScopedDiagnosticHandler> spnc::MLIRToolchain::setupDiagnosticHandler(mlir::MLIRContext* ctx) {
+std::unique_ptr<mlir::ScopedDiagnosticHandler> spnc::MLIRToolchain::setupDiagnosticHandler(mlir::MLIRContext* ctx) {
   // Create a simple diagnostic handler that will forward the diagnostic information to the SPDLOG instance
   // used by the compiler/toolchain.
-  return std::make_shared<mlir::ScopedDiagnosticHandler>(ctx, [](Diagnostic& diag) {
+  return std::make_unique<mlir::ScopedDiagnosticHandler>(ctx, [](Diagnostic& diag) {
     auto logger = spdlog::default_logger_raw();
     spdlog::level::level_enum level = spdlog::level::level_enum::debug;
     std::string levelTxt;
@@ -76,7 +76,7 @@ std::shared_ptr<mlir::ScopedDiagnosticHandler> spnc::MLIRToolchain::setupDiagnos
   });
 }
 
-std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(int optLevel) {
+std::unique_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(int optLevel) {
   // NOTE: If we wanted to support cross-compilation, we could hook in here to use a different target machine.
 
   llvm::InitializeNativeTarget();
@@ -124,7 +124,7 @@ std::shared_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(in
     default: SPNC_FATAL_ERROR("Invalid optimization level {}", optLevel);
   }
 
-  std::shared_ptr<llvm::TargetMachine> machine{target->createTargetMachine(targetTriple,
+  std::unique_ptr<llvm::TargetMachine> machine{target->createTargetMachine(targetTriple,
                                                                            cpu, features.getString(), {},
                                                                            llvm::Reloc::PIC_, llvm::None,
                                                                            cgOptLevel)};

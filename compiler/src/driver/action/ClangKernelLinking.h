@@ -9,11 +9,11 @@
 #ifndef SPNC_CLANGKERNELLINKING_H
 #define SPNC_CLANGKERNELLINKING_H
 
-#include <driver/Actions.h>
+#include "driver/pipeline/PipelineStep.h"
 #include <util/FileSystem.h>
 #include <driver/Job.h>
 #include <llvm/ADT/ArrayRef.h>
-#include "../../../../common/include/Kernel.h"
+#include <Kernel.h>
 #include "llvm/ADT/SmallVector.h"
 
 namespace spnc {
@@ -21,33 +21,24 @@ namespace spnc {
   ///
   /// Action to turn an object (*.o) into a Kernel (shared object, *.so) using clang,
   // and running the linking to external libraries.
-  class ClangKernelLinking : public ActionSingleInput<ObjectFile, Kernel> {
+  class ClangKernelLinking : public StepDualInput<ClangKernelLinking, ObjectFile, SharedObject>,
+                             public StepWithResult<Kernel> {
 
   public:
 
-    /// Constructor.
-    /// \param _input Action generating the object-file as input.
-    /// \param outputFile File to write resulting kernel (shared object) to.
-    /// \param kernelFunctionName Name of the top-level SPN function inside the object file.
-    ClangKernelLinking(ActionWithOutput<ObjectFile>& _input, SharedObject outputFile,
-                       std::shared_ptr<KernelInfo> info, llvm::ArrayRef<std::string> additionalLibraries = {},
-                       llvm::ArrayRef<std::string> searchPaths = {});
+    using StepDualInput<ClangKernelLinking, ObjectFile, SharedObject>::StepDualInput;
 
-    Kernel& execute() override;
+    ExecutionResult executeStep(ObjectFile* objectFile, SharedObject* sharedObject);
+
+    Kernel* result() override;
+
+    static std::string stepName;
 
   private:
 
-    SharedObject outFile;
-
-    std::shared_ptr<KernelInfo> kernelInfo;
+    SharedObject* outFile = nullptr;
 
     std::unique_ptr<Kernel> kernel;
-
-    bool cached = false;
-
-    llvm::SmallVector<std::string, 3> additionalLibs;
-
-    llvm::SmallVector<std::string, 3> libSearchPaths;
 
   };
 

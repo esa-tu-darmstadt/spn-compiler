@@ -10,32 +10,27 @@
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_TRANSFORMATION_LOSPNTRANSFORMATIONS_H
 
 #include <driver/Job.h>
-#include "../MLIRPassPipeline.h"
+#include "pipeline/steps/codegen/mlir/MLIRPassPipeline.h"
 
 namespace spnc {
 
   ///
   /// Action performing dialect-internal transformations on the LoSPN dialect.
-  class LoSPNTransformations : public MLIRPipelineBase<LoSPNTransformations> {
+  class LoSPNTransformations : public MLIRPassPipeline<LoSPNTransformations> {
 
   public:
 
-    LoSPNTransformations(ActionWithOutput<mlir::ModuleOp>& _input,
-                         std::shared_ptr<mlir::MLIRContext> ctx,
-                         std::shared_ptr<mlir::ScopedDiagnosticHandler> handler,
-                         std::shared_ptr<KernelInfo> kernelInformation) :
-        MLIRPipelineBase<LoSPNTransformations>(_input, std::move(ctx), std::move(handler)),
-        kernelInfo{std::move(kernelInformation)} {}
+    using MLIRPassPipeline<LoSPNTransformations>::MLIRPassPipeline;
 
     void initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx);
 
     void preProcess(mlir::ModuleOp* inputModule) override;
 
+    static std::string stepName;
+
   private:
 
     std::string translateType(mlir::Type type);
-
-    std::shared_ptr<KernelInfo> kernelInfo;
 
   };
 }

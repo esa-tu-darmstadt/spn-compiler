@@ -16,10 +16,11 @@
 #include <TargetInformation.h>
 
 void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
-  bool vectorize = spnc::option::cpuVectorize.get(*this->config);
+  auto* config = getContext()->get<Configuration>();
+  bool vectorize = spnc::option::cpuVectorize.get(*config);
   pm->addPass(mlir::spn::createLoSPNtoCPUStructureConversionPass(vectorize));
   if (vectorize) {
-    auto useShuffle = spnc::option::replaceGatherWithShuffle.get(*this->config);
+    auto useShuffle = spnc::option::replaceGatherWithShuffle.get(*config);
     if (useShuffle) {
       pm->addPass(mlir::spn::createReplaceGatherWithShufflePass());
     }
@@ -50,3 +51,5 @@ void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, m
   pm->nest<mlir::FuncOp>().addPass(mlir::createFinalizingBufferizePass());
   pm->nest<mlir::FuncOp>().addPass(mlir::createBufferDeallocationPass());
 }
+
+std::string spnc::LoSPNtoCPUConversion::stepName = "lospn-to-cpu";

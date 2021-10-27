@@ -212,9 +212,9 @@ namespace spnc {
       /// Parse a Configuration from the option identifiers and values given.
       /// \param input Mapping from option identifier to option value.
       /// \return Configuration.
-      static std::shared_ptr<Configuration> parse(const std::map<std::string, std::string>& input) {
-        auto config = std::make_shared<Configuration>();
-        for (auto& o : input) {
+      static std::unique_ptr<Configuration> parse(const std::map<std::string, std::string>& input) {
+        auto config = std::make_unique<Configuration>();
+        for (auto& o: input) {
           auto key = o.first;
           auto value = o.second;
           // Try to find the correct option parser for the given identifier.

@@ -12,8 +12,7 @@
 #include "mlir/IR/BuiltinOps.h"
 #include <util/FileSystem.h>
 #include <mlir/IR/Builders.h>
-#include <driver/Job.h>
-#include "driver/Actions.h"
+#include "driver/pipeline/PipelineStep.h"
 #include "xspn/xspn/serialization/binary/capnproto/spflow.capnp.h"
 #include "llvm/ADT/IndexedMap.h"
 #include "HiSPN/HiSPNDialect.h"
@@ -24,14 +23,16 @@ namespace spnc {
 
   using bucket_t = std::tuple<int, int, double>;
 
-  class MLIRDeserializer : public ActionWithOutput<::mlir::ModuleOp> {
+  class SPFlowToMLIRDeserializer : public StepSingleInput<SPFlowToMLIRDeserializer, BinarySPN>,
+                                   public StepWithResult<::mlir::ModuleOp> {
 
   public:
 
-    MLIRDeserializer(BinarySPN _inputFile, std::shared_ptr<::mlir::MLIRContext> _context,
-                     std::shared_ptr<KernelInfo> info);
+    using StepSingleInput<SPFlowToMLIRDeserializer, BinarySPN>::StepSingleInput;
 
-    mlir::ModuleOp& execute() override;
+    ExecutionResult executeStep(BinarySPN* inputFile);
+
+    mlir::ModuleOp* result() override;
 
   private:
 
@@ -62,21 +63,19 @@ namespace spnc {
 
     unsigned sizeInByte(mlir::Type type);
 
-    std::shared_ptr<KernelInfo> kernelInfo;
-
-    std::shared_ptr<::mlir::MLIRContext> context;
-
     std::unique_ptr<::mlir::ModuleOp> module;
 
-    mlir::OpBuilder builder;
+    mlir::MLIRContext* ctx;
+
+    std::unique_ptr<mlir::OpBuilder> builder;
 
     llvm::DenseMap<int, mlir::Value> node2value;
 
     llvm::DenseMap<int, mlir::Value> inputs;
 
-    BinarySPN inputFile;
+  public:
 
-    bool cached = false;
+    static std::string stepName;
 
   private:
 

@@ -6,20 +6,24 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_LOSPNTOCPUCONVERSION_H
-#define SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_LOSPNTOCPUCONVERSION_H
+#ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_CPUTOLLVMCONVERSION_H
+#define SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_CPUTOLLVMCONVERSION_H
 
-#include "../MLIRPassPipeline.h"
+#include "pipeline/steps/codegen/mlir/MLIRPassPipeline.h"
 
 namespace spnc {
 
-  struct LoSPNtoCPUConversion : public MLIRPipelineBase<LoSPNtoCPUConversion> {
-
-    using MLIRPipelineBase<LoSPNtoCPUConversion>::MLIRPipelineBase;
+  ///
+  /// Action performing a conversion from SPN & Standard dialect to LLVM dialect.
+  struct CPUtoLLVMConversion : public MLIRPassPipeline<CPUtoLLVMConversion> {
+    using MLIRPassPipeline<CPUtoLLVMConversion>::MLIRPassPipeline;
 
     void initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx);
 
+    static std::string stepName;
+
   };
+
 }
 
-#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_LOSPNTOCPUCONVERSION_H
+#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_CPUTOLLVMCONVERSION_H

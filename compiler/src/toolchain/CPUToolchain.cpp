@@ -8,27 +8,29 @@
 
 #include "CPUToolchain.h"
 #include <driver/BaseActions.h>
-#include "codegen/mlir/conversion/HiSPNtoLoSPNConversion.h"
-#include "codegen/mlir/conversion/LoSPNtoCPUConversion.h"
-#include "codegen/mlir/conversion/CPUtoLLVMConversion.h"
-#include "codegen/mlir/conversion/MLIRtoLLVMIRConversion.h"
+#include "driver/pipeline/Pipeline.h"
+#include "driver/pipeline/BasicSteps.h"
+#include "../pipeline/steps/codegen/mlir/conversion/HiSPNtoLoSPNConversion.h"
+#include "../pipeline/steps/codegen/mlir/conversion/LoSPNtoCPUConversion.h"
+#include "../pipeline/steps/codegen/mlir/conversion/CPUtoLLVMConversion.h"
+#include "../pipeline/steps/codegen/mlir/conversion/MLIRtoLLVMIRConversion.h"
 #include <driver/action/ClangKernelLinking.h>
-#include <codegen/mlir/frontend/MLIRDeserializer.h>
-#include <codegen/mlir/transformation/LoSPNTransformations.h>
+#include "../pipeline/steps/frontend/SPFlowToMLIRDeserializer.h"
+#include "../pipeline/steps/codegen/mlir/transformation/LoSPNTransformations.h"
 #include <driver/action/EmitObjectCode.h>
 #include <TargetInformation.h>
 
 using namespace spnc;
 using namespace mlir;
 
-std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::string& inputFile,
-                                              const std::shared_ptr<interface::Configuration>& config) {
+std::unique_ptr<Pipeline<Kernel>> CPUToolchain::setupPipeline(const std::string& inputFile,
+                                                              std::unique_ptr<interface::Configuration> config) {
   // Uncomment the following two lines to get detailed output during MLIR dialect conversion;
   //llvm::DebugFlag = true;
   //llvm::setCurrentDebugType("dialect-conversion");
-  std::unique_ptr<Job<Kernel>> job = std::make_unique<Job<Kernel>>(config);
+  std::unique_ptr<Pipeline<Kernel>> pipeline = std::make_unique<Pipeline<Kernel>>();
   // Invoke MLIR code-generation on parsed tree.
-  auto ctx = std::make_shared<MLIRContext>();
+  auto ctx = std::make_unique<MLIRContext>();
   initializeMLIRContext(*ctx);
   // If IR should be dumped between steps/passes, we need to disable
   // multi-threading in MLIR
@@ -36,8 +38,11 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
     ctx->enableMultithreading(false);
   }
   auto diagHandler = setupDiagnosticHandler(ctx.get());
-  auto cpuVectorize = spnc::option::cpuVectorize.get(*config);
-  SPDLOG_INFO("CPU Vectorization enabled: {}", cpuVectorize);
+  // Attach MLIR context and diagnostics handler to pipeline context
+  pipeline->getContext()->add(std::move(diagHandler));
+  pipeline->getContext()->add(std::move(ctx));
+
+  // Create a LLVM target machine and set the optimization level.
   int mcOptLevel = spnc::option::optLevel.get(*config);
   if (spnc::option::mcOptLevel.isPresent(*config) && spnc::option::mcOptLevel.get(*config) != mcOptLevel) {
     auto optionValue = spnc::option::mcOptLevel.get(*config);
@@ -46,33 +51,33 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
     mcOptLevel = optionValue;
   }
   auto targetMachine = createTargetMachine(mcOptLevel);
-  auto kernelInfo = std::make_shared<KernelInfo>();
+  auto kernelInfo = std::make_unique<KernelInfo>();
   kernelInfo->target = KernelTarget::CPU;
-  BinarySPN binarySPNFile{inputFile, false};
-  auto& deserialized = job->insertAction<MLIRDeserializer>(std::move(binarySPNFile), ctx, kernelInfo);
-  auto& hispn2lospn = job->insertAction<HiSPNtoLoSPNConversion>(deserialized, ctx, diagHandler);
-  auto& lospnTransform = job->insertAction<LoSPNTransformations>(hispn2lospn, ctx, diagHandler, kernelInfo);
-  auto& lospn2cpu = job->insertAction<LoSPNtoCPUConversion>(lospnTransform, ctx, diagHandler);
-  auto& cpu2llvm = job->insertAction<CPUtoLLVMConversion>(lospn2cpu, ctx, diagHandler);
+  // Attach the LLVM target machine and the kernel information to the pipeline context
+  pipeline->getContext()->add(std::move(targetMachine));
+  pipeline->getContext()->add(std::move(kernelInfo));
+
+  // First step of the pipeline: Locate the input file.
+  auto& locateInput = pipeline->emplaceStep < LocateFile < FileType::SPN_BINARY >> (inputFile);
+
+  // Deserialize the SPFlow graph serialized via Cap'n Proto to MLIR.
+  auto& deserialized = pipeline->emplaceStep<SPFlowToMLIRDeserializer>(locateInput);
+
+  auto& hispn2lospn = pipeline->emplaceStep<HiSPNtoLoSPNConversion>(deserialized);
+  auto& lospnTransform = pipeline->emplaceStep<LoSPNTransformations>(hispn2lospn);
+  auto& lospn2cpu = pipeline->emplaceStep<LoSPNtoCPUConversion>(lospnTransform);
+  auto& cpu2llvm = pipeline->emplaceStep<CPUtoLLVMConversion>(lospn2cpu);
 
   // Convert the MLIR module to a LLVM-IR module.
-  int irOptLevel = spnc::option::optLevel.get(*config);
-  if (spnc::option::irOptLevel.isPresent(*config) && spnc::option::irOptLevel.get(*config) != irOptLevel) {
-    auto optionValue = spnc::option::irOptLevel.get(*config);
-    SPDLOG_INFO("Option ir-opt-level (value: {}) takes precedence over option opt-level (value: {})",
-                optionValue, irOptLevel);
-    irOptLevel = optionValue;
-  }
-  auto& llvmConversion = job->insertAction<MLIRtoLLVMIRConversion>(cpu2llvm, ctx, targetMachine, irOptLevel);
+
+  auto& llvmConversion = pipeline->emplaceStep<MLIRtoLLVMIRConversion>(cpu2llvm);
 
   // Translate the generated LLVM IR module to object code and write it to an object file.
-  auto objectFile = FileSystem::createTempFile<FileType::OBJECT>(true);
-  SPDLOG_INFO("Generating object file {}", objectFile.fileName());
-  auto& emitObjectCode = job->insertAction<EmitObjectCode>(llvmConversion, std::move(objectFile), targetMachine);
+  auto& objectFile = pipeline->emplaceStep < CreateTmpFile < FileType::OBJECT >> (true);
+  auto& emitObjectCode = pipeline->emplaceStep<EmitObjectCode>(llvmConversion, objectFile);
 
   // Link generated object file into shared object.
-  auto sharedObject = FileSystem::createTempFile<FileType::SHARED_OBJECT>(false);
-  SPDLOG_INFO("Compiling to shared object file {}", sharedObject.fileName());
+  auto& sharedObject = pipeline->emplaceStep < CreateTmpFile < FileType::SHARED_OBJECT >> (false);
   // Add additional libraries to the link command if necessary.
   llvm::SmallVector<std::string, 3> additionalLibs;
   // Link vector libraries if specified by option.
@@ -93,10 +98,12 @@ std::unique_ptr<Job<Kernel> > CPUToolchain::constructJobFromFile(const std::stri
     }
   }
   auto searchPaths = parseLibrarySearchPaths(spnc::option::searchPaths.get(*config));
-  (void)
-      job->insertFinalAction<ClangKernelLinking>(emitObjectCode, std::move(sharedObject), kernelInfo, 
-                                                additionalLibs, searchPaths);
-  return job;
+  auto libraryInfo = std::make_unique<LibraryInfo>(additionalLibs, searchPaths);
+  pipeline->getContext()->add(std::move(libraryInfo));
+  (void) pipeline->emplaceStep<ClangKernelLinking>(emitObjectCode, sharedObject);
+  pipeline->getContext()->add(std::move(config));
+  pipeline->toText();
+  return pipeline;
 }
 
 bool CPUToolchain::validateVectorLibrary(interface::Configuration& config) {

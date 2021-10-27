@@ -16,6 +16,29 @@
 
 namespace spnc {
 
+  class LibraryInfo {
+
+  public:
+
+    LibraryInfo(llvm::ArrayRef<std::string> libraries, llvm::ArrayRef<std::string> searchPaths) :
+        libs(libraries.begin(), libraries.end()), paths(searchPaths.begin(), searchPaths.end()) {}
+
+    llvm::ArrayRef<std::string> libraries() {
+      return libs;
+    }
+
+    llvm::ArrayRef<std::string> searchPaths() {
+      return paths;
+    }
+
+  private:
+
+    llvm::SmallVector<std::string> libs;
+
+    llvm::SmallVector<std::string> paths;
+
+  };
+
   ///
   /// Common functionality for all tool-chains.
   class MLIRToolchain {
@@ -24,9 +47,9 @@ namespace spnc {
 
     static void initializeMLIRContext(mlir::MLIRContext& ctx);
 
-    static std::shared_ptr<mlir::ScopedDiagnosticHandler> setupDiagnosticHandler(mlir::MLIRContext* ctx);
+    static std::unique_ptr<mlir::ScopedDiagnosticHandler> setupDiagnosticHandler(mlir::MLIRContext* ctx);
 
-    static std::shared_ptr<llvm::TargetMachine> createTargetMachine(int optLevel);
+    static std::unique_ptr<llvm::TargetMachine> createTargetMachine(int optLevel);
 
     static llvm::SmallVector<std::string> parseLibrarySearchPaths(const std::string& paths);
 

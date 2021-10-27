@@ -14,7 +14,7 @@
 #include <util/Logging.h>
 
 void spnc::LoSPNTransformations::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
-  auto maxTaskSize = spnc::option::maxTaskSize.get(*config);
+  auto maxTaskSize = spnc::option::maxTaskSize.get(*getContext()->get<Configuration>());
   pm->nest<mlir::spn::low::SPNKernel>().addPass(mlir::spn::low::createLoSPNPartitionerPass(maxTaskSize));
   pm->addPass(mlir::spn::low::createLoSPNBufferizePass());
   pm->addPass(mlir::createCanonicalizerPass());
@@ -26,6 +26,7 @@ void spnc::LoSPNTransformations::preProcess(mlir::ModuleOp* inputModule) {
   // Pre-processing before bufferization: Find the Kernel with the corresponding
   // name in the module and retrieve information about the data-type and shape
   // of the result values from its function-like type.
+  auto kernelInfo = getContext()->get<KernelInfo>();
   for (mlir::spn::low::SPNKernel kernel : inputModule->getOps<mlir::spn::low::SPNKernel>()) {
     if (kernel.getName() == kernelInfo->kernelName) {
       assert(kernel.getType().getNumResults() == 1);
@@ -52,3 +53,5 @@ std::string spnc::LoSPNTransformations::translateType(mlir::Type type) {
   }
   assert(false && "Unreachable");
 }
+
+std::string spnc::LoSPNTransformations::stepName = "lospn-transform";

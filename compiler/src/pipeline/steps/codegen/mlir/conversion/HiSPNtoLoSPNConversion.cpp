@@ -14,6 +14,7 @@
 #include "driver/GlobalOptions.h"
 
 void spnc::HiSPNtoLoSPNConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
+  auto config = getContext()->get<Configuration>();
   auto useLogSpace = spnc::option::logSpace.get(*config);
   auto useOptimalRepresentation = spnc::option::optRepresentation.get(*config);
   pm->addPass(mlir::spn::createHiSPNtoLoSPNNodeConversionPass(useLogSpace, useOptimalRepresentation));
@@ -24,3 +25,5 @@ void spnc::HiSPNtoLoSPNConversion::initializePassPipeline(mlir::PassManager* pm,
     pm->addPass(mlir::spn::low::createLoSPNGraphStatsCollectionPass(graphStatsFile));
   }
 }
+
+std::string spnc::HiSPNtoLoSPNConversion::stepName = "hispn-to-lospn";

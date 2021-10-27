@@ -90,6 +90,7 @@ namespace spnc {
       fName = std::move(other.fName);
       deleteOnExit = std::move(other.deleteOnExit);
       other.deleteOnExit = false;
+      return *this;
     }
 
     /// Get the path of this file.

@@ -10,6 +10,7 @@
 #define SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_CPUTOOLCHAIN_H
 
 #include "MLIRToolchain.h"
+#include "driver/pipeline/Pipeline.h"
 
 namespace spnc {
 
@@ -22,8 +23,8 @@ namespace spnc {
     /// \param inputFile Input file.
     /// \param config Compilation option configuration.
     /// \return Job containing all necessary actions.
-    static std::unique_ptr<Job<Kernel>> constructJobFromFile(const std::string& inputFile,
-                                                             const std::shared_ptr<interface::Configuration>& config);
+    static std::unique_ptr<Pipeline<Kernel>> setupPipeline(const std::string& inputFile,
+                                                           std::unique_ptr<interface::Configuration> config);
 
   private:
 
