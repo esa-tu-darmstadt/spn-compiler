@@ -6,22 +6,23 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_LOSPNTOCPUCONVERSION_H
-#define SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_LOSPNTOCPUCONVERSION_H
+#ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_HISPNTOLOSPNCONVERSION_H
+#define SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_HISPNTOLOSPNCONVERSION_H
 
-#include "pipeline/steps/codegen/mlir/MLIRPassPipeline.h"
+#include "pipeline/steps/mlir/MLIRPassPipeline.h"
 
 namespace spnc {
 
-  struct LoSPNtoCPUConversion : public MLIRPassPipeline<LoSPNtoCPUConversion> {
+  struct HiSPNtoLoSPNConversion : public MLIRPassPipeline<HiSPNtoLoSPNConversion> {
 
-    using MLIRPassPipeline<LoSPNtoCPUConversion>::MLIRPassPipeline;
+    using MLIRPassPipeline<HiSPNtoLoSPNConversion>::MLIRPassPipeline;
 
     void initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx);
 
-    STEP_NAME("lospn-to-cpu")
+    STEP_NAME("hispn-to-lospn")
 
   };
+
 }
 
-#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_LOSPNTOCPUCONVERSION_H
+#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_HISPNTOLOSPNCONVERSION_H

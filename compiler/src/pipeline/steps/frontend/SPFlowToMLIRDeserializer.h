@@ -12,7 +12,7 @@
 #include "mlir/IR/BuiltinOps.h"
 #include <util/FileSystem.h>
 #include <mlir/IR/Builders.h>
-#include "driver/pipeline/PipelineStep.h"
+#include "pipeline/PipelineStep.h"
 #include "xspn/xspn/serialization/binary/capnproto/spflow.capnp.h"
 #include "llvm/ADT/IndexedMap.h"
 #include "HiSPN/HiSPNDialect.h"

@@ -10,7 +10,7 @@
 #define SPNC_COMPILER_SRC_DRIVER_ACTION_EMITOBJECTCODE_H
 
 #include <util/FileSystem.h>
-#include "driver/pipeline/PipelineStep.h"
+#include "pipeline/PipelineStep.h"
 #include <llvm/IR/Module.h>
 #include <llvm/Target/TargetMachine.h>
 

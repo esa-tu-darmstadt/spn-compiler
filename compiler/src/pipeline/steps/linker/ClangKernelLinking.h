@@ -9,7 +9,7 @@
 #ifndef SPNC_CLANGKERNELLINKING_H
 #define SPNC_CLANGKERNELLINKING_H
 
-#include "driver/pipeline/PipelineStep.h"
+#include "pipeline/PipelineStep.h"
 #include "util/FileSystem.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"

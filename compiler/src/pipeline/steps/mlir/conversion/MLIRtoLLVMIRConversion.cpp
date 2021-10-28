@@ -14,7 +14,7 @@
 #include <mlir/ExecutionEngine/ExecutionEngine.h>
 #include <mlir/ExecutionEngine/OptUtils.h>
 #include <util/Logging.h>
-#include <driver/GlobalOptions.h>
+#include <option/GlobalOptions.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
 #include <llvm/Transforms/IPO.h>
 #include <llvm/Transforms/Coroutines.h>

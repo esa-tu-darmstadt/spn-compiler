@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include <driver/Options.h>
+#include <option/Options.h>
 
 using namespace spnc::interface;
 

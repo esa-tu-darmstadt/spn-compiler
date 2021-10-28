@@ -9,12 +9,12 @@
 #ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_MLIRPASSPIPELINE_H
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_MLIRPASSPIPELINE_H
 
-#include "driver/pipeline/PipelineStep.h"
+#include "pipeline/PipelineStep.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "util/Logging.h"
-#include <driver/GlobalOptions.h>
+#include <option/GlobalOptions.h>
 
 namespace spnc {
 

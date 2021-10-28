@@ -11,7 +11,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "util/Logging.h"
 #include "llvm/IR/LegacyPassManager.h"
-#include <driver/GlobalOptions.h>
+#include <option/GlobalOptions.h>
 #include "llvm/Analysis/TargetLibraryInfo.h"
 
 spnc::ExecutionResult spnc::EmitObjectCode::executeStep(llvm::Module* module, ObjectFile* file) {

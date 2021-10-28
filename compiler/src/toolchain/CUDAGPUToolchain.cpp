@@ -7,15 +7,15 @@
 //==============================================================================
 
 #include "CUDAGPUToolchain.h"
-#include "driver/pipeline/BasicSteps.h"
-#include "pipeline/steps/codegen/mlir/conversion/HiSPNtoLoSPNConversion.h"
-#include "pipeline/steps/codegen/mlir/conversion/LoSPNtoGPUConversion.h"
-#include "pipeline/steps/codegen/mlir/conversion/GPUtoLLVMConversion.h"
-#include "pipeline/steps/codegen/mlir/conversion/MLIRtoLLVMIRConversion.h"
-#include <driver/action/ClangKernelLinking.h>
+#include "pipeline/BasicSteps.h"
 #include "pipeline/steps/frontend/SPFlowToMLIRDeserializer.h"
-#include "pipeline/steps/codegen/mlir/transformation/LoSPNTransformations.h"
-#include <driver/action/EmitObjectCode.h>
+#include "pipeline/steps/mlir/conversion/HiSPNtoLoSPNConversion.h"
+#include "pipeline/steps/mlir/conversion/LoSPNtoGPUConversion.h"
+#include "pipeline/steps/mlir/conversion/GPUtoLLVMConversion.h"
+#include "pipeline/steps/mlir/conversion/MLIRtoLLVMIRConversion.h"
+#include "pipeline/steps/mlir/transformation/LoSPNTransformations.h"
+#include <pipeline/steps/codegen/EmitObjectCode.h>
+#include <pipeline/steps/linker/ClangKernelLinking.h>
 
 #ifndef SPNC_CUDA_RUNTIME_WRAPPERS_DIR
 // This define should usually be set by CMake, pointing

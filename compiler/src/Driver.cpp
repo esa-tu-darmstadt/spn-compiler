@@ -8,8 +8,8 @@
 
 #include <spnc.h>
 #include "toolchain/CPUToolchain.h"
-#include <driver/Options.h>
-#include <driver/GlobalOptions.h>
+#include <option/Options.h>
+#include <option/GlobalOptions.h>
 #include <util/Logging.h>
 #include <TargetInformation.h>
 #if SPNC_CUDA_SUPPORT

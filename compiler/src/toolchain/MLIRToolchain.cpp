@@ -7,7 +7,7 @@
 //==============================================================================
 
 #include <util/FileSystem.h>
-#include <driver/GlobalOptions.h>
+#include <option/GlobalOptions.h>
 #include <HiSPN/HiSPNDialect.h>
 #include <LoSPN/LoSPNDialect.h>
 #include "MLIRToolchain.h"

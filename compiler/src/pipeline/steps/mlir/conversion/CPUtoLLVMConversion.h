@@ -9,7 +9,7 @@
 #ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_CPUTOLLVMCONVERSION_H
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_CPUTOLLVMCONVERSION_H
 
-#include "pipeline/steps/codegen/mlir/MLIRPassPipeline.h"
+#include "pipeline/steps/mlir/MLIRPassPipeline.h"
 
 namespace spnc {
 

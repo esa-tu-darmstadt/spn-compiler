@@ -7,7 +7,7 @@
 //==============================================================================
 
 #include "GPUtoLLVMConversion.h"
-#include "pipeline/steps/codegen/mlir/conversion/CUDA/CUDASerializeToCubin.h"
+#include "pipeline/steps/mlir/conversion/CUDA/CUDASerializeToCubin.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
 #include "mlir/Conversion/GPUCommon/GPUCommonPass.h"
@@ -24,7 +24,7 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "llvm/Transforms/IPO/Internalize.h"
 #include "llvm/ADT/SmallSet.h"
-#include <driver/GlobalOptions.h>
+#include <option/GlobalOptions.h>
 
 spnc::ExecutionResult spnc::GPUtoLLVMConversion::executeStep(mlir::ModuleOp* mlirModule) {
   // Initialize LLVM NVPTX backend, as we will lower the

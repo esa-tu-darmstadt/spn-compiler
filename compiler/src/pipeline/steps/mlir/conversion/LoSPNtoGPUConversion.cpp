@@ -10,7 +10,7 @@
 #include "LoSPNtoGPU/LoSPNtoGPUConversionPasses.h"
 #include "LoSPNtoGPU/LoSPNtoGPUPasses.h"
 #include "mlir/InitAllPasses.h"
-#include <driver/GlobalOptions.h>
+#include <option/GlobalOptions.h>
 
 void spnc::LoSPNtoGPUConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   pm->addPass(mlir::spn::createLoSPNtoGPUStructureConversionPass());

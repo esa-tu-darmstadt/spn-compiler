@@ -10,7 +10,7 @@
 #define SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_GPUTOOLCHAIN_H
 
 #include "MLIRToolchain.h"
-#include "driver/pipeline/Pipeline.h"
+#include "pipeline/Pipeline.h"
 
 namespace spnc {
 

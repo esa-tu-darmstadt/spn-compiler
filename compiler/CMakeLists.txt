@@ -28,15 +28,15 @@ add_library(spnc
         src/Driver.cpp
         src/util/Logging.cpp
         src/option/GlobalOptions.cpp
-        src/driver/action/EmitObjectCode.cpp
-        src/driver/action/ClangKernelLinking.cpp
+        src/pipeline/steps/codegen/EmitObjectCode.cpp
+        src/pipeline/steps/linker/ClangKernelLinking.cpp
         src/toolchain/MLIRToolchain.cpp
         src/toolchain/CPUToolchain.cpp
-        src/pipeline/steps/codegen/mlir/conversion/HiSPNtoLoSPNConversion.cpp
-        src/pipeline/steps/codegen/mlir/conversion/LoSPNtoCPUConversion.cpp
-        src/pipeline/steps/codegen/mlir/conversion/CPUtoLLVMConversion.cpp
-        src/pipeline/steps/codegen/mlir/conversion/MLIRtoLLVMIRConversion.cpp
-        src/pipeline/steps/codegen/mlir/transformation/LoSPNTransformations.cpp
+        src/pipeline/steps/mlir/conversion/HiSPNtoLoSPNConversion.cpp
+        src/pipeline/steps/mlir/conversion/LoSPNtoCPUConversion.cpp
+        src/pipeline/steps/mlir/conversion/CPUtoLLVMConversion.cpp
+        src/pipeline/steps/mlir/conversion/MLIRtoLLVMIRConversion.cpp
+        src/pipeline/steps/mlir/transformation/LoSPNTransformations.cpp
         src/pipeline/steps/frontend/SPFlowToMLIRDeserializer.cpp
         ${CAPNP_SRCS}
         )
@@ -72,9 +72,9 @@ if (${CUDA_GPU_SUPPORT})
 
     # Additional sources for CUDA GPU support
     target_sources(spnc PRIVATE
-            src/pipeline/steps/codegen/mlir/conversion/CUDA/CUDASerializeToCubin.cpp
-            src/pipeline/steps/codegen/mlir/conversion/GPUtoLLVMConversion.cpp
-            src/pipeline/steps/codegen/mlir/conversion/LoSPNtoGPUConversion.cpp
+            src/pipeline/steps/mlir/conversion/CUDA/CUDASerializeToCubin.cpp
+            src/pipeline/steps/mlir/conversion/GPUtoLLVMConversion.cpp
+            src/pipeline/steps/mlir/conversion/LoSPNtoGPUConversion.cpp
             src/toolchain/CUDAGPUToolchain.cpp
             )
 

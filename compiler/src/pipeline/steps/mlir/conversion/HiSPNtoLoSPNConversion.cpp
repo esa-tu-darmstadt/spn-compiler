@@ -11,7 +11,7 @@
 #include "LoSPN/LoSPNOps.h"
 #include "LoSPN/LoSPNPasses.h"
 #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
-#include "driver/GlobalOptions.h"
+#include "option/GlobalOptions.h"
 
 void spnc::HiSPNtoLoSPNConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   auto config = getContext()->get<Configuration>();

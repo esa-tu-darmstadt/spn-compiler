@@ -6,8 +6,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include <driver/pipeline/PipelineStep.h>
-#include <driver/pipeline/Pipeline.h>
+#include <pipeline/PipelineStep.h>
+#include <pipeline/Pipeline.h>
 
 unsigned spnc::PipelineContext::lastTypeID = 0;
 

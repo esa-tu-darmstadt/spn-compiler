@@ -12,7 +12,7 @@
 #include "LoSPN/LoSPNPasses.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/Dialect/Tensor/Transforms/Passes.h"
-#include <driver/GlobalOptions.h>
+#include <option/GlobalOptions.h>
 #include <TargetInformation.h>
 
 void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {

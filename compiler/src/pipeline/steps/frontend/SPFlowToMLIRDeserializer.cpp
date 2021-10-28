@@ -17,7 +17,7 @@
 #include "HiSPN/HiSPNEnums.h"
 #include "llvm/Support/Debug.h"
 #include "Kernel.h"
-#include "driver/GlobalOptions.h"
+#include "option/GlobalOptions.h"
 #include "toolchain/MLIRToolchain.h"
 
 using namespace capnp;

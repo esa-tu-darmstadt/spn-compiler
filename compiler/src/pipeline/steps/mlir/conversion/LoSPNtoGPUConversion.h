@@ -6,23 +6,22 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_HISPNTOLOSPNCONVERSION_H
-#define SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_HISPNTOLOSPNCONVERSION_H
+#ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_LOSPNTOGPUCONVERSION_H
+#define SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_LOSPNTOGPUCONVERSION_H
 
-#include "pipeline/steps/codegen/mlir/MLIRPassPipeline.h"
+#include "pipeline/steps/mlir/MLIRPassPipeline.h"
 
 namespace spnc {
 
-  struct HiSPNtoLoSPNConversion : public MLIRPassPipeline<HiSPNtoLoSPNConversion> {
+  struct LoSPNtoGPUConversion : public MLIRPassPipeline<LoSPNtoGPUConversion> {
 
-    using MLIRPassPipeline<HiSPNtoLoSPNConversion>::MLIRPassPipeline;
+    using MLIRPassPipeline<LoSPNtoGPUConversion>::MLIRPassPipeline;
 
     void initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx);
 
-    STEP_NAME("hispn-to-lospn")
-
+    STEP_NAME("lospn-to-gpu")
   };
 
 }
 
-#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_HISPNTOLOSPNCONVERSION_H
+#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_LOSPNTOGPUCONVERSION_H

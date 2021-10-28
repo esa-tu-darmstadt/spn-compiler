@@ -9,7 +9,7 @@
 #ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_MLIRTOLLVMIRCONVERSION_H
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_MLIRTOLLVMIRCONVERSION_H
 
-#include "driver/pipeline/PipelineStep.h"
+#include "pipeline/PipelineStep.h"
 #include "mlir/IR/BuiltinOps.h"
 #include <llvm/IR/Module.h>
 #include <llvm/Target/TargetMachine.h>
