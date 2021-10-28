@@ -18,8 +18,7 @@ spnc::ExecutionResult spnc::EmitObjectCode::executeStep(llvm::Module* module, Ob
   std::error_code EC;
   llvm::raw_fd_ostream dest(file->fileName(), EC, llvm::sys::fs::OpenFlags::OF_None);
   if (EC) {
-    // TODO Make an ExecutionResult as soon as we support format strings.
-    SPNC_FATAL_ERROR("Could not open output file: {}", EC.message());
+    return spnc::failure("Could not open output file: {}", EC.message());
   }
   llvm::legacy::PassManager pass;
   // If a vector library was specified via the CLI option, add the functions from the vector
@@ -36,14 +35,14 @@ spnc::ExecutionResult spnc::EmitObjectCode::executeStep(llvm::Module* module, Ob
       case spnc::option::VectorLibrary::LIBMVEC:TLII.addVectorizableFunctionsFromVecLib(llvm::TargetLibraryInfoImpl::LIBMVEC_X86);
         break;
       case spnc::option::VectorLibrary::ARM: /* ARM Optimized Routines are not available through the TLII.*/ break;
-      default:SPNC_FATAL_ERROR("Unknown vector library");
+      default: return spnc::failure("Unknown vector library");
     }
     pass.add(new llvm::TargetLibraryInfoWrapperPass(TLII));
   }
   auto fileType = llvm::CGFT_ObjectFile;
 
   if (machine->addPassesToEmitFile(pass, dest, nullptr, fileType)) {
-    SPNC_FATAL_ERROR("Cannot emit object file");
+    return spnc::failure("Cannot emit object file");
   }
 
   pass.run(*module);

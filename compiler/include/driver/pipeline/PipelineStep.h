@@ -10,6 +10,7 @@
 #define SPNC_COMPILER_INCLUDE_DRIVER_PIPELINESTEP_H
 
 #include "PipelineContext.h"
+#include "spdlog/fmt/fmt.h"
 
 namespace spnc {
 
@@ -44,6 +45,13 @@ namespace spnc {
     friend ExecutionResult spnc::success();
 
   };
+
+  template<typename... Args>
+  ExecutionResult failure(std::string message, Args&& ... args) {
+    // Use the fmt library for formatting, as it comes with spdlog anyways.
+    // Could be replaced by std::format after the move to C++20.
+    return failure(fmt::format(message, std::forward<Args>(args)...));
+  }
 
   static inline bool failed(ExecutionResult& result) {
     return !result.successful();
