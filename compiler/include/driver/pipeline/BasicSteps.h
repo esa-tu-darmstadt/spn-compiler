@@ -11,6 +11,7 @@
 
 #include "PipelineStep.h"
 #include "util/FileSystem.h"
+#include "spdlog/fmt/fmt.h"
 #if __cplusplus < 201700
 #include <experimental/filesystem>
 #else
@@ -25,7 +26,8 @@ namespace spnc {
 
   public:
 
-  explicit LocateFile(std::string fileName) : StepBase("locate-file"), fName{std::move(fileName)}, file{"tmp", false} {}
+  explicit LocateFile(std::string fileName) : StepBase(fmt::format("locate-file ({})", fileName)),
+                                              fName{std::move(fileName)}, file{"tmp", false} {}
 
   ExecutionResult execute()
   override {
@@ -36,8 +38,7 @@ namespace spnc {
   auto isPresent = std::filesystem::exists(fName);
 #endif
   if(!isPresent) {
-  // TODO Enhance error message.
-  return failure("Failed to located file");
+  return failure("Failed to located file {}", fName);
 }
 file = File < FT > {fName, false};
 valid = true;
@@ -67,7 +68,9 @@ class CreateTmpFile : public StepBase, public StepWithResult<File < FT>>
 
 public:
 
-explicit CreateTmpFile(bool deleteOnExit) : StepBase("create-tmp-file"), deleteFile{deleteOnExit}, file{"tmp", false} {}
+explicit CreateTmpFile(bool deleteOnExit) : StepBase(fmt::format("create-tmp-file (*{})",
+                                                                 FileSystem::getFileExtension<FT>())),
+                                            deleteFile{deleteOnExit}, file{"tmp", false} {}
 
 ExecutionResult execute()
 override {

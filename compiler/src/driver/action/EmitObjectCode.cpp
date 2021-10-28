@@ -54,5 +54,3 @@ spnc::ExecutionResult spnc::EmitObjectCode::executeStep(llvm::Module* module, Ob
 spnc::ObjectFile* spnc::EmitObjectCode::result() {
   return outFile;
 }
-
-std::string spnc::EmitObjectCode::stepName = "emit-object-code";

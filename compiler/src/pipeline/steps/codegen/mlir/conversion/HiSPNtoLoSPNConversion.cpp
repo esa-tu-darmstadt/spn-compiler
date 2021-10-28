@@ -25,5 +25,3 @@ void spnc::HiSPNtoLoSPNConversion::initializePassPipeline(mlir::PassManager* pm,
     pm->addPass(mlir::spn::low::createLoSPNGraphStatsCollectionPass(graphStatsFile));
   }
 }
-
-std::string spnc::HiSPNtoLoSPNConversion::stepName = "hispn-to-lospn";

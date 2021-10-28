@@ -43,5 +43,3 @@ spnc::ExecutionResult ClangKernelLinking::executeStep(ObjectFile* objectFile, Sh
 Kernel* ClangKernelLinking::result() {
   return kernel.get();
 }
-
-std::string ClangKernelLinking::stepName = "kernel-linking";

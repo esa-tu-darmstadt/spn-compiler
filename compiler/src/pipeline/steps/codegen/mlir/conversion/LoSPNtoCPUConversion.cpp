@@ -51,5 +51,3 @@ void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, m
   pm->nest<mlir::FuncOp>().addPass(mlir::createFinalizingBufferizePass());
   pm->nest<mlir::FuncOp>().addPass(mlir::createBufferDeallocationPass());
 }
-
-std::string spnc::LoSPNtoCPUConversion::stepName = "lospn-to-cpu";

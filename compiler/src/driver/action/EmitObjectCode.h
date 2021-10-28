@@ -30,7 +30,7 @@ namespace spnc {
 
     ObjectFile* result() override;
 
-    static std::string stepName;
+    STEP_NAME("emit-object-code")
 
   private:
 

@@ -22,5 +22,3 @@ void spnc::CPUtoLLVMConversion::initializePassPipeline(mlir::PassManager* pm, ml
   pm->addPass(mlir::createMemRefToLLVMPass());
   pm->addPass(mlir::createLowerToLLVMPass());
 }
-
-std::string spnc::CPUtoLLVMConversion::stepName = "cpu-to-llvm";

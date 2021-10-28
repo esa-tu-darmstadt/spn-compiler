@@ -34,7 +34,7 @@ namespace spnc {
 
     llvm::Module* result() override;
 
-    static std::string stepName;
+    STEP_NAME("mlir-to-llvm")
 
     MLIRtoLLVMIRConversion(const MLIRtoLLVMIRConversion&) = delete;
 

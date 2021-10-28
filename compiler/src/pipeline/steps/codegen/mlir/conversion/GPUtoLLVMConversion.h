@@ -33,7 +33,7 @@ namespace spnc {
 
     mlir::ModuleOp* result() override;
 
-    static std::string stepName;
+    STEP_NAME("gpu-to-llvm")
 
   private:
 

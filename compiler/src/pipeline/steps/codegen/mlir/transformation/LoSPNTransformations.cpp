@@ -53,5 +53,3 @@ std::string spnc::LoSPNTransformations::translateType(mlir::Type type) {
   }
   assert(false && "Unreachable");
 }
-
-std::string spnc::LoSPNTransformations::stepName = "lospn-transform";

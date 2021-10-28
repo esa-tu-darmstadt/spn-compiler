@@ -32,7 +32,7 @@ namespace spnc {
 
     Kernel* result() override;
 
-    static std::string stepName;
+    STEP_NAME("kernel-linking")
 
   private:
 

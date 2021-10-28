@@ -109,5 +109,3 @@ void MLIRtoLLVMIRConversion::optimizeLLVMIR(int irOptLevel) {
 llvm::Module* MLIRtoLLVMIRConversion::result() {
   return module.get();
 }
-
-std::string spnc::MLIRtoLLVMIRConversion::stepName = "mlir-to-llvm";

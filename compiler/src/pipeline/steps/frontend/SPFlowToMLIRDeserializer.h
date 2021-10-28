@@ -75,7 +75,7 @@ namespace spnc {
 
   public:
 
-    static std::string stepName;
+    STEP_NAME("spflow-to-mlir-deserialize")
 
   private:
 

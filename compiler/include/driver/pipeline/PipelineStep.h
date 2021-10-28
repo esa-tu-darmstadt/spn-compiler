@@ -12,6 +12,8 @@
 #include "PipelineContext.h"
 #include "spdlog/fmt/fmt.h"
 
+#define STEP_NAME(NAME) inline static std::string stepName(){ return NAME; }
+
 namespace spnc {
 
   class ExecutionResult;
@@ -123,7 +125,7 @@ namespace spnc {
 
   public:
 
-    explicit StepSingleInput(StepWithResult<Input>& input) : StepBase(Step::stepName), in{input} {}
+    explicit StepSingleInput(StepWithResult<Input>& input) : StepBase(std::move(Step::stepName())), in{input} {}
 
     ExecutionResult execute() override {
       return static_cast<Step&>(*this).executeStep(in.result());
@@ -139,8 +141,9 @@ namespace spnc {
 
   public:
 
-    StepDualInput(StepWithResult<Input1>& input1, StepWithResult<Input2>& input2) : StepBase(Step::stepName),
-                                                                                    in1{input1}, in2{input2} {}
+    StepDualInput(StepWithResult<Input1>& input1, StepWithResult<Input2>& input2)
+        : StepBase(std::move(Step::stepName())),
+          in1{input1}, in2{input2} {}
 
     ExecutionResult execute() override {
       return static_cast<Step&>(*this).executeStep(in1.result(), in2.result());

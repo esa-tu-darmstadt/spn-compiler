@@ -34,8 +34,6 @@ spnc::SPFlowToMLIRDeserializer::BinaryFileHandler::~BinaryFileHandler() noexcept
   close(fd);
 }
 
-std::string spnc::SPFlowToMLIRDeserializer::stepName = "spflow-to-mlir-deserialize";
-
 spnc::ExecutionResult spnc::SPFlowToMLIRDeserializer::executeStep(BinarySPN* inputFile) {
   ctx = getContext()->get<mlir::MLIRContext>();
   builder = std::make_unique<mlir::OpBuilder>(ctx);

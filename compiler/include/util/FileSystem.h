@@ -32,6 +32,9 @@ namespace spnc {
     template<FileType Type>
     static File<Type> createTempFile(bool deleteTmpOnExit = true);
 
+    template<FileType Type>
+    static std::string getFileExtension();
+
     /// Delete the file given by the path.
     /// \param fileName File path of the file to delete.
     static void deleteFile(const std::string& fileName) {
@@ -103,27 +106,31 @@ namespace spnc {
     bool deleteOnExit;
   };
 
+  template<FileType Type>
+  std::string FileSystem::getFileExtension() {
+    switch (Type) {
+      case FileType::SPN_JSON:
+      case FileType::STAT_JSON: return ".json";
+        break;
+      case FileType::LLVM_BC: return ".bc";
+        break;
+      case FileType::DOT: return ".dot";
+        break;
+      case FileType::OBJECT: return ".o";
+        break;
+      case FileType::SHARED_OBJECT: return ".so";
+        break;
+      default: return "";
+    }
+  }
+
   /// Helper method to create a temporary file.
   /// \tparam Type FileType of the file.
   /// \param deleteTmpOnExit Flag to indicate whether the created file should be deleted on exit from the compiler.
   /// \return Created File.
   template<FileType Type>
   File<Type> FileSystem::createTempFile(bool deleteTmpOnExit) {
-    std::string fileExtension;
-    switch (Type) {
-      case FileType::SPN_JSON:
-      case FileType::STAT_JSON: fileExtension = ".json";
-        break;
-      case FileType::LLVM_BC: fileExtension = ".bc";
-        break;
-      case FileType::DOT: fileExtension = ".dot";
-        break;
-      case FileType::OBJECT: fileExtension = ".o";
-        break;
-      case FileType::SHARED_OBJECT: fileExtension = ".so";
-        break;
-      default: fileExtension = "";
-    }
+    std::string fileExtension = getFileExtension<Type>();
     std::string tmpName = "/tmp/spncXXXXXX" + fileExtension;
     auto suffixLength = static_cast<int>(fileExtension.length());
     // Use the mkstemps function from the Posix standard to create a temporary files with file suffix.

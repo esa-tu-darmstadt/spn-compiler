@@ -124,5 +124,3 @@ int spnc::GPUtoLLVMConversion::retrieveOptLevel() {
   }
   return irOptLevel;
 }
-
-std::string spnc::GPUtoLLVMConversion::stepName = "gpu-to-llvm";

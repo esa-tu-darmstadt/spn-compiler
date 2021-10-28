@@ -20,7 +20,7 @@ namespace spnc {
 
     void initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx);
 
-    static std::string stepName;
+    STEP_NAME("cpu-to-llvm")
 
   };
 

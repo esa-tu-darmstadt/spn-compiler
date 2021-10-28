@@ -34,5 +34,3 @@ void spnc::LoSPNtoGPUConversion::initializePassPipeline(mlir::PassManager* pm, m
   pm->nest<mlir::FuncOp>().addPass(mlir::createFinalizingBufferizePass());
   pm->nest<mlir::FuncOp>().addPass(mlir::createBufferDeallocationPass());
 }
-
-std::string spnc::LoSPNtoGPUConversion::stepName = "lospn-to-gpu";
