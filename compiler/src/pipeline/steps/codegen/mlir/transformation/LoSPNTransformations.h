@@ -9,7 +9,6 @@
 #ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_TRANSFORMATION_LOSPNTRANSFORMATIONS_H
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_TRANSFORMATION_LOSPNTRANSFORMATIONS_H
 
-#include <driver/Job.h>
 #include "pipeline/steps/codegen/mlir/MLIRPassPipeline.h"
 
 namespace spnc {

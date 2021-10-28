@@ -10,8 +10,9 @@
 #include "LoSPN/LoSPNPasses.h"
 #include "mlir/Transforms/Passes.h"
 #include "LoSPN/LoSPNOps.h"
-#include <driver/GlobalOptions.h>
-#include <util/Logging.h>
+#include "toolchain/MLIRToolchain.h"
+#include "driver/GlobalOptions.h"
+#include "util/Logging.h"
 
 void spnc::LoSPNTransformations::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   auto maxTaskSize = spnc::option::maxTaskSize.get(*getContext()->get<Configuration>());

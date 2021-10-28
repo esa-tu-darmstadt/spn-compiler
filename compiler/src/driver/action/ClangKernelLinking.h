@@ -10,11 +10,10 @@
 #define SPNC_CLANGKERNELLINKING_H
 
 #include "driver/pipeline/PipelineStep.h"
-#include <util/FileSystem.h>
-#include <driver/Job.h>
-#include <llvm/ADT/ArrayRef.h>
-#include <Kernel.h>
+#include "util/FileSystem.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
+#include "Kernel.h"
 
 namespace spnc {
 

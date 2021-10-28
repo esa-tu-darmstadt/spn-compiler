@@ -28,11 +28,7 @@ add_library(spnc
         src/Driver.cpp
         src/util/Logging.cpp
         src/option/GlobalOptions.cpp
-        src/driver/action/LLVMWriteBitcode.cpp
-        src/driver/action/LLVMStaticCompiler.cpp
         src/driver/action/EmitObjectCode.cpp
-        src/driver/action/LLVMLinker.cpp
-        src/driver/action/DetectTracingLib.cpp
         src/driver/action/ClangKernelLinking.cpp
         src/toolchain/MLIRToolchain.cpp
         src/toolchain/CPUToolchain.cpp

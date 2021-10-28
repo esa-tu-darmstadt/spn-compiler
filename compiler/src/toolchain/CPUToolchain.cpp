@@ -7,18 +7,17 @@
 //==============================================================================
 
 #include "CPUToolchain.h"
-#include <driver/BaseActions.h>
 #include "driver/pipeline/Pipeline.h"
 #include "driver/pipeline/BasicSteps.h"
-#include "../pipeline/steps/codegen/mlir/conversion/HiSPNtoLoSPNConversion.h"
-#include "../pipeline/steps/codegen/mlir/conversion/LoSPNtoCPUConversion.h"
-#include "../pipeline/steps/codegen/mlir/conversion/CPUtoLLVMConversion.h"
-#include "../pipeline/steps/codegen/mlir/conversion/MLIRtoLLVMIRConversion.h"
-#include <driver/action/ClangKernelLinking.h>
-#include "../pipeline/steps/frontend/SPFlowToMLIRDeserializer.h"
-#include "../pipeline/steps/codegen/mlir/transformation/LoSPNTransformations.h"
-#include <driver/action/EmitObjectCode.h>
-#include <TargetInformation.h>
+#include "pipeline/steps/codegen/mlir/conversion/HiSPNtoLoSPNConversion.h"
+#include "pipeline/steps/codegen/mlir/conversion/LoSPNtoCPUConversion.h"
+#include "pipeline/steps/codegen/mlir/conversion/CPUtoLLVMConversion.h"
+#include "pipeline/steps/codegen/mlir/conversion/MLIRtoLLVMIRConversion.h"
+#include "driver/action/ClangKernelLinking.h"
+#include "pipeline/steps/frontend/SPFlowToMLIRDeserializer.h"
+#include "pipeline/steps/codegen/mlir/transformation/LoSPNTransformations.h"
+#include "driver/action/EmitObjectCode.h"
+#include "TargetInformation.h"
 
 using namespace spnc;
 using namespace mlir;

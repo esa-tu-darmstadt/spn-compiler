@@ -10,9 +10,9 @@
 #define SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_MLIRTOOLCHAIN_H
 
 #include "mlir/IR/BuiltinOps.h"
-#include <driver/Job.h>
-#include <driver/Options.h>
-#include <llvm/Target/TargetMachine.h>
+#include "driver/Options.h"
+#include "Kernel.h"
+#include "llvm/Target/TargetMachine.h"
 
 namespace spnc {
 
@@ -37,6 +37,21 @@ namespace spnc {
 
     llvm::SmallVector<std::string> paths;
 
+  };
+
+  ///
+  /// Simple struct to carry information about the generated kernel between different
+  /// steps of the tool-chain.
+  struct KernelInfo {
+    spnc::KernelQueryType queryType;
+    spnc::KernelTarget target;
+    unsigned batchSize;
+    unsigned numFeatures;
+    unsigned bytesPerFeature;
+    unsigned numResults;
+    unsigned bytesPerResult;
+    std::string dtype;
+    std::string kernelName;
   };
 
   ///

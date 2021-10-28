@@ -10,18 +10,15 @@
 #include "xspn/xspn/serialization/binary/capnproto/spflow.capnp.h"
 #include "capnp/serialize.h"
 #include <fcntl.h>
-#include <unistd.h>
 #include "util/Logging.h"
-#include <string>
 #include <regex>
-#include <mlir/IR/Verifier.h>
-#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/Verifier.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "HiSPN/HiSPNEnums.h"
 #include "llvm/Support/Debug.h"
 #include "Kernel.h"
-#include <driver/GlobalOptions.h>
-#include "driver/Job.h"
+#include "driver/GlobalOptions.h"
+#include "toolchain/MLIRToolchain.h"
 
 using namespace capnp;
 using namespace mlir;

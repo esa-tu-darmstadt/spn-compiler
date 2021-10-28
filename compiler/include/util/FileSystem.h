@@ -13,7 +13,7 @@
 #include <iostream>
 #include <string>
 #include <cstdlib>
-#include <string.h>
+#include <string>
 #include <unistd.h>
 #include "util/Logging.h"
 
@@ -106,20 +106,18 @@ namespace spnc {
     bool deleteOnExit;
   };
 
+  /// Get the file extension for a file type.
+  /// \tparam Type File type.
+  /// \return File extension.
   template<FileType Type>
   std::string FileSystem::getFileExtension() {
     switch (Type) {
       case FileType::SPN_JSON:
       case FileType::STAT_JSON: return ".json";
-        break;
       case FileType::LLVM_BC: return ".bc";
-        break;
       case FileType::DOT: return ".dot";
-        break;
       case FileType::OBJECT: return ".o";
-        break;
       case FileType::SHARED_OBJECT: return ".so";
-        break;
       default: return "";
     }
   }
