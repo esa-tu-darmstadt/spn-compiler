@@ -35,7 +35,7 @@ Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t&
   }
   auto result = pipeline->execute();
   if (failed(result)) {
-    SPNC_FATAL_ERROR("Execution of the compilation pipeline failed with error {}", result.message());
+    SPNC_FATAL_ERROR("Execution of the compilation pipeline stopped with message: {}", result.message());
   }
   auto kernel = pipeline->result();
   SPDLOG_INFO("Generated Kernel in {}, kernel name {}", kernel->fileName(), kernel->kernelName());

@@ -26,3 +26,5 @@ spnc::ExecutionResult spnc::failure(std::string message) {
 spnc::ExecutionResult spnc::success() {
   return ExecutionResult{};
 }
+
+spnc::interface::Option<std::string> spnc::option::stopAfter{"stopAfter"};

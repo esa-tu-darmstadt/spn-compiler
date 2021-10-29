@@ -10,11 +10,18 @@
 #define SPNC_COMPILER_INCLUDE_DRIVER_PIPELINE_PIPELINE_H
 
 #include "PipelineStep.h"
+#include "option/Options.h"
 #include <vector>
 #include <type_traits>
 #include <iostream>
 
 namespace spnc {
+
+  namespace option {
+
+    extern interface::Option<std::string> stopAfter;
+
+  }
 
   template<typename Result>
   class Pipeline : public PipelineBase {
@@ -24,12 +31,23 @@ namespace spnc {
     using PipelineBase::PipelineBase;
 
     ExecutionResult execute() {
+      auto* config = context->template get<interface::Configuration>();
+      llvm::Optional<std::string> stop;
+      if (option::stopAfter.isPresent(*config)) {
+        stop = option::stopAfter.get(*config);
+      }
       for (auto& step: steps) {
         // TODO Stop after/before
         auto result = step->execute();
         if (failed(result)) {
           return result;
         }
+        if (stop.hasValue() && step->name() == stop.getValue()) {
+          return failure("STOPPED PIPELINE after {}", stop.getValue());
+        }
+      }
+      if (stop.hasValue()) {
+        SPDLOG_WARN("Did not stop after {}, because no such step was present in the pipeline", stop.getValue());
       }
       if (!valid) {
         return failure("INVALID PIPELINE");
