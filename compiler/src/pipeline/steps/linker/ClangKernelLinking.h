@@ -18,7 +18,7 @@
 namespace spnc {
 
   ///
-  /// Action to turn an object (*.o) into a Kernel (shared object, *.so) using clang,
+  /// Step to turn an object (*.o) into a Kernel (shared object, *.so) using clang,
   // and running the linking to external libraries.
   class ClangKernelLinking : public StepDualInput<ClangKernelLinking, ObjectFile, SharedObject>,
                              public StepWithResult<Kernel> {

@@ -19,6 +19,10 @@
 namespace mlir {
   namespace spn {
 
+    ///
+    /// MLIR pass to translate the GPUModule inside a MLIR module to CUBIN.
+    /// The GPUModule is first translated to NVVM IR, then to PTX assembly via the LLVM PTX backend,
+    /// before eventually being translated to CUBIN through calls to the CUDA runtime library.
     class CUDASerializeToCubinPass : public PassWrapper<CUDASerializeToCubinPass, mlir::gpu::SerializeToBlobPass> {
 
     public:

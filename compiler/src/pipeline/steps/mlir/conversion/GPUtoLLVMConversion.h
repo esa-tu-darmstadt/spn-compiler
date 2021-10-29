@@ -20,7 +20,7 @@
 namespace spnc {
 
   ///
-  /// Action performing a series of transformations on an MLIR module
+  /// MLIR pass pipeline performing a series of transformations on an MLIR module
   /// to lower from GPU (and other dialects) to LLVM dialect.
   class GPUtoLLVMConversion : public StepSingleInput<GPUtoLLVMConversion, mlir::ModuleOp>,
                               public StepWithResult<mlir::ModuleOp> {

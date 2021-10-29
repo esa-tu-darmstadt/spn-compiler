@@ -27,8 +27,11 @@ std::unique_ptr<Pipeline<Kernel>> CPUToolchain::setupPipeline(const std::string&
   // Uncomment the following two lines to get detailed output during MLIR dialect conversion;
   //llvm::DebugFlag = true;
   //llvm::setCurrentDebugType("dialect-conversion");
+
+  // Initialize the pipeline.
   std::unique_ptr<Pipeline<Kernel>> pipeline = std::make_unique<Pipeline<Kernel>>();
-  // Invoke MLIR code-generation on parsed tree.
+
+  // Initialize the MLIR context.
   auto ctx = std::make_unique<MLIRContext>();
   initializeMLIRContext(*ctx);
   // If IR should be dumped between steps/passes, we need to disable
@@ -41,7 +44,7 @@ std::unique_ptr<Pipeline<Kernel>> CPUToolchain::setupPipeline(const std::string&
   pipeline->getContext()->add(std::move(diagHandler));
   pipeline->getContext()->add(std::move(ctx));
 
-  // Create a LLVM target machine and set the optimization level.
+  // Create an LLVM target machine and set the optimization level.
   int mcOptLevel = spnc::option::optLevel.get(*config);
   if (spnc::option::mcOptLevel.isPresent(*config) && spnc::option::mcOptLevel.get(*config) != mcOptLevel) {
     auto optionValue = spnc::option::mcOptLevel.get(*config);
@@ -50,6 +53,7 @@ std::unique_ptr<Pipeline<Kernel>> CPUToolchain::setupPipeline(const std::string&
     mcOptLevel = optionValue;
   }
   auto targetMachine = createTargetMachine(mcOptLevel);
+  // Initialize kernel information.
   auto kernelInfo = std::make_unique<KernelInfo>();
   kernelInfo->target = KernelTarget::CPU;
   // Attach the LLVM target machine and the kernel information to the pipeline context
@@ -62,13 +66,16 @@ std::unique_ptr<Pipeline<Kernel>> CPUToolchain::setupPipeline(const std::string&
   // Deserialize the SPFlow graph serialized via Cap'n Proto to MLIR.
   auto& deserialized = pipeline->emplaceStep<SPFlowToMLIRDeserializer>(locateInput);
 
+  // Convert from HiSPN dialect to LoSPN.
   auto& hispn2lospn = pipeline->emplaceStep<HiSPNtoLoSPNConversion>(deserialized);
+  // Perform transformations on the LoSPN dialect module.
   auto& lospnTransform = pipeline->emplaceStep<LoSPNTransformations>(hispn2lospn);
+  // Lower from LoSPN to upstream dialects to target CPU, including vectorization.
   auto& lospn2cpu = pipeline->emplaceStep<LoSPNtoCPUConversion>(lospnTransform);
+  // Convert from mixture of upstream dialects to LLVM dialect.
   auto& cpu2llvm = pipeline->emplaceStep<CPUtoLLVMConversion>(lospn2cpu);
 
   // Convert the MLIR module to a LLVM-IR module.
-
   auto& llvmConversion = pipeline->emplaceStep<MLIRtoLLVMIRConversion>(cpu2llvm);
 
   // Translate the generated LLVM IR module to object code and write it to an object file.
@@ -99,9 +106,11 @@ std::unique_ptr<Pipeline<Kernel>> CPUToolchain::setupPipeline(const std::string&
   auto searchPaths = parseLibrarySearchPaths(spnc::option::searchPaths.get(*config));
   auto libraryInfo = std::make_unique<LibraryInfo>(additionalLibs, searchPaths);
   pipeline->getContext()->add(std::move(libraryInfo));
+  // Link the kernel with the libraries to produce executable (shared object).
   (void) pipeline->emplaceStep<ClangKernelLinking>(emitObjectCode, sharedObject);
+  // Add the CLI configuration to the pipeline context.
   pipeline->getContext()->add(std::move(config));
-  pipeline->toText();
+
   return pipeline;
 }
 

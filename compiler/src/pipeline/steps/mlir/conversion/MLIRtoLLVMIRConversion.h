@@ -17,7 +17,7 @@
 namespace spnc {
 
   ///
-  /// Action to translate MLIR LLVM dialect to actual LLVM IR.
+  /// Step to translate MLIR LLVM dialect to actual LLVM IR.
   class MLIRtoLLVMIRConversion : public StepSingleInput<MLIRtoLLVMIRConversion, mlir::ModuleOp>,
                                  public StepWithResult<llvm::Module> {
 

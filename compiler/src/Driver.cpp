@@ -33,6 +33,7 @@ Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t&
   } else {
     pipeline = CPUToolchain::setupPipeline(inputFile, std::move(config));
   }
+  SPDLOG_INFO("Executing compilation pipeline: {}", pipeline->toText());
   auto result = pipeline->execute();
   if (failed(result)) {
     SPNC_FATAL_ERROR("Execution of the compilation pipeline stopped with message: {}", result.message());

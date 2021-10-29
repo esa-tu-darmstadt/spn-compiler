@@ -15,19 +15,27 @@
 
 namespace spnc {
 
+  ///
+  /// Base class for elements that can be inserted into a PipelineContext.
   struct ElementBase {
 
     virtual ~ElementBase() = default;
 
   };
 
+  /// Wrapper for elements to be inserted into PipelineContext.
+  /// \tparam Content Type of the actual content of the element.
   template<class Content>
   class Element : public ElementBase {
 
   public:
 
+    /// Constructor
+    /// \param storeContent Owning pointer to the content of the element.
     explicit Element(std::unique_ptr<Content>&& storeContent) : content{std::move(storeContent)} {};
 
+    /// Get the content.
+    /// \return Non-owning pointer to the content.
     Content* get() {
       return content.get();
     }
@@ -38,10 +46,16 @@ namespace spnc {
 
   };
 
+  ///
+  /// Context to be attached to a Pipeline to retain additional information across
+  /// different steps of the compilation pipeline.
   class PipelineContext {
 
   public:
 
+    /// Add an element to the context.
+    /// \tparam Content Type of the content.
+    /// \param element Owning pointer to the content.
     template<typename Content>
     void add(std::unique_ptr<Content>&& element) {
       if (has<Content>()) {
@@ -53,12 +67,18 @@ namespace spnc {
       elements.insert({id, std::move(container)});
     }
 
+    /// Construct and add an element to the context.
+    /// \tparam Content Type of the content.
+    /// \tparam Args Type of the content's constructor arguments.
+    /// \param args Parameters to the content's constructor.
     template<typename Content, typename ... Args>
     void add(Args&& ... args) {
       auto content = std::make_unique<Content>(std::forward<Args>(args)...);
       add(std::move(content));
     }
 
+    /// Invalidate an existing element.
+    /// \tparam Content Type of the element to invalidate.
     template<typename Content>
     void invalidate() {
       auto id = typeID<Content>();
@@ -67,6 +87,9 @@ namespace spnc {
       }
     }
 
+    /// Get the element of the specified type.
+    /// \tparam Content Type of the content.
+    /// \return Non-owning pointer to the content.
     template<typename Content>
     Content* get() {
       if (!has<Content>()) {
@@ -79,6 +102,9 @@ namespace spnc {
       return content->get();
     }
 
+    /// Override an existing element with new content in the context.
+    /// \tparam Content Type of the content.
+    /// \param content Owning pointer to the content.
     template<typename Content>
     void override(std::unique_ptr<Content>&& content) {
       if (!has<Content>()) {
@@ -88,6 +114,10 @@ namespace spnc {
       add<Content>(std::move(content));
     }
 
+    /// Construct a new content and override an existing element in the context.
+    /// \tparam Content Type of the content.
+    /// \tparam Args Type of the content's constructor arguments.
+    /// \param args Parameters to the content's constructor.
     template<typename Content, typename ... Args>
     void override(Args&& ... args) {
       if (!has<Content>()) {
@@ -97,6 +127,9 @@ namespace spnc {
       add<Content, Args...>(std::forward<Args>(args)...);
     }
 
+    /// Check if an element of the given type is present in the context.
+    /// \tparam Content Type of the content.
+    /// \return true if an element of the given type is present, false otherwise.
     template<typename Content>
     bool has() {
       auto id = typeID<Content>();
@@ -113,6 +146,7 @@ namespace spnc {
       return ID;
     }
 
+    // Single counter to yield unique IDs per type.
     static unsigned lastTypeID;
 
   };

@@ -17,7 +17,7 @@
 namespace spnc {
 
   ///
-  /// Action to translate LLVM IR module into object code for the native CPU target.
+  /// Step to translate LLVM IR module into object code for the native CPU target.
   /// The object code is written to the specified object file (*.o)
   class EmitObjectCode : public StepDualInput<EmitObjectCode, llvm::Module, ObjectFile>,
                          public StepWithResult<ObjectFile> {

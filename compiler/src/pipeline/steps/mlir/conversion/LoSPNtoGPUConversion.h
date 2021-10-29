@@ -13,6 +13,9 @@
 
 namespace spnc {
 
+  ///
+  /// MLIR pass pipeline to lower from the LoSPN dialect to a combination of
+  /// upstream dialects when targeting GPUS.
   struct LoSPNtoGPUConversion : public MLIRPassPipeline<LoSPNtoGPUConversion> {
 
     using MLIRPassPipeline<LoSPNtoGPUConversion>::MLIRPassPipeline;

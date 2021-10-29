@@ -20,80 +20,86 @@
 
 namespace spnc {
 
+  /// Step to locate an existing file as input to the compilation pipeline.
+  /// \tparam FT File type of the file.
   template<FileType FT>
-  class LocateFile : public StepBase, public StepWithResult<File < FT>>
-{
+  class LocateFile : public StepBase, public StepWithResult<File<FT>> {
 
   public:
 
-  explicit LocateFile(std::string fileName) : StepBase(fmt::format("locate-file ({})", fileName)),
-                                              fName{std::move(fileName)}, file{"tmp", false} {}
+    /// Constructor.
+    /// \param fileName File name of the existing file.
+    explicit LocateFile(std::string fileName) : StepBase(fmt::format("locate-file ({})", fileName)),
+                                                fName{std::move(fileName)}, file{"tmp", false} {}
 
-  ExecutionResult execute()
-  override {
-  // Check for existence of the file.
+    ExecutionResult execute()
+    override {
+      // Check for existence of the file.
 #if __cplusplus < 201700
-  auto isPresent = std::experimental::filesystem::exists(fName);
+      auto isPresent = std::experimental::filesystem::exists(fName);
 #else
-  auto isPresent = std::filesystem::exists(fName);
+      auto isPresent = std::filesystem::exists(fName);
 #endif
-  if(!isPresent) {
-  return failure("Failed to located file {}", fName);
+      if(!isPresent) {
+        return failure("Failed to located file {}", fName);
 }
-file = File < FT > {fName, false};
-valid = true;
+      file = File <FT > {fName, false};
+      valid = true;
 return
 success();
 }
 
-File <FT>* result()
+    File <FT>* result()
 override {
 return &
 file;
 }
 
-private:
+  private:
 
-std::string fName;
+    std::string fName;
 
-File <FT> file;
+    File<FT> file;
 
-bool valid = false;
+    bool valid = false;
 
-};
+  };
 
-template<FileType FT>
-class CreateTmpFile : public StepBase, public StepWithResult<File < FT>>
-{
+  /// Step to create a new temporary file as part of the compilation pipeline.
+  /// \tparam FT File type of the file to be created.
+  template<FileType FT>
+  class CreateTmpFile : public StepBase, public StepWithResult<File<FT>> {
 
-public:
+  public:
 
-explicit CreateTmpFile(bool deleteOnExit) : StepBase(fmt::format("create-tmp-file (*{})",
-                                                                 FileSystem::getFileExtension<FT>())),
-                                            deleteFile{deleteOnExit}, file{"tmp", false} {}
+    /// Constructor.
+    /// \param deleteOnExit If true, delete the temporary file as soon as this instance is destructed.
+    explicit CreateTmpFile(bool deleteOnExit) : StepBase(fmt::format("create-tmp-file (*{})",
+                                                                     FileSystem::getFileExtension<FT>())),
+                                                deleteFile{deleteOnExit}, file{"tmp", false} {}
 
-ExecutionResult execute()
-override {
-file = FileSystem::createTempFile<FT>(deleteFile);
-return
-success();
-}
+    ExecutionResult execute()
+    override {
+      file = FileSystem::createTempFile<FT>(deleteFile);
+      return
+          success();
+    }
 
-File <FT>* result()
+    File <FT>* result()
 override {
 return &
 file;
 }
 
-private:
+  private:
 
-bool deleteFile;
+    bool deleteFile;
 
-bool valid = false;
+    bool valid = false;
 
-File <FT> file;
+    File <FT> file;
 
-};
+  };
 
 }
 

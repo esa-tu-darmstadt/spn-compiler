@@ -14,7 +14,8 @@
 namespace spnc {
 
   ///
-  /// Action performing a conversion from SPN & Standard dialect to LLVM dialect.
+  /// MLIR pass pipeline performing a conversion from various upstream dialects,
+  /// including the Standard, MemRef, Vector and SCF dialects, to LLVM dialect.
   struct CPUtoLLVMConversion : public MLIRPassPipeline<CPUtoLLVMConversion> {
     using MLIRPassPipeline<CPUtoLLVMConversion>::MLIRPassPipeline;
 

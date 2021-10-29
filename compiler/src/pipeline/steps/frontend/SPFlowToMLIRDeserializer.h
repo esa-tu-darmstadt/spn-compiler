@@ -21,8 +21,13 @@
 
 namespace spnc {
 
+  ///
+  /// Histogram bucket with [lb, ub) and probability.
   using bucket_t = std::tuple<int, int, double>;
 
+  ///
+  /// Step to read a serialized SPN query + graph from a binary file and translate it to
+  /// an MLIR module, mainly using the HiSPN dialect.
   class SPFlowToMLIRDeserializer : public StepSingleInput<SPFlowToMLIRDeserializer, BinarySPN>,
                                    public StepWithResult<::mlir::ModuleOp> {
 

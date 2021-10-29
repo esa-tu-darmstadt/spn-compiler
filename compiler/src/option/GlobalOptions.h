@@ -38,10 +38,23 @@ namespace spnc {
     /// Interface option to specify the compilation target.
     extern EnumOpt compilationTarget;
 
+    ///
+    /// Flag to indicate the desired level of optimization.
+    /// Possible values range from 0-3
+    /// Is used for both, IR and machine optimization, if none of the
+    /// following two options is specified.
     extern Option<int> optLevel;
 
+    ///
+    /// Flag to indicate the desired level of optimization for IR optimizations.
+    /// Possible values range from 0-3.
+    /// Overrides the value specified by 'optLevel'
     extern Option<int> irOptLevel;
 
+    ///
+    /// Flag to indicate the desired level of optimization for machine optimizations.
+    /// Possible values range from 0-3.
+    /// Overrides the value specified by 'optLevel'
     extern Option<int> mcOptLevel;
 
     ///
@@ -61,8 +74,14 @@ namespace spnc {
       NONE
     };
 
+    ///
+    /// Option to specify the vector library to use.
+    /// Possible values can be found in the enumeration above.
     extern EnumOpt vectorLibrary;
 
+    ///
+    /// Flag to activate the optimization that tries to replace gather loads
+    /// with a combination of regular vector loads and shuffles.
     extern Option<bool> replaceGatherWithShuffle;
 
     ///

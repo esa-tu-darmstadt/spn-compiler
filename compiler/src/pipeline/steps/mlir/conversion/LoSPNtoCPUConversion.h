@@ -13,6 +13,10 @@
 
 namespace spnc {
 
+  ///
+  /// MLIR pass pipeline to lower from the LoSPN dialect to a combination of
+  /// upstream dialects when targeting CPUs. Also performs vectorization if
+  /// requested and possible.
   struct LoSPNtoCPUConversion : public MLIRPassPipeline<LoSPNtoCPUConversion> {
 
     using MLIRPassPipeline<LoSPNtoCPUConversion>::MLIRPassPipeline;

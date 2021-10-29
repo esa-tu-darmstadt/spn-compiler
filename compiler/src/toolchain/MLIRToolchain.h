@@ -16,6 +16,9 @@
 
 namespace spnc {
 
+  ///
+  /// Information about libraries that should be linked to the executable.
+  // Comprises names of the libraries and potential search paths.
   class LibraryInfo {
 
   public:

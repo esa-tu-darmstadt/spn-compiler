@@ -14,7 +14,7 @@
 namespace spnc {
 
   ///
-  /// Action performing dialect-internal transformations on the LoSPN dialect.
+  /// MLIR pass pipeline performing dialect-internal transformations on the LoSPN dialect.
   class LoSPNTransformations : public MLIRPassPipeline<LoSPNTransformations> {
 
   public:

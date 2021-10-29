@@ -19,10 +19,18 @@ namespace spnc {
 
   namespace option {
 
+    ///
+    /// Option to specify a step after which the
+    /// compilation pipeline should be terminated prematurely.
     extern interface::Option<std::string> stopAfter;
 
   }
 
+  /// Representation of a compilation pipeline composed from individual steps.
+  /// If valid, i.e., if the last step produces a result of the correct type,
+  /// the final result can be retrieved from the pipeline.
+  /// Also holds a context (see [PipelineContext]) to pass information across steps.
+  /// \tparam Result Type of the final result.
   template<typename Result>
   class Pipeline : public PipelineBase {
 
@@ -30,6 +38,9 @@ namespace spnc {
 
     using PipelineBase::PipelineBase;
 
+    /// Execute the pipeline by executing all steps in the order of insertion.
+    /// \return success if all steps executed successfully and the pipeline is valid,
+    ///         failure otherwise.
     ExecutionResult execute() {
       auto* config = context->template get<interface::Configuration>();
       llvm::Optional<std::string> stop;
@@ -52,24 +63,37 @@ namespace spnc {
       if (!valid) {
         return failure("INVALID PIPELINE");
       }
+      executed = true;
       return success();
     }
 
+    /// Retrieve the final result after execution.
+    /// \return The final result of the compilation pipeline as produced by the last step.
     Result* result() {
-      assert(valid && lastStep && "Cannot get result from invalid pipeline");
+      assert(executed && valid && lastStep && "Cannot get result from not executed or invalid pipeline");
       return lastStep->result();
     }
 
-    void toText() {
-      std::cout << "Pipeline: " << std::endl;
-      for (auto& s: steps) {
-        std::cout << "\t" << s->name() << std::endl;
-      }
+    std::string toText() {
+      static std::string text = [this]() {
+        std::stringstream ss;
+        ss << *this;
+        return ss.str();
+      }();
+      return text;
     }
 
+    template<class R>
+    friend std::ostream& operator<<(std::ostream& os, const Pipeline<R>& p);
+
+    /// Add a step to the pipeline.
+    /// \tparam Step Class of the step.
+    /// \tparam Args Types of the arguments for the constructor of the step.
+    /// \param args Constructor arguments for the constructor of the step.
+    /// \return Reference to the emplaced step.
     template<class Step,
-        typename std::enable_if<std::is_base_of<StepWithResult < Result>, Step>::value, Step> ::type* = nullptr,
-    typename ... Args>
+        typename std::enable_if<std::is_base_of<StepWithResult<Result>, Step>::value, Step>::type* = nullptr,
+        typename ... Args>
     Step& emplaceStep(Args&& ... args) {
       auto step = emplace<Step>(std::forward<Args>(args)...);
       valid = true;
@@ -77,9 +101,14 @@ namespace spnc {
       return *step;
     }
 
+    /// Add a step to the pipeline.
+    /// \tparam Step Class of the step.
+    /// \tparam Args Types of the arguments for the constructor of the step.
+    /// \param args Constructor arguments for the constructor of the step.
+    /// \return Reference to the emplaced step.
     template<class Step,
-        typename std::enable_if<!std::is_base_of<StepWithResult < Result>, Step>::value, Step> ::type* = nullptr,
-    typename ... Args>
+        typename std::enable_if<!std::is_base_of<StepWithResult<Result>, Step>::value, Step>::type* = nullptr,
+        typename ... Args>
     Step& emplaceStep(Args&& ... args) {
       auto step = emplace<Step>(std::forward<Args>(args)...);
       valid = false;
@@ -103,9 +132,20 @@ namespace spnc {
 
     bool valid = false;
 
-    StepWithResult <Result>* lastStep = nullptr;
+    bool executed = false;
+
+    StepWithResult<Result>* lastStep = nullptr;
 
   };
+
+  template<typename R>
+  std::ostream& operator<<(std::ostream& os, const Pipeline<R>& p) {
+    os << "Pipeline: " << std::endl;
+    for (auto& s: p.steps) {
+      os << "\t" << s->name() << std::endl;
+    }
+    return os;
+  }
 
 }
 

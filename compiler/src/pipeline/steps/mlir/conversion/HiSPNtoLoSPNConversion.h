@@ -13,6 +13,8 @@
 
 namespace spnc {
 
+  ///
+  /// MLIR pass pipeline to lower from the HiSPN dialect to the LoSPN dialect.
   struct HiSPNtoLoSPNConversion : public MLIRPassPipeline<HiSPNtoLoSPNConversion> {
 
     using MLIRPassPipeline<HiSPNtoLoSPNConversion>::MLIRPassPipeline;
