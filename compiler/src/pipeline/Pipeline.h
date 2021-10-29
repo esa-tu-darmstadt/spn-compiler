@@ -37,12 +37,12 @@ namespace spnc {
         stop = option::stopAfter.get(*config);
       }
       for (auto& step: steps) {
-        // TODO Stop after/before
         auto result = step->execute();
         if (failed(result)) {
           return result;
         }
         if (stop.hasValue() && step->name() == stop.getValue()) {
+          // Stop after the step, if the user requested to do so via the 'stopAfter' option.
           return failure("STOPPED PIPELINE after {}", stop.getValue());
         }
       }

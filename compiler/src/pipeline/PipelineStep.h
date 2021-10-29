@@ -87,7 +87,6 @@ namespace spnc {
 
     virtual ~StepBase() = default;
 
-    // TODO: Execute only once?
     virtual ExecutionResult execute() = 0;
 
     std::string name() {

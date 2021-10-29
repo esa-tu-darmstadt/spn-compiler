@@ -10,6 +10,7 @@
 #define SPNC_COMPILER_INCLUDE_DRIVER_PIPELINE_PIPELINECONTEXT_H
 
 #include <memory>
+#include "util/Logging.h"
 #include "llvm/ADT/DenseMap.h"
 
 namespace spnc {
@@ -43,7 +44,10 @@ namespace spnc {
 
     template<typename Content>
     void add(std::unique_ptr<Content>&& element) {
-      // TODO Check if already present.
+      if (has<Content>()) {
+        // Check whether already present.
+        SPNC_FATAL_ERROR("Cannot add, element of type {} already present. Use override instead", typeid(Content).name())
+      }
       auto id = typeID<Content>();
       auto container = std::make_unique<Element<Content>>(std::move(element));
       elements.insert({id, std::move(container)});
@@ -65,7 +69,10 @@ namespace spnc {
 
     template<typename Content>
     Content* get() {
-      // TODO Check for presence.
+      if (!has<Content>()) {
+        // Check for presence.
+        SPNC_FATAL_ERROR("Cannot get, no element of type {} present in context", typeid(Content).name());
+      }
       auto id = typeID<Content>();
       auto& element = elements[id];
       auto content = static_cast<Element<Content>*>(element.get());
@@ -74,14 +81,18 @@ namespace spnc {
 
     template<typename Content>
     void override(std::unique_ptr<Content>&& content) {
-      // TODO Check presence?
+      if (!has<Content>()) {
+        SPDLOG_WARN("No element of type {} present, performing add instead of override", typeid(Content).name());
+      }
       invalidate<Content>();
       add<Content>(std::move(content));
     }
 
     template<typename Content, typename ... Args>
     void override(Args&& ... args) {
-      // TODO Check presense?
+      if (!has<Content>()) {
+        SPDLOG_WARN("No element of type {} present, performing add instead of override", typeid(Content).name());
+      }
       invalidate<Content>();
       add<Content, Args...>(std::forward<Args>(args)...);
     }
