@@ -121,8 +121,8 @@ double CostModel::getExtractionCost(Value value) const {
 
 // === UnitCostModel === //
 
-/// Individual cost taken from NodePatterns.cpp
 double UnitCostModel::computeScalarCost(Value value) const {
+  // Individual costs taken from NodePatterns.cpp
   auto* definingOp = value.getDefiningOp();
   if (!definingOp) {
     return 0;
