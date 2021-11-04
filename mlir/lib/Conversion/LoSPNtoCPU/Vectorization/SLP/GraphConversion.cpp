@@ -147,46 +147,46 @@ namespace {
     }
     return false;
   }
-}
 
-SmallVector<Superword*> ConversionState::unconvertedPostOrder() const {
-  SmallVector<Superword*> order;
-  DenseMap<Superword*, unsigned> depths;
-  depths[correspondingGraphs.back().get()] = 0;
-  SmallVector<Superword*> worklist{correspondingGraphs.back().get()};
-  while (!worklist.empty()) {
-    auto* superword = worklist.pop_back_val();
-    if (alreadyComputed(superword)) {
-      continue;
-    }
-    for (auto* operand : superword->getOperands()) {
-      auto operandDepth = depths[superword] + 1;
-      if (depths[operand] < operandDepth) {
-        depths[operand] = operandDepth;
-        worklist.emplace_back(operand);
+  SmallVector<Superword*> graphPostOrder(Superword* root, ConversionState const& state) {
+    SmallVector<Superword*> order;
+    DenseMap<Superword*, unsigned> depths;
+    depths[root] = 0;
+    SmallVector<Superword*> worklist{root};
+    while (!worklist.empty()) {
+      auto* superword = worklist.pop_back_val();
+      if (state.alreadyComputed(superword)) {
+        continue;
       }
-    }
-  }
-  for (auto const& entry: depths) {
-    order.emplace_back(entry.first);
-  }
-  llvm::sort(std::begin(order), std::end(order), [&](Superword* lhs, Superword* rhs) {
-    if (depths[lhs] == depths[rhs]) {
-      if (lhs->isLeaf() == rhs->isLeaf()) {
-        for (size_t lane = 0; lane < lhs->numLanes(); ++lane) {
-          if (lhs->getElement(lane) == rhs->getElement(lane)) {
-            continue;
-          }
-          return isBeforeInBlock(lhs->getElement(lane), rhs->getElement(lane));
+      for (auto* operand : superword->getOperands()) {
+        auto operandDepth = depths[superword] + 1;
+        if (depths[operand] < operandDepth) {
+          depths[operand] = operandDepth;
+          worklist.emplace_back(operand);
         }
-        return false;
       }
-      // Returning this maximizes the re-use potential of non-leaf elements in leaf nodes through extractions.
-      return rhs->isLeaf();
     }
-    return depths[lhs] > depths[rhs];
-  });
-  return order;
+    for (auto const& entry: depths) {
+      order.emplace_back(entry.first);
+    }
+    llvm::sort(std::begin(order), std::end(order), [&](Superword* lhs, Superword* rhs) {
+      if (depths[lhs] == depths[rhs]) {
+        if (lhs->isLeaf() == rhs->isLeaf()) {
+          for (size_t lane = 0; lane < lhs->numLanes(); ++lane) {
+            if (lhs->getElement(lane) == rhs->getElement(lane)) {
+              continue;
+            }
+            return isBeforeInBlock(lhs->getElement(lane), rhs->getElement(lane));
+          }
+          return false;
+        }
+        // Returning this maximizes the re-use potential of non-leaf elements in leaf nodes through extractions.
+        return rhs->isLeaf();
+      }
+      return depths[lhs] > depths[rhs];
+    });
+    return order;
+  }
 }
 
 void ConversionState::addVectorCallbacks(std::function<void(Superword*)> createCallback,
@@ -228,7 +228,7 @@ SmallVector<Superword*> ConversionManager::startConversion(SLPGraph const& graph
     originalOperands[op] = op->getOperands();
   });
   // Gather escaping users.
-  auto order = conversionState->unconvertedPostOrder();
+  auto order = graphPostOrder(graph.getRootSuperword().get(), *conversionState);
   for (auto* superword : order) {
     for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
       auto element = superword->getElement(lane);
@@ -295,7 +295,7 @@ void ConversionManager::cancelConversion() {
 
 void ConversionManager::setupConversionFor(Superword* superword, SLPVectorizationPattern const* pattern) {
   rewriter.setInsertionPoint(block->getTerminator());
-  // Create extractions if needed.
+  // Create extractions for any required scalar values if profitable.
   auto scalarInputs = leafVisitor.getRequiredScalarValues(pattern, superword);
   for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
     auto element = superword->getElement(lane);
@@ -321,7 +321,7 @@ void ConversionManager::update(Superword* superword, Value operation, SLPVectori
     }
     if (hasEscapingUsers(element)) {
       Value extractOp = getOrExtractValue(element);
-      // Nothing to do if it's being computed in scalar form somewhere else.
+      // Nothing to do if it's being computed in scalar form somewhere else or an extraction was not deemed profitable.
       if (extractOp != element) {
         Value logExtractOp = nullptr;
         for (auto* escapingUser : escapingUsers.lookup(element)) {

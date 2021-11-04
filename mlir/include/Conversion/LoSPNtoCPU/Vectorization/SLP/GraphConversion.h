@@ -21,6 +21,8 @@ namespace mlir {
 
         class CostModel;
 
+        /// A ValuePosition models the position of a value in a superword, i.e. in which superword and at which position
+        /// a value is located.
         struct ValuePosition {
           ValuePosition() : superword{nullptr}, index{0} {}
           ValuePosition(Superword* superword, size_t index) : superword{superword}, index{index} {}
@@ -31,24 +33,33 @@ namespace mlir {
           size_t index;
         };
 
+        /// The ConversionState keeps track of the state of vectorization in terms of which value/superword has been
+        /// marked as computed (or extracted) already. It also stores the SLP graphs for subsequent vectorizations.
         class ConversionState {
+          friend class ConversionManager;
         public:
-          void startConversion(std::shared_ptr<Superword> root);
-          void finishConversion();
-          void cancelConversion();
-
+          /// Check if the superword has been (marked as) computed already.
           bool alreadyComputed(Superword* superword) const;
+          /// Check if the value has been (marked as) computed already.
           bool alreadyComputed(Value value) const;
+          /// Check if the value is extractable, i.e. there exists a superword that has been (marked as) computed which
+          /// also contains that value.
           bool isExtractable(Value value);
 
+          /// Temporarily mark a value as computed (e.g. if required for inputs when packing vectors). Once the
+          /// conversion is finished, it will automatically be marked permanently or dismissed depending on the
+          /// profitability of the vectorization. Also recursively marks the value's operands as computed.
           void markComputed(Value value);
+          /// Temporarily mark a superword as computed. Once the conversion is finished, it will automatically be marked
+          /// permanently or dismissed depending on the profitability of the vectorization. The provided value should
+          /// be the value of the last operation that is required for the computation of the superword.
           void markComputed(Superword* superword, Value value);
+          /// Temporarily mark a value as extracted. Once the conversion is finished, it will automatically be marked
+          /// permanently or dismissed depending on the profitability of the vectorization.
           void markExtracted(Value value);
 
           Value getValue(Superword* superword) const;
           ValuePosition getSuperwordContainingValue(Value value) const;
-
-          SmallVector<Superword*> unconvertedPostOrder() const;
 
           // Callback registration.
           /// Callbacks for when a superword was converted and for when its value has been removed because the graph
@@ -64,10 +75,20 @@ namespace mlir {
           void addExtractionCallbacks(std::function<void(Value)> extractCallback,
                                       std::function<void(Value)> undoCallback);
         private:
-          // Take ownership of the graphs to prevent dangling pointers when they go out of scope.
+          /// Notify the conversion state that the conversion of a new SLP graph will take place.
+          void startConversion(std::shared_ptr<Superword> root);
+          /// Notify the conversion state that the conversion of the current SLP graph has both been finished and
+          /// deemed profitable. Every superword/value that has temporarily been marked as computed will be marked
+          /// permanently.
+          void finishConversion();
+          /// Notify the conversion state that the conversion of the current SLP graph has been finished but not deemed
+          /// profitable. Every superword/value that has temporarily been marked as computed will not be marked as
+          /// computed anymore.
+          void cancelConversion();
+          // Take ownership of the graphs to prevent dangling superword pointers when the graphs go out of scope.
           SmallVector<std::shared_ptr<Superword>, 5> correspondingGraphs;
 
-          // For bookkeeping of computed superwords and values.
+          /// For bookkeeping of computed superwords and values.
           struct ConversionData {
 
             bool alreadyComputed(Value value) const {
@@ -98,9 +119,9 @@ namespace mlir {
             DenseMap<Value, ValuePosition> extractableScalarValues;
           };
 
-          // Permanent conversion data.
+          /// Permanent conversion data.
           ConversionData permanentData;
-          // Temporary conversion data. These might need to be 'undone' when a graph is not deemed profitable.
+          /// Temporary conversion data. These might need to be 'undone' when a graph is not deemed profitable.
           ConversionData temporaryData;
           // Callback data.
           SmallVector<std::function<void(Superword*)>> vectorCallbacks;
@@ -111,21 +132,47 @@ namespace mlir {
           SmallVector<std::function<void(Value)>> extractionUndoCallbacks;
         };
 
+        /// The ConversionManager handles everything that's related to converting SLP graphs back into SIMD
+        /// instructions. This includes things like keeping track of superword -> SIMD operation mappings, creating
+        /// constants and setting insertion points.
         class ConversionManager {
 
         public:
 
+          /// The rewriter is required for creating constant operations and extractions (for escaping uses). All
+          /// created operations will be inserted into the provided block. The cost model is required for determining
+          /// the profitability of extractions.
           ConversionManager(RewriterBase& rewriter, Block* block, std::shared_ptr<CostModel> costModel);
 
+          /// Begin the conversion of a new SLP graph. Also computes escaping uses for later on during the conversion
+          /// process. Returns the order in which the graph's superwords should be converted.
           SmallVector<Superword*> startConversion(SLPGraph const& graph);
+          /// Method to call to conclude the conversion process of an SLP graph. Should be called if the vectorization
+          /// was deemed profitable as it permanently keeps all changes done to the original basic block. Also reorders
+          /// operations such that no operation appears before its operands.
           void finishConversion();
+          /// Method to call to cancel the conversion process of an SLP graph. Should be called if the vectorization
+          /// was not deemed profitable. Removes all operations that were created by the conversion and restores the
+          /// original state of the basic block.
           void cancelConversion();
 
+          /// Sets up the conversion for a single superword by setting an appropriate insertion point. Also creates
+          /// extractions for any needed scalar values (depending on the provided pattern) if these are more profitable
+          /// than computing them in a scalar fashion.
           void setupConversionFor(Superword* superword, SLPVectorizationPattern const* pattern);
+          /// Concludes the conversion a single superword. The provided value is used to internally map that superword
+          /// to its actual SIMD operation, so it should be the last operation needed to 'compute' the superword. The
+          /// pattern is required to mark any required scalar values as computed. Also creates extractions for escaping
+          /// users.
           void update(Superword* superword, Value operation, SLPVectorizationPattern const* appliedPattern);
 
+          /// Return the SIMD operation that was created for the provided superword. If more than one was created,
+          /// returns the last one.
           Value getValue(Superword* superword) const;
+          /// Returns a constant operation for the provided attribute. If there is no such constant operation already,
+          /// creates one at the provided location automatically.
           Value getOrCreateConstant(Location const& loc, Attribute const& attribute);
+          /// Return the internally stored conversion state, e.g. for callback registration.
           ConversionState& getConversionState() const;
 
         private:
