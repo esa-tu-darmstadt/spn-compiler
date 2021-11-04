@@ -50,10 +50,12 @@ namespace mlir {
           virtual void visit(VectorizeLogGaussian const* pattern, Superword const* superword);
         protected:
           virtual ~PatternVisitor() = default;
-          // Default visiting method so that we don't have to override every single visit method in each visitor.
+          /// Default visiting method so that we don't have to override every single visit method in each visitor.
           virtual void visitDefault(SLPVectorizationPattern const* pattern, Superword const* superword) = 0;
         };
 
+        /// A LeafPatternVisitor visits leaf superwords of an SLP graph and computes which of their elements need to be
+        /// computed/available in a scalar fashion beforehand.
         class LeafPatternVisitor : public PatternVisitor {
         public:
           /// Returns the scalar values whose scalar computation is required for the superword if the provided pattern
