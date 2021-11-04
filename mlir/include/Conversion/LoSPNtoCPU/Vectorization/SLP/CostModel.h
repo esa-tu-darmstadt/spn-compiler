@@ -67,14 +67,14 @@ namespace mlir {
           using CostModel::CostModel;
           double computeScalarCost(Value value) const override;
           double computeExtractionCost(Superword* superword, size_t index) const override;
-          void visitDefault(SLPVectorizationPattern const* pattern, Superword* superword) override;
-          void visit(BroadcastSuperword const* pattern, Superword* superword) override;
-          void visit(BroadcastInsertSuperword const* pattern, Superword* superword) override;
-          void visit(VectorizeConstant const* pattern, Superword* superword) override;
-          void visit(VectorizeSPNConstant const* pattern, Superword* superword) override;
-          void visit(VectorizeGaussian const* pattern, Superword* superword) override;
-          void visit(VectorizeLogAdd const* pattern, Superword* superword) override;
-          void visit(VectorizeLogGaussian const* pattern, Superword* superword) override;
+          void visitDefault(SLPVectorizationPattern const* pattern, Superword const* superword) override;
+          void visit(BroadcastSuperword const* pattern, Superword const* superword) override;
+          void visit(BroadcastInsertSuperword const* pattern, Superword const* superword) override;
+          void visit(VectorizeConstant const* pattern, Superword const* superword) override;
+          void visit(VectorizeSPNConstant const* pattern, Superword const* superword) override;
+          void visit(VectorizeGaussian const* pattern, Superword const* superword) override;
+          void visit(VectorizeLogAdd const* pattern, Superword const* superword) override;
+          void visit(VectorizeLogGaussian const* pattern, Superword const* superword) override;
         };
       }
     }

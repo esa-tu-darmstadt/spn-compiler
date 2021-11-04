@@ -90,7 +90,7 @@ Value BroadcastSuperword::rewrite(Superword* superword, RewriterBase& rewriter) 
   return rewriter.create<vector::BroadcastOp>(element.getLoc(), superword->getVectorType(), element);
 }
 
-void BroadcastSuperword::accept(PatternVisitor& visitor, Superword* superword) const {
+void BroadcastSuperword::accept(PatternVisitor& visitor, Superword const* superword) const {
   visitor.visit(this, superword);
 }
 
@@ -130,7 +130,7 @@ Value BroadcastInsertSuperword::rewrite(Superword* superword, RewriterBase& rewr
   return vectorOp;
 }
 
-void BroadcastInsertSuperword::accept(PatternVisitor& visitor, Superword* superword) const {
+void BroadcastInsertSuperword::accept(PatternVisitor& visitor, Superword const* superword) const {
   visitor.visit(this, superword);
 }
 
@@ -226,7 +226,7 @@ Value ShuffleTwoSuperwords::rewrite(Superword* superword, RewriterBase& rewriter
   return rewriter.create<vector::ShuffleOp>(superword->getLoc(), v1, v2, maskElements);
 }
 
-void ShuffleTwoSuperwords::accept(PatternVisitor& visitor, Superword* superword) const {
+void ShuffleTwoSuperwords::accept(PatternVisitor& visitor, Superword const* superword) const {
   visitor.visit(this, superword);
 }
 
@@ -311,7 +311,7 @@ Value VectorizeConstant::rewrite(Superword* superword, RewriterBase& rewriter) {
   return conversionManager.getOrCreateConstant(superword->getLoc(), elements);
 }
 
-void VectorizeConstant::accept(PatternVisitor& visitor, Superword* superword) const {
+void VectorizeConstant::accept(PatternVisitor& visitor, Superword const* superword) const {
   visitor.visit(this, superword);
 }
 
@@ -343,7 +343,7 @@ Value VectorizeSPNConstant::rewrite(Superword* superword, RewriterBase& rewriter
   return conversionManager.getOrCreateConstant(superword->getLoc(), elements);
 }
 
-void VectorizeSPNConstant::accept(PatternVisitor& visitor, Superword* superword) const {
+void VectorizeSPNConstant::accept(PatternVisitor& visitor, Superword const* superword) const {
   visitor.visit(this, superword);
 }
 
@@ -366,7 +366,7 @@ Value CreateConsecutiveLoad::rewrite(Superword* superword, RewriterBase& rewrite
                                          indices);
 }
 
-void CreateConsecutiveLoad::accept(PatternVisitor& visitor, Superword* superword) const {
+void CreateConsecutiveLoad::accept(PatternVisitor& visitor, Superword const* superword) const {
   visitor.visit(this, superword);
 }
 
@@ -460,7 +460,7 @@ Value CreateGatherLoad::rewrite(Superword* superword, RewriterBase& rewriter) {
   return rewriter.create<vector::GatherOp>(loc, vectorType, base, indices, indexVector, mask, passThrough);
 }
 
-void CreateGatherLoad::accept(PatternVisitor& visitor, Superword* superword) const {
+void CreateGatherLoad::accept(PatternVisitor& visitor, Superword const* superword) const {
   visitor.visit(this, superword);
 }
 
@@ -474,7 +474,7 @@ Value VectorizeAdd::rewrite(Superword* superword, RewriterBase& rewriter) {
   return rewriter.create<AddFOp>(superword->getLoc(), superword->getVectorType(), operands);
 }
 
-void VectorizeAdd::accept(PatternVisitor& visitor, Superword* superword) const {
+void VectorizeAdd::accept(PatternVisitor& visitor, Superword const* superword) const {
   visitor.visit(this, superword);
 }
 
@@ -488,7 +488,7 @@ Value VectorizeMul::rewrite(Superword* superword, RewriterBase& rewriter) {
   return rewriter.create<MulFOp>(superword->getLoc(), superword->getVectorType(), operands);
 }
 
-void VectorizeMul::accept(PatternVisitor& visitor, Superword* superword) const {
+void VectorizeMul::accept(PatternVisitor& visitor, Superword const* superword) const {
   visitor.visit(this, superword);
 }
 
@@ -567,7 +567,7 @@ Value VectorizeGaussian::rewrite(Superword* superword, RewriterBase& rewriter) {
   return gaussianVector;
 }
 
-void VectorizeGaussian::accept(PatternVisitor& visitor, Superword* superword) const {
+void VectorizeGaussian::accept(PatternVisitor& visitor, Superword const* superword) const {
   visitor.visit(this, superword);
 }
 
@@ -598,7 +598,7 @@ Value VectorizeLogAdd::rewrite(Superword* superword, RewriterBase& rewriter) {
   return rewriter.create<AddFOp>(superword->getLoc(), a, vectorOp);
 }
 
-void VectorizeLogAdd::accept(PatternVisitor& visitor, Superword* superword) const {
+void VectorizeLogAdd::accept(PatternVisitor& visitor, Superword const* superword) const {
   visitor.visit(this, superword);
 }
 
@@ -612,7 +612,7 @@ Value VectorizeLogMul::rewrite(Superword* superword, RewriterBase& rewriter) {
   return rewriter.create<AddFOp>(superword->getLoc(), superword->getVectorType(), operands);
 }
 
-void VectorizeLogMul::accept(PatternVisitor& visitor, Superword* superword) const {
+void VectorizeLogMul::accept(PatternVisitor& visitor, Superword const* superword) const {
   visitor.visit(this, superword);
 }
 
@@ -688,6 +688,6 @@ Value VectorizeLogGaussian::rewrite(Superword* superword, RewriterBase& rewriter
   return gaussianVector;
 }
 
-void VectorizeLogGaussian::accept(PatternVisitor& visitor, Superword* superword) const {
+void VectorizeLogGaussian::accept(PatternVisitor& visitor, Superword const* superword) const {
   visitor.visit(this, superword);
 }
