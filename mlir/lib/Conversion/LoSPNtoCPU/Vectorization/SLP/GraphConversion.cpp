@@ -132,6 +132,7 @@ ValuePosition ConversionState::getSuperwordContainingValue(Value value) const {
 
 // Helper functions in anonymous namespace.
 namespace {
+  /// There is no isBeforeInBlock() for values in MLIR (only for Operation*), so we just define our own one.
   bool isBeforeInBlock(Value lhs, Value rhs) {
     if (auto* lhsOp = lhs.getDefiningOp()) {
       if (auto* rhsOp = rhs.getDefiningOp()) {
@@ -148,8 +149,11 @@ namespace {
     return false;
   }
 
+  /// Returns the superwords of an SLP graph in post order (operands before operands' users).
   SmallVector<Superword*> graphPostOrder(Superword* root, ConversionState const& state) {
     SmallVector<Superword*> order;
+    // Compute depths from the graph root to determine the order. The further away, the earlier they need to be
+    // converted.
     DenseMap<Superword*, unsigned> depths;
     depths[root] = 0;
     SmallVector<Superword*> worklist{root};
@@ -169,8 +173,11 @@ namespace {
     for (auto const& entry: depths) {
       order.emplace_back(entry.first);
     }
+    // Sort all superwords by depth. The general idea is that non-leaf superwords should be converted before leaf
+    // superwords to maximize extraction potential and to avoid scalar leaf element computations.
     llvm::sort(std::begin(order), std::end(order), [&](Superword* lhs, Superword* rhs) {
       if (depths[lhs] == depths[rhs]) {
+        // If both are leaves or neither is a leaf: sort them by their earliest element.
         if (lhs->isLeaf() == rhs->isLeaf()) {
           for (size_t lane = 0; lane < lhs->numLanes(); ++lane) {
             if (lhs->getElement(lane) == rhs->getElement(lane)) {
@@ -180,7 +187,7 @@ namespace {
           }
           return false;
         }
-        // Returning this maximizes the re-use potential of non-leaf elements in leaf nodes through extractions.
+        // This maximizes the re-use potential of non-leaf elements in leaf nodes through extractions.
         return rhs->isLeaf();
       }
       return depths[lhs] > depths[rhs];
@@ -227,8 +234,8 @@ SmallVector<Superword*> ConversionManager::startConversion(SLPGraph const& graph
     originalOperations.emplace_back(op);
     originalOperands[op] = op->getOperands();
   });
-  // Gather escaping users.
   auto order = graphPostOrder(graph.getRootSuperword().get(), *conversionState);
+  // Gather escaping users.
   for (auto* superword : order) {
     for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
       auto element = superword->getElement(lane);
@@ -236,9 +243,11 @@ SmallVector<Superword*> ConversionManager::startConversion(SLPGraph const& graph
         if (elementOp->hasTrait<OpTrait::ConstantLike>()) {
           continue;
         }
+        // Initially, all elements are assumed to be escaping users.
         if (!escapingUsers.count(element)) {
           escapingUsers[element].assign(std::begin(element.getUsers()), std::end(element.getUsers()));
         }
+        // Elements that appear in non-leaf vectors aren't escaping users as they aren't computed outside the SLP graph.
         if (!superword->isLeaf()) {
           for (size_t i = 0; i < superword->numOperands(); ++i) {
             auto operand = superword->getOperand(i)->getElement(lane);
@@ -264,12 +273,15 @@ void ConversionManager::finishConversion() {
 }
 
 void ConversionManager::cancelConversion() {
+  // Reset operation order & operands.
   Operation* lastOp = nullptr;
   for (auto* op : originalOperations) {
+    // Replace extracted operands of escaping users with their original operands.
     auto operands = originalOperands.lookup(op);
     if (!operands.empty()) {
       op->setOperands(operands);
     }
+    // Move all operations created during conversion behind the last original one.
     if (lastOp) {
       op->moveAfter(lastOp);
     } else {
@@ -313,7 +325,7 @@ void ConversionManager::update(Superword* superword, Value operation, SLPVectori
       conversionState->markComputed(scalarInput);
     }
   }
-  // Create vector extractions for escaping uses.
+  // Create vector extractions for escaping users.
   for (size_t lane = 0; lane < superword->numLanes(); ++lane) {
     auto element = superword->getElement(lane);
     if (conversionState->alreadyComputed(element)) {
@@ -325,6 +337,7 @@ void ConversionManager::update(Superword* superword, Value operation, SLPVectori
       if (extractOp != element) {
         Value logExtractOp = nullptr;
         for (auto* escapingUser : escapingUsers.lookup(element)) {
+          // Replace operands of escaping users with the extracted version.
           for (size_t i = 0; i < escapingUser->getNumOperands(); ++i) {
             if (escapingUser->getOperand(i) != element) {
               continue;
@@ -381,6 +394,7 @@ Value ConversionManager::getOrExtractValue(Value value) {
 
 // Helper functions in anonymous namespace.
 namespace {
+  /// Reorder operations in a BFS manner by computing their depths from the block entry.
   void reorderOperationsBFS(Block* block) {
     DenseMap<Operation*, unsigned> depths;
     llvm::SmallSetVector<Operation*, 32> worklist;
@@ -402,15 +416,18 @@ namespace {
         }
       }
     }
+    // Group operations by depth so we can sort them afterwards.
     SmallVector<SmallVector<Operation*>> opsSortedByDepth{maxDepth + 1};
     for (auto const& entry : depths) {
       opsSortedByDepth[maxDepth - entry.second].emplace_back(entry.first);
     }
+    // Sort each group according to the current block order (prevents placing uses in front of defs).
     for (auto& ops: opsSortedByDepth) {
       llvm::sort(std::begin(ops), std::end(ops), [&](Operation* lhs, Operation* rhs) {
         return lhs->isBeforeInBlock(rhs);
       });
     }
+    // Rearrange the block's operations by depth.
     Operation* lastOp = nullptr;
     for (auto const& ops : opsSortedByDepth) {
       for (auto* op : ops) {
@@ -424,7 +441,9 @@ namespace {
     }
   }
 
+  /// Reorder operations in a DFS manner by using a stack-based approach.
   void reorderOperationsDFS(Block* block) {
+    // The final operation order.
     llvm::SmallSetVector<Operation*, 128> order;
     for (auto it = block->rbegin(); it != block->rend(); ++it) {
       auto* op = &(*it);
@@ -458,6 +477,7 @@ namespace {
         }
       }
     }
+    // Rearrange the block's operations according to the DFS order we just determined.
     Operation* lastOp = nullptr;
     for (auto* op : order) {
       if (lastOp) {
