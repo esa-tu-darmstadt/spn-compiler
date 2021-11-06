@@ -153,6 +153,7 @@ void XorChainModel::BitCodeMap::encode(Value value) {
   for (size_t i = 0; i < bitCodes.size(); ++i) {
     bitCodes[i].resize(mapping.size());
   }
+  // If we added a new encoding, we have to resize the existing encodings so that every encoding is of equal length.
   auto& bitVector = bitCodes.emplace_back(mapping.size());
   bitVector.set(mapping.size() - 1);
 }
@@ -164,10 +165,6 @@ llvm::BitVector const& XorChainModel::BitCodeMap::lookup(Value value) const {
     return bitCodes[mapping.lookup(std::to_string(blockArg.getArgNumber()))];
   }
   llvm_unreachable("unsupported value type");
-}
-
-size_t XorChainModel::BitCodeMap::size() const {
-  return bitCodes.size();
 }
 
 size_t XorChainModel::BitCodeMap::codeWidth() const {
@@ -186,22 +183,19 @@ void XorChainModel::BitCodeMap::dump() const {
   }
 }
 
-XorChainModel::LoadIndex::LoadIndex(Value batchMem, Value batchIndex, uint32_t sampleIndex) : batchMem{batchMem},
-                                                                                              batchIndex{batchIndex},
-                                                                                              sampleIndex{sampleIndex} {
+XorChainModel::LoadOperation::LoadOperation(Value batchMem, Value dynamicIndex, uint32_t staticIndex) :
+    batchMem{batchMem}, dynamicIndex{dynamicIndex}, staticIndex{staticIndex} {}
 
+bool XorChainModel::LoadOperation::consecutive(LoadOperation const& rhs) const {
+  return batchMem == rhs.batchMem && dynamicIndex == rhs.dynamicIndex && staticIndex + 1 == rhs.staticIndex;
 }
 
-bool XorChainModel::LoadIndex::consecutive(LoadIndex const& rhs) const {
-  return batchMem == rhs.batchMem && batchIndex == rhs.batchIndex && sampleIndex + 1 == rhs.sampleIndex;
+bool XorChainModel::LoadOperation::gatherable(LoadOperation const& rhs) const {
+  return batchMem == rhs.batchMem && dynamicIndex == rhs.dynamicIndex && staticIndex != rhs.staticIndex;
 }
 
-bool XorChainModel::LoadIndex::gatherable(LoadIndex const& rhs) const {
-  return batchMem == rhs.batchMem && batchIndex == rhs.batchIndex && sampleIndex != rhs.sampleIndex;
-}
-
-bool XorChainModel::LoadIndex::operator==(LoadIndex const& rhs) const {
-  return batchMem == rhs.batchMem && batchIndex == rhs.batchIndex && sampleIndex == rhs.sampleIndex;
+bool XorChainModel::LoadOperation::operator==(LoadOperation const& rhs) const {
+  return batchMem == rhs.batchMem && dynamicIndex == rhs.dynamicIndex && staticIndex == rhs.staticIndex;
 }
 
 // Helper functions in anonymous namespace.
@@ -225,11 +219,11 @@ namespace {
   }
 }
 
-void XorChainModel::LoadIndex::dump() const {
+void XorChainModel::LoadOperation::dump() const {
   dumpBlockArgOrConstantValueOrValue(batchMem);
   llvm::dbgs() << "[";
-  dumpBlockArgOrConstantValueOrValue(batchIndex);
-  llvm::dbgs() << "[" << sampleIndex << "]]";
+  dumpBlockArgOrConstantValueOrValue(dynamicIndex);
+  llvm::dbgs() << "[" << staticIndex << "]]";
 }
 
 // Helper functions in anonymous namespace.
@@ -338,7 +332,7 @@ unsigned XorChainModel::XorChain::computePenalty(XorChainModel::XorChain const& 
     }
   }
   // No match for a load? Impose high penalties.
-  // Use 3 since unmatched loads should be taken into account as worse than consecutive loads, gathers or broadcasts.
+  // Use 3 since unmatched loads should count as worse than consecutive loads, gathers or broadcasts.
   return penalty + (loads.size() - matchedLoads.size() + (rhs.loads.size() - rhsMatchedLoads.size())) * 3;
 }
 

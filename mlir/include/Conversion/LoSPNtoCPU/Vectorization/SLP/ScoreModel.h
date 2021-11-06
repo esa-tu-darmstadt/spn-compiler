@@ -19,15 +19,22 @@ namespace mlir {
     namespace low {
       namespace slp {
 
+        /// A ScoreModel is responsible for assigning scores to candidate operations during the operation reordering
+        /// step in the SLP graph building phase. Every such model must implement a single method that retrieves a best
+        /// candidate from a set of candidate operations, depending on the lookahead.
         class ScoreModel {
         public:
           explicit ScoreModel(unsigned lookAhead);
           virtual ~ScoreModel() = default;
+          /// Returns the candidate for the given value that best matches it based on the model's lookahead.
           virtual Value getBest(Value value, ArrayRef<Value> candidates) = 0;
         protected:
           unsigned lookAhead;
         };
 
+        /// A score model based on Porpodas's Look-Ahead SLP (https://dl.acm.org/doi/10.1145/3168807). Some slight
+        /// adaptions were done to the score computation such that gather loads and broadcast loads are also taken
+        /// into account (consecutive score > gather score > broadcast score).
         class PorpodasModel : public ScoreModel {
           using ScoreModel::ScoreModel;
         public:
@@ -36,6 +43,9 @@ namespace mlir {
           unsigned getLookAheadScore(Value last, Value candidate, unsigned maxLevel) const;
         };
 
+        /// A score model that compares operand trees by sorting them, encoding them with bit codes and then comparing
+        /// them with XOR operations. The more ones there are in the final output, the more different are the operand
+        /// trees. Also takes into account how many loads there are for pairings and how good they can be paired.
         class XorChainModel : public ScoreModel {
           using ScoreModel::ScoreModel;
         public:
@@ -44,10 +54,10 @@ namespace mlir {
 
           void computeBitCodes(Block* block);
 
+          /// Encodes opcodes with bit sequences.
           struct BitCodeMap {
             void encode(Value value);
             llvm::BitVector const& lookup(Value value) const;
-            size_t size() const;
             size_t codeWidth() const;
             bool empty() const;
             void dump() const;
@@ -56,16 +66,17 @@ namespace mlir {
             llvm::SmallVector<llvm::BitVector> bitCodes;
           };
 
-          struct LoadIndex {
-            LoadIndex(Value batchMem, Value batchIndex, uint32_t sampleIndex);
-            bool consecutive(LoadIndex const& rhs) const;
-            bool gatherable(LoadIndex const& rhs) const;
-            bool operator==(LoadIndex const& rhs) const;
+          /// Useful for easier comparisons of loads in the XOR chains.
+          struct LoadOperation {
+            LoadOperation(Value batchMem, Value batchIndex, uint32_t sampleIndex);
+            bool consecutive(LoadOperation const& rhs) const;
+            bool gatherable(LoadOperation const& rhs) const;
+            bool operator==(LoadOperation const& rhs) const;
             void dump() const;
           private:
             Value batchMem;
-            Value batchIndex;
-            uint32_t sampleIndex;
+            Value dynamicIndex;
+            uint32_t staticIndex;
           };
 
           struct XorChain {
@@ -77,7 +88,7 @@ namespace mlir {
             // Since each operation encoding contains many zeros and only a single bit that is 1, llvm::SparseBitVector
             // would be extraordinarily useful. Unfortunately, these do not support XOR operations.
             llvm::BitVector sequence;
-            SmallVector<LoadIndex, 8> loads;
+            SmallVector<LoadOperation, 8> loads;
           };
 
           BitCodeMap encodings;
