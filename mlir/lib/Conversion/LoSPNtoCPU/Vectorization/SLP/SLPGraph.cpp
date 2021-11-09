@@ -67,24 +67,6 @@ bool Superword::constant() const {
   return true;
 }
 
-bool Superword::uniform() const {
-  Operation* firstOp = nullptr;
-  for (size_t i = 0; i < values.size(); ++i) {
-    if (auto* definingOp = values[i].getDefiningOp()) {
-      if (i == 0) {
-        firstOp = definingOp;
-        continue;
-      }
-      if (firstOp->getName() != definingOp->getName()) {
-        return false;
-      }
-    } else if (firstOp) {
-      return false;
-    }
-  }
-  return true;
-}
-
 size_t Superword::numLanes() const {
   return values.size();
 }
@@ -140,6 +122,42 @@ Type Superword::getElementType() const {
 
 Location Superword::getLoc() const {
   return getElement(0).getLoc();
+}
+
+// === DependencyGraph === //
+
+size_t DependencyGraph::numNodes() const {
+  return nodes.size();
+}
+
+size_t DependencyGraph::numEdges() const {
+  size_t numEdges = 0;
+  for (auto& entry : dependencyEdges) {
+    numEdges += entry.second.size();
+  }
+  return numEdges;
+}
+
+SmallVector<Superword*> DependencyGraph::postOrder() const {
+  SmallVector<Superword*> order{std::begin(nodes), std::end(nodes)};
+  // Count how often each superword is the destination of an edge.
+  DenseMap<Superword*, unsigned> destinationCounts;
+  for (auto* superword : nodes) {
+    for (auto* dependency : dependencyEdges.lookup(superword)) {
+      ++destinationCounts[dependency];
+    }
+  }
+  // Sort the superwords by dependency, or by destination counts if there is no dependency.
+  llvm::sort(std::begin(order), std::end(order), [&](Superword* lhs, Superword* rhs) {
+    if (dependencyEdges.lookup(lhs).contains(rhs)) {
+      return true;
+    }
+    if (dependencyEdges.lookup(rhs).contains(lhs)) {
+      return false;
+    }
+    return destinationCounts[lhs] < destinationCounts[rhs];
+  });
+  return order;
 }
 
 // === SLPNode === //
@@ -219,6 +237,7 @@ std::shared_ptr<SLPNode> SLPGraph::getRootNode() const {
 
 DependencyGraph SLPGraph::dependencyGraph() const {
   DependencyGraph dependencyGraph;
+  // Map values to superwords which it appears in.
   DenseMap<Value, SmallPtrSet<Superword*, 2>> valueOccurrences;
   graph::walk(superwordRoot.get(), [&](Superword* superword) {
     for (auto element : *superword) {
@@ -226,22 +245,27 @@ DependencyGraph SLPGraph::dependencyGraph() const {
     }
     dependencyGraph.nodes.insert(superword);
   });
-  // BFS through scalar values.
-  llvm::SmallSetVector<Value, 32> worklist;
-  llvm::SmallSetVector<Value, 32> nextWorklist;
+  // Map values to superwords where the value appears in at least one of the computation chains of the superword's
+  // elements.
   DenseMap<Value, SmallPtrSet<Superword*, 32>> reachableUses;
+  // Begin constructing the dependency graph with the graph root's operands.
+  llvm::SmallSetVector<Value, 32> worklist;
   for (auto element : *superwordRoot) {
     if (auto* definingOp = element.getDefiningOp()) {
       for (auto operand : definingOp->getOperands()) {
         reachableUses[operand].insert(superwordRoot.get());
-        nextWorklist.insert(operand);
+        worklist.insert(operand);
       }
     }
   }
-  while (!nextWorklist.empty()) {
-    worklist.swap(nextWorklist);
-    while (!worklist.empty()) {
-      auto element = worklist.pop_back_val();
+  // Propagate reachability information upwards in the computation chain (in direction of an operation's operands) by
+  // copying/merging the information of the operand's users.
+  // Two worklists to facilitate a BFS through scalar values.
+  while (!worklist.empty()) {
+    llvm::SmallSetVector<Value, 32> nextWorklist{worklist};
+    worklist.clear();
+    while (!nextWorklist.empty()) {
+      auto element = nextWorklist.pop_back_val();
       for (auto* user : element.getUsers()) {
         for (auto const& result : user->getResults()) {
           reachableUses[element].insert(std::begin(reachableUses[result]), std::end(reachableUses[result]));
@@ -250,11 +274,12 @@ DependencyGraph SLPGraph::dependencyGraph() const {
       }
       if (auto* definingOp = element.getDefiningOp()) {
         for (auto operand : definingOp->getOperands()) {
-          nextWorklist.insert(operand);
+          worklist.insert(operand);
         }
       }
     }
   }
+  // Construct edges for every reachability entry.
   for (auto* node : dependencyGraph.nodes) {
     for (auto element : *node) {
       for (auto const& reachableUse : reachableUses[element]) {
@@ -263,38 +288,4 @@ DependencyGraph SLPGraph::dependencyGraph() const {
     }
   }
   return dependencyGraph;
-}
-
-// === DependencyGraph === //
-
-size_t DependencyGraph::numNodes() const {
-  return nodes.size();
-}
-
-size_t DependencyGraph::numEdges() const {
-  size_t numEdges = 0;
-  for (auto& entry : dependencyEdges) {
-    numEdges += entry.second.size();
-  }
-  return numEdges;
-}
-
-SmallVector<Superword*> DependencyGraph::postOrder() const {
-  SmallVector<Superword*> order{std::begin(nodes), std::end(nodes)};
-  DenseMap<Superword*, unsigned> destinationCounts;
-  for (auto* superword : nodes) {
-    for (auto* dependency : dependencyEdges.lookup(superword)) {
-      ++destinationCounts[dependency];
-    }
-  }
-  llvm::sort(std::begin(order), std::end(order), [&](Superword* lhs, Superword* rhs) {
-    if (dependencyEdges.lookup(lhs).contains(rhs)) {
-      return true;
-    }
-    if (dependencyEdges.lookup(rhs).contains(lhs)) {
-      return false;
-    }
-    return destinationCounts[lhs] < destinationCounts[rhs];
-  });
-  return order;
 }
