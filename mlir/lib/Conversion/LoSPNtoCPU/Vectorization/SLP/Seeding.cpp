@@ -60,6 +60,7 @@ void SeedAnalysis::update(ArrayRef<Superword*> convertedSuperwords) {
 // Helper functions in anonymous namespace.
 namespace {
 
+  /// Computes the depths of all operations in between begin and end.
   template<typename OpIterator>
   DenseMap<Value, unsigned> depths(OpIterator begin, OpIterator end) {
     DenseMap<Value, unsigned> opDepths;
@@ -80,16 +81,18 @@ namespace {
     return opDepths;
   }
 
-  SmallVector<SmallVector<Value, 4>> computeSeedsByOpName(DenseMap<Value, unsigned int>& opDepths,
-                                                          llvm::SmallSetVector<Operation*, 32> const& availableOps,
-                                                          unsigned width) {
+  /// Returns operation groups of size 'width' of the same op code and depth that each could be used as a seed. Ignores
+  /// operations that are not available anymore, not vectorizable or constant.
+  SmallVector<SmallVector<Value, 4>> computeSeedsByDepth(DenseMap<Value, unsigned int>& opDepths,
+                                                         llvm::SmallSetVector<Operation*, 32> const& availableOps,
+                                                         unsigned width) {
     llvm::StringMap<SmallVector<SmallVector<Value, 4>>> seedsByOpName;
     SmallVector<Value> sortedCandidates;
     for (auto& entry : opDepths) {
       sortedCandidates.emplace_back(entry.first);
     }
     // Required for deterministic seed retrieval.
-    // Sort s.t. operations that appear later in the program come first.
+    // Sort s.t. operations that appear later in the program come first (top-down).
     llvm::sort(std::begin(sortedCandidates), std::end(sortedCandidates), [&](Value lhs, Value rhs) {
       if (auto* definingLhs = lhs.getDefiningOp()) {
         if (auto* definingRhs = rhs.getDefiningOp()) {
@@ -100,6 +103,7 @@ namespace {
       }
       return false;
     });
+    // Construct seeds for every depth.
     for (auto value : sortedCandidates) {
       auto* definingOp = value.getDefiningOp();
       if (!definingOp || definingOp->hasTrait<OpTrait::ConstantLike>() || !vectorizable(definingOp)
@@ -111,6 +115,7 @@ namespace {
       if (depth < log2(width)) {
         continue;
       }
+      // Decide whether the operation can be added to an existing but not yet complete seed group.
       bool needsNewSeed = true;
       for (auto& potentialSeed : seedsByOpName[opName]) {
         if (potentialSeed.size() < width && opDepths.lookup(potentialSeed.front()) == depth) {
@@ -128,10 +133,11 @@ namespace {
         seedsByOpName[opName].emplace_back(newSeed);
       }
     }
-    SmallVector<SmallVector<Value, 4>> seeds;
     // Flatten the map that maps opcodes to seeds.
+    SmallVector<SmallVector<Value, 4>> seeds;
     for (auto const& entry : seedsByOpName) {
       for (auto const& potentialSeed : entry.second) {
+        // Skip seeds that are not big enough.
         if (potentialSeed.size() != width) {
           continue;
         }
@@ -139,7 +145,7 @@ namespace {
       }
     }
     // Required for deterministic seed retrieval.
-    // Sort s.t. seeds whose first operation appears later in the program come first.
+    // Sort s.t. seeds whose first operation appears later in the program come first (top-down).
     llvm::sort(std::begin(seeds), std::end(seeds), [&](auto const& lhs, auto const& rhs) {
       return rhs.front().getDefiningOp()->isBeforeInBlock(lhs.front().getDefiningOp());
     });
@@ -160,7 +166,7 @@ void TopDownAnalysis::computeAvailableOps() {
 
 SmallVector<Value, 4> TopDownAnalysis::nextSeed() const {
   auto opDepths = depths(std::begin(availableOps), std::end(availableOps));
-  auto seeds = computeSeedsByOpName(opDepths, availableOps, width);
+  auto seeds = computeSeedsByDepth(opDepths, availableOps, width);
 
   if (seeds.empty()) {
     return {};
@@ -183,20 +189,23 @@ SmallVector<Value, 4> TopDownAnalysis::nextSeed() const {
 
 // Helper functions in anonymous namespace.
 namespace {
-  llvm::BitVector leafCoverage(DenseMap<Operation*, llvm::BitVector>& reachableLeaves, ArrayRef<Value> seed) {
-    llvm::BitVector disjunction = reachableLeaves.lookup(seed.front().getDefiningOp());
-    for (size_t i = 1; i < seed.size(); ++i) {
-      disjunction |= reachableLeaves.lookup(seed[i].getDefiningOp());
-    }
-    return disjunction;
-  }
 
+  /// Compute all leaves of the program that spans above the provided root operation.
   SmallPtrSet<Operation*, 32> getLeaves(Operation* rootOp) {
     SmallPtrSet<Operation*, 32> leaves;
     rootOp->walk([&](spn::low::LeafNodeInterface leaf) {
       leaves.insert(leaf);
     });
     return leaves;
+  }
+
+  /// The leaf coverage is a bit vector that has a 1 for every leaf that 'flows into' the seed.
+  llvm::BitVector leafCoverage(DenseMap<Operation*, llvm::BitVector>& reachableLeaves, ArrayRef<Value> seed) {
+    llvm::BitVector disjunction = reachableLeaves.lookup(seed.front().getDefiningOp());
+    for (size_t i = 1; i < seed.size(); ++i) {
+      disjunction |= reachableLeaves.lookup(seed[i].getDefiningOp());
+    }
+    return disjunction;
   }
 }
 
@@ -208,13 +217,14 @@ SmallVector<Value, 4> FirstRootAnalysis::nextSeed() const {
 
   auto* root = findRoot(leaves, reachableLeaves);
   auto opDepths = root ? depths(&root, &root + 1) : depths(std::begin(availableOps), std::end(availableOps));
-  auto seeds = computeSeedsByOpName(opDepths, availableOps, width);
+  auto seeds = computeSeedsByDepth(opDepths, availableOps, width);
 
   if (seeds.empty()) {
     rootOp->emitRemark("No seed found.");
     return {};
   }
 
+  // The next seed should always be the seed with the best leaf coverage.
   SmallVector<Value, 4>* bestSeed = nullptr;
   unsigned bestLeafCoverage = 0;
   for (size_t i = 0; i < seeds.size(); ++i) {
@@ -245,6 +255,8 @@ Operation* FirstRootAnalysis::findRoot(SmallPtrSet<Operation*, 32> const& leaves
   SmallPtrSet<Operation*, 32> uniqueWorklist;
   std::queue<Operation*> worklist;
   unsigned index = 0;
+  // We begin at the leaves and their users. Every reachability bit vector of the users is assigned a 1 at the leaf's
+  // position. We then propagate the information further down the computation chain using the worklist.
   for (auto* leaf : leaves) {
     for (auto* user : leaf->getUsers()) {
       if (!availableOps.contains(user)) {
@@ -262,6 +274,8 @@ Operation* FirstRootAnalysis::findRoot(SmallPtrSet<Operation*, 32> const& leaves
     }
     ++index;
   }
+  // Propagate reachability information to the users' users recursively. If we find an operation that combines every
+  // leaf, we stop immediately and return it as the first common root.
   while (!worklist.empty()) {
     auto* currentOp = worklist.front();
     auto const& currentName = currentOp->getName().getStringRef();
