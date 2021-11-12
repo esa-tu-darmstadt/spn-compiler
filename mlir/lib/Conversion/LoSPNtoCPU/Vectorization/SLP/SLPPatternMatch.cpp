@@ -16,7 +16,7 @@ using namespace mlir::spn::low::slp;
 
 // === SLPPatternApplicator === //
 
-void SLPPatternApplicator::matchAndRewrite(Superword* superword, RewriterBase& rewriter) {
+void SLPPatternApplicator::matchAndRewrite(Superword* superword, RewriterBase& rewriter) const {
   auto* pattern = bestMatch(superword);
   if (!pattern) {
     llvm_unreachable("could not apply any pattern to superword");

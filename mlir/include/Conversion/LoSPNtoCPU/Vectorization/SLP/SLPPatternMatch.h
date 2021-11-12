@@ -17,17 +17,26 @@ namespace mlir {
     namespace low {
       namespace slp {
 
+        /// This class applies rewrite patterns to SLP vectors and effectively creates corresponding SIMD operations. It
+        /// automatically determines the best pattern to apply, e.g. based on a cost model.
         class SLPPatternApplicator {
         public:
           SLPPatternApplicator() = default;
           virtual ~SLPPatternApplicator() = default;
-          void matchAndRewrite(Superword* superword, RewriterBase& rewriter);
+          /// Determine the best pattern for the given superword and rewrite it according to the rewrite pattern using
+          /// the provided rewriter.
+          void matchAndRewrite(Superword* superword, RewriterBase& rewriter) const;
+          /// Determine the best pattern for the given superword.
           virtual SLPVectorizationPattern* bestMatch(Superword* superword) const = 0;
+          /// Tell the pattern applicator which patterns are available for use.
           void setPatterns(SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>&& slpVectorizationPatterns);
         protected:
           SmallVector<std::unique_ptr<SLPVectorizationPattern>> patterns;
         };
 
+        /// A cost model based pattern applicator chooses SLP vectorization patterns based on the SLP vectorization's
+        /// cost model. It chooses the patterns that (according to the cost model) will result in the most profitable
+        /// program.
         template<typename CostModel>
         class CostModelPatternApplicator : public SLPPatternApplicator {
 
