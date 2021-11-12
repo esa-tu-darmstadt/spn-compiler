@@ -32,6 +32,7 @@ void SLPVectorizationPattern::rewriteSuperword(Superword* superword, RewriterBas
 // Helper functions in anonymous namespace.
 namespace {
 
+  /// Strip the log space property off an operation if present, otherwise do nothing.
   Value stripLogOrValue(Value value, RewriterBase& rewriter) {
     if (auto logType = value.getType().dyn_cast<LogType>()) {
       return rewriter.create<SPNStripLog>(value.getLoc(), value, logType.getBaseType());
@@ -138,6 +139,7 @@ void BroadcastInsertSuperword::accept(PatternVisitor& visitor, Superword const* 
 
 ShuffleTwoSuperwords::ShuffleTwoSuperwords(ConversionManager& conversionManager) : SLPVectorizationPattern(
     conversionManager) {
+  // The shuffle pattern needs to know which superwords are available for shuffling.
   conversionManager.getConversionState().addVectorCallbacks(
       [&](Superword* superword) {
         if (superword->constant()) {
@@ -233,6 +235,7 @@ void ShuffleTwoSuperwords::accept(PatternVisitor& visitor, Superword const* supe
 // Helper functions in anonymous namespace.
 namespace {
 
+  /// Creates a constant of type vectorType consisting of all attributes in [begin, end).
   template<typename AttributeIterator>
   DenseElementsAttr denseElements(AttributeIterator begin, AttributeIterator end, VectorType const& vectorType) {
     if (auto floatType = vectorType.getElementType().template dyn_cast<FloatType>()) {

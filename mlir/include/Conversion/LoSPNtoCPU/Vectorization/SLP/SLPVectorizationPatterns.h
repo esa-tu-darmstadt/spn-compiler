@@ -23,18 +23,27 @@ namespace mlir {
         class ConversionManager;
         class PatternVisitor;
 
+        /// An SLP vectorization pattern's purpose is describing when it is applicable to a given SLP vector and
+        /// rewriting such an SLP vector by creating corresponding SIMD instructions.
         class SLPVectorizationPattern {
         public:
+          /// The conversion manager is required for setting up appropriate insertion points and for keeping track of
+          /// vector -> SIMD operation mappings.
           explicit SLPVectorizationPattern(ConversionManager& conversionManager);
           virtual ~SLPVectorizationPattern() = default;
+          /// Create SIMD instructions for the given superword. Uses the provided rewriter for operation creation.
+          /// Also automatically sets up appropriate insertion points.
           void rewriteSuperword(Superword* superword, RewriterBase& rewriter);
+          /// Returns true if the pattern is applicable to the provided superword, otherwise false.
           virtual LogicalResult match(Superword* superword) = 0;
+          /// Accepts the provided visitor and calls the visitor's method that corresponds to the pattern class.
           virtual void accept(PatternVisitor& visitor, Superword const* superword) const = 0;
         protected:
           virtual Value rewrite(Superword* superword, RewriterBase& rewriter) = 0;
           ConversionManager& conversionManager;
         };
 
+        /// Vectorization patterns that are applicable to specific operations only (additions, ..).
         template<typename SourceOp>
         class OpSpecificVectorizationPattern : public SLPVectorizationPattern {
           using SLPVectorizationPattern::SLPVectorizationPattern;
@@ -58,6 +67,7 @@ namespace mlir {
           }
         };
 
+        /// Vectorization patterns for computation in normal space.
         template<typename SourceOp>
         class NormalSpaceVectorizationPattern : public OpSpecificVectorizationPattern<SourceOp> {
           using OpSpecificVectorizationPattern<SourceOp>::OpSpecificVectorizationPattern;
@@ -70,6 +80,7 @@ namespace mlir {
           }
         };
 
+        /// Vectorization patterns for computation in log space.
         template<typename SourceOp>
         class LogSpaceVectorizationPattern : public OpSpecificVectorizationPattern<SourceOp> {
           using OpSpecificVectorizationPattern<SourceOp>::OpSpecificVectorizationPattern;
@@ -111,18 +122,21 @@ namespace mlir {
 
         // === Op-specific patterns === //
 
+        /// Vectorization pattern for creating SIMD constants.
         struct VectorizeConstant : public OpSpecificVectorizationPattern<ConstantOp> {
           using OpSpecificVectorizationPattern<ConstantOp>::OpSpecificVectorizationPattern;
           Value rewrite(Superword* superword, RewriterBase& rewriter) override;
           void accept(PatternVisitor& visitor, Superword const* superword) const override;
         };
 
+        /// Vectorization pattern for creating SIMD constants.
         struct VectorizeSPNConstant : public OpSpecificVectorizationPattern<SPNConstant> {
           using OpSpecificVectorizationPattern<SPNConstant>::OpSpecificVectorizationPattern;
           Value rewrite(Superword* superword, RewriterBase& rewriter) override;
           void accept(PatternVisitor& visitor, Superword const* superword) const override;
         };
 
+        /// Vectorization pattern for creating vector load operations.
         struct CreateConsecutiveLoad : public OpSpecificVectorizationPattern<SPNBatchRead> {
           using OpSpecificVectorizationPattern<SPNBatchRead>::OpSpecificVectorizationPattern;
           LogicalResult match(Superword* superword) override;
@@ -130,6 +144,7 @@ namespace mlir {
           void accept(PatternVisitor& visitor, Superword const* superword) const override;
         };
 
+        /// Vectorization pattern for creating gather load operations.
         struct CreateGatherLoad : public OpSpecificVectorizationPattern<SPNBatchRead> {
           using OpSpecificVectorizationPattern<SPNBatchRead>::OpSpecificVectorizationPattern;
           LogicalResult match(Superword* superword) override;
@@ -139,18 +154,21 @@ namespace mlir {
 
         // === Op-specific normal space patterns === //
 
+        /// Vectorization pattern for creating normal space vector additions.
         struct VectorizeAdd : public NormalSpaceVectorizationPattern<SPNAdd> {
           using NormalSpaceVectorizationPattern<SPNAdd>::NormalSpaceVectorizationPattern;
           Value rewrite(Superword* superword, RewriterBase& rewriter) override;
           void accept(PatternVisitor& visitor, Superword const* superword) const override;
         };
 
+        /// Vectorization pattern for creating normal space vector multiplications.
         struct VectorizeMul : public NormalSpaceVectorizationPattern<SPNMul> {
           using NormalSpaceVectorizationPattern<SPNMul>::NormalSpaceVectorizationPattern;
           Value rewrite(Superword* superword, RewriterBase& rewriter) override;
           void accept(PatternVisitor& visitor, Superword const* superword) const override;
         };
 
+        /// Vectorization pattern for creating vectorized normal distribution evaluations in normal space.
         struct VectorizeGaussian : public NormalSpaceVectorizationPattern<SPNGaussianLeaf> {
           using NormalSpaceVectorizationPattern<SPNGaussianLeaf>::NormalSpaceVectorizationPattern;
           Value rewrite(Superword* superword, RewriterBase& rewriter) override;
@@ -159,18 +177,21 @@ namespace mlir {
 
         // === Op-specific log-space patterns === //
 
+        /// Vectorization pattern for creating log space vector additions.
         struct VectorizeLogAdd : public LogSpaceVectorizationPattern<SPNAdd> {
           using LogSpaceVectorizationPattern<SPNAdd>::LogSpaceVectorizationPattern;
           Value rewrite(Superword* superword, RewriterBase& rewriter) override;
           void accept(PatternVisitor& visitor, Superword const* superword) const override;
         };
 
+        /// Vectorization pattern for creating log space vector multiplications.
         struct VectorizeLogMul : public LogSpaceVectorizationPattern<SPNMul> {
           using LogSpaceVectorizationPattern<SPNMul>::LogSpaceVectorizationPattern;
           Value rewrite(Superword* superword, RewriterBase& rewriter) override;
           void accept(PatternVisitor& visitor, Superword const* superword) const override;
         };
 
+        /// Vectorization pattern for creating vectorized normal distribution evaluations in log space.
         struct VectorizeLogGaussian : public LogSpaceVectorizationPattern<SPNGaussianLeaf> {
           using LogSpaceVectorizationPattern<SPNGaussianLeaf>::LogSpaceVectorizationPattern;
           Value rewrite(Superword* superword, RewriterBase& rewriter) override;
@@ -180,6 +201,7 @@ namespace mlir {
         // TODO: add vector reduction patterns
         // TODO: add FMA pattern?
 
+        /// A convenience method that returns all defined vectorization patterns.
         static SmallVector<std::unique_ptr<SLPVectorizationPattern>> allSLPVectorizationPatterns(ConversionManager& conversionManager) {
           SmallVector<std::unique_ptr<SLPVectorizationPattern>> patterns;
           // === Op-agnostic patterns === //
