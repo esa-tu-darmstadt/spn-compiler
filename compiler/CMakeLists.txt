@@ -23,24 +23,21 @@ capnp_generate_cpp(CAPNP_SRCS CAPNP_HDRS ${CAPNPC_SRC_PREFIX}/xspn/xspn/serializ
 message(STATUS "Capnproto headers: ${CAPNP_HDRS}")
 
 add_library(spnc
-        src/driver/option/Options.cpp
+        src/pipeline/Pipeline.cpp
+        src/option/Options.cpp
         src/Driver.cpp
-        src/driver/util/Logging.cpp
-        src/driver/option/GlobalOptions.cpp
-        src/driver/action/LLVMWriteBitcode.cpp
-        src/driver/action/LLVMStaticCompiler.cpp
-        src/driver/action/EmitObjectCode.cpp
-        src/driver/action/LLVMLinker.cpp
-        src/driver/action/DetectTracingLib.cpp
-        src/driver/action/ClangKernelLinking.cpp
-        src/driver/toolchain/MLIRToolchain.cpp
-        src/driver/toolchain/CPUToolchain.cpp
-        src/codegen/mlir/conversion/HiSPNtoLoSPNConversion.cpp
-        src/codegen/mlir/conversion/LoSPNtoCPUConversion.cpp
-        src/codegen/mlir/conversion/CPUtoLLVMConversion.cpp
-        src/codegen/mlir/conversion/MLIRtoLLVMIRConversion.cpp
-        src/codegen/mlir/transformation/LoSPNTransformations.cpp
-        src/codegen/mlir/frontend/MLIRDeserializer.cpp
+        src/util/Logging.cpp
+        src/option/GlobalOptions.cpp
+        src/pipeline/steps/codegen/EmitObjectCode.cpp
+        src/pipeline/steps/linker/ClangKernelLinking.cpp
+        src/toolchain/MLIRToolchain.cpp
+        src/toolchain/CPUToolchain.cpp
+        src/pipeline/steps/mlir/conversion/HiSPNtoLoSPNConversion.cpp
+        src/pipeline/steps/mlir/conversion/LoSPNtoCPUConversion.cpp
+        src/pipeline/steps/mlir/conversion/CPUtoLLVMConversion.cpp
+        src/pipeline/steps/mlir/conversion/MLIRtoLLVMIRConversion.cpp
+        src/pipeline/steps/mlir/transformation/LoSPNTransformations.cpp
+        src/pipeline/steps/frontend/SPFlowToMLIRDeserializer.cpp
         ${CAPNP_SRCS}
         )
 
@@ -75,10 +72,10 @@ if (${CUDA_GPU_SUPPORT})
 
     # Additional sources for CUDA GPU support
     target_sources(spnc PRIVATE
-            src/codegen/mlir/conversion/CUDA/CUDASerializeToCubin.cpp
-            src/codegen/mlir/conversion/GPUtoLLVMConversion.cpp
-            src/codegen/mlir/conversion/LoSPNtoGPUConversion.cpp
-            src/driver/toolchain/CUDAGPUToolchain.cpp
+            src/pipeline/steps/mlir/conversion/CUDA/CUDASerializeToCubin.cpp
+            src/pipeline/steps/mlir/conversion/GPUtoLLVMConversion.cpp
+            src/pipeline/steps/mlir/conversion/LoSPNtoGPUConversion.cpp
+            src/toolchain/CUDAGPUToolchain.cpp
             )
 
     # Additional include directories.
@@ -128,7 +125,7 @@ set(mlir_libs
 
 llvm_map_components_to_libnames(llvm_libs bitwriter native passes)
 target_link_libraries(spnc PRIVATE spnc-common ${llvm_libs} ${mlir_libs} spdlog::spdlog
-        CapnProto::capnp cpu_targetinfo)
+        CapnProto::capnp cpu_targetinfo stdc++fs)
 
 target_compile_options(spnc PRIVATE ${SPNC_CXX_WARNING_LEVEL})
 
