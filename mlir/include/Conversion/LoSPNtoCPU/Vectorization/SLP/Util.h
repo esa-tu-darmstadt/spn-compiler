@@ -18,6 +18,7 @@ namespace mlir {
     namespace low {
       namespace slp {
 
+        /// TODO: make GlobalOptions.h available to the SLP vectorization in CMake.
         namespace option {
           // For explanations, see GlobalOptions.h.
           extern unsigned maxNodeSize;
@@ -30,9 +31,14 @@ namespace mlir {
           extern bool useXorChains;
         }
 
+        /// Returns true if the operation is vectorizable according to both the LoSPN dialect's vectorizable op
+        /// interface and MLIR's vector type rules.
         bool vectorizable(Operation* op);
+        /// Returns true if the value is vectorizable according to both the LoSPN dialect's vectorizable op interface
+        /// and MLIR's vector type rules.
         bool vectorizable(Value value);
 
+        /// Returns true if every value in [begin, end) is vectorizable.
         template<typename ValueIterator>
         bool vectorizable(ValueIterator begin, ValueIterator end) {
           if (begin->template isa<BlockArgument>()) {
@@ -49,8 +55,10 @@ namespace mlir {
           return true;
         }
 
+        /// Returns true if the value is vectorizable according to MLIR's vector type rules.
         bool ofVectorizableType(Value value);
 
+        /// Returns true if every value in [begin, end) is vectorizable according to MLIR's vector type rules.
         template<typename ValueIterator>
         bool ofVectorizableType(ValueIterator begin, ValueIterator end) {
           return std::all_of(begin, end, [&](auto const& value) {
@@ -58,8 +66,10 @@ namespace mlir {
           });
         }
 
+        /// Returns true if the value represents a commutative operation.
         bool commutative(Value value);
 
+        /// Returns true if every value in [begin, end) represents a commutative operation.
         template<typename ValueIterator>
         bool commutative(ValueIterator begin, ValueIterator end) {
           while (begin != end) {
@@ -71,8 +81,10 @@ namespace mlir {
           return true;
         }
 
+        /// Returns true if both values are loads and the second value is consecutive to the first.
         bool consecutiveLoads(Value lhs, Value rhs);
 
+        /// Returns true if all values in [begin, end) are loads and consecutive to their predecessor.
         template<typename ValueIterator>
         bool consecutiveLoads(ValueIterator begin, ValueIterator end) {
           Value previous = *begin;
@@ -90,6 +102,7 @@ namespace mlir {
           return true;
         }
 
+        /// Returns true if all values in [begin, end) implement the leaf node interface of the LoSPN dialect.
         template<typename ValueIterator>
         bool allLeaf(ValueIterator begin, ValueIterator end) {
           while (begin != end) {
@@ -105,18 +118,28 @@ namespace mlir {
           return true;
         }
 
+        /// Return true if the superword contains any marginalized normal distributions.
         bool anyGaussianMarginalized(Superword const& superword);
 
+        /// Return the operands of the value as a C++ vector.
         SmallVector<Value, 2> getOperands(Value value);
 
+        /// Sort all provided values in place by their opcode (i.e. in lexicographical order). An optional smallest
+        /// opcode can be provided to force certain values to the front.
         void sortByOpcode(SmallVectorImpl<Value>& values, Optional<OperationName> smallestOpcode = llvm::None);
 
+        /// Print a textual representation of the superword to the console.
         void dumpSuperword(Superword const& superword);
+        /// Print a textual representation of the SLP node to the console.
         void dumpSLPNode(SLPNode const& node);
 
+        /// Print a dot-language representation of the operand trees of the provided values to the console.
         void dumpOpGraph(ArrayRef<Value> values);
+        /// Print a dot-language representation of the superword tree with the provided root to the console.
         void dumpSuperwordGraph(Superword* root);
+        /// Print a dot-language representation of the SLP graph with the provided root node to the console.
         void dumpSLPGraph(SLPNode* root, bool includeInputs = false);
+        /// Print a dot-language representation of the dependency graph to the console.
         void dumpDependencyGraph(DependencyGraph const& dependencyGraph);
 
       }
