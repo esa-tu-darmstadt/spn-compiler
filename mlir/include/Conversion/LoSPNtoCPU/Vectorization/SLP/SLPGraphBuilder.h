@@ -19,12 +19,17 @@ namespace mlir {
     namespace low {
       namespace slp {
 
+        /// This class is responsible for building SLP graphs as described in Look-Ahead SLP
+        /// (https://dl.acm.org/doi/10.1145/3168807). There are some minor differences though, such as detecting
+        /// re-uses of SLP vectors or detecting semantic changes due to reordering of SLP node operands.
         class SLPGraphBuilder {
 
         public:
 
+          /// Prepares creation of a new SLP graph instance.
           explicit SLPGraphBuilder(SLPGraph& graph);
 
+          /// Builds the prepared SLP graph based on the given seed.
           void build(ArrayRef<Value> seed);
 
         private:
@@ -32,7 +37,7 @@ namespace mlir {
           enum Mode {
             /// look for a constant
             CONST,
-            /// look for a consecutive load to that in the previous lane
+            /// look for a load consecutive to the one in the previous lane
             LOAD,
             /// look for an operation of the same opcode
             OPCODE,

@@ -23,6 +23,7 @@ SLPGraphBuilder::SLPGraphBuilder(SLPGraph& graph) : graph{graph} {
 
 // Some helper functions in an anonymous namespace.
 namespace {
+  /// Compute depths ot all operations 'above' the seed. The seed is assumed to have depth zero.
   void computeDepths(ArrayRef<Value> seed, DenseMap<Value, unsigned>& depths) {
     llvm::SmallSetVector<Value, 32> worklist;
     for (auto value : seed) {
@@ -50,6 +51,7 @@ void SLPGraphBuilder::build(ArrayRef<Value> seed) {
   graph.nodeRoot = std::make_shared<SLPNode>(graph.superwordRoot);
   nodeBySuperword[graph.superwordRoot.get()] = graph.nodeRoot;
   superwordsByValue[graph.superwordRoot->getElement(0)].emplace_back(graph.superwordRoot);
+  // If topological mixing is allowed anyways, we do not need to compute any depths.
   if (!option::allowTopologicalMixing) {
     computeDepths(seed, valueDepths);
   }
@@ -83,15 +85,17 @@ namespace {
                   OperationName const& opCode,
                   ArrayRef<SmallVector<Value, 2>> allOperands,
                   unsigned operandIndex) {
+    // Check size.
     if (node.numSuperwords() == option::maxNodeSize) {
       return false;
     }
+    // Check opcode.
     return std::all_of(std::begin(allOperands), std::end(allOperands), [&](auto const& operands) {
       auto const& operand = operands[operandIndex];
       if (operand.getDefiningOp()->getName() != opCode) {
         return false;
       }
-      // Check if any operand escapes the current node.
+      // Check if there are escaping users (reordering can semantically kill them).
       return std::all_of(std::begin(operand.getUsers()), std::end(operand.getUsers()), [&](auto* user) {
         return node.contains(user->getResult(0));
       });
@@ -111,10 +115,14 @@ namespace {
     return allOperands;
   }
 
+  /// Models the semantics of a superword by comparing vector elements' operation chains to the operation chains of the
+  /// SLP graph's lanes. If they differ, the semantics of the individual vector elements have changed.
   struct SuperwordSemantics {
     SuperwordSemantics() = default;
     SuperwordSemantics(Superword* superword, DenseMap<Superword*, SuperwordSemantics> const& parentSemantics)
         : operandDifference{superword->numLanes()} {
+      // Go through each lane and compare the element's actual computation chain to the one of the SLP graph.
+      // This can be done by simply counting how often every value appears in each of the computation chains.
       for (unsigned lane = 0; lane < superword->numLanes(); ++lane) {
         auto op = superword->getElement(lane).getDefiningOp();
         for (unsigned i = 0; i < superword->numOperands(); ++i) {
@@ -124,19 +132,20 @@ namespace {
             continue;
           }
           if (operandDifference[lane][elementOperand] == 1) {
-            // Keep the map as small as possible.
+            // Keep the map as small as possible by erasing entries if there are no differences.
             operandDifference[lane].erase(elementOperand);
           } else {
             --operandDifference[lane][elementOperand];
           }
           if (operandDifference[lane][operandElement] == -1) {
-            // Keep the map as small as possible.
+            // Keep the map as small as possible by erasing entries if there are no differences.
             operandDifference[lane].erase(operandElement);
           } else {
             ++operandDifference[lane][operandElement];
           }
         }
       }
+      // Aggregate the semantics of the current SLP vector with the ones of its operand SLP vectors.
       for (unsigned lane = 0; lane < superword->numLanes(); ++lane) {
         for (auto* operandWord : superword->getOperands()) {
           auto const& semantics = parentSemantics.lookup(operandWord);
@@ -155,12 +164,15 @@ namespace {
       }
     }
 
+    /// Returns true if the superword's lane has altered semantics due to reordering, otherwise false.
     bool areSemanticsAlteredInLane(size_t lane) const {
       return !operandDifference[lane].empty();
     }
 
-    // positive: surplus of that value in the computation chain
-    // negative: deficiency of that value in the computation chain
+    // Models computation chain differences for each lane.
+    // positive: surplus of that value in the SLP graph's computation chain.
+    // negative: deficiency of that value in the SLP graph's computation chain.
+    // no entry/zero: no difference
     SmallVector<DenseMap<Value, int>, 4> operandDifference;
   };
 
@@ -262,23 +274,23 @@ void SLPGraphBuilder::reorderOperands(SLPNode* multinode) const {
     // Look for a matching candidate
     for (size_t i = 0; i < numOperands; ++i) {
       // Skip if we can't vectorize
-      if (mode[lane - 1][i] == FAILED) {
+      if (mode[lane - 1][i] == Mode::FAILED) {
         finalOrder[lane].emplace_back(nullptr);
-        mode[lane].emplace_back(FAILED);
+        mode[lane].emplace_back(Mode::FAILED);
         continue;
       }
       auto last = finalOrder[lane - 1][i];
       auto const& bestResult = getBest(mode[lane - 1][i], last, candidates);
       // Update output
       finalOrder[lane].emplace_back(bestResult.first);
-      // Detect SPLAT mode
+      // Detect 'SPLAT' mode
       if (i == 1 && bestResult.first == last) {
-        mode[lane].emplace_back(SPLAT);
+        mode[lane].emplace_back(Mode::SPLAT);
       } else {
         mode[lane].emplace_back(bestResult.second);
       }
     }
-    // Distribute remaining candidates in case we encountered a FAILED.
+    // Distribute remaining candidates in case we encountered a 'FAILED'.
     for (auto candidate : candidates) {
       for (size_t i = 0; i < numOperands; ++i) {
         if (finalOrder[lane][i] == nullptr) {
@@ -303,11 +315,11 @@ std::pair<Value, SLPGraphBuilder::Mode> SLPGraphBuilder::getBest(Mode mode,
   Value best;
   Mode resultMode = mode;
   SmallVector<Value> bestCandidates;
-  if (mode == FAILED) {
+  if (mode == Mode::FAILED) {
     // Don't select now, let others choose first
     best = nullptr;
-  } else if (mode == SPLAT) {
-    // Look for other splat candidates
+  } else if (mode == Mode::SPLAT) {
+    // Look for other 'SPLAT' candidates
     for (auto& operand : candidates) {
       if (operand == last) {
         best = operand;
@@ -318,7 +330,7 @@ std::pair<Value, SLPGraphBuilder::Mode> SLPGraphBuilder::getBest(Mode mode,
     // Default value
     best = candidates.front();
     for (auto& candidate : candidates) {
-      if (mode == LOAD) {
+      if (mode == Mode::LOAD) {
         if (consecutiveLoads(last, candidate)) {
           bestCandidates.emplace_back(candidate);
         }
@@ -331,14 +343,14 @@ std::pair<Value, SLPGraphBuilder::Mode> SLPGraphBuilder::getBest(Mode mode,
     // 1. If we have a trivial solution, use it
     // No matches
     if (bestCandidates.empty()) {
-      resultMode = FAILED;
+      resultMode = Mode::FAILED;
     }
       // Single match
     else if (bestCandidates.size() == 1) {
       best = bestCandidates.front();
     }
       // 2. Look-ahead to choose from best candidates
-    else if (mode == OPCODE) {
+    else if (mode == Mode::OPCODE) {
       best = scoreModel->getBest(last, bestCandidates);
     }
   }
