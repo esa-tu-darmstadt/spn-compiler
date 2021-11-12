@@ -54,7 +54,7 @@ def test_vector_fashion_mnist():
         print(f"evaluation #{i}: result: {result[0]:16.8f}, reference: {reference[i]:16.8f}", end='\r')
         if not np.isclose(result, reference[i]):
             print(f"\nevaluation #{i} failed: result: {result[0]:16.8f}, reference: {reference[i]:16.8f}")
-            raise RuntimeError()
+            raise AssertionError()
     print(f"\nExecution of {len(reference)} samples took {time_sum} seconds.")
 
 

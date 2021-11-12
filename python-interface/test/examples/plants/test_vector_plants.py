@@ -52,8 +52,10 @@ def test_vector_fashion_mnist():
         result = compiler.execute(kernel, inputs=np.array([inputs[i]]))
         time_sum = time_sum + time.time() - start
         print(f"evaluation #{i}: result: {result[0]:16.8f}, reference: {reference[i]:16.8f}", end='\r')
-        assert np.isclose(result, reference[i])
-    print(f"\nExecution took {time_sum} seconds.")
+        if not np.isclose(result, reference[i]):
+            print(f"\nevaluation #{i} failed: result: {result[0]:16.8f}, reference: {reference[i]:16.8f}")
+            raise AssertionError()
+    print(f"\nExecution of {len(reference)} samples took {time_sum} seconds.")
 
 
 if __name__ == "__main__":
