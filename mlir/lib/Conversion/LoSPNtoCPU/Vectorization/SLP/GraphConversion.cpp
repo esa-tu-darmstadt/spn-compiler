@@ -28,10 +28,9 @@ void ConversionState::finishConversion() {
 void ConversionState::cancelConversion() {
   for (auto const& callback : scalarUndoCallbacks) {
     for (auto value : temporaryData.computedScalarValues) {
-      if (permanentData.alreadyComputed(value)) {
-        continue;
+      if (!permanentData.alreadyComputed(value)) {
+        callback(value);
       }
-      callback(value);
     }
   }
   for (auto const& callback : vectorUndoCallbacks) {
@@ -41,10 +40,9 @@ void ConversionState::cancelConversion() {
   }
   for (auto const& callback : extractionUndoCallbacks) {
     for (auto value : temporaryData.extractedScalarValues) {
-      if (permanentData.alreadyComputed(value)) {
-        continue;
+      if (!permanentData.alreadyComputed(value)) {
+        callback(value);
       }
-      callback(value);
     }
   }
   temporaryData.clear();
