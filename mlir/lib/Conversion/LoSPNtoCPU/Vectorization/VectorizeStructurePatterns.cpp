@@ -150,7 +150,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   IRRewriter graphRewriter{rewriter};
 
   CostModelPatternApplicator<UnitCostModel> applicator;
-  auto costModel = applicator.getCostModel();
+  auto* costModel = applicator.getCostModel();
 
   ConversionManager conversionManager{graphRewriter, taskBlock, costModel};
   applicator.setPatterns(allSLPVectorizationPatterns(conversionManager));

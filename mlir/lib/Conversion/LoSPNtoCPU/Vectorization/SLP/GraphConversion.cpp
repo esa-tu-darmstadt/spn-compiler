@@ -216,9 +216,9 @@ void ConversionState::addExtractionCallbacks(std::function<void(Value)> extractC
 
 // === ConversionManager === //
 
-ConversionManager::ConversionManager(RewriterBase& rewriter, Block* block, std::shared_ptr<CostModel> costModel)
-    : block{block}, costModel{std::move(costModel)}, conversionState{std::make_shared<ConversionState>()},
-      rewriter{rewriter}, folder{rewriter.getContext()} {
+ConversionManager::ConversionManager(RewriterBase& rewriter, Block* block, CostModel* costModel)
+    : block{block}, costModel{costModel}, conversionState{std::make_shared<ConversionState>()}, rewriter{rewriter},
+      folder{rewriter.getContext()} {
   this->costModel->setConversionState(conversionState);
 }
 

@@ -42,7 +42,7 @@ namespace mlir {
 
         public:
 
-          CostModelPatternApplicator() : SLPPatternApplicator{}, costModel{std::make_shared<CostModel>(*this)} {}
+          CostModelPatternApplicator() : SLPPatternApplicator{}, costModel{std::make_unique<CostModel>(*this)} {}
 
           SLPVectorizationPattern* bestMatch(Superword* superword) const override {
             SLPVectorizationPattern* bestPattern = nullptr;
@@ -59,12 +59,12 @@ namespace mlir {
             return bestPattern;
           }
 
-          std::shared_ptr<CostModel> getCostModel() {
-            return costModel;
+          CostModel* getCostModel() {
+            return costModel.get();
           }
 
         private:
-          std::shared_ptr<CostModel> costModel;
+          std::unique_ptr<CostModel> costModel;
         };
 
       }
