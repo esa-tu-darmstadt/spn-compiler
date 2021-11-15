@@ -6,13 +6,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include "../Target/TargetInformation.h"
+#include "TargetInformation.h"
 #include "llvm/Support/Host.h"
-#include "llvm/ADT/StringRef.h"
-#include <llvm/ADT/StringMap.h>
-#include <iostream>
-#include <sstream>
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "mlir/IR/BuiltinTypes.h"
 
