@@ -17,7 +17,7 @@ using namespace mlir::spn::low::slp;
 // TODO: I don't like this redefinition of default options. Maybe find a way to include GlobalOptions.h?
 unsigned option::maxNodeSize = 10;
 unsigned option::maxLookAhead = 3;
-unsigned option::maxAttempts = 5;
+unsigned option::maxAttempts = 1;
 unsigned option::maxSuccessfulIterations = 1;
 bool option::reorderInstructionsDFS = true;
 bool option::allowDuplicateElements = false;
