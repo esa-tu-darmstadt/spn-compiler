@@ -24,7 +24,7 @@ namespace mlir {
         /// A ValuePosition models the position of a value in a superword, i.e. in which superword and at which position
         /// a value is located.
         struct ValuePosition {
-          ValuePosition() : superword{nullptr}, index{0} {}
+          ValuePosition() = default;
           ValuePosition(Superword* superword, size_t index) : superword{superword}, index{index} {}
           explicit operator bool() const {
             return superword;
