@@ -23,11 +23,11 @@ def test_vector_fashion_mnist():
 
     # Deserialize model
     model = BinaryDeserializer(
-        os.path.join(scriptPath, "fashion_mnist_200_100_1_14_15_10_1_True.bin")).deserialize_from_file()
+        os.path.join(scriptPath, "fashion_mnist_200_100_4_5_10_9_1_True.bin")).deserialize_from_file()
     spn = model.root
 
     inputs = np.genfromtxt(os.path.join(scriptPath, "input.csv"), delimiter=",", dtype="float64")
-    reference = np.genfromtxt(os.path.join(scriptPath, "fashion_mnist_200_100_1_14_15_10_1_True_output.csv"),
+    reference = np.genfromtxt(os.path.join(scriptPath, "fashion_mnist_200_100_4_5_10_9_1_True_output.csv"),
                               delimiter=",",
                               dtype="float64")
     reference = reference.reshape(1000)

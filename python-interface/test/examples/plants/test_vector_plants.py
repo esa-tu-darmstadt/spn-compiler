@@ -23,14 +23,14 @@ def test_vector_fashion_mnist():
 
     # Deserialize model
     model = BinaryDeserializer(
-        os.path.join(scriptPath, "plants_100_200_1_50_45_10_1_True.bin")).deserialize_from_file()
-    spn = model.graph.root
+        os.path.join(scriptPath, "plants_100_200_4_3_3_3_1_True.bin")).deserialize_from_file()
+    spn = model.root
 
     inputs = np.genfromtxt(os.path.join(scriptPath, "input.csv"), delimiter=",", dtype="float64")
-    reference = np.genfromtxt(os.path.join(scriptPath, "plants_100_200_1_50_45_10_1_True_output.csv"),
+    reference = np.genfromtxt(os.path.join(scriptPath, "plants_100_200_4_3_3_3_1_True_output.csv"),
                               delimiter=",",
                               dtype="float64")
-    reference = reference.reshape(10000)
+    reference = reference.reshape(1000)
     # Compile the kernel.
     options = {}
     options["slp-max-look-ahead"] = 10
