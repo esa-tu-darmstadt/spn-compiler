@@ -17,6 +17,14 @@
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 
+void mlir::spn::LoSPNtoCPUStructureConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
+  registry.insert<StandardOpsDialect>();
+  registry.insert<mlir::scf::SCFDialect>();
+  registry.insert<mlir::vector::VectorDialect>();
+  registry.insert<mlir::memref::MemRefDialect>();
+  registry.insert<mlir::math::MathDialect>();
+}
+
 void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   ConversionTarget target(getContext());
 
@@ -136,34 +144,14 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
     }
   });
 #endif
-
 }
-void mlir::spn::LoSPNtoCPUStructureConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
+
+void mlir::spn::LoSPNtoCPUNodeConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
   registry.insert<StandardOpsDialect>();
   registry.insert<mlir::scf::SCFDialect>();
+  registry.insert<mlir::math::MathDialect>();
   registry.insert<mlir::vector::VectorDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
-  registry.insert<mlir::math::MathDialect>();
-}
-
-std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoCPUStructureConversionPass(bool enableVectorization,
-                                                                               unsigned slpMaxAttempts,
-                                                                               unsigned slpMaxSuccessfulIterations,
-                                                                               unsigned slpMaxNodeSize,
-                                                                               unsigned slpMaxLookAhead,
-                                                                               bool slpReorderInstructionsDFS,
-                                                                               bool slpAllowDuplicateElements,
-                                                                               bool slpAllowTopologicalMixing,
-                                                                               bool slpUseXorChains) {
-  return std::make_unique<LoSPNtoCPUStructureConversionPass>(enableVectorization,
-                                                             slpMaxAttempts,
-                                                             slpMaxSuccessfulIterations,
-                                                             slpMaxNodeSize,
-                                                             slpMaxLookAhead,
-                                                             slpReorderInstructionsDFS,
-                                                             slpAllowDuplicateElements,
-                                                             slpAllowTopologicalMixing,
-                                                             slpUseXorChains);
 }
 
 void mlir::spn::LoSPNtoCPUNodeConversionPass::runOnOperation() {
@@ -190,16 +178,17 @@ void mlir::spn::LoSPNtoCPUNodeConversionPass::runOnOperation() {
     signalPassFailure();
   }
 }
-void mlir::spn::LoSPNtoCPUNodeConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
+
+std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoCPUNodeConversionPass() {
+  return std::make_unique<LoSPNtoCPUNodeConversionPass>();
+}
+
+void mlir::spn::LoSPNNodeVectorizationPass::getDependentDialects(mlir::DialectRegistry& registry) const {
   registry.insert<StandardOpsDialect>();
   registry.insert<mlir::scf::SCFDialect>();
   registry.insert<mlir::math::MathDialect>();
   registry.insert<mlir::vector::VectorDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
-}
-
-std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoCPUNodeConversionPass() {
-  return std::make_unique<LoSPNtoCPUNodeConversionPass>();
 }
 
 void mlir::spn::LoSPNNodeVectorizationPass::runOnOperation() {
@@ -250,13 +239,6 @@ void mlir::spn::LoSPNNodeVectorizationPass::runOnOperation() {
   if (failed(applyPartialConversion(op, target, frozenPatterns))) {
     signalPassFailure();
   }
-}
-void mlir::spn::LoSPNNodeVectorizationPass::getDependentDialects(mlir::DialectRegistry& registry) const {
-  registry.insert<StandardOpsDialect>();
-  registry.insert<mlir::scf::SCFDialect>();
-  registry.insert<mlir::math::MathDialect>();
-  registry.insert<mlir::vector::VectorDialect>();
-  registry.insert<mlir::memref::MemRefDialect>();
 }
 
 std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNNodeVectorizationPass() {

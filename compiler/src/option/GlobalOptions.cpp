@@ -42,7 +42,7 @@ EnumOpt spnc::option::vectorLibrary{"vector-library", NONE,
 
 Option<bool> spnc::option::replaceGatherWithShuffle{"use-shuffle", false};
 
-Option<unsigned>spnc::option::slpMaxAttempts{"slp-max-attempts", 1, {depends(spnc::option::cpuVectorize, true)}};
+Option<unsigned> spnc::option::slpMaxAttempts{"slp-max-attempts", 1, {depends(spnc::option::cpuVectorize, true)}};
 
 Option<unsigned>spnc::option::slpMaxSuccessfulIterations
     {"slp-max-successful-iterations", 1, {depends(spnc::option::cpuVectorize, true)}};
