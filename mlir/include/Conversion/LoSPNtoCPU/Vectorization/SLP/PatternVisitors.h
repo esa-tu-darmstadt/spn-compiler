@@ -30,8 +30,6 @@ namespace mlir {
           virtual void visit(ShuffleTwoSuperwords const* pattern, Superword const* superword);
           /// Visit a superword under the VectorizeConstant pattern.
           virtual void visit(VectorizeConstant const* pattern, Superword const* superword);
-          /// Visit a superword under the VectorizeSPNConstant pattern.
-          virtual void visit(VectorizeSPNConstant const* pattern, Superword const* superword);
           /// Visit a superword under the CreateConsecutiveLoad pattern.
           virtual void visit(CreateConsecutiveLoad const* pattern, Superword const* superword);
           /// Visit a superword under the CreateGatherLoad pattern.

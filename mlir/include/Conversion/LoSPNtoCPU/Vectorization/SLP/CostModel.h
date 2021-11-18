@@ -71,7 +71,6 @@ namespace mlir {
           void visit(BroadcastSuperword const* pattern, Superword const* superword) override;
           void visit(BroadcastInsertSuperword const* pattern, Superword const* superword) override;
           void visit(VectorizeConstant const* pattern, Superword const* superword) override;
-          void visit(VectorizeSPNConstant const* pattern, Superword const* superword) override;
           void visit(VectorizeGaussian const* pattern, Superword const* superword) override;
           void visit(VectorizeLogAdd const* pattern, Superword const* superword) override;
           void visit(VectorizeLogGaussian const* pattern, Superword const* superword) override;

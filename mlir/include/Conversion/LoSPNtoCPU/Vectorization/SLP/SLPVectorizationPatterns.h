@@ -44,36 +44,51 @@ namespace mlir {
         };
 
         /// Vectorization patterns that are applicable to specific operations only (additions, ..).
-        template<typename SourceOp>
+        /// An optional pack of compatible op types can be supplied to create vectors with more than one op code. A
+        /// simple use case would be matching vectors containing both MLIR constants and LoSPN constants, as these are
+        /// lowered to constants anyways.
+        template<typename SourceOp, typename... CompatibleOps>
         class OpSpecificVectorizationPattern : public SLPVectorizationPattern {
           using SLPVectorizationPattern::SLPVectorizationPattern;
         public:
           LogicalResult match(Superword* superword) override {
-            bool checkedOperands = false;
             for (auto value : *superword) {
-              SourceOp op = value.getDefiningOp<SourceOp>();
-              // Pattern only applicable to uniform superwords of type SourceOp.
-              if (!op) {
-                return failure();
-              }
-              if (!checkedOperands) {
-                if (superword->numOperands() != op->getNumOperands()) {
-                  return failure();
+              if (auto op = compatibleOperationOrNull<SourceOp, CompatibleOps...>(value)) {
+                if (superword->numOperands() == op->getNumOperands()) {
+                  continue;
                 }
-                checkedOperands = true;
               }
+              return failure();
             }
             return success();
           }
+        private:
+
+          template<typename LastOp>
+          Operation* compatibleOperationOrNull(Value value) {
+            if (auto op = value.getDefiningOp<LastOp>()) {
+              return op;
+            }
+            return nullptr;
+          }
+
+          template<typename FirstOp, typename SecondOp, typename... Ops>
+          Operation* compatibleOperationOrNull(Value value) {
+            if (auto op = compatibleOperationOrNull<FirstOp>(value)) {
+              return op;
+            }
+            return compatibleOperationOrNull<SecondOp, Ops...>(value);
+          }
+
         };
 
         /// Vectorization patterns for computation in normal space.
-        template<typename SourceOp>
-        class NormalSpaceVectorizationPattern : public OpSpecificVectorizationPattern<SourceOp> {
-          using OpSpecificVectorizationPattern<SourceOp>::OpSpecificVectorizationPattern;
+        template<typename SourceOp, typename... CompatibleOps>
+        class NormalSpaceVectorizationPattern : public OpSpecificVectorizationPattern<SourceOp, CompatibleOps...> {
+          using OpSpecificVectorizationPattern<SourceOp, CompatibleOps...>::OpSpecificVectorizationPattern;
         public:
           LogicalResult match(Superword* superword) override {
-            if (failed(OpSpecificVectorizationPattern<SourceOp>::match(superword))) {
+            if (failed(OpSpecificVectorizationPattern<SourceOp, CompatibleOps...>::match(superword))) {
               return failure();
             }
             return failure(superword->getElementType().isa<LogType>());
@@ -81,12 +96,12 @@ namespace mlir {
         };
 
         /// Vectorization patterns for computation in log space.
-        template<typename SourceOp>
-        class LogSpaceVectorizationPattern : public OpSpecificVectorizationPattern<SourceOp> {
-          using OpSpecificVectorizationPattern<SourceOp>::OpSpecificVectorizationPattern;
+        template<typename SourceOp, typename... CompatibleOps>
+        class LogSpaceVectorizationPattern : public OpSpecificVectorizationPattern<SourceOp, CompatibleOps...> {
+          using OpSpecificVectorizationPattern<SourceOp, CompatibleOps...>::OpSpecificVectorizationPattern;
         public:
           LogicalResult match(Superword* superword) override {
-            if (failed(OpSpecificVectorizationPattern<SourceOp>::match(superword))) {
+            if (failed(OpSpecificVectorizationPattern<SourceOp, CompatibleOps...>::match(superword))) {
               return failure();
             }
             return success(superword->getElementType().isa<LogType>());
@@ -123,15 +138,8 @@ namespace mlir {
         // === Op-specific patterns === //
 
         /// Vectorization pattern for creating SIMD constants.
-        struct VectorizeConstant : public OpSpecificVectorizationPattern<ConstantOp> {
-          using OpSpecificVectorizationPattern<ConstantOp>::OpSpecificVectorizationPattern;
-          Value rewrite(Superword* superword, RewriterBase& rewriter) override;
-          void accept(PatternVisitor& visitor, Superword const* superword) const override;
-        };
-
-        /// Vectorization pattern for creating SIMD constants.
-        struct VectorizeSPNConstant : public OpSpecificVectorizationPattern<SPNConstant> {
-          using OpSpecificVectorizationPattern<SPNConstant>::OpSpecificVectorizationPattern;
+        struct VectorizeConstant : public OpSpecificVectorizationPattern<ConstantOp, SPNConstant> {
+          using OpSpecificVectorizationPattern<ConstantOp, SPNConstant>::OpSpecificVectorizationPattern;
           Value rewrite(Superword* superword, RewriterBase& rewriter) override;
           void accept(PatternVisitor& visitor, Superword const* superword) const override;
         };
@@ -210,7 +218,6 @@ namespace mlir {
           patterns.emplace_back(std::make_unique<ShuffleTwoSuperwords>(conversionManager));
           // === Op-specific patterns === //
           patterns.emplace_back(std::make_unique<VectorizeConstant>(conversionManager));
-          patterns.emplace_back(std::make_unique<VectorizeSPNConstant>(conversionManager));
           patterns.emplace_back(std::make_unique<CreateConsecutiveLoad>(conversionManager));
           patterns.emplace_back(std::make_unique<CreateGatherLoad>(conversionManager));
           // === Op-specific normal space patterns === //

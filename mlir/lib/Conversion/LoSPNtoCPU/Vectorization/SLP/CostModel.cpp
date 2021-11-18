@@ -182,10 +182,6 @@ void UnitCostModel::visit(VectorizeConstant const* pattern, Superword const* sup
   this->cost = 0;
 }
 
-void UnitCostModel::visit(VectorizeSPNConstant const* pattern, Superword const* superword) {
-  this->cost = 0;
-}
-
 void UnitCostModel::visit(VectorizeGaussian const* pattern, Superword const* superword) {
   if (anyGaussianMarginalized(*superword)) {
     this->cost = 7;

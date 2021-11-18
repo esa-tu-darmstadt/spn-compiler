@@ -242,7 +242,7 @@ namespace {
       if (floatType.getWidth() == 32) {
         SmallVector<float, 4> array;
         while (begin != end) {
-          array.push_back(begin->template cast<FloatAttr>().getValue().convertToFloat());
+          array.push_back(static_cast<float>(begin->template cast<FloatAttr>().getValue().convertToDouble()));
           ++begin;
         }
         return DenseElementsAttr::get(vectorType, static_cast<llvm::ArrayRef<float>>(array));
@@ -308,45 +308,20 @@ namespace {
 Value VectorizeConstant::rewrite(Superword* superword, RewriterBase& rewriter) {
   SmallVector<Attribute, 4> constants;
   for (auto value : *superword) {
-    constants.emplace_back(static_cast<ConstantOp>(value.getDefiningOp()).value());
+    // ConstantOp.
+    if (auto op = value.getDefiningOp<ConstantOp>()) {
+      constants.emplace_back(op.value());
+    }
+      // SPNConstant op.
+    else {
+      constants.emplace_back(static_cast<SPNConstant>(value.getDefiningOp()).valueAttr());
+    }
   }
   auto const& elements = denseElements(std::begin(constants), std::end(constants), superword->getVectorType());
   return conversionManager.getOrCreateConstant(superword->getLoc(), elements);
 }
 
 void VectorizeConstant::accept(PatternVisitor& visitor, Superword const* superword) const {
-  visitor.visit(this, superword);
-}
-
-// === VectorizeSPNConstant === //
-
-Value VectorizeSPNConstant::rewrite(Superword* superword, RewriterBase& rewriter) {
-  DenseElementsAttr elements;
-  if (auto logType = superword->getElementType().dyn_cast<LogType>()) {
-    if (logType.getBaseType().getIntOrFloatBitWidth() == 32) {
-      SmallVector<float, 4> array;
-      for (auto element : *superword) {
-        array.push_back((float) static_cast<SPNConstant>(element.getDefiningOp()).valueAttr().getValueAsDouble());
-      }
-      elements = DenseElementsAttr::get(superword->getVectorType(), static_cast<llvm::ArrayRef<float>>(array));
-    } else {
-      SmallVector<double, 4> array;
-      for (auto element : *superword) {
-        array.push_back(static_cast<SPNConstant>(element.getDefiningOp()).valueAttr().getValueAsDouble());
-      }
-      elements = DenseElementsAttr::get(superword->getVectorType(), static_cast<llvm::ArrayRef<double>>(array));
-    }
-  } else {
-    SmallVector<Attribute, 4> constants;
-    for (auto value : *superword) {
-      constants.emplace_back(static_cast<ConstantOp>(value.getDefiningOp()).valueAttr());
-    }
-    elements = denseElements(std::begin(constants), std::end(constants), superword->getVectorType());
-  }
-  return conversionManager.getOrCreateConstant(superword->getLoc(), elements);
-}
-
-void VectorizeSPNConstant::accept(PatternVisitor& visitor, Superword const* superword) const {
   visitor.visit(this, superword);
 }
 

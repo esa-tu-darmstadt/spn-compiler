@@ -32,10 +32,6 @@ void PatternVisitor::visit(VectorizeConstant const* pattern, Superword const* su
   visitDefault(pattern, superword);
 }
 
-void PatternVisitor::visit(VectorizeSPNConstant const* pattern, Superword const* superword) {
-  visitDefault(pattern, superword);
-}
-
 void PatternVisitor::visit(CreateConsecutiveLoad const* pattern, Superword const* superword) {
   visitDefault(pattern, superword);
 }
