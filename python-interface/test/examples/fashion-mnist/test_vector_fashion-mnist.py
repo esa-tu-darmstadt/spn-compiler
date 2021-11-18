@@ -43,7 +43,6 @@ def test_vector_fashion_mnist():
     options["slp-use-xor-chains"] = True
     compiler = CPUCompiler(vectorize=True, computeInLogSpace=True, vectorLibrary="LIBMVEC", **options)
     kernel = compiler.compile_ll(spn=spn, batchSize=1, supportMarginal=False)
-    shutil.copyfile(kernel.fileName(), os.path.join(scriptPath, "fashion.so"))
     # Execute the compiled Kernel.
     time_sum = 0
     for i in range(len(reference)):
