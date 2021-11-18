@@ -222,9 +222,18 @@ ArrayRef<std::shared_ptr<SLPNode>> SLPNode::getOperands() const {
 
 // === SLPGraph === //
 
-SLPGraph::SLPGraph(ArrayRef<Value> seed) {
-  SLPGraphBuilder builder{*this};
-  builder.build(seed);
+SLPGraph::SLPGraph(ArrayRef<Value> seed,
+                   unsigned maxNodeSize,
+                   unsigned maxLookAhead,
+                   bool allowDuplicateElements,
+                   bool allowTopologicalMixing,
+                   bool useXorChains) {
+  SLPGraphBuilder{*this,
+                  maxNodeSize,
+                  maxLookAhead,
+                  allowDuplicateElements,
+                  allowTopologicalMixing,
+                  useXorChains}.build(seed);
 }
 
 std::shared_ptr<Superword> SLPGraph::getRootSuperword() const {

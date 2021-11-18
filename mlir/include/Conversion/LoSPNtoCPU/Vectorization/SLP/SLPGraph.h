@@ -155,7 +155,13 @@ namespace mlir {
           friend class SLPGraphBuilder;
         public:
           /// Construct a new SLP graph based on the provided seed.
-          explicit SLPGraph(ArrayRef<Value> seed);
+          SLPGraph(ArrayRef<Value> seed,
+                   unsigned maxNodeSize,
+                   unsigned maxLookAhead,
+                   bool allowDuplicateElements,
+                   bool allowTopologicalMixing,
+                   bool useXorChains
+          );
           /// Return the very last superword of the graph's computation chain (i.e. the one that contains the seed
           /// operations).
           std::shared_ptr<Superword> getRootSuperword() const;

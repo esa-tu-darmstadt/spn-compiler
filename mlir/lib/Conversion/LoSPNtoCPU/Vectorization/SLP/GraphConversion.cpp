@@ -8,7 +8,6 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/GraphConversion.h"
 #include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
-#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 
 using namespace mlir;
@@ -214,9 +213,12 @@ void ConversionState::addExtractionCallbacks(std::function<void(Value)> extractC
 
 // === ConversionManager === //
 
-ConversionManager::ConversionManager(RewriterBase& rewriter, Block* block, CostModel* costModel)
+ConversionManager::ConversionManager(RewriterBase& rewriter,
+                                     Block* block,
+                                     CostModel* costModel,
+                                     bool reorderInstructionsDFS)
     : block{block}, costModel{costModel}, conversionState{std::make_shared<ConversionState>()}, rewriter{rewriter},
-      folder{rewriter.getContext()} {
+      folder{rewriter.getContext()}, reorderInstructionsDFS{reorderInstructionsDFS} {
   this->costModel->setConversionState(conversionState);
 }
 
@@ -489,7 +491,7 @@ namespace {
 }
 
 void ConversionManager::reorderOperations() {
-  if (option::reorderInstructionsDFS) {
+  if (reorderInstructionsDFS) {
     reorderOperationsDFS(block);
   } else {
     reorderOperationsBFS(block);

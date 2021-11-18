@@ -12,7 +12,6 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
-#include "llvm/Support/Debug.h"
 
 namespace mlir {
   namespace spn {
@@ -41,24 +40,47 @@ namespace mlir {
 
     struct VectorizeSingleTask : public VectorizeTask {
     public:
-      VectorizeSingleTask(TypeConverter& typeConverter, MLIRContext* context, PatternBenefit benefit) : VectorizeTask(
-          typeConverter,
-          context,
-          benefit,
-          false) {}
+      VectorizeSingleTask(TypeConverter& typeConverter,
+                          MLIRContext* context,
+                          PatternBenefit benefit,
+                          unsigned maxAttempts,
+                          unsigned maxSuccessfulIterations,
+                          unsigned maxNodeSize,
+                          unsigned maxLookAhead,
+                          bool reorderInstructionsDFS,
+                          bool allowDuplicateElements,
+                          bool allowTopologicalMixing,
+                          bool useXorChains) :
+          VectorizeTask(typeConverter, context, benefit, false),
+          maxAttempts{maxAttempts},
+          maxSuccessfulIterations{maxSuccessfulIterations},
+          maxNodeSize{maxNodeSize},
+          maxLookAhead{maxLookAhead},
+          reorderInstructionsDFS{reorderInstructionsDFS},
+          allowDuplicateElements{allowDuplicateElements},
+          allowTopologicalMixing{allowTopologicalMixing},
+          useXorChains{useXorChains} {}
+
     protected:
       LogicalResult matchAndRewrite(low::SPNTask task,
                                     llvm::ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
+    private:
+      unsigned maxAttempts;
+      unsigned maxSuccessfulIterations;
+      unsigned maxNodeSize;
+      unsigned maxLookAhead;
+      bool reorderInstructionsDFS;
+      bool allowDuplicateElements;
+      bool allowTopologicalMixing;
+      bool useXorChains;
     };
 
     struct VectorizeBatchTask : public VectorizeTask {
     public:
-      VectorizeBatchTask(TypeConverter& typeConverter, MLIRContext* context, PatternBenefit benefit) : VectorizeTask(
-          typeConverter,
-          context,
-          benefit,
-          true) {}
+      VectorizeBatchTask(TypeConverter& typeConverter, MLIRContext* context, PatternBenefit benefit) :
+          VectorizeTask(typeConverter, context, benefit, true) {}
+
     protected:
       LogicalResult matchAndRewrite(low::SPNTask op,
                                     llvm::ArrayRef<Value> operands,
@@ -67,8 +89,25 @@ namespace mlir {
 
     static inline void populateLoSPNtoCPUVectorizationTaskPatterns(OwningRewritePatternList& patterns,
                                                                    MLIRContext* context,
-                                                                   TypeConverter& typeConverter) {
-      patterns.insert<VectorizeSingleTask, VectorizeBatchTask>(typeConverter, context, 5);
+                                                                   TypeConverter& typeConverter,
+                                                                   unsigned maxAttempts,
+                                                                   unsigned maxSuccessfulIterations,
+                                                                   unsigned maxNodeSize,
+                                                                   unsigned maxLookAhead,
+                                                                   bool reorderInstructionsDFS,
+                                                                   bool allowDuplicateElements,
+                                                                   bool allowTopologicalMixing,
+                                                                   bool useXorChains) {
+      patterns.insert<VectorizeSingleTask>(typeConverter, context, 5,
+                                           maxAttempts,
+                                           maxSuccessfulIterations,
+                                           maxNodeSize,
+                                           maxLookAhead,
+                                           reorderInstructionsDFS,
+                                           allowDuplicateElements,
+                                           allowTopologicalMixing,
+                                           useXorChains);
+      patterns.insert<VectorizeBatchTask>(typeConverter, context, 5);
     }
 
     struct VectorizeTransposedBatchRead : public OpConversionPattern<low::SPNBatchRead> {

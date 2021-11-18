@@ -18,19 +18,6 @@ namespace mlir {
     namespace low {
       namespace slp {
 
-        /// TODO: make GlobalOptions.h available to the SLP vectorization in CMake.
-        namespace option {
-          // For explanations, see GlobalOptions.h.
-          extern unsigned maxNodeSize;
-          extern unsigned maxLookAhead;
-          extern unsigned maxAttempts;
-          extern unsigned maxSuccessfulIterations;
-          extern bool reorderInstructionsDFS;
-          extern bool allowDuplicateElements;
-          extern bool allowTopologicalMixing;
-          extern bool useXorChains;
-        }
-
         /// Returns true if the operation is vectorizable according to both the LoSPN dialect's vectorizable op
         /// interface and MLIR's vector type rules.
         bool vectorizable(Operation* op);

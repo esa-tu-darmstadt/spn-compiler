@@ -13,11 +13,18 @@
 using namespace mlir;
 using namespace mlir::spn::low::slp;
 
-SLPGraphBuilder::SLPGraphBuilder(SLPGraph& graph) : graph{graph} {
-  if (option::useXorChains) {
-    scoreModel = std::make_unique<XorChainModel>(option::maxLookAhead);
+SLPGraphBuilder::SLPGraphBuilder(SLPGraph& graph,
+                                 unsigned maxNodeSize,
+                                 unsigned maxLookAhead,
+                                 bool allowDuplicateElements,
+                                 bool allowTopologicalMixing,
+                                 bool useXorChains) : graph{graph}, maxNodeSize{maxNodeSize},
+                                                      allowDuplicateElements{allowDuplicateElements},
+                                                      allowTopologicalMixing{allowTopologicalMixing} {
+  if (useXorChains) {
+    scoreModel = std::make_unique<XorChainModel>(maxLookAhead);
   } else {
-    scoreModel = std::make_unique<PorpodasModel>(option::maxLookAhead);
+    scoreModel = std::make_unique<PorpodasModel>(maxLookAhead);
   }
 }
 
@@ -52,7 +59,7 @@ void SLPGraphBuilder::build(ArrayRef<Value> seed) {
   nodeBySuperword[graph.superwordRoot.get()] = graph.nodeRoot;
   superwordsByValue[graph.superwordRoot->getElement(0)].emplace_back(graph.superwordRoot);
   // If topological mixing is allowed anyways, we do not need to compute any depths.
-  if (!option::allowTopologicalMixing) {
+  if (!allowTopologicalMixing) {
     computeDepths(seed, valueDepths);
   }
   buildWorklist.insert(graph.nodeRoot.get());
@@ -62,16 +69,19 @@ void SLPGraphBuilder::build(ArrayRef<Value> seed) {
 // Some helper functions in an anonymous namespace.
 namespace {
 
-  bool continueBuilding(Superword const& superword, DenseMap<Value, unsigned> const& valueDepths) {
+  bool continueBuilding(Superword const& superword,
+                        DenseMap<Value, unsigned> const& valueDepths,
+                        bool allowDuplicateElements,
+                        bool allowTopologicalMixing) {
     if (!vectorizable(superword.begin(), superword.end())) {
       return false;
     }
-    if (!option::allowDuplicateElements && !allLeaf(superword.begin(), superword.end())) {
+    if (!allowDuplicateElements && !allLeaf(superword.begin(), superword.end())) {
       if (SmallPtrSet<Value, 4>{std::begin(superword), std::end(superword)}.size() < superword.numLanes()) {
         return false;
       }
     }
-    if (!option::allowTopologicalMixing && !allLeaf(superword.begin(), superword.end())) {
+    if (!allowTopologicalMixing && !allLeaf(superword.begin(), superword.end())) {
       for (size_t lane = 1; lane < superword.numLanes(); ++lane) {
         if (valueDepths.lookup(superword.getElement(lane)) != valueDepths.lookup(superword.getElement(0))) {
           return false;
@@ -84,9 +94,10 @@ namespace {
   bool appendable(SLPNode const& node,
                   OperationName const& opCode,
                   ArrayRef<SmallVector<Value, 2>> allOperands,
-                  unsigned operandIndex) {
+                  unsigned operandIndex,
+                  unsigned maxNodeSize) {
     // Check size.
-    if (node.numSuperwords() == option::maxNodeSize) {
+    if (node.numSuperwords() == maxNodeSize) {
       return false;
     }
     // Check opcode.
@@ -180,7 +191,7 @@ namespace {
 
 void SLPGraphBuilder::buildGraph(std::shared_ptr<Superword> const& superword) {
   // Stop growing graph
-  if (!continueBuilding(*superword, valueDepths)) {
+  if (!continueBuilding(*superword, valueDepths, allowDuplicateElements, allowTopologicalMixing)) {
     return;
   }
   auto currentNode = nodeBySuperword[superword.get()];
@@ -199,7 +210,7 @@ void SLPGraphBuilder::buildGraph(std::shared_ptr<Superword> const& superword) {
       if (auto existingSuperword = superwordOrNull(superwordValues)) {
         superword->addOperand(existingSuperword);
         currentNode->addOperand(nodeBySuperword[existingSuperword.get()]);
-      } else if (appendable(*currentNode, currentOpCode, allOperands, i)) {
+      } else if (appendable(*currentNode, currentOpCode, allOperands, i, maxNodeSize)) {
         auto newSuperword = appendSuperwordToNode(superwordValues, currentNode, superword);
         buildGraph(newSuperword);
       } else if (ofVectorizableType(std::begin(superwordValues), std::end(superwordValues))) {

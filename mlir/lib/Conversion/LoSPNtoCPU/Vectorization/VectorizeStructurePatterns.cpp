@@ -9,7 +9,6 @@
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
 #include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Seeding.h"
-#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "../Target/TargetInformation.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
@@ -97,14 +96,14 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   });
 
   // Apply SLP vectorization.
-  task->emitRemark() << "Beginning SLP vectorization (max attempts: " << option::maxAttempts
-                     << ", max successful iterations: " << option::maxSuccessfulIterations
-                     << ", max multinode size: " << option::maxNodeSize
-                     << ", max look-ahead: " << option::maxLookAhead
-                     << ", reordering DFS: " << option::reorderInstructionsDFS
-                     << ", duplicates allowed: " << option::allowDuplicateElements
-                     << ", topological mixing allowed: " << option::allowTopologicalMixing
-                     << ", use XOR chains: " << option::useXorChains << ").";
+  task->emitRemark() << "Beginning SLP vectorization (max attempts: " << maxAttempts
+                     << ", max successful iterations: " << maxSuccessfulIterations
+                     << ", max multinode size: " << maxNodeSize
+                     << ", max look-ahead: " << maxLookAhead
+                     << ", reordering DFS: " << reorderInstructionsDFS
+                     << ", duplicates allowed: " << allowDuplicateElements
+                     << ", topological mixing allowed: " << allowTopologicalMixing
+                     << ", use XOR chains: " << useXorChains << ").";
 
 // Print the number of loSPN ops in the entire function
 #define PRINT_SIZE true
@@ -152,7 +151,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   CostModelPatternApplicator<UnitCostModel> applicator;
   auto* costModel = applicator.getCostModel();
 
-  ConversionManager conversionManager{graphRewriter, taskBlock, costModel};
+  ConversionManager conversionManager{graphRewriter, taskBlock, costModel, reorderInstructionsDFS};
   applicator.setPatterns(allSLPVectorizationPatterns(conversionManager));
 
   auto elementType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
@@ -173,7 +172,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   SmallVector<Value, 4> seed;
   unsigned successfulIterations = 0;
   unsigned attempts = 0;
-  while (successfulIterations < option::maxSuccessfulIterations && attempts++ < option::maxAttempts) {
+  while (successfulIterations < maxSuccessfulIterations && attempts++ < maxAttempts) {
 
 #if PRINT_TIMINGS
     TimePoint seedStart = std::chrono::high_resolution_clock::now();
@@ -198,7 +197,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     TimePoint graphStart = std::chrono::high_resolution_clock::now();
 #endif
 
-    SLPGraph graph{seed};
+    SLPGraph graph{seed, maxNodeSize, maxLookAhead, allowDuplicateElements, allowTopologicalMixing, useXorChains};
 
 #if PRINT_TIMINGS
     TimePoint graphEnd = std::chrono::high_resolution_clock::now();

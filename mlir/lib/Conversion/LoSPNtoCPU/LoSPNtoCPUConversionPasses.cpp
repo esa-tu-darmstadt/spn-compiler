@@ -68,7 +68,16 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
 
   OwningRewritePatternList taskPatterns(&getContext());
   if (vectorize) {
-    spn::populateLoSPNtoCPUVectorizationTaskPatterns(taskPatterns, &getContext(), typeConverter);
+    spn::populateLoSPNtoCPUVectorizationTaskPatterns(taskPatterns, &getContext(), typeConverter,
+                                                     maxAttempts,
+                                                     maxSuccessfulIterations,
+                                                     maxNodeSize,
+                                                     maxLookAhead,
+                                                     reorderInstructionsDFS,
+                                                     allowDuplicateElements,
+                                                     allowTopologicalMixing,
+                                                     useXorChains
+    );
   }
   spn::populateLoSPNtoCPUTaskPatterns(taskPatterns, &getContext(), typeConverter);
 

@@ -142,7 +142,7 @@ namespace mlir {
           /// The rewriter is required for creating constant operations and extractions (for escaping uses). All
           /// created operations will be inserted into the provided block. The cost model is required for determining
           /// the profitability of extractions.
-          ConversionManager(RewriterBase& rewriter, Block* block, CostModel* costModel);
+          ConversionManager(RewriterBase& rewriter, Block* block, CostModel* costModel, bool reorderInstructionsDFS);
 
           /// Begin the conversion of a new SLP graph. Also computes escaping uses for later on during the conversion
           /// process. Returns the order in which the graph's superwords should be converted.
@@ -199,6 +199,9 @@ namespace mlir {
 
           /// Helps avoid creating duplicate constants.
           OperationFolder folder;
+
+          // === SLP options === //
+          bool reorderInstructionsDFS;
         };
       }
     }

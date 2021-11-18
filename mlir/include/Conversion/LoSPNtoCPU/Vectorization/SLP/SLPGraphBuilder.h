@@ -27,7 +27,13 @@ namespace mlir {
         public:
 
           /// Prepares creation of a new SLP graph instance.
-          explicit SLPGraphBuilder(SLPGraph& graph);
+          SLPGraphBuilder(SLPGraph& graph,
+                          unsigned maxNodeSize,
+                          unsigned maxLookAhead,
+                          bool allowDuplicateElements,
+                          bool allowTopologicalMixing,
+                          bool useXorChains
+          );
 
           /// Builds the prepared SLP graph based on the given seed.
           void build(ArrayRef<Value> seed);
@@ -74,6 +80,11 @@ namespace mlir {
           SmallPtrSet<SLPNode*, 8> buildWorklist;
           /// Prevents building superwords that are topologically mixed.
           DenseMap<Value, unsigned> valueDepths;
+
+          // === SLP options === //
+          unsigned maxNodeSize;
+          bool allowDuplicateElements;
+          bool allowTopologicalMixing;
 
         };
       }

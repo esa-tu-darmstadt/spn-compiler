@@ -14,16 +14,6 @@ using namespace mlir::spn;
 using namespace mlir::spn::low;
 using namespace mlir::spn::low::slp;
 
-// TODO: I don't like this redefinition of default options. Maybe find a way to include GlobalOptions.h?
-unsigned option::maxNodeSize = 10;
-unsigned option::maxLookAhead = 3;
-unsigned option::maxAttempts = 1;
-unsigned option::maxSuccessfulIterations = 1;
-bool option::reorderInstructionsDFS = true;
-bool option::allowDuplicateElements = false;
-bool option::allowTopologicalMixing = false;
-bool option::useXorChains = false;
-
 bool slp::vectorizable(Operation* op) {
   return (op->hasTrait<OpTrait::spn::low::VectorizableOp>() || op->hasTrait<OpTrait::ConstantLike>())
       && op->hasTrait<OpTrait::OneResult>() && ofVectorizableType(op->getResult(0));
