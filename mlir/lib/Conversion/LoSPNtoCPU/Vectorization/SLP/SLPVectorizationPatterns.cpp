@@ -41,6 +41,7 @@ namespace {
   }
 
   /// Might be useful in the future.
+  // NOLINTNEXTLINE(clang-diagnostic-unused-function)
   Value castToFloatOrValue(Value value, FloatType targetType, RewriterBase& rewriter) {
     if (auto floatType = value.getType().dyn_cast<FloatType>()) {
       if (floatType.getWidth() < targetType.getWidth()) {
@@ -110,12 +111,13 @@ Value BroadcastInsertSuperword::rewrite(Superword* superword, RewriterBase& rewr
   DenseMap<Value, unsigned> elementCounts;
   Value broadcastVal;
   unsigned maxCount = 0;
-  for (auto element : *superword) {
+  for (auto element: *superword) {
     if (++elementCounts[element] > maxCount) {
       broadcastVal = element;
       maxCount = elementCounts[element];
     }
   }
+  assert(broadcastVal);
   broadcastVal = stripLogOrValue(broadcastVal, rewriter);
 
   Value vectorOp = rewriter.create<vector::BroadcastOp>(superword->getLoc(), superword->getVectorType(), broadcastVal);

@@ -173,7 +173,7 @@ SmallVector<Value, 4> TopDownAnalysis::nextSeed() const {
   }
 
   SmallVector<Value, 4>* seed = nullptr;
-  for (auto& potentialSeed : seeds) {
+  for (auto& potentialSeed: seeds) {
     if (!seed) {
       seed = &potentialSeed;
       continue;
@@ -182,6 +182,7 @@ SmallVector<Value, 4> TopDownAnalysis::nextSeed() const {
       seed = &potentialSeed;
     }
   }
+  assert(seed);
   return *seed;
 }
 

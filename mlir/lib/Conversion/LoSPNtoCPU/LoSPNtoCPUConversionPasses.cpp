@@ -29,6 +29,7 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::getDependentDialects(mlir::Di
 namespace {
   /// Prints liveness information for each function contained in the module, such as the total sum of live intervals
   /// and average live interval length.
+  // NOLINTNEXTLINE(clang-diagnostic-unused-function)
   void printFunctionLiveness(mlir::ModuleOp op) {
     op.walk([&](mlir::FuncOp function) {
       unsigned lifeTimeTotal = 0;

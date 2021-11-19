@@ -85,8 +85,7 @@ option(SPNC_RUN_CLANG_TIDY_LOCATION
 if (${CMAKE_EXPORT_COMPILE_COMMANDS})
     find_program(RUN_CLANG_TIDY_SCRIPT
             NAMES run-clang-tidy run-clang-tidy.py
-            HINTS ${SPNC_RUN_CLANG_TIDY_LOCATION}
-            /net/galadriel/llvm/llvm-latest/llvm-src/clang-tools-extra/clang-tidy/tool/)
+            HINTS ${SPNC_RUN_CLANG_TIDY_LOCATION})
     if (NOT RUN_CLANG_TIDY_SCRIPT)
         message(WARNING "run-clang-tidy not found, not generating clang-tidy wrapper script")
     else ()

@@ -291,12 +291,13 @@ void ConversionManager::cancelConversion() {
   }
   SmallPtrSet<Operation*, 32> erasableOps;
   // Every op that appears after the last 'original' op can be erased.
+  assert(lastOp);
   while (auto* trashOp = lastOp->getNextNode()) {
     erasableOps.insert(trashOp);
     lastOp = trashOp;
   }
   conversionState->cancelConversion();
-  for (auto* op : erasableOps) {
+  for (auto* op: erasableOps) {
     if (op->hasTrait<OpTrait::ConstantLike>()) {
       folder.notifyRemoval(op);
     }
