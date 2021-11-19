@@ -210,7 +210,8 @@ namespace mlir {
         // TODO: add FMA pattern?
 
         /// A convenience method that returns all defined vectorization patterns.
-        static SmallVector<std::unique_ptr<SLPVectorizationPattern>> allSLPVectorizationPatterns(ConversionManager& conversionManager) {
+        static inline SmallVector<std::unique_ptr<SLPVectorizationPattern>> allSLPVectorizationPatterns(
+            ConversionManager& conversionManager) {
           SmallVector<std::unique_ptr<SLPVectorizationPattern>> patterns;
           // === Op-agnostic patterns === //
           patterns.emplace_back(std::make_unique<BroadcastSuperword>(conversionManager));

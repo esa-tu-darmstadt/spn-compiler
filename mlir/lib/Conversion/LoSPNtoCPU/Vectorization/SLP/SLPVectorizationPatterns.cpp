@@ -42,7 +42,7 @@ namespace {
 
   /// Might be useful in the future.
   // NOLINTNEXTLINE(clang-diagnostic-unused-function)
-  Value castToFloatOrValue(Value value, FloatType targetType, RewriterBase& rewriter) {
+  [[maybe_unused]] Value castToFloatOrValue(Value value, FloatType targetType, RewriterBase& rewriter) {
     if (auto floatType = value.getType().dyn_cast<FloatType>()) {
       if (floatType.getWidth() < targetType.getWidth()) {
         return rewriter.create<FPExtOp>(value.getLoc(), value, targetType);

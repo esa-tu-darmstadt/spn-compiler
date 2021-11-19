@@ -30,7 +30,7 @@ namespace {
   /// Prints liveness information for each function contained in the module, such as the total sum of live intervals
   /// and average live interval length.
   // NOLINTNEXTLINE(clang-diagnostic-unused-function)
-  void printFunctionLiveness(mlir::ModuleOp op) {
+  [[maybe_unused]] void printFunctionLiveness(mlir::ModuleOp op) {
     op.walk([&](mlir::FuncOp function) {
       unsigned lifeTimeTotal = 0;
       llvm::SmallVector<double> livePercentages;
@@ -39,7 +39,7 @@ namespace {
       {
         unsigned opIndex = 0;
         for (auto& block: function.getBlocks()) {
-          for (auto& op : block) {
+          for (auto& op: block) {
             operations.emplace_back(&op);
             indexOf[&op] = opIndex++;
           }
