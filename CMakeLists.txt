@@ -35,6 +35,10 @@ endif (${CUDA_GPU_SUPPORT})
 
 set(SPNC_CXX_WARNING_LEVEL "-Wall")
 
+option(SPNC_SLP_DEBUG
+        "Enable additional debug output for the SLP vectorizer"
+        OFF)
+
 #
 # clang-tidy setup
 #

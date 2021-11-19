@@ -262,7 +262,9 @@ class BinaryDeserializer:
         """Deserialize all SPN graphs from the file. Returns a list of SPN graph root nodes."""
         with open(self.fileName, "rb") as inFile:
             # Read header message first
-            header = spflow_capnp.Header.read(inFile)
+            traversal_limit_in_words = (2**64) - 1 # default: 8*1024*1024 [words à (32|64) bit]
+            print("deserialization traversal limit in words:", traversal_limit_in_words)
+            header = spflow_capnp.Header.read(inFile, traversal_limit_in_words=traversal_limit_in_words)
             if header.which() == "query":
                 return self._deserialize_query(header.query)
             elif header.which() == "model":

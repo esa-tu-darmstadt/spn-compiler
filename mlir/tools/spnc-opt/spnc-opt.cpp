@@ -20,10 +20,6 @@
 #include "LoSPNtoGPU/LoSPNtoGPUPasses.h"
 #endif
 
-static llvm::cl::opt<bool> cpuVectorize("cpu-vectorize",
-                                        llvm::cl::desc("Vectorize code generated for CPU targets"),
-                                        llvm::cl::init(false));
-
 static llvm::cl::opt<bool> logSpace("use-log-space",
                                     llvm::cl::desc("Use log-space computation"),
                                     llvm::cl::init(false));
@@ -57,10 +53,10 @@ int main(int argc, char** argv) {
                        return mlir::spn::createHiSPNtoLoSPNNodeConversionPass(logSpace, optRepresentation);
                      });
 
-  mlir::registerPass("convert-lospn-structure-to-cpu", "Convert structure from LoSPN to CPU target",
-                     []() -> std::unique_ptr<mlir::Pass> {
-                       return mlir::spn::createLoSPNtoCPUStructureConversionPass(cpuVectorize);
-                     });
+  mlir::PassRegistration<mlir::spn::LoSPNtoCPUStructureConversionPass>(
+      "convert-lospn-structure-to-cpu",
+      "Convert structure from LoSPN to CPU target"
+  );
 
   mlir::registerPass("convert-lospn-nodes-to-cpu", "Convert nodes from LoSPN to CPU target",
                      []() -> std::unique_ptr<mlir::Pass> {

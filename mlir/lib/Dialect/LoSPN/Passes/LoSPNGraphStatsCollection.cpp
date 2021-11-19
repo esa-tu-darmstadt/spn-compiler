@@ -22,8 +22,8 @@ namespace {
 
   struct LoSPNGraphStatsCollection : public PassWrapper<LoSPNGraphStatsCollection, OperationPass<ModuleOp>> {
   public:
-    explicit LoSPNGraphStatsCollection(std::string graphStatsFilename) : 
-                                        graphStatsFile{std::move(graphStatsFilename)} {}
+    explicit LoSPNGraphStatsCollection(std::string graphStatsFilename) :
+        graphStatsFile{std::move(graphStatsFilename)} {}
 
   protected:
     void runOnOperation() override {

@@ -154,7 +154,6 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
       return rewriter.notifyMatchFailure(gpuFunc, "No memories eligible for transformation found");
     }
 
-
     rewriter.startRootUpdate(gpuFunc);
     auto loc = gpuFunc->getLoc();
     auto maxSharedMem = CUDATargetInformation::maxSharedMemoryPerBlock(loc);

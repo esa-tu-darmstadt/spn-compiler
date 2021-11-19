@@ -8,15 +8,13 @@
 
 #include <mlir/IR/BlockAndValueMapping.h>
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
-#include "../Target/TargetInformation.h"
+#include "LoSPNtoCPU/Vectorization/Util.h"
 #include "llvm/Support/FormatVariadic.h"
 #include <cmath>
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Math/IR/Math.h"
-#include "mlir/IR/BuiltinOps.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "LoSPN/LoSPNAttributes.h"
 
 //
@@ -61,20 +59,6 @@ namespace {
       auto constValue = rewriter.create<mlir::ConstantOp>(loc, constAttr);
       return constValue;
     }
-  }
-
-  mlir::Value extendTruncateOrGetVector(mlir::Value input,
-                                        mlir::VectorType targetVectorType,
-                                        mlir::ConversionPatternRewriter& rewriter) {
-    auto inputVectorType = input.getType().dyn_cast<mlir::VectorType>();
-    assert(inputVectorType && "cannot extend or truncate scalar type to vector type");
-    assert(targetVectorType.getElementType().isa<mlir::FloatType>() && "target element type must be float type");
-    if (inputVectorType.getElementTypeBitWidth() < targetVectorType.getElementTypeBitWidth()) {
-      return rewriter.create<mlir::FPExtOp>(input.getLoc(), input, targetVectorType);
-    } else if (inputVectorType.getElementTypeBitWidth() > targetVectorType.getElementTypeBitWidth()) {
-      return rewriter.create<mlir::FPTruncOp>(input.getLoc(), input, targetVectorType);
-    }
-    return input;
   }
 
 }
@@ -354,7 +338,7 @@ mlir::LogicalResult mlir::spn::VectorizeGaussian::matchAndRewrite(mlir::spn::low
   assert(featureType);
 
   auto targetVectorType = mlir::VectorType::get(vectorType.getShape(), floatResultType);
-  feature = extendTruncateOrGetVector(feature, targetVectorType, rewriter);
+  feature = util::extendTruncateOrGetVector(feature, targetVectorType, rewriter);
 
   // Calculate Gaussian distribution using e^(-(x - mean)^2/2*variance))/sqrt(2*PI*variance)
   // Variance from standard deviation.
@@ -422,7 +406,7 @@ mlir::LogicalResult mlir::spn::VectorizeLogGaussian::matchAndRewrite(mlir::spn::
   assert(featureType);
 
   auto targetVectorType = mlir::VectorType::get(vectorType.getShape(), floatResultType);
-  feature = extendTruncateOrGetVector(feature, targetVectorType, rewriter);
+  feature = util::extendTruncateOrGetVector(feature, targetVectorType, rewriter);
 
   // Calculate Gaussian distribution using the logarithm of the PDF of the Normal (Gaussian) distribution,
   // given as '-ln(stddev) - 1/2 ln(2*pi) - (x - mean)^2 / 2*stddev^2'

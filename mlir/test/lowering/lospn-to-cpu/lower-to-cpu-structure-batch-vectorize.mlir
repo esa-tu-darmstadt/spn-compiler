@@ -1,4 +1,4 @@
-// RUN: %optcall --convert-lospn-structure-to-cpu --cpu-vectorize %s | FileCheck %s
+// RUN: %optcall -pass-pipeline="convert-lospn-structure-to-cpu{cpu-vectorize=true}" %s | FileCheck %s
 
 module  {
   "lo_spn.kernel"() ( {

@@ -14,6 +14,17 @@ add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
         Vectorization/VectorizeStructurePatterns.cpp
         Vectorization/VectorizeNodePatterns.cpp
         Vectorization/ReplaceGatherWithShuffle.cpp
+        Vectorization/Util.cpp
+        Vectorization/SLP/CostModel.cpp
+        Vectorization/SLP/GraphConversion.cpp
+        Vectorization/SLP/PatternVisitors.cpp
+        Vectorization/SLP/ScoreModel.cpp
+        Vectorization/SLP/Seeding.cpp
+        Vectorization/SLP/SLPGraph.cpp
+        Vectorization/SLP/SLPGraphBuilder.cpp
+        Vectorization/SLP/SLPPatternMatch.cpp
+        Vectorization/SLP/SLPVectorizationPatterns.cpp
+        Vectorization/SLP/Util.cpp
         LoSPNtoCPUConversionPasses.cpp
 
         ADDITIONAL_HEADER_DIRS
@@ -34,3 +45,8 @@ add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
 
 target_link_libraries(MLIRLoSPNtoCPUTransforms PRIVATE cpu_targetinfo)
 
+if (${SPNC_SLP_DEBUG})
+    # Usually, target_compile_definitions should be preferred over the following command,
+    # but LLVM libraries seem to not accept that.
+    add_compile_definitions(SLP_DEBUG=true)
+endif (${SPNC_SLP_DEBUG})
