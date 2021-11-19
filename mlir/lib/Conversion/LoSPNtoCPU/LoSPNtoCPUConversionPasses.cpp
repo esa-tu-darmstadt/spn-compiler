@@ -25,6 +25,53 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::getDependentDialects(mlir::Di
   registry.insert<mlir::math::MathDialect>();
 }
 
+// Helper functions in anonymous namespace.
+namespace {
+  /// Prints liveness information for each function contained in the module, such as the total sum of live intervals
+  /// and average live interval length.
+  void printFunctionLiveness(mlir::ModuleOp op) {
+    op.walk([&](mlir::FuncOp function) {
+      unsigned lifeTimeTotal = 0;
+      llvm::SmallVector<double> livePercentages;
+      llvm::SmallVector<mlir::Operation*> operations;
+      llvm::DenseMap<mlir::Operation*, size_t> indexOf;
+      {
+        unsigned opIndex = 0;
+        for (auto& block: function.getBlocks()) {
+          for (auto& op : block) {
+            operations.emplace_back(&op);
+            indexOf[&op] = opIndex++;
+          }
+        }
+      }
+      for (size_t i = 0; i < operations.size(); ++i) {
+        auto opIndex = indexOf[operations[i]];
+        size_t lastUserIndex = opIndex;
+        for (auto* user : operations[i]->getUsers()) {
+          lastUserIndex = std::max(lastUserIndex, indexOf[user]);
+        }
+        auto isLiveFor = lastUserIndex - opIndex;
+        livePercentages.emplace_back(static_cast<double>(isLiveFor) / static_cast<double>(operations.size()));
+        lifeTimeTotal += isLiveFor;
+      }
+      double normalizedTotal = static_cast<double>(lifeTimeTotal) / static_cast<double>(operations.size());
+      llvm::outs() << "lifetime total in function (" << function.getName() << "): " << normalizedTotal << "\n";
+      double liveForAverage = 0;
+      for (auto livePercentage : livePercentages) {
+        liveForAverage += livePercentage;
+      }
+      liveForAverage /= indexOf.size();
+      llvm::outs() << "lifetime average % in function (" << function.getName() << "): " << liveForAverage * 100 << "\n";
+      double liveForStdDev = 0;
+      for (auto livePercentage : livePercentages) {
+        liveForStdDev += pow(livePercentage - liveForAverage, 2);
+      }
+      liveForStdDev = sqrt(liveForStdDev) / static_cast<double>(operations.size());
+      llvm::outs() << "lifetime stddev in function (" << function.getName() << "): " << liveForStdDev * 100 << "\n";
+    });
+  }
+}
+
 void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   ConversionTarget target(getContext());
 
@@ -98,45 +145,7 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
 #endif
 #define DO_LIVENESS_ANALYSIS true
 #if DO_LIVENESS_ANALYSIS
-  getOperation().walk([&](FuncOp function) {
-    unsigned lifeTimeTotal = 0;
-    SmallVector<double> livePercentages;
-    SmallVector<Operation*> operations;
-    DenseMap<Operation*, size_t> indexOf;
-    {
-      unsigned opIndex = 0;
-      for (auto& block: function.getBlocks()) {
-        for (auto& op : block) {
-          operations.emplace_back(&op);
-          indexOf[&op] = opIndex++;
-        }
-      }
-    }
-    for (size_t i = 0; i < operations.size(); ++i) {
-      auto opIndex = indexOf[operations[i]];
-      size_t lastUserIndex = opIndex;
-      for (auto* user : operations[i]->getUsers()) {
-        lastUserIndex = std::max(lastUserIndex, indexOf[user]);
-      }
-      auto isLiveFor = lastUserIndex - opIndex;
-      livePercentages.emplace_back(static_cast<double>(isLiveFor) / static_cast<double>(operations.size()));
-      lifeTimeTotal += isLiveFor;
-    }
-    double normalizedTotal = static_cast<double>(lifeTimeTotal) / static_cast<double>(operations.size());
-    llvm::outs() << "lifetime total in function (" << function.getName() << "): " << normalizedTotal << "\n";
-    double liveForAverage = 0;
-    for (auto livePercentage : livePercentages) {
-      liveForAverage += livePercentage;
-    }
-    liveForAverage /= indexOf.size();
-    llvm::outs() << "lifetime average % in function (" << function.getName() << "): " << liveForAverage * 100 << "\n";
-    double liveForStdDev = 0;
-    for (auto livePercentage : livePercentages) {
-      liveForStdDev += pow(livePercentage - liveForAverage, 2);
-    }
-    liveForStdDev = sqrt(liveForStdDev) / static_cast<double>(operations.size());
-    llvm::outs() << "lifetime stddev in function (" << function.getName() << "): " << liveForStdDev * 100 << "\n";
-  });
+  printFunctionLiveness(getOperation());
 #endif
 
   // Useful for when we are only interested in some intermediate stats and not the compiled kernel. This reduces time
