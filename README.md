@@ -11,8 +11,8 @@ Starting with release 0.0.4, **SPNC** is mostly implemented in `C++` and uses
 the [LLVM compiler framework](https://llvm.org/)
 and [MLIR](https://mlir.llvm.org) for code generation for the different targets.
 
-Currently supported targets are CPUs (all architectures supported by LLVM, vectorization currently limited to X86) and
-CUDA GPUs.
+Currently supported targets are CPUs (all architectures supported by LLVM, vectorization currently limited to X86 (AVX,
+AVX2, AVX-512) and ARM Neon) and CUDA GPUs.
 
 
 ### Installation ###
@@ -141,3 +141,12 @@ The Installation Manual also contains a section on a
 
 SPNC is licensed under the **Apache License v2.0**, see the *LICENSE* file that was distributed with this source code
 for more information.
+
+### Citation ###
+
+If you use SPNC for your research, please cite the following publication:
+
+Lukas Sommer, Cristian Axenie, Andreas Koch (2022).
+**SPNC: An Open-Source MLIR-Based Compiler for Fast Sum-Product Network Inference on CPUs and GPUs**. In *2022 IEEE/ACM
+International Symposium on Code Generation and Optimization (CGO).*
+[Preprint](https://www.esa.informatik.tu-darmstadt.de/assets/publications/materials/2022/2022_CGO_LS.pdf).
