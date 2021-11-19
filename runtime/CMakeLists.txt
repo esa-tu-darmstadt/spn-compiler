@@ -33,6 +33,10 @@ endif (${CPU_PARALLEL_RUNTIME})
 
 target_compile_options(spnc-rt PRIVATE ${SPNC_CXX_WARNING_LEVEL})
 
+if (${SPNC_SLP_DEBUG})
+    target_compile_definitions(spnc-rt PRIVATE SLP_DEBUG=true)
+endif (${SPNC_SLP_DEBUG})
+
 doxygen_doc(TARGET_NAME spnc-rt
         SRC_DIRECTORIES
         ${CMAKE_CURRENT_SOURCE_DIR}/include

@@ -93,7 +93,11 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   spn::populateLoSPNtoCPUStructurePatterns(patterns, &getContext(), typeConverter);
   FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 
-#define PRINT_OP_COUNTS true
+#ifndef SLP_DEBUG
+  #define SLP_DEBUG false
+#endif
+
+#define PRINT_OP_COUNTS SLP_DEBUG
 #if PRINT_OP_COUNTS
   llvm::StringMap<unsigned> opCounts;
   getOperation()->walk([&](Operation* op) {
@@ -143,14 +147,14 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
     llvm::outs() << "op count post conversion: \"" << entry.first() << "\": " << entry.second << "\n";
   }
 #endif
-#define DO_LIVENESS_ANALYSIS true
+#define DO_LIVENESS_ANALYSIS SLP_DEBUG
 #if DO_LIVENESS_ANALYSIS
   printFunctionLiveness(getOperation());
 #endif
 
   // Useful for when we are only interested in some intermediate stats and not the compiled kernel. This reduces time
   // spent in subsequent passes practically to zero.
-#define DELETE_OPS false
+#define DELETE_OPS SLP_DEBUG && false
 #if DELETE_OPS
   getOperation().walk([&](FuncOp function) {
     function.back().getTerminator()->moveBefore(&function.front().front());

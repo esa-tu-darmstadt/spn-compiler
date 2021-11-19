@@ -55,9 +55,11 @@ void Executable::execute(size_t num_elements, void* inputs, void* outputs) {
 
 }
 // =======================================================================================================//
-#define PRINT_EXECUTION_TIME true
+#ifndef SLP_DEBUG
+  #define SLP_DEBUG false
+#endif
 // =======================================================================================================//
-#if PRINT_EXECUTION_TIME
+#if SLP_DEBUG
 namespace {
   typedef std::chrono::high_resolution_clock::time_point TimePoint;
 }
@@ -67,11 +69,11 @@ void Executable::executeSingle(size_t num_samples, void* inputs, void* outputs) 
     SPDLOG_WARN("Executing a kernel optimized for single evaluation, computing only the first sample!");
   }
   assert(kernel_func);
-#if PRINT_EXECUTION_TIME
+#if SLP_DEBUG
   TimePoint start = std::chrono::high_resolution_clock::now();
 #endif
   kernel_func(inputs, inputs, 0, 1, kernel->numFeatures(), 1, 1, outputs, outputs, 0, 1, 1, 1, 1);
-#if PRINT_EXECUTION_TIME
+#if SLP_DEBUG
   TimePoint end = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
   std::cout << "EXECUTION TIME: " << duration.count() << " ns" << std::endl;

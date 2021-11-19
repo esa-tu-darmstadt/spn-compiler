@@ -105,21 +105,25 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
                      << ", topological mixing allowed: " << allowTopologicalMixing
                      << ", use XOR chains: " << useXorChains << ").";
 
-// Print the number of loSPN ops in the entire function
-#define PRINT_SIZE true
-// Count how often each opcode appears in the entire function and print it.
-#define PRINT_OP_STATS false
-// Print how much of the original function has been covered by all SLP graphs combined
-#define PRINT_SLP_COVER true
-#define PRINT_SLP_GRAPH_SIZE true
-#define PRINT_SLP_GRAPH_NODE_SIZES false
-#define PRINT_SUCCESSFUL_ITERATION_COUNT true
+#ifndef SLP_DEBUG
+  #define SLP_DEBUG false
+#endif
 
-#define DEPENDENCY_ANALYSIS false
-#define COST_MODEL_ANALYSIS false
+// Print the number of loSPN ops in the entire function
+#define PRINT_SIZE SLP_DEBUG
+// Count how often each opcode appears in the entire function and print it.
+#define PRINT_OP_STATS SLP_DEBUG && false
+// Print how much of the original function has been covered by all SLP graphs combined
+#define PRINT_SLP_COVER SLP_DEBUG
+#define PRINT_SLP_GRAPH_SIZE SLP_DEBUG
+#define PRINT_SLP_GRAPH_NODE_SIZES SLP_DEBUG && false
+#define PRINT_SUCCESSFUL_ITERATION_COUNT SLP_DEBUG
+
+#define DEPENDENCY_ANALYSIS SLP_DEBUG && false
+#define COST_MODEL_ANALYSIS SLP_DEBUG && false
 
 // Prints how much time each step took (seeding, graph building, pattern matching, ...)
-#define PRINT_TIMINGS true
+#define PRINT_TIMINGS SLP_DEBUG
 #define TOP_DOWN_SEEDING true
 
 #if PRINT_SIZE

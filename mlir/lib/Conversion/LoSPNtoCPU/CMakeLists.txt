@@ -45,3 +45,8 @@ add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
 
 target_link_libraries(MLIRLoSPNtoCPUTransforms PRIVATE cpu_targetinfo)
 
+if (${SPNC_SLP_DEBUG})
+    # Usually, target_compile_definitions should be preferred over the following command,
+    # but LLVM libraries seem to not accept that.
+    add_compile_definitions(SLP_DEBUG=true)
+endif (${SPNC_SLP_DEBUG})
