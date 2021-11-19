@@ -26,26 +26,4 @@ macro(cuda_setup)
         message(STATUS "Using CUDA runtime library: " ${CUDA_RUNTIME_LIBRARY})
     endif ()
 
-    # When compiling for CUDA GPUs, the generated Kernel must be linked with the
-    # MLIR CUDA runtime wrappers for data-transfer, kernel-launch etc.
-    # When building static libraries, we want to create a complete Python package, and
-    # include the MLIR CUDA wrapper library, which the compiled kernels for the GPU target need
-    # in the Python wheel.
-    find_library(MLIR_CUDA_WRAPPERS cuda-runtime-wrappers HINTS ${LLVM_BUILD_LIBRARY_DIR})
-    if (NOT MLIR_CUDA_WRAPPERS)
-        message(FATAL_ERROR "MLIR CUDA wrappers not found.")
-    else ()
-        # Resolve symbolic link if necessary.
-        if(IS_SYMLINK ${MLIR_CUDA_WRAPPERS})
-            file(READ_SYMLINK ${MLIR_CUDA_WRAPPERS} MLIR_CUDA_SYM)
-            if(NOT IS_ABSOLUTE "${MLIR_CUDA_SYM}")
-                get_filename_component(dir "${MLIR_CUDA_WRAPPERS}" DIRECTORY)
-                set(MLIR_CUDA_WRAPPERS "${dir}/${MLIR_CUDA_SYM}")
-            else()
-                set(MLIR_CUDA_WRAPPERS "${MLIR_CUDA_SYM}")
-            endif()
-        endif()
-        message(STATUS "Using MLIR CUDA wrappers: ${MLIR_CUDA_WRAPPERS}")
-    endif()
-
 endmacro(cuda_setup)

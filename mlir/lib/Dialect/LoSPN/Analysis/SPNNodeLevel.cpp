@@ -11,7 +11,7 @@
 using namespace mlir::spn;
 using namespace mlir::spn::low;
 
-mlir::spn::SPNNodeLevel::SPNNodeLevel(Operation* root, int rootLevel) : rootNode{root}, rootNodeLevel{rootLevel} {
+SPNNodeLevel::SPNNodeLevel(Operation* root, int rootLevel) : rootNode{root}, rootNodeLevel{rootLevel} {
   assert(root);
   analyzeGraph(root);
 }

@@ -8,7 +8,8 @@
 
 #include "LoSPNtoCPU/NodePatterns.h"
 #include <cmath>
-#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/SCF/SCF.h"
 #include "LoSPN/LoSPNAttributes.h"
 
 mlir::LogicalResult mlir::spn::BatchReadLowering::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
@@ -21,9 +22,21 @@ mlir::LogicalResult mlir::spn::BatchReadLowering::matchAndRewrite(mlir::spn::low
   // using the batchIndex and the constant sample index.
   assert(operands.size() == 2 && "Expecting two operands for BatchRead");
   assert(operands[0].getType().isa<MemRefType>());
+  auto memRefType = operands[0].getType().cast<MemRefType>();
+  assert(memRefType.hasRank() && memRefType.getRank() == 2);
   assert(operands[1].getType().isa<IndexType>());
-  auto constSampleIndex = rewriter.create<ConstantOp>(op->getLoc(), rewriter.getIndexAttr(op.sampleIndex()));
-  rewriter.replaceOpWithNewOp<LoadOp>(op, operands[0], ValueRange{operands[1], constSampleIndex});
+  SmallVector<Value> indices;
+  auto constStaticIndex = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(op.staticIndex()));
+  if (op.transposed().hasValue() && op.transposed().getValue()) {
+    // Transposed access is memref[staticIndex][dynamicIndex]
+    indices.push_back(constStaticIndex);
+    indices.push_back(operands[1]);
+  } else {
+    // Non-transposed access is memref[dynamicIndex][staticIndex]
+    indices.push_back(operands[1]);
+    indices.push_back(constStaticIndex);
+  }
+  rewriter.replaceOpWithNewOp<memref::LoadOp>(op, operands[0], indices);
   return success();
 }
 
@@ -33,14 +46,29 @@ mlir::LogicalResult mlir::spn::BatchWriteLowering::matchAndRewrite(mlir::spn::lo
   if (op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
   }
-  // Replace the BatchWrite with a store to the input memref,
+  assert(operands.size() == op.resultValues().size() + 2 && "Expecting correct number of operands for BatchWrite");
+  // Replace the BatchWrite with stores to the input memref,
   // using the batchIndex.
-  assert(operands.size() == 3 && "Expecting three operands for BatchWrite");
-  assert(operands[1].getType().isa<MemRefType>());
-  assert(operands[1].getType().dyn_cast<MemRefType>().getElementType() == operands[0].getType()
-             && "Result type and element type of MemRef must match");
-  assert(operands[2].getType().isa<IndexType>());
-  rewriter.replaceOpWithNewOp<StoreOp>(op, operands[0], operands[1], operands[2]);
+  auto memRef = operands[0];
+  auto memRefType = memRef.getType().dyn_cast<MemRefType>();
+  assert(memRefType);
+  assert(memRefType.hasRank() && memRefType.getRank() == 2);
+  auto dynIndex = operands[1];
+  assert(dynIndex.getType().isa<IndexType>());
+  bool transposed = op.transposed().getValueOr(false);
+  for (unsigned i = 0; i < op.resultValues().size(); ++i) {
+    SmallVector<Value, 2> indices;
+    auto constStaticIndex = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(i));
+    if (transposed) {
+      indices.push_back(constStaticIndex);
+      indices.push_back(dynIndex);
+    } else {
+      indices.push_back(dynIndex);
+      indices.push_back(constStaticIndex);
+    }
+    rewriter.create<memref::StoreOp>(op.getLoc(), operands[i + 2], memRef, indices);
+  }
+  rewriter.eraseOp(op);
   return success();
 }
 
@@ -50,7 +78,41 @@ mlir::LogicalResult mlir::spn::CopyLowering::matchAndRewrite(mlir::spn::low::SPN
   assert(operands.size() == 2 && "Expecting two operands for Copy");
   assert(operands[0].getType().isa<MemRefType>());
   assert(operands[1].getType().isa<MemRefType>());
-  rewriter.replaceOpWithNewOp<linalg::CopyOp>(op, operands[0], operands[1]);
+  auto srcType = op.source().getType().cast<MemRefType>();
+  auto tgtType = op.target().getType().cast<MemRefType>();
+  assert(srcType.hasRank());
+  assert(tgtType.hasRank());
+  if (srcType.getRank() != tgtType.getRank() || srcType.getRank() != 2) {
+    return rewriter.notifyMatchFailure(op, "Expecting two dimensional memories");
+  }
+  if (srcType.getShape() != tgtType.getShape()) {
+    return rewriter.notifyMatchFailure(op, "Shape of both arguments must match");
+  }
+  assert(srcType.isDynamicDim(0) ^ srcType.isDynamicDim(1));
+  auto transposed = srcType.isDynamicDim(1);
+  auto dynIdx = (!transposed) ? 0 : 1;
+  auto staticIdx = (!transposed) ? 1 : 0;
+  auto staticDim = srcType.getDimSize(staticIdx);
+  assert(staticDim > 0);
+  auto dim1 = rewriter.create<memref::DimOp>(op.getLoc(), op.source(), dynIdx);
+  auto lb = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
+  auto step = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
+  auto outer = rewriter.create<scf::ForOp>(op.getLoc(), lb, dim1, step);
+  rewriter.setInsertionPointToStart(&outer.getLoopBody().front());
+  for (int i = 0; i < staticDim; ++i) {
+    SmallVector<Value, 2> indices;
+    auto constIdx = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(i));
+    if (transposed) {
+      indices.push_back(constIdx);
+      indices.push_back(outer.getInductionVar());
+    } else {
+      indices.push_back(outer.getInductionVar());
+      indices.push_back(constIdx);
+    }
+    auto load = rewriter.create<memref::LoadOp>(op.getLoc(), op.source(), indices);
+    (void) rewriter.create<memref::StoreOp>(op.getLoc(), load, op.target(), indices);
+  }
+  rewriter.eraseOp(op);
   return success();
 }
 
@@ -172,11 +234,7 @@ mlir::LogicalResult mlir::spn::AddLogLowering::matchAndRewrite(mlir::spn::low::S
   auto b = rewriter.create<SelectOp>(op->getLoc(), compare, operands[1], operands[0]);
   auto sub = rewriter.create<SubFOp>(op->getLoc(), b, a);
   auto exp = rewriter.create<math::ExpOp>(op.getLoc(), sub);
-  // TODO Currently, lowering of log1p to LLVM is not supported,
-  // therefore we perform the computation manually here.
-  auto constantOne = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getFloatAttr(operands[0].getType(), 1.0));
-  auto onePlus = rewriter.create<AddFOp>(op->getLoc(), constantOne, exp);
-  auto log = rewriter.create<math::LogOp>(op.getLoc(), onePlus);
+  auto log = rewriter.create<math::Log1pOp>(op.getLoc(), exp);
   rewriter.replaceOpWithNewOp<AddFOp>(op, a, log);
   return success();
 }
@@ -341,13 +399,13 @@ namespace {
     auto symbolName = tablePrefix + std::to_string(tableCount++);
     auto visibility = rewriter.getStringAttr("private");
     auto memrefType = mlir::MemRefType::get({(long) arrayValues.size()}, resultType);
-    (void) rewriter.create<mlir::GlobalMemrefOp>(op.getLoc(), symbolName, visibility,
-                                                              mlir::TypeAttr::get(memrefType), valArrayAttr, true);
+    (void) rewriter.create<mlir::memref::GlobalOp>(op.getLoc(), symbolName, visibility,
+                                                   memrefType, valArrayAttr, true);
     // Restore insertion point
     rewriter.restoreInsertionPoint(restore);
 
     // Use GetGlobalMemref operation to access the global created above.
-    auto addressOf = rewriter.template create<mlir::GetGlobalMemrefOp>(op.getLoc(), memrefType, symbolName);
+    auto addressOf = rewriter.template create<mlir::memref::GetGlobalOp>(op.getLoc(), memrefType, symbolName);
     // Convert input value from float to integer if necessary.
     mlir::Value index = indexOperand;
     if (!index.getType().isIntOrIndex()) {
@@ -363,7 +421,7 @@ namespace {
     }
     // Replace the source operation with a load from the global memref,
     // using the source operation's input value as index.
-    mlir::Value leaf = rewriter.template create<mlir::LoadOp>(op.getLoc(), addressOf, mlir::ValueRange{index});
+    mlir::Value leaf = rewriter.template create<mlir::memref::LoadOp>(op.getLoc(), addressOf, mlir::ValueRange{index});
     if (op.supportMarginal()) {
       assert(indexOperand.getType().template isa<mlir::FloatType>());
       auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), mlir::CmpFPredicate::UNO,
@@ -518,6 +576,18 @@ mlir::LogicalResult mlir::spn::ResolveStripLog::matchAndRewrite(mlir::spn::low::
   if (operands[0].getType() != op.target()) {
     return rewriter.notifyMatchFailure(op, "Could not resolve StripLog trivially");
   }
+  rewriter.replaceOp(op, operands[0]);
+  return success();
+}
+
+mlir::LogicalResult mlir::spn::ResolveConvertLog::matchAndRewrite(mlir::spn::low::SPNConvertLog op,
+                                                                  llvm::ArrayRef<mlir::Value> operands,
+                                                                  mlir::ConversionPatternRewriter& rewriter) const {
+  assert(operands.size() == 1);
+  auto baseType = typeConverter->convertType(op.getResult().getType());
+  assert(operands[0].getType() == baseType);
+  // Simply replace the conversion by its input operand. All users of the conversion should be
+  // converted subsequently.
   rewriter.replaceOp(op, operands[0]);
   return success();
 }

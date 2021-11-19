@@ -14,6 +14,26 @@ include "mlir/Pass/PassBase.td"
 def LoSPNBufferize : Pass<"lospn-bufferize", "ModuleOp"> {
   let summary = "Bufferize LoSPN operations";
   let constructor = "mlir::spn::low::createLoSPNBufferizePass()";
+  let dependentDialects = ["memref::MemRefDialect", "StandardOpsDialect"];
+}
+
+def LoSPNCopyRemoval : Pass<"lospn-copy-removal", "SPNKernel"> {
+  let summary = "Remove unnecessary copy operations in the LoSPN dialect";
+  let constructor = "mlir::spn::low::createLoSPNCopyRemovalPass()";
+  let dependentDialects = ["memref::MemRefDialect", "StandardOpsDialect", "scf::SCFDialect"];
+}
+
+def LoSPNTaskPartioning : Pass<"lospn-task-partitioning", "SPNKernel"> {
+  let summary = "Partition LoSPN tasks into multiple tasks";
+  let constructor = "mlir::spn::low::createLoSPNPartitionerPass()";
+  let options = [
+    Option<"maxTaskSize", "max-task-size", "int", "-1", "Determine the maximum number of operations per task">,
+  ];
+}
+
+def ReplaceARMOptimizedRoutines : Pass<"replace-arm-optimized-routines", "ModuleOp"> {
+  let summary = "Replace elementary functions with calls to ARM optimized routines";
+  let constructor = "mlir::spn::low::createReplaceARMOptimizedRoutinesPass()";
 }
 
 #endif // MLIR_DIALECT_LoSPN_PASSES

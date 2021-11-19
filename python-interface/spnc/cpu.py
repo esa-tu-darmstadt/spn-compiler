@@ -26,13 +26,15 @@ class CPUCompiler:
     vectorize: bool
         Perform vectorization if possible.
     vectorLibrary : str
-        Use vector library for optimized math functions, possible values "LIBMVEC", "SVML" and "None".
+        Use vector library for optimized math functions, possible values "ARM", "LIBMVEC", "SVML", "Default" and "None".
     computeInLogSpace : bool
         Perform computations in log-space.
     useVectorShuffle : bool
         Use vector shuffles instead of gather loads when vectorizing.
     verbose : bool
         Verbose output.
+    otherOptions : dict
+        Additional options to pass to the compiler.
 
     Methods
     -------
@@ -53,28 +55,35 @@ class CPUCompiler:
     
     """
 
-    def __init__(self, vectorize = True, vectorLibrary = "LIBMVEC", computeInLogSpace = True, 
-                useVectorShuffle = True, verbose = False):
+    def __init__(self, vectorize=True, vectorLibrary="Default", computeInLogSpace=True,
+                 useVectorShuffle=True, verbose=False, **kwargs):
         """
         Parameters
         ----------
         vectorize: bool, optional
             Perform vectorization if possible.
         vectorLibrary : str, optional
-            Use vector library for optimized math functions, possible values "LIBMVEC", "SVML" and "None".
+            Use vector library for optimized math functions, possible values "ARM",
+            "LIBMVEC", "SVML", "Default" and "None".
         computeInLogSpace : bool, optional
             Perform computations in log-space.
         useVectorShuffle : bool, optional
             Use vector shuffles instead of gather loads when vectorizing.
         verbose : bool, optional
             Verbose output.
+        kwargs :
+            Additional options to pass to the compiler.
         """
-        
+
         self.verbose = verbose
         self.vectorize = vectorize
-        self.vectorLibrary = vectorLibrary
+        if vectorLibrary == "Default":
+            self.vectorLibrary = CPUCompiler.getDefaultVectorLibrary()
+        else:
+            self.vectorLibrary = vectorLibrary
         self.computeInLogSpace = computeInLogSpace
         self.useVectorShuffle = useVectorShuffle
+        self.otherOptions = kwargs
 
 
     def compile_ll(self, spn, inputDataType = "float64", errorModel = ErrorModel(), 
@@ -112,13 +121,23 @@ class CPUCompiler:
             raise RuntimeError("Serialization of the SPN failed")
 
         # Compile the query into a Kernel.
-        options = dict({"target" : "CPU", 
-                        "cpu-vectorize" : convertToFlag(self.vectorize),
-                        "vector-library" : self.vectorLibrary,
-                        "use-shuffle" : convertToFlag(self.useVectorShuffle),
-                        "use-log-space" : convertToFlag(self.computeInLogSpace),
-                        "dump-ir" : convertToFlag(self.verbose)
+        options = dict({"target": "CPU",
+                        "cpu-vectorize": convertToFlag(self.vectorize),
+                        "vector-library": self.vectorLibrary,
+                        "use-shuffle": convertToFlag(self.useVectorShuffle),
+                        "use-log-space": convertToFlag(self.computeInLogSpace),
+                        "dump-ir": convertToFlag(self.verbose)
                         })
+
+        # Add the extra options, if they do not clash with an existing option.
+        if self.otherOptions is not None:
+            extraOptions = [(str(k), str(v)) for k, v in self.otherOptions.items()]
+            for k, v in extraOptions:
+                if k in options and options[k] != v:
+                    print(f"WARNING: Option {k} specified twice, ignoring option value {v}")
+                else:
+                    options[k] = v
+
         if self.verbose:
             print(f"Invoking compiler with options: {options}")
 
@@ -175,15 +194,25 @@ class CPUCompiler:
 
         dataType = inputs.dtype
 
-        kernel = self.compile_ll(spn, str(dataType), errorModel = errorModel, 
-                            batchSize = batchSize, supportMarginal = supportMarginal, 
-                            name = "spn_cpu")
+        kernel = self.compile_ll(spn, str(dataType), errorModel = errorModel,
+                                 batchSize = batchSize, supportMarginal = supportMarginal,
+                                 name="spn_cpu")
         results = self.execute(kernel, inputs)
         os.remove(kernel.fileName())
         return results
 
     @staticmethod
     def isVectorizationSupported():
-        """Query the compiler for vectoriztation support on the host CPU"""
+        """Query the compiler for vectorization support on the host CPU"""
 
         return spncpy.SPNCompiler.isFeatureAvailable("vectorize")
+
+    @staticmethod
+    def getDefaultVectorLibrary():
+        hostArch = spncpy.SPNCompiler.getHostArchitecture()
+        if hostArch == "aarch64":
+            return "ARM"
+        elif hostArch == "x86_64":
+            return "LIBMVEC"
+        else:
+            return "None"

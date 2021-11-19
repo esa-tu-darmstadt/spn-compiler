@@ -9,12 +9,14 @@
 #include "LoSPNBufferizationPatterns.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 
 mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::low::SPNTask op,
                                                                    llvm::ArrayRef<mlir::Value> operands,
                                                                    mlir::ConversionPatternRewriter& rewriter) const {
   assert(!operands.empty() && "Expecting at least one input to a task");
-  assert(operands[0].getType().isa<MemRefType>());
+  auto inputMemRefTy = operands[0].getType().dyn_cast<MemRefType>();
+  assert(inputMemRefTy);
   // All inputs to this Task will also become inputs to the newly create task.
   SmallVector<Value, 10> inputs;
   for (auto operand : operands) {
@@ -24,7 +26,10 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
   // to the actual number of samples in the batch.
   // This value will be used for the allocation for the results of this task and
   // assumes that all inputs/outputs use the same number of samples.
-  auto batchDim = rewriter.create<mlir::DimOp>(op.getLoc(), operands[0], 0);
+  assert(inputMemRefTy.hasRank() && inputMemRefTy.getRank() == 2);
+  assert(inputMemRefTy.isDynamicDim(0) ^ inputMemRefTy.isDynamicDim(1));
+  auto index = (inputMemRefTy.isDynamicDim(0)) ? 0 : 1;
+  auto batchDim = rewriter.create<mlir::memref::DimOp>(op.getLoc(), operands[0], index);
   SmallVector<Value, 1> dynSizes;
   dynSizes.push_back(batchDim);
   // Create a MemRef via allocation for each result. Instead of returning a Tensor, the task
@@ -34,8 +39,8 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
   for (auto r : op->getResults()) {
     assert(r.getType().isa<TensorType>());
     auto memRefType = typeConverter->convertType(r.getType());
-    auto alloc = rewriter.create<mlir::AllocOp>(op.getLoc(), memRefType,
-                                                dynSizes, ValueRange{}, IntegerAttr());
+    auto alloc = rewriter.create<mlir::memref::AllocOp>(op.getLoc(), memRefType,
+                                                        dynSizes, ValueRange{}, IntegerAttr());
     inputs.push_back(alloc);
     allocations.push_back(alloc);
   }
@@ -63,21 +68,18 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
   // (assumes a 1:1 mapping between scalar operand of SPNBatchCollect and Tensor result).
   // Insert a SPNReturn (with no return values) as new terminator for the new task.
   rewriter.setInsertionPoint(newTaskBlock->getTerminator());
-  newTaskBlock->walk([&](low::SPNBatchCollect collect) {
-    SmallVector<Value, 2> scalarReturnValues;
-    for (auto retVal : llvm::zip(collect.resultValues(), collect.tensors(), outArgs)) {
-      Value scalarResult = std::get<0>(retVal);
-      auto convertedType = typeConverter->convertType(std::get<1>(retVal).getType());
-      auto memRef = std::get<2>(retVal);
-      assert(convertedType == memRef.getType());
-      rewriter.create<low::SPNBatchWrite>(collect.getLoc(), scalarResult, memRef, batchIndex);
-    }
-    rewriter.eraseOp(collect);
-  });
-  // Erase the old return and replace it with an empty return,
-  // as all results are now 'returned' via write to the out-args.
   auto ret = dyn_cast<SPNReturn>(newTaskBlock->getTerminator());
   assert(ret);
+  for (auto collectArg : llvm::zip(ret.returnValues(), outArgs)) {
+    auto collect = dyn_cast<SPNBatchCollect>(std::get<0>(collectArg).getDefiningOp());
+    assert(collect);
+    auto outArg = std::get<1>(collectArg);
+    rewriter.create<low::SPNBatchWrite>(collect.getLoc(), outArg, batchIndex, collect.resultValues(),
+                                        collect.transposedAttr());
+    rewriter.eraseOp(collect);
+  }
+  // Erase the old return and replace it with an empty return,
+  // as all results are now 'returned' via write to the out-args.
   rewriter.eraseOp(ret);
   rewriter.create<low::SPNReturn>(op->getLoc(), ValueRange{});
   // The results computed by the new task are stored in the allocated MemRefs,
@@ -91,8 +93,8 @@ mlir::LogicalResult mlir::spn::low::BatchExtractBufferize::matchAndRewrite(mlir:
                                                                            mlir::ConversionPatternRewriter& rewriter) const {
   assert(operands[0].getType().isa<MemRefType>());
   assert(operands[1].getType().isa<IndexType>());
-  rewriter.replaceOpWithNewOp<low::SPNBatchRead>(op, op.getType(), operands[0],
-                                                 operands[1], op.sampleIndex());
+  rewriter.replaceOpWithNewOp<low::SPNBatchRead>(op, operands[0], operands[1],
+                                                 op.staticIndex(), op.transposed());
   return success();
 }
 

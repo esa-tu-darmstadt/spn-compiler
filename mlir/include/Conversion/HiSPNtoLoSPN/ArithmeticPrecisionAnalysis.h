@@ -136,7 +136,7 @@ namespace mlir {
       /// \param isSum Boolean If set to true will treat operands as addends, otherwise as multiplicands.
       /// \return SmallVector<ErrorEstimationValue> with a single element, representing the whole Sum or Product.
       llvm::SmallVector<spn::detail::ErrorEstimationValue>
-        estimateErrorBinaryOperation(SmallVector<spn::detail::ErrorEstimationValue> operands, bool isSum);
+      estimateErrorBinaryOperation(SmallVector<spn::detail::ErrorEstimationValue> operands, bool isSum);
 
       /// Estimate the error introduced by the given (weighted) addition operation w.r.t. the current format.
       /// \param op Pointer to the defining operation, representing a SPN node.

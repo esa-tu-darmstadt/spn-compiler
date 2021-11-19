@@ -33,6 +33,8 @@ class CUDACompiler:
         Perform computations in log-space.
     verbose : bool
         Verbose output.
+    otherOptions : dict
+        Additional options to pass to the compiler.
 
     Methods
     -------
@@ -53,9 +55,8 @@ class CUDACompiler:
     """
 
     __cudaWrappers = None
-    
 
-    def __init__(self, preloadToSharedMem = False, computeInLogSpace = True, verbose = False):
+    def __init__(self, preloadToSharedMem=False, computeInLogSpace=True, verbose=False, **kwargs):
         """
         Parameters
         ----------
@@ -66,11 +67,14 @@ class CUDACompiler:
             Perform computations in log-space.
         verbose : bool
             Verbose output.
+        kwargs:
+            Additional options to pass to the compiler.
         """
 
         self.verbose = verbose
         self.preloadToSharedMem = preloadToSharedMem
         self.computeInLogSpace = computeInLogSpace
+        self.otherOptions = kwargs
 
     def compile_ll(self, spn, inputDataType = "float64", errorModel = ErrorModel(), 
                     batchSize = 64, supportMarginal = True, name = "spn_gpu"):
@@ -111,12 +115,22 @@ class CUDACompiler:
         libraryDir = os.path.realpath(os.path.dirname(spncpy.__file__))
 
         # Compile the query into a Kernel.
-        options = dict({"target" : "CUDA", 
-                        "gpu-shared-mem" : convertToFlag(self.preloadToSharedMem),
-                        "use-log-space" : convertToFlag(self.computeInLogSpace),
-                        "dump-ir" : convertToFlag(self.verbose),
-                        "search-paths" : str(libraryDir)
+        options = dict({"target": "CUDA",
+                        "gpu-shared-mem": convertToFlag(self.preloadToSharedMem),
+                        "use-log-space": convertToFlag(self.computeInLogSpace),
+                        "dump-ir": convertToFlag(self.verbose),
+                        "search-paths": str(libraryDir)
                         })
+
+        # Add the extra options, if they do not clash with an existing option.
+        if self.otherOptions is not None:
+            extraOptions = [(str(k), str(v)) for k, v in self.otherOptions.items()]
+            for k, v in extraOptions:
+                if k in options and options[k] != v:
+                    print(f"WARNING: Option {k} specified twice, ignoring option value {v}")
+                else:
+                    options[k] = v
+
         if self.verbose:
             print(f"Invoking compiler with options: {options}")
 
@@ -135,7 +149,7 @@ class CUDACompiler:
         # the same location as the spncpy compiled module. 
         # We try to locate the library in this directory and load it.
         libraryDir = os.path.realpath(os.path.dirname(spncpy.__file__))
-        pattern = os.path.join(libraryDir, "libcuda-runtime-wrappers.so*")
+        pattern = os.path.join(libraryDir, "libspnc-cuda-wrappers.so*")
         candidates = glob.glob(pattern)
         if not candidates:
             print(f"WARNING: Did not find MLIR CUDA runtime wrappers in {libraryDir}")

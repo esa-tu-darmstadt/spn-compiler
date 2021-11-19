@@ -11,6 +11,7 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 
 mlir::LogicalResult mlir::spn::KernelLowering::matchAndRewrite(mlir::spn::low::SPNKernel op,
                                                                llvm::ArrayRef<mlir::Value> operands,
@@ -46,7 +47,14 @@ mlir::LogicalResult mlir::spn::BatchTaskLowering::matchAndRewrite(mlir::spn::low
   auto taskBlock = taskFunc.addEntryBlock();
   rewriter.setInsertionPointToStart(taskBlock);
   auto const0 = rewriter.create<ConstantOp>(op->getLoc(), rewriter.getIndexAttr(0));
-  auto ub = rewriter.create<DimOp>(op.getLoc(), taskBlock->getArgument(0), 0);
+  // The upper bound can be derived from the dynamic dimension of one of the input memrefs.
+  auto inputMemRef = taskBlock->getArgument(0);
+  auto inputMemRefTy = inputMemRef.getType().dyn_cast<MemRefType>();
+  assert(inputMemRefTy);
+  assert(inputMemRefTy.hasRank() && inputMemRefTy.getRank() == 2);
+  assert(inputMemRefTy.isDynamicDim(0) ^ inputMemRefTy.isDynamicDim(1));
+  auto index = (inputMemRefTy.isDynamicDim(0)) ? 0 : 1;
+  auto ub = rewriter.create<memref::DimOp>(op.getLoc(), inputMemRef, index);
   auto step = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
   auto loop = rewriter.create<scf::ForOp>(op.getLoc(), const0, ub, step);
   rewriter.create<ReturnOp>(op->getLoc());
@@ -83,6 +91,7 @@ mlir::LogicalResult mlir::spn::SingleTaskLowering::matchAndRewrite(mlir::spn::lo
   if (op.batchSize() != 1) {
     return rewriter.notifyMatchFailure(op, "Match only single (batchSize == 1) execution");
   }
+
   auto restore = rewriter.saveInsertionPoint();
   rewriter.setInsertionPointToStart(op->getParentOfType<mlir::ModuleOp>().getBody());
   SmallVector<Type, 5> inputTypes;
@@ -90,8 +99,7 @@ mlir::LogicalResult mlir::spn::SingleTaskLowering::matchAndRewrite(mlir::spn::lo
     inputTypes.push_back(operand.getType());
   }
   auto funcType = FunctionType::get(rewriter.getContext(), inputTypes, {});
-  auto taskFunc = rewriter.create<FuncOp>(op->getLoc(), Twine("task_", std::to_string(taskCount++)).str(),
-                                          funcType);
+  auto taskFunc = rewriter.create<FuncOp>(op->getLoc(), Twine("task_", std::to_string(taskCount++)).str(), funcType);
   auto taskBlock = taskFunc.addEntryBlock();
   rewriter.setInsertionPointToStart(taskBlock);
 
@@ -118,6 +126,21 @@ mlir::LogicalResult mlir::spn::BodyLowering::matchAndRewrite(mlir::spn::low::SPN
   assert(operands.size() == op.body().front().getNumArguments() &&
       "Expecting the number of operands to match the block arguments");
 
+  SmallVector<Value> argValues;
+  for (auto opArg : llvm::zip(operands, op.body().front().getArguments())) {
+    auto operand = std::get<0>(opArg);
+    auto arg = std::get<1>(opArg);
+    if (arg.getType().isa<low::LogType>()) {
+      auto convertLog = rewriter.create<low::SPNConvertLog>(op->getLoc(), operand);
+      if (auto vectorOp = dyn_cast<low::LoSPNVectorizable>(operand.getDefiningOp())) {
+        convertLog.setVectorized(vectorOp.getVectorWidth());
+      }
+      argValues.push_back(convertLog);
+    } else {
+      argValues.push_back(operand);
+    }
+  }
+
   SmallVector<Value, 2> resultValues;
   op.body().front().walk([&](low::SPNYield yield) {
     for (auto res : yield.resultValues()) {
@@ -138,7 +161,7 @@ mlir::LogicalResult mlir::spn::BodyLowering::matchAndRewrite(mlir::spn::low::SPN
     }
     rewriter.eraseOp(yield);
   });
-  rewriter.mergeBlockBefore(&op.body().front(), op, operands);
+  rewriter.mergeBlockBefore(&op.body().front(), op, argValues);
   rewriter.replaceOp(op, resultValues);
   return success();
 }

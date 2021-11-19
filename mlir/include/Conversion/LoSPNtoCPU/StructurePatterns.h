@@ -54,9 +54,15 @@ namespace mlir {
     };
 
     static inline void populateLoSPNtoCPUStructurePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
-                                                    TypeConverter& typeConverter) {
-      patterns.insert<KernelLowering, BatchTaskLowering, SingleTaskLowering>(typeConverter, context);
+                                                           TypeConverter& typeConverter) {
+      patterns.insert<KernelLowering>(typeConverter, context);
       patterns.insert<BodyLowering>(typeConverter, context);
+    }
+
+    static inline void populateLoSPNtoCPUTaskPatterns(OwningRewritePatternList& patterns,
+                                                      MLIRContext* context,
+                                                      TypeConverter& typeConverter) {
+      patterns.insert<BatchTaskLowering, SingleTaskLowering>(typeConverter, context, 1);
     }
   }
 }

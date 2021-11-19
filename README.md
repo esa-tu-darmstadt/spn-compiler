@@ -11,8 +11,8 @@ Starting with release 0.0.4, **SPNC** is mostly implemented in `C++` and uses
 the [LLVM compiler framework](https://llvm.org/)
 and [MLIR](https://mlir.llvm.org) for code generation for the different targets.
 
-Currently supported targets are CPUs (all architectures supported by LLVM, vectorization currently limited to X86) and
-CUDA GPUs.
+Currently supported targets are CPUs (all architectures supported by LLVM, vectorization currently limited to X86 (AVX,
+AVX2, AVX-512) and ARM Neon) and CUDA GPUs.
 
 
 ### Installation ###
@@ -28,8 +28,8 @@ requirements.
 
 In case you want to use **SPNC** on a different platform or want to build **SPNC** from source, follow
 the [installation instructions](https://github.com/esa-tu-darmstadt/spn-compiler/wiki/Installation-Manual) to build
-**SPNC** and all its dependencies from source. Currently, `spnc` is based on LLVM
-commit `f8d3f47e1fd09392aa30df83849b25acd8c59a25`.
+**SPNC** and all its dependencies from source. Currently, `spnc` is based on LLVM release 13 (branch `release/13.x`,
+commit `cf15ccdeb6d5254ee7d46c7535c29200003a3880`).
 
 ### Usage ###
 
@@ -141,3 +141,12 @@ The Installation Manual also contains a section on a
 
 SPNC is licensed under the **Apache License v2.0**, see the *LICENSE* file that was distributed with this source code
 for more information.
+
+### Citation ###
+
+If you use SPNC for your research, please cite the following publication:
+
+Lukas Sommer, Cristian Axenie, Andreas Koch (2022).
+**SPNC: An Open-Source MLIR-Based Compiler for Fast Sum-Product Network Inference on CPUs and GPUs**. In *2022 IEEE/ACM
+International Symposium on Code Generation and Optimization (CGO).*
+[Preprint](https://www.esa.informatik.tu-darmstadt.de/assets/publications/materials/2022/2022_CGO_LS.pdf).

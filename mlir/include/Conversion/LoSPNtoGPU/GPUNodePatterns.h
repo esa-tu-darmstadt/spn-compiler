@@ -161,15 +161,24 @@ namespace mlir {
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
+    struct ResolveConvertLogGPU : public OpConversionPattern<low::SPNConvertLog> {
+
+      using OpConversionPattern<low::SPNConvertLog>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNConvertLog op,
+                                    ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
     static inline void populateLoSPNtoGPUNodePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
-                                               TypeConverter& typeConverter) {
+                                                      TypeConverter& typeConverter) {
       patterns.insert<BatchReadGPULowering, BatchWriteGPULowering, CopyGPULowering>(typeConverter, context);
       patterns.insert<LogGPULowering, ReturnGPULowering, ConstantGPULowering>(typeConverter, context);
       patterns.insert<MulGPULowering, AddGPULowering>(typeConverter, context);
       patterns.insert<MulLogGPULowering, AddLogGPULowering>(typeConverter, context);
       patterns.insert<GaussianGPULowering, GaussianLogGPULowering>(typeConverter, context);
       patterns.insert<CategoricalGPULowering, HistogramGPULowering>(typeConverter, context);
-      patterns.insert<ResolveStripLogGPU>(typeConverter, context);
+      patterns.insert<ResolveStripLogGPU, ResolveConvertLogGPU>(typeConverter, context);
     }
   }
 }

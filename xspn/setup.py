@@ -14,7 +14,7 @@ with open("requirements.txt", "r") as rf:
 
 setuptools.setup(
     name="xspn",
-    version="0.1",
+    version="0.2.0",
     author="Embedded Systems and Applications Group, TU Darmstadt",
     author_email="sommer@esa.tu-darmstadt.de",
     description="XSPN: Library bridging between SPFlow and the SPN compiler",

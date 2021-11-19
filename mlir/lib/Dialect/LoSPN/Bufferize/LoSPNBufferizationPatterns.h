@@ -47,7 +47,7 @@ namespace mlir {
       };
 
       static inline void populateLoSPNBufferizationPatterns(OwningRewritePatternList& patterns, MLIRContext* context,
-                                                     TypeConverter& typeConverter) {
+                                                            TypeConverter& typeConverter) {
         patterns.insert<KernelBufferize, TaskBufferize>(typeConverter, context);
         patterns.insert<BatchExtractBufferize>(typeConverter, context);
       }

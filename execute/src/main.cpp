@@ -10,7 +10,7 @@
 #include <spnc-runtime.h>
 #include <iostream>
 #include <map>
-#include <driver/Options.h>
+#include "../../compiler/src/option/Options.h"
 
 #ifndef TEST_KERNEL_DIR
 #define TEST_KERNEL_DIR "/tmp"

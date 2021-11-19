@@ -14,10 +14,10 @@ import shutil
 import os
 
 if @INCLUDE_MLIR_CUDA_WRAPPERS@:
-    cudaWrappers = os.path.join(os.path.realpath(os.path.dirname(__file__)), "spnc", "@MLIR_CUDA_WRAPPER_NAME@")
+    cudaWrappers = os.path.join(os.path.realpath(os.path.dirname(__file__)), "spnc", "@SPNC_MLIR_CUDA_WRAPPERS@")
     if not os.path.isfile(cudaWrappers):
         raise RuntimeError("MLIR CUDA wrappers not found")
-    binaryPackages = ["$<TARGET_FILE_NAME:spncpy>", "@MLIR_CUDA_WRAPPER_NAME@"]
+    binaryPackages = ["$<TARGET_FILE_NAME:spncpy>", "@SPNC_MLIR_CUDA_WRAPPERS@"]
 else:
     binaryPackages = ["$<TARGET_FILE_NAME:spncpy>"]
 
@@ -30,7 +30,7 @@ with open("requirements.txt", "r") as rf:
 
 setuptools.setup(
     name="spnc",
-    version="0.1",
+    version="0.2.0",
     author="Embedded Systems and Applications Group, TU Darmstadt",
     author_email="sommer@esa.tu-darmstadt.de",
     description="SPNC: A CPU- and GPU compiler for Sum-Product Networks",

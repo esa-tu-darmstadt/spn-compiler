@@ -23,8 +23,8 @@ module  {
 // CHECK:         ^bb0(%[[VAL_0:.*]]: tensor<?x2xi32>):
 // CHECK:           %[[VAL_1:.*]] = "lo_spn.task"(%[[VAL_0]]) ( {
 // CHECK:           ^bb0(%[[VAL_2:.*]]: index, %[[VAL_3:.*]]: tensor<?x2xi32>):
-// CHECK:             %[[VAL_4:.*]] = "lo_spn.batch_extract"(%[[VAL_3]], %[[VAL_2]]) {sampleIndex = 0 : ui32} : (tensor<?x2xi32>, index) -> i32
-// CHECK:             %[[VAL_5:.*]] = "lo_spn.batch_extract"(%[[VAL_3]], %[[VAL_2]]) {sampleIndex = 1 : ui32} : (tensor<?x2xi32>, index) -> i32
+// CHECK:             %[[VAL_4:.*]] = "lo_spn.batch_extract"(%[[VAL_3]], %[[VAL_2]]) {staticIndex = 0 : ui32, transposed = false} : (tensor<?x2xi32>, index) -> i32
+// CHECK:             %[[VAL_5:.*]] = "lo_spn.batch_extract"(%[[VAL_3]], %[[VAL_2]]) {staticIndex = 1 : ui32, transposed = false} : (tensor<?x2xi32>, index) -> i32
 // CHECK:             %[[VAL_6:.*]] = "lo_spn.body"(%[[VAL_4]], %[[VAL_5]]) ( {
 // CHECK:             ^bb0(%[[VAL_7:.*]]: i32, %[[VAL_8:.*]]: i32):
 // CHECK:               %[[VAL_9:.*]] = "lo_spn.histogram"(%[[VAL_7]]) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}], supportMarginal = false} : (i32) -> f64
@@ -41,8 +41,8 @@ module  {
 // CHECK:               %[[VAL_20:.*]] = "lo_spn.log"(%[[VAL_19]]) : (f64) -> f64
 // CHECK:               "lo_spn.yield"(%[[VAL_20]]) : (f64) -> ()
 // CHECK:             }) : (i32, i32) -> f64
-// CHECK:             %[[VAL_21:.*]] = "lo_spn.batch_collect"(%[[VAL_6:.*]], %[[VAL_2]]) : (f64, index) -> tensor<?xf64>
-// CHECK:             "lo_spn.return"(%[[VAL_21]]) : (tensor<?xf64>) -> ()
-// CHECK:           }) {batchSize = 10 : ui32} : (tensor<?x2xi32>) -> tensor<?xf64>
-// CHECK:           "lo_spn.return"(%[[VAL_23:.*]]) : (tensor<?xf64>) -> ()
-// CHECK:         }) {sym_name = "spn_kernel", type = (tensor<?x2xi32>) -> tensor<?xf64>} : () -> ()
+// CHECK:             %[[VAL_21:.*]] = "lo_spn.batch_collect"(%[[VAL_2]], %[[VAL_22:.*]]) {transposed = true} : (index, f64) -> tensor<1x?xf64>
+// CHECK:             "lo_spn.return"(%[[VAL_21]]) : (tensor<1x?xf64>) -> ()
+// CHECK:           }) {batchSize = 10 : ui32} : (tensor<?x2xi32>) -> tensor<1x?xf64>
+// CHECK:           "lo_spn.return"(%[[VAL_23:.*]]) : (tensor<1x?xf64>) -> ()
+// CHECK:         }) {sym_name = "spn_kernel", type = (tensor<?x2xi32>) -> tensor<1x?xf64>} : () -> ()

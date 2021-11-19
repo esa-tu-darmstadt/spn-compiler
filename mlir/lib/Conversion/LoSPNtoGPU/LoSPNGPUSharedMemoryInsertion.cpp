@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include "mlir/Rewrite/FrozenRewritePatternList.h"
+#include "mlir/Rewrite/FrozenRewritePatternSet.h"
 #include "LoSPNtoGPU/LoSPNtoGPUConversionPasses.h"
 #include "LoSPN/LoSPNOps.h"
 #include "mlir/IR/SymbolTable.h"
@@ -17,6 +17,7 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "Target/CUDATargetInformation.h"
 
 using namespace mlir;
@@ -26,8 +27,8 @@ class RewriteBatchReadtoSharedMem : public mlir::OpRewritePattern<low::SPNBatchR
 
 public:
 
-  RewriteBatchReadtoSharedMem(mlir::MLIRContext* ctx, Value sharedMemory) : OpRewritePattern{ctx, 1},
-                                                                            sharedMem{sharedMemory} {}
+  RewriteBatchReadtoSharedMem(mlir::MLIRContext* ctx, Value sharedMemory, unsigned minIndex) :
+      OpRewritePattern{ctx, 1}, sharedMem{sharedMemory}, minIdx{minIndex} {}
 
   LogicalResult matchAndRewrite(low::SPNBatchRead op, PatternRewriter& rewriter) const override {
     //
@@ -37,14 +38,16 @@ public:
     auto loc = op->getLoc();
     auto threadID = rewriter.create<gpu::ThreadIdOp>(loc, rewriter.getIndexType(),
                                                      rewriter.getStringAttr("x"));
-    auto featureIndex = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(op.sampleIndex()));
-    rewriter.replaceOpWithNewOp<LoadOp>(op, sharedMem, ValueRange{featureIndex, threadID});
+    auto featureIndex = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(op.staticIndex() - minIdx));
+    rewriter.replaceOpWithNewOp<memref::LoadOp>(op, sharedMem, ValueRange{featureIndex, threadID});
     return success();
   }
 
 private:
 
   Value sharedMem;
+
+  unsigned minIdx;
 
 };
 
@@ -127,14 +130,14 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
         auto useCount = 0;
         llvm::DenseSet<unsigned> indices;
         for (auto U : arg.getUsers()) {
-          // Only MemRefs that are only used by
+          // Only MemRefs that are only used by non-transposed
           // SPNBatchReads are considered eligible for this transformation.
           if (auto batchRead = dyn_cast<low::SPNBatchRead>(U)) {
-            eligible &= true;
-            if (!indices.count(batchRead.sampleIndex())) {
+            eligible &= !batchRead.transposed().getValueOr(false);
+            if (!indices.count(batchRead.staticIndex())) {
               // Check that we have not encountered the same index before.
               ++useCount;
-              indices.insert(batchRead.sampleIndex());
+              indices.insert(batchRead.staticIndex());
             }
           } else {
             eligible &= false;
@@ -150,7 +153,6 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
     if (inputMemories.empty()) {
       return rewriter.notifyMatchFailure(gpuFunc, "No memories eligible for transformation found");
     }
-
 
     rewriter.startRootUpdate(gpuFunc);
     auto loc = gpuFunc->getLoc();
@@ -171,8 +173,8 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
       unsigned minIndex = std::numeric_limits<unsigned>::max();
       unsigned maxIndex = std::numeric_limits<unsigned>::min();
       for (auto& read : reads) {
-        minIndex = std::min(minIndex, read.sampleIndex());
-        maxIndex = std::max(maxIndex, read.sampleIndex());
+        minIndex = std::min(minIndex, read.staticIndex());
+        maxIndex = std::max(maxIndex, read.staticIndex());
       }
       auto numFeatures = (maxIndex - minIndex) + 1;
 
@@ -232,16 +234,18 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
           rewriter.setInsertionPointToStart(&ifCheck.thenRegion().front());
         }
         // Load from global memory, transpose and store into shared memory.
-        auto readGlobal = rewriter.create<LoadOp>(loc, inputMem, ValueRange{sampleIndex, featureIndex});
-        (void) rewriter.create<StoreOp>(loc, readGlobal, sharedMem,
-                                                    ValueRange{featureIndex, loop.getInductionVar()});
+        auto readGlobal = rewriter.create<memref::LoadOp>(loc, inputMem, ValueRange{sampleIndex, featureIndex});
+        auto sharedMemOffset = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(i * constantBlockSize));
+        auto sharedMemIndex = rewriter.create<AddIOp>(loc, threadID, sharedMemOffset);
+        (void) rewriter.create<memref::StoreOp>(loc, readGlobal, sharedMem,
+                                                ValueRange{sharedMemIndex, loop.getInductionVar()});
       }
 
       //
       // Process all SPNBatchRead that used the original global MemRef to instead load from the transposed shared mem.
-      OwningRewritePatternList patterns;
-      patterns.insert<RewriteBatchReadtoSharedMem>(gpuFunc.getContext(), sharedMem);
-      mlir::FrozenRewritePatternList frozenPatterns(std::move(patterns));
+      OwningRewritePatternList patterns(gpuFunc.getContext());
+      patterns.insert<RewriteBatchReadtoSharedMem>(gpuFunc.getContext(), sharedMem, minIndex);
+      mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
       for (auto& read : reads) {
         (void) applyOpPatternsAndFold(read, frozenPatterns);
       }
@@ -258,9 +262,9 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
 void mlir::spn::LoSPNGPUSharedMemoryInsertionPass::runOnOperation() {
   auto module = getOperation();
   auto* context = &getContext();
-  OwningRewritePatternList patterns;
+  OwningRewritePatternList patterns(context);
   patterns.insert<FuncSharedMemoryInsertion>(context);
-  mlir::FrozenRewritePatternList frozenPatterns(std::move(patterns));
+  mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
   // Apply the pattern to all GPUFuncs in the module.
   module->walk([&frozenPatterns](gpu::GPUFuncOp gpuFunc) {
     (void) applyOpPatternsAndFold(gpuFunc, frozenPatterns);

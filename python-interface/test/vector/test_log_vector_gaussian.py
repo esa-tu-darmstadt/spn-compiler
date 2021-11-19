@@ -14,7 +14,10 @@ from spn.algorithms.Inference import log_likelihood
 
 from spnc.cpu import CPUCompiler
 
+import pytest
 
+
+@pytest.mark.skipif(not CPUCompiler.isVectorizationSupported(), reason="CPU vectorization not supported")
 def test_log_vector_gaussian():
     # Construct a minimal SPN using two Gaussian leaves.
     g1 = Gaussian(mean=0.5, stdev=1, scope=0)

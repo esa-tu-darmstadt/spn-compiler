@@ -11,6 +11,7 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
 #include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/BuiltinOps.h"
 
 mlir::LogicalResult mlir::spn::KernelGPULowering::matchAndRewrite(mlir::spn::low::SPNKernel op,
@@ -72,7 +73,7 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
     SmallVector<Value, 1> dynamicSizes;
     for (int k = 0; k < inputType.getRank(); ++k) {
       if (inputType.isDynamicDim(k)) {
-        auto dymSize = rewriter.create<DimOp>(op.getLoc(), taskInput, k);
+        auto dymSize = rewriter.create<memref::DimOp>(op.getLoc(), taskInput, k);
         dynamicSizes.push_back(dymSize);
       }
     }
@@ -100,9 +101,12 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
 
   // Determine the total number of samples to compute from the size of the memref passed as the
   // first argument to the Task.
-  auto inputMemRef = operands[0].getType().dyn_cast<MemRefType>();
-  assert(inputMemRef && inputMemRef.hasRank() && inputMemRef.isDynamicDim(0));
-  auto numSamples = rewriter.create<DimOp>(op.getLoc(), operands[0], 0);
+  auto inputMemRefTy = operands[0].getType().dyn_cast<MemRefType>();
+  assert(inputMemRefTy);
+  assert(inputMemRefTy.hasRank() && inputMemRefTy.getRank() == 2);
+  assert(inputMemRefTy.isDynamicDim(0) ^ inputMemRefTy.isDynamicDim(1));
+  auto index = (inputMemRefTy.isDynamicDim(0)) ? 0 : 1;
+  auto numSamples = rewriter.create<memref::DimOp>(op.getLoc(), operands[0], index);
   // We assume 1D layout of threads and blocks and use the user-specified batchSize as blockSize.
   if ((op.batchSize() % 32) != 0) {
     op.emitWarning() << "Batch size should be a multiple of the warp-size (32)";
@@ -140,11 +144,9 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
     auto hostMem = deviceHost.second;
     rewriter.create<gpu::MemcpyOp>(op->getLoc(), llvm::None, ValueRange{}, hostMem, deviceMem);
   }
-  for (auto& dMem : deviceMemories) {
-    // Deallocate all input and output device memories after copying the result
-    // to the host.
-    rewriter.create<gpu::DeallocOp>(op->getLoc(), llvm::None, ValueRange{}, dMem);
-  }
+  // Deallocation is not performed here, because the buffer might be re-used by other tasks on the GPU to
+  // eliminate unnecessary copies between host and device for intermediate results.
+  // Therefore, deallocations are later on inserted by a dedicated pass.
   rewriter.eraseOp(op);
   return success();
 }
@@ -154,6 +156,18 @@ mlir::LogicalResult mlir::spn::BodyGPULowering::matchAndRewrite(mlir::spn::low::
                                                                 mlir::ConversionPatternRewriter& rewriter) const {
   assert(operands.size() == op.body().front().getNumArguments() &&
       "Expecting the number of operands to match the block arguments");
+
+  SmallVector<Value> argValues;
+  for (auto opArg : llvm::zip(operands, op.body().front().getArguments())) {
+    auto operand = std::get<0>(opArg);
+    auto arg = std::get<1>(opArg);
+    if (arg.getType().isa<low::LogType>()) {
+      auto convertLog = rewriter.create<low::SPNConvertLog>(op->getLoc(), operand);
+      argValues.push_back(convertLog);
+    } else {
+      argValues.push_back(operand);
+    }
+  }
 
   SmallVector<Value, 2> resultValues;
   op.body().front().walk([&](low::SPNYield yield) {
@@ -170,7 +184,7 @@ mlir::LogicalResult mlir::spn::BodyGPULowering::matchAndRewrite(mlir::spn::low::
     }
     rewriter.eraseOp(yield);
   });
-  rewriter.mergeBlockBefore(&op.body().front(), op, operands);
+  rewriter.mergeBlockBefore(&op.body().front(), op, argValues);
   rewriter.replaceOp(op, resultValues);
   return success();
 }

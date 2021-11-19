@@ -58,5 +58,8 @@ void LoSPNDialect::printType(::mlir::Type type, ::mlir::DialectAsmPrinter& os) c
   os << "log<" << logType.getBaseType() << ">";
 }
 
+// Table-gen output for dialect implementation
+#include "LoSPN/LoSPNOpsDialect.cpp.inc"
+
 // Add definitions/implementation of SPN dialect/operation interfaces.
 #include "LoSPN/LoSPNInterfaces.cpp.inc"

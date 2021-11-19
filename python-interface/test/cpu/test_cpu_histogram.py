@@ -31,12 +31,10 @@ def test_cpu_histogram():
         np.random.randint(2, size=30),
     )).astype("float64")
 
-    if not CPUCompiler.isVectorizationSupported():
-        print("Test not supported by the compiler installation")
-        return 0
-
     # Execute the compiled Kernel.
-    results = CPUCompiler(computeInLogSpace=False, vectorize=False).log_likelihood(spn, inputs, supportMarginal=False, batchSize=10)
+    results = CPUCompiler(computeInLogSpace=False, vectorize=False).log_likelihood(spn, inputs,
+                                                                                   supportMarginal=False,
+                                                                                   batchSize=10)
 
     # Compute the reference results using the inference from SPFlow.
     reference = log_likelihood(spn, inputs)

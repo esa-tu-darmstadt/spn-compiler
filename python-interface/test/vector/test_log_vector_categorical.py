@@ -14,7 +14,10 @@ from spn.algorithms.Inference import log_likelihood
 
 from spnc.cpu import CPUCompiler
 
+import pytest
 
+
+@pytest.mark.skipif(not CPUCompiler.isVectorizationSupported(), reason="CPU vectorization not supported")
 def test_log_vector_categorical():
     # Construct a minimal SPN
     c1 = Categorical(p=[0.35, 0.55, 0.1], scope=0)

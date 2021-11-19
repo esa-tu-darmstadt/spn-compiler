@@ -7,9 +7,9 @@
 //==============================================================================
 
 #include "LoSPNtoGPU/GPUNodePatterns.h"
-#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "LoSPN/LoSPNAttributes.h"
 #include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 
 #include <cmath>
 
@@ -23,9 +23,21 @@ mlir::LogicalResult mlir::spn::BatchReadGPULowering::matchAndRewrite(mlir::spn::
   // using the batchIndex and the constant sample index.
   assert(operands.size() == 2 && "Expecting two operands for BatchRead");
   assert(operands[0].getType().isa<MemRefType>());
+  auto memRefType = operands[0].getType().cast<MemRefType>();
+  assert(memRefType.hasRank() && memRefType.getRank() == 2);
   assert(operands[1].getType().isa<IndexType>());
-  auto constSampleIndex = rewriter.create<ConstantOp>(op->getLoc(), rewriter.getIndexAttr(op.sampleIndex()));
-  rewriter.replaceOpWithNewOp<LoadOp>(op, operands[0], ValueRange{operands[1], constSampleIndex});
+  SmallVector<Value> indices;
+  auto constStaticIndex = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(op.staticIndex()));
+  if (op.transposed().hasValue() && op.transposed().getValue()) {
+    // Transposed access is memref[staticIndex][dynamicIndex]
+    indices.push_back(constStaticIndex);
+    indices.push_back(operands[1]);
+  } else {
+    // Non-transposed access is memref[dynamicIndex][staticIndex]
+    indices.push_back(operands[1]);
+    indices.push_back(constStaticIndex);
+  }
+  rewriter.replaceOpWithNewOp<memref::LoadOp>(op, operands[0], indices);
   return success();
 }
 
@@ -35,14 +47,29 @@ mlir::LogicalResult mlir::spn::BatchWriteGPULowering::matchAndRewrite(mlir::spn:
   if (op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
   }
-  // Replace the BatchWrite with a store to the input memref,
+  assert(operands.size() == op.resultValues().size() + 2 && "Expecting correct number of operands for BatchWrite");
+  // Replace the BatchWrite with stores to the input memref,
   // using the batchIndex.
-  assert(operands.size() == 3 && "Expecting three operands for BatchWrite");
-  assert(operands[1].getType().isa<MemRefType>());
-  assert(operands[1].getType().dyn_cast<MemRefType>().getElementType() == operands[0].getType()
-             && "Result type and element type of MemRef must match");
-  assert(operands[2].getType().isa<IndexType>());
-  rewriter.replaceOpWithNewOp<StoreOp>(op, operands[0], operands[1], operands[2]);
+  auto memRef = operands[0];
+  auto memRefType = memRef.getType().dyn_cast<MemRefType>();
+  assert(memRefType);
+  assert(memRefType.hasRank() && memRefType.getRank() == 2);
+  auto dynIndex = operands[1];
+  assert(dynIndex.getType().isa<IndexType>());
+  bool transposed = op.transposed().getValueOr(false);
+  for (unsigned i = 0; i < op.resultValues().size(); ++i) {
+    SmallVector<Value, 2> indices;
+    auto constStaticIndex = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(i));
+    if (transposed) {
+      indices.push_back(constStaticIndex);
+      indices.push_back(dynIndex);
+    } else {
+      indices.push_back(dynIndex);
+      indices.push_back(constStaticIndex);
+    }
+    rewriter.create<memref::StoreOp>(op.getLoc(), operands[i + 2], memRef, indices);
+  }
+  rewriter.eraseOp(op);
   return success();
 }
 
@@ -52,7 +79,22 @@ mlir::LogicalResult mlir::spn::CopyGPULowering::matchAndRewrite(mlir::spn::low::
   assert(operands.size() == 2 && "Expecting two operands for Copy");
   assert(operands[0].getType().isa<MemRefType>());
   assert(operands[1].getType().isa<MemRefType>());
-  rewriter.replaceOpWithNewOp<linalg::CopyOp>(op, operands[0], operands[1]);
+  assert(operands.size() == 2 && "Expecting two operands for Copy");
+  assert(operands[0].getType().isa<MemRefType>());
+  assert(operands[1].getType().isa<MemRefType>());
+  auto srcType = op.source().getType().cast<MemRefType>();
+  auto tgtType = op.target().getType().cast<MemRefType>();
+  if (srcType.getRank() != tgtType.getRank() || srcType.getRank() != 1) {
+    return rewriter.notifyMatchFailure(op, "Expecting one dimensional memories");
+  }
+  auto dim1 = rewriter.create<memref::DimOp>(op.getLoc(), op.source(), 0);
+  auto lb = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
+  auto step = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
+  auto outer = rewriter.create<scf::ForOp>(op.getLoc(), lb, dim1, step);
+  rewriter.setInsertionPointToStart(&outer.getLoopBody().front());
+  auto load = rewriter.create<memref::LoadOp>(op.getLoc(), op.source(), outer.getInductionVar());
+  (void) rewriter.create<memref::StoreOp>(op.getLoc(), load, op.target(), outer.getInductionVar());
+  rewriter.eraseOp(op);
   return success();
 }
 
@@ -476,6 +518,18 @@ mlir::LogicalResult mlir::spn::ResolveStripLogGPU::matchAndRewrite(mlir::spn::lo
   if (operands[0].getType() != op.target()) {
     return rewriter.notifyMatchFailure(op, "Could not resolve StripLog trivially");
   }
+  rewriter.replaceOp(op, operands[0]);
+  return success();
+}
+
+mlir::LogicalResult mlir::spn::ResolveConvertLogGPU::matchAndRewrite(mlir::spn::low::SPNConvertLog op,
+                                                                     llvm::ArrayRef<mlir::Value> operands,
+                                                                     mlir::ConversionPatternRewriter& rewriter) const {
+  assert(operands.size() == 1);
+  auto baseType = typeConverter->convertType(op.getResult().getType());
+  assert(operands[0].getType() == baseType);
+  // Simply replace the conversion by its input operand. All users of the conversion should be
+  // converted subsequently.
   rewriter.replaceOp(op, operands[0]);
   return success();
 }

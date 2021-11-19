@@ -8,7 +8,7 @@
 
 cmake_minimum_required(VERSION 3.13.4 FATAL_ERROR)
 
-project(spnc VERSION 0.1 LANGUAGES CXX C)
+project(spnc VERSION 0.2.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -34,6 +34,10 @@ if (${CUDA_GPU_SUPPORT})
 endif (${CUDA_GPU_SUPPORT})
 
 set(SPNC_CXX_WARNING_LEVEL "-Wall")
+
+option(SPNC_SLP_DEBUG
+        "Enable additional debug output for the SLP vectorizer"
+        OFF)
 
 #
 # clang-tidy setup

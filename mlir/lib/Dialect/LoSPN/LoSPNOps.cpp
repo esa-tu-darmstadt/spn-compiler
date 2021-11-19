@@ -94,7 +94,14 @@ namespace mlir {
           return body.emitOpError() << "Incorrect number of block arguments for entry block of Body";
         }
         for (auto argInput : llvm::zip(body.body().front().getArguments(), body.inputs())) {
-          if (std::get<0>(argInput).getType() != std::get<1>(argInput).getType()) {
+          auto argType = std::get<0>(argInput).getType();
+          auto opType = std::get<1>(argInput).getType();
+          // The low::LogType is only used inside SPNBody, so if the block argument is of LogType,
+          // the operand should be of base-type.
+          if (argType.isa<LogType>()) {
+            argType = argType.cast<LogType>().getBaseType();
+          }
+          if (argType != opType) {
             return body.emitOpError() << "Body block argument type does not match Body operand type";
           }
         }
@@ -126,14 +133,18 @@ namespace mlir {
       static mlir::LogicalResult verifyBatchExtract(SPNBatchExtract extract) {
         auto tensor = extract.input().getType().dyn_cast<TensorType>();
         assert(tensor);
-        if (!tensor.hasRank() || tensor.getRank() != 2) {
+        if (!tensor.hasRank()) {
+          return extract.emitOpError() << "Input tensor should be ranked";
+        }
+        if (tensor.getRank() != 2) {
           return extract->emitOpError() << "Input tensor should be ranked with two dimensions";
         }
-        if (tensor.isDynamicDim(1)) {
-          return extract->emitOpError() << "Second dimension of input tensor should be static";
+        unsigned staticDim = (extract.transposed().hasValue() && extract.transposed().getValue()) ? 0 : 1;
+        if (tensor.isDynamicDim(staticDim)) {
+          return extract->emitOpError() << "Dimension " << staticDim << " of input tensor should be static";
         }
-        if (extract.sampleIndex() >= tensor.getDimSize(1)) {
-          return extract.emitOpError() << "Sample index out-of-bounds for input tensor";
+        if (extract.staticIndex() >= tensor.getDimSize(staticDim)) {
+          return extract.emitOpError() << "Static index out-of-bounds for input tensor";
         }
         if (tensor.getElementType() != extract.result().getType()) {
           return extract.emitOpError() << "Input tensor element type does not match output type";
@@ -144,13 +155,17 @@ namespace mlir {
       static mlir::LogicalResult verifyBatchRead(SPNBatchRead read) {
         auto memref = read.batchMem().getType().dyn_cast<MemRefType>();
         assert(memref);
-        if (!memref.hasRank() || memref.getRank() != 2) {
+        if (!memref.hasRank()) {
+          return read.emitOpError() << "Input memref should be ranked";
+        }
+        if (memref.getRank() != 2) {
           return read->emitOpError() << "Input memref should be ranked with two dimensions";
         }
-        if (memref.isDynamicDim(1)) {
-          return read->emitOpError() << "Second dimension of input memref should be static";
+        unsigned staticDim = (read.transposed().hasValue() && read.transposed().getValue()) ? 0 : 1;
+        if (memref.isDynamicDim(staticDim)) {
+          return read->emitOpError() << "Dimension " << staticDim << " of input memref should be static";
         }
-        if (read.sampleIndex() >= memref.getDimSize(1)) {
+        if (read.staticIndex() >= memref.getDimSize(staticDim)) {
           return read.emitOpError() << "Sample index out-of-bounds for input memref";
         }
         if (memref.getElementType() != read.result().getType()) {
@@ -160,15 +175,24 @@ namespace mlir {
       }
 
       static mlir::LogicalResult verifyBatchCollect(SPNBatchCollect collect) {
-        if (collect.resultValues().size() != collect->getNumResults()) {
-          return collect.emitOpError() << "Number of scalar result values must match the number of returned tensors";
+        auto tensorTy = collect.tensor().getType().dyn_cast<TensorType>();
+        assert(tensorTy);
+
+        if (!tensorTy.hasRank() || tensorTy.getRank() != 2) {
+          return collect.emitOpError() << "Result tensor must be ranked with two dimensions";
         }
-        for (auto scalarAndTensor : llvm::zip(collect.resultValues(), collect.tensors())) {
-          auto tensorTy = std::get<1>(scalarAndTensor).getType().dyn_cast<TensorType>();
-          assert(tensorTy);
-          if (std::get<0>(scalarAndTensor).getType() != tensorTy.getElementType()) {
-            return collect.emitOpError() << "Scalar type and element type of tensor must match";
-          }
+        unsigned staticDim = (collect.transposed().hasValue() && collect.transposed().getValue()) ? 0 : 1;
+        if (tensorTy.isDynamicDim(staticDim) ||
+            static_cast<long>(collect.resultValues().size()) != tensorTy.getDimSize(staticDim)) {
+          return collect.emitOpError() << "Result tensor's dimension "
+                                       << staticDim << " must be static and match number of results";
+        }
+        auto elemTy = tensorTy.getElementType();
+        auto mismatch = llvm::any_of(collect.resultValues(), [elemTy](auto op) {
+          return op.getType() != elemTy;
+        });
+        if (mismatch) {
+          return collect.emitOpError() << "Scalar type and element type of tensor must match";
         }
         return mlir::success();
       }
@@ -176,8 +200,24 @@ namespace mlir {
       static mlir::LogicalResult verifyBatchWrite(SPNBatchWrite write) {
         auto memRefTy = write.batchMem().getType().dyn_cast<MemRefType>();
         assert(memRefTy);
-        if (write.resultValue().getType() != memRefTy.getElementType()) {
-          return write.emitOpError() << "Scalar type and element type of result memory must match";
+
+        if (!memRefTy.hasRank() || memRefTy.getRank() != 2) {
+          return write.emitOpError() << "Result memref must be ranked with two dimensions";
+        }
+
+        unsigned staticDim = (write.transposed().hasValue() && write.transposed().getValue()) ? 0 : 1;
+        if (memRefTy.isDynamicDim(staticDim) ||
+            static_cast<long>(write.resultValues().size()) != memRefTy.getDimSize(staticDim)) {
+          return write.emitOpError() << "Result memrefs's dimension "
+                                     << staticDim << " must be static and match number of results";
+        }
+
+        auto elemTy = memRefTy.getElementType();
+        auto mismatch = llvm::any_of(write.resultValues(), [elemTy](auto op) {
+          return op.getType() != elemTy;
+        });
+        if (mismatch) {
+          return write.emitOpError() << "Scalar type and element type of memref must match";
         }
         return mlir::success();
       }
@@ -221,7 +261,7 @@ mlir::Value mlir::spn::low::SPNTask::getBatchIndex() {
 }
 
 //===----------------------------------------------------------------------===//
-// SPNTask
+// SPNBody
 //===----------------------------------------------------------------------===//
 
 mlir::Block* mlir::spn::low::SPNBody::addEntryBlock() {
@@ -230,6 +270,39 @@ mlir::Block* mlir::spn::low::SPNBody::addEntryBlock() {
   body().push_back(entry);
   entry->addArguments(this->inputs().getType());
   return entry;
+}
+
+//===----------------------------------------------------------------------===//
+// SPNBatchRead
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::low::SPNBatchRead::build(::mlir::OpBuilder& odsBuilder,
+                                         ::mlir::OperationState& odsState,
+                                         Value batchMem,
+                                         Value dynamicIndex,
+                                         unsigned int staticIndex,
+                                         llvm::Optional<bool> transposed) {
+  auto memrefTy = batchMem.getType().dyn_cast<MemRefType>();
+  assert(memrefTy);
+  auto resultTy = memrefTy.getElementType();
+  auto staticIndexAttr = odsBuilder.getUI32IntegerAttr(staticIndex);
+  bool transpose = transposed.hasValue() && transposed.getValue();
+  build(odsBuilder, odsState, resultTy, batchMem, dynamicIndex, staticIndexAttr,
+        odsBuilder.getBoolAttr(transpose));
+}
+
+//===----------------------------------------------------------------------===//
+// SPNBatchCollect
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::low::SPNBatchCollect::build(::mlir::OpBuilder& odsBuilder,
+                                            ::mlir::OperationState& odsState,
+                                            ValueRange resultValues,
+                                            Value batchIndex,
+                                            bool transposed) {
+  auto numResults = static_cast<long>(resultValues.size());
+  auto tensorTy = RankedTensorType::get({numResults, -1L}, resultValues.front().getType());
+  build(odsBuilder, odsState, tensorTy, batchIndex, resultValues, odsBuilder.getBoolAttr(transposed));
 }
 
 //===----------------------------------------------------------------------===//
@@ -269,6 +342,17 @@ void mlir::spn::low::SPNStripLog::build(::mlir::OpBuilder& odsBuilder,
                                         Value input,
                                         Type targetType) {
   build(odsBuilder, odsState, targetType, input, TypeAttr::get(targetType));
+}
+
+//===----------------------------------------------------------------------===//
+// SPNConvertLog
+//===----------------------------------------------------------------------===//
+
+void mlir::spn::low::SPNConvertLog::build(::mlir::OpBuilder& odsBuilder,
+                                          ::mlir::OperationState& odsState,
+                                          Value input) {
+  auto logType = mlir::spn::low::LogType::get(input.getType());
+  build(odsBuilder, odsState, logType, input);
 }
 
 //===----------------------------------------------------------------------===//
@@ -333,31 +417,6 @@ void mlir::spn::low::SPNStripLog::build(::mlir::OpBuilder& odsBuilder,
   }
   // None of the operands was constant, return nullptr to signal that the operations has not been touched.
   return nullptr;
-}
-
-//===----------------------------------------------------------------------===//
-// SPNGaussianLeaf
-//===----------------------------------------------------------------------===//
-
-bool mlir::spn::low::SPNGaussianLeaf::isVectorizable(unsigned vectorFactor) {
-  // Floating point narrowing (FPTrunc) and widening (FPExt) cannot be performed in
-  // vectorized mode, hence vectorization is not possible if such a transformation
-  // of the input value is required.
-  if (auto inputFloatType = this->index().getType().dyn_cast<FloatType>()) {
-    if (auto outputFloatType = this->getResult().getType().dyn_cast<FloatType>()) {
-      if (inputFloatType.getWidth() != outputFloatType.getWidth()) {
-        return false;
-      }
-    }
-    if (auto outputLogType = this->getResult().getType().dyn_cast<low::LogType>()) {
-      if (auto logFloatType = outputLogType.getBaseType().dyn_cast<FloatType>()) {
-        if (inputFloatType.getWidth() != logFloatType.getWidth()) {
-          return false;
-        }
-      }
-    }
-  }
-  return true;
 }
 
 #define GET_OP_CLASSES

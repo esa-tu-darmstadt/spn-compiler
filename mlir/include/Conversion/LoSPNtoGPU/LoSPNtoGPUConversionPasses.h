@@ -20,6 +20,8 @@ namespace mlir {
     protected:
       void runOnOperation() override;
 
+    public:
+      void getDependentDialects(DialectRegistry& registry) const override;
     };
 
     std::unique_ptr<Pass> createLoSPNtoGPUStructureConversionPass();
@@ -29,6 +31,9 @@ namespace mlir {
 
     protected:
       void runOnOperation() override;
+
+    public:
+      void getDependentDialects(DialectRegistry& registry) const override;
 
     };
 

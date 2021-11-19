@@ -41,10 +41,6 @@ def test_cpu_gaussian():
                             np.random.normal(0.58, 0.9, 30),
                             np.random.normal(0.14, 0.2, 30))).astype("float64")
 
-    if not CPUCompiler.isVectorizationSupported():
-        print("Test not supported by the compiler installation")
-        return 0
-
     # Execute the compiled Kernel.
     results = CPUCompiler(computeInLogSpace=False, vectorize=False).log_likelihood(p, inputs, supportMarginal=False, batchSize=10)
 

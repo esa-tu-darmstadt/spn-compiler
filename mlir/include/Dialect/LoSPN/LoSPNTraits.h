@@ -52,7 +52,6 @@ namespace mlir {
             this->getOperation()->setAttr(getVectorWidthAttrName(), VFAttr);
           }
 
-
         };
 
       }

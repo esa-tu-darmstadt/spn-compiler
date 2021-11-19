@@ -12,32 +12,119 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
-#include "llvm/Support/Debug.h"
 
 namespace mlir {
   namespace spn {
 
-    struct VectorizeBatchTask : OpConversionPattern<low::SPNTask> {
+    struct VectorizeTask : OpConversionPattern<low::SPNTask> {
 
+    public:
+      VectorizeTask(TypeConverter& typeConverter,
+                    MLIRContext* context,
+                    PatternBenefit benefit,
+                    bool requireAllOpsVectorizable) : OpConversionPattern<low::SPNTask>(typeConverter,
+                                                                                        context,
+                                                                                        benefit),
+                                                      requireAllOpsVectorizable{requireAllOpsVectorizable} {}
+
+    protected:
+      LogicalResult createFunctionIfVectorizable(low::SPNTask& task,
+                                                 llvm::ArrayRef<Value> const& operands,
+                                                 ConversionPatternRewriter& rewriter,
+                                                 FuncOp* function) const;
+
+    private:
       using OpConversionPattern<low::SPNTask>::OpConversionPattern;
+      bool requireAllOpsVectorizable;
+    };
 
+    struct VectorizeSingleTask : public VectorizeTask {
+    public:
+      VectorizeSingleTask(TypeConverter& typeConverter,
+                          MLIRContext* context,
+                          PatternBenefit benefit,
+                          unsigned maxAttempts,
+                          unsigned maxSuccessfulIterations,
+                          unsigned maxNodeSize,
+                          unsigned maxLookAhead,
+                          bool reorderInstructionsDFS,
+                          bool allowDuplicateElements,
+                          bool allowTopologicalMixing,
+                          bool useXorChains) :
+          VectorizeTask(typeConverter, context, benefit, false),
+          maxAttempts{maxAttempts},
+          maxSuccessfulIterations{maxSuccessfulIterations},
+          maxNodeSize{maxNodeSize},
+          maxLookAhead{maxLookAhead},
+          reorderInstructionsDFS{reorderInstructionsDFS},
+          allowDuplicateElements{allowDuplicateElements},
+          allowTopologicalMixing{allowTopologicalMixing},
+          useXorChains{useXorChains} {}
+
+    protected:
+      LogicalResult matchAndRewrite(low::SPNTask task,
+                                    llvm::ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    private:
+      unsigned maxAttempts;
+      unsigned maxSuccessfulIterations;
+      unsigned maxNodeSize;
+      unsigned maxLookAhead;
+      bool reorderInstructionsDFS;
+      bool allowDuplicateElements;
+      bool allowTopologicalMixing;
+      bool useXorChains;
+    };
+
+    struct VectorizeBatchTask : public VectorizeTask {
+    public:
+      VectorizeBatchTask(TypeConverter& typeConverter, MLIRContext* context, PatternBenefit benefit) :
+          VectorizeTask(typeConverter, context, benefit, true) {}
+
+    protected:
       LogicalResult matchAndRewrite(low::SPNTask op,
-                                    ArrayRef<Value> operands,
+                                    llvm::ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
-    static inline void populateLoSPNCPUVectorizationStructurePatterns(OwningRewritePatternList& patterns,
-                                                               MLIRContext* context,
-                                                               TypeConverter& typeConverter) {
+    static inline void populateLoSPNtoCPUVectorizationTaskPatterns(OwningRewritePatternList& patterns,
+                                                                   MLIRContext* context,
+                                                                   TypeConverter& typeConverter,
+                                                                   unsigned maxAttempts,
+                                                                   unsigned maxSuccessfulIterations,
+                                                                   unsigned maxNodeSize,
+                                                                   unsigned maxLookAhead,
+                                                                   bool reorderInstructionsDFS,
+                                                                   bool allowDuplicateElements,
+                                                                   bool allowTopologicalMixing,
+                                                                   bool useXorChains) {
+      patterns.insert<VectorizeSingleTask>(typeConverter, context, 5,
+                                           maxAttempts,
+                                           maxSuccessfulIterations,
+                                           maxNodeSize,
+                                           maxLookAhead,
+                                           reorderInstructionsDFS,
+                                           allowDuplicateElements,
+                                           allowTopologicalMixing,
+                                           useXorChains);
       patterns.insert<VectorizeBatchTask>(typeConverter, context, 5);
     }
+
+    struct VectorizeTransposedBatchRead : public OpConversionPattern<low::SPNBatchRead> {
+
+      using OpConversionPattern<low::SPNBatchRead>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNBatchRead op,
+                                    llvm::ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
 
     struct VectorizeBatchRead : public OpConversionPattern<low::SPNBatchRead> {
 
       using OpConversionPattern<low::SPNBatchRead>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNBatchRead op,
-                                    ArrayRef<Value> operands,
+                                    ArrayRef <Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -46,7 +133,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNBatchWrite>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNBatchWrite op,
-                                    ArrayRef <Value> operands,
+                                    llvm::ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -55,7 +142,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNMul>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNMul op,
-                                    ArrayRef <Value> operands,
+                                    llvm::ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -64,7 +151,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNMul>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNMul op,
-                                    ArrayRef <Value> operands,
+                                    llvm::ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -73,7 +160,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNAdd>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNAdd op,
-                                    ArrayRef <Value> operands,
+                                    llvm::ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -82,7 +169,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNAdd>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNAdd op,
-                                    ArrayRef <Value> operands,
+                                    llvm::ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -91,7 +178,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNLog>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNLog op,
-                                    ArrayRef <Value> operands,
+                                    llvm::ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -100,7 +187,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNGaussianLeaf>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNGaussianLeaf op,
-                                    ArrayRef <Value> operands,
+                                    llvm::ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -109,7 +196,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNGaussianLeaf>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNGaussianLeaf op,
-                                    ArrayRef <Value> operands,
+                                    llvm::ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -118,7 +205,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNCategoricalLeaf>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNCategoricalLeaf op,
-                                    ArrayRef <Value> operands,
+                                    llvm::ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -127,7 +214,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNHistogramLeaf>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNHistogramLeaf op,
-                                    ArrayRef<Value> operands,
+                                    llvm::ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -136,7 +223,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNConstant>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNConstant op,
-                                    ArrayRef <Value> operands,
+                                    llvm::ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -145,20 +232,29 @@ namespace mlir {
       using OpConversionPattern<low::SPNStripLog>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNStripLog op,
+                                    llvm::ArrayRef<Value> operands,
+                                    ConversionPatternRewriter& rewriter) const override;
+    };
+
+    struct ResolveVectorizedConvertLog : public OpConversionPattern<low::SPNConvertLog> {
+
+      using OpConversionPattern<low::SPNConvertLog>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNConvertLog op,
                                     ArrayRef <Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
     static inline void populateLoSPNCPUVectorizationNodePatterns(OwningRewritePatternList& patterns,
-                                                          MLIRContext* context,
-                                                          TypeConverter& typeConverter) {
-      patterns.insert<VectorizeBatchRead, VectorizeBatchWrite>(typeConverter, context, 2);
+                                                                 MLIRContext* context,
+                                                                 TypeConverter& typeConverter) {
+      patterns.insert<VectorizeTransposedBatchRead, VectorizeBatchRead, VectorizeBatchWrite>(typeConverter, context, 2);
       patterns.insert<VectorizeCategorical, VectorizeHistogram>(typeConverter, context, 2);
       patterns.insert<VectorizeGaussian, VectorizeLogGaussian>(typeConverter, context, 2);
       patterns.insert<VectorizeAdd, VectorizeMul, VectorizeLog>(typeConverter, context, 2);
       patterns.insert<VectorizeLogAdd, VectorizeLogMul>(typeConverter, context, 2);
       patterns.insert<VectorizeConstant>(typeConverter, context, 2);
-      patterns.insert<ResolveVectorizedStripLog>(typeConverter, context, 2);
+      patterns.insert<ResolveVectorizedStripLog, ResolveVectorizedConvertLog>(typeConverter, context, 2);
     }
 
   }
