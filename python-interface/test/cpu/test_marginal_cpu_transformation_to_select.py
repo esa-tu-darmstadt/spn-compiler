@@ -10,23 +10,21 @@ import numpy as np
 
 from spn.structure.Base import Product, Sum
 from spn.structure.leaves.histogram.Histograms import Histogram
+from spn.structure.leaves.parametric.Parametric import Categorical
 from spn.algorithms.Inference import log_likelihood
 
 from spnc.cpu import CPUCompiler
 
-import pytest
 
-
-@pytest.mark.skipif(not CPUCompiler.isVectorizationSupported(), reason="CPU vectorization not supported")
-def test_log_vector_histogram():
+def test_marginal_cpu_transformation_to_select():
     # Construct a minimal SPN.
-    h1 = Histogram([0., 1., 3.], [0.25, 0.75], [1, 1], scope=0)
-    h2 = Histogram([0., 3., 6., 8.], [0.45, 0.1, 0.55], [1, 1], scope=1)
-    h3 = Histogram([0., 1., 4.], [0.33, 0.67], [1, 1], scope=0)
-    h4 = Histogram([0., 5., 8.], [0.875, 0.125], [1, 1], scope=1)
+    h1 = Histogram([0., 1., 2.], [0.33, 0.67], [1, 1], scope=0)
+    h2 = Histogram([0., 1., 2.], [0.875, 0.125], [1, 1], scope=1)
+    c1 = Categorical(p=[0.3, 0.7], scope=0)
+    c2 = Categorical(p=[0.4, 0.6], scope=1)
 
     p0 = Product(children=[h1, h2])
-    p1 = Product(children=[h3, h4])
+    p1 = Product(children=[c1, c2])
     spn = Sum([0.3, 0.7], [p0, p1])
 
     inputs = np.column_stack((
@@ -34,12 +32,11 @@ def test_log_vector_histogram():
         np.random.randint(2, size=30),
     )).astype("float64")
 
-    if not CPUCompiler.isVectorizationSupported():
-        print("Test not supported by the compiler installation")
-        return 0
+    # Insert some NaN in random places into the input data.
+    inputs.ravel()[np.random.choice(inputs.size, 5, replace=False)] = np.nan
 
     # Execute the compiled Kernel.
-    results = CPUCompiler().log_likelihood(spn, inputs, supportMarginal=False)
+    results = CPUCompiler(computeInLogSpace=False, vectorize=False).log_likelihood(spn, inputs, supportMarginal=True, batchSize=10)
 
     # Compute the reference results using the inference from SPFlow.
     reference = log_likelihood(spn, inputs)
@@ -51,5 +48,5 @@ def test_log_vector_histogram():
     
 
 if __name__ == "__main__":
-    test_log_vector_histogram()
+    test_marginal_cpu_transformation_to_select()
     print("COMPUTATION OK")

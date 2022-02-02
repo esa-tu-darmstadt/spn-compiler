@@ -377,50 +377,94 @@ module  {
 // CHECK:             %[[VAL_162:.*]] = memref.load %[[VAL_0]]{{\[}}%[[VAL_152]], %[[VAL_161]]] : memref<?x6xf64>
 // CHECK:             %[[VAL_163:.*]] = constant 5 : index
 // CHECK:             %[[VAL_164:.*]] = memref.load %[[VAL_0]]{{\[}}%[[VAL_152]], %[[VAL_163]]] : memref<?x6xf64>
-// CHECK:             %[[VAL_165:.*]] = memref.get_global @categorical_0 : memref<3xf64>
-// CHECK:             %[[VAL_166:.*]] = fptoui %[[VAL_154]] : f64 to i64
-// CHECK:             %[[VAL_167:.*]] = index_cast %[[VAL_166]] : i64 to index
-// CHECK:             %[[VAL_168:.*]] = memref.load %[[VAL_165]]{{\[}}%[[VAL_167]]] : memref<3xf64>
-// CHECK:             %[[VAL_169:.*]] = memref.get_global @categorical_1 : memref<3xf64>
-// CHECK:             %[[VAL_170:.*]] = fptoui %[[VAL_156]] : f64 to i64
-// CHECK:             %[[VAL_171:.*]] = index_cast %[[VAL_170]] : i64 to index
-// CHECK:             %[[VAL_172:.*]] = memref.load %[[VAL_169]]{{\[}}%[[VAL_171]]] : memref<3xf64>
-// CHECK:             %[[VAL_173:.*]] = memref.get_global @histogram_0 : memref<2xf64>
-// CHECK:             %[[VAL_174:.*]] = fptoui %[[VAL_158]] : f64 to i64
-// CHECK:             %[[VAL_175:.*]] = index_cast %[[VAL_174]] : i64 to index
-// CHECK:             %[[VAL_176:.*]] = memref.load %[[VAL_173]]{{\[}}%[[VAL_175]]] : memref<2xf64>
-// CHECK:             %[[VAL_177:.*]] = memref.get_global @histogram_1 : memref<2xf64>
-// CHECK:             %[[VAL_178:.*]] = fptoui %[[VAL_160]] : f64 to i64
-// CHECK:             %[[VAL_179:.*]] = index_cast %[[VAL_178]] : i64 to index
-// CHECK:             %[[VAL_180:.*]] = memref.load %[[VAL_177]]{{\[}}%[[VAL_179]]] : memref<2xf64>
-// CHECK:             %[[VAL_181:.*]] = constant 0.3989422804014327 : f64
-// CHECK:             %[[VAL_182:.*]] = constant -5.000000e-01 : f64
-// CHECK:             %[[VAL_183:.*]] = constant 5.000000e-01 : f64
-// CHECK:             %[[VAL_184:.*]] = subf %[[VAL_162]], %[[VAL_183]] : f64
-// CHECK:             %[[VAL_185:.*]] = mulf %[[VAL_184]], %[[VAL_184]] : f64
-// CHECK:             %[[VAL_186:.*]] = mulf %[[VAL_185]], %[[VAL_182]] : f64
-// CHECK:             %[[VAL_187:.*]] = math.exp %[[VAL_186]] : f64
-// CHECK:             %[[VAL_188:.*]] = mulf %[[VAL_181]], %[[VAL_187]] : f64
-// CHECK:             %[[VAL_189:.*]] = constant 3.9894228040143269 : f64
-// CHECK:             %[[VAL_190:.*]] = constant -49.999999999999993 : f64
-// CHECK:             %[[VAL_191:.*]] = constant 2.500000e-01 : f64
-// CHECK:             %[[VAL_192:.*]] = subf %[[VAL_164]], %[[VAL_191]] : f64
-// CHECK:             %[[VAL_193:.*]] = mulf %[[VAL_192]], %[[VAL_192]] : f64
-// CHECK:             %[[VAL_194:.*]] = mulf %[[VAL_193]], %[[VAL_190]] : f64
-// CHECK:             %[[VAL_195:.*]] = math.exp %[[VAL_194]] : f64
-// CHECK:             %[[VAL_196:.*]] = mulf %[[VAL_189]], %[[VAL_195]] : f64
-// CHECK:             %[[VAL_197:.*]] = mulf %[[VAL_168]], %[[VAL_172]] : f64
-// CHECK:             %[[VAL_198:.*]] = mulf %[[VAL_197]], %[[VAL_176]] : f64
-// CHECK:             %[[VAL_199:.*]] = constant 1.000000e-01 : f64
-// CHECK:             %[[VAL_200:.*]] = mulf %[[VAL_198]], %[[VAL_199]] : f64
-// CHECK:             %[[VAL_201:.*]] = mulf %[[VAL_180]], %[[VAL_188]] : f64
-// CHECK:             %[[VAL_202:.*]] = mulf %[[VAL_201]], %[[VAL_196]] : f64
-// CHECK:             %[[VAL_203:.*]] = constant 1.000000e-01 : f64
-// CHECK:             %[[VAL_204:.*]] = mulf %[[VAL_202]], %[[VAL_203]] : f64
-// CHECK:             %[[VAL_205:.*]] = addf %[[VAL_200]], %[[VAL_204]] : f64
-// CHECK:             %[[VAL_206:.*]] = math.log %[[VAL_205]] : f64
-// CHECK:             %[[VAL_207:.*]] = constant 0 : index
-// CHECK:             memref.store %[[VAL_206]], %[[VAL_1]]{{\[}}%[[VAL_207]], %[[VAL_152]]] : memref<1x?xf64>
+// CHECK:             %[[VAL_165:.*]] = fptoui %[[VAL_154]] : f64 to i64
+// CHECK:             %[[VAL_166:.*]] = index_cast %[[VAL_165]] : i64 to index
+// CHECK:             %[[VAL_167:.*]] = constant 0 : i64
+// CHECK:             %[[VAL_168:.*]] = constant 3 : i64
+// CHECK:             %[[VAL_169:.*]] = cmpi sge, %[[VAL_165]], %[[VAL_167]] : i64
+// CHECK:             %[[VAL_170:.*]] = cmpi slt, %[[VAL_165]], %[[VAL_168]] : i64
+// CHECK:             %[[VAL_171:.*]] = and %[[VAL_169]], %[[VAL_170]] : i1
+// CHECK:             %[[VAL_172:.*]] = scf.if %[[VAL_171]] -> (f64) {
+// CHECK:               %[[VAL_173:.*]] = memref.get_global @categorical_0 : memref<3xf64>
+// CHECK:               %[[VAL_174:.*]] = memref.load %[[VAL_173]]{{\[}}%[[VAL_166]]] : memref<3xf64>
+// CHECK:               scf.yield %[[VAL_174]] : f64
+// CHECK:             } else {
+// CHECK:               %[[VAL_175:.*]] = constant 0.000000e+00 : f64
+// CHECK:               scf.yield %[[VAL_175]] : f64
+// CHECK:             }
+// CHECK:             %[[VAL_176:.*]] = fptoui %[[VAL_156]] : f64 to i64
+// CHECK:             %[[VAL_177:.*]] = index_cast %[[VAL_176]] : i64 to index
+// CHECK:             %[[VAL_178:.*]] = constant 0 : i64
+// CHECK:             %[[VAL_179:.*]] = constant 3 : i64
+// CHECK:             %[[VAL_180:.*]] = cmpi sge, %[[VAL_176]], %[[VAL_178]] : i64
+// CHECK:             %[[VAL_181:.*]] = cmpi slt, %[[VAL_176]], %[[VAL_179]] : i64
+// CHECK:             %[[VAL_182:.*]] = and %[[VAL_180]], %[[VAL_181]] : i1
+// CHECK:             %[[VAL_183:.*]] = scf.if %[[VAL_182]] -> (f64) {
+// CHECK:               %[[VAL_184:.*]] = memref.get_global @categorical_1 : memref<3xf64>
+// CHECK:               %[[VAL_185:.*]] = memref.load %[[VAL_184]]{{\[}}%[[VAL_177]]] : memref<3xf64>
+// CHECK:               scf.yield %[[VAL_185]] : f64
+// CHECK:             } else {
+// CHECK:               %[[VAL_186:.*]] = constant 0.000000e+00 : f64
+// CHECK:               scf.yield %[[VAL_186]] : f64
+// CHECK:             }
+// CHECK:             %[[VAL_187:.*]] = fptoui %[[VAL_158]] : f64 to i64
+// CHECK:             %[[VAL_188:.*]] = index_cast %[[VAL_187]] : i64 to index
+// CHECK:             %[[VAL_189:.*]] = constant 0 : i64
+// CHECK:             %[[VAL_190:.*]] = constant 2 : i64
+// CHECK:             %[[VAL_191:.*]] = cmpi sge, %[[VAL_187]], %[[VAL_189]] : i64
+// CHECK:             %[[VAL_192:.*]] = cmpi slt, %[[VAL_187]], %[[VAL_190]] : i64
+// CHECK:             %[[VAL_193:.*]] = and %[[VAL_191]], %[[VAL_192]] : i1
+// CHECK:             %[[VAL_194:.*]] = scf.if %[[VAL_193]] -> (f64) {
+// CHECK:               %[[VAL_195:.*]] = memref.get_global @histogram_0 : memref<2xf64>
+// CHECK:               %[[VAL_196:.*]] = memref.load %[[VAL_195]]{{\[}}%[[VAL_188]]] : memref<2xf64>
+// CHECK:               scf.yield %[[VAL_196]] : f64
+// CHECK:             } else {
+// CHECK:               %[[VAL_197:.*]] = constant 0.000000e+00 : f64
+// CHECK:               scf.yield %[[VAL_197]] : f64
+// CHECK:             }
+// CHECK:             %[[VAL_198:.*]] = fptoui %[[VAL_160]] : f64 to i64
+// CHECK:             %[[VAL_199:.*]] = index_cast %[[VAL_198]] : i64 to index
+// CHECK:             %[[VAL_200:.*]] = constant 0 : i64
+// CHECK:             %[[VAL_201:.*]] = constant 2 : i64
+// CHECK:             %[[VAL_202:.*]] = cmpi sge, %[[VAL_198]], %[[VAL_200]] : i64
+// CHECK:             %[[VAL_203:.*]] = cmpi slt, %[[VAL_198]], %[[VAL_201]] : i64
+// CHECK:             %[[VAL_204:.*]] = and %[[VAL_202]], %[[VAL_203]] : i1
+// CHECK:             %[[VAL_205:.*]] = scf.if %[[VAL_204]] -> (f64) {
+// CHECK:               %[[VAL_206:.*]] = memref.get_global @histogram_1 : memref<2xf64>
+// CHECK:               %[[VAL_207:.*]] = memref.load %[[VAL_206]]{{\[}}%[[VAL_199]]] : memref<2xf64>
+// CHECK:               scf.yield %[[VAL_207]] : f64
+// CHECK:             } else {
+// CHECK:               %[[VAL_208:.*]] = constant 0.000000e+00 : f64
+// CHECK:               scf.yield %[[VAL_208]] : f64
+// CHECK:             }
+// CHECK:             %[[VAL_209:.*]] = constant 0.3989422804014327 : f64
+// CHECK:             %[[VAL_210:.*]] = constant -5.000000e-01 : f64
+// CHECK:             %[[VAL_211:.*]] = constant 5.000000e-01 : f64
+// CHECK:             %[[VAL_212:.*]] = subf %[[VAL_162]], %[[VAL_211]] : f64
+// CHECK:             %[[VAL_213:.*]] = mulf %[[VAL_212]], %[[VAL_212]] : f64
+// CHECK:             %[[VAL_214:.*]] = mulf %[[VAL_213]], %[[VAL_210]] : f64
+// CHECK:             %[[VAL_215:.*]] = math.exp %[[VAL_214]] : f64
+// CHECK:             %[[VAL_216:.*]] = mulf %[[VAL_209]], %[[VAL_215]] : f64
+// CHECK:             %[[VAL_217:.*]] = constant 3.9894228040143269 : f64
+// CHECK:             %[[VAL_218:.*]] = constant -49.999999999999993 : f64
+// CHECK:             %[[VAL_219:.*]] = constant 2.500000e-01 : f64
+// CHECK:             %[[VAL_220:.*]] = subf %[[VAL_164]], %[[VAL_219]] : f64
+// CHECK:             %[[VAL_221:.*]] = mulf %[[VAL_220]], %[[VAL_220]] : f64
+// CHECK:             %[[VAL_222:.*]] = mulf %[[VAL_221]], %[[VAL_218]] : f64
+// CHECK:             %[[VAL_223:.*]] = math.exp %[[VAL_222]] : f64
+// CHECK:             %[[VAL_224:.*]] = mulf %[[VAL_217]], %[[VAL_223]] : f64
+// CHECK:             %[[VAL_225:.*]] = mulf %[[VAL_226:.*]], %[[VAL_227:.*]] : f64
+// CHECK:             %[[VAL_228:.*]] = mulf %[[VAL_225]], %[[VAL_229:.*]] : f64
+// CHECK:             %[[VAL_230:.*]] = constant 1.000000e-01 : f64
+// CHECK:             %[[VAL_231:.*]] = mulf %[[VAL_228]], %[[VAL_230]] : f64
+// CHECK:             %[[VAL_232:.*]] = mulf %[[VAL_233:.*]], %[[VAL_216]] : f64
+// CHECK:             %[[VAL_234:.*]] = mulf %[[VAL_232]], %[[VAL_224]] : f64
+// CHECK:             %[[VAL_235:.*]] = constant 1.000000e-01 : f64
+// CHECK:             %[[VAL_236:.*]] = mulf %[[VAL_234]], %[[VAL_235]] : f64
+// CHECK:             %[[VAL_237:.*]] = addf %[[VAL_231]], %[[VAL_236]] : f64
+// CHECK:             %[[VAL_238:.*]] = math.log %[[VAL_237]] : f64
+// CHECK:             %[[VAL_239:.*]] = constant 0 : index
+// CHECK:             memref.store %[[VAL_238]], %[[VAL_1]]{{\[}}%[[VAL_239]], %[[VAL_152]]] : memref<1x?xf64>
 // CHECK:           }
 // CHECK:           return
 // CHECK:         }

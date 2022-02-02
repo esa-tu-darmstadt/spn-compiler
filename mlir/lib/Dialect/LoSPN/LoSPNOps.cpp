@@ -10,10 +10,10 @@
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNAttributes.h"
 #include "LoSPN/LoSPNInterfaces.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/PatternMatch.h"
 
 namespace mlir {
   namespace spn {
@@ -417,6 +417,66 @@ void mlir::spn::low::SPNConvertLog::build(::mlir::OpBuilder& odsBuilder,
   }
   // None of the operands was constant, return nullptr to signal that the operations has not been touched.
   return nullptr;
+}
+
+//===----------------------------------------------------------------------===//
+// SPNCategoricalLeaf
+//===----------------------------------------------------------------------===//
+
+::mlir::LogicalResult mlir::spn::low::SPNCategoricalLeaf::canonicalize(SPNCategoricalLeaf op,
+                                                                       PatternRewriter& rewriter) {
+  // Rewrite Categoricals which contain exactly two probabilities into a LoSPN Select.
+  auto probabilities = op.probabilities().getValue();
+  if (probabilities.size() == 2) {
+    auto pTrue = probabilities[0].dyn_cast<FloatAttr>();
+    auto pFalse = probabilities[1].dyn_cast<FloatAttr>();
+    auto threshold_max_true = FloatAttr::get(op.index().getType(), 1.0);
+
+    rewriter.replaceOpWithNewOp<SPNSelectLeaf>(op,
+                                               op.getResult().getType(),
+                                               op.index(),
+                                               threshold_max_true,
+                                               pTrue,
+                                               pFalse,
+                                               op.supportMarginalAttr());
+    return success();
+  }
+  return rewriter.notifyMatchFailure(op, "Categorical held != 2 probabilities (no reduction to select possible)");
+}
+
+//===----------------------------------------------------------------------===//
+// SPNHistogramLeaf
+//===----------------------------------------------------------------------===//
+
+::mlir::LogicalResult mlir::spn::low::SPNHistogramLeaf::canonicalize(SPNHistogramLeaf op, PatternRewriter& rewriter) {
+  // Rewrite certain Histograms which contain exactly two buckets into a LoSPN Select.
+  // Buckets' index range must be 1 and buckets have to be consecutive / contiguous.
+  // i.e.: (UB_0-LB_0 == 1) && (UB_1-LB_1 == 1) && (UB_0 == LB_1)
+  auto buckets = op.buckets();
+  if (buckets.size() == 2) {
+    auto b0 = buckets[0].cast<mlir::spn::low::Bucket>();
+    auto b1 = buckets[1].cast<mlir::spn::low::Bucket>();
+
+    bool isQualifiedIndexRange = ((b0.ub().getInt() - b0.lb().getInt()) == 1) &&
+        ((b1.ub().getInt() - b1.lb().getInt()) == 1);
+    bool isContiguous = (b0.ub().getInt() == b1.lb().getInt());
+
+    if (isQualifiedIndexRange && isContiguous) {
+      auto pTrue = b0.val();
+      auto pFalse = b1.val();
+      auto threshold_max_true = FloatAttr::get(Float64Type::get(op.getContext()), b0.ub().getInt());
+
+      rewriter.replaceOpWithNewOp<SPNSelectLeaf>(op,
+                                                 op.getResult().getType(),
+                                                 op.index(),
+                                                 threshold_max_true,
+                                                 pTrue,
+                                                 pFalse,
+                                                 op.supportMarginalAttr());
+      return success();
+    }
+  }
+  return rewriter.notifyMatchFailure(op, "Histogram was not eligible for reduction to select");
 }
 
 #define GET_OP_CLASSES

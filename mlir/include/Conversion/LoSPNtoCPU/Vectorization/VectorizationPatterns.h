@@ -242,6 +242,15 @@ namespace mlir {
 
       LogicalResult matchAndRewrite(low::SPNConvertLog op,
                                     ArrayRef <Value> operands,
+          ConversionPatternRewriter& rewriter) const override;
+    };
+
+    struct VectorizeSelectLeaf : public OpConversionPattern<low::SPNSelectLeaf> {
+
+      using OpConversionPattern<low::SPNSelectLeaf>::OpConversionPattern;
+
+      LogicalResult matchAndRewrite(low::SPNSelectLeaf op,
+                                    ArrayRef<Value> operands,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -255,6 +264,7 @@ namespace mlir {
       patterns.insert<VectorizeLogAdd, VectorizeLogMul>(typeConverter, context, 2);
       patterns.insert<VectorizeConstant>(typeConverter, context, 2);
       patterns.insert<ResolveVectorizedStripLog, ResolveVectorizedConvertLog>(typeConverter, context, 2);
+      patterns.insert<VectorizeSelectLeaf>(typeConverter, context, 2);
     }
 
   }
