@@ -28,7 +28,7 @@ def LoSPN_Dialect : Dialect {
 ///
 /// Base operation for all operations of this dialect.
 ///
-class LoSPN_Op<string mnemonic, list<OpTrait> traits = []> : Op<LoSPN_Dialect, mnemonic, traits>;
+class LoSPN_Op<string mnemonic, list<Trait> traits = []> : Op<LoSPN_Dialect, mnemonic, traits>;
 
 ///
 /// Type representing possible input types to the SPN.

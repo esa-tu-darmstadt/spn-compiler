@@ -15,8 +15,11 @@ include "LoSPNTraits.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "mlir/IR/RegionKindInterface.td"
+include "mlir/Interfaces/InferTypeOpInterface.td"
+include "mlir/IR/AttrTypeBase.td"
 
-def SPNKernel : LoSPN_Op<"kernel", [FunctionLike, Symbol, IsolatedFromAbove]> {
+// TODO: What about FunctionLike?
+def SPNKernel : LoSPN_Op<"kernel", [Symbol, IsolatedFromAbove]> {
 
     let summary = "The Kernel holds the tasks necessary to process an SPN query.";
 
@@ -46,11 +49,12 @@ def SPNKernel : LoSPN_Op<"kernel", [FunctionLike, Symbol, IsolatedFromAbove]> {
 
     }];
 
-    let verifier = [{ return mlir::spn::low::verifyKernel(*this); }];
+    //let verifier = [{ return mlir::spn::low::verifyKernel(*this); }];
+    let hasVerifier = 1;
 }
 
 def SPNTask : LoSPN_Op<"task", [HasParent<"SPNKernel">, SingleBlockImplicitTerminator<"SPNReturn">,
-                                RecursiveSideEffects, IsolatedFromAbove]> {
+                                RecursiveMemoryEffects, IsolatedFromAbove]> {
 
     let summary = "The task holds (part of) the computation necessary for SPN query processing";
 
@@ -78,12 +82,13 @@ def SPNTask : LoSPN_Op<"task", [HasParent<"SPNKernel">, SingleBlockImplicitTermi
             Value getBatchIndex();
     }];
 
-    let verifier = [{ return mlir::spn::low::verifyTask(*this); }];
+    //let verifier = [{ return mlir::spn::low::verifyTask(*this); }];
+    let hasVerifier = 1;
 
 }
 
 def SPNBody : LoSPN_Op<"body", [HasParent<"SPNTask">, SingleBlockImplicitTerminator<"SPNYield">,
-                                NoSideEffect, IsolatedFromAbove]> {
+                                NoMemoryEffect, IsolatedFromAbove]> {
 
     let summary = "The body holds the the actual computational operations";
 
@@ -104,7 +109,8 @@ def SPNBody : LoSPN_Op<"body", [HasParent<"SPNTask">, SingleBlockImplicitTermina
             Block* addEntryBlock();
     }];
 
-    let verifier = [{ return mlir::spn::low::verifyBody(*this); }];
+    //let verifier = [{ return mlir::spn::low::verifyBody(*this); }];
+    let hasVerifier = 1;
 
 }
 
@@ -139,7 +145,8 @@ def SPNBatchExtract : LoSPN_Op<"batch_extract", [HasParent<"SPNTask">]> {
 
     let results = (outs AnyTypeOf<[LoSPNInputType, LoSPNComputeType]>:$result);
 
-    let verifier = [{ return mlir::spn::low::verifyBatchExtract(*this); }];
+    //let verifier = [{ return mlir::spn::low::verifyBatchExtract(*this); }];
+    let hasVerifier = 1;
 }
 
 def SPNBatchRead : LoSPN_Op<"batch_read", [
@@ -173,7 +180,8 @@ def SPNBatchRead : LoSPN_Op<"batch_read", [
 
     let results = (outs AnyTypeOf<[LoSPNInputType, LoSPNComputeType]>:$result);
 
-    let verifier = [{ return mlir::spn::low::verifyBatchRead(*this); }];
+    //let verifier = [{ return mlir::spn::low::verifyBatchRead(*this); }];
+    let hasVerifier = 1;
 
     let builders = [
         OpBuilder<(ins "Value":$batchMem, "Value":$dynamicIndex, "unsigned":$staticIndex,
@@ -215,7 +223,8 @@ def SPNBatchCollect : LoSPN_Op<"batch_collect", [HasParent<"SPNTask">]> {
 
     let results = (outs RankedTensorOf<[LoSPNComputeType]>:$tensor);
 
-    let verifier = [{ return mlir::spn::low::verifyBatchCollect(*this); }];
+    //let verifier = [{ return mlir::spn::low::verifyBatchCollect(*this); }];
+    let hasVerifier = 1;
 
     let builders = [
         OpBuilder<(ins "ValueRange":$resultValues, "Value":$batchIndex, "bool":$transposed)>
@@ -255,7 +264,8 @@ def SPNBatchWrite : LoSPN_Op<"batch_write", [
                         Variadic<LoSPNComputeType>:$resultValues,
                         OptionalAttr<BoolAttr>:$transposed);
 
-    let verifier = [{ return mlir::spn::low::verifyBatchWrite(*this); }];
+    //let verifier = [{ return mlir::spn::low::verifyBatchWrite(*this); }];
+    let hasVerifier = 1;
 }
 
 def SPNCopy : LoSPN_Op<"copy", [SameOperandsShape]> {
@@ -290,7 +300,7 @@ def SPNConvertToVector : LoSPN_Op<"to_vector", []> {
 
 }
 
-def SPNConvertToScalar : LoSPN_Op<"to_scalar", [NoSideEffect]> {
+def SPNConvertToScalar : LoSPN_Op<"to_scalar", [NoMemoryEffect]> {
     let summary = "Convert vector input to scalar";
 
     let description = [{
@@ -349,7 +359,7 @@ def SPNReturn : LoSPN_Op<"return", [Terminator]> {
     let arguments = (ins Variadic<RankedTensorOf<[LoSPNComputeType]>>:$returnValues);
 }
 
-class LoSPNBodyOp<string mnemonic, list<OpTrait> traits = []> : LoSPN_Op<mnemonic,
+class LoSPNBodyOp<string mnemonic, list<Trait> traits = []> : LoSPN_Op<mnemonic,
     !listconcat(traits, [VectorizableOp])>;
 
 def SPNYield : LoSPNBodyOp<"yield", [Terminator, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
@@ -360,7 +370,7 @@ def SPNYield : LoSPNBodyOp<"yield", [Terminator, DeclareOpInterfaceMethods<LoSPN
 
 }
 
-def SPNConstant : LoSPNBodyOp<"constant", [ConstantLike, NoSideEffect, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
+def SPNConstant : LoSPNBodyOp<"constant", [ConstantLike, NoMemoryEffect, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "Represents a simple constant value";
 
@@ -371,7 +381,7 @@ def SPNConstant : LoSPNBodyOp<"constant", [ConstantLike, NoSideEffect, DeclareOp
     let hasFolder = 1;
 }
 
-def SPNLog : LoSPNBodyOp<"log", [NoSideEffect, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
+def SPNLog : LoSPNBodyOp<"log", [NoMemoryEffect, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "Convert the result of the computation to log";
 
@@ -383,7 +393,7 @@ def SPNLog : LoSPNBodyOp<"log", [NoSideEffect, DeclareOpInterfaceMethods<LoSPNVe
 
 }
 
-def SPNMul : LoSPNBodyOp<"mul", [NoSideEffect, Commutative, SameOperandsAndResultType,
+def SPNMul : LoSPNBodyOp<"mul", [NoMemoryEffect, Commutative, SameOperandsAndResultType,
                                     DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "Multiplication of two values";
@@ -396,7 +406,7 @@ def SPNMul : LoSPNBodyOp<"mul", [NoSideEffect, Commutative, SameOperandsAndResul
 
 }
 
-def SPNAdd : LoSPNBodyOp<"add", [NoSideEffect, Commutative, SameOperandsAndResultType,
+def SPNAdd : LoSPNBodyOp<"add", [NoMemoryEffect, Commutative, SameOperandsAndResultType,
                                     DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "Addition of two values";
@@ -409,6 +419,7 @@ def SPNAdd : LoSPNBodyOp<"add", [NoSideEffect, Commutative, SameOperandsAndResul
 
 }
 
+/*
 /// Named attribute for the inclusive lower bound of a histogram bucket.
 def LowerBoundAttr : StructFieldAttr<"lb", I32Attr>;
 
@@ -420,6 +431,11 @@ def HistValueAttr  : StructFieldAttr<"val", F64Attr>;
 
 /// Struct-attribute for a histogram bucket.
 def HistBucketAttr : StructAttr<"Bucket", LoSPN_Dialect, [LowerBoundAttr, UpperBoundAttr, HistValueAttr]>;
+*/
+
+// TODO
+def HistBucketAttr : AttrDef<LoSPN_Dialect, "Bucket"> {
+}
 
 /// List of histogram buckets as array-attribute.
 def BucketListAttr : TypedArrayAttrBase<HistBucketAttr, "histogram bucket list">;
@@ -427,7 +443,7 @@ def BucketListAttr : TypedArrayAttrBase<HistBucketAttr, "histogram bucket list">
 ///
 /// Histogram as SPN leaf node.
 ///
-def SPNHistogramLeaf : LoSPNBodyOp<"histogram", [NoSideEffect,
+def SPNHistogramLeaf : LoSPNBodyOp<"histogram", [NoMemoryEffect,
                                                  DeclareOpInterfaceMethods<LoSPNVectorizable>,
                                                  DeclareOpInterfaceMethods<LeafNodeInterface>]> {
     let summary = "histogram";
@@ -447,7 +463,7 @@ def SPNHistogramLeaf : LoSPNBodyOp<"histogram", [NoSideEffect,
 ///
 /// Categorical distribution as SPN leaf node.
 ///
-def SPNCategoricalLeaf : LoSPNBodyOp<"categorical", [NoSideEffect,
+def SPNCategoricalLeaf : LoSPNBodyOp<"categorical", [NoMemoryEffect,
                                                      DeclareOpInterfaceMethods<LoSPNVectorizable>,
                                                      DeclareOpInterfaceMethods<LeafNodeInterface>]> {
 
@@ -465,7 +481,7 @@ def SPNCategoricalLeaf : LoSPNBodyOp<"categorical", [NoSideEffect,
 ///
 /// Gaussian distribution as SPN leaf node.
 ///
-def SPNGaussianLeaf : LoSPNBodyOp<"gaussian", [NoSideEffect,
+def SPNGaussianLeaf : LoSPNBodyOp<"gaussian", [NoMemoryEffect,
                                                DeclareOpInterfaceMethods<LoSPNVectorizable>,
                                                DeclareOpInterfaceMethods<LeafNodeInterface>]> {
 

@@ -10,6 +10,8 @@
 #define HiSPN_DIALECT
 
 include "mlir/IR/OpBase.td"
+include "mlir/IR/EnumAttr.td"
+include "mlir/Interfaces/InferTypeOpInterface.td"
 
 ///
 /// Dialect for high-level abstractions representing SPNs and queries.
@@ -22,12 +24,13 @@ def HiSPN_Dialect : Dialect {
         high level of abstraction.
     }];
     let cppNamespace = "::mlir::spn::high";
+    let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
 }
 
 ///
 /// Base operation for all operations of this dialect.
 ///
-class HiSPN_Op<string mnemonic, list<OpTrait> traits = []> : Op<HiSPN_Dialect, mnemonic, traits>;
+class HiSPN_Op<string mnemonic, list<Trait> traits = []> : Op<HiSPN_Dialect, mnemonic, traits>;
 
 ///
 /// Dialect-specific type representing probability values.
@@ -35,7 +38,7 @@ class HiSPN_Op<string mnemonic, list<OpTrait> traits = []> : Op<HiSPN_Dialect, m
 def HiSPNProbabilityType : DialectType<HiSPN_Dialect,
         CPred<"$_self.isa<::mlir::spn::high::ProbabilityType>()">,
         "`hi_spn.probability_type` abstractly represents a probability type.">,
-        BuildableType<"$_builder.getType<::mlir:spn::high::ProbabilityType>()">;
+        BuildableType<"$_builder.getType<::mlir::spn::high::ProbabilityType>()">;
 
 ///
 /// Type representing possible input types to the SPN.

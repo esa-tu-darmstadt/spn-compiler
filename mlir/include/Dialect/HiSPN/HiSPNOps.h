@@ -13,6 +13,7 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/IR/RegionKindInterface.h"
+#include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "HiSPN/HiSPNInterfaces.h"
 #include "HiSPN/HiSPNEnums.h"
 

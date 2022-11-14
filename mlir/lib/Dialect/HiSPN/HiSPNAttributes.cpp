@@ -7,4 +7,15 @@
 //==============================================================================
 
 #include "HiSPN/HiSPNAttributes.h"
+
+namespace mlir::spn::high {
+
+// NOTE: Check if the actual verification of the input parameters happens on the DAG.
+mlir::LogicalResult Bucket::verify(llvm::function_ref<mlir::InFlightDiagnostic ()>, int lb, int ub, llvm::APFloat val) {
+    return mlir::success();
+}
+
+}
+
+#define GET_ATTRDEF_CLASSES
 #include "HiSPN/HiSPNAttributes.cpp.inc"

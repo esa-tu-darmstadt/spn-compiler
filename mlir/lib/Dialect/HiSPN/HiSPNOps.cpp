@@ -30,12 +30,12 @@ namespace mlir {
       //===----------------------------------------------------------------------===//
       // JointQuery
       //===----------------------------------------------------------------------===//
-      static mlir::LogicalResult verify(JointQuery node) {
-        if (node.supportMarginal()) {
+      mlir::LogicalResult JointQuery::verify() {
+        if (supportMarginal()) {
           // Marginalization is triggered by feature values set to NaN,
           // so the input must be a float type to represent that.
-          if (!node.getFeatureDataType().isa<FloatType>()) {
-            return node->emitOpError("Feature data type must be floating-point to support marginal");
+          if (!getFeatureDataType().isa<FloatType>()) {
+            return emitOpError("Feature data type must be floating-point to support marginal");
           }
         }
         return mlir::success();
@@ -44,10 +44,10 @@ namespace mlir {
       //===----------------------------------------------------------------------===//
       // ProductNode
       //===----------------------------------------------------------------------===//
-      static mlir::LogicalResult verify(ProductNode node) {
-        auto numOps = numOperands(node);
+      mlir::LogicalResult ProductNode::verify() {
+        auto numOps = numOperands(*this);
         if (numOps == 0) {
-          return node->emitOpError("Number of operands must be at least one");
+          return emitOpError("Number of operands must be at least one");
         }
         return mlir::success();
       }
@@ -56,21 +56,21 @@ namespace mlir {
       // SumNode
       //===----------------------------------------------------------------------===//
 
-      static mlir::LogicalResult verify(SumNode op) {
-        auto numAddends = numOperands(op);
-        auto numWeights = op.weights().size();
+      mlir::LogicalResult SumNode::verify() {
+        auto numAddends = numOperands(*this);
+        auto numWeights = weights().size();
         if (numWeights != numAddends) {
-          return op.emitOpError("Number of weights must match the number of addends!");
+          return emitOpError("Number of weights must match the number of addends!");
         }
         if (numAddends <= 0) {
-          return op.emitOpError("Number of addends must be greater than zero!");
+          return emitOpError("Number of addends must be greater than zero!");
         }
         double sum = 0.0;
-        for (auto p : op.weights().getAsRange<mlir::FloatAttr>()) {
+        for (auto p : weights().getAsRange<mlir::FloatAttr>()) {
           sum += p.getValueAsDouble();
         }
         if (std::abs(sum - 1.0) > 1e-6) {
-          return op.emitOpError("Weights must sum up to 1.0 for normalized SPN");
+          return emitOpError("Weights must sum up to 1.0 for normalized SPN");
         }
         return mlir::success();
       }
@@ -79,30 +79,30 @@ namespace mlir {
       // HistogramOp
       //===----------------------------------------------------------------------===//
 
-      static mlir::LogicalResult verify(HistogramNode op) {
+      mlir::LogicalResult HistogramNode::verify() {
         int64_t lb = std::numeric_limits<int64_t>::min();
         int64_t ub = std::numeric_limits<int64_t>::min();
-        if (op.buckets().size() != op.bucketCount()) {
-          return op.emitOpError("bucketCount must match the actual number of buckets!");
+        if (buckets().size() != bucketCount()) {
+          return emitOpError("bucketCount must match the actual number of buckets!");
         }
-        auto buckets = op.buckets();
+        auto buckets = this->buckets();
         for (auto b : buckets.getValue()) {
           auto bucket = b.cast<DictionaryAttr>();
           auto curLB = bucket.get("lb").cast<IntegerAttr>().getInt();
           auto curUB = bucket.get("ub").cast<IntegerAttr>().getInt();
           if (curUB < curLB) {
-            return op.emitOpError("Lower bound must be less or equal to upper bound!");
+            return emitOpError("Lower bound must be less or equal to upper bound!");
           }
           if (curLB > lb) {
             if (curLB < ub) {
               // The existing range and the new bucket overlap.
-              return op.emitOpError("Overlapping buckets in histogram!");
+              return emitOpError("Overlapping buckets in histogram!");
             }
             ub = curUB;
           } else {
             if (curUB > lb) {
               // The new bucket and the existing range overlap.
-              return op.emitOpError("Overlapping buckets in histogram!");
+              return emitOpError("Overlapping buckets in histogram!");
             }
             lb = curLB;
           }
@@ -114,13 +114,13 @@ namespace mlir {
       // CategoricalOp
       //===----------------------------------------------------------------------===//
 
-      static mlir::LogicalResult verify(CategoricalNode op) {
+      mlir::LogicalResult CategoricalNode::verify() {
         double sum = 0.0;
-        for (auto p : op.probabilities().getAsRange<mlir::FloatAttr>()) {
+        for (auto p : probabilities().getAsRange<mlir::FloatAttr>()) {
           sum += p.getValueAsDouble();
         }
         if (std::abs(sum - 1.0) > 1e-6) {
-          return op.emitOpError("Category probabilities should sum to 1.0");
+          return emitOpError("Category probabilities should sum to 1.0");
         }
         return mlir::success();
       }
@@ -185,12 +185,13 @@ void mlir::spn::high::HistogramNode::build(::mlir::OpBuilder& odsBuilder,
   SmallVector<mlir::Attribute, 256> bucketList;
   // Create StructAttr for each bucket, comprising the inclusive lower bound,
   // the exclusive lower bound and the probability value.
-  for (auto& bucket : buckets) {
-    auto bucketAttr = Bucket::get(odsBuilder.getI32IntegerAttr(std::get<0>(bucket)),
-                                  odsBuilder.getI32IntegerAttr(std::get<1>(bucket)),
-                                  odsBuilder.getF64FloatAttr(std::get<2>(bucket)), odsBuilder.getContext());
-    bucketList.push_back(bucketAttr);
-  }
+  //for (auto& bucket : buckets) {
+    //auto bucketAttr = Bucket::get(odsBuilder.getI32IntegerAttr(std::get<0>(bucket)),
+    //                              odsBuilder.getI32IntegerAttr(std::get<1>(bucket)),
+    //                              odsBuilder.getF64FloatAttr(std::get<2>(bucket)), odsBuilder.getContext());
+    //auto bucketAttr = Bucket::get(odsBuilder.getContext(), 
+    //bucketList.push_back(bucketAttr);
+  //}
   auto arrAttr = odsBuilder.getArrayAttr(bucketList);
   build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), indexVal,
         arrAttr, odsBuilder.getUI32IntegerAttr(bucketList.size()));
@@ -285,8 +286,9 @@ mlir::spn::high::error_model mlir::spn::high::JointQuery::getErrorModel() {
   return this->errorModel();
 }
 
-double mlir::spn::high::JointQuery::getMaxError() {
-  return this->maxError().convertToDouble();
+int mlir::spn::high::JointQuery::getMaxError() {
+  //return this->maxError().convertToDouble();
+  return 123;
 }
 
 llvm::StringRef mlir::spn::high::JointQuery::getQueryName() {

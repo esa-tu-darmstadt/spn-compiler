@@ -21,16 +21,22 @@ void HiSPNDialect::initialize() {
 #include "HiSPN/HiSPNOps.cpp.inc"
   >();
   addTypes<ProbabilityType>();
+
+//  addAttributes<
+//#define GET_ATTRDEF_LIST
+//#include "HiSPN/HiSPNAttributes.cpp.inc"
+//  >();
 }
 
-::mlir::Type HiSPNDialect::parseType(::mlir::DialectAsmParser& parser) const {
-  return ProbabilityType::get(getContext());
-}
+// TODO
+//::mlir::Type HiSPNDialect::parseType(::mlir::DialectAsmParser& parser) const {
+//  return ProbabilityType::get(getContext());
+//}
 
-void HiSPNDialect::printType(::mlir::Type type, ::mlir::DialectAsmPrinter& os) const {
-  // Currently the only SPN type is the probability type.
-  os << "probability";
-}
+//void HiSPNDialect::printType(::mlir::Type type, ::mlir::DialectAsmPrinter& os) const {
+//  // Currently the only SPN type is the probability type.
+//  os << "probability";
+//}
 
 // Table-gen output for dialect implementation
 #include "HiSPN/HiSPNOpsDialect.cpp.inc"

@@ -34,7 +34,7 @@ def QueryInterface : OpInterface<"QueryInterface"> {
     InterfaceMethod<"Get the data type of the features", "mlir::Type", "getFeatureDataType">,
     InterfaceMethod<"Get the batch size to optimize for.", "unsigned int", "getBatchSize">,
     InterfaceMethod<"Get the error model for arithmetic error analysis.", "mlir::spn::high::error_model", "getErrorModel">,
-    InterfaceMethod<"Get the maximum allowed arithmetic error.", "double", "getMaxError">,
+    InterfaceMethod<"Get the maximum allowed arithmetic error.", "int", "getMaxError">,
     InterfaceMethod<"Get the query name.", "llvm::StringRef", "getQueryName">,
   ];
 

@@ -11,9 +11,19 @@
 
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/AttributeSupport.h"
-#include "mlir/IR/Identifier.h"
+//#include "mlir/IR/Identifier.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/OpDefinition.h"
+#include "mlir/IR/OpImplementation.h"
+#include "mlir/Support/LLVM.h"
+#include "llvm/ADT/TypeSwitch.h"
+#include "mlir/IR/DialectImplementation.h"
+#include "mlir/IR/Operation.h"
+#include "mlir/IR/Dialect.h"
+#include "mlir/IR/Builders.h"
+
+#define GET_ATTRDEF_CLASSES
 #include "HiSPN/HiSPNAttributes.h.inc"
 
 #endif //SPNC_MLIR_INCLUDE_DIALECT_HISPN_HISPNATTRIBUTES_H

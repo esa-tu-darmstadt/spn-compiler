@@ -34,10 +34,10 @@ add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
         MLIRLoSPN
         MLIRIR
         MLIRPass
-        MLIRStandard
+        #MLIRStandard
         MLIRSupport
         MLIRTransforms
-        MLIRMath
+        MLIRMathDialect
 
         DEPENDS
         cpu_targetinfo

@@ -35,7 +35,7 @@ add_mlir_dialect_library(MLIRLoSPN
         MLIRPass
         MLIRTransforms
         MLIRTransformUtils
-        MLIRMath
+        MLIRMathDialect
         MLIRGPUOps
         )
 
