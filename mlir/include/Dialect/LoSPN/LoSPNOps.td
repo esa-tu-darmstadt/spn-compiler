@@ -13,13 +13,14 @@ include "LoSPNDialect.td"
 include "LoSPNInterfaces.td"
 include "LoSPNTraits.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/IR/FunctionInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "mlir/IR/RegionKindInterface.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/IR/AttrTypeBase.td"
 
 // TODO: What about FunctionLike?
-def SPNKernel : LoSPN_Op<"kernel", [Symbol, IsolatedFromAbove]> {
+def SPNKernel : LoSPN_Op<"kernel", [FunctionOpInterface, Symbol, IsolatedFromAbove]> {
 
     let summary = "The Kernel holds the tasks necessary to process an SPN query.";
 
@@ -28,6 +29,8 @@ def SPNKernel : LoSPN_Op<"kernel", [Symbol, IsolatedFromAbove]> {
         The computation itself is represented by one or multiple Tasks associated with the Kernel.
     }];
 
+    let arguments = (ins TypeAttrOf<FunctionType>:$function_type);
+
     let results = (outs);
 
     let regions = (region AnyRegion:$body);
@@ -35,22 +38,32 @@ def SPNKernel : LoSPN_Op<"kernel", [Symbol, IsolatedFromAbove]> {
     let builders = [
         OpBuilder<(ins "StringRef":$name, "FunctionType":$type)>
     ];
-
+    
     let extraClassDeclaration = [{
-      private:
-        // This trait needs access to the hooks defined below.
-        friend class OpTrait::FunctionLike<SPNKernel>;
+        /// Taken from toy Ch2 Opd.td
+        /// Does the different prefix naming policy turn getFunctionType() into function_type() ?
+        /// This seems to break with some internals of function op interfaces!
+
+        //===------------------------------------------------------------------===//
+        // FunctionOpInterface Methods
+        //===------------------------------------------------------------------===//
+
+        /// Returns the argument types of this function.
+        ArrayRef<Type> getArgumentTypes() { return getFunctionType().getInputs(); }
+
+        /// Returns the result types of this function.
+        ArrayRef<Type> getResultTypes() { return getFunctionType().getResults(); }
 
         /// Returns the number of arguments. Hook for OpTrait::FunctionLike.
-        unsigned getNumFuncArguments() { return getType().getNumInputs(); }
+        unsigned getNumFuncArguments() { return getFunctionType().getInputs().size(); }
 
         /// Returns the number of results. Hook for OpTrait::FunctionLike.
-        unsigned getNumFuncResults() { return getType().getNumResults(); }
-
+        unsigned getNumFuncResults() { return getFunctionType().getResults().size(); }
     }];
 
     //let verifier = [{ return mlir::spn::low::verifyKernel(*this); }];
     let hasVerifier = 1;
+    let skipDefaultBuilders = 0;
 }
 
 def SPNTask : LoSPN_Op<"task", [HasParent<"SPNKernel">, SingleBlockImplicitTerminator<"SPNReturn">,

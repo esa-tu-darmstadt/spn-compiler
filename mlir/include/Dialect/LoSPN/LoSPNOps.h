@@ -13,10 +13,12 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/IR/RegionKindInterface.h"
+#include "mlir/Interfaces/InferTypeOpInterface.h"
+#include "mlir/IR/FunctionInterfaces.h"
 #include "LoSPN/LoSPNInterfaces.h"
 #include "LoSPN/LoSPNTraits.h"
 #include "LoSPN/LoSPNTypes.h"
-#include "mlir/IR/FunctionSupport.h"
+//#include "mlir/IR/FunctionSupport.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/IR/BuiltinOps.h"
 

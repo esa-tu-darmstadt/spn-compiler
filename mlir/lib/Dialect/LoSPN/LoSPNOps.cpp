@@ -22,10 +22,10 @@ namespace mlir {
       static mlir::LogicalResult verifyKernel(SPNKernel kernel) {
         // Check that for each input of the SPNKernel the entry block of the Kernel has
         // a block argument with identical type.
-        if (kernel.body().front().getNumArguments() != kernel.getType().getNumInputs()) {
+        if (kernel.getBody().front().getNumArguments() != kernel.getFunctionType().getNumInputs()) {
           return kernel.emitOpError() << "Number of entry block arguments does not match number of Kernel inputs";
         }
-        for (auto inputAndBlockArg : llvm::zip(kernel.getType().getInputs(), kernel.body().front().getArguments())) {
+        for (auto inputAndBlockArg : llvm::zip(kernel.getFunctionType().getInputs(), kernel.getBody().front().getArguments())) {
           if (std::get<0>(inputAndBlockArg) != std::get<1>(inputAndBlockArg).getType()) {
             return kernel.emitOpError() << "Kernel input type " << std::get<0>(inputAndBlockArg)
                                         << " and block argument type " << std::get<1>(inputAndBlockArg).getType()
@@ -35,12 +35,12 @@ namespace mlir {
 
         // Check that the values returned by each return found directly inside the Kernel
         // match the output type of the Kernel.
-        if (!kernel.getType().getResults().empty()) {
-          for (auto ret : kernel.body().getOps<SPNReturn>()) {
-            if (ret.returnValues().size() != kernel.getType().getNumResults()) {
+        if (!kernel.getFunctionType().getResults().empty()) {
+          for (auto ret : kernel.getBody().getOps<SPNReturn>()) {
+            if (ret.getReturnValues().size() != kernel.getFunctionType().getNumResults()) {
               return kernel.emitOpError() << "Number of return values does not match Kernel result type";
             }
-            for (auto typeAndValue : llvm::zip(kernel.getType().getResults(), ret.returnValues())) {
+            for (auto typeAndValue : llvm::zip(kernel.getFunctionType().getResults(), ret.getReturnValues())) {
               auto retTy = std::get<0>(typeAndValue);
               auto valTy = std::get<1>(typeAndValue).getType();
               if (retTy != valTy) {
@@ -58,10 +58,10 @@ namespace mlir {
         // has IndexType (corresponds to the batch index) and
         // the remaining arguments match the types of the
         // Tasks' operands.
-        if (task.body().front().getNumArguments() != task.getNumOperands() + 1) {
+        if (task.getBody().front().getNumArguments() != task.getNumOperands() + 1) {
           return task->emitOpError() << "Incorrect number of block arguments for entry block of Task";
         }
-        for (auto blockArg : llvm::enumerate(task.body().front().getArguments())) {
+        for (auto blockArg : llvm::enumerate(task.getBody().front().getArguments())) {
           if (blockArg.index() == 0) {
             if (!blockArg.value().getType().isIndex()) {
               return task.emitOpError() << "First argument of Task block must be an index";
@@ -74,12 +74,12 @@ namespace mlir {
         }
         // Check that the task is terminated by a SPNReturn with the correct number of return values
         // and types.
-        auto ret = dyn_cast<SPNReturn>(task.body().front().getTerminator());
+        auto ret = dyn_cast<SPNReturn>(task.getBody().front().getTerminator());
         assert(ret);
-        if (ret.returnValues().size() != task.results().size()) {
+        if (ret.getReturnValues().size() != task.getResults().size()) {
           return task.emitOpError() << "Task does not return the correct number of values";
         }
-        for (auto retVal : llvm::zip(ret.returnValues(), task.results())) {
+        for (auto retVal : llvm::zip(ret.getReturnValues(), task.getResults())) {
           if (std::get<0>(retVal).getType() != std::get<1>(retVal).getType()) {
             return task->emitOpError() << "Returned value type does not match Task result type";
           }
@@ -90,10 +90,10 @@ namespace mlir {
       static mlir::LogicalResult verifyBody(SPNBody body) {
         // Check that the number and type of the entry block arguments match
         // the operands of the Body.
-        if (body.body().front().getNumArguments() != body->getNumOperands()) {
+        if (body.getBody().front().getNumArguments() != body->getNumOperands()) {
           return body.emitOpError() << "Incorrect number of block arguments for entry block of Body";
         }
-        for (auto argInput : llvm::zip(body.body().front().getArguments(), body.inputs())) {
+        for (auto argInput : llvm::zip(body.getBody().front().getArguments(), body.getInputs())) {
           auto argType = std::get<0>(argInput).getType();
           auto opType = std::get<1>(argInput).getType();
           // The low::LogType is only used inside SPNBody, so if the block argument is of LogType,
@@ -106,12 +106,12 @@ namespace mlir {
           }
         }
         // Check that the Body is terminated by a SPNYield with the correct number of return values and types.
-        auto yield = dyn_cast<SPNYield>(body.body().front().getTerminator());
+        auto yield = dyn_cast<SPNYield>(body.getBody().front().getTerminator());
         assert(yield);
-        if (yield.resultValues().size() != body.getNumResults()) {
+        if (yield.getResultValues().size() != body.getNumResults()) {
           return body.emitOpError() << "Body does not return the correct number of values";
         }
-        for (auto retVal : llvm::zip(yield.resultValues(), body->getResults())) {
+        for (auto retVal : llvm::zip(yield.getResultValues(), body->getResults())) {
           auto yieldResult = std::get<0>(retVal).getType();
           auto bodyResult = std::get<1>(retVal).getType();
           if (auto logType = yieldResult.dyn_cast<low::LogType>()) {
@@ -131,7 +131,8 @@ namespace mlir {
       }
 
       static mlir::LogicalResult verifyBatchExtract(SPNBatchExtract extract) {
-        auto tensor = extract.input().getType().dyn_cast<TensorType>();
+        
+        auto tensor = extract.getInput().getType().dyn_cast<TensorType>();
         assert(tensor);
         if (!tensor.hasRank()) {
           return extract.emitOpError() << "Input tensor should be ranked";
@@ -139,21 +140,21 @@ namespace mlir {
         if (tensor.getRank() != 2) {
           return extract->emitOpError() << "Input tensor should be ranked with two dimensions";
         }
-        unsigned staticDim = (extract.transposed().hasValue() && extract.transposed().getValue()) ? 0 : 1;
+        unsigned staticDim = (extract.getTransposed().hasValue() && extract.getTransposed().getValue()) ? 0 : 1;
         if (tensor.isDynamicDim(staticDim)) {
           return extract->emitOpError() << "Dimension " << staticDim << " of input tensor should be static";
         }
-        if (extract.staticIndex() >= tensor.getDimSize(staticDim)) {
+        if (extract.getStaticIndex() >= tensor.getDimSize(staticDim)) {
           return extract.emitOpError() << "Static index out-of-bounds for input tensor";
         }
-        if (tensor.getElementType() != extract.result().getType()) {
+        if (tensor.getElementType() != extract.getResult().getType()) {
           return extract.emitOpError() << "Input tensor element type does not match output type";
         }
         return mlir::success();
       }
 
       static mlir::LogicalResult verifyBatchRead(SPNBatchRead read) {
-        auto memref = read.batchMem().getType().dyn_cast<MemRefType>();
+        auto memref = read.getBatchMem().getType().dyn_cast<MemRefType>();
         assert(memref);
         if (!memref.hasRank()) {
           return read.emitOpError() << "Input memref should be ranked";
@@ -161,34 +162,34 @@ namespace mlir {
         if (memref.getRank() != 2) {
           return read->emitOpError() << "Input memref should be ranked with two dimensions";
         }
-        unsigned staticDim = (read.transposed().hasValue() && read.transposed().getValue()) ? 0 : 1;
+        unsigned staticDim = (read.getTransposed().hasValue() && read.getTransposed().getValue()) ? 0 : 1;
         if (memref.isDynamicDim(staticDim)) {
           return read->emitOpError() << "Dimension " << staticDim << " of input memref should be static";
         }
-        if (read.staticIndex() >= memref.getDimSize(staticDim)) {
+        if (read.getStaticIndex() >= memref.getDimSize(staticDim)) {
           return read.emitOpError() << "Sample index out-of-bounds for input memref";
         }
-        if (memref.getElementType() != read.result().getType()) {
+        if (memref.getElementType() != read.getResult().getType()) {
           return read.emitOpError() << "Input memref element type does not match output type";
         }
         return mlir::success();
       }
 
       static mlir::LogicalResult verifyBatchCollect(SPNBatchCollect collect) {
-        auto tensorTy = collect.tensor().getType().dyn_cast<TensorType>();
+        auto tensorTy = collect.getTensor().getType().dyn_cast<TensorType>();
         assert(tensorTy);
 
         if (!tensorTy.hasRank() || tensorTy.getRank() != 2) {
           return collect.emitOpError() << "Result tensor must be ranked with two dimensions";
         }
-        unsigned staticDim = (collect.transposed().hasValue() && collect.transposed().getValue()) ? 0 : 1;
+        unsigned staticDim = (collect.getTransposed().hasValue() && collect.getTransposed().getValue()) ? 0 : 1;
         if (tensorTy.isDynamicDim(staticDim) ||
-            static_cast<long>(collect.resultValues().size()) != tensorTy.getDimSize(staticDim)) {
+            static_cast<long>(collect.getResultValues().size()) != tensorTy.getDimSize(staticDim)) {
           return collect.emitOpError() << "Result tensor's dimension "
                                        << staticDim << " must be static and match number of results";
         }
         auto elemTy = tensorTy.getElementType();
-        auto mismatch = llvm::any_of(collect.resultValues(), [elemTy](auto op) {
+        auto mismatch = llvm::any_of(collect.getResultValues(), [elemTy](auto op) {
           return op.getType() != elemTy;
         });
         if (mismatch) {
@@ -198,22 +199,22 @@ namespace mlir {
       }
 
       static mlir::LogicalResult verifyBatchWrite(SPNBatchWrite write) {
-        auto memRefTy = write.batchMem().getType().dyn_cast<MemRefType>();
+        auto memRefTy = write.getBatchMem().getType().dyn_cast<MemRefType>();
         assert(memRefTy);
 
         if (!memRefTy.hasRank() || memRefTy.getRank() != 2) {
           return write.emitOpError() << "Result memref must be ranked with two dimensions";
         }
 
-        unsigned staticDim = (write.transposed().hasValue() && write.transposed().getValue()) ? 0 : 1;
+        unsigned staticDim = (write.getTransposed().hasValue() && write.getTransposed().getValue()) ? 0 : 1;
         if (memRefTy.isDynamicDim(staticDim) ||
-            static_cast<long>(write.resultValues().size()) != memRefTy.getDimSize(staticDim)) {
+            static_cast<long>(write.getResultValues().size()) != memRefTy.getDimSize(staticDim)) {
           return write.emitOpError() << "Result memrefs's dimension "
                                      << staticDim << " must be static and match number of results";
         }
 
         auto elemTy = memRefTy.getElementType();
-        auto mismatch = llvm::any_of(write.resultValues(), [elemTy](auto op) {
+        auto mismatch = llvm::any_of(write.getResultValues(), [elemTy](auto op) {
           return op.getType() != elemTy;
         });
         if (mismatch) {
@@ -246,18 +247,18 @@ void mlir::spn::low::SPNKernel::build(::mlir::OpBuilder& odsBuilder,
 //===----------------------------------------------------------------------===//
 
 mlir::Block* mlir::spn::low::SPNTask::addEntryBlock() {
-  assert(body().empty() && "Task already has a block");
+  assert(getBody().empty() && "Task already has a block");
   auto* entry = new Block();
-  body().push_back(entry);
+  getBody().push_back(entry);
   entry->addArgument(IndexType::get(this->getContext()));
-  entry->addArguments(this->inputs().getType());
+  entry->addArguments(this->getInputs().getType());
   return entry;
 }
 
 mlir::Value mlir::spn::low::SPNTask::getBatchIndex() {
-  assert(!body().empty() && "Task has no block");
-  assert(body().front().getNumArguments() >= 1 && "Task block has no argument");
-  return body().front().getArgument(0);
+  assert(!getBody().empty() && "Task has no block");
+  assert(getBody().front().getNumArguments() >= 1 && "Task block has no argument");
+  return getBody().front().getArgument(0);
 }
 
 //===----------------------------------------------------------------------===//
@@ -265,10 +266,10 @@ mlir::Value mlir::spn::low::SPNTask::getBatchIndex() {
 //===----------------------------------------------------------------------===//
 
 mlir::Block* mlir::spn::low::SPNBody::addEntryBlock() {
-  assert(body().empty() && "Body already has a block");
+  assert(getBody().empty() && "Body already has a block");
   auto* entry = new Block();
-  body().push_back(entry);
-  entry->addArguments(this->inputs().getType());
+  getBody().push_back(entry);
+  entry->addArguments(this->getInputs().getType());
   return entry;
 }
 
@@ -311,7 +312,7 @@ void mlir::spn::low::SPNBatchCollect::build(::mlir::OpBuilder& odsBuilder,
 
 ::mlir::OpFoldResult mlir::spn::low::SPNConstant::fold(::llvm::ArrayRef<::mlir::Attribute> operands) {
   assert(operands.empty() && "lo_spn.constant has no operands");
-  return valueAttr();
+  return getValueAttr();
 }
 
 //===----------------------------------------------------------------------===//
@@ -382,7 +383,7 @@ void mlir::spn::low::SPNConvertLog::build(::mlir::OpBuilder& odsBuilder,
     }
     // x * 1 == x
     if (rhs.getValueAsDouble() == 1.0) {
-      return this->left();
+      return this->getLeft();
     }
   }
   // None of the operands was constant, return nullptr to signal that the operations has not been touched.
@@ -412,7 +413,7 @@ void mlir::spn::low::SPNConvertLog::build(::mlir::OpBuilder& odsBuilder,
     assert(rhs);
     // x + 0 == x
     if (rhs.getValueAsDouble() == 0.0) {
-      return this->left();
+      return this->getLeft();
     }
   }
   // None of the operands was constant, return nullptr to signal that the operations has not been touched.
