@@ -13,7 +13,7 @@
 #include "util/Logging.h"
 #include <regex>
 #include "mlir/IR/Verifier.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "HiSPN/HiSPNEnums.h"
 #include "llvm/Support/Debug.h"
 #include "Kernel.h"
@@ -126,7 +126,7 @@ void spnc::SPFlowToMLIRDeserializer::deserializeModel(Model::Reader&& model) {
   auto featureType = translateTypeString(model.getFeatureType());
   for (auto s: scope) {
     // Add mapping from input (scope) to block argument.
-    inputs[s] = graph.getRegion().addArgument(featureType);
+    inputs[s] = graph.getRegion().addArgument(featureType, graph.getRegion().getLoc());
   }
   builder->setInsertionPointToEnd(block);
 

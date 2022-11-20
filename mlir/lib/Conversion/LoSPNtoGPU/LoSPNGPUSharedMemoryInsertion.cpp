@@ -38,7 +38,7 @@ public:
     auto loc = op->getLoc();
     auto threadID = rewriter.create<gpu::ThreadIdOp>(loc, rewriter.getIndexType(),
                                                      rewriter.getStringAttr("x"));
-    auto featureIndex = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(op.staticIndex() - minIdx));
+    auto featureIndex = rewriter.create<arith::ConstantOp>(loc, rewriter.getIndexAttr(op.getStaticIndex() - minIdx));
     rewriter.replaceOpWithNewOp<memref::LoadOp>(op, sharedMem, ValueRange{featureIndex, threadID});
     return success();
   }
@@ -207,24 +207,24 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
                                                        rewriter.getStringAttr("x"));
       auto blockID = rewriter.create<gpu::BlockIdOp>(loc, rewriter.getIndexType(),
                                                      rewriter.getStringAttr("x"));
-      auto baseIndex = rewriter.create<MulIOp>(loc, blockDim, blockID);
+      auto baseIndex = rewriter.create<arith::MulIOp>(loc, blockDim, blockID);
       auto threadID = rewriter.create<gpu::ThreadIdOp>(loc, rewriter.getIndexType(),
                                                        rewriter.getStringAttr("x"));
-      auto maxFeature = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(maxIndex));
+      auto maxFeature = rewriter.create<arith::ConstantOp>(loc, rewriter.getIndexAttr(maxIndex));
       // Insert a for-loop iterating from 0 to blockSize in steps of 1.
-      auto constZero = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(0));
-      auto constBlockSize = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(constantBlockSize));
-      auto step = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(1));
+      auto constZero = rewriter.create<arith::ConstantOp>(loc, rewriter.getIndexAttr(0));
+      auto constBlockSize = rewriter.create<arith::ConstantOp>(loc, rewriter.getIndexAttr(constantBlockSize));
+      auto step = rewriter.create<arith::ConstantOp>(loc, rewriter.getIndexAttr(1));
       auto loop = rewriter.create<scf::ForOp>(loc, constZero, constBlockSize, step);
       rewriter.setInsertionPointToStart(&loop.getLoopBody().front());
-      auto sampleIndex = rewriter.create<AddIOp>(loc, baseIndex, loop.getInductionVar());
+      auto sampleIndex = rewriter.create<arith::AddIOp>(loc, baseIndex, loop.getInductionVar());
       // If the number of features exceeds the number of threads in the block, threads might need to
       // load multiple inputs.
       auto numRounds = llvm::divideCeil(numFeatures, constantBlockSize);
       for (unsigned i = 0; i < numRounds; ++i) {
-        auto featureOffset = rewriter.create<ConstantOp>(loc,
+        auto featureOffset = rewriter.create<arith::ConstantOp>(loc,
                                                          rewriter.getIndexAttr(i * constantBlockSize + minIndex));
-        auto featureIndex = rewriter.create<AddIOp>(loc, threadID, featureOffset);
+        auto featureIndex = rewriter.create<arith::AddIOp>(loc, threadID, featureOffset);
         if (i == (numRounds - 1)) {
           // In the last round, we need to be careful to only load data in-bounds for the currently loaded,
           // single sample. Insert an if, so that only threads that load a valid feature index will participate
@@ -235,8 +235,8 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
         }
         // Load from global memory, transpose and store into shared memory.
         auto readGlobal = rewriter.create<memref::LoadOp>(loc, inputMem, ValueRange{sampleIndex, featureIndex});
-        auto sharedMemOffset = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(i * constantBlockSize));
-        auto sharedMemIndex = rewriter.create<AddIOp>(loc, threadID, sharedMemOffset);
+        auto sharedMemOffset = rewriter.create<arith::ConstantOp>(loc, rewriter.getIndexAttr(i * constantBlockSize));
+        auto sharedMemIndex = rewriter.create<arith::AddIOp>(loc, threadID, sharedMemOffset);
         (void) rewriter.create<memref::StoreOp>(loc, readGlobal, sharedMem,
                                                 ValueRange{sharedMemIndex, loop.getInductionVar()});
       }

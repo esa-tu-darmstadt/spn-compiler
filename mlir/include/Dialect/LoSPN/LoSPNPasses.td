@@ -14,13 +14,13 @@ include "mlir/Pass/PassBase.td"
 def LoSPNBufferize : Pass<"lospn-bufferize", "ModuleOp"> {
   let summary = "Bufferize LoSPN operations";
   let constructor = "mlir::spn::low::createLoSPNBufferizePass()";
-  let dependentDialects = ["memref::MemRefDialect", "StandardOpsDialect"];
+  let dependentDialects = ["memref::MemRefDialect", "arith::ArithDialect"];
 }
 
 def LoSPNCopyRemoval : Pass<"lospn-copy-removal", "SPNKernel"> {
   let summary = "Remove unnecessary copy operations in the LoSPN dialect";
   let constructor = "mlir::spn::low::createLoSPNCopyRemovalPass()";
-  let dependentDialects = ["memref::MemRefDialect", "StandardOpsDialect", "scf::SCFDialect"];
+  let dependentDialects = ["memref::MemRefDialect", "arith::ArithDialect", "scf::SCFDialect"];
 }
 
 def LoSPNTaskPartioning : Pass<"lospn-task-partitioning", "SPNKernel"> {

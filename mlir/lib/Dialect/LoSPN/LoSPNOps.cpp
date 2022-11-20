@@ -19,33 +19,33 @@ namespace mlir {
   namespace spn {
     namespace low {
 
-      static mlir::LogicalResult verifyKernel(SPNKernel kernel) {
+      mlir::LogicalResult SPNKernel::verify() {
         // Check that for each input of the SPNKernel the entry block of the Kernel has
         // a block argument with identical type.
-        if (kernel.getBody().front().getNumArguments() != kernel.getFunctionType().getNumInputs()) {
-          return kernel.emitOpError() << "Number of entry block arguments does not match number of Kernel inputs";
+        if (getBody().front().getNumArguments() != getFunctionType().getNumInputs()) {
+          return emitOpError() << "Number of entry block arguments does not match number of Kernel inputs";
         }
-        for (auto inputAndBlockArg : llvm::zip(kernel.getFunctionType().getInputs(), kernel.getBody().front().getArguments())) {
+        for (auto inputAndBlockArg : llvm::zip(getFunctionType().getInputs(), getBody().front().getArguments())) {
           if (std::get<0>(inputAndBlockArg) != std::get<1>(inputAndBlockArg).getType()) {
-            return kernel.emitOpError() << "Kernel input type " << std::get<0>(inputAndBlockArg)
-                                        << " and block argument type " << std::get<1>(inputAndBlockArg).getType()
-                                        << " did not match";
+            return emitOpError() << "Kernel input type " << std::get<0>(inputAndBlockArg)
+                                 << " and block argument type " << std::get<1>(inputAndBlockArg).getType()
+                                 << " did not match";
           }
         }
 
         // Check that the values returned by each return found directly inside the Kernel
         // match the output type of the Kernel.
-        if (!kernel.getFunctionType().getResults().empty()) {
-          for (auto ret : kernel.getBody().getOps<SPNReturn>()) {
-            if (ret.getReturnValues().size() != kernel.getFunctionType().getNumResults()) {
-              return kernel.emitOpError() << "Number of return values does not match Kernel result type";
+        if (!getFunctionType().getResults().empty()) {
+          for (auto ret : getBody().getOps<SPNReturn>()) {
+            if (ret.getReturnValues().size() != getFunctionType().getNumResults()) {
+              return emitOpError() << "Number of return values does not match Kernel result type";
             }
-            for (auto typeAndValue : llvm::zip(kernel.getFunctionType().getResults(), ret.getReturnValues())) {
+            for (auto typeAndValue : llvm::zip(getFunctionType().getResults(), ret.getReturnValues())) {
               auto retTy = std::get<0>(typeAndValue);
               auto valTy = std::get<1>(typeAndValue).getType();
               if (retTy != valTy) {
-                return kernel.emitOpError() << "Kernel result type " << retTy
-                                            << " did not match return value type " << valTy;
+                return emitOpError() << "Kernel result type " << retTy
+                                     << " did not match return value type " << valTy;
               }
             }
           }
@@ -53,47 +53,47 @@ namespace mlir {
         return mlir::success();
       }
 
-      static mlir::LogicalResult verifyTask(SPNTask task) {
+      mlir::LogicalResult SPNTask::verify() {
         // Check that the first argument of the entry block
         // has IndexType (corresponds to the batch index) and
         // the remaining arguments match the types of the
         // Tasks' operands.
-        if (task.getBody().front().getNumArguments() != task.getNumOperands() + 1) {
-          return task->emitOpError() << "Incorrect number of block arguments for entry block of Task";
+        if (getBody().front().getNumArguments() != getNumOperands() + 1) {
+          return emitOpError() << "Incorrect number of block arguments for entry block of Task";
         }
-        for (auto blockArg : llvm::enumerate(task.getBody().front().getArguments())) {
+        for (auto blockArg : llvm::enumerate(getBody().front().getArguments())) {
           if (blockArg.index() == 0) {
             if (!blockArg.value().getType().isIndex()) {
-              return task.emitOpError() << "First argument of Task block must be an index";
+              return emitOpError() << "First argument of Task block must be an index";
             }
           } else {
-            if (blockArg.value().getType() != task->getOperand(blockArg.index() - 1).getType()) {
-              return task.emitOpError() << "Task block argument type does not match Task operand type";
+            if (blockArg.value().getType() != getOperand(blockArg.index() - 1).getType()) {
+              return emitOpError() << "Task block argument type does not match Task operand type";
             }
           }
         }
         // Check that the task is terminated by a SPNReturn with the correct number of return values
         // and types.
-        auto ret = dyn_cast<SPNReturn>(task.getBody().front().getTerminator());
+        auto ret = dyn_cast<SPNReturn>(getBody().front().getTerminator());
         assert(ret);
-        if (ret.getReturnValues().size() != task.getResults().size()) {
-          return task.emitOpError() << "Task does not return the correct number of values";
+        if (ret.getReturnValues().size() != getResults().size()) {
+          return emitOpError() << "Task does not return the correct number of values";
         }
-        for (auto retVal : llvm::zip(ret.getReturnValues(), task.getResults())) {
+        for (auto retVal : llvm::zip(ret.getReturnValues(), getResults())) {
           if (std::get<0>(retVal).getType() != std::get<1>(retVal).getType()) {
-            return task->emitOpError() << "Returned value type does not match Task result type";
+            return emitOpError() << "Returned value type does not match Task result type";
           }
         }
         return mlir::success();
       }
 
-      static mlir::LogicalResult verifyBody(SPNBody body) {
+      mlir::LogicalResult SPNBody::verify() {
         // Check that the number and type of the entry block arguments match
         // the operands of the Body.
-        if (body.getBody().front().getNumArguments() != body->getNumOperands()) {
-          return body.emitOpError() << "Incorrect number of block arguments for entry block of Body";
+        if (getBody().front().getNumArguments() != getNumOperands()) {
+          return emitOpError() << "Incorrect number of block arguments for entry block of Body";
         }
-        for (auto argInput : llvm::zip(body.getBody().front().getArguments(), body.getInputs())) {
+        for (auto argInput : llvm::zip(getBody().front().getArguments(), getInputs())) {
           auto argType = std::get<0>(argInput).getType();
           auto opType = std::get<1>(argInput).getType();
           // The low::LogType is only used inside SPNBody, so if the block argument is of LogType,
@@ -102,16 +102,16 @@ namespace mlir {
             argType = argType.cast<LogType>().getBaseType();
           }
           if (argType != opType) {
-            return body.emitOpError() << "Body block argument type does not match Body operand type";
+            return emitOpError() << "Body block argument type does not match Body operand type";
           }
         }
         // Check that the Body is terminated by a SPNYield with the correct number of return values and types.
-        auto yield = dyn_cast<SPNYield>(body.getBody().front().getTerminator());
+        auto yield = dyn_cast<SPNYield>(getBody().front().getTerminator());
         assert(yield);
-        if (yield.getResultValues().size() != body.getNumResults()) {
-          return body.emitOpError() << "Body does not return the correct number of values";
+        if (yield.getResultValues().size() != getNumResults()) {
+          return emitOpError() << "Body does not return the correct number of values";
         }
-        for (auto retVal : llvm::zip(yield.getResultValues(), body->getResults())) {
+        for (auto retVal : llvm::zip(yield.getResultValues(), getResults())) {
           auto yieldResult = std::get<0>(retVal).getType();
           auto bodyResult = std::get<1>(retVal).getType();
           if (auto logType = yieldResult.dyn_cast<low::LogType>()) {
@@ -119,106 +119,106 @@ namespace mlir {
             // will return a result corresponding to the base-type of the log-type,
             // as the log-type is only used internally to flag log-space computation.
             if (logType.getBaseType() != bodyResult) {
-              return body.emitOpError() << "Log-type base type does not match Body result type";
+              return emitOpError() << "Log-type base type does not match Body result type";
             }
           } else {
             if (yieldResult != bodyResult) {
-              return body.emitOpError() << "Returned value type does not match Body result type";
+              return emitOpError() << "Returned value type does not match Body result type";
             }
           }
         }
         return mlir::success();
       }
 
-      static mlir::LogicalResult verifyBatchExtract(SPNBatchExtract extract) {
+      mlir::LogicalResult SPNBatchExtract::verify() {
         
-        auto tensor = extract.getInput().getType().dyn_cast<TensorType>();
+        auto tensor = getInput().getType().dyn_cast<TensorType>();
         assert(tensor);
         if (!tensor.hasRank()) {
-          return extract.emitOpError() << "Input tensor should be ranked";
+          return emitOpError() << "Input tensor should be ranked";
         }
         if (tensor.getRank() != 2) {
-          return extract->emitOpError() << "Input tensor should be ranked with two dimensions";
+          return emitOpError() << "Input tensor should be ranked with two dimensions";
         }
-        unsigned staticDim = (extract.getTransposed().hasValue() && extract.getTransposed().getValue()) ? 0 : 1;
+        unsigned staticDim = (getTransposed().hasValue() && getTransposed().getValue()) ? 0 : 1;
         if (tensor.isDynamicDim(staticDim)) {
-          return extract->emitOpError() << "Dimension " << staticDim << " of input tensor should be static";
+          return emitOpError() << "Dimension " << staticDim << " of input tensor should be static";
         }
-        if (extract.getStaticIndex() >= tensor.getDimSize(staticDim)) {
-          return extract.emitOpError() << "Static index out-of-bounds for input tensor";
+        if (getStaticIndex() >= tensor.getDimSize(staticDim)) {
+          return emitOpError() << "Static index out-of-bounds for input tensor";
         }
-        if (tensor.getElementType() != extract.getResult().getType()) {
-          return extract.emitOpError() << "Input tensor element type does not match output type";
+        if (tensor.getElementType() != getResult().getType()) {
+          return emitOpError() << "Input tensor element type does not match output type";
         }
         return mlir::success();
       }
 
-      static mlir::LogicalResult verifyBatchRead(SPNBatchRead read) {
-        auto memref = read.getBatchMem().getType().dyn_cast<MemRefType>();
+      mlir::LogicalResult SPNBatchRead::verify() {
+        auto memref = getBatchMem().getType().dyn_cast<MemRefType>();
         assert(memref);
         if (!memref.hasRank()) {
-          return read.emitOpError() << "Input memref should be ranked";
+          return emitOpError() << "Input memref should be ranked";
         }
         if (memref.getRank() != 2) {
-          return read->emitOpError() << "Input memref should be ranked with two dimensions";
+          return emitOpError() << "Input memref should be ranked with two dimensions";
         }
-        unsigned staticDim = (read.getTransposed().hasValue() && read.getTransposed().getValue()) ? 0 : 1;
+        unsigned staticDim = (getTransposed().hasValue() && getTransposed().getValue()) ? 0 : 1;
         if (memref.isDynamicDim(staticDim)) {
-          return read->emitOpError() << "Dimension " << staticDim << " of input memref should be static";
+          return emitOpError() << "Dimension " << staticDim << " of input memref should be static";
         }
-        if (read.getStaticIndex() >= memref.getDimSize(staticDim)) {
-          return read.emitOpError() << "Sample index out-of-bounds for input memref";
+        if (getStaticIndex() >= memref.getDimSize(staticDim)) {
+          return emitOpError() << "Sample index out-of-bounds for input memref";
         }
-        if (memref.getElementType() != read.getResult().getType()) {
-          return read.emitOpError() << "Input memref element type does not match output type";
+        if (memref.getElementType() != getResult().getType()) {
+          return emitOpError() << "Input memref element type does not match output type";
         }
         return mlir::success();
       }
 
-      static mlir::LogicalResult verifyBatchCollect(SPNBatchCollect collect) {
-        auto tensorTy = collect.getTensor().getType().dyn_cast<TensorType>();
+      mlir::LogicalResult SPNBatchCollect::verify() {
+        auto tensorTy = getTensor().getType().dyn_cast<TensorType>();
         assert(tensorTy);
 
         if (!tensorTy.hasRank() || tensorTy.getRank() != 2) {
-          return collect.emitOpError() << "Result tensor must be ranked with two dimensions";
+          return emitOpError() << "Result tensor must be ranked with two dimensions";
         }
-        unsigned staticDim = (collect.getTransposed().hasValue() && collect.getTransposed().getValue()) ? 0 : 1;
+        unsigned staticDim = (getTransposed().hasValue() && getTransposed().getValue()) ? 0 : 1;
         if (tensorTy.isDynamicDim(staticDim) ||
-            static_cast<long>(collect.getResultValues().size()) != tensorTy.getDimSize(staticDim)) {
-          return collect.emitOpError() << "Result tensor's dimension "
+            static_cast<long>(getResultValues().size()) != tensorTy.getDimSize(staticDim)) {
+          return emitOpError() << "Result tensor's dimension "
                                        << staticDim << " must be static and match number of results";
         }
         auto elemTy = tensorTy.getElementType();
-        auto mismatch = llvm::any_of(collect.getResultValues(), [elemTy](auto op) {
+        auto mismatch = llvm::any_of(getResultValues(), [elemTy](auto op) {
           return op.getType() != elemTy;
         });
         if (mismatch) {
-          return collect.emitOpError() << "Scalar type and element type of tensor must match";
+          return emitOpError() << "Scalar type and element type of tensor must match";
         }
         return mlir::success();
       }
 
-      static mlir::LogicalResult verifyBatchWrite(SPNBatchWrite write) {
-        auto memRefTy = write.getBatchMem().getType().dyn_cast<MemRefType>();
+      mlir::LogicalResult SPNBatchWrite::verify() {
+        auto memRefTy = getBatchMem().getType().dyn_cast<MemRefType>();
         assert(memRefTy);
 
         if (!memRefTy.hasRank() || memRefTy.getRank() != 2) {
-          return write.emitOpError() << "Result memref must be ranked with two dimensions";
+          return emitOpError() << "Result memref must be ranked with two dimensions";
         }
 
-        unsigned staticDim = (write.getTransposed().hasValue() && write.getTransposed().getValue()) ? 0 : 1;
+        unsigned staticDim = (getTransposed().hasValue() && getTransposed().getValue()) ? 0 : 1;
         if (memRefTy.isDynamicDim(staticDim) ||
-            static_cast<long>(write.getResultValues().size()) != memRefTy.getDimSize(staticDim)) {
-          return write.emitOpError() << "Result memrefs's dimension "
+            static_cast<long>(getResultValues().size()) != memRefTy.getDimSize(staticDim)) {
+          return emitOpError() << "Result memrefs's dimension "
                                      << staticDim << " must be static and match number of results";
         }
 
         auto elemTy = memRefTy.getElementType();
-        auto mismatch = llvm::any_of(write.getResultValues(), [elemTy](auto op) {
+        auto mismatch = llvm::any_of(getResultValues(), [elemTy](auto op) {
           return op.getType() != elemTy;
         });
         if (mismatch) {
-          return write.emitOpError() << "Scalar type and element type of memref must match";
+          return emitOpError() << "Scalar type and element type of memref must match";
         }
         return mlir::success();
       }
@@ -248,10 +248,16 @@ void mlir::spn::low::SPNKernel::build(::mlir::OpBuilder& odsBuilder,
 
 mlir::Block* mlir::spn::low::SPNTask::addEntryBlock() {
   assert(getBody().empty() && "Task already has a block");
-  auto* entry = new Block();
+  Block* entry = new Block();
   getBody().push_back(entry);
-  entry->addArgument(IndexType::get(this->getContext()));
-  entry->addArguments(this->getInputs().getType());
+
+  IndexType type = IndexType::get(this->getContext());
+  // TODO: Is this the correct location?
+  Location loc = getBody().getLoc();
+
+  entry->addArgument(type, loc);
+  // TODO: This is wrong but will compile for now.
+  entry->addArguments(this->getInputs().getType(), {this->getLoc()});
   return entry;
 }
 
@@ -269,7 +275,8 @@ mlir::Block* mlir::spn::low::SPNBody::addEntryBlock() {
   assert(getBody().empty() && "Body already has a block");
   auto* entry = new Block();
   getBody().push_back(entry);
-  entry->addArguments(this->getInputs().getType());
+  // TODO: See above.
+  entry->addArguments(this->getInputs().getType(), {this->getLoc()});
   return entry;
 }
 

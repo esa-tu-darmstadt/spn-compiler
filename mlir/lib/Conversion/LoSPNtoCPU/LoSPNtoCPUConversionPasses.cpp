@@ -13,12 +13,13 @@
 #include "LoSPNtoCPU/NodePatterns.h"
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
 #include "LoSPNtoCPU/Vectorization/LoSPNVectorizationTypeConverter.h"
-#include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 
 void mlir::spn::LoSPNtoCPUStructureConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
-  registry.insert<StandardOpsDialect>();
+  registry.insert<arith::ArithDialect>();
   registry.insert<mlir::scf::SCFDialect>();
   registry.insert<mlir::vector::VectorDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
@@ -31,7 +32,7 @@ namespace {
   /// and average live interval length.
   // NOLINTNEXTLINE(clang-diagnostic-unused-function)
   [[maybe_unused]] void printFunctionLiveness(mlir::ModuleOp op) {
-    op.walk([&](mlir::FuncOp function) {
+    op.walk([&](mlir::func::FuncOp function) {
       unsigned lifeTimeTotal = 0;
       llvm::SmallVector<double> livePercentages;
       llvm::SmallVector<mlir::Operation*> operations;
@@ -76,13 +77,13 @@ namespace {
 void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   ConversionTarget target(getContext());
 
-  target.addLegalDialect<StandardOpsDialect>();
+  target.addLegalDialect<arith::ArithDialect>();
   target.addLegalDialect<scf::SCFDialect>();
   target.addLegalDialect<mlir::math::MathDialect>();
   target.addLegalDialect<mlir::vector::VectorDialect>();
   target.addLegalDialect<mlir::memref::MemRefDialect>();
   target.addLegalOp<ModuleOp>();
-  target.addLegalOp<FuncOp>();
+  target.addLegalOp<func::FuncOp>();
 
   LoSPNtoCPUTypeConverter typeConverter;
 
@@ -90,7 +91,7 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   target.addIllegalOp<spn::low::SPNKernel>();
   target.addIllegalOp<spn::low::SPNBody>();
 
-  OwningRewritePatternList patterns(&getContext());
+  RewritePatternSet patterns(&getContext());
   spn::populateLoSPNtoCPUStructurePatterns(patterns, &getContext(), typeConverter);
   FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 
@@ -118,7 +119,7 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
 
   target.addIllegalOp<spn::low::SPNTask>();
 
-  OwningRewritePatternList taskPatterns(&getContext());
+  RewritePatternSet taskPatterns(&getContext());
   if (vectorize) {
     spn::populateLoSPNtoCPUVectorizationTaskPatterns(taskPatterns, &getContext(), typeConverter,
                                                      maxAttempts,
@@ -170,7 +171,7 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
 }
 
 void mlir::spn::LoSPNtoCPUNodeConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
-  registry.insert<StandardOpsDialect>();
+  registry.insert<arith::ArithDialect>();
   registry.insert<mlir::scf::SCFDialect>();
   registry.insert<mlir::math::MathDialect>();
   registry.insert<mlir::vector::VectorDialect>();
@@ -180,19 +181,19 @@ void mlir::spn::LoSPNtoCPUNodeConversionPass::getDependentDialects(mlir::Dialect
 void mlir::spn::LoSPNtoCPUNodeConversionPass::runOnOperation() {
   ConversionTarget target(getContext());
 
-  target.addLegalDialect<StandardOpsDialect>();
+  target.addLegalDialect<arith::ArithDialect>();
   target.addLegalDialect<mlir::scf::SCFDialect>();
   target.addLegalDialect<mlir::math::MathDialect>();
   target.addLegalDialect<mlir::vector::VectorDialect>();
   target.addLegalDialect<mlir::memref::MemRefDialect>();
   target.addLegalOp<ModuleOp>();
-  target.addLegalOp<FuncOp>();
+  target.addLegalOp<func::FuncOp>();
 
   LoSPNtoCPUTypeConverter typeConverter;
 
   target.addIllegalDialect<mlir::spn::low::LoSPNDialect>();
 
-  OwningRewritePatternList patterns(&getContext());
+  RewritePatternSet patterns(&getContext());
   mlir::spn::populateLoSPNtoCPUNodePatterns(patterns, &getContext(), typeConverter);
 
   auto op = getOperation();
@@ -207,7 +208,7 @@ std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoCPUNodeConversionPass() {
 }
 
 void mlir::spn::LoSPNNodeVectorizationPass::getDependentDialects(mlir::DialectRegistry& registry) const {
-  registry.insert<StandardOpsDialect>();
+  registry.insert<arith::ArithDialect>();
   registry.insert<mlir::scf::SCFDialect>();
   registry.insert<mlir::math::MathDialect>();
   registry.insert<mlir::vector::VectorDialect>();
@@ -217,13 +218,13 @@ void mlir::spn::LoSPNNodeVectorizationPass::getDependentDialects(mlir::DialectRe
 void mlir::spn::LoSPNNodeVectorizationPass::runOnOperation() {
   ConversionTarget target(getContext());
 
-  target.addLegalDialect<StandardOpsDialect>();
+  target.addLegalDialect<arith::ArithDialect>();
   target.addLegalDialect<mlir::scf::SCFDialect>();
   target.addLegalDialect<mlir::math::MathDialect>();
   target.addLegalDialect<mlir::vector::VectorDialect>();
   target.addLegalDialect<mlir::memref::MemRefDialect>();
   target.addLegalOp<ModuleOp>();
-  target.addLegalOp<FuncOp>();
+  target.addLegalOp<func::FuncOp>();
 
   // Walk the operation to find out which vector width to use for the type-converter.
   unsigned VF = 0;
@@ -254,7 +255,7 @@ void mlir::spn::LoSPNNodeVectorizationPass::runOnOperation() {
   // the operand of ConvertToVector is converted to a vector before invoking the pattern.
   target.addLegalOp<mlir::spn::low::SPNConvertToVector>();
 
-  OwningRewritePatternList patterns(&getContext());
+  RewritePatternSet patterns(&getContext());
   mlir::spn::populateLoSPNCPUVectorizationNodePatterns(patterns, &getContext(), typeConverter);
 
   auto op = getOperation();

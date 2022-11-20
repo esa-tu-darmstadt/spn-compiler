@@ -27,8 +27,8 @@ mlir::LogicalResult mlir::spn::BatchReadGPULowering::matchAndRewrite(mlir::spn::
   assert(memRefType.hasRank() && memRefType.getRank() == 2);
   assert(operands[1].getType().isa<IndexType>());
   SmallVector<Value> indices;
-  auto constStaticIndex = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(op.staticIndex()));
-  if (op.transposed().hasValue() && op.transposed().getValue()) {
+  auto constStaticIndex = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(op.getStaticIndex()));
+  if (op.getTransposed().hasValue() && op.getTransposed().getValue()) {
     // Transposed access is memref[staticIndex][dynamicIndex]
     indices.push_back(constStaticIndex);
     indices.push_back(operands[1]);
@@ -47,7 +47,7 @@ mlir::LogicalResult mlir::spn::BatchWriteGPULowering::matchAndRewrite(mlir::spn:
   if (op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern does not vectorize, no match");
   }
-  assert(operands.size() == op.resultValues().size() + 2 && "Expecting correct number of operands for BatchWrite");
+  assert(operands.size() == op.getResultValues().size() + 2 && "Expecting correct number of operands for BatchWrite");
   // Replace the BatchWrite with stores to the input memref,
   // using the batchIndex.
   auto memRef = operands[0];
@@ -56,10 +56,10 @@ mlir::LogicalResult mlir::spn::BatchWriteGPULowering::matchAndRewrite(mlir::spn:
   assert(memRefType.hasRank() && memRefType.getRank() == 2);
   auto dynIndex = operands[1];
   assert(dynIndex.getType().isa<IndexType>());
-  bool transposed = op.transposed().getValueOr(false);
-  for (unsigned i = 0; i < op.resultValues().size(); ++i) {
+  bool transposed = op.getTransposed().getValueOr(false);
+  for (unsigned i = 0; i < op.getResultValues().size(); ++i) {
     SmallVector<Value, 2> indices;
-    auto constStaticIndex = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(i));
+    auto constStaticIndex = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(i));
     if (transposed) {
       indices.push_back(constStaticIndex);
       indices.push_back(dynIndex);
@@ -88,8 +88,8 @@ mlir::LogicalResult mlir::spn::CopyGPULowering::matchAndRewrite(mlir::spn::low::
     return rewriter.notifyMatchFailure(op, "Expecting one dimensional memories");
   }
   auto dim1 = rewriter.create<memref::DimOp>(op.getLoc(), op.source(), 0);
-  auto lb = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
-  auto step = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
+  auto lb = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
+  auto step = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
   auto outer = rewriter.create<scf::ForOp>(op.getLoc(), lb, dim1, step);
   rewriter.setInsertionPointToStart(&outer.getLoopBody().front());
   auto load = rewriter.create<memref::LoadOp>(op.getLoc(), op.source(), outer.getInductionVar());
@@ -115,7 +115,7 @@ mlir::LogicalResult mlir::spn::ConstantGPULowering::matchAndRewrite(mlir::spn::l
     assert(resultType.isa<FloatType>());
     value = rewriter.getFloatAttr(resultType, value.getValueAsDouble());
   }
-  rewriter.replaceOpWithNewOp<ConstantOp>(op, resultType, value);
+  rewriter.replaceOpWithNewOp<arith::ConstantOp>(op, resultType, value);
   return success();
 }
 
@@ -157,7 +157,7 @@ mlir::LogicalResult mlir::spn::MulGPULowering::matchAndRewrite(mlir::spn::low::S
   if (!operands[0].getType().isa<FloatType>()) {
     return rewriter.notifyMatchFailure(op, "Currently only matches floating-point multiplications");
   }
-  rewriter.replaceOpWithNewOp<MulFOp>(op, operands[0], operands[1]);
+  rewriter.replaceOpWithNewOp<arith::MulFOp>(op, operands[0], operands[1]);
   return success();
 }
 
@@ -174,7 +174,7 @@ mlir::LogicalResult mlir::spn::MulLogGPULowering::matchAndRewrite(mlir::spn::low
   if (!operands[0].getType().isa<FloatType>()) {
     return rewriter.notifyMatchFailure(op, "Currently only matches floating-point multiplications");
   }
-  rewriter.replaceOpWithNewOp<AddFOp>(op, operands[0], operands[1]);
+  rewriter.replaceOpWithNewOp<arith::AddFOp>(op, operands[0], operands[1]);
   return success();
 }
 
@@ -191,7 +191,7 @@ mlir::LogicalResult mlir::spn::AddGPULowering::matchAndRewrite(mlir::spn::low::S
   if (!operands[0].getType().isa<FloatType>()) {
     return rewriter.notifyMatchFailure(op, "Currently only matches floating-point additions");
   }
-  rewriter.replaceOpWithNewOp<AddFOp>(op, operands[0], operands[1]);
+  rewriter.replaceOpWithNewOp<arith::AddFOp>(op, operands[0], operands[1]);
   return success();
 }
 
@@ -211,17 +211,17 @@ mlir::LogicalResult mlir::spn::AddLogGPULowering::matchAndRewrite(mlir::spn::low
   // Calculate addition 'x + y' in log-space as
   // 'a + log(1 + exp(b-a)', with a == log(x),
   // b == log(y) and a > b.
-  auto compare = rewriter.create<CmpFOp>(op.getLoc(), CmpFPredicate::OGT, operands[0], operands[1]);
-  auto a = rewriter.create<SelectOp>(op->getLoc(), compare, operands[0], operands[1]);
-  auto b = rewriter.create<SelectOp>(op->getLoc(), compare, operands[1], operands[0]);
-  auto sub = rewriter.create<SubFOp>(op->getLoc(), b, a);
+  auto compare = rewriter.create<arith::CmpFOp>(op.getLoc(), CmpFPredicate::OGT, operands[0], operands[1]);
+  auto a = rewriter.create<arith::SelectOp>(op->getLoc(), compare, operands[0], operands[1]);
+  auto b = rewriter.create<arith::SelectOp>(op->getLoc(), compare, operands[1], operands[0]);
+  auto sub = rewriter.create<arith::SubFOp>(op->getLoc(), b, a);
   auto exp = rewriter.create<math::ExpOp>(op.getLoc(), sub);
   // TODO Currently, GPULowering of log1p to LLVM is not supported,
   // therefore we perform the computation manually here.
-  auto constantOne = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getFloatAttr(operands[0].getType(), 1.0));
-  auto onePlus = rewriter.create<AddFOp>(op->getLoc(), constantOne, exp);
+  auto constantOne = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getFloatAttr(operands[0].getType(), 1.0));
+  auto onePlus = rewriter.create<arith::AddFOp>(op->getLoc(), constantOne, exp);
   auto log = rewriter.create<math::LogOp>(op.getLoc(), onePlus);
-  rewriter.replaceOpWithNewOp<AddFOp>(op, a, log);
+  rewriter.replaceOpWithNewOp<arith::AddFOp>(op, a, log);
   return success();
 }
 
@@ -265,12 +265,12 @@ mlir::LogicalResult mlir::spn::GaussianGPULowering::matchAndRewrite(mlir::spn::l
   double variance = op.stddev().convertToDouble() * op.stddev().convertToDouble();
   // 1/sqrt(2*PI*variance)
   double coefficient = 1.0 / (std::sqrt(2.0 * M_PI * variance));
-  auto coefficientConst = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getF64FloatAttr(coefficient));
+  auto coefficientConst = rewriter.create<mlir::arith::ConstantOp>(op.getLoc(), rewriter.getF64FloatAttr(coefficient));
   // -1/(2*variance)
   double denominator = -1.0 / (2.0 * variance);
-  auto denominatorConst = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getF64FloatAttr(denominator));
+  auto denominatorConst = rewriter.create<mlir::arith::ConstantOp>(op.getLoc(), rewriter.getF64FloatAttr(denominator));
   // x - mean
-  auto meanConst = rewriter.create<mlir::ConstantOp>(op.getLoc(), op.meanAttr());
+  auto meanConst = rewriter.create<mlir::arith::ConstantOp>(op.getLoc(), op.meanAttr());
   auto subtraction = rewriter.create<mlir::SubFOp>(op.getLoc(), index, meanConst);
   // (x-mean)^2
   auto numerator = rewriter.create<mlir::MulFOp>(op.getLoc(), subtraction, subtraction);
@@ -280,9 +280,9 @@ mlir::LogicalResult mlir::spn::GaussianGPULowering::matchAndRewrite(mlir::spn::l
   auto exp = rewriter.create<mlir::math::ExpOp>(op.getLoc(), fraction);
   // e^(-(x - mean)^2/2*variance)) * 1/sqrt(2*PI*variance)
   Value gaussian = rewriter.create<mlir::MulFOp>(op->getLoc(), coefficientConst, exp);
-  if (op.supportMarginal()) {
+  if (op.getSupportMarginal()) {
     auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), CmpFPredicate::UNO, index, index);
-    auto constOne = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, 1.0));
+    auto constOne = rewriter.create<mlir::arith::ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, 1.0));
     gaussian = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, gaussian);
   }
   rewriter.replaceOp(op, gaussian);
@@ -333,14 +333,14 @@ mlir::LogicalResult mlir::spn::GaussianLogGPULowering::matchAndRewrite(mlir::spn
   double secondTerm = -0.5 * log(2 * M_PI);
   // Denominator, - 1/2*(stddev^2)
   double denominator = -(1.0 / (2.0 * op.stddev().convertToDouble() * op.stddev().convertToDouble()));
-  auto denominatorConst = rewriter.create<mlir::ConstantOp>(op.getLoc(),
+  auto denominatorConst = rewriter.create<mlir::arith::ConstantOp>(op.getLoc(),
                                                             rewriter.getFloatAttr(resultType, denominator));
   // Coefficient, summing up the first two constant terms
   double coefficient = firstTerm + secondTerm;
-  auto coefficientConst = rewriter.create<mlir::ConstantOp>(op->getLoc(),
+  auto coefficientConst = rewriter.create<mlir::arith::ConstantOp>(op->getLoc(),
                                                             rewriter.getFloatAttr(resultType, coefficient));
   // x - mean
-  auto meanConst = rewriter.create<mlir::ConstantOp>(op.getLoc(),
+  auto meanConst = rewriter.create<mlir::arith::ConstantOp>(op.getLoc(),
                                                      rewriter.getFloatAttr(resultType,
                                                                            op.meanAttr().getValueAsDouble()));
   auto subtraction = rewriter.create<mlir::SubFOp>(op.getLoc(), index, meanConst);
@@ -350,9 +350,9 @@ mlir::LogicalResult mlir::spn::GaussianLogGPULowering::matchAndRewrite(mlir::spn
   auto fraction = rewriter.create<mlir::MulFOp>(op.getLoc(), numerator, denominatorConst);
   // -ln(stddev) - 1/2 ln(2*pi) - 1/2*(stddev^2) * (x - mean)^2
   Value gaussian = rewriter.create<mlir::AddFOp>(op->getLoc(), coefficientConst, fraction);
-  if (op.supportMarginal()) {
+  if (op.getSupportMarginal()) {
     auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), CmpFPredicate::UNO, index, index);
-    auto constOne = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, 0.0));
+    auto constOne = rewriter.create<mlir::arith::ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, 0.0));
     gaussian = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, gaussian);
   }
   rewriter.replaceOp(op, gaussian);
@@ -381,26 +381,26 @@ mlir::LogicalResult mlir::spn::CategoricalGPULowering::matchAndRewrite(mlir::spn
   }
   double defaultValue = (computesLog) ? static_cast<double>(-INFINITY) : 0;
   // TODO Replace 'getFloatAttr' with a more generic solution, if we want to support integer computation.
-  Value falseVal = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, defaultValue));
+  Value falseVal = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, defaultValue));
   auto probabilities = op.probabilitiesAttr().getValue();
   for (unsigned i = 0; i < op.probabilities().size(); ++i) {
-    auto classVal = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getI64IntegerAttr(i));
+    auto classVal = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getI64IntegerAttr(i));
     auto cmp = rewriter.create<CmpIOp>(op.getLoc(), CmpIPredicate::eq, index, classVal);
     auto probability = probabilities[i].dyn_cast<FloatAttr>().getValueAsDouble();
     if (computesLog) {
       probability = log(probability);
     }
-    auto probVal = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, probability));
-    falseVal = rewriter.create<SelectOp>(op.getLoc(), cmp, probVal, falseVal);
+    auto probVal = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, probability));
+    falseVal = rewriter.create<arith::SelectOp>(op.getLoc(), cmp, probVal, falseVal);
   }
   auto indexOperand = operands[0];
   Value leaf = falseVal;
-  if (op.supportMarginal()) {
+  if (op.getSupportMarginal()) {
     assert(indexOperand.getType().template isa<mlir::FloatType>());
     auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), mlir::CmpFPredicate::UNO,
                                                indexOperand, indexOperand);
     auto marginalValue = (computesLog) ? 0.0 : 1.0;
-    auto constOne = rewriter.create<mlir::ConstantOp>(op.getLoc(),
+    auto constOne = rewriter.create<mlir::arith::ConstantOp>(op.getLoc(),
                                                       rewriter.getFloatAttr(resultType, marginalValue));
     leaf = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, leaf);
   }
@@ -430,15 +430,15 @@ mlir::LogicalResult mlir::spn::HistogramGPULowering::matchAndRewrite(mlir::spn::
   }
   double defaultValue = (computesLog) ? static_cast<double>(-INFINITY) : 0;
   // TODO Replace 'getFloatAttr' with a more generic solution, if we want to support integer computation.
-  Value falseVal = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, defaultValue));
+  Value falseVal = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getFloatAttr(resultType, defaultValue));
   SmallVector<low::Bucket> buckets;
-  for (auto& b : op.bucketsAttr()) {
+  for (auto& b : op.getBucketsAttr()) {
     auto bucket = b.cast<low::Bucket>();
     buckets.push_back(bucket);
   }
 
   auto indexOperand = operands[0];
-  if (op.supportMarginal()) {
+  if (op.getSupportMarginal()) {
     assert(indexOperand.getType().template isa<mlir::FloatType>());
     auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), mlir::CmpFPredicate::UNO,
                                                indexOperand, indexOperand);
@@ -446,7 +446,7 @@ mlir::LogicalResult mlir::spn::HistogramGPULowering::matchAndRewrite(mlir::spn::
     auto restore = rewriter.saveInsertionPoint();
     auto ifNaN = rewriter.create<scf::IfOp>(op.getLoc(), resultType, isNan, true);
     rewriter.setInsertionPointToStart(&ifNaN.thenRegion().front());
-    Value constOne = rewriter.create<mlir::ConstantOp>(op.getLoc(),
+    Value constOne = rewriter.create<mlir::arith::ConstantOp>(op.getLoc(),
                                                        rewriter.getFloatAttr(resultType, marginalValue));
     rewriter.create<scf::YieldOp>(op.getLoc(), constOne);
     rewriter.setInsertionPointToStart(&ifNaN.elseRegion().front());
@@ -473,9 +473,9 @@ mlir::Value mlir::spn::HistogramGPULowering::processBuckets(llvm::ArrayRef<low::
   auto restore = rewriter.saveInsertionPoint();
   if (buckets.size() == 1) {
     // Check that the index is actually in range of this bucket.
-    auto lb = rewriter.create<ConstantOp>(loc,
+    auto lb = rewriter.create<arith::ConstantOp>(loc,
                                           rewriter.getIntegerAttr(indexVal.getType(), buckets.front().lb().getInt()));
-    auto ub = rewriter.create<ConstantOp>(loc,
+    auto ub = rewriter.create<arith::ConstantOp>(loc,
                                           rewriter.getIntegerAttr(indexVal.getType(), buckets.front().ub().getInt()));
     auto lbCheck = rewriter.create<CmpIOp>(loc, CmpIPredicate::sge, indexVal, lb);
     auto ubCheck = rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, indexVal, ub);
@@ -484,15 +484,15 @@ mlir::Value mlir::spn::HistogramGPULowering::processBuckets(llvm::ArrayRef<low::
     if (computesLog) {
       probability = std::log(probability);
     }
-    auto probabilityVal = rewriter.create<ConstantOp>(loc, rewriter.getFloatAttr(defaultVal.getType(), probability));
-    auto selectVal = rewriter.create<SelectOp>(loc, rangeCheck, probabilityVal, defaultVal);
+    auto probabilityVal = rewriter.create<arith::ConstantOp>(loc, rewriter.getFloatAttr(defaultVal.getType(), probability));
+    auto selectVal = rewriter.create<arith::SelectOp>(loc, rangeCheck, probabilityVal, defaultVal);
     rewriter.restoreInsertionPoint(restore);
     return selectVal;
   } else {
     auto pivot = llvm::divideCeil(buckets.size(), 2);
     auto left = buckets.take_front(pivot);
     auto right = buckets.drop_front(pivot);
-    auto border = rewriter.create<ConstantOp>(loc,
+    auto border = rewriter.create<arith::ConstantOp>(loc,
                                               rewriter.getIntegerAttr(indexVal.getType(), right.front().lb().getInt()));
     // Check if the index value is smaller then the first bucket of the right halve.
     auto compare = rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, indexVal, border);

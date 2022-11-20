@@ -9,7 +9,7 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
-#include "mlir/Support/MlirOptMain.h"
+#include "mlir/Tools/mlir-opt/MlirOptMain.h"
 
 #include "HiSPN/HiSPNDialect.h"
 #include "LoSPN/LoSPNDialect.h"
@@ -43,32 +43,36 @@ int main(int argc, char** argv) {
   mlir::spn::registerLoSPNtoGPUPasses();
 #endif
 
-  mlir::registerPass("convert-hispn-query-to-lospn", "Convert queries from HiSPN to LoSPN dialect",
+  mlir::registerPass(
                      []() -> std::unique_ptr<mlir::Pass> {
                        return mlir::spn::createHiSPNtoLoSPNQueryConversionPass(logSpace, optRepresentation);
                      });
 
-  mlir::registerPass("convert-hispn-node-to-lospn", "Convert nodes from HiSPN to LoSPN dialect",
+  mlir::registerPass(
                      []() -> std::unique_ptr<mlir::Pass> {
                        return mlir::spn::createHiSPNtoLoSPNNodeConversionPass(logSpace, optRepresentation);
                      });
 
-  mlir::PassRegistration<mlir::spn::LoSPNtoCPUStructureConversionPass>(
-      "convert-lospn-structure-to-cpu",
-      "Convert structure from LoSPN to CPU target"
-  );
+  //mlir::PassRegistration<mlir::spn::LoSPNtoCPUStructureConversionPass>(
+  //    "convert-lospn-structure-to-cpu",
+  //    "Convert structure from LoSPN to CPU target"
+  //);
 
-  mlir::registerPass("convert-lospn-nodes-to-cpu", "Convert nodes from LoSPN to CPU target",
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return std::make_unique<mlir::spn::LoSPNtoCPUStructureConversionPass>();
+  });
+
+  mlir::registerPass(
                      []() -> std::unique_ptr<mlir::Pass> {
                        return mlir::spn::createLoSPNtoCPUNodeConversionPass();
                      });
 
-  mlir::registerPass("vectorize-lospn-nodes", "Vectorize LoSPN nodes for CPU target",
+  mlir::registerPass(
                      []() -> std::unique_ptr<mlir::Pass> {
                        return mlir::spn::createLoSPNNodeVectorizationPass();
                      });
 
-  mlir::registerPass("collect-graph-stats", "Collect graph statistics",
+  mlir::registerPass(
                      []() -> std::unique_ptr<mlir::Pass> {
                        return mlir::spn::low::createLoSPNGraphStatsCollectionPass(graphStatsFile);
                      });

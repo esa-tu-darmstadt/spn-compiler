@@ -127,23 +127,23 @@ double UnitCostModel::computeScalarCost(Value value) const {
   if (!definingOp) {
     return 0;
   }
-  if (dyn_cast<ConstantOp>(definingOp) || dyn_cast<SPNConstant>(definingOp)) {
+  if (dyn_cast<arith::ConstantOp>(definingOp) || dyn_cast<SPNConstant>(definingOp)) {
     return 0;
   } else if (auto histogramOp = dyn_cast<SPNHistogramLeaf>(definingOp)) {
-    if (histogramOp.supportMarginal()) {
+    if (histogramOp.getSupportMarginal()) {
       return 3;
     }
   } else if (auto categoricalOp = dyn_cast<SPNCategoricalLeaf>(definingOp)) {
-    if (categoricalOp.supportMarginal()) {
+    if (categoricalOp.getSupportMarginal()) {
       return 3;
     }
   } else if (auto gaussianOp = dyn_cast<SPNGaussianLeaf>(definingOp)) {
     if (gaussianOp.getResult().getType().isa<LogType>()) {
-      if (gaussianOp.supportMarginal()) {
+      if (gaussianOp.getSupportMarginal()) {
         return 6;
       }
       return 4;
-    } else if (gaussianOp.supportMarginal()) {
+    } else if (gaussianOp.getSupportMarginal()) {
       return 7;
     }
     return 5;

@@ -81,7 +81,8 @@ void MLIRtoLLVMIRConversion::optimizeLLVMIR(int irOptLevel) {
   builder.DisableUnrollLoops = false;
 
   // Add all coroutine passes to the builder.
-  llvm::addCoroutinePassesToExtensionPoints(builder);
+  // TODO: What about this?
+  //llvm::addCoroutinePassesToExtensionPoints(builder);
 
   auto machine = getContext()->get<llvm::TargetMachine>();
   if (machine) {

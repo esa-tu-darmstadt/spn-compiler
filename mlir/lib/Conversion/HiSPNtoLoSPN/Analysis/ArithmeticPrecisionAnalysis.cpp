@@ -264,7 +264,9 @@ llvm::SmallVector<ErrorEstimationValue>
       max = operands[0].max * operands[1].max;
       min = operands[0].min * operands[1].min;
     }
-    operands.set_size(1);
+    // TODO: Unsure about this
+    //operands.set_size(1);
+    operands.resize(1);
     operands[0] = ErrorEstimationValue{accurate, defective, max, min, depth};
     return operands;
   } else {
@@ -409,7 +411,7 @@ void ArithmeticPrecisionAnalysis::estimateErrorHistogram(mlir::spn::high::Histog
   double defect = 0.0;
 
   for (auto& b : op.bucketsAttr()) {
-    auto val = b.cast<mlir::spn::high::Bucket>().val().getValueAsDouble();
+    auto val = b.cast<mlir::spn::high::Bucket>().getVal().convertToDouble();
     max = std::max(max, val);
     min = std::min(min, val);
   }

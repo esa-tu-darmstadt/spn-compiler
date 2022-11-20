@@ -7,7 +7,9 @@
 //==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/Util.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -17,9 +19,9 @@ Value util::extendTruncateOrGetVector(Value input, VectorType targetVectorType, 
   assert(inputVectorType && "cannot extend or truncate scalar type to vector type");
   assert(targetVectorType.getElementType().isa<FloatType>() && "target element type must be float type");
   if (inputVectorType.getElementTypeBitWidth() < targetVectorType.getElementTypeBitWidth()) {
-    return rewriter.create<FPExtOp>(input.getLoc(), input, targetVectorType);
+    return rewriter.create<LLVM::FPExtOp>(input.getLoc(), targetVectorType, input);
   } else if (inputVectorType.getElementTypeBitWidth() > targetVectorType.getElementTypeBitWidth()) {
-    return rewriter.create<FPTruncOp>(input.getLoc(), input, targetVectorType);
+    return rewriter.create<LLVM::FPTruncOp>(input.getLoc(), targetVectorType, input);
   }
   return input;
 }
@@ -33,9 +35,9 @@ Value util::castToFloatOrGetVector(Value input, VectorType targetFloatVectorType
     return input;
   } else if (auto intElementType = inputElementType.dyn_cast<IntegerType>()) {
     if (intElementType.isSigned()) {
-      return rewriter.create<SIToFPOp>(input.getLoc(), input, targetFloatVectorType);
+      return rewriter.create<arith::SIToFPOp>(input.getLoc(), targetFloatVectorType, input);
     }
-    return rewriter.create<UIToFPOp>(input.getLoc(), input, targetFloatVectorType);
+    return rewriter.create<arith::UIToFPOp>(input.getLoc(), targetFloatVectorType, input);
   }
   llvm_unreachable("value cannot be cast to float vector");
 }

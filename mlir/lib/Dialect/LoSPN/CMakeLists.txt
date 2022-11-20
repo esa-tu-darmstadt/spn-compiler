@@ -37,6 +37,11 @@ add_mlir_dialect_library(MLIRLoSPN
         MLIRTransformUtils
         MLIRMathDialect
         MLIRGPUOps
+        MLIRBufferizationDialect
+        MLIRSCFDialect
+        MLIRBufferizationTransforms
+        MLIRVectorDialect
+        MLIRLLVMDialect
         )
 
 include_directories(${PROJECT_SOURCE_DIR}/common/include)

@@ -22,14 +22,14 @@ namespace mlir {
       using OpConversionPattern<high::JointQuery>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(high::JointQuery op,
-                                    ArrayRef<Value> operands,
+                                    OpAdaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
 
     };
 
-    static inline void populateHiSPNtoLoSPNQueryPatterns(OwningRewritePatternList& patterns, MLIRContext* context,
+    static inline void populateHiSPNtoLoSPNQueryPatterns(RewritePatternSet& patterns, MLIRContext* context,
                                                          TypeConverter& typeConverter) {
-      patterns.insert<JointQueryLowering>(typeConverter, context);
+      patterns.add<JointQueryLowering>(typeConverter, context);
     }
 
   }

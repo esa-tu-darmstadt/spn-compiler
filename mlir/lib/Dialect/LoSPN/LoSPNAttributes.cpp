@@ -7,4 +7,16 @@
 //==============================================================================
 
 #include "LoSPN/LoSPNAttributes.h"
+
+namespace mlir::spn::low {
+
+::mlir::LogicalResult Bucket::verify(::llvm::function_ref<::mlir::InFlightDiagnostic()> emitError, int lb, int ub, APFloat val)
+{
+    // TODO:
+    return mlir::success();
+}
+
+}
+
+#define GET_ATTRDEF_CLASSES
 #include "LoSPN/LoSPNAttributes.cpp.inc"

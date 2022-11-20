@@ -10,6 +10,7 @@
 #define SPNC_MLIR_INCLUDE_CONVERSION_HISPNTOLOSPN_HISPNTOLOSPNCONVERSIONPASSES_H
 
 #include "mlir/Pass/Pass.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 
 namespace mlir {
   namespace spn {

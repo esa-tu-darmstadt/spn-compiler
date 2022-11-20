@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -33,14 +33,14 @@ namespace {
 
       // Collect all users of the target memref.
       SmallVector<Operation*> tgtUsers;
-      for (auto* U : op.target().getUsers()) {
+      for (auto* U : op.getTarget().getUsers()) {
         if (U == op.getOperation()) {
           // Skip the copy op.
           continue;
         }
         if (auto memEffect = dyn_cast<MemoryEffectOpInterface>(U)) {
           SmallVector<MemoryEffects::EffectInstance, 1> effects;
-          memEffect.getEffectsOnValue(op.target(), effects);
+          memEffect.getEffectsOnValue(op.getTarget(), effects);
           for (auto e : effects) {
             if (isa<MemoryEffects::Read>(e.getEffect()) || isa<MemoryEffects::Write>(e.getEffect())) {
               tgtUsers.push_back(U);
@@ -51,10 +51,10 @@ namespace {
 
       SmallVector<Operation*> srcReads;
       SmallVector<Operation*> srcWrites;
-      for (auto* U : op.source().getUsers()) {
+      for (auto* U : op.getSource().getUsers()) {
         if (auto memEffect = dyn_cast<MemoryEffectOpInterface>(U)) {
           SmallVector<MemoryEffects::EffectInstance, 1> effects;
-          memEffect.getEffectsOnValue(op.target(), effects);
+          memEffect.getEffectsOnValue(op.getTarget(), effects);
           for (auto e : effects) {
             if (isa<MemoryEffects::Read>(e.getEffect()) && U != op.getOperation()) {
               srcReads.push_back(U);
@@ -94,7 +94,7 @@ namespace {
           return rewriter.notifyMatchFailure(op, "Source read not dominated by any source write, abort removal");
         }
       }
-      op.source().replaceAllUsesWith(op.target());
+      op.getSource().replaceAllUsesWith(op.getTarget());
       rewriter.eraseOp(op);
       return mlir::success();
     }

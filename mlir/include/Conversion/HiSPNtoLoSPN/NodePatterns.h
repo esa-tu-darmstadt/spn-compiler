@@ -50,13 +50,18 @@ namespace mlir {
     struct NodeLowering : public OpConversionPattern<SourceOp> {
 
       using OpConversionPattern<SourceOp>::OpConversionPattern;
+      using OpAdaptor = typename SourceOp::Adaptor;
 
-      LogicalResult matchAndRewrite(SourceOp op, ArrayRef<Value> operands,
+      LogicalResult matchAndRewrite(SourceOp op, OpAdaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override {
         if (!checkQuery<Queries...>(op.getEnclosingQuery())) {
           return rewriter.notifyMatchFailure(op, "Enclosing query did not match");
         }
-        return static_cast<const NodePattern*>(this)->matchAndRewriteChecked(op, operands, rewriter);
+        // TODO: Messy!
+        ValueRange operands = adaptor.getOperands();
+        std::vector<Value> vec(operands.begin(), operands.end());
+        ArrayRef<Value> _operands(vec);
+        return static_cast<const NodePattern*>(this)->matchAndRewriteChecked(op, _operands, rewriter);
       }
 
     };
@@ -118,11 +123,11 @@ namespace mlir {
                                            ConversionPatternRewriter& rewriter) const;
     };
 
-    static inline void populateHiSPNtoLoSPNNodePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
+    static inline void populateHiSPNtoLoSPNNodePatterns(RewritePatternSet& patterns, MLIRContext* context,
                                                         TypeConverter& typeConverter) {
-      patterns.insert<ProductNodeLowering, SumNodeLowering>(typeConverter, context);
-      patterns.insert<HistogramNodeLowering, CategoricalNodeLowering, GaussianNodeLowering>(typeConverter, context);
-      patterns.insert<RootNodeLowering>(typeConverter, context);
+      patterns.add<ProductNodeLowering, SumNodeLowering>(typeConverter, context);
+      patterns.add<HistogramNodeLowering, CategoricalNodeLowering, GaussianNodeLowering>(typeConverter, context);
+      patterns.add<RootNodeLowering>(typeConverter, context);
     }
 
   }

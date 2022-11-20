@@ -41,7 +41,7 @@ void HiSPNtoLoSPNNodeConversionPass::runOnOperation() {
     typeConverter = std::make_unique<HiSPNTypeConverter>(mlir::Float64Type::get(&getContext()));
   }
 
-  OwningRewritePatternList patterns(&getContext());
+  RewritePatternSet patterns(&getContext());
   mlir::spn::populateHiSPNtoLoSPNNodePatterns(patterns, &getContext(), *typeConverter);
 
   auto op = getOperation();
@@ -69,7 +69,7 @@ void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
 
   target.addLegalDialect<low::LoSPNDialect>();
   target.addLegalOp<ModuleOp>();
-  target.addLegalOp<FuncOp>();
+  target.addLegalOp<func::FuncOp>();
 
   target.addIllegalDialect<high::HiSPNDialect>();
 
@@ -88,7 +88,7 @@ void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
     typeConverter = std::make_unique<HiSPNTypeConverter>(mlir::Float64Type::get(&getContext()));
   }
 
-  OwningRewritePatternList patterns(&getContext());
+  RewritePatternSet patterns(&getContext());
   mlir::spn::populateHiSPNtoLoSPNQueryPatterns(patterns, &getContext(), *typeConverter);
 
   auto op = getOperation();

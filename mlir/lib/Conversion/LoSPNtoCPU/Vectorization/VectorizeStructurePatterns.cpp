@@ -6,12 +6,14 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
+#include <chrono>
+
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
 #include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Seeding.h"
 #include "../Target/TargetInformation.h"
-#include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -55,20 +57,22 @@ namespace {
 }
 // =======================================================================================================//
 LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
-                                                   llvm::ArrayRef<Value> operands,
+                                                   VectorizeSingleTask::OpAdaptor adaptor,
                                                    ConversionPatternRewriter& rewriter) const {
 
-  if (task.batchSize() > 1) {
+  auto operands = adaptor.getOperands();
+
+  if (task.getBatchSize() > 1) {
     return rewriter.notifyMatchFailure(task, "SLP vectorization does not match for batchSize > 1");
   }
 
-  if (task.body().getBlocks().size() > 1) {
+  if (task.getBody().getBlocks().size() > 1) {
     return rewriter.notifyMatchFailure(task, "SLP vectorization only applicable to single basic blocks");
   }
 
   auto const& callPoint = rewriter.saveInsertionPoint();
 
-  FuncOp taskFunc;
+  func::FuncOp taskFunc;
   if (failed(createFunctionIfVectorizable(task, operands, rewriter, &taskFunc))) {
     return failure();
   }
@@ -81,12 +85,12 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
   // we can simply set it to constant zero.
   // The other arguments are the arguments of the entry block of this function.
   SmallVector<Value, 5> blockReplacementArgs;
-  blockReplacementArgs.push_back(rewriter.create<ConstantOp>(task.getLoc(), rewriter.getIndexAttr(0)));
+  blockReplacementArgs.push_back(rewriter.create<arith::ConstantOp>(task.getLoc(), rewriter.getIndexAttr(0)));
   for (auto const& bArg : taskBlock->getArguments()) {
     blockReplacementArgs.push_back(bArg);
   }
   // Inline the content of the task into the function.
-  rewriter.mergeBlocks(&task.body().front(), taskBlock, blockReplacementArgs);
+  rewriter.mergeBlocks(&task.getBody().front(), taskBlock, blockReplacementArgs);
   // Replace block arguments *now* because moving operations later on somehow 'resets' their block argument operands
   // and does not remap them in the end, which leads to failures if a block argument should be erased.
   taskBlock->walk([&](Operation* op) {
@@ -318,21 +322,23 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
     }
   }
   rewriter.restoreInsertionPoint(callPoint);
-  rewriter.replaceOpWithNewOp<CallOp>(task, taskFunc, operands);
+  rewriter.replaceOpWithNewOp<func::CallOp>(task, taskFunc, operands);
   return success();
 }
 
 LogicalResult VectorizeBatchTask::matchAndRewrite(SPNTask op,
-                                                  llvm::ArrayRef<Value> operands,
+                                                  VectorizeBatchTask::OpAdaptor adaptor,
                                                   ConversionPatternRewriter& rewriter) const {
 
-  if (op.batchSize() <= 1) {
+  auto operands = adaptor.getOperands();
+  
+  if (op.getBatchSize() <= 1) {
     return rewriter.notifyMatchFailure(op, "Specialized for batch vectorization, does not match for batchSize == 1");
   }
 
   auto restore = rewriter.saveInsertionPoint();
 
-  FuncOp taskFunc;
+  func::FuncOp taskFunc;
   if (failed(createFunctionIfVectorizable(op, operands, rewriter, &taskFunc))) {
     return failure();
   }
@@ -344,9 +350,9 @@ LogicalResult VectorizeBatchTask::matchAndRewrite(SPNTask op,
   // Emit a warning if the target vector width does not divide the requested batch size.
   // This will cause a part of each batch (batchSize % vectorWidth elements) to be processed
   // by the scalar epilog loop instead of the vectorized loop.
-  if ((op.batchSize() % hwVectorWidth) != 0) {
+  if ((op.getBatchSize() % hwVectorWidth) != 0) {
     op.emitWarning() << "The target vector width " << hwVectorWidth << " does not divide the requested batch size "
-                     << op.batchSize() << "; This can result in degraded performance. "
+                     << op.getBatchSize() << "; This can result in degraded performance. "
                      << "Choose the batch size as a multiple of the vector width " << hwVectorWidth;
   }
 
@@ -360,19 +366,19 @@ LogicalResult VectorizeBatchTask::matchAndRewrite(SPNTask op,
   assert(inputMemRefTy.isDynamicDim(0) ^ inputMemRefTy.isDynamicDim(1));
   auto index = (inputMemRefTy.isDynamicDim(0)) ? 0 : 1;
   auto numSamples = rewriter.create<memref::DimOp>(op.getLoc(), inputMemRef, index);
-  auto vectorWidthConst = rewriter.create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(hwVectorWidth));
-  auto remainder = rewriter.create<mlir::UnsignedRemIOp>(op.getLoc(), numSamples, vectorWidthConst);
-  auto ubVectorized = rewriter.create<mlir::SubIOp>(op.getLoc(), numSamples, remainder);
+  auto vectorWidthConst = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(hwVectorWidth));
+  auto remainder = rewriter.create<arith::RemUIOp>(op.getLoc(), numSamples, vectorWidthConst);
+  auto ubVectorized = rewriter.create<arith::SubIOp>(op.getLoc(), numSamples, remainder);
 
   // Create the vectorized loop, iterating from 0 to ubVectorized, in steps of hwVectorWidth.
-  auto lbVectorized = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
-  auto stepVectorized = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(hwVectorWidth));
+  auto lbVectorized = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
+  auto stepVectorized = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(hwVectorWidth));
   auto vectorizedLoop = rewriter.create<scf::ForOp>(op.getLoc(), lbVectorized, ubVectorized, stepVectorized);
   auto& vectorLoopBody = vectorizedLoop.getLoopBody().front();
 
   auto restoreTask = rewriter.saveInsertionPoint();
   rewriter.setInsertionPointToStart(&vectorLoopBody);
-  auto oldTaskArgs = op.body().front().getArguments();
+  auto oldTaskArgs = op.getBody().front().getArguments();
   BlockAndValueMapping mapVectorTaskArgs;
   // Map from batchIndex to vectorized loop induction var.
   mapVectorTaskArgs.map(oldTaskArgs.front(), vectorizedLoop.getInductionVar());
@@ -381,7 +387,7 @@ LogicalResult VectorizeBatchTask::matchAndRewrite(SPNTask op,
     mapVectorTaskArgs.map(oldTaskArgs[i++], bArg);
   }
   // Copy the operations from the Task's content to the vectorized loop
-  for (auto& node : op.body().front()) {
+  for (auto& node : op.getBody().front()) {
     if (isa<low::SPNReturn>(&node)) {
       continue;
     }
@@ -396,7 +402,7 @@ LogicalResult VectorizeBatchTask::matchAndRewrite(SPNTask op,
   rewriter.restoreInsertionPoint(restoreTask);
 
   // Create the scalar epilog loop, iterating from ubVectorized to numSamples, in steps of 1.
-  auto stepScalar = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
+  auto stepScalar = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
   auto scalarLoop = rewriter.create<scf::ForOp>(op.getLoc(), ubVectorized, numSamples, stepScalar);
   auto& scalarLoopBody = scalarLoop.getLoopBody().front();
 
@@ -407,25 +413,25 @@ LogicalResult VectorizeBatchTask::matchAndRewrite(SPNTask op,
   for (auto bArg : taskBlock->getArguments()) {
     blockReplacementArgs.push_back(bArg);
   }
-  rewriter.mergeBlockBefore(&op.body().front(), scalarLoopBody.getTerminator(), blockReplacementArgs);
+  rewriter.mergeBlockBefore(&op.getBody().front(), scalarLoopBody.getTerminator(), blockReplacementArgs);
   scalarLoopBody.walk([&rewriter](SPNReturn ret) {
-    assert(ret.returnValues().empty() && "Task return should be empty");
+    assert(ret.getReturnValues().empty() && "Task return should be empty");
     rewriter.eraseOp(ret);
   });
 
   rewriter.restoreInsertionPoint(restoreTask);
-  rewriter.create<ReturnOp>(op->getLoc());
+  rewriter.create<func::ReturnOp>(op->getLoc());
   // Insert a call to the newly created task function.
   rewriter.restoreInsertionPoint(restore);
-  rewriter.replaceOpWithNewOp<CallOp>(op, taskFunc, operands);
+  rewriter.replaceOpWithNewOp<func::CallOp>(op, taskFunc, operands);
   return success();
 
 }
 
 LogicalResult VectorizeTask::createFunctionIfVectorizable(SPNTask& task,
-                                                          ArrayRef<Value> const& operands,
+                                                          ValueRange operands,
                                                           ConversionPatternRewriter& rewriter,
-                                                          FuncOp* function) const {
+                                                          func::FuncOp* function) const {
   static int taskCount = 0;
 
   assert(operands.back().getType().isa<MemRefType>());
@@ -441,7 +447,7 @@ LogicalResult VectorizeTask::createFunctionIfVectorizable(SPNTask& task,
 
   if (requireAllOpsVectorizable) {
     // Check if all nodes can be vectorized before trying to do so.
-    auto allVectorizable = task.body().walk([hwVectorWidth](low::LoSPNVectorizable vOp) {
+    auto allVectorizable = task.getBody().walk([hwVectorWidth](low::LoSPNVectorizable vOp) {
       if (!vOp.isVectorizable(hwVectorWidth)) {
         vOp.emitRemark() << "Operation cannot be vectorized with vector width " << hwVectorWidth;
         return WalkResult::interrupt();
@@ -465,7 +471,7 @@ LogicalResult VectorizeTask::createFunctionIfVectorizable(SPNTask& task,
     inputTypes.push_back(operand.getType());
   }
   auto funcType = FunctionType::get(rewriter.getContext(), inputTypes, {});
-  *function = rewriter.create<FuncOp>(task->getLoc(), Twine("vec_task_", std::to_string(taskCount++)).str(), funcType);
+  *function = rewriter.create<func::FuncOp>(task->getLoc(), Twine("vec_task_", std::to_string(taskCount++)).str(), funcType);
   rewriter.restoreInsertionPoint(insertionPoint);
   return success();
 }

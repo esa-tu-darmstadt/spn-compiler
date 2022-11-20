@@ -11,7 +11,8 @@
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "LoSPNtoCPU/Vectorization/Util.h"
 #include "mlir/Dialect/Math/IR/Math.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -45,20 +46,20 @@ namespace {
   [[maybe_unused]] Value castToFloatOrValue(Value value, FloatType targetType, RewriterBase& rewriter) {
     if (auto floatType = value.getType().dyn_cast<FloatType>()) {
       if (floatType.getWidth() < targetType.getWidth()) {
-        return rewriter.create<FPExtOp>(value.getLoc(), value, targetType);
+        return rewriter.create<LLVM::FPExtOp>(value.getLoc(), targetType, value);
       } else if (floatType.getWidth() > targetType.getWidth()) {
-        return rewriter.create<FPTruncOp>(value.getLoc(), value, targetType);
+        return rewriter.create<LLVM::FPTruncOp>(value.getLoc(), targetType, value);
       } else {
         return value;
       }
     } else if (auto intType = value.getType().dyn_cast<IntegerType>()) {
       if (intType.isSigned()) {
-        return rewriter.create<SIToFPOp>(value.getLoc(), value, targetType);
+        return rewriter.create<arith::SIToFPOp>(value.getLoc(), targetType, value);
       }
-      return rewriter.create<UIToFPOp>(value.getLoc(), value, targetType);
+      return rewriter.create<arith::UIToFPOp>(value.getLoc(), targetType, value);
     } else if (value.getType().isa<IndexType>()) {
-      auto valueAsInt = rewriter.create<IndexCastOp>(value.getLoc(), rewriter.getI64Type(), value);
-      return rewriter.create<UIToFPOp>(value.getLoc(), valueAsInt, targetType);
+      auto valueAsInt = rewriter.create<arith::IndexCastOp>(value.getLoc(), rewriter.getI64Type(), value);
+      return rewriter.create<arith::UIToFPOp>(value.getLoc(), targetType, valueAsInt);
     }
     llvm_unreachable("value cannot be cast to float");
   }
@@ -77,7 +78,8 @@ LogicalResult BroadcastSuperword::match(Superword* superword) {
         firstOp = definingOp;
         continue;
       }
-      if (!OperationEquivalence::isEquivalentTo(definingOp, firstOp)) {
+      // TODO: Check if the new parameters make sense.
+      if (!OperationEquivalence::isEquivalentTo(definingOp, firstOp, nullptr, nullptr, OperationEquivalence::Flags::None)) {
         return failure();
       }
     } else if (firstOp || superword->getElement(lane) != superword->getElement(0)) {
@@ -311,12 +313,12 @@ Value VectorizeConstant::rewrite(Superword* superword, RewriterBase& rewriter) {
   SmallVector<Attribute, 4> constants;
   for (auto value : *superword) {
     // ConstantOp.
-    if (auto op = value.getDefiningOp<ConstantOp>()) {
-      constants.emplace_back(op.value());
+    if (auto op = value.getDefiningOp<arith::ConstantOp>()) {
+      constants.emplace_back(op.getValue());
     }
       // SPNConstant op.
     else {
-      constants.emplace_back(static_cast<SPNConstant>(value.getDefiningOp()).valueAttr());
+      constants.emplace_back(static_cast<SPNConstant>(value.getDefiningOp()).getValueAttr());
     }
   }
   auto const& elements = denseElements(std::begin(constants), std::end(constants), superword->getVectorType());
@@ -337,12 +339,12 @@ LogicalResult CreateConsecutiveLoad::match(Superword* superword) {
 Value CreateConsecutiveLoad::rewrite(Superword* superword, RewriterBase& rewriter) {
   auto batchRead = cast<SPNBatchRead>(superword->getElement(0).getDefiningOp());
   ValueRange indices{
-      batchRead.dynamicIndex(),
-      conversionManager.getOrCreateConstant(superword->getLoc(), rewriter.getIndexAttr(batchRead.staticIndex()))
+      batchRead.getDynamicIndex(),
+      conversionManager.getOrCreateConstant(superword->getLoc(), rewriter.getIndexAttr(batchRead.getStaticIndex()))
   };
   return rewriter.create<vector::LoadOp>(superword->getLoc(),
                                          superword->getVectorType(),
-                                         batchRead.batchMem(),
+                                         batchRead.getBatchMem(),
                                          indices);
 }
 
@@ -362,22 +364,22 @@ LogicalResult CreateGatherLoad::match(Superword* superword) {
     }
     // We can only gather from the same memory location.
     if (!batchMem) {
-      batchMem = batchRead.batchMem();
-    } else if (batchRead.batchMem() != batchMem) {
+      batchMem = batchRead.getBatchMem();
+    } else if (batchRead.getBatchMem() != batchMem) {
       return failure();
     }
     if (!dynamicIndex) {
-      dynamicIndex = batchRead.dynamicIndex();
+      dynamicIndex = batchRead.getDynamicIndex();
       // We require the dynamic index to be 0.
       if (auto* definingOp = dynamicIndex.getDefiningOp()) {
-        auto constant = dyn_cast<ConstantOp>(definingOp);
+        auto constant = dyn_cast<arith::ConstantOp>(definingOp);
         if (!constant || !constant.getType().isIntOrIndex() || constant.getValue().cast<IntegerAttr>().getInt() != 0) {
           return failure();
         }
       } else {
         return failure();
       }
-    } else if (batchRead.dynamicIndex() != dynamicIndex) {
+    } else if (batchRead.getDynamicIndex() != dynamicIndex) {
       return failure();
     }
   }
@@ -404,10 +406,10 @@ Value CreateGatherLoad::rewrite(Superword* superword, RewriterBase& rewriter) {
   for (auto element : *superword) {
     auto batchRead = cast<SPNBatchRead>(element.getDefiningOp());
     if (!base && !index) {
-      base = batchRead.batchMem();
-      index = batchRead.dynamicIndex();
+      base = batchRead.getBatchMem();
+      index = batchRead.getDynamicIndex();
     }
-    samples.emplace_back(batchRead.staticIndex());
+    samples.emplace_back(batchRead.getStaticIndex());
     maskBits.emplace_back(true);
   }
 
@@ -451,7 +453,7 @@ Value VectorizeAdd::rewrite(Superword* superword, RewriterBase& rewriter) {
   for (unsigned i = 0; i < superword->numOperands(); ++i) {
     operands.emplace_back(conversionManager.getValue(superword->getOperand(i)));
   }
-  return rewriter.create<AddFOp>(superword->getLoc(), superword->getVectorType(), operands);
+  return rewriter.create<arith::AddFOp>(superword->getLoc(), superword->getVectorType(), operands);
 }
 
 void VectorizeAdd::accept(PatternVisitor& visitor, Superword const* superword) const {
@@ -465,7 +467,7 @@ Value VectorizeMul::rewrite(Superword* superword, RewriterBase& rewriter) {
   for (unsigned i = 0; i < superword->numOperands(); ++i) {
     operands.emplace_back(conversionManager.getValue(superword->getOperand(i)));
   }
-  return rewriter.create<MulFOp>(superword->getLoc(), superword->getVectorType(), operands);
+  return rewriter.create<arith::MulFOp>(superword->getLoc(), superword->getVectorType(), operands);
 }
 
 void VectorizeMul::accept(PatternVisitor& visitor, Superword const* superword) const {
@@ -487,8 +489,8 @@ Value VectorizeGaussian::rewrite(Superword* superword, RewriterBase& rewriter) {
     SmallVector<float, 4> variancesArray;
     SmallVector<float, 4> rootsArray;
     for (auto value : *superword) {
-      meansArray.emplace_back((float) static_cast<SPNGaussianLeaf>(value.getDefiningOp()).meanAttr().getValueAsDouble());
-      float stddev = (float) static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddevAttr().getValueAsDouble();
+      meansArray.emplace_back((float) static_cast<SPNGaussianLeaf>(value.getDefiningOp()).getMeanAttr().getValueAsDouble());
+      float stddev = (float) static_cast<SPNGaussianLeaf>(value.getDefiningOp()).getStddevAttr().getValueAsDouble();
       variancesArray.emplace_back(-2 * stddev * stddev);
       rootsArray.emplace_back(std::sqrt(2.0f * M_PIf32 * stddev * stddev));
     }
@@ -500,8 +502,8 @@ Value VectorizeGaussian::rewrite(Superword* superword, RewriterBase& rewriter) {
     SmallVector<double, 4> variancesArray;
     SmallVector<double, 4> rootsArray;
     for (auto value : *superword) {
-      meansArray.emplace_back(static_cast<SPNGaussianLeaf>(value.getDefiningOp()).meanAttr().getValueAsDouble());
-      double stddev = static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddevAttr().getValueAsDouble();
+      meansArray.emplace_back(static_cast<SPNGaussianLeaf>(value.getDefiningOp()).getMeanAttr().getValueAsDouble());
+      double stddev = static_cast<SPNGaussianLeaf>(value.getDefiningOp()).getStddevAttr().getValueAsDouble();
       variancesArray.emplace_back(-2 * stddev * stddev);
       rootsArray.emplace_back(std::sqrt(2.0 * M_PI * stddev * stddev));
     }
@@ -515,21 +517,21 @@ Value VectorizeGaussian::rewrite(Superword* superword, RewriterBase& rewriter) {
   inputVector = util::castToFloatOrGetVector(inputVector, vectorType, rewriter);
   inputVector = util::extendTruncateOrGetVector(inputVector, vectorType, rewriter);
   auto meanVector = conversionManager.getOrCreateConstant(superword->getLoc(), means);
-  Value gaussianVector = rewriter.create<SubFOp>(superword->getLoc(), vectorType, inputVector, meanVector);
+  Value gaussianVector = rewriter.create<arith::SubFOp>(superword->getLoc(), vectorType, inputVector, meanVector);
 
   // ((x - mean)^2
-  gaussianVector = rewriter.create<MulFOp>(superword->getLoc(), vectorType, gaussianVector, gaussianVector);
+  gaussianVector = rewriter.create<arith::MulFOp>(superword->getLoc(), vectorType, gaussianVector, gaussianVector);
 
   // (x - mean)^2 / (-2 * variance)
   auto varianceVector = conversionManager.getOrCreateConstant(superword->getLoc(), variances);
-  gaussianVector = rewriter.create<DivFOp>(superword->getLoc(), vectorType, gaussianVector, varianceVector);
+  gaussianVector = rewriter.create<arith::DivFOp>(superword->getLoc(), vectorType, gaussianVector, varianceVector);
 
   // e^((x - mean)^2 / (-2 * variance))
   gaussianVector = rewriter.create<math::ExpOp>(superword->getLoc(), vectorType, gaussianVector);
 
   // e^((x - mean)^2 / (-2 * variance)) / sqrt(2 * PI * variance)
   auto rootsVector = conversionManager.getOrCreateConstant(superword->getLoc(), roots);
-  gaussianVector = rewriter.create<DivFOp>(superword->getLoc(), gaussianVector, rootsVector);
+  gaussianVector = rewriter.create<arith::DivFOp>(superword->getLoc(), gaussianVector, rootsVector);
 
   if (anyGaussianMarginalized(*superword)) {
     DenseElementsAttr denseOne;
@@ -540,9 +542,9 @@ Value VectorizeGaussian::rewrite(Superword* superword, RewriterBase& rewriter) {
       SmallVector<double, 4> ones(superword->numLanes(), 1.0);
       denseOne = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<double>>(ones));
     }
-    auto isNan = rewriter.create<mlir::CmpFOp>(superword->getLoc(), CmpFPredicate::UNO, inputVector, inputVector);
+    auto isNan = rewriter.create<arith::CmpFOp>(superword->getLoc(), arith::CmpFPredicate::UNO, inputVector, inputVector);
     auto constOne = conversionManager.getOrCreateConstant(superword->getLoc(), denseOne);
-    gaussianVector = rewriter.create<mlir::SelectOp>(superword->getLoc(), isNan, constOne, gaussianVector);
+    gaussianVector = rewriter.create<arith::SelectOp>(superword->getLoc(), isNan, constOne, gaussianVector);
   }
 
   return gaussianVector;
@@ -570,13 +572,13 @@ Value VectorizeLogAdd::rewrite(Superword* superword, RewriterBase& rewriter) {
   // Rewrite 'ln(x + y)' with 'a = ln(x), b = ln(y) and a > b' as 'a + ln(e^(b - a) + 1)'.
   auto lhs = conversionManager.getValue(superword->getOperand(0));
   auto rhs = conversionManager.getValue(superword->getOperand(1));
-  auto compare = rewriter.create<CmpFOp>(superword->getLoc(), CmpFPredicate::OGT, lhs, rhs);
-  auto a = rewriter.create<SelectOp>(superword->getLoc(), compare, lhs, rhs);
-  auto b = rewriter.create<SelectOp>(superword->getLoc(), compare, rhs, lhs);
-  Value vectorOp = rewriter.create<SubFOp>(superword->getLoc(), b, a);
+  auto compare = rewriter.create<arith::CmpFOp>(superword->getLoc(), arith::CmpFPredicate::OGT, lhs, rhs);
+  auto a = rewriter.create<arith::SelectOp>(superword->getLoc(), compare, lhs, rhs);
+  auto b = rewriter.create<arith::SelectOp>(superword->getLoc(), compare, rhs, lhs);
+  Value vectorOp = rewriter.create<arith::SubFOp>(superword->getLoc(), b, a);
   vectorOp = rewriter.create<math::ExpOp>(superword->getLoc(), vectorOp);
   vectorOp = rewriter.create<math::Log1pOp>(superword->getLoc(), vectorOp);
-  return rewriter.create<AddFOp>(superword->getLoc(), a, vectorOp);
+  return rewriter.create<arith::AddFOp>(superword->getLoc(), a, vectorOp);
 }
 
 void VectorizeLogAdd::accept(PatternVisitor& visitor, Superword const* superword) const {
@@ -590,7 +592,7 @@ Value VectorizeLogMul::rewrite(Superword* superword, RewriterBase& rewriter) {
   for (unsigned i = 0; i < superword->numOperands(); ++i) {
     operands.emplace_back(conversionManager.getValue(superword->getOperand(i)));
   }
-  return rewriter.create<AddFOp>(superword->getLoc(), superword->getVectorType(), operands);
+  return rewriter.create<arith::AddFOp>(superword->getLoc(), superword->getVectorType(), operands);
 }
 
 void VectorizeLogMul::accept(PatternVisitor& visitor, Superword const* superword) const {
@@ -612,8 +614,8 @@ Value VectorizeLogGaussian::rewrite(Superword* superword, RewriterBase& rewriter
     SmallVector<float, 4> minuendsArray;
     SmallVector<float, 4> factorsArray;
     for (auto value : *superword) {
-      meansArray.emplace_back((float) static_cast<SPNGaussianLeaf>(value.getDefiningOp()).meanAttr().getValueAsDouble());
-      float stddev = (float) static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddevAttr().getValueAsDouble();
+      meansArray.emplace_back((float) static_cast<SPNGaussianLeaf>(value.getDefiningOp()).getMeanAttr().getValueAsDouble());
+      float stddev = (float) static_cast<SPNGaussianLeaf>(value.getDefiningOp()).getStddevAttr().getValueAsDouble();
       minuendsArray.emplace_back(-logf(stddev) - 0.5 * logf(2 * M_PIf32));
       factorsArray.emplace_back(1.0 / (2 * stddev * stddev));
     }
@@ -625,8 +627,8 @@ Value VectorizeLogGaussian::rewrite(Superword* superword, RewriterBase& rewriter
     SmallVector<double, 4> minuendsArray;
     SmallVector<double, 4> factorsArray;
     for (auto value : *superword) {
-      meansArray.emplace_back(static_cast<SPNGaussianLeaf>(value.getDefiningOp()).meanAttr().getValueAsDouble());
-      double stddev = static_cast<SPNGaussianLeaf>(value.getDefiningOp()).stddevAttr().getValueAsDouble();
+      meansArray.emplace_back(static_cast<SPNGaussianLeaf>(value.getDefiningOp()).getMeanAttr().getValueAsDouble());
+      double stddev = static_cast<SPNGaussianLeaf>(value.getDefiningOp()).getStddevAttr().getValueAsDouble();
       minuendsArray.emplace_back(-log(stddev) - 0.5 * log(2 * M_PI));
       factorsArray.emplace_back(1.0 / (2 * stddev * stddev));
     }
@@ -640,18 +642,18 @@ Value VectorizeLogGaussian::rewrite(Superword* superword, RewriterBase& rewriter
   inputVector = util::castToFloatOrGetVector(inputVector, vectorType, rewriter);
   inputVector = util::extendTruncateOrGetVector(inputVector, vectorType, rewriter);
   auto meanVector = conversionManager.getOrCreateConstant(superword->getLoc(), means);
-  Value gaussianVector = rewriter.create<SubFOp>(superword->getLoc(), vectorType, inputVector, meanVector);
+  Value gaussianVector = rewriter.create<arith::SubFOp>(superword->getLoc(), vectorType, inputVector, meanVector);
 
   // (x - mean)^2
-  gaussianVector = rewriter.create<MulFOp>(superword->getLoc(), vectorType, gaussianVector, gaussianVector);
+  gaussianVector = rewriter.create<arith::MulFOp>(superword->getLoc(), vectorType, gaussianVector, gaussianVector);
 
   // (x - mean)^2 / (2 * stddev^2)
   auto factorsVector = conversionManager.getOrCreateConstant(superword->getLoc(), factors);
-  gaussianVector = rewriter.create<MulFOp>(superword->getLoc(), vectorType, gaussianVector, factorsVector);
+  gaussianVector = rewriter.create<arith::MulFOp>(superword->getLoc(), vectorType, gaussianVector, factorsVector);
 
   // -ln(stddev) - 0.5 * ln(2*pi) - (x - mean)^2 / (2 * stddev^2)
   auto minuendVector = conversionManager.getOrCreateConstant(superword->getLoc(), minuends);
-  gaussianVector = rewriter.create<SubFOp>(superword->getLoc(), vectorType, minuendVector, gaussianVector);
+  gaussianVector = rewriter.create<arith::SubFOp>(superword->getLoc(), vectorType, minuendVector, gaussianVector);
 
   if (anyGaussianMarginalized(*superword)) {
     DenseElementsAttr denseZero;
@@ -662,9 +664,9 @@ Value VectorizeLogGaussian::rewrite(Superword* superword, RewriterBase& rewriter
       SmallVector<double, 4> zeros(superword->numLanes(), 0.0);
       denseZero = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<double>>(zeros));
     }
-    auto isNan = rewriter.create<mlir::CmpFOp>(superword->getLoc(), CmpFPredicate::UNO, inputVector, inputVector);
+    auto isNan = rewriter.create<arith::CmpFOp>(superword->getLoc(), arith::CmpFPredicate::UNO, inputVector, inputVector);
     auto constZero = conversionManager.getOrCreateConstant(superword->getLoc(), denseZero);
-    gaussianVector = rewriter.create<mlir::SelectOp>(superword->getLoc(), isNan, constZero, gaussianVector);
+    gaussianVector = rewriter.create<arith::SelectOp>(superword->getLoc(), isNan, constZero, gaussianVector);
   }
 
   return gaussianVector;

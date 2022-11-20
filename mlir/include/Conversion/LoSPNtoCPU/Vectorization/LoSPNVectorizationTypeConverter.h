@@ -50,8 +50,8 @@ namespace mlir {
           if (auto toScalar = dyn_cast<low::SPNConvertToScalar>(inputs.front().getDefiningOp())) {
             // Handle the special case that the values was previously converted from a vector
             // to a scalar.
-            assert(toScalar.vector().getType() == type);
-            return toScalar.vector();
+            assert(toScalar.getVector().getType() == type);
+            return toScalar.getVector();
           }
           return builder.create<low::SPNConvertToVector>(loc, type, inputs.front()).getResult();
         });

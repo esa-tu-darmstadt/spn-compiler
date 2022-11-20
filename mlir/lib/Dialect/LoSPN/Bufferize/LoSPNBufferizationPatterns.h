@@ -23,7 +23,7 @@ namespace mlir {
         using OpConversionPattern<SPNKernel>::OpConversionPattern;
 
         LogicalResult matchAndRewrite(SPNKernel op,
-                                      ArrayRef<Value> operands,
+                                      OpAdaptor adaptor,
                                       ConversionPatternRewriter& rewriter) const override;
       };
 
@@ -32,9 +32,8 @@ namespace mlir {
         using OpConversionPattern<SPNTask>::OpConversionPattern;
 
         LogicalResult matchAndRewrite(SPNTask op,
-                                      ArrayRef<Value> operands,
+                                      OpAdaptor adaptor,
                                       ConversionPatternRewriter& rewriter) const override;
-
       };
 
       struct BatchExtractBufferize : OpConversionPattern<SPNBatchExtract> {
@@ -42,14 +41,14 @@ namespace mlir {
         using OpConversionPattern<SPNBatchExtract>::OpConversionPattern;
 
         LogicalResult matchAndRewrite(SPNBatchExtract op,
-                                      ArrayRef<Value> operands,
+                                      OpAdaptor adaptor,
                                       ConversionPatternRewriter& rewriter) const override;
       };
 
-      static inline void populateLoSPNBufferizationPatterns(OwningRewritePatternList& patterns, MLIRContext* context,
+      static inline void populateLoSPNBufferizationPatterns(RewritePatternSet& patterns, MLIRContext* context,
                                                             TypeConverter& typeConverter) {
-        patterns.insert<KernelBufferize, TaskBufferize>(typeConverter, context);
-        patterns.insert<BatchExtractBufferize>(typeConverter, context);
+        patterns.add<KernelBufferize, TaskBufferize>(typeConverter, context);
+        patterns.add<BatchExtractBufferize>(typeConverter, context);
       }
 
     }

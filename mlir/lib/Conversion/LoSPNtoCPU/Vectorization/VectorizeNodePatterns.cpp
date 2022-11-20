@@ -12,9 +12,9 @@
 #include "llvm/Support/FormatVariadic.h"
 #include <cmath>
 #include "mlir/Dialect/Math/IR/Math.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "LoSPN/LoSPNAttributes.h"
 
 //
@@ -23,7 +23,7 @@
 namespace {
 
   template<typename T>
-  mlir::ConstantOp broadcastVectorConstant(mlir::VectorType type, T value,
+  mlir::arith::ConstantOp broadcastVectorConstant(mlir::VectorType type, T value,
                                            mlir::ConversionPatternRewriter& rewriter, mlir::Location loc) {
     assert(type.hasStaticShape());
     llvm::SmallVector<T, 8> array;
@@ -31,12 +31,12 @@ namespace {
       array.push_back(value);
     }
     auto constAttr = mlir::DenseElementsAttr::get(type, (llvm::ArrayRef<T>) array);
-    auto constValue = rewriter.create<mlir::ConstantOp>(loc, constAttr);
+    auto constValue = rewriter.create<mlir::arith::ConstantOp>(loc, constAttr);
     return constValue;
   }
 
   template<>
-  mlir::ConstantOp broadcastVectorConstant(mlir::VectorType type, double value,
+  mlir::arith::ConstantOp broadcastVectorConstant(mlir::VectorType type, double value,
                                            mlir::ConversionPatternRewriter& rewriter, mlir::Location loc) {
     assert(type.hasStaticShape());
     assert(type.getElementType().isa<mlir::FloatType>());
@@ -48,7 +48,7 @@ namespace {
         array.push_back((float) value);
       }
       auto constAttr = mlir::DenseElementsAttr::get(type, (llvm::ArrayRef<float>) array);
-      auto constValue = rewriter.create<mlir::ConstantOp>(loc, constAttr);
+      auto constValue = rewriter.create<mlir::arith::ConstantOp>(loc, constAttr);
       return constValue;
     } else {
       llvm::SmallVector<double, 8> array;
@@ -56,7 +56,7 @@ namespace {
         array.push_back(value);
       }
       auto constAttr = mlir::DenseElementsAttr::get(type, (llvm::ArrayRef<double>) array);
-      auto constValue = rewriter.create<mlir::ConstantOp>(loc, constAttr);
+      auto constValue = rewriter.create<mlir::arith::ConstantOp>(loc, constAttr);
       return constValue;
     }
   }
@@ -64,13 +64,14 @@ namespace {
 }
 
 mlir::LogicalResult mlir::spn::VectorizeTransposedBatchRead::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
-                                                                             llvm::ArrayRef<mlir::Value> operands,
+                                                                             OpAdaptor adaptor,
                                                                              mlir::ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   // Replace the vectorized version of a transposed BatchRead with a vector load from the input memref.
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized BatchRead");
   }
-  if (!op.transposed().getValueOr(false)) {
+  if (!op.getTransposed().getValueOr(false)) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches transposed BatchRead");
   }
   assert(operands.size() == 2);
@@ -79,7 +80,7 @@ mlir::LogicalResult mlir::spn::VectorizeTransposedBatchRead::matchAndRewrite(mli
   auto memRef = operands[0].getType().dyn_cast<MemRefType>();
   assert(memRef.hasRank() && memRef.getRank() == 2);
   SmallVector<Value, 2> indices;
-  auto constStaticIndex = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(op.staticIndex()));
+  auto constStaticIndex = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(op.getStaticIndex()));
   indices.push_back(constStaticIndex);
   indices.push_back(operands[1]);
   auto vectorType = VectorType::get({op.vectorFactor()}, memRef.getElementType());
@@ -88,13 +89,14 @@ mlir::LogicalResult mlir::spn::VectorizeTransposedBatchRead::matchAndRewrite(mli
 }
 
 mlir::LogicalResult mlir::spn::VectorizeBatchRead::matchAndRewrite(mlir::spn::low::SPNBatchRead op,
-                                                                   llvm::ArrayRef<mlir::Value> operands,
+                                                                   OpAdaptor adaptor,
                                                                    mlir::ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   // Replace the vectorized version of a non-transposed BatchRead with a Gather load from the input memref.
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized BatchRead");
   }
-  if (op.transposed().getValueOr(false)) {
+  if (op.getTransposed().getValueOr(false)) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches non-transposed BatchRead");
   }
   assert(operands.size() == 2);
@@ -108,20 +110,20 @@ mlir::LogicalResult mlir::spn::VectorizeBatchRead::matchAndRewrite(mlir::spn::lo
   auto vectorType = VectorType::get({op.vectorFactor()}, op.getResult().getType());
   // Broadcast the batchIndex
   auto vectorOfIndex = VectorType::get(op.vectorFactor(), rewriter.getI64Type());
-  auto convertedBatchIndex = rewriter.create<IndexCastOp>(op.getLoc(), rewriter.getI64Type(), operands[1]);
+  auto convertedBatchIndex = rewriter.create<arith::IndexCastOp>(op.getLoc(), rewriter.getI64Type(), operands[1]);
   auto batchIndex = rewriter.create<vector::BroadcastOp>(op.getLoc(), vectorOfIndex, convertedBatchIndex);
   // Create a constant vector with the offsets of the elements from the first sample.
   SmallVector<unsigned long, 4> offsets;
   for (unsigned i = 0; i < op.vectorFactor(); ++i) {
-    offsets.push_back(i * numFeatures + op.staticIndex());
+    offsets.push_back(i * numFeatures + op.getStaticIndex());
   }
   auto constAttr = mlir::DenseElementsAttr::get(vectorOfIndex, (llvm::ArrayRef<unsigned long>) offsets);
-  auto constOffset = rewriter.create<ConstantOp>(op.getLoc(), constAttr);
+  auto constOffset = rewriter.create<arith::ConstantOp>(op.getLoc(), constAttr);
   // Multiply the batchIndex with the number of features for the base address.
   auto elements = broadcastVectorConstant(batchIndex.getVectorType(), numFeatures, rewriter, op->getLoc());
-  auto baseAddress = rewriter.create<MulIOp>(op->getLoc(), batchIndex, elements);
+  auto baseAddress = rewriter.create<arith::MulIOp>(op->getLoc(), batchIndex, elements);
   // Add the offsets to the base index from the batchIndex.
-  auto addresses = rewriter.create<AddIOp>(op.getLoc(), baseAddress, constOffset);
+  auto addresses = rewriter.create<arith::AddIOp>(op.getLoc(), baseAddress, constOffset);
   // Create constant passThru.
   assert(vectorType.getElementType().isIntOrIndexOrFloat());
   Value passThru;
@@ -135,30 +137,31 @@ mlir::LogicalResult mlir::spn::VectorizeBatchRead::matchAndRewrite(mlir::spn::lo
                                       rewriter, op->getLoc());
   // Re-interpret the MemRef to a single dimension for use with the gather-instruction.
   auto numSamples = rewriter.create<memref::DimOp>(op.getLoc(), operands[0], 0);
-  auto constNumFeatures = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(numFeatures));
-  auto size = rewriter.create<MulIOp>(op->getLoc(), numSamples, constNumFeatures);
+  auto constNumFeatures = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(numFeatures));
+  auto size = rewriter.create<arith::MulIOp>(op->getLoc(), numSamples, constNumFeatures);
   auto staticOffset = rewriter.getI32IntegerAttr(0);
   auto staticStride = rewriter.getI32IntegerAttr(1);
   SmallVector<OpFoldResult, 1> dynamicSizes;
-  dynamicSizes.push_back(size.result());
+  dynamicSizes.push_back(size.getResult());
   SmallVector<OpFoldResult, 1> staticStrides;
   staticStrides.push_back(staticStride);
   auto reinterpret = rewriter.create<memref::ReinterpretCastOp>(op.getLoc(),
                                                                 MemRefType::get({-1}, memRef.getElementType()),
                                                                 operands[0], staticOffset,
                                                                 dynamicSizes, staticStrides);
-  Value constIndex = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
+  Value constIndex = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
   rewriter.replaceOpWithNewOp<vector::GatherOp>(op, vectorType, reinterpret, constIndex, addresses, mask, passThru);
   return success();
 }
 
 mlir::LogicalResult mlir::spn::VectorizeBatchWrite::matchAndRewrite(mlir::spn::low::SPNBatchWrite op,
-                                                                    llvm::ArrayRef<mlir::Value> operands,
+                                                                    OpAdaptor adaptor,
                                                                     mlir::ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized BatchWrite");
   }
-  if (!op.transposed().getValueOr(false)) {
+  if (!op.getTransposed().getValueOr(false)) {
     // Currently, no step of the compilation pipeline will create non-transposed BatchWrite,
     // therefore this is currently the only implementation.
     return rewriter.notifyMatchFailure(op, "Pattern only matches transposed BatchWrite");
@@ -170,7 +173,7 @@ mlir::LogicalResult mlir::spn::VectorizeBatchWrite::matchAndRewrite(mlir::spn::l
   auto dynIndex = operands[1];
   assert(dynIndex.getType().isa<IndexType>());
 
-  for (unsigned i = 0; i < op.resultValues().size(); ++i) {
+  for (unsigned i = 0; i < op.getResultValues().size(); ++i) {
     VectorType vectorType;
     auto result = operands[i + 2];
     if (!result.getType().isa<VectorType>()) {
@@ -183,7 +186,7 @@ mlir::LogicalResult mlir::spn::VectorizeBatchWrite::matchAndRewrite(mlir::spn::l
     assert(memRefTy.getElementType() == vectorType.getElementType()
                && "Result type and element type of MemRef must match");
     SmallVector<Value, 2> indices;
-    auto constStaticIndex = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(i));
+    auto constStaticIndex = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(i));
     indices.push_back(constStaticIndex);
     indices.push_back(dynIndex);
     rewriter.create<vector::TransferWriteOp>(op.getLoc(), result, memRef,
@@ -194,8 +197,9 @@ mlir::LogicalResult mlir::spn::VectorizeBatchWrite::matchAndRewrite(mlir::spn::l
 }
 
 mlir::LogicalResult mlir::spn::VectorizeMul::matchAndRewrite(mlir::spn::low::SPNMul op,
-                                                             llvm::ArrayRef<mlir::Value> operands,
+                                                             OpAdaptor adaptor,
                                                              mlir::ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized Multiplication");
   }
@@ -205,14 +209,15 @@ mlir::LogicalResult mlir::spn::VectorizeMul::matchAndRewrite(mlir::spn::low::SPN
   assert(operands.size() == 2);
   assert(operands[0].getType().isa<VectorType>());
   assert(operands[1].getType().isa<VectorType>());
-  rewriter.replaceOpWithNewOp<MulFOp>(op, typeConverter->convertType(op.getResult().getType()),
+  rewriter.replaceOpWithNewOp<arith::MulFOp>(op, typeConverter->convertType(op.getResult().getType()),
                                       operands[0], operands[1]);
   return success();
 }
 
 mlir::LogicalResult mlir::spn::VectorizeLogMul::matchAndRewrite(mlir::spn::low::SPNMul op,
-                                                                llvm::ArrayRef<mlir::Value> operands,
+                                                                OpAdaptor adaptor,
                                                                 mlir::ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized Multiplication");
   }
@@ -222,14 +227,15 @@ mlir::LogicalResult mlir::spn::VectorizeLogMul::matchAndRewrite(mlir::spn::low::
   assert(operands.size() == 2);
   assert(operands[0].getType().isa<VectorType>());
   assert(operands[1].getType().isa<VectorType>());
-  rewriter.replaceOpWithNewOp<AddFOp>(op, typeConverter->convertType(op.getResult().getType()),
+  rewriter.replaceOpWithNewOp<arith::AddFOp>(op, typeConverter->convertType(op.getResult().getType()),
                                       operands[0], operands[1]);
   return success();
 }
 
 mlir::LogicalResult mlir::spn::VectorizeAdd::matchAndRewrite(mlir::spn::low::SPNAdd op,
-                                                             llvm::ArrayRef<mlir::Value> operands,
+                                                             OpAdaptor adaptor,
                                                              mlir::ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized Addition");
   }
@@ -239,14 +245,15 @@ mlir::LogicalResult mlir::spn::VectorizeAdd::matchAndRewrite(mlir::spn::low::SPN
   assert(operands.size() == 2);
   assert(operands[0].getType().isa<VectorType>());
   assert(operands[1].getType().isa<VectorType>());
-  rewriter.replaceOpWithNewOp<AddFOp>(op, typeConverter->convertType(op.getResult().getType()),
+  rewriter.replaceOpWithNewOp<arith::AddFOp>(op, typeConverter->convertType(op.getResult().getType()),
                                       operands[0], operands[1]);
   return success();
 }
 
 mlir::LogicalResult mlir::spn::VectorizeLogAdd::matchAndRewrite(mlir::spn::low::SPNAdd op,
-                                                                llvm::ArrayRef<mlir::Value> operands,
+                                                                OpAdaptor adaptor,
                                                                 mlir::ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized Addition");
   }
@@ -259,19 +266,20 @@ mlir::LogicalResult mlir::spn::VectorizeLogAdd::matchAndRewrite(mlir::spn::low::
   // Calculate addition 'x + y' in log-space as
   // 'a + log(1 + exp(b-a)', with a == log(x),
   // b == log(y) and a > b.
-  auto compare = rewriter.create<CmpFOp>(op.getLoc(), CmpFPredicate::OGT, operands[0], operands[1]);
-  auto a = rewriter.create<SelectOp>(op->getLoc(), compare, operands[0], operands[1]);
-  auto b = rewriter.create<SelectOp>(op->getLoc(), compare, operands[1], operands[0]);
-  auto sub = rewriter.create<SubFOp>(op->getLoc(), b, a);
+  auto compare = rewriter.create<arith::CmpFOp>(op.getLoc(), arith::CmpFPredicate::OGT, operands[0], operands[1]);
+  auto a = rewriter.create<arith::SelectOp>(op->getLoc(), compare, operands[0], operands[1]);
+  auto b = rewriter.create<arith::SelectOp>(op->getLoc(), compare, operands[1], operands[0]);
+  auto sub = rewriter.create<arith::SubFOp>(op->getLoc(), b, a);
   auto exp = rewriter.create<math::ExpOp>(op.getLoc(), sub);
   auto log = rewriter.create<math::Log1pOp>(op.getLoc(), exp);
-  rewriter.replaceOpWithNewOp<AddFOp>(op, a, log);
+  rewriter.replaceOpWithNewOp<arith::AddFOp>(op, a, log);
   return success();
 }
 
 mlir::LogicalResult mlir::spn::VectorizeLog::matchAndRewrite(low::SPNLog op,
-                                                             ArrayRef<Value> operands,
+                                                             OpAdaptor adaptor,
                                                              ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized Logarithm");
   }
@@ -283,8 +291,9 @@ mlir::LogicalResult mlir::spn::VectorizeLog::matchAndRewrite(low::SPNLog op,
 }
 
 mlir::LogicalResult mlir::spn::VectorizeConstant::matchAndRewrite(mlir::spn::low::SPNConstant op,
-                                                                  llvm::ArrayRef<mlir::Value> operands,
+                                                                  OpAdaptor adaptor,
                                                                   mlir::ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized Constant");
   }
@@ -295,15 +304,16 @@ mlir::LogicalResult mlir::spn::VectorizeConstant::matchAndRewrite(mlir::spn::low
   }
   assert(resultType.isa<FloatType>());
   auto vectorConstantTy = VectorType::get(op.vectorFactor(), resultType);
-  auto vectorConstant = broadcastVectorConstant(vectorConstantTy, op.value().convertToDouble(),
+  auto vectorConstant = broadcastVectorConstant(vectorConstantTy, op.getValue().convertToDouble(),
                                                 rewriter, op.getLoc());
   rewriter.replaceOp(op, ValueRange{vectorConstant});
   return success();
 }
 
 mlir::LogicalResult mlir::spn::VectorizeGaussian::matchAndRewrite(mlir::spn::low::SPNGaussianLeaf op,
-                                                                  llvm::ArrayRef<mlir::Value> operands,
+                                                                  OpAdaptor adaptor,
                                                                   mlir::ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized GaussianLeaf");
   }
@@ -331,7 +341,7 @@ mlir::LogicalResult mlir::spn::VectorizeGaussian::matchAndRewrite(mlir::spn::low
   // This conversion is also possible in vectorized mode.
   if (vectorType.getElementType().isIntOrIndex()) {
     auto floatVectorTy = VectorType::get(vectorType.getShape(), floatResultType);
-    feature = rewriter.create<UIToFPOp>(op->getLoc(), feature, floatVectorTy);
+    feature = rewriter.create<arith::UIToFPOp>(op->getLoc(), floatVectorTy, feature);
     vectorType = floatVectorTy;
   }
   auto featureType = vectorType.getElementType().dyn_cast<FloatType>();
@@ -342,7 +352,7 @@ mlir::LogicalResult mlir::spn::VectorizeGaussian::matchAndRewrite(mlir::spn::low
 
   // Calculate Gaussian distribution using e^(-(x - mean)^2/2*variance))/sqrt(2*PI*variance)
   // Variance from standard deviation.
-  double variance = op.stddev().convertToDouble() * op.stddev().convertToDouble();
+  double variance = op.getStddev().convertToDouble() * op.getStddev().convertToDouble();
   // 1/sqrt(2*PI*variance)
   double coefficient = 1.0 / (std::sqrt(2.0 * M_PI * variance));
   auto coefficientConst = broadcastVectorConstant(targetVectorType, coefficient, rewriter, op.getLoc());
@@ -350,28 +360,29 @@ mlir::LogicalResult mlir::spn::VectorizeGaussian::matchAndRewrite(mlir::spn::low
   double denominator = -1.0 / (2.0 * variance);
   auto denominatorConst = broadcastVectorConstant(targetVectorType, denominator, rewriter, op.getLoc());
   // x - mean
-  auto meanConst = broadcastVectorConstant(targetVectorType, op.mean().convertToDouble(), rewriter, op.getLoc());
-  auto subtraction = rewriter.create<mlir::SubFOp>(op.getLoc(), feature, meanConst);
+  auto meanConst = broadcastVectorConstant(targetVectorType, op.getMean().convertToDouble(), rewriter, op.getLoc());
+  auto subtraction = rewriter.create<arith::SubFOp>(op.getLoc(), feature, meanConst);
   // (x-mean)^2
-  auto numerator = rewriter.create<mlir::MulFOp>(op.getLoc(), subtraction, subtraction);
+  auto numerator = rewriter.create<arith::MulFOp>(op.getLoc(), subtraction, subtraction);
   // -(x-mean)^2 / 2*variance
-  auto fraction = rewriter.create<mlir::MulFOp>(op.getLoc(), numerator, denominatorConst);
+  auto fraction = rewriter.create<arith::MulFOp>(op.getLoc(), numerator, denominatorConst);
   // e^(-(x-mean)^2 / 2*variance)
   auto exp = rewriter.create<mlir::math::ExpOp>(op.getLoc(), fraction);
   // e^(-(x - mean)^2/2*variance)) * 1/sqrt(2*PI*variance)
-  Value gaussian = rewriter.create<mlir::MulFOp>(op->getLoc(), coefficientConst, exp);
-  if (op.supportMarginal()) {
-    auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), CmpFPredicate::UNO, feature, feature);
+  Value gaussian = rewriter.create<arith::MulFOp>(op->getLoc(), coefficientConst, exp);
+  if (op.getSupportMarginal()) {
+    auto isNan = rewriter.create<arith::CmpFOp>(op->getLoc(), arith::CmpFPredicate::UNO, feature, feature);
     auto constOne = broadcastVectorConstant(targetVectorType, 1.0, rewriter, op.getLoc());
-    gaussian = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, gaussian);
+    gaussian = rewriter.create<arith::SelectOp>(op.getLoc(), isNan, constOne, gaussian);
   }
   rewriter.replaceOp(op, gaussian);
   return success();
 }
 
 mlir::LogicalResult mlir::spn::VectorizeLogGaussian::matchAndRewrite(mlir::spn::low::SPNGaussianLeaf op,
-                                                                     llvm::ArrayRef<mlir::Value> operands,
+                                                                     OpAdaptor adaptor,
                                                                      mlir::ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized GaussianLeaf");
   }
@@ -399,7 +410,7 @@ mlir::LogicalResult mlir::spn::VectorizeLogGaussian::matchAndRewrite(mlir::spn::
   // This conversion is also possible in vectorized mode.
   if (vectorType.getElementType().isIntOrIndex()) {
     auto floatVectorTy = VectorType::get(vectorType.getShape(), floatResultType);
-    feature = rewriter.create<UIToFPOp>(op->getLoc(), feature, floatVectorTy);
+    feature = rewriter.create<arith::UIToFPOp>(op->getLoc(), floatVectorTy, feature);
     vectorType = floatVectorTy;
   }
   auto featureType = vectorType.getElementType().dyn_cast<FloatType>();
@@ -411,29 +422,29 @@ mlir::LogicalResult mlir::spn::VectorizeLogGaussian::matchAndRewrite(mlir::spn::
   // Calculate Gaussian distribution using the logarithm of the PDF of the Normal (Gaussian) distribution,
   // given as '-ln(stddev) - 1/2 ln(2*pi) - (x - mean)^2 / 2*stddev^2'
   // First term, -ln(stddev)
-  double firstTerm = -log(op.stddev().convertToDouble());
+  double firstTerm = -log(op.getStddev().convertToDouble());
   // Second term, - 1/2 ln(2*pi)
   double secondTerm = -0.5 * log(2 * M_PI);
   // Denominator, - 1/2*(stddev^2)
-  double denominator = -(1.0 / (2.0 * op.stddev().convertToDouble() * op.stddev().convertToDouble()));
+  double denominator = -(1.0 / (2.0 * op.getStddev().convertToDouble() * op.getStddev().convertToDouble()));
   auto denominatorConst = broadcastVectorConstant(targetVectorType, denominator, rewriter, op->getLoc());
   // Coefficient, summing up the first two constant terms
   double coefficient = firstTerm + secondTerm;
   auto coefficientConst = broadcastVectorConstant(targetVectorType, coefficient, rewriter, op.getLoc());
   // x - mean
-  auto meanConst = broadcastVectorConstant(targetVectorType, op.meanAttr().getValueAsDouble(), rewriter, op.getLoc());
+  auto meanConst = broadcastVectorConstant(targetVectorType, op.getMeanAttr().getValueAsDouble(), rewriter, op.getLoc());
 
-  auto subtraction = rewriter.create<mlir::SubFOp>(op.getLoc(), feature, meanConst);
+  auto subtraction = rewriter.create<arith::SubFOp>(op.getLoc(), feature, meanConst);
   // (x-mean)^2
-  auto numerator = rewriter.create<mlir::MulFOp>(op.getLoc(), subtraction, subtraction);
+  auto numerator = rewriter.create<arith::MulFOp>(op.getLoc(), subtraction, subtraction);
   // - ( (x-mean)^2 / 2 * stddev^2 )
-  auto fraction = rewriter.create<mlir::MulFOp>(op.getLoc(), numerator, denominatorConst);
+  auto fraction = rewriter.create<arith::MulFOp>(op.getLoc(), numerator, denominatorConst);
   // -ln(stddev) - 1/2 ln(2*pi) - 1/2*(stddev^2) * (x - mean)^2
-  Value gaussian = rewriter.create<mlir::AddFOp>(op->getLoc(), coefficientConst, fraction);
-  if (op.supportMarginal()) {
-    auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), CmpFPredicate::UNO, feature, feature);
+  Value gaussian = rewriter.create<arith::AddFOp>(op->getLoc(), coefficientConst, fraction);
+  if (op.getSupportMarginal()) {
+    auto isNan = rewriter.create<arith::CmpFOp>(op->getLoc(), arith::CmpFPredicate::UNO, feature, feature);
     auto constOne = broadcastVectorConstant(targetVectorType, 0.0, rewriter, op.getLoc());
-    gaussian = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, gaussian);
+    gaussian = rewriter.create<arith::SelectOp>(op.getLoc(), isNan, constOne, gaussian);
   }
   rewriter.replaceOp(op, gaussian);
   return success();
@@ -471,7 +482,7 @@ namespace {
     auto visibility = rewriter.getStringAttr("private");
     auto memrefType = mlir::MemRefType::get({(long) arrayValues.size()}, resultType);
     (void) rewriter.create<mlir::memref::GlobalOp>(op.getLoc(), symbolName, visibility,
-                                                   memrefType, valArrayAttr, true);
+                                                   memrefType, valArrayAttr, true, mlir::IntegerAttr());
     // Restore insertion point
     rewriter.restoreInsertionPoint(restore);
 
@@ -483,8 +494,8 @@ namespace {
     auto indexType = inputType.template dyn_cast<mlir::VectorType>().getElementType();
     if (!indexType.isIntOrIndex()) {
       if (indexType.template isa<mlir::FloatType>()) {
-        index = rewriter.template create<mlir::FPToUIOp>(op.getLoc(), index,
-                                                         mlir::VectorType::get(vectorShape, rewriter.getI64Type()));
+        index = rewriter.template create<mlir::arith::FPToUIOp>(op.getLoc(),
+          mlir::VectorType::get(vectorShape, rewriter.getI64Type()), index);
       } else {
         // The input type is neither int/index nor float, conversion unknown, fail this pattern.
         return mlir::failure();
@@ -498,16 +509,16 @@ namespace {
     auto mask = broadcastVectorConstant(mlir::VectorType::get(vectorShape, rewriter.getI1Type()), true,
                                         rewriter, op->getLoc());
     // Replace the source operation with a gather load from the global memref.
-    mlir::Value constIndex = rewriter.template create<mlir::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
+    mlir::Value constIndex = rewriter.template create<mlir::arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
     mlir::Value leaf = rewriter.template create<mlir::vector::GatherOp>(op.getLoc(), vectorType, addressOf,
                                                                         constIndex, index, mask, passThru);
-    if (op.supportMarginal()) {
+    if (op.getSupportMarginal()) {
       assert(indexType.template isa<mlir::FloatType>());
-      auto isNan = rewriter.create<mlir::CmpFOp>(op->getLoc(), mlir::CmpFPredicate::UNO,
+      auto isNan = rewriter.create<mlir::arith::CmpFOp>(op->getLoc(), mlir::arith::CmpFPredicate::UNO,
                                                  indexOperand, indexOperand);
       auto marginalValue = (computesLog) ? 0.0 : 1.0;
       auto constOne = broadcastVectorConstant(vectorType, marginalValue, rewriter, op.getLoc());
-      leaf = rewriter.create<mlir::SelectOp>(op.getLoc(), isNan, constOne, leaf);
+      leaf = rewriter.create<mlir::arith::SelectOp>(op.getLoc(), isNan, constOne, leaf);
     }
     rewriter.replaceOp(op, leaf);
     return mlir::success();
@@ -516,8 +527,9 @@ namespace {
 }
 
 mlir::LogicalResult mlir::spn::VectorizeCategorical::matchAndRewrite(mlir::spn::low::SPNCategoricalLeaf op,
-                                                                     llvm::ArrayRef<mlir::Value> operands,
+                                                                     OpAdaptor adaptor,
                                                                      mlir::ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized CategoricalLeaf");
   }
@@ -530,7 +542,7 @@ mlir::LogicalResult mlir::spn::VectorizeCategorical::matchAndRewrite(mlir::spn::
     computesLog = true;
   }
   SmallVector<Attribute, 5> values;
-  for (auto val : op.probabilities().getValue()) {
+  for (auto val : op.getProbabilities().getValue()) {
     if (computesLog) {
       auto floatVal = val.dyn_cast<FloatAttr>();
       assert(floatVal);
@@ -545,8 +557,9 @@ mlir::LogicalResult mlir::spn::VectorizeCategorical::matchAndRewrite(mlir::spn::
 }
 
 mlir::LogicalResult mlir::spn::VectorizeHistogram::matchAndRewrite(mlir::spn::low::SPNHistogramLeaf op,
-                                                                   llvm::ArrayRef<mlir::Value> operands,
+                                                                   OpAdaptor adaptor,
                                                                    mlir::ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized HistogramLeaf");
   }
@@ -558,11 +571,11 @@ mlir::LogicalResult mlir::spn::VectorizeHistogram::matchAndRewrite(mlir::spn::lo
   llvm::DenseMap<int, double> values;
   int minLB = std::numeric_limits<int>::max();
   int maxUB = std::numeric_limits<int>::min();
-  for (auto& b : op.bucketsAttr()) {
+  for (auto& b : op.getBucketsAttr()) {
     auto bucket = b.cast<low::Bucket>();
-    auto lb = bucket.lb().getInt();
-    auto ub = bucket.ub().getInt();
-    auto val = bucket.val().getValueAsDouble();
+    auto lb = bucket.getLb();
+    auto ub = bucket.getUb();
+    auto val = bucket.getVal().convertToDouble();
     for (int i = lb; i < ub; ++i) {
       values[i] = val;
     }
@@ -610,8 +623,9 @@ mlir::LogicalResult mlir::spn::VectorizeHistogram::matchAndRewrite(mlir::spn::lo
 }
 
 mlir::LogicalResult mlir::spn::ResolveVectorizedStripLog::matchAndRewrite(low::SPNStripLog op,
-                                                                          ArrayRef<Value> operands,
+                                                                          OpAdaptor adaptor,
                                                                           ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only resolves vectorized operation");
   }
@@ -620,7 +634,7 @@ mlir::LogicalResult mlir::spn::ResolveVectorizedStripLog::matchAndRewrite(low::S
   if (!vectorType) {
     return rewriter.notifyMatchFailure(op, "Expected operand to have vector type");
   }
-  if (vectorType.getElementType() != op.target()) {
+  if (vectorType.getElementType() != op.getTarget()) {
     return rewriter.notifyMatchFailure(op, "Could not resolve StripLog trivially");
   }
   rewriter.replaceOp(op, operands[0]);
@@ -628,8 +642,9 @@ mlir::LogicalResult mlir::spn::ResolveVectorizedStripLog::matchAndRewrite(low::S
 }
 
 mlir::LogicalResult mlir::spn::ResolveVectorizedConvertLog::matchAndRewrite(mlir::spn::low::SPNConvertLog op,
-                                                                            llvm::ArrayRef<mlir::Value> operands,
+                                                                            OpAdaptor adaptor,
                                                                             mlir::ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only resolves vectorized operation");
   }

@@ -12,7 +12,7 @@
 #include "SLPGraph.h"
 #include "LoSPN/LoSPNOps.h"
 #include "LoSPN/LoSPNTypes.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/IR/PatternMatch.h"
 
 namespace mlir {
@@ -138,8 +138,8 @@ namespace mlir {
         // === Op-specific patterns === //
 
         /// Vectorization pattern for creating SIMD constants.
-        struct VectorizeConstant : public OpSpecificVectorizationPattern<ConstantOp, SPNConstant> {
-          using OpSpecificVectorizationPattern<ConstantOp, SPNConstant>::OpSpecificVectorizationPattern;
+        struct VectorizeConstant : public OpSpecificVectorizationPattern<arith::ConstantOp, SPNConstant> {
+          using OpSpecificVectorizationPattern<arith::ConstantOp, SPNConstant>::OpSpecificVectorizationPattern;
           Value rewrite(Superword* superword, RewriterBase& rewriter) override;
           void accept(PatternVisitor& visitor, Superword const* superword) const override;
         };

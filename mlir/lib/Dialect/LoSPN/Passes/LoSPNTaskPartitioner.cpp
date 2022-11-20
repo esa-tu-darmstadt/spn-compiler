@@ -8,7 +8,8 @@
 
 #include <mlir/Rewrite/FrozenRewritePatternSet.h>
 #include <llvm/ADT/IndexedMap.h>
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+//#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/PatternMatch.h"
@@ -50,7 +51,7 @@ namespace mlir {
             llvm::DenseMap<mlir::BlockArgument, mlir::Value> externalTensors;
             unsigned tensorIndex = 0;
             bool initial = true;
-            for (auto& blockArg : op.getBody()->getArguments()) {
+            for (auto& blockArg : op.getBody().getArguments()) {
               if (initial) {
                 // The first block argument is the batch index, skip it.
                 initial = false;
@@ -60,27 +61,28 @@ namespace mlir {
             }
             op->walk([&](SPNBody body) {
               unsigned inIndex = 0;
-              for (auto blockArg : body.getBody()->getArguments()) {
+              for (auto blockArg : body.getBody().getArguments()) {
                 external.push_back(blockArg);
                 // Detect the BatchExtract producing this block arg:
                 auto bodyOp = body->getOperand(inIndex++);
                 assert(isa<SPNBatchExtract>(bodyOp.getDefiningOp()));
-                auto extract = cast<SPNBatchExtract>(bodyOp.getDefiningOp());
-                assert(extract.input().isa<BlockArgument>());
+                // TODO: I'm not sure about this!
+                SPNBatchExtract extract = cast<SPNBatchExtract>(bodyOp.getDefiningOp());
+                assert(extract.getInput().isa<BlockArgument>());
                 // Get the input tensor of the BatchExtract
-                auto tensorArg = extract.input();
+                auto tensorArg = extract.getInput();
                 // Match the input tensor of the BatchExtract
                 // (which should be a block argument of the Task's entry block)
                 // to the external operand of the task.
                 assert(externalTensors.count(tensorArg.cast<BlockArgument>()));
                 auto externalTensor = externalTensors[tensorArg.cast<BlockArgument>()];
-                inputs[blockArg] = InputInfo{externalTensor, llvm::None, extract.staticIndex()};
+                inputs[blockArg] = InputInfo{externalTensor, llvm::None, extract.getStaticIndex()};
                 // All users of the entry block args potentially do not have outside operands.
                 for (auto* U : blockArg.getUsers()) {
                   inNodes.insert(U);
                 }
               }
-              body.body().walk([&](Operation* op) {
+              body.getBody().walk([&](Operation* op) {
                 if (isa<SPNYield>(op)) {
                   // SPNYield is not considered during partitioning, but the we need
                   // store the returned results to identify the new task producing the results.
@@ -130,7 +132,7 @@ namespace mlir {
 
           // Create a new LoSPN task for each partition.
           for (auto& p : partitions) {
-            createTaskForPartition(p, rewriter, op.getLoc(), op.batchSize(), inputs, partitions);
+            createTaskForPartition(p, rewriter, op.getLoc(), op.getBatchSize(), inputs, partitions);
           }
 
           // Emit a remark with some information about the number of partitions etc.
@@ -255,15 +257,15 @@ namespace mlir {
           }
           auto body = rewriter.create<SPNBody>(loc, bodyResults, bodyInputs);
           auto restoreBody = rewriter.saveInsertionPoint();
-          auto bodyBlock = rewriter.createBlock(&body.body());
+          auto bodyBlock = rewriter.createBlock(&body.getBody());
           auto index = 0;
           // Add an block argument for each external input. The block arg corresponds to the
           // batch extract extracing the value from the input tensor.
           for (auto& bodyIn : bodyInputs) {
             if (hasLogType[index++]) {
-              bodyBlock->addArgument(low::LogType::get(bodyIn.getType()));
+              bodyBlock->addArgument(low::LogType::get(bodyIn.getType()), bodyIn.getLoc());
             } else {
-              bodyBlock->addArgument(bodyIn.getType());
+              bodyBlock->addArgument(bodyIn.getType(), bodyIn.getLoc());
             }
           }
           // Populate a mapping from external Value to block argument.

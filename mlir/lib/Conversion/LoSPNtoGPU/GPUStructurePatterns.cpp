@@ -111,15 +111,15 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
   if ((op.batchSize() % 32) != 0) {
     op.emitWarning() << "Batch size should be a multiple of the warp-size (32)";
   }
-  auto blockSize = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(op.batchSize()));
+  auto blockSize = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(op.batchSize()));
   auto numBlocks = rewriter.create<SignedCeilDivIOp>(op.getLoc(), numSamples, blockSize);
-  auto constantOne = rewriter.create<ConstantOp>(op->getLoc(), rewriter.getIndexAttr(1));
+  auto constantOne = rewriter.create<arith::ConstantOp>(op->getLoc(), rewriter.getIndexAttr(1));
   auto gpuLaunch = rewriter.create<gpu::LaunchOp>(op->getLoc(), numBlocks, constantOne, constantOne,
                                                   blockSize, constantOne, constantOne);
   auto restore = rewriter.saveInsertionPoint();
   rewriter.setInsertionPointToStart(&gpuLaunch.body().front());
-  auto blockOffset = rewriter.create<MulIOp>(op->getLoc(), gpuLaunch.blockSizeX(), gpuLaunch.getBlockIds().x);
-  auto batchIndex = rewriter.create<AddIOp>(op.getLoc(), blockOffset, gpuLaunch.getThreadIds().x);
+  auto blockOffset = rewriter.create<arith::MulIOp>(op->getLoc(), gpuLaunch.blockSizeX(), gpuLaunch.getBlockIds().x);
+  auto batchIndex = rewriter.create<arith::AddIOp>(op.getLoc(), blockOffset, gpuLaunch.getThreadIds().x);
   SmallVector<Value, 5> blockReplacementArgs;
   blockReplacementArgs.push_back(batchIndex);
   for (auto mem : deviceMemories) {

@@ -58,13 +58,13 @@ unsigned PorpodasModel::getLookAheadScore(Value last, Value candidate, unsigned 
   if (auto lhsLoad = dyn_cast<SPNBatchRead>(lastOp)) {
     // We know both operations share the same opcode.
     auto rhsLoad = cast<SPNBatchRead>(candidateOp);
-    if (lhsLoad.batchMem() == rhsLoad.batchMem() && lhsLoad.dynamicIndex() == rhsLoad.dynamicIndex()) {
-      if (lhsLoad.staticIndex() + 1 == rhsLoad.staticIndex()) {
+    if (lhsLoad.getBatchMem() == rhsLoad.getBatchMem() && lhsLoad.getDynamicIndex() == rhsLoad.getDynamicIndex()) {
+      if (lhsLoad.getStaticIndex() + 1 == rhsLoad.getStaticIndex()) {
         // Returning 3 prefers consecutive loads to gather loads and broadcast loads.
         return 3;
       }
       // Returning 2 prefers gather loads to broadcast loads.
-      if (lhsLoad.staticIndex() != rhsLoad.staticIndex()) {
+      if (lhsLoad.getStaticIndex() != rhsLoad.getStaticIndex()) {
         return 2;
       }
       // Broadcast load.
@@ -205,7 +205,7 @@ namespace {
       llvm::dbgs() << "BlockArgument" << blockArgument.getArgNumber();
       return;
     } else if (auto* definingOp = value.getDefiningOp()) {
-      if (auto constant = dyn_cast<ConstantOp>(definingOp)) {
+      if (auto constant = dyn_cast<arith::ConstantOp>(definingOp)) {
         if (auto floatAttr = constant.getValue().dyn_cast<FloatAttr>()) {
           llvm::dbgs() << floatAttr.getValueAsDouble();
           return;
@@ -283,7 +283,7 @@ XorChainModel::XorChain::XorChain(Value value, unsigned lookAhead, BitCodeMap co
     }
     if (auto* definingOp = operandChain[i].getDefiningOp()) {
       if (auto batchRead = dyn_cast<SPNBatchRead>(definingOp)) {
-        loads.emplace_back(batchRead.batchMem(), batchRead.dynamicIndex(), batchRead.staticIndex());
+        loads.emplace_back(batchRead.getBatchMem(), batchRead.getDynamicIndex(), batchRead.getStaticIndex());
       }
     }
   }

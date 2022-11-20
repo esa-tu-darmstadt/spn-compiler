@@ -13,10 +13,11 @@
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "llvm/ADT/IndexedMap.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -30,7 +31,7 @@ public:
 
   LogicalResult matchAndRewrite(low::SPNBatchRead op, PatternRewriter& rewriter) const override {
     // Transposed SPNBatchRead already access memory in vector-like fashion, skipe them during replacement.
-    if (op.transposed().getValueOr(false)) {
+    if (op.getTransposed().getValueOr(false)) {
       return rewriter.notifyMatchFailure(op, "Transposed reads are not eligible for replacement");
     }
     //
@@ -38,11 +39,11 @@ public:
     // and transposes a tile of the input using shuffles.
     // The BatchRead does not need to read anything add more, but can just use the
     // transposed/shuffled vector.
-    if (!replace.inBounds(op.staticIndex()) || !replace[op.staticIndex()]) {
+    if (!replace.inBounds(op.getStaticIndex()) || !replace[op.getStaticIndex()]) {
       // No replacement found.
       return rewriter.notifyMatchFailure(op, "No replacement defined");
     }
-    auto shuffled = replace[op.staticIndex()];
+    auto shuffled = replace[op.getStaticIndex()];
     rewriter.replaceOpWithNewOp<low::SPNConvertToScalar>(op, shuffled.getType().cast<VectorType>().getElementType(),
                                                          shuffled);
     return mlir::success();
@@ -122,11 +123,11 @@ namespace {
 
 }
 
-struct FuncReplaceGatherWithShuffle : public OpRewritePattern<FuncOp> {
+struct FuncReplaceGatherWithShuffle : public OpRewritePattern<func::FuncOp> {
 
-  using OpRewritePattern<FuncOp>::OpRewritePattern;
+  using OpRewritePattern<func::FuncOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(FuncOp func, PatternRewriter& rewriter) const override {
+  LogicalResult matchAndRewrite(func::FuncOp func, PatternRewriter& rewriter) const override {
     //
     // Instead of using expensive gather + insert operations to load the same feature for multiple
     // samples into a vector, this transformation will load a vectorWidth x vectorWidth block
@@ -138,7 +139,7 @@ struct FuncReplaceGatherWithShuffle : public OpRewritePattern<FuncOp> {
     // transformation. To be eligible, there must be at least as many vectorized
     // SPNBatchRead using the memref as the vector width.
     SmallVector<Value, 5> inputMemories;
-    for (auto& arg : func.body().getArguments()) {
+    for (auto& arg : func.getBody().getArguments()) {
       if (arg.getType().isa<MemRefType>()) {
         auto eligible = true;
         unsigned useCount = 0;
@@ -147,12 +148,12 @@ struct FuncReplaceGatherWithShuffle : public OpRewritePattern<FuncOp> {
         for (auto U : arg.getUsers()) {
           if (auto batchRead = dyn_cast<low::SPNBatchRead>(U)) {
             eligible &= true;
-            if (batchRead.checkVectorized() && !indices.count(batchRead.staticIndex()) &&
-                !batchRead.transposed().getValueOr(false)) {
+            if (batchRead.checkVectorized() && !indices.count(batchRead.getStaticIndex()) &&
+                !batchRead.getTransposed().getValueOr(false)) {
               // Check that we have not encountered the same index before.
               ++useCount;
               minVectorWidth = std::min(minVectorWidth, batchRead.vectorFactor());
-              indices.insert(batchRead.staticIndex());
+              indices.insert(batchRead.getStaticIndex());
             }
           } else if (auto memEffect = dyn_cast<MemoryEffectOpInterface>(U)) {
             SmallVector<MemoryEffects::EffectInstance, 1> effects;
@@ -184,11 +185,11 @@ struct FuncReplaceGatherWithShuffle : public OpRewritePattern<FuncOp> {
       llvm::IndexedMap<bool> indices;
       for (auto U : inputMem.getUsers()) {
         if (auto read = dyn_cast<low::SPNBatchRead>(U)) {
-          if (read.checkVectorized() && !read.transposed().getValueOr(false)) {
+          if (read.checkVectorized() && !read.getTransposed().getValueOr(false)) {
             // Collect only vectorized BatchRead for this transformation.
             reads.push_back(read);
-            indices.grow(read.staticIndex());
-            indices[read.staticIndex()] = true;
+            indices.grow(read.getStaticIndex());
+            indices[read.getStaticIndex()] = true;
           }
         }
       }
@@ -208,14 +209,14 @@ struct FuncReplaceGatherWithShuffle : public OpRewritePattern<FuncOp> {
           // Check for dominance to determine the first read.
           firstRead = r;
         }
-        maxIndex = std::max(maxIndex, r.staticIndex());
+        maxIndex = std::max(maxIndex, r.getStaticIndex());
       }
       if (failed) {
         emitWarning(loc, Twine("Cannot replace gather with shuffle for input memory "));
         continue;
       }
 
-      auto batchIndex = firstRead.dynamicIndex();
+      auto batchIndex = firstRead.getDynamicIndex();
       auto vectorType = VectorType::get({vector_width}, inputMem.getType().cast<MemRefType>().getElementType());
       llvm::IndexedMap<Value> replacements;
       replacements.grow(maxIndex);
@@ -231,11 +232,11 @@ struct FuncReplaceGatherWithShuffle : public OpRewritePattern<FuncOp> {
         changed = true;
         // Load the features [i, i + vector_width) for the samples [batchIndex, batchIndex + vectorWidth)
         rewriter.setInsertionPoint(firstRead);
-        auto featureIndex = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(i));
+        auto featureIndex = rewriter.create<arith::ConstantOp>(loc, rewriter.getIndexAttr(i));
         SmallVector<Value, 8> inputs;
         for (unsigned k = 0; k < vector_width; ++k) {
-          auto sampleOffset = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(k));
-          auto sampleIndex = rewriter.create<AddIOp>(loc, batchIndex, sampleOffset);
+          auto sampleOffset = rewriter.create<arith::ConstantOp>(loc, rewriter.getIndexAttr(k));
+          auto sampleIndex = rewriter.create<arith::AddIOp>(loc, batchIndex, sampleOffset);
           auto inputVector = rewriter.create<vector::TransferReadOp>(loc, vectorType,
                                                                      inputMem,
                                                                      ValueRange{sampleIndex, featureIndex});
@@ -249,8 +250,8 @@ struct FuncReplaceGatherWithShuffle : public OpRewritePattern<FuncOp> {
       }
       //
       // Replace all SPNBatchRead that used the original MemRef with the shuffled vectors.
-      OwningRewritePatternList patterns(func->getContext());
-      patterns.insert<ReplaceBatchReadWithShuffle>(func.getContext(), replacements);
+      RewritePatternSet patterns(func->getContext());
+      patterns.add<ReplaceBatchReadWithShuffle>(func.getContext(), replacements);
       mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
       for (auto& read : reads) {
         (void) applyOpPatternsAndFold(read, frozenPatterns);
@@ -265,11 +266,11 @@ struct FuncReplaceGatherWithShuffle : public OpRewritePattern<FuncOp> {
 void ReplaceGatherWithShufflePass::runOnOperation() {
   auto module = getOperation();
   auto* context = &getContext();
-  OwningRewritePatternList patterns(context);
-  patterns.insert<FuncReplaceGatherWithShuffle>(context);
+  RewritePatternSet patterns(context);
+  patterns.add<FuncReplaceGatherWithShuffle>(context);
   mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
   // Apply the pattern to all GPUFuncs in the module.
-  module->walk([&frozenPatterns](FuncOp func) {
+  module->walk([&frozenPatterns](func::FuncOp func) {
     (void) applyOpPatternsAndFold(func, frozenPatterns);
   });
 }

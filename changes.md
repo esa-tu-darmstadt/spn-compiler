@@ -24,6 +24,20 @@
 - `RecursiveSideEffects` to `RecursiveMemoryEffect`
 - set to `kEmitAccessorPrefix_Raw` to avoid name clashes between attribute names and interface parameters
 - implement histogram buckets as AttrDef
+- some standard ops were moved to math and arith dialect, dialect names and namespaces changed
+- https://reviews.llvm.org/D99119
+- directory structure of SCF was slightly changed
+- `OwningRewritePatternList` was renamed to `RewritePatternSet`
+- `Block::addArgument` now requires a location
+- add `MLIRBufferizationDialect`
+- add `MLIRSCFDialect`
+- add `MLIRBufferizationTransforms`
+- add `MLIRVectorDialect`
+- add `MLIRLLVMDialect`
+- attributes no longer have types by default https://reviews.llvm.org/D130092
+  - hope hat the attribute has a `TypedAttr` interface as in https://mlir.llvm.org/doxygen/TypeUtilities_8cpp_source.html
+- Replace `OwningModuleRef` with `OwningOpRef<ModuleOp>`
+  - https://lists.llvm.org/pipermail/mlir-commits/2022-January/006393.html
 
 # Convert StructAttr to AttrDef
 

@@ -18,6 +18,7 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "mlir/Target/LLVMIR/Dialect/All.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 
 using namespace spnc;
 using namespace mlir;
@@ -30,7 +31,7 @@ void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext& ctx) {
   registry.insert<mlir::spn::low::LoSPNDialect>();
   ctx.loadDialect<mlir::spn::high::HiSPNDialect>();
   ctx.loadDialect<mlir::spn::low::LoSPNDialect>();
-  ctx.loadDialect<mlir::StandardOpsDialect>();
+  ctx.loadDialect<mlir::arith::ArithDialect>();
   ctx.loadDialect<mlir::scf::SCFDialect>();
   ctx.loadDialect<mlir::memref::MemRefDialect>();
   ctx.loadDialect<mlir::LLVM::LLVMDialect>();

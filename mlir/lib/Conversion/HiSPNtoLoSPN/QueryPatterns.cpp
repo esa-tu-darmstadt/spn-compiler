@@ -11,7 +11,7 @@
 #include "LoSPN/LoSPNOps.h"
 
 mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::high::JointQuery op,
-                                                                   llvm::ArrayRef<mlir::Value> operands,
+                                                                   OpAdaptor adaptor,
                                                                    mlir::ConversionPatternRewriter& rewriter) const {
   //
   // Translate the JointQuery into a SPNKernel. The Kernel takes a 2D tensor as input,

@@ -8,7 +8,9 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/GraphConversion.h"
 #include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
+#include "mlir/IR/TypeUtilities.h"
+#include "mlir/IR/BuiltinAttributeInterfaces.h"
 
 using namespace mlir;
 using namespace mlir::spn::low::slp;
@@ -364,7 +366,9 @@ Value ConversionManager::getValue(Superword* superword) const {
 }
 
 Value ConversionManager::getOrCreateConstant(Location const& loc, Attribute const& attribute) {
-  return folder.getOrCreateConstant(rewriter, &attribute.getDialect(), attribute, attribute.getType(), loc);
+  // Just hope that this doesn't blow up.
+  mlir::TypedAttr typedAttr = attribute.dyn_cast<mlir::TypedAttr>();
+  return folder.getOrCreateConstant(rewriter, &attribute.getDialect(), attribute, typedAttr.getType(), loc);
 }
 
 ConversionState& ConversionManager::getConversionState() const {

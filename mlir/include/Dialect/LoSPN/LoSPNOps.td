@@ -448,6 +448,29 @@ def HistBucketAttr : StructAttr<"Bucket", LoSPN_Dialect, [LowerBoundAttr, UpperB
 
 // TODO
 def HistBucketAttr : AttrDef<LoSPN_Dialect, "Bucket"> {
+    let summary = "An attribute defining a single histogram bucket";
+    let description = "lala";
+    let cppClassName = "Bucket";
+
+    let parameters = (ins
+        "int": $lb,
+        "int": $ub,
+        "APFloat": $val
+    );
+
+    // inspired by ComplexAttributes.td
+    let builders = [
+        AttrBuilderWithInferredContext<(ins "int":$lb,
+                                            "int":$ub,
+                                            "APFloat":$val), [{
+            return $_get(nullptr, lb, ub, val);
+        }]>
+        //AttrBuilderWithInferredContext<(ins)>
+    ];
+
+    let genVerifyDecl = 1;
+    //let assemblyFormat = "`<` $lb `,` $ub `,` $val `>`";
+    let skipDefaultBuilders = 1;
 }
 
 /// List of histogram buckets as array-attribute.

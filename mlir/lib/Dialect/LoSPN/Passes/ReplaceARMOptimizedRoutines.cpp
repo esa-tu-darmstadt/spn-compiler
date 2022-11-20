@@ -7,7 +7,9 @@
 //==============================================================================
 
 #include <mlir/Rewrite/FrozenRewritePatternSet.h>
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+//#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/PatternMatch.h"
@@ -31,10 +33,10 @@ namespace mlir {
 
         LogicalResult matchAndRewrite(UnOp op, PatternRewriter& rewriter) const override {
           // Perform checks, the replacement is only performed for 1D vectors.
-          if (op.operand().getType() != op.getResult().getType()) {
+          if (op.getOperand().getType() != op.getResult().getType()) {
             return rewriter.notifyMatchFailure(op, "Type conversion is not supported");
           }
-          VectorType vecType = op.result().getType().template dyn_cast<VectorType>();
+          VectorType vecType = op.getResult().getType().template dyn_cast<VectorType>();
           if (!vecType || vecType.getShape().size() != 1) {
             return rewriter.notifyMatchFailure(op, "Replacement is only supported for 1D vectors");
           }
@@ -46,17 +48,17 @@ namespace mlir {
           // Check if the replacement function is already present in the module (and it's symbol table).
           // If not, create a new external function.
           auto module = op->template getParentOfType<ModuleOp>();
-          FuncOp replaceFunc = module.template lookupSymbol<mlir::FuncOp>(funcName.getValue());
+          mlir::func::FuncOp replaceFunc = module.template lookupSymbol<mlir::func::FuncOp>(funcName.getValue());
           if (!replaceFunc) {
-            auto funcType = rewriter.getFunctionType(op.operand().getType(), op.result().getType());
+            auto funcType = rewriter.getFunctionType(op.getOperand().getType(), op.getResult().getType());
             auto restore = rewriter.saveInsertionPoint();
             rewriter.setInsertionPointToEnd(module.getBody(0));
             // External functions must not have public visibility, so it's marked private here.
-            replaceFunc = rewriter.create<mlir::FuncOp>(op->getLoc(), funcName.getValue(), funcType,
+            replaceFunc = rewriter.create<mlir::func::FuncOp>(op->getLoc(), funcName.getValue(), funcType,
                                                         rewriter.getStringAttr("private"));
             rewriter.restoreInsertionPoint(restore);
           }
-          rewriter.replaceOpWithNewOp<mlir::CallOp>(op, replaceFunc, op.operand());
+          rewriter.replaceOpWithNewOp<mlir::func::CallOp>(op, replaceFunc, op.getOperand());
           return mlir::success();
         }
 
@@ -66,7 +68,7 @@ namespace mlir {
 
       private:
 
-        llvm::DenseMap<VectorType*, llvm::Optional<FuncOp>> cache;
+        llvm::DenseMap<VectorType*, llvm::Optional<mlir::func::FuncOp>> cache;
 
       };
 

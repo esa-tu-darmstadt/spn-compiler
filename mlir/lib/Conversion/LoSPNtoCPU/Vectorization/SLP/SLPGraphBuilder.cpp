@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraphBuilder.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 

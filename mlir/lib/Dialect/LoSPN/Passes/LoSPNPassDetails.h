@@ -12,8 +12,11 @@
 #include "mlir/Pass/Pass.h"
 #include "LoSPN/LoSPNOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/SCF/SCF.h"
+//#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Math/IR/Math.h"
 
 namespace mlir {
   namespace spn {

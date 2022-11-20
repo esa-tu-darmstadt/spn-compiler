@@ -10,11 +10,12 @@
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_VECTOROPTIMIZATIONPASSES_H
 
 #include "mlir/Pass/Pass.h"
+#include "mlir/IR/BuiltinOps.h"
 
 namespace mlir {
   namespace spn {
 
-    struct ReplaceGatherWithShufflePass : public PassWrapper<ReplaceGatherWithShufflePass, OperationPass<ModuleOp>> {
+    struct ReplaceGatherWithShufflePass : public PassWrapper<ReplaceGatherWithShufflePass, OperationPass<mlir::ModuleOp>> {
     protected:
       void runOnOperation() override;
 
