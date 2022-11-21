@@ -72,9 +72,10 @@ namespace mlir {
           "Flag to indicate if XOR chains should be used to compute look-ahead scores instead of Porpodas's algorithm"),
                                 llvm::cl::init(true)};
 
+      StringRef getArgument() const override { return "convert-lospn-structure-to-cpu"; }
+      StringRef getDescription() const override { return "Convert structure from LoSPN to CPU target"; }
     protected:
       void runOnOperation() override;
-
     };
 
     struct LoSPNtoCPUNodeConversionPass : public PassWrapper<LoSPNtoCPUNodeConversionPass, OperationPass<ModuleOp>> {
@@ -82,9 +83,10 @@ namespace mlir {
     public:
       void getDependentDialects(DialectRegistry& registry) const override;
 
+      StringRef getArgument() const override { return "convert-lospn-nodes-to-cpu"; }
+      StringRef getDescription() const override { return "Convert nodes from LoSPN to CPU target"; }
     protected:
       void runOnOperation() override;
-
     };
 
     std::unique_ptr<Pass> createLoSPNtoCPUNodeConversionPass();
@@ -94,6 +96,8 @@ namespace mlir {
     public:
       void getDependentDialects(DialectRegistry& registry) const override;
 
+      StringRef getArgument() const override { return "vectorize-lospn-nodes"; }
+      StringRef getDescription() const override { return "Vectorize LoSPN nodes for CPU target"; }
     protected:
       void runOnOperation() override;
     };

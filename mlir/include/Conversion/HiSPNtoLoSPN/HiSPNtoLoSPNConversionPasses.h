@@ -29,6 +29,9 @@ namespace mlir {
     public:
       void getDependentDialects(DialectRegistry& registry) const override;
 
+      // TODO: This somehow identifies the passes. How does it work exactly?
+      StringRef getArgument() const override { return "convert-hispn-node-to-lospn"; }
+      StringRef getDescription() const override { return "Convert nodes from HiSPN to LoSPN dialect"; }
     private:
 
       bool computeLogSpace;
@@ -53,6 +56,8 @@ namespace mlir {
     public:
       void getDependentDialects(DialectRegistry& registry) const override;
 
+      StringRef getArgument() const override { return "convert-hispn-query-to-lospn"; }
+      StringRef getDescription() const override { return "Convert queries from HiSPN to LoSPN dialect"; }
     private:
 
       bool computeLogSpace;

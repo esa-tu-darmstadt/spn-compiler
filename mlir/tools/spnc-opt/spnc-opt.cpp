@@ -53,11 +53,6 @@ int main(int argc, char** argv) {
                        return mlir::spn::createHiSPNtoLoSPNNodeConversionPass(logSpace, optRepresentation);
                      });
 
-  //mlir::PassRegistration<mlir::spn::LoSPNtoCPUStructureConversionPass>(
-  //    "convert-lospn-structure-to-cpu",
-  //    "Convert structure from LoSPN to CPU target"
-  //);
-
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return std::make_unique<mlir::spn::LoSPNtoCPUStructureConversionPass>();
   });

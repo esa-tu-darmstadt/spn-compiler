@@ -25,6 +25,8 @@ namespace {
     explicit LoSPNGraphStatsCollection(std::string graphStatsFilename) :
         graphStatsFile{std::move(graphStatsFilename)} {}
 
+    StringRef getArgument() const override { return "collect-graph-stats"; }
+    StringRef getDescription() const override { return "Collect graph statistics"; }
   protected:
     void runOnOperation() override {
       // This pass does not perform transformations; no analysis will be invalidated.
