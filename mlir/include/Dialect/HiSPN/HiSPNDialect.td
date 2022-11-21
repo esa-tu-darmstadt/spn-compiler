@@ -25,6 +25,7 @@ def HiSPN_Dialect : Dialect {
     }];
     let cppNamespace = "::mlir::spn::high";
     let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
+    let useDefaultTypePrinterParser = 1;
 }
 
 ///
