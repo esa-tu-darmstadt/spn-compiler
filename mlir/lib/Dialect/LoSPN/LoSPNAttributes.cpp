@@ -7,16 +7,43 @@
 //==============================================================================
 
 #include "LoSPN/LoSPNAttributes.h"
+#include "LoSPN/LoSPNDialect.h"
 
 namespace mlir::spn::low {
 
-::mlir::LogicalResult Bucket::verify(::llvm::function_ref<::mlir::InFlightDiagnostic()> emitError, int lb, int ub, APFloat val)
-{
-    // TODO:
-    return mlir::success();
+//::mlir::LogicalResult BucketAttr::verify(::llvm::function_ref<::mlir::InFlightDiagnostic()> emitError, int lb, int ub, APFloat val)
+//{
+//    // TODO:
+//    return mlir::success();
+//}
+
 }
+
+// required in LoSPNAttributes.cpp.inc
+namespace mlir {
+
+template <>
+struct FieldParser<llvm::APFloat> {
+  static FailureOr<llvm::APFloat> parse(AsmParser &parser) {
+    double d;
+
+    if (parser.parseFloat(d))
+      return failure();
+
+    return llvm::APFloat(d);
+  }
+};
 
 }
 
 #define GET_ATTRDEF_CLASSES
 #include "LoSPN/LoSPNAttributes.cpp.inc"
+
+namespace mlir::spn::low {
+  void LoSPNDialect::registerAttributes() {
+    addAttributes<
+#define GET_ATTRDEF_LIST
+#include "LoSPN/LoSPNAttributes.cpp.inc"
+    >();
+  }
+}

@@ -87,9 +87,9 @@ namespace mlir {
         }
         auto buckets = this->getBuckets();
         for (auto b : buckets.getValue()) {
-          auto bucket = b.cast<DictionaryAttr>();
-          auto curLB = bucket.get("lb").cast<IntegerAttr>().getInt();
-          auto curUB = bucket.get("ub").cast<IntegerAttr>().getInt();
+          auto bucket = b.cast<BucketAttr>();
+          auto curLB = bucket.getLb();
+          auto curUB = bucket.getUb();
           if (curUB < curLB) {
             return emitOpError("Lower bound must be less or equal to upper bound!");
           }

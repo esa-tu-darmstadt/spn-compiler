@@ -46,7 +46,7 @@ ArithmeticPrecisionAnalysis::ArithmeticPrecisionAnalysis(Operation* rootNode) {
   // FIXME: Static data representation should be replaced by extracting this info from somewhere (e.g. the query?).
   est_data_representation = data_representation::EM_FLOATING_POINT;
   est_error_model = query.getErrorModel();
-  error_margin = query.getMaxError();
+  error_margin = query.getMaxError().convertToDouble();
 
   // The RootNode acts like an interface, the "desired root" can be obtained by calling root() + getDefiningOp().
   root = dyn_cast<spn::high::RootNode>(roots.front()).getRoot().getDefiningOp();

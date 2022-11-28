@@ -9,6 +9,8 @@
 #include "HiSPNtoLoSPN/NodePatterns.h"
 #include "LoSPN/LoSPNOps.h"
 #include "LoSPN/LoSPNTypes.h"
+#include "LoSPN/LoSPNAttributes.h"
+#include "HiSPN/HiSPNAttributes.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -103,8 +105,22 @@ LogicalResult HistogramNodeLowering::matchAndRewriteChecked(high::HistogramNode 
                                                             ConversionPatternRewriter& rewriter) const {
   // We can safely cast here, as the pattern checks for the correct type of the enclosing query beforehand.
   auto supportMarginal = cast<JointQuery>(op.getEnclosingQuery()).getSupportMarginal();
+
+  // we need to convert the hi_spn buckets to lo_spn buckets
+
+  // TODO: Check lifetime
+  std::vector<mlir::Attribute> lowBucketsVec;
+
+  for (mlir::Attribute b : op.getBuckets()) {
+    high::BucketAttr bucket = b.cast<high::BucketAttr>();
+    auto lowBucket = low::BucketAttr::get(op.getContext(), bucket.getLb(), bucket.getUb(), bucket.getVal());
+    lowBucketsVec.push_back(lowBucket);
+  }
+
+  mlir::ArrayAttr lowBuckets = mlir::ArrayAttr::get(op.getContext(), mlir::ArrayRef(lowBucketsVec));
+
   rewriter.replaceOpWithNewOp<low::SPNHistogramLeaf>(op, typeConverter->convertType(op.getType()),
-                                                     op.getIndex(), op.getBuckets(),
+                                                     op.getIndex(), lowBuckets,
                                                      op.getBucketCount(), supportMarginal);
   return success();
 }

@@ -21,6 +21,8 @@ void LoSPNDialect::initialize() {
 #include "LoSPN/LoSPNOps.cpp.inc"
   >();
   addTypes<LogType>();
+
+  registerAttributes();
 }
 /*
 ::mlir::Type LoSPNDialect::parseType(::mlir::DialectAsmParser& parser) const {

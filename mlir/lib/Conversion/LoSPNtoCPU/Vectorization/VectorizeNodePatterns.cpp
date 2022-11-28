@@ -572,7 +572,7 @@ mlir::LogicalResult mlir::spn::VectorizeHistogram::matchAndRewrite(mlir::spn::lo
   int minLB = std::numeric_limits<int>::max();
   int maxUB = std::numeric_limits<int>::min();
   for (auto& b : op.getBucketsAttr()) {
-    auto bucket = b.cast<low::Bucket>();
+    auto bucket = b.cast<low::BucketAttr>();
     auto lb = bucket.getLb();
     auto ub = bucket.getUb();
     auto val = bucket.getVal().convertToDouble();

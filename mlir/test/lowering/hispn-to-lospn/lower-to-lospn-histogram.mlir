@@ -4,7 +4,8 @@ module  {
   "hi_spn.joint_query"() ( {
     "hi_spn.graph"() ( {
     ^bb0(%arg0: i32):  // no predecessors
-      %0 = "hi_spn.histogram"(%arg0) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}]} : (i32) -> !hi_spn.probability
+      //%0 = "hi_spn.histogram"(%arg0) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}]} : (i32) -> !hi_spn.probability
+      %0 = "hi_spn.histogram"(%arg0) {bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0, 1, 2.500000e-01>, #hi_spn.bucket<1, 2, 7.500000e-01>]} : (i32) -> !hi_spn.probability
       "hi_spn.root"(%0) : (!hi_spn.probability) -> ()
     }) {numFeatures = 1 : ui32} : () -> ()
   }) {batchSize = 12 : ui32, errorModel = 1 : i32, inputType = i32, kernelName = "spn_kernel", maxError = 2.000000e-02 : f64, numFeatures = 1 : ui32, supportMarginal = false} : () -> ()

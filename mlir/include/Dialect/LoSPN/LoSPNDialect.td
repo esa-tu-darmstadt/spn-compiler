@@ -23,7 +23,11 @@ def LoSPN_Dialect : Dialect {
         low level of abstraction.
     }];
     let cppNamespace = "::mlir::spn::low";
-    //let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
+    let useDefaultAttributePrinterParser = 1;
+    let extraClassDeclaration = [{
+        /// Register all SSP attributes.
+        void registerAttributes();
+    }];
 }
 
 ///

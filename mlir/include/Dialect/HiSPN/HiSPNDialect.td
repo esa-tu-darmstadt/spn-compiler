@@ -26,6 +26,7 @@ def HiSPN_Dialect : Dialect {
     let cppNamespace = "::mlir::spn::high";
     //let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
     let useDefaultTypePrinterParser = 1;
+    let useDefaultAttributePrinterParser = 1;
     let extraClassDeclaration = [{
         /// Register all SSP attributes.
         void registerAttributes();
