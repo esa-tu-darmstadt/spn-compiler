@@ -22,6 +22,7 @@ void HiSPNDialect::initialize() {
   >();
   addTypes<ProbabilityType>();
 
+  registerAttributes();
 //  addAttributes<
 //#define GET_ATTRDEF_LIST
 //#include "HiSPN/HiSPNAttributes.cpp.inc"

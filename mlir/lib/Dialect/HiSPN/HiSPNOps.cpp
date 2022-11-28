@@ -31,7 +31,7 @@ namespace mlir {
       // JointQuery
       //===----------------------------------------------------------------------===//
       mlir::LogicalResult JointQuery::verify() {
-        if (supportMarginal()) {
+        if (getSupportMarginal()) {
           // Marginalization is triggered by feature values set to NaN,
           // so the input must be a float type to represent that.
           if (!getFeatureDataType().isa<FloatType>()) {
@@ -58,7 +58,7 @@ namespace mlir {
 
       mlir::LogicalResult SumNode::verify() {
         auto numAddends = numOperands(*this);
-        auto numWeights = weights().size();
+        auto numWeights = getWeights().size();
         if (numWeights != numAddends) {
           return emitOpError("Number of weights must match the number of addends!");
         }
@@ -66,7 +66,7 @@ namespace mlir {
           return emitOpError("Number of addends must be greater than zero!");
         }
         double sum = 0.0;
-        for (auto p : weights().getAsRange<mlir::FloatAttr>()) {
+        for (auto p : getWeights().getAsRange<mlir::FloatAttr>()) {
           sum += p.getValueAsDouble();
         }
         if (std::abs(sum - 1.0) > 1e-6) {
@@ -82,10 +82,10 @@ namespace mlir {
       mlir::LogicalResult HistogramNode::verify() {
         int64_t lb = std::numeric_limits<int64_t>::min();
         int64_t ub = std::numeric_limits<int64_t>::min();
-        if (buckets().size() != bucketCount()) {
+        if (getBuckets().size() != getBucketCount()) {
           return emitOpError("bucketCount must match the actual number of buckets!");
         }
-        auto buckets = this->buckets();
+        auto buckets = this->getBuckets();
         for (auto b : buckets.getValue()) {
           auto bucket = b.cast<DictionaryAttr>();
           auto curLB = bucket.get("lb").cast<IntegerAttr>().getInt();
@@ -116,7 +116,7 @@ namespace mlir {
 
       mlir::LogicalResult CategoricalNode::verify() {
         double sum = 0.0;
-        for (auto p : probabilities().getAsRange<mlir::FloatAttr>()) {
+        for (auto p : getProbabilities().getAsRange<mlir::FloatAttr>()) {
           sum += p.getValueAsDouble();
         }
         if (std::abs(sum - 1.0) > 1e-6) {
@@ -192,13 +192,16 @@ void mlir::spn::high::HistogramNode::build(::mlir::OpBuilder& odsBuilder,
     //auto bucketAttr = Bucket::get(odsBuilder.getContext(), 
     //bucketList.push_back(bucketAttr);
   //}
+
+  llvm::errs() << "HistogramNode::build()\n";
+
   auto arrAttr = odsBuilder.getArrayAttr(bucketList);
   build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), indexVal,
         arrAttr, odsBuilder.getUI32IntegerAttr(bucketList.size()));
 }
 
 unsigned int mlir::spn::high::HistogramNode::getFeatureIndex() {
-  if (auto blockArg = index().dyn_cast<BlockArgument>()) {
+  if (auto blockArg = getIndex().dyn_cast<BlockArgument>()) {
     return blockArg.getArgNumber();
   }
   // Expecting the index to be a block argument.
@@ -222,7 +225,7 @@ void mlir::spn::high::CategoricalNode::build(::mlir::OpBuilder& odsBuilder,
 }
 
 unsigned int mlir::spn::high::CategoricalNode::getFeatureIndex() {
-  if (auto blockArg = index().dyn_cast<BlockArgument>()) {
+  if (auto blockArg = getIndex().dyn_cast<BlockArgument>()) {
     return blockArg.getArgNumber();
   }
   // Expecting the index to be a block argument.
@@ -247,7 +250,7 @@ void mlir::spn::high::GaussianNode::build(::mlir::OpBuilder& odsBuilder,
 }
 
 unsigned int mlir::spn::high::GaussianNode::getFeatureIndex() {
-  if (auto blockArg = index().dyn_cast<BlockArgument>()) {
+  if (auto blockArg = getIndex().dyn_cast<BlockArgument>()) {
     return blockArg.getArgNumber();
   }
   // Expecting the index to be a block argument.
@@ -270,29 +273,28 @@ mlir::Operation* mlir::spn::high::RootNode::getEnclosingQuery() {
 // SingleJointQuery
 //===----------------------------------------------------------------------===//
 
-unsigned int mlir::spn::high::JointQuery::getNumFeatures() {
-  return this->numFeatures();
-}
+//unsigned int mlir::spn::high::JointQuery::getNumFeatures() {
+//  return this->getNumFeatures();
+//}
 
 mlir::Type mlir::spn::high::JointQuery::getFeatureDataType() {
-  return this->inputType();
+  return this->getInputType();
 }
 
-unsigned int mlir::spn::high::JointQuery::getBatchSize() {
-  return this->batchSize();
-}
+//unsigned int mlir::spn::high::JointQuery::getBatchSize() {
+//  return this->getBatchSize();
+//}
 
-mlir::spn::high::error_model mlir::spn::high::JointQuery::getErrorModel() {
-  return this->errorModel();
-}
+//mlir::spn::high::error_model mlir::spn::high::JointQuery::getErrorModel() {
+//  return this->getErrorModel();
+//}
 
-int mlir::spn::high::JointQuery::getMaxError() {
-  //return this->maxError().convertToDouble();
-  return 123;
-}
+//::llvm::APFloat mlir::spn::high::JointQuery::getMaxError() {
+//  return this->getMaxError();
+//}
 
 llvm::StringRef mlir::spn::high::JointQuery::getQueryName() {
-  return this->kernelName();
+  return this->getKernelName();
 }
 
 #define GET_OP_CLASSES

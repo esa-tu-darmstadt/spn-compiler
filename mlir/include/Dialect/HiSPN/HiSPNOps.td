@@ -13,6 +13,7 @@ include "HiSPNDialect.td"
 include "HiSPNInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/RegionKindInterface.td"
+include "mlir/IR/OpBase.td"
 
 ///
 /// Attributes representing different kinds of arithmetic errors:
@@ -156,7 +157,7 @@ def HistBucketAttr : StructAttr<"Bucket", HiSPN_Dialect, [LowerBoundAttr, UpperB
 def HistBucketAttr : AttrDef<HiSPN_Dialect, "Bucket"> {
     let summary = "An attribute defining a single histogram bucket";
     let description = "lala";
-    let cppClassName = "Bucket";
+    //let cppClassName = "Bucket";
 
     let parameters = (ins
         "int": $lb,
@@ -164,19 +165,9 @@ def HistBucketAttr : AttrDef<HiSPN_Dialect, "Bucket"> {
         "APFloat": $val
     );
 
-    // inspired by ComplexAttributes.td
-    let builders = [
-        AttrBuilderWithInferredContext<(ins "int":$lb,
-                                            "int":$ub,
-                                            "APFloat":$val), [{
-            return $_get(nullptr, lb, ub, val);
-        }]>
-        //AttrBuilderWithInferredContext<(ins)>
-    ];
-
-    let genVerifyDecl = 1;
-    //let assemblyFormat = "`<` $lb `,` $ub `,` $val `>`";
-    let skipDefaultBuilders = 1;
+    let mnemonic = "bucket";
+    //let hasCustomAssemblyFormat = 1;
+    let assemblyFormat = "`<` $lb `,` $ub `,` $val `>`";
 }
 
 /// List of histogram buckets as array-attribute.

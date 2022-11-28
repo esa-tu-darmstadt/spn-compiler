@@ -36,7 +36,7 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
   auto resultType = RankedTensorType::get({1, dynamicBatchSize}, compType);
   // Create the function type of the kernel.
   auto kernelType = FunctionType::get(rewriter.getContext(), TypeRange{inputType}, TypeRange{resultType});
-  auto kernel = rewriter.create<low::SPNKernel>(op.getLoc(), op.kernelName(), kernelType);
+  auto kernel = rewriter.create<low::SPNKernel>(op.getLoc(), op.getKernelName(), kernelType);
   auto kernelBlock = kernel.addEntryBlock();
   rewriter.setInsertionPointToStart(kernelBlock);
   // Create a single task inside the kernel, taking the same arguments and producing the same
@@ -54,7 +54,7 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
   auto inputArg = taskBlock->getArgument(1);
   SmallVector<Value> inputValues;
   SmallVector<Type> inputTypes;
-  for (unsigned i = 0; i < op.numFeatures(); ++i) {
+  for (unsigned i = 0; i < op.getNumFeatures(); ++i) {
     auto arg = rewriter.create<low::SPNBatchExtract>(op.getLoc(), op.getFeatureDataType(),
                                                      inputArg, batchIndex, i,
                                                      rewriter.getBoolAttr(false));
@@ -70,9 +70,9 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
   //
   // Merge the content of the DAG (which has been lowered to LoSPN in a previous step) to
   // the body of the task.
-  auto spnDAG = dyn_cast<high::Graph>(op.graph().front().front());
+  auto spnDAG = dyn_cast<high::Graph>(op.getGraph().front().front());
   assert(spnDAG && "Expecting the first operation to be the SPN DAG");
-  rewriter.mergeBlocks(&spnDAG.graph().front(), bodyBlock, bodyBlock->getArguments());
+  rewriter.mergeBlocks(&spnDAG.getGraph().front(), bodyBlock, bodyBlock->getArguments());
   rewriter.restoreInsertionPoint(restoreTask);
   // Create a SPNBatchCollect for the result produced by the body, terminating the task.
   auto output = rewriter.create<low::SPNBatchCollect>(op.getLoc(), resultType, batchIndex,

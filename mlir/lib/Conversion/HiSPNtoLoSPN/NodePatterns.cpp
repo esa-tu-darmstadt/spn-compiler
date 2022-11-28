@@ -91,7 +91,7 @@ LogicalResult SumNodeLowering::matchAndRewriteChecked(high::SumNode op,
                                                       ArrayRef<Value> operands,
                                                       ConversionPatternRewriter& rewriter) const {
   SmallVector<double, 10> weights;
-  for (auto w : op.weights().getValue()) {
+  for (auto w : op.getWeights().getValue()) {
     weights.push_back(w.cast<FloatAttr>().getValueAsDouble());
   }
   rewriter.replaceOp(op, {splitWeightedSum(op, operands, weights, rewriter)});
@@ -102,10 +102,10 @@ LogicalResult HistogramNodeLowering::matchAndRewriteChecked(high::HistogramNode 
                                                             ArrayRef<Value> operands,
                                                             ConversionPatternRewriter& rewriter) const {
   // We can safely cast here, as the pattern checks for the correct type of the enclosing query beforehand.
-  auto supportMarginal = cast<JointQuery>(op.getEnclosingQuery()).supportMarginal();
+  auto supportMarginal = cast<JointQuery>(op.getEnclosingQuery()).getSupportMarginal();
   rewriter.replaceOpWithNewOp<low::SPNHistogramLeaf>(op, typeConverter->convertType(op.getType()),
-                                                     op.index(), op.buckets(),
-                                                     op.bucketCount(), supportMarginal);
+                                                     op.getIndex(), op.getBuckets(),
+                                                     op.getBucketCount(), supportMarginal);
   return success();
 }
 
@@ -113,9 +113,9 @@ LogicalResult CategoricalNodeLowering::matchAndRewriteChecked(high::CategoricalN
                                                               ArrayRef<Value> operands,
                                                               ConversionPatternRewriter& rewriter) const {
   // We can safely cast here, as the pattern checks for the correct type of the enclosing query beforehand.
-  auto supportMarginal = cast<JointQuery>(op.getEnclosingQuery()).supportMarginal();
+  auto supportMarginal = cast<JointQuery>(op.getEnclosingQuery()).getSupportMarginal();
   rewriter.replaceOpWithNewOp<low::SPNCategoricalLeaf>(op, typeConverter->convertType(op.getType()),
-                                                       op.index(), op.probabilities(), supportMarginal);
+                                                       op.getIndex(), op.getProbabilities(), supportMarginal);
   return success();
 }
 
@@ -123,9 +123,9 @@ LogicalResult GaussianNodeLowering::matchAndRewriteChecked(high::GaussianNode op
                                                            ArrayRef<Value> operands,
                                                            ConversionPatternRewriter& rewriter) const {
   // We can safely cast here, as the pattern checks for the correct type of the enclosing query beforehand.
-  auto supportMarginal = cast<JointQuery>(op.getEnclosingQuery()).supportMarginal();
+  auto supportMarginal = cast<JointQuery>(op.getEnclosingQuery()).getSupportMarginal();
   rewriter.replaceOpWithNewOp<low::SPNGaussianLeaf>(op, typeConverter->convertType(op.getType()),
-                                                    op.index(), op.mean(), op.stddev(), supportMarginal);
+                                                    op.getIndex(), op.getMean(), op.getStddev(), supportMarginal);
   return success();
 }
 

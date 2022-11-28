@@ -24,8 +24,12 @@ def HiSPN_Dialect : Dialect {
         high level of abstraction.
     }];
     let cppNamespace = "::mlir::spn::high";
-    let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
+    //let emitAccessorPrefix = kEmitAccessorPrefix_Raw;
     let useDefaultTypePrinterParser = 1;
+    let extraClassDeclaration = [{
+        /// Register all SSP attributes.
+        void registerAttributes();
+    }];
 }
 
 ///
