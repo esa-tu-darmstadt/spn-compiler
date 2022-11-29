@@ -1,6 +1,7 @@
 # -*- Python -*-
 
 import os
+from pathlib import Path
 import lit.formats
 import lit.util
 
@@ -23,6 +24,13 @@ config.environment['LD_LIBRARY_PATH'] = ld_lib_path
 # test_source_root: The root path where tests are located.
 config.test_source_root = os.path.dirname(__file__)
 config.test_source_ex = os.path.normpath(os.path.join(config.test_source_root, "test-resources"))
+config.excludes = [
+    'analysis',
+
+    'lowering/lospn-to-cpu',
+    'lowering/standard-to-llvm',
+    'transform'
+]
 
 # test_exec_root: The root path where tests should be run.
 config.test_exec_root = os.path.normpath(spnc_opt_tool_bin_dir)

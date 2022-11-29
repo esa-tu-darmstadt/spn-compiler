@@ -4,7 +4,6 @@ module  {
   "hi_spn.joint_query"() ( {
     "hi_spn.graph"() ( {
     ^bb0(%arg0: i32):  // no predecessors
-      //%0 = "hi_spn.histogram"(%arg0) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}]} : (i32) -> !hi_spn.probability
       %0 = "hi_spn.histogram"(%arg0) {bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0, 1, 2.500000e-01>, #hi_spn.bucket<1, 2, 7.500000e-01>]} : (i32) -> !hi_spn.probability
       "hi_spn.root"(%0) : (!hi_spn.probability) -> ()
     }) {numFeatures = 1 : ui32} : () -> ()
@@ -17,7 +16,7 @@ module  {
 // CHECK-LABEL:   "hi_spn.joint_query"() ({
 // CHECK:           "hi_spn.graph"() ({
 // CHECK:           ^bb0(%[[VAL_0:.*]]: i32):
-// CHECK:             %[[VAL_1:.*]] = "lo_spn.histogram"(%[[VAL_0]]) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}], supportMarginal = false} : (i32) -> f64
+// CHECK:             %[[VAL_1:.*]] = "lo_spn.histogram"(%[[VAL_0]]) {bucketCount = 2 : ui32, buckets = [#lo_spn.bucket<0, 1, 2.500000e-01>, #lo_spn.bucket<1, 2, 7.500000e-01>], supportMarginal = false} : (i32) -> f64
 // CHECK:             %[[VAL_2:.*]] = "lo_spn.log"(%[[VAL_1]]) : (f64) -> f64
 // CHECK:             "lo_spn.yield"(%[[VAL_2]]) : (f64) -> ()
 // CHECK:           }) {numFeatures = 1 : ui32} : () -> ()

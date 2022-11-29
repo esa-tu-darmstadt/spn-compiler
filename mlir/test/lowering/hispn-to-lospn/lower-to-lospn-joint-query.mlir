@@ -4,11 +4,11 @@ module  {
   "hi_spn.joint_query"() ( {
     "hi_spn.graph"() ( {
     ^bb0(%arg0: i32, %arg1: i32):  // no predecessors
-      %0 = "hi_spn.histogram"(%arg0) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}]} : (i32) -> !hi_spn.probability
-      %1 = "hi_spn.histogram"(%arg1) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 4.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 5.500000e-01 : f64}]} : (i32) -> !hi_spn.probability
+      %0 = "hi_spn.histogram"(%arg0) {bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0, 1, 2.500000e-01>, #hi_spn.bucket<1, 2, 7.500000e-01>]} : (i32) -> !hi_spn.probability
+      %1 = "hi_spn.histogram"(%arg1) {bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0, 1, 4.500000e-01>, #hi_spn.bucket<1, 2, 5.500000e-01>]} : (i32) -> !hi_spn.probability
       %2 = "hi_spn.product"(%0, %1) : (!hi_spn.probability, !hi_spn.probability) -> !hi_spn.probability
-      %3 = "hi_spn.histogram"(%arg0) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 3.300000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 6.700000e-01 : f64}]} : (i32) -> !hi_spn.probability
-      %4 = "hi_spn.histogram"(%arg1) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 8.750000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 1.250000e-01 : f64}]} : (i32) -> !hi_spn.probability
+      %3 = "hi_spn.histogram"(%arg0) {bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0, 1, 3.300000e-01>, #hi_spn.bucket<1, 2, 6.700000e-01>]} : (i32) -> !hi_spn.probability
+      %4 = "hi_spn.histogram"(%arg1) {bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0, 1, 8.750000e-01>, #hi_spn.bucket<1, 2, 1.250000e-01>]} : (i32) -> !hi_spn.probability
       %5 = "hi_spn.product"(%3, %4) : (!hi_spn.probability, !hi_spn.probability) -> !hi_spn.probability
       %6 = "hi_spn.sum"(%2, %5) {weights = [3.000000e-01, 0.69999999999999996]} : (!hi_spn.probability, !hi_spn.probability) -> !hi_spn.probability
       "hi_spn.root"(%6) : (!hi_spn.probability) -> ()
@@ -27,11 +27,11 @@ module  {
 // CHECK:             %[[VAL_5:.*]] = "lo_spn.batch_extract"(%[[VAL_3]], %[[VAL_2]]) {staticIndex = 1 : ui32, transposed = false} : (tensor<?x2xi32>, index) -> i32
 // CHECK:             %[[VAL_6:.*]] = "lo_spn.body"(%[[VAL_4]], %[[VAL_5]]) ({
 // CHECK:             ^bb0(%[[VAL_7:.*]]: i32, %[[VAL_8:.*]]: i32):
-// CHECK:               %[[VAL_9:.*]] = "lo_spn.histogram"(%[[VAL_7]]) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}], supportMarginal = false} : (i32) -> f64
-// CHECK:               %[[VAL_10:.*]] = "lo_spn.histogram"(%[[VAL_8]]) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 4.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 5.500000e-01 : f64}], supportMarginal = false} : (i32) -> f64
+// CHECK:               %[[VAL_9:.*]] = "lo_spn.histogram"(%[[VAL_7]]) {bucketCount = 2 : ui32, buckets = [#lo_spn.bucket<0, 1, 2.500000e-01>, #lo_spn.bucket<1, 2, 7.500000e-01>], supportMarginal = false} : (i32) -> f64
+// CHECK:               %[[VAL_10:.*]] = "lo_spn.histogram"(%[[VAL_8]]) {bucketCount = 2 : ui32, buckets = [#lo_spn.bucket<0, 1, 4.500000e-01>, #lo_spn.bucket<1, 2, 5.500000e-01>], supportMarginal = false} : (i32) -> f64
 // CHECK:               %[[VAL_11:.*]] = "lo_spn.mul"(%[[VAL_9]], %[[VAL_10]]) : (f64, f64) -> f64
-// CHECK:               %[[VAL_12:.*]] = "lo_spn.histogram"(%[[VAL_7]]) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 3.300000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 6.700000e-01 : f64}], supportMarginal = false} : (i32) -> f64
-// CHECK:               %[[VAL_13:.*]] = "lo_spn.histogram"(%[[VAL_8]]) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 8.750000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 1.250000e-01 : f64}], supportMarginal = false} : (i32) -> f64
+// CHECK:               %[[VAL_12:.*]] = "lo_spn.histogram"(%[[VAL_7]]) {bucketCount = 2 : ui32, buckets = [#lo_spn.bucket<0, 1, 3.300000e-01>, #lo_spn.bucket<1, 2, 6.700000e-01>], supportMarginal = false} : (i32) -> f64
+// CHECK:               %[[VAL_13:.*]] = "lo_spn.histogram"(%[[VAL_8]]) {bucketCount = 2 : ui32, buckets = [#lo_spn.bucket<0, 1, 8.750000e-01>, #lo_spn.bucket<1, 2, 1.250000e-01>], supportMarginal = false} : (i32) -> f64
 // CHECK:               %[[VAL_14:.*]] = "lo_spn.mul"(%[[VAL_12]], %[[VAL_13]]) : (f64, f64) -> f64
 // CHECK:               %[[VAL_15:.*]] = "lo_spn.constant"() {type = f64, value = 3.000000e-01 : f64} : () -> f64
 // CHECK:               %[[VAL_16:.*]] = "lo_spn.mul"(%[[VAL_11]], %[[VAL_15]]) : (f64, f64) -> f64
@@ -45,4 +45,4 @@ module  {
 // CHECK:             "lo_spn.return"(%[[VAL_21]]) : (tensor<1x?xf64>) -> ()
 // CHECK:           }) {batchSize = 10 : ui32} : (tensor<?x2xi32>) -> tensor<1x?xf64>
 // CHECK:           "lo_spn.return"(%[[VAL_23:.*]]) : (tensor<1x?xf64>) -> ()
-// CHECK:         }) {sym_name = "spn_kernel", type = (tensor<?x2xi32>) -> tensor<1x?xf64>} : () -> ()
+// CHECK:         }) {function_type = (tensor<?x2xi32>) -> tensor<1x?xf64>, sym_name = "spn_kernel"} : () -> ()

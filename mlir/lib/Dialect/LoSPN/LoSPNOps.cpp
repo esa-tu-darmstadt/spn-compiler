@@ -257,7 +257,10 @@ mlir::Block* mlir::spn::low::SPNTask::addEntryBlock() {
 
   entry->addArgument(type, loc);
   // TODO: This is wrong but will compile for now.
-  entry->addArguments(this->getInputs().getType(), {this->getLoc()});
+  size_t n = this->getInputs().getType().size();
+  std::vector<mlir::Location> locations(n, this->getLoc());
+
+  entry->addArguments(this->getInputs().getType(), locations);
   return entry;
 }
 
@@ -276,7 +279,10 @@ mlir::Block* mlir::spn::low::SPNBody::addEntryBlock() {
   auto* entry = new Block();
   getBody().push_back(entry);
   // TODO: See above.
-  entry->addArguments(this->getInputs().getType(), {this->getLoc()});
+  size_t n = this->getInputs().getType().size();
+  std::vector<mlir::Location> locations(n, this->getLoc());
+
+  entry->addArguments(this->getInputs().getType(), locations);
   return entry;
 }
 
