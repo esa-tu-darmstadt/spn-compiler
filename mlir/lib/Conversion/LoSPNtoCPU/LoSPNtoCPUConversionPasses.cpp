@@ -17,6 +17,7 @@
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 
 void mlir::spn::LoSPNtoCPUStructureConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
   registry.insert<arith::ArithDialect>();
@@ -186,6 +187,8 @@ void mlir::spn::LoSPNtoCPUNodeConversionPass::runOnOperation() {
   target.addLegalDialect<mlir::math::MathDialect>();
   target.addLegalDialect<mlir::vector::VectorDialect>();
   target.addLegalDialect<mlir::memref::MemRefDialect>();
+  target.addLegalDialect<mlir::func::FuncDialect>();
+  target.addLegalDialect<mlir::bufferization::BufferizationDialect>();
   target.addLegalOp<ModuleOp>();
   target.addLegalOp<func::FuncOp>();
 
