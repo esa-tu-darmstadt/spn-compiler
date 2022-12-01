@@ -24,7 +24,7 @@ void LoSPNDialect::initialize() {
 
   registerAttributes();
 }
-/*
+
 ::mlir::Type LoSPNDialect::parseType(::mlir::DialectAsmParser& parser) const {
   // Currently only handles the LogType, as no other dialect types are defined for LoSPN.
 
@@ -59,7 +59,7 @@ void LoSPNDialect::printType(::mlir::Type type, ::mlir::DialectAsmPrinter& os) c
   // LogType is printed as "log<$baseType>"
   os << "log<" << logType.getBaseType() << ">";
 }
-*/
+
 // Table-gen output for dialect implementation
 #include "LoSPN/LoSPNOpsDialect.cpp.inc"
 

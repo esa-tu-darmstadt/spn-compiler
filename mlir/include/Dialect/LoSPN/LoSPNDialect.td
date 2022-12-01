@@ -24,6 +24,7 @@ def LoSPN_Dialect : Dialect {
     }];
     let cppNamespace = "::mlir::spn::low";
     let useDefaultAttributePrinterParser = 1;
+    let useDefaultTypePrinterParser = 1;
     let extraClassDeclaration = [{
         /// Register all SSP attributes.
         void registerAttributes();
