@@ -16,7 +16,7 @@
 #include <llvm/MC/SubtargetFeature.h>
 #include <llvm/Support/TargetSelect.h>
 #include "llvm/Support/Host.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "mlir/Target/LLVMIR/Dialect/All.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 

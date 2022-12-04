@@ -17,7 +17,6 @@
 #include <option/GlobalOptions.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
 #include <llvm/Transforms/IPO.h>
-#include <llvm/Transforms/Coroutines.h>
 #include "llvm/IR/PassTimingInfo.h"
 
 using namespace spnc;
