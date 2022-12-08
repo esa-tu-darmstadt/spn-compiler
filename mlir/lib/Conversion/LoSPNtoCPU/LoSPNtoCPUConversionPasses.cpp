@@ -26,6 +26,7 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::getDependentDialects(mlir::Di
   registry.insert<mlir::vector::VectorDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
   registry.insert<mlir::math::MathDialect>();
+  registry.insert<mlir::func::FuncDialect>();
 }
 
 // Helper functions in anonymous namespace.
@@ -84,8 +85,10 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
   target.addLegalDialect<mlir::math::MathDialect>();
   target.addLegalDialect<mlir::vector::VectorDialect>();
   target.addLegalDialect<mlir::memref::MemRefDialect>();
+  target.addLegalDialect<mlir::func::FuncDialect>();
   target.addLegalOp<ModuleOp>();
   target.addLegalOp<func::FuncOp>();
+  target.addLegalOp<func::ReturnOp>();
 
   LoSPNtoCPUTypeConverter typeConverter;
 

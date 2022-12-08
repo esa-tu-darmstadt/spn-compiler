@@ -132,7 +132,7 @@ module  {
 // CHECK:             %[[VAL_67:.*]] = memref.reinterpret_cast %[[VAL_0]] to offset: [0], sizes: {{\[}}%[[VAL_66]]], strides: [1] : memref<?x4xf32> to memref<?xf32>
 // CHECK:             %[[VAL_68:.*]] = arith.constant 0 : index
 // CHECK:             %[[VAL_69:.*]] = vector.gather %[[VAL_67]]{{\[}}%[[VAL_68]]] {{\[}}%[[VAL_60]]], %[[VAL_62]], %[[VAL_61]] : memref<?xf32>, vector<4xi64>, vector<4xi1>, vector<4xf32> into vector<4xf32>
-// CHECK:             %[[VAL_70:.*]] = fpext %[[VAL_24]] : vector<4xf32> to vector<4xf64>
+// CHECK:             %[[VAL_70:.*]] = llvm.fpext %[[VAL_24]] : vector<4xf32> to vector<4xf64>
 // CHECK:             %[[VAL_71:.*]] = arith.constant dense<-5.000000e-01> : vector<4xf64>
 // CHECK:             %[[VAL_72:.*]] = arith.constant dense<-0.91893853320467266> : vector<4xf64>
 // CHECK:             %[[VAL_73:.*]] = arith.constant dense<1.100000e-01> : vector<4xf64>
@@ -140,7 +140,7 @@ module  {
 // CHECK:             %[[VAL_75:.*]] = arith.mulf %[[VAL_74]], %[[VAL_74]] : vector<4xf64>
 // CHECK:             %[[VAL_76:.*]] = arith.mulf %[[VAL_75]], %[[VAL_71]] : vector<4xf64>
 // CHECK:             %[[VAL_77:.*]] = arith.addf %[[VAL_72]], %[[VAL_76]] : vector<4xf64>
-// CHECK:             %[[VAL_78:.*]] = fpext %[[VAL_39]] : vector<4xf32> to vector<4xf64>
+// CHECK:             %[[VAL_78:.*]] = llvm.fpext %[[VAL_39]] : vector<4xf32> to vector<4xf64>
 // CHECK:             %[[VAL_79:.*]] = arith.constant dense<-0.88888888888888883> : vector<4xf64>
 // CHECK:             %[[VAL_80:.*]] = arith.constant dense<-0.63125646075289177> : vector<4xf64>
 // CHECK:             %[[VAL_81:.*]] = arith.constant dense<1.200000e-01> : vector<4xf64>
@@ -148,7 +148,7 @@ module  {
 // CHECK:             %[[VAL_83:.*]] = arith.mulf %[[VAL_82]], %[[VAL_82]] : vector<4xf64>
 // CHECK:             %[[VAL_84:.*]] = arith.mulf %[[VAL_83]], %[[VAL_79]] : vector<4xf64>
 // CHECK:             %[[VAL_85:.*]] = arith.addf %[[VAL_80]], %[[VAL_84]] : vector<4xf64>
-// CHECK:             %[[VAL_86:.*]] = fpext %[[VAL_54]] : vector<4xf32> to vector<4xf64>
+// CHECK:             %[[VAL_86:.*]] = llvm.fpext %[[VAL_54]] : vector<4xf32> to vector<4xf64>
 // CHECK:             %[[VAL_87:.*]] = arith.constant dense<-2.000000e+00> : vector<4xf64>
 // CHECK:             %[[VAL_88:.*]] = arith.constant dense<-0.22579135264472738> : vector<4xf64>
 // CHECK:             %[[VAL_89:.*]] = arith.constant dense<1.300000e-01> : vector<4xf64>
@@ -156,7 +156,7 @@ module  {
 // CHECK:             %[[VAL_91:.*]] = arith.mulf %[[VAL_90]], %[[VAL_90]] : vector<4xf64>
 // CHECK:             %[[VAL_92:.*]] = arith.mulf %[[VAL_91]], %[[VAL_87]] : vector<4xf64>
 // CHECK:             %[[VAL_93:.*]] = arith.addf %[[VAL_88]], %[[VAL_92]] : vector<4xf64>
-// CHECK:             %[[VAL_94:.*]] = fpext %[[VAL_69]] : vector<4xf32> to vector<4xf64>
+// CHECK:             %[[VAL_94:.*]] = llvm.fpext %[[VAL_69]] : vector<4xf32> to vector<4xf64>
 // CHECK:             %[[VAL_95:.*]] = arith.constant dense<-8.000000e+00> : vector<4xf64>
 // CHECK:             %[[VAL_96:.*]] = arith.constant dense<0.4673558279152179> : vector<4xf64>
 // CHECK:             %[[VAL_97:.*]] = arith.constant dense<1.400000e-01> : vector<4xf64>
@@ -167,25 +167,25 @@ module  {
 // CHECK:             %[[VAL_102:.*]] = arith.constant dense<-1.3862943611198906> : vector<4xf64>
 // CHECK:             %[[VAL_103:.*]] = arith.addf %[[VAL_77]], %[[VAL_102]] : vector<4xf64>
 // CHECK:             %[[VAL_104:.*]] = arith.addf %[[VAL_85]], %[[VAL_102]] : vector<4xf64>
-// CHECK:             %[[VAL_105:.*]] = cmpf ogt, %[[VAL_103]], %[[VAL_104]] : vector<4xf64>
-// CHECK:             %[[VAL_106:.*]] = select %[[VAL_105]], %[[VAL_103]], %[[VAL_104]] : vector<4xi1>, vector<4xf64>
-// CHECK:             %[[VAL_107:.*]] = select %[[VAL_105]], %[[VAL_104]], %[[VAL_103]] : vector<4xi1>, vector<4xf64>
+// CHECK:             %[[VAL_105:.*]] = arith.cmpf ogt, %[[VAL_103]], %[[VAL_104]] : vector<4xf64>
+// CHECK:             %[[VAL_106:.*]] = arith.select %[[VAL_105]], %[[VAL_103]], %[[VAL_104]] : vector<4xi1>, vector<4xf64>
+// CHECK:             %[[VAL_107:.*]] = arith.select %[[VAL_105]], %[[VAL_104]], %[[VAL_103]] : vector<4xi1>, vector<4xf64>
 // CHECK:             %[[VAL_108:.*]] = arith.subf %[[VAL_107]], %[[VAL_106]] : vector<4xf64>
 // CHECK:             %[[VAL_109:.*]] = math.exp %[[VAL_108]] : vector<4xf64>
 // CHECK:             %[[VAL_110:.*]] = math.log1p %[[VAL_109]] : vector<4xf64>
 // CHECK:             %[[VAL_111:.*]] = arith.addf %[[VAL_106]], %[[VAL_110]] : vector<4xf64>
 // CHECK:             %[[VAL_112:.*]] = arith.addf %[[VAL_93]], %[[VAL_102]] : vector<4xf64>
 // CHECK:             %[[VAL_113:.*]] = arith.addf %[[VAL_101]], %[[VAL_102]] : vector<4xf64>
-// CHECK:             %[[VAL_114:.*]] = cmpf ogt, %[[VAL_112]], %[[VAL_113]] : vector<4xf64>
-// CHECK:             %[[VAL_115:.*]] = select %[[VAL_114]], %[[VAL_112]], %[[VAL_113]] : vector<4xi1>, vector<4xf64>
-// CHECK:             %[[VAL_116:.*]] = select %[[VAL_114]], %[[VAL_113]], %[[VAL_112]] : vector<4xi1>, vector<4xf64>
+// CHECK:             %[[VAL_114:.*]] = arith.cmpf ogt, %[[VAL_112]], %[[VAL_113]] : vector<4xf64>
+// CHECK:             %[[VAL_115:.*]] = arith.select %[[VAL_114]], %[[VAL_112]], %[[VAL_113]] : vector<4xi1>, vector<4xf64>
+// CHECK:             %[[VAL_116:.*]] = arith.select %[[VAL_114]], %[[VAL_113]], %[[VAL_112]] : vector<4xi1>, vector<4xf64>
 // CHECK:             %[[VAL_117:.*]] = arith.subf %[[VAL_116]], %[[VAL_115]] : vector<4xf64>
 // CHECK:             %[[VAL_118:.*]] = math.exp %[[VAL_117]] : vector<4xf64>
 // CHECK:             %[[VAL_119:.*]] = math.log1p %[[VAL_118]] : vector<4xf64>
 // CHECK:             %[[VAL_120:.*]] = arith.addf %[[VAL_115]], %[[VAL_119]] : vector<4xf64>
-// CHECK:             %[[VAL_121:.*]] = cmpf ogt, %[[VAL_111]], %[[VAL_120]] : vector<4xf64>
-// CHECK:             %[[VAL_122:.*]] = select %[[VAL_121]], %[[VAL_111]], %[[VAL_120]] : vector<4xi1>, vector<4xf64>
-// CHECK:             %[[VAL_123:.*]] = select %[[VAL_121]], %[[VAL_120]], %[[VAL_111]] : vector<4xi1>, vector<4xf64>
+// CHECK:             %[[VAL_121:.*]] = arith.cmpf ogt, %[[VAL_111]], %[[VAL_120]] : vector<4xf64>
+// CHECK:             %[[VAL_122:.*]] = arith.select %[[VAL_121]], %[[VAL_111]], %[[VAL_120]] : vector<4xi1>, vector<4xf64>
+// CHECK:             %[[VAL_123:.*]] = arith.select %[[VAL_121]], %[[VAL_120]], %[[VAL_111]] : vector<4xi1>, vector<4xf64>
 // CHECK:             %[[VAL_124:.*]] = arith.subf %[[VAL_123]], %[[VAL_122]] : vector<4xf64>
 // CHECK:             %[[VAL_125:.*]] = math.exp %[[VAL_124]] : vector<4xf64>
 // CHECK:             %[[VAL_126:.*]] = math.log1p %[[VAL_125]] : vector<4xf64>
@@ -203,7 +203,7 @@ module  {
 // CHECK:             %[[VAL_136:.*]] = "lo_spn.gaussian"(%[[VAL_132]]) {mean = 1.200000e-01 : f64, stddev = 7.500000e-01 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f64>
 // CHECK:             %[[VAL_137:.*]] = "lo_spn.gaussian"(%[[VAL_133]]) {mean = 1.300000e-01 : f64, stddev = 5.000000e-01 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f64>
 // CHECK:             %[[VAL_138:.*]] = "lo_spn.gaussian"(%[[VAL_134]]) {mean = 1.400000e-01 : f64, stddev = 2.500000e-01 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f64>
-// CHECK:             %[[VAL_139:.*]] = "lo_spn.arith.constant"() {type = !lo_spn.log<f64>, value = -1.3862943611198906 : f64} : () -> !lo_spn.log<f64>
+// CHECK:             %[[VAL_139:.*]] = "lo_spn.constant"() {type = !lo_spn.log<f64>, value = -1.3862943611198906 : f64} : () -> !lo_spn.log<f64>
 // CHECK:             %[[VAL_140:.*]] = "lo_spn.mul"(%[[VAL_135]], %[[VAL_139]]) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
 // CHECK:             %[[VAL_141:.*]] = "lo_spn.mul"(%[[VAL_136]], %[[VAL_139]]) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
 // CHECK:             %[[VAL_142:.*]] = "lo_spn.add"(%[[VAL_140]], %[[VAL_141]]) : (!lo_spn.log<f64>, !lo_spn.log<f64>) -> !lo_spn.log<f64>
