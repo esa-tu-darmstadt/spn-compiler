@@ -31,7 +31,7 @@ public:
 
   LogicalResult matchAndRewrite(low::SPNBatchRead op, PatternRewriter& rewriter) const override {
     // Transposed SPNBatchRead already access memory in vector-like fashion, skipe them during replacement.
-    if (op.getTransposed().getValueOr(false)) {
+    if (op.getTransposed().value_or(false)) {
       return rewriter.notifyMatchFailure(op, "Transposed reads are not eligible for replacement");
     }
     //
@@ -149,7 +149,7 @@ struct FuncReplaceGatherWithShuffle : public OpRewritePattern<func::FuncOp> {
           if (auto batchRead = dyn_cast<low::SPNBatchRead>(U)) {
             eligible &= true;
             if (batchRead.checkVectorized() && !indices.count(batchRead.getStaticIndex()) &&
-                !batchRead.getTransposed().getValueOr(false)) {
+                !batchRead.getTransposed().value_or(false)) {
               // Check that we have not encountered the same index before.
               ++useCount;
               minVectorWidth = std::min(minVectorWidth, batchRead.vectorFactor());
@@ -185,7 +185,7 @@ struct FuncReplaceGatherWithShuffle : public OpRewritePattern<func::FuncOp> {
       llvm::IndexedMap<bool> indices;
       for (auto U : inputMem.getUsers()) {
         if (auto read = dyn_cast<low::SPNBatchRead>(U)) {
-          if (read.checkVectorized() && !read.getTransposed().getValueOr(false)) {
+          if (read.checkVectorized() && !read.getTransposed().value_or(false)) {
             // Collect only vectorized BatchRead for this transformation.
             reads.push_back(read);
             indices.grow(read.getStaticIndex());

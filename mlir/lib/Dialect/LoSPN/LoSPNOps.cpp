@@ -140,7 +140,7 @@ namespace mlir {
         if (tensor.getRank() != 2) {
           return emitOpError() << "Input tensor should be ranked with two dimensions";
         }
-        unsigned staticDim = (getTransposed().hasValue() && getTransposed().getValue()) ? 0 : 1;
+        unsigned staticDim = getTransposed().value_or(false) ? 0 : 1;
         if (tensor.isDynamicDim(staticDim)) {
           return emitOpError() << "Dimension " << staticDim << " of input tensor should be static";
         }
@@ -162,7 +162,7 @@ namespace mlir {
         if (memref.getRank() != 2) {
           return emitOpError() << "Input memref should be ranked with two dimensions";
         }
-        unsigned staticDim = (getTransposed().hasValue() && getTransposed().getValue()) ? 0 : 1;
+        unsigned staticDim = getTransposed().value_or(false) ? 0 : 1;
         if (memref.isDynamicDim(staticDim)) {
           return emitOpError() << "Dimension " << staticDim << " of input memref should be static";
         }
@@ -182,7 +182,7 @@ namespace mlir {
         if (!tensorTy.hasRank() || tensorTy.getRank() != 2) {
           return emitOpError() << "Result tensor must be ranked with two dimensions";
         }
-        unsigned staticDim = (getTransposed().hasValue() && getTransposed().getValue()) ? 0 : 1;
+        unsigned staticDim = getTransposed().value_or(false) ? 0 : 1;
         if (tensorTy.isDynamicDim(staticDim) ||
             static_cast<long>(getResultValues().size()) != tensorTy.getDimSize(staticDim)) {
           return emitOpError() << "Result tensor's dimension "
@@ -206,7 +206,7 @@ namespace mlir {
           return emitOpError() << "Result memref must be ranked with two dimensions";
         }
 
-        unsigned staticDim = (getTransposed().hasValue() && getTransposed().getValue()) ? 0 : 1;
+        unsigned staticDim = getTransposed().value_or(false) ? 0 : 1;
         if (memRefTy.isDynamicDim(staticDim) ||
             static_cast<long>(getResultValues().size()) != memRefTy.getDimSize(staticDim)) {
           return emitOpError() << "Result memrefs's dimension "
@@ -300,7 +300,7 @@ void mlir::spn::low::SPNBatchRead::build(::mlir::OpBuilder& odsBuilder,
   assert(memrefTy);
   auto resultTy = memrefTy.getElementType();
   auto staticIndexAttr = odsBuilder.getUI32IntegerAttr(staticIndex);
-  bool transpose = transposed.hasValue() && transposed.getValue();
+  bool transpose = transposed.value_or(false);
   build(odsBuilder, odsState, resultTy, batchMem, dynamicIndex, staticIndexAttr,
         odsBuilder.getBoolAttr(transpose));
 }

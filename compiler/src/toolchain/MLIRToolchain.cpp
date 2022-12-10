@@ -19,6 +19,7 @@
 #include "llvm/MC/TargetRegistry.h"
 #include "mlir/Target/LLVMIR/Dialect/All.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include <unistd.h>
 
 using namespace spnc;
 using namespace mlir;
@@ -110,7 +111,7 @@ std::unique_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(in
   SPDLOG_INFO("Target machine default triple: {}", targetTriple);
   SPDLOG_INFO("Target machine CPU name: {}", cpu);
   SPDLOG_INFO("Target machine features: {}", featureList.str());
-  SPDLOG_INFO("Target machine CPU physical core count: {}", llvm::sys::getHostNumPhysicalCores());
+  SPDLOG_INFO("Target machine CPU physical core count: {}", sysconf(_SC_NPROCESSORS_ONLN));
 
   llvm::CodeGenOpt::Level cgOptLevel = llvm::CodeGenOpt::Default;
   switch (optLevel) {

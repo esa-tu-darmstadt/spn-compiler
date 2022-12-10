@@ -368,7 +368,15 @@ Value ConversionManager::getValue(Superword* superword) const {
 Value ConversionManager::getOrCreateConstant(Location const& loc, Attribute const& attribute) {
   // Just hope that this doesn't blow up.
   mlir::TypedAttr typedAttr = attribute.dyn_cast<mlir::TypedAttr>();
-  return folder.getOrCreateConstant(rewriter, &attribute.getDialect(), attribute, typedAttr.getType(), loc);
+  Value result = folder.getOrCreateConstant(rewriter, &attribute.getDialect(), attribute, typedAttr.getType(), loc);
+  assert(result != nullptr);
+  return result;
+}
+
+Value ConversionManager::getOrCreateConstant(Location loc, Attribute attr, Type type, Dialect *dialect) {
+  auto result = folder.getOrCreateConstant(rewriter, dialect, attr, type, loc);
+  assert(result != nullptr);
+  return result;
 }
 
 ConversionState& ConversionManager::getConversionState() const {
@@ -391,7 +399,8 @@ Value ConversionManager::getOrExtractValue(Value value) {
   assert(!wordPosition.superword->hasAlteredSemanticsInLane(wordPosition.index));
   assert(wordPosition.superword && "extraction deemed profitable, but value does not appear in any vector");
   auto source = conversionState->getValue(wordPosition.superword);
-  auto pos = getOrCreateConstant(source.getLoc(), rewriter.getI32IntegerAttr((int) wordPosition.index));
+  auto attr = rewriter.getI32IntegerAttr((int) wordPosition.index);
+  auto pos = getOrCreateConstant(source.getLoc(), attr, attr.getType(), rewriter.getContext()->getLoadedDialect<arith::ArithDialect>());
   auto extractOp = rewriter.create<vector::ExtractElementOp>(value.getLoc(), source, pos);
   conversionState->markExtracted(value);
   return extractOp;

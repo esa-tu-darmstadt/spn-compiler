@@ -52,13 +52,13 @@ namespace spnc {
         if (failed(result)) {
           return result;
         }
-        if (stop.hasValue() && step->name() == stop.getValue()) {
+        if (stop.has_value() && step->name() == stop.value()) {
           // Stop after the step, if the user requested to do so via the 'stopAfter' option.
-          return failure("STOPPED PIPELINE after {}", stop.getValue());
+          return failure("STOPPED PIPELINE after {}", stop.value());
         }
       }
-      if (stop.hasValue()) {
-        SPDLOG_WARN("Did not stop after {}, because no such step was present in the pipeline", stop.getValue());
+      if (stop.has_value()) {
+        SPDLOG_WARN("Did not stop after {}, because no such step was present in the pipeline", stop.value());
       }
       if (!valid) {
         return failure("INVALID PIPELINE");

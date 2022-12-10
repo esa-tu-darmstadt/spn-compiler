@@ -30,7 +30,7 @@ mlir::LogicalResult mlir::spn::BatchReadLowering::matchAndRewrite(mlir::spn::low
   assert(operands[1].getType().isa<IndexType>());
   SmallVector<Value> indices;
   auto constStaticIndex = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(op.getStaticIndex()));
-  if (op.getTransposed().hasValue() && op.getTransposed().getValue()) {
+  if (op.getTransposed().value_or(false)) {
     // Transposed access is memref[staticIndex][dynamicIndex]
     indices.push_back(constStaticIndex);
     indices.push_back(operands[1]);
@@ -60,7 +60,7 @@ mlir::LogicalResult mlir::spn::BatchWriteLowering::matchAndRewrite(mlir::spn::lo
   assert(memRefType.hasRank() && memRefType.getRank() == 2);
   auto dynIndex = operands[1];
   assert(dynIndex.getType().isa<IndexType>());
-  bool transposed = op.getTransposed().getValueOr(false);
+  bool transposed = op.getTransposed().value_or(false);
   for (unsigned i = 0; i < op.getResultValues().size(); ++i) {
     SmallVector<Value, 2> indices;
     auto constStaticIndex = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(i));

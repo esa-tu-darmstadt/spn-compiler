@@ -322,7 +322,10 @@ Value VectorizeConstant::rewrite(Superword* superword, RewriterBase& rewriter) {
     }
   }
   auto const& elements = denseElements(std::begin(constants), std::end(constants), superword->getVectorType());
-  return conversionManager.getOrCreateConstant(superword->getLoc(), elements);
+  // TODO: This is guesswork. I think vector types were moved form builtin into their own dialect. That's
+  // we need that dialect with the implemented materializeConstants(). Additionally, we need the type information.
+  Dialect *dialect = rewriter.getContext()->getLoadedDialect<vector::VectorDialect>();
+  return conversionManager.getOrCreateConstant(superword->getLoc(), elements, elements.getType(), dialect);
 }
 
 void VectorizeConstant::accept(PatternVisitor& visitor, Superword const* superword) const {
@@ -419,13 +422,15 @@ Value CreateGatherLoad::rewrite(Superword* superword, RewriterBase& rewriter) {
   auto loc = superword->getLoc();
   auto vectorType = superword->getVectorType();
 
+  Dialect *vectorDialect = rewriter.getContext()->getLoadedDialect<vector::VectorDialect>();
+
   auto indexType = VectorType::get(vectorType.getShape(), rewriter.getI32Type());
   auto indexElements = DenseElementsAttr::get(indexType, static_cast<ArrayRef<uint32_t>>(samples));
-  auto indexVector = conversionManager.getOrCreateConstant(loc, indexElements);
+  auto indexVector = conversionManager.getOrCreateConstant(loc, indexElements, indexElements.getType(), vectorDialect);
 
   auto maskType = VectorType::get(vectorType.getShape(), rewriter.getI1Type());
   auto maskElements = DenseElementsAttr::get(maskType, static_cast<ArrayRef<bool>>(maskBits));
-  auto mask = conversionManager.getOrCreateConstant(loc, maskElements);
+  auto mask = conversionManager.getOrCreateConstant(loc, maskElements, maskElements.getType(), vectorDialect);
 
   DenseElementsAttr passThroughElements;
   if (superword->getElementType().isIntOrIndex()) {
@@ -437,7 +442,7 @@ Value CreateGatherLoad::rewrite(Superword* superword, RewriterBase& rewriter) {
   } else {
     llvm_unreachable("unsupported vector element type for gather op");
   }
-  auto passThrough = conversionManager.getOrCreateConstant(loc, passThroughElements);
+  auto passThrough = conversionManager.getOrCreateConstant(loc, passThroughElements, passThroughElements.getType(), vectorDialect);
 
   return rewriter.create<vector::GatherOp>(loc, vectorType, base, indices, indexVector, mask, passThrough);
 }
@@ -516,21 +521,22 @@ Value VectorizeGaussian::rewrite(Superword* superword, RewriterBase& rewriter) {
   auto inputVector = conversionManager.getValue(superword->getOperand(0));
   inputVector = util::castToFloatOrGetVector(inputVector, vectorType, rewriter);
   inputVector = util::extendTruncateOrGetVector(inputVector, vectorType, rewriter);
-  auto meanVector = conversionManager.getOrCreateConstant(superword->getLoc(), means);
+  Dialect *vectorDialect = rewriter.getContext()->getLoadedDialect<vector::VectorDialect>();
+  auto meanVector = conversionManager.getOrCreateConstant(superword->getLoc(), means, means.getType(), vectorDialect);
   Value gaussianVector = rewriter.create<arith::SubFOp>(superword->getLoc(), vectorType, inputVector, meanVector);
 
   // ((x - mean)^2
   gaussianVector = rewriter.create<arith::MulFOp>(superword->getLoc(), vectorType, gaussianVector, gaussianVector);
 
   // (x - mean)^2 / (-2 * variance)
-  auto varianceVector = conversionManager.getOrCreateConstant(superword->getLoc(), variances);
+  auto varianceVector = conversionManager.getOrCreateConstant(superword->getLoc(), variances, variances.getType(), vectorDialect);
   gaussianVector = rewriter.create<arith::DivFOp>(superword->getLoc(), vectorType, gaussianVector, varianceVector);
 
   // e^((x - mean)^2 / (-2 * variance))
   gaussianVector = rewriter.create<math::ExpOp>(superword->getLoc(), vectorType, gaussianVector);
 
   // e^((x - mean)^2 / (-2 * variance)) / sqrt(2 * PI * variance)
-  auto rootsVector = conversionManager.getOrCreateConstant(superword->getLoc(), roots);
+  auto rootsVector = conversionManager.getOrCreateConstant(superword->getLoc(), roots, roots.getType(), vectorDialect);
   gaussianVector = rewriter.create<arith::DivFOp>(superword->getLoc(), gaussianVector, rootsVector);
 
   if (anyGaussianMarginalized(*superword)) {
@@ -543,7 +549,7 @@ Value VectorizeGaussian::rewrite(Superword* superword, RewriterBase& rewriter) {
       denseOne = DenseElementsAttr::get(vectorType, static_cast<ArrayRef<double>>(ones));
     }
     auto isNan = rewriter.create<arith::CmpFOp>(superword->getLoc(), arith::CmpFPredicate::UNO, inputVector, inputVector);
-    auto constOne = conversionManager.getOrCreateConstant(superword->getLoc(), denseOne);
+    auto constOne = conversionManager.getOrCreateConstant(superword->getLoc(), denseOne, denseOne.getType(), vectorDialect);
     gaussianVector = rewriter.create<arith::SelectOp>(superword->getLoc(), isNan, constOne, gaussianVector);
   }
 

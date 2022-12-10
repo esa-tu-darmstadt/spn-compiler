@@ -172,6 +172,7 @@ namespace mlir {
           /// Returns a constant operation for the provided attribute. If there is no such constant operation already,
           /// creates one at the provided location automatically.
           Value getOrCreateConstant(Location const& loc, Attribute const& attribute);
+          Value getOrCreateConstant(Location loc, Attribute attr, Type type, Dialect *dialect);
           /// Return the internally stored conversion state, e.g. for callback registration.
           ConversionState& getConversionState() const;
 

@@ -89,10 +89,10 @@ void slp::sortByOpcode(SmallVectorImpl<Value>& values, Optional<OperationName> s
     } else if (!lhsOp && rhsOp) {
       return false;
     }
-    if (smallestOpcode.hasValue()) {
-      if (lhsOp->getName() == smallestOpcode.getValue()) {
-        return rhsOp->getName() != smallestOpcode.getValue();
-      } else if (rhsOp->getName() == smallestOpcode.getValue()) {
+    if (smallestOpcode.has_value()) {
+      if (lhsOp->getName() == smallestOpcode.value()) {
+        return rhsOp->getName() != smallestOpcode.value();
+      } else if (rhsOp->getName() == smallestOpcode.value()) {
         return false;
       }
     }

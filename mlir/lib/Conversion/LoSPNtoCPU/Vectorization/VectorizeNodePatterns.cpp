@@ -71,7 +71,7 @@ mlir::LogicalResult mlir::spn::VectorizeTransposedBatchRead::matchAndRewrite(mli
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized BatchRead");
   }
-  if (!op.getTransposed().getValueOr(false)) {
+  if (!op.getTransposed().value_or(false)) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches transposed BatchRead");
   }
   assert(operands.size() == 2);
@@ -96,7 +96,7 @@ mlir::LogicalResult mlir::spn::VectorizeBatchRead::matchAndRewrite(mlir::spn::lo
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized BatchRead");
   }
-  if (op.getTransposed().getValueOr(false)) {
+  if (op.getTransposed().value_or(false)) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches non-transposed BatchRead");
   }
   assert(operands.size() == 2);
@@ -146,7 +146,7 @@ mlir::LogicalResult mlir::spn::VectorizeBatchRead::matchAndRewrite(mlir::spn::lo
   SmallVector<OpFoldResult, 1> staticStrides;
   staticStrides.push_back(staticStride);
   auto reinterpret = rewriter.create<memref::ReinterpretCastOp>(op.getLoc(),
-                                                                MemRefType::get({-1}, memRef.getElementType()),
+                                                                MemRefType::get({ShapedType::kDynamic}, memRef.getElementType()),
                                                                 operands[0], staticOffset,
                                                                 dynamicSizes, staticStrides);
   Value constIndex = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
@@ -161,7 +161,7 @@ mlir::LogicalResult mlir::spn::VectorizeBatchWrite::matchAndRewrite(mlir::spn::l
   if (!op.checkVectorized()) {
     return rewriter.notifyMatchFailure(op, "Pattern only matches vectorized BatchWrite");
   }
-  if (!op.getTransposed().getValueOr(false)) {
+  if (!op.getTransposed().value_or(false)) {
     // Currently, no step of the compilation pipeline will create non-transposed BatchWrite,
     // therefore this is currently the only implementation.
     return rewriter.notifyMatchFailure(op, "Pattern only matches transposed BatchWrite");

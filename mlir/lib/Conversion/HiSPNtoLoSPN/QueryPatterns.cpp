@@ -29,7 +29,7 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
     // but no actual conversion is required.
     compType = logType.getBaseType();
   }
-  auto dynamicBatchSize = -1;
+  auto dynamicBatchSize = ShapedType::kDynamic;
   // 1 x numFeatures x inputType for batchSize == 1, ? x numFeatures x inputType else.
   auto inputType = RankedTensorType::get({dynamicBatchSize, op.getNumFeatures()}, op.getFeatureDataType());
   // 1 x compType for batchSize == 1, ? x compType else.

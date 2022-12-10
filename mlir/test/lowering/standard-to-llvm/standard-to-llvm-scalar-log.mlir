@@ -1,78 +1,78 @@
 // RUN: %optcall --convert-math-to-llvm --convert-memref-to-llvm --convert-std-to-llvm %s | FileCheck %s
 
 module  {
-  func @task_0(%arg0: memref<?x4xf64>, %arg1: memref<?xf32>) {
-    %c0 = constant 0 : index
-    %c0_0 = constant 0 : index
+  func.func @task_0(%arg0: memref<?x4xf64>, %arg1: memref<?xf32>) {
+    %c0 = arith.constant 0 : index
+    %c0_0 = arith.constant 0 : index
     %0 = memref.load %arg0[%c0, %c0_0] : memref<?x4xf64>
-    %c1 = constant 1 : index
+    %c1 = arith.constant 1 : index
     %1 = memref.load %arg0[%c0, %c1] : memref<?x4xf64>
-    %c2 = constant 2 : index
+    %c2 = arith.constant 2 : index
     %2 = memref.load %arg0[%c0, %c2] : memref<?x4xf64>
-    %c3 = constant 3 : index
+    %c3 = arith.constant 3 : index
     %3 = memref.load %arg0[%c0, %c3] : memref<?x4xf64>
-    %4 = fptrunc %0 : f64 to f32
-    %cst = constant -5.000000e-01 : f32
-    %cst_1 = constant -0.918938517 : f32
-    %cst_2 = constant 1.100000e-01 : f32
-    %5 = subf %4, %cst_2 : f32
-    %6 = mulf %5, %5 : f32
-    %7 = mulf %6, %cst : f32
-    %8 = addf %cst_1, %7 : f32
-    %9 = fptrunc %1 : f64 to f32
-    %cst_3 = constant -0.888888895 : f32
-    %cst_4 = constant -0.631256461 : f32
-    %cst_5 = constant 1.200000e-01 : f32
-    %10 = subf %9, %cst_5 : f32
-    %11 = mulf %10, %10 : f32
-    %12 = mulf %11, %cst_3 : f32
-    %13 = addf %cst_4, %12 : f32
-    %14 = fptrunc %2 : f64 to f32
-    %cst_6 = constant -2.000000e+00 : f32
-    %cst_7 = constant -0.22579135 : f32
-    %cst_8 = constant 1.300000e-01 : f32
-    %15 = subf %14, %cst_8 : f32
-    %16 = mulf %15, %15 : f32
-    %17 = mulf %16, %cst_6 : f32
-    %18 = addf %cst_7, %17 : f32
-    %19 = fptrunc %3 : f64 to f32
-    %cst_9 = constant -8.000000e+00 : f32
-    %cst_10 = constant 0.467355818 : f32
-    %cst_11 = constant 1.400000e-01 : f32
-    %20 = subf %19, %cst_11 : f32
-    %21 = mulf %20, %20 : f32
-    %22 = mulf %21, %cst_9 : f32
-    %23 = addf %cst_10, %22 : f32
-    %cst_12 = constant -1.38629436 : f32
-    %24 = addf %8, %cst_12 : f32
-    %25 = addf %13, %cst_12 : f32
-    %26 = cmpf ogt, %24, %25 : f32
-    %27 = select %26, %24, %25 : f32
-    %28 = select %26, %25, %24 : f32
-    %29 = subf %28, %27 : f32
+    %4 = llvm.fptrunc %0 : f64 to f32
+    %cst = arith.constant -5.000000e-01 : f32
+    %cst_1 = arith.constant -0.918938517 : f32
+    %cst_2 = arith.constant 1.100000e-01 : f32
+    %5 = arith.subf %4, %cst_2 : f32
+    %6 = arith.mulf %5, %5 : f32
+    %7 = arith.mulf %6, %cst : f32
+    %8 = arith.addf %cst_1, %7 : f32
+    %9 = llvm.fptrunc %1 : f64 to f32
+    %cst_3 = arith.constant -0.888888895 : f32
+    %cst_4 = arith.constant -0.631256461 : f32
+    %cst_5 = arith.constant 1.200000e-01 : f32
+    %10 = arith.subf %9, %cst_5 : f32
+    %11 = arith.mulf %10, %10 : f32
+    %12 = arith.mulf %11, %cst_3 : f32
+    %13 = arith.addf %cst_4, %12 : f32
+    %14 = llvm.fptrunc %2 : f64 to f32
+    %cst_6 = arith.constant -2.000000e+00 : f32
+    %cst_7 = arith.constant -0.22579135 : f32
+    %cst_8 = arith.constant 1.300000e-01 : f32
+    %15 = arith.subf %14, %cst_8 : f32
+    %16 = arith.mulf %15, %15 : f32
+    %17 = arith.mulf %16, %cst_6 : f32
+    %18 = arith.addf %cst_7, %17 : f32
+    %19 = llvm.fptrunc %3 : f64 to f32
+    %cst_9 = arith.constant -8.000000e+00 : f32
+    %cst_10 = arith.constant 0.467355818 : f32
+    %cst_11 = arith.constant 1.400000e-01 : f32
+    %20 = arith.subf %19, %cst_11 : f32
+    %21 = arith.mulf %20, %20 : f32
+    %22 = arith.mulf %21, %cst_9 : f32
+    %23 = arith.addf %cst_10, %22 : f32
+    %cst_12 = arith.constant -1.38629436 : f32
+    %24 = arith.addf %8, %cst_12 : f32
+    %25 = arith.addf %13, %cst_12 : f32
+    %26 = arith.cmpf ogt, %24, %25 : f32
+    %27 = arith.select %26, %24, %25 : f32
+    %28 = arith.select %26, %25, %24 : f32
+    %29 = arith.subf %28, %27 : f32
     %30 = math.exp %29 : f32
     %31 = math.log1p %30 : f32
-    %32 = addf %27, %31 : f32
-    %33 = addf %18, %cst_12 : f32
-    %34 = addf %23, %cst_12 : f32
-    %35 = cmpf ogt, %33, %34 : f32
-    %36 = select %35, %33, %34 : f32
-    %37 = select %35, %34, %33 : f32
-    %38 = subf %37, %36 : f32
+    %32 = arith.addf %27, %31 : f32
+    %33 = arith.addf %18, %cst_12 : f32
+    %34 = arith.addf %23, %cst_12 : f32
+    %35 = arith.cmpf ogt, %33, %34 : f32
+    %36 = arith.select %35, %33, %34 : f32
+    %37 = arith.select %35, %34, %33 : f32
+    %38 = arith.subf %37, %36 : f32
     %39 = math.exp %38 : f32
     %40 = math.log1p %39 : f32
-    %41 = addf %36, %40 : f32
-    %42 = cmpf ogt, %32, %41 : f32
-    %43 = select %42, %32, %41 : f32
-    %44 = select %42, %41, %32 : f32
-    %45 = subf %44, %43 : f32
+    %41 = arith.addf %36, %40 : f32
+    %42 = arith.cmpf ogt, %32, %41 : f32
+    %43 = arith.select %42, %32, %41 : f32
+    %44 = arith.select %42, %41, %32 : f32
+    %45 = arith.subf %44, %43 : f32
     %46 = math.exp %45 : f32
     %47 = math.log1p %46 : f32
-    %48 = addf %43, %47 : f32
+    %48 = arith.addf %43, %47 : f32
     memref.store %48, %arg1[%c0] : memref<?xf32>
     return
   }
-  func @spn_vector(%arg0: memref<?x4xf64>, %arg1: memref<?xf32>) {
+  func.func @spn_vector(%arg0: memref<?x4xf64>, %arg1: memref<?xf32>) {
     call @task_0(%arg0, %arg1) : (memref<?x4xf64>, memref<?xf32>) -> ()
     return
   }
@@ -81,14 +81,14 @@ module  {
 // NOTE: Assertions have been autogenerated by utils/generate-test-checks.py
 // .. and manually adapted because the autogenerated CHECK-SAME headers matched too greedily:
 // For example, consider the following, expected output line:
-//     llvm.func @task_0(%arg0: !llvm.ptr<f64>, %arg1: !llvm.ptr<f64>, %arg2: i64, ...) {
+//     func.func @task_0(%arg0: !llvm.ptr<f64>, %arg1: !llvm.ptr<f64>, %arg2: i64, ...) {
 // The autogenerated CHECK-SAME statement for "%arg0: !llvm.ptr<f64>" looks like this:
 //     COM: CHECK-SAME:  %[[VAL_0:.*]]: !llvm.ptr<f64>,
 // which does not match only "%arg0: !llvm.ptr<f64>,", but also "%arg0: !llvm.ptr<f64>, %arg1: !llvm.ptr<f64>,".
 // Therefore, "%[[VAL_0:.*]]" should be replaced with "%[[VAL_0:[a-z0-9]*]]".
 
 
-// CHECK-LABEL:   llvm.func @task_0(
+// CHECK-LABEL:   func.func @task_0(
 // CHECK-SAME:                      %[[VAL_0:[a-z0-9]*]]: !llvm.ptr<f64>,
 // CHECK-SAME:                      %[[VAL_1:[a-z0-9]*]]: !llvm.ptr<f64>,
 // CHECK-SAME:                      %[[VAL_2:[a-z0-9]*]]: i64,
@@ -115,96 +115,96 @@ module  {
 // CHECK:           %[[VAL_23:.*]] = llvm.insertvalue %[[VAL_9]], %[[VAL_22]][2] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK:           %[[VAL_24:.*]] = llvm.insertvalue %[[VAL_10]], %[[VAL_23]][3, 0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK:           %[[VAL_25:.*]] = llvm.insertvalue %[[VAL_11]], %[[VAL_24]][4, 0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
-// CHECK:           %[[VAL_26:.*]] = llvm.mlir.constant(0 : index) : i64
-// CHECK:           %[[VAL_27:.*]] = llvm.mlir.constant(0 : index) : i64
+// CHECK:           %[[VAL_26:.*]] = llvm.mlir.arith.constant(0 : index) : i64
+// CHECK:           %[[VAL_27:.*]] = llvm.mlir.arith.constant(0 : index) : i64
 // CHECK:           %[[VAL_28:.*]] = llvm.extractvalue %[[VAL_19]][1] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK:           %[[VAL_29:.*]] = llvm.mlir.constant(4 : index) : i64
+// CHECK:           %[[VAL_29:.*]] = llvm.mlir.arith.constant(4 : index) : i64
 // CHECK:           %[[VAL_30:.*]] = llvm.mul %[[VAL_26]], %[[VAL_29]]  : i64
 // CHECK:           %[[VAL_31:.*]] = llvm.add %[[VAL_30]], %[[VAL_27]]  : i64
 // CHECK:           %[[VAL_32:.*]] = llvm.getelementptr %[[VAL_28]]{{\[}}%[[VAL_31]]] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
 // CHECK:           %[[VAL_33:.*]] = llvm.load %[[VAL_32]] : !llvm.ptr<f64>
-// CHECK:           %[[VAL_34:.*]] = llvm.mlir.constant(1 : index) : i64
+// CHECK:           %[[VAL_34:.*]] = llvm.mlir.arith.constant(1 : index) : i64
 // CHECK:           %[[VAL_35:.*]] = llvm.extractvalue %[[VAL_19]][1] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK:           %[[VAL_36:.*]] = llvm.mlir.constant(4 : index) : i64
+// CHECK:           %[[VAL_36:.*]] = llvm.mlir.arith.constant(4 : index) : i64
 // CHECK:           %[[VAL_37:.*]] = llvm.mul %[[VAL_26]], %[[VAL_36]]  : i64
 // CHECK:           %[[VAL_38:.*]] = llvm.add %[[VAL_37]], %[[VAL_34]]  : i64
 // CHECK:           %[[VAL_39:.*]] = llvm.getelementptr %[[VAL_35]]{{\[}}%[[VAL_38]]] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
 // CHECK:           %[[VAL_40:.*]] = llvm.load %[[VAL_39]] : !llvm.ptr<f64>
-// CHECK:           %[[VAL_41:.*]] = llvm.mlir.constant(2 : index) : i64
+// CHECK:           %[[VAL_41:.*]] = llvm.mlir.arith.constant(2 : index) : i64
 // CHECK:           %[[VAL_42:.*]] = llvm.extractvalue %[[VAL_19]][1] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK:           %[[VAL_43:.*]] = llvm.mlir.constant(4 : index) : i64
+// CHECK:           %[[VAL_43:.*]] = llvm.mlir.arith.constant(4 : index) : i64
 // CHECK:           %[[VAL_44:.*]] = llvm.mul %[[VAL_26]], %[[VAL_43]]  : i64
 // CHECK:           %[[VAL_45:.*]] = llvm.add %[[VAL_44]], %[[VAL_41]]  : i64
 // CHECK:           %[[VAL_46:.*]] = llvm.getelementptr %[[VAL_42]]{{\[}}%[[VAL_45]]] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
 // CHECK:           %[[VAL_47:.*]] = llvm.load %[[VAL_46]] : !llvm.ptr<f64>
-// CHECK:           %[[VAL_48:.*]] = llvm.mlir.constant(3 : index) : i64
+// CHECK:           %[[VAL_48:.*]] = llvm.mlir.arith.constant(3 : index) : i64
 // CHECK:           %[[VAL_49:.*]] = llvm.extractvalue %[[VAL_19]][1] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK:           %[[VAL_50:.*]] = llvm.mlir.constant(4 : index) : i64
+// CHECK:           %[[VAL_50:.*]] = llvm.mlir.arith.constant(4 : index) : i64
 // CHECK:           %[[VAL_51:.*]] = llvm.mul %[[VAL_26]], %[[VAL_50]]  : i64
 // CHECK:           %[[VAL_52:.*]] = llvm.add %[[VAL_51]], %[[VAL_48]]  : i64
 // CHECK:           %[[VAL_53:.*]] = llvm.getelementptr %[[VAL_49]]{{\[}}%[[VAL_52]]] : (!llvm.ptr<f64>, i64) -> !llvm.ptr<f64>
 // CHECK:           %[[VAL_54:.*]] = llvm.load %[[VAL_53]] : !llvm.ptr<f64>
-// CHECK:           %[[VAL_55:.*]] = llvm.fptrunc %[[VAL_33]] : f64 to f32
-// CHECK:           %[[VAL_56:.*]] = llvm.mlir.constant(-5.000000e-01 : f32) : f32
-// CHECK:           %[[VAL_57:.*]] = llvm.mlir.constant(-0.918938517 : f32) : f32
-// CHECK:           %[[VAL_58:.*]] = llvm.mlir.constant(1.100000e-01 : f32) : f32
+// CHECK:           %[[VAL_55:.*]] = llvm.llvm.fptrunc %[[VAL_33]] : f64 to f32
+// CHECK:           %[[VAL_56:.*]] = llvm.mlir.arith.constant(-5.000000e-01 : f32) : f32
+// CHECK:           %[[VAL_57:.*]] = llvm.mlir.arith.constant(-0.918938517 : f32) : f32
+// CHECK:           %[[VAL_58:.*]] = llvm.mlir.arith.constant(1.100000e-01 : f32) : f32
 // CHECK:           %[[VAL_59:.*]] = llvm.fsub %[[VAL_55]], %[[VAL_58]]  : f32
 // CHECK:           %[[VAL_60:.*]] = llvm.fmul %[[VAL_59]], %[[VAL_59]]  : f32
 // CHECK:           %[[VAL_61:.*]] = llvm.fmul %[[VAL_60]], %[[VAL_56]]  : f32
 // CHECK:           %[[VAL_62:.*]] = llvm.fadd %[[VAL_57]], %[[VAL_61]]  : f32
-// CHECK:           %[[VAL_63:.*]] = llvm.fptrunc %[[VAL_40]] : f64 to f32
-// CHECK:           %[[VAL_64:.*]] = llvm.mlir.constant(-0.888888895 : f32) : f32
-// CHECK:           %[[VAL_65:.*]] = llvm.mlir.constant(-0.631256461 : f32) : f32
-// CHECK:           %[[VAL_66:.*]] = llvm.mlir.constant(1.200000e-01 : f32) : f32
+// CHECK:           %[[VAL_63:.*]] = llvm.llvm.fptrunc %[[VAL_40]] : f64 to f32
+// CHECK:           %[[VAL_64:.*]] = llvm.mlir.arith.constant(-0.888888895 : f32) : f32
+// CHECK:           %[[VAL_65:.*]] = llvm.mlir.arith.constant(-0.631256461 : f32) : f32
+// CHECK:           %[[VAL_66:.*]] = llvm.mlir.arith.constant(1.200000e-01 : f32) : f32
 // CHECK:           %[[VAL_67:.*]] = llvm.fsub %[[VAL_63]], %[[VAL_66]]  : f32
 // CHECK:           %[[VAL_68:.*]] = llvm.fmul %[[VAL_67]], %[[VAL_67]]  : f32
 // CHECK:           %[[VAL_69:.*]] = llvm.fmul %[[VAL_68]], %[[VAL_64]]  : f32
 // CHECK:           %[[VAL_70:.*]] = llvm.fadd %[[VAL_65]], %[[VAL_69]]  : f32
-// CHECK:           %[[VAL_71:.*]] = llvm.fptrunc %[[VAL_47]] : f64 to f32
-// CHECK:           %[[VAL_72:.*]] = llvm.mlir.constant(-2.000000e+00 : f32) : f32
-// CHECK:           %[[VAL_73:.*]] = llvm.mlir.constant(-0.22579135 : f32) : f32
-// CHECK:           %[[VAL_74:.*]] = llvm.mlir.constant(1.300000e-01 : f32) : f32
+// CHECK:           %[[VAL_71:.*]] = llvm.llvm.fptrunc %[[VAL_47]] : f64 to f32
+// CHECK:           %[[VAL_72:.*]] = llvm.mlir.arith.constant(-2.000000e+00 : f32) : f32
+// CHECK:           %[[VAL_73:.*]] = llvm.mlir.arith.constant(-0.22579135 : f32) : f32
+// CHECK:           %[[VAL_74:.*]] = llvm.mlir.arith.constant(1.300000e-01 : f32) : f32
 // CHECK:           %[[VAL_75:.*]] = llvm.fsub %[[VAL_71]], %[[VAL_74]]  : f32
 // CHECK:           %[[VAL_76:.*]] = llvm.fmul %[[VAL_75]], %[[VAL_75]]  : f32
 // CHECK:           %[[VAL_77:.*]] = llvm.fmul %[[VAL_76]], %[[VAL_72]]  : f32
 // CHECK:           %[[VAL_78:.*]] = llvm.fadd %[[VAL_73]], %[[VAL_77]]  : f32
-// CHECK:           %[[VAL_79:.*]] = llvm.fptrunc %[[VAL_54]] : f64 to f32
-// CHECK:           %[[VAL_80:.*]] = llvm.mlir.constant(-8.000000e+00 : f32) : f32
-// CHECK:           %[[VAL_81:.*]] = llvm.mlir.constant(0.467355818 : f32) : f32
-// CHECK:           %[[VAL_82:.*]] = llvm.mlir.constant(1.400000e-01 : f32) : f32
+// CHECK:           %[[VAL_79:.*]] = llvm.llvm.fptrunc %[[VAL_54]] : f64 to f32
+// CHECK:           %[[VAL_80:.*]] = llvm.mlir.arith.constant(-8.000000e+00 : f32) : f32
+// CHECK:           %[[VAL_81:.*]] = llvm.mlir.arith.constant(0.467355818 : f32) : f32
+// CHECK:           %[[VAL_82:.*]] = llvm.mlir.arith.constant(1.400000e-01 : f32) : f32
 // CHECK:           %[[VAL_83:.*]] = llvm.fsub %[[VAL_79]], %[[VAL_82]]  : f32
 // CHECK:           %[[VAL_84:.*]] = llvm.fmul %[[VAL_83]], %[[VAL_83]]  : f32
 // CHECK:           %[[VAL_85:.*]] = llvm.fmul %[[VAL_84]], %[[VAL_80]]  : f32
 // CHECK:           %[[VAL_86:.*]] = llvm.fadd %[[VAL_81]], %[[VAL_85]]  : f32
-// CHECK:           %[[VAL_87:.*]] = llvm.mlir.constant(-1.38629436 : f32) : f32
+// CHECK:           %[[VAL_87:.*]] = llvm.mlir.arith.constant(-1.38629436 : f32) : f32
 // CHECK:           %[[VAL_88:.*]] = llvm.fadd %[[VAL_62]], %[[VAL_87]]  : f32
 // CHECK:           %[[VAL_89:.*]] = llvm.fadd %[[VAL_70]], %[[VAL_87]]  : f32
 // CHECK:           %[[VAL_90:.*]] = llvm.fcmp "ogt" %[[VAL_88]], %[[VAL_89]] : f32
-// CHECK:           %[[VAL_91:.*]] = llvm.select %[[VAL_90]], %[[VAL_88]], %[[VAL_89]] : i1, f32
-// CHECK:           %[[VAL_92:.*]] = llvm.select %[[VAL_90]], %[[VAL_89]], %[[VAL_88]] : i1, f32
+// CHECK:           %[[VAL_91:.*]] = llvm.arith.select %[[VAL_90]], %[[VAL_88]], %[[VAL_89]] : i1, f32
+// CHECK:           %[[VAL_92:.*]] = llvm.arith.select %[[VAL_90]], %[[VAL_89]], %[[VAL_88]] : i1, f32
 // CHECK:           %[[VAL_93:.*]] = llvm.fsub %[[VAL_92]], %[[VAL_91]]  : f32
 // CHECK:           %[[VAL_94:.*]] = "llvm.intr.exp"(%[[VAL_93]]) : (f32) -> f32
-// CHECK:           %[[VAL_95:.*]] = llvm.mlir.constant(1.000000e+00 : f32) : f32
+// CHECK:           %[[VAL_95:.*]] = llvm.mlir.arith.constant(1.000000e+00 : f32) : f32
 // CHECK:           %[[VAL_96:.*]] = llvm.fadd %[[VAL_95]], %[[VAL_94]]  : f32
 // CHECK:           %[[VAL_97:.*]] = "llvm.intr.log"(%[[VAL_96]]) : (f32) -> f32
 // CHECK:           %[[VAL_98:.*]] = llvm.fadd %[[VAL_91]], %[[VAL_97]]  : f32
 // CHECK:           %[[VAL_99:.*]] = llvm.fadd %[[VAL_78]], %[[VAL_87]]  : f32
 // CHECK:           %[[VAL_100:.*]] = llvm.fadd %[[VAL_86]], %[[VAL_87]]  : f32
 // CHECK:           %[[VAL_101:.*]] = llvm.fcmp "ogt" %[[VAL_99]], %[[VAL_100]] : f32
-// CHECK:           %[[VAL_102:.*]] = llvm.select %[[VAL_101]], %[[VAL_99]], %[[VAL_100]] : i1, f32
-// CHECK:           %[[VAL_103:.*]] = llvm.select %[[VAL_101]], %[[VAL_100]], %[[VAL_99]] : i1, f32
+// CHECK:           %[[VAL_102:.*]] = llvm.arith.select %[[VAL_101]], %[[VAL_99]], %[[VAL_100]] : i1, f32
+// CHECK:           %[[VAL_103:.*]] = llvm.arith.select %[[VAL_101]], %[[VAL_100]], %[[VAL_99]] : i1, f32
 // CHECK:           %[[VAL_104:.*]] = llvm.fsub %[[VAL_103]], %[[VAL_102]]  : f32
 // CHECK:           %[[VAL_105:.*]] = "llvm.intr.exp"(%[[VAL_104]]) : (f32) -> f32
-// CHECK:           %[[VAL_106:.*]] = llvm.mlir.constant(1.000000e+00 : f32) : f32
+// CHECK:           %[[VAL_106:.*]] = llvm.mlir.arith.constant(1.000000e+00 : f32) : f32
 // CHECK:           %[[VAL_107:.*]] = llvm.fadd %[[VAL_106]], %[[VAL_105]]  : f32
 // CHECK:           %[[VAL_108:.*]] = "llvm.intr.log"(%[[VAL_107]]) : (f32) -> f32
 // CHECK:           %[[VAL_109:.*]] = llvm.fadd %[[VAL_102]], %[[VAL_108]]  : f32
 // CHECK:           %[[VAL_110:.*]] = llvm.fcmp "ogt" %[[VAL_98]], %[[VAL_109]] : f32
-// CHECK:           %[[VAL_111:.*]] = llvm.select %[[VAL_110]], %[[VAL_98]], %[[VAL_109]] : i1, f32
-// CHECK:           %[[VAL_112:.*]] = llvm.select %[[VAL_110]], %[[VAL_109]], %[[VAL_98]] : i1, f32
+// CHECK:           %[[VAL_111:.*]] = llvm.arith.select %[[VAL_110]], %[[VAL_98]], %[[VAL_109]] : i1, f32
+// CHECK:           %[[VAL_112:.*]] = llvm.arith.select %[[VAL_110]], %[[VAL_109]], %[[VAL_98]] : i1, f32
 // CHECK:           %[[VAL_113:.*]] = llvm.fsub %[[VAL_112]], %[[VAL_111]]  : f32
 // CHECK:           %[[VAL_114:.*]] = "llvm.intr.exp"(%[[VAL_113]]) : (f32) -> f32
-// CHECK:           %[[VAL_115:.*]] = llvm.mlir.constant(1.000000e+00 : f32) : f32
+// CHECK:           %[[VAL_115:.*]] = llvm.mlir.arith.constant(1.000000e+00 : f32) : f32
 // CHECK:           %[[VAL_116:.*]] = llvm.fadd %[[VAL_115]], %[[VAL_114]]  : f32
 // CHECK:           %[[VAL_117:.*]] = "llvm.intr.log"(%[[VAL_116]]) : (f32) -> f32
 // CHECK:           %[[VAL_118:.*]] = llvm.fadd %[[VAL_111]], %[[VAL_117]]  : f32
@@ -214,7 +214,7 @@ module  {
 // CHECK:           llvm.return
 // CHECK:         }
 
-// CHECK-LABEL:   llvm.func @spn_vector(
+// CHECK-LABEL:   func.func @spn_vector(
 // CHECK-SAME:                          %[[VAL_0:[a-z0-9]*]]: !llvm.ptr<f64>,
 // CHECK-SAME:                          %[[VAL_1:[a-z0-9]*]]: !llvm.ptr<f64>,
 // CHECK-SAME:                          %[[VAL_2:[a-z0-9]*]]: i64,
@@ -256,3 +256,4 @@ module  {
 // CHECK:           llvm.call @task_0(%[[VAL_26]], %[[VAL_27]], %[[VAL_28]], %[[VAL_29]], %[[VAL_30]], %[[VAL_31]], %[[VAL_32]], %[[VAL_33]], %[[VAL_34]], %[[VAL_35]], %[[VAL_36]], %[[VAL_37]]) : (!llvm.ptr<f64>, !llvm.ptr<f64>, i64, i64, i64, i64, i64, !llvm.ptr<f32>, !llvm.ptr<f32>, i64, i64, i64) -> ()
 // CHECK:           llvm.return
 // CHECK:         }
+

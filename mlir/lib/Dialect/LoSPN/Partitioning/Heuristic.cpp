@@ -147,8 +147,8 @@ void SimpleMoveHeuristic::refinePartitioning() {
       }
     }
 
-    int upwardGain = upwardCost.getValueOr(INT32_MIN);
-    int downwardGain = downwardCost.getValueOr(INT32_MIN);
+    int upwardGain = upwardCost.value_or(INT32_MIN);
+    int downwardGain = downwardCost.value_or(INT32_MIN);
     auto partition = getPartitionForNode(node);
     if (upwardGain == downwardGain && upwardGain >= 0) {
       // We have a tie, with positive gain in both cases.

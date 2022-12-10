@@ -228,7 +228,7 @@ namespace spnc {
           if (!parseResult) {
             SPDLOG_WARN("Could not parse option value {} for {}", value, key);
           }
-          config->push_back(key, std::move(parseResult.getValue()));
+          config->push_back(key, std::move(parseResult.value()));
         }
         // Verify all constraints.
         bool verified = true;
@@ -499,6 +499,20 @@ namespace spnc {
       return Options::registerModifier(std::make_unique<Depends < OptVal, Value>>
       (opt, depend));
     }
+
+  }
+
+  namespace rtti::interface {
+
+    template <class ValueType>
+    class OptionValue
+    {
+      ValueType value;
+    public:
+      explicit OptionValue(ValueType v) : value{v} {}
+      ValueType get() const { return value; }
+    };
+
 
   }
 

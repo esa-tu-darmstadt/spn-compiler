@@ -48,13 +48,13 @@ namespace mlir {
           // Check if the replacement function is already present in the module (and it's symbol table).
           // If not, create a new external function.
           auto module = op->template getParentOfType<ModuleOp>();
-          mlir::func::FuncOp replaceFunc = module.template lookupSymbol<mlir::func::FuncOp>(funcName.getValue());
+          mlir::func::FuncOp replaceFunc = module.template lookupSymbol<mlir::func::FuncOp>(funcName.value());
           if (!replaceFunc) {
             auto funcType = rewriter.getFunctionType(op.getOperand().getType(), op.getResult().getType());
             auto restore = rewriter.saveInsertionPoint();
             rewriter.setInsertionPointToEnd(module.getBody(0));
             // External functions must not have public visibility, so it's marked private here.
-            replaceFunc = rewriter.create<mlir::func::FuncOp>(op->getLoc(), funcName.getValue(), funcType,
+            replaceFunc = rewriter.create<mlir::func::FuncOp>(op->getLoc(), funcName.value(), funcType,
                                                         rewriter.getStringAttr("private"));
             rewriter.restoreInsertionPoint(restore);
           }

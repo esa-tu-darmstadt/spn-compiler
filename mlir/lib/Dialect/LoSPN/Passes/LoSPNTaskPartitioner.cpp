@@ -157,8 +157,8 @@ namespace mlir {
           llvm::Optional<unsigned> colIndex;
 
           bool transposed() const {
-            assert(rowIndex.hasValue() ^ colIndex.hasValue());
-            return rowIndex.hasValue();
+            assert(rowIndex.has_value() ^ colIndex.has_value());
+            return rowIndex.has_value();
           }
         };
 
@@ -208,21 +208,21 @@ namespace mlir {
               });
               if (hasExternalUser) {
                 auto rType = performTypeConversion(result.getType());
-                if (!resultType.hasValue()) {
+                if (!resultType.has_value()) {
                   resultType = rType;
                 } else {
                   // Currently we assume that all results from one partition have the same type.
-                  assert(resultType.getValue() == rType && "Multiple results with different types");
+                  assert(resultType.value() == rType && "Multiple results with different types");
                 }
                 bodyResults.push_back(rType);
                 nonPartitionOutputs.push_back(result);
               }
             }
           }
-          assert(resultType.hasValue() && "Expecting at least one output from every partition");
+          assert(resultType.has_value() && "Expecting at least one output from every partition");
           // All results of a partition are stored into one tensor (later on buffer).
           auto outputType = RankedTensorType::get({static_cast<long>(bodyResults.size()), -1},
-                                                  resultType.getValue());
+                                                  resultType.value());
           // Add all input tensors as operands of the new task.
           SmallVector<Value> taskInputs;
           for (auto& in : inputArgs) {
@@ -247,7 +247,7 @@ namespace mlir {
             // Remember which input value is associated with which input index for the body.
             inputIndices[value] = bodyArgIndex++;
             bool transposed = inputInfo.transposed();
-            unsigned staticIndex = (transposed) ? inputInfo.rowIndex.getValue() : inputInfo.colIndex.getValue();
+            unsigned staticIndex = (transposed) ? inputInfo.rowIndex.value() : inputInfo.colIndex.value();
             auto extract = rewriter.create<SPNBatchExtract>(loc,
                                                             performTypeConversion(value.getType()),
                                                             taskBlock->getArgument(index),
