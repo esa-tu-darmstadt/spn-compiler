@@ -38,6 +38,16 @@
   - hope hat the attribute has a `TypedAttr` interface as in https://mlir.llvm.org/doxygen/TypeUtilities_8cpp_source.html
 - Replace `OwningModuleRef` with `OwningOpRef<ModuleOp>`
   - https://lists.llvm.org/pipermail/mlir-commits/2022-January/006393.html
+- lots of test had expected `arith.constant` as a result, where I think `lo_spn.constant` would be correct
+- order of operations might change and the checks cannot account for that
+  - attribute names are printed in alphabetical order, even though semantically that does not make a difference (e.g. `type` -> `function_type`)
+  - associative operations such as mulf (associative in spn dialect) might appear in a different order, again the syntax-bases tests fail
+- folding was broken
+  - LoSPN dialect required a `materializeConstant` hook
+- change `( {` to `({` as FileCheck does distinguish between the two and the printer prints out the latter
+- dependent dialects in the passes for lospn have to be updated
+  - seen in `LoSPNPasses.td`
+- legal dialects have to be updated in the lowering passes
 
 # Convert StructAttr to AttrDef
 

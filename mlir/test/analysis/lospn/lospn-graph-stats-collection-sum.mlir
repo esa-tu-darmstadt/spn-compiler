@@ -41,7 +41,7 @@ module  {
       "lo_spn.return"(%7) : (tensor<1x?xf64>) -> ()
     }) {batchSize = 36 : ui32} : (tensor<?x5xi32>) -> tensor<1x?xf64>
     "lo_spn.return"(%0) : (tensor<1x?xf64>) -> ()
-  }) {sym_name = "spn_kernel", type = (tensor<?x5xi32>) -> tensor<1x?xf64>} : () -> ()
+  }) {sym_name = "spn_kernel", function_type = (tensor<?x5xi32>) -> tensor<1x?xf64>} : () -> ()
 }
 
 // CHECK: {

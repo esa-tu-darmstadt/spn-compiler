@@ -60,6 +60,13 @@ void LoSPNDialect::printType(::mlir::Type type, ::mlir::DialectAsmPrinter& os) c
   os << "log<" << logType.getBaseType() << ">";
 }
 
+::mlir::Operation *LoSPNDialect::materializeConstant(::mlir::OpBuilder& builder, ::mlir::Attribute value, ::mlir::Type type, ::mlir::Location loc) {
+  ::mlir::FloatAttr floatValue = value.dyn_cast<::mlir::FloatAttr>();
+  ::mlir::TypeAttr typeAttr = ::mlir::TypeAttr::get(type);
+  ::mlir::Operation *result = builder.create<SPNConstant>(loc, type, typeAttr, floatValue);
+  return result;
+}
+
 // Table-gen output for dialect implementation
 #include "LoSPN/LoSPNOpsDialect.cpp.inc"
 

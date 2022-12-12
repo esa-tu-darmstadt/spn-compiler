@@ -12,6 +12,7 @@
 #include "mlir/Pass/Pass.h"
 #include "LoSPN/LoSPNOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 //#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 

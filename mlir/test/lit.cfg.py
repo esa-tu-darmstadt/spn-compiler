@@ -25,11 +25,10 @@ config.environment['LD_LIBRARY_PATH'] = ld_lib_path
 config.test_source_root = os.path.dirname(__file__)
 config.test_source_ex = os.path.normpath(os.path.join(config.test_source_root, "test-resources"))
 config.excludes = [
-    'analysis',
-
-    'lowering/lospn-to-cpu',
-    'lowering/standard-to-llvm',
-    'transform'
+    #'analysis',
+    #'lowering/lospn-to-cpu',
+    #'lowering/standard-to-llvm',
+    #'transform'
 ]
 
 # test_exec_root: The root path where tests should be run.

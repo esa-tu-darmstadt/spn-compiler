@@ -29,6 +29,7 @@ def LoSPN_Dialect : Dialect {
         /// Register all SSP attributes.
         void registerAttributes();
     }];
+    let hasConstantMaterializer = 1;
 }
 
 ///

@@ -14,6 +14,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 //#include "mlir/Transforms/Bufferize.h"
 #include "mlir/Dialect/Bufferization/Transforms/Bufferize.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
 #include "LoSPNPassDetails.h"
@@ -35,6 +36,7 @@ namespace {
       target.addLegalDialect<LoSPNDialect>();
       target.addLegalDialect<arith::ArithDialect>();
       target.addLegalDialect<mlir::memref::MemRefDialect>();
+      target.addLegalDialect<mlir::bufferization::BufferizationDialect>();
       target.addLegalOp<ModuleOp, mlir::func::FuncOp>();
 
       target.addIllegalOp<SPNBatchExtract, SPNBatchCollect>();
