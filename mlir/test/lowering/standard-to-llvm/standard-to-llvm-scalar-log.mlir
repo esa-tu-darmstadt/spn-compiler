@@ -1,5 +1,4 @@
-// RUN: %optcall --convert-math-to-llvm --convert-memref-to-llvm --convert-std-to-llvm %s | FileCheck %s
-// %optcall --convert-math-to-llvm --convert-memref-to-llvm --convert-arith-to-llvm --convert-func-to-llvm --reconcile-unrealized-casts %s | FileCheck %s
+// RUN: %optcall --convert-math-to-llvm --convert-memref-to-llvm --convert-arith-to-llvm --convert-func-to-llvm --reconcile-unrealized-casts %s | FileCheck %s
 
 module  {
   func.func @task_0(%arg0: memref<?x4xf64>, %arg1: memref<?xf32>) {
@@ -184,10 +183,10 @@ module  {
 // CHECK:           %[[VAL_91:.*]] = llvm.select %[[VAL_90]], %[[VAL_88]], %[[VAL_89]] : i1, f32
 // CHECK:           %[[VAL_92:.*]] = llvm.select %[[VAL_90]], %[[VAL_89]], %[[VAL_88]] : i1, f32
 // CHECK:           %[[VAL_93:.*]] = llvm.fsub %[[VAL_92]], %[[VAL_91]]  : f32
-// CHECK:           %[[VAL_94:.*]] = llvm.intr.exp(%[[VAL_93]]) : (f32) -> f32
+// CHECK:           %[[VAL_94:.*]] = llvm.intr.exp(%[[VAL_93]])  : (f32) -> f32
 // CHECK:           %[[VAL_95:.*]] = llvm.mlir.constant(1.000000e+00 : f32) : f32
 // CHECK:           %[[VAL_96:.*]] = llvm.fadd %[[VAL_95]], %[[VAL_94]]  : f32
-// CHECK:           %[[VAL_97:.*]] = llvm.intr.log(%[[VAL_96]]) : (f32) -> f32
+// CHECK:           %[[VAL_97:.*]] = llvm.intr.log(%[[VAL_96]])  : (f32) -> f32
 // CHECK:           %[[VAL_98:.*]] = llvm.fadd %[[VAL_91]], %[[VAL_97]]  : f32
 // CHECK:           %[[VAL_99:.*]] = llvm.fadd %[[VAL_78]], %[[VAL_87]]  : f32
 // CHECK:           %[[VAL_100:.*]] = llvm.fadd %[[VAL_86]], %[[VAL_87]]  : f32
@@ -195,19 +194,19 @@ module  {
 // CHECK:           %[[VAL_102:.*]] = llvm.select %[[VAL_101]], %[[VAL_99]], %[[VAL_100]] : i1, f32
 // CHECK:           %[[VAL_103:.*]] = llvm.select %[[VAL_101]], %[[VAL_100]], %[[VAL_99]] : i1, f32
 // CHECK:           %[[VAL_104:.*]] = llvm.fsub %[[VAL_103]], %[[VAL_102]]  : f32
-// CHECK:           %[[VAL_105:.*]] = llvm.intr.exp(%[[VAL_104]]) : (f32) -> f32
+// CHECK:           %[[VAL_105:.*]] = llvm.intr.exp(%[[VAL_104]])  : (f32) -> f32
 // CHECK:           %[[VAL_106:.*]] = llvm.mlir.constant(1.000000e+00 : f32) : f32
 // CHECK:           %[[VAL_107:.*]] = llvm.fadd %[[VAL_106]], %[[VAL_105]]  : f32
-// CHECK:           %[[VAL_108:.*]] = llvm.intr.log(%[[VAL_107]]) : (f32) -> f32
+// CHECK:           %[[VAL_108:.*]] = llvm.intr.log(%[[VAL_107]])  : (f32) -> f32
 // CHECK:           %[[VAL_109:.*]] = llvm.fadd %[[VAL_102]], %[[VAL_108]]  : f32
 // CHECK:           %[[VAL_110:.*]] = llvm.fcmp "ogt" %[[VAL_98]], %[[VAL_109]] : f32
 // CHECK:           %[[VAL_111:.*]] = llvm.select %[[VAL_110]], %[[VAL_98]], %[[VAL_109]] : i1, f32
 // CHECK:           %[[VAL_112:.*]] = llvm.select %[[VAL_110]], %[[VAL_109]], %[[VAL_98]] : i1, f32
 // CHECK:           %[[VAL_113:.*]] = llvm.fsub %[[VAL_112]], %[[VAL_111]]  : f32
-// CHECK:           %[[VAL_114:.*]] = llvm.intr.exp(%[[VAL_113]]) : (f32) -> f32
+// CHECK:           %[[VAL_114:.*]] = llvm.intr.exp(%[[VAL_113]])  : (f32) -> f32
 // CHECK:           %[[VAL_115:.*]] = llvm.mlir.constant(1.000000e+00 : f32) : f32
 // CHECK:           %[[VAL_116:.*]] = llvm.fadd %[[VAL_115]], %[[VAL_114]]  : f32
-// CHECK:           %[[VAL_117:.*]] = llvm.intr.log(%[[VAL_116]]) : (f32) -> f32
+// CHECK:           %[[VAL_117:.*]] = llvm.intr.log(%[[VAL_116]])  : (f32) -> f32
 // CHECK:           %[[VAL_118:.*]] = llvm.fadd %[[VAL_111]], %[[VAL_117]]  : f32
 // CHECK:           %[[VAL_119:.*]] = llvm.extractvalue %[[VAL_25]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK:           %[[VAL_120:.*]] = llvm.getelementptr %[[VAL_119]]{{\[}}%[[VAL_26]]] : (!llvm.ptr<f32>, i64) -> !llvm.ptr<f32>
@@ -242,19 +241,7 @@ module  {
 // CHECK:           %[[VAL_23:.*]] = llvm.insertvalue %[[VAL_9]], %[[VAL_22]][2] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK:           %[[VAL_24:.*]] = llvm.insertvalue %[[VAL_10]], %[[VAL_23]][3, 0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
 // CHECK:           %[[VAL_25:.*]] = llvm.insertvalue %[[VAL_11]], %[[VAL_24]][4, 0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
-// CHECK:           %[[VAL_26:.*]] = llvm.extractvalue %[[VAL_19]][0] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK:           %[[VAL_27:.*]] = llvm.extractvalue %[[VAL_19]][1] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK:           %[[VAL_28:.*]] = llvm.extractvalue %[[VAL_19]][2] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK:           %[[VAL_29:.*]] = llvm.extractvalue %[[VAL_19]][3, 0] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK:           %[[VAL_30:.*]] = llvm.extractvalue %[[VAL_19]][3, 1] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK:           %[[VAL_31:.*]] = llvm.extractvalue %[[VAL_19]][4, 0] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK:           %[[VAL_32:.*]] = llvm.extractvalue %[[VAL_19]][4, 1] : !llvm.struct<(ptr<f64>, ptr<f64>, i64, array<2 x i64>, array<2 x i64>)>
-// CHECK:           %[[VAL_33:.*]] = llvm.extractvalue %[[VAL_25]][0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
-// CHECK:           %[[VAL_34:.*]] = llvm.extractvalue %[[VAL_25]][1] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
-// CHECK:           %[[VAL_35:.*]] = llvm.extractvalue %[[VAL_25]][2] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
-// CHECK:           %[[VAL_36:.*]] = llvm.extractvalue %[[VAL_25]][3, 0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
-// CHECK:           %[[VAL_37:.*]] = llvm.extractvalue %[[VAL_25]][4, 0] : !llvm.struct<(ptr<f32>, ptr<f32>, i64, array<1 x i64>, array<1 x i64>)>
-// CHECK:           llvm.call @task_0(%[[VAL_26]], %[[VAL_27]], %[[VAL_28]], %[[VAL_29]], %[[VAL_30]], %[[VAL_31]], %[[VAL_32]], %[[VAL_33]], %[[VAL_34]], %[[VAL_35]], %[[VAL_36]], %[[VAL_37]]) : (!llvm.ptr<f64>, !llvm.ptr<f64>, i64, i64, i64, i64, i64, !llvm.ptr<f32>, !llvm.ptr<f32>, i64, i64, i64) -> ()
+// CHECK:           llvm.call @task_0(%[[VAL_0]], %[[VAL_1]], %[[VAL_2]], %[[VAL_3]], %[[VAL_4]], %[[VAL_5]], %[[VAL_6]], %[[VAL_7]], %[[VAL_8]], %[[VAL_9]], %[[VAL_10]], %[[VAL_11]]) : (!llvm.ptr<f64>, !llvm.ptr<f64>, i64, i64, i64, i64, i64, !llvm.ptr<f32>, !llvm.ptr<f32>, i64, i64, i64) -> ()
 // CHECK:           llvm.return
 // CHECK:         }
 
