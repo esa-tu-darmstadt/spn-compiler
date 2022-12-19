@@ -26,33 +26,7 @@ template <> HWModuleExternOp PassHelper::getMod<SPNMul>() const { return hwMulOp
 template <> HWModuleExternOp PassHelper::getMod<SPNConstant>() const { return hwConstOp; }
 template <> HWModuleExternOp PassHelper::getMod<SPNCategoricalLeaf>() const { return hwCatOp; }
 template <> HWModuleExternOp PassHelper::getMod<SPNLog>() const { return hwLogOp; }
-
-LogicalResult SPNBodyConversionPattern::matchAndRewrite(SPNBody body, OpAdaptor adaptor, ConversionPatternRewriter& rewriter) const
-{
-  std::vector<PortInfo> ports{
-    helper.port("out_prob", PortDirection::OUTPUT, rewriter.getF64Type())
-  };
-
-  int32_t i = 0;
-  for (auto operand : adaptor.getOperands()) {
-    ports.push_back(helper.port("in_" + std::to_string(i++), PortDirection::INPUT, rewriter.getI32Type()));
-  }
-
-  rewriter.replaceOpWithNewOp<OutputOp>(
-    body.getOperation()->getRegion(0).front().getTerminator(),
-    body.getOperation()->getRegion(0).front().getTerminator()->getResults()
-  );
-
-  HWModuleOp newOp = rewriter.replaceOpWithNewOp<HWModuleOp>(
-    body,
-    rewriter.getStringAttr("lalallala"),
-    ArrayRef<PortInfo>(ports)
-  );
-
-  llvm::outs() << newOp.getNumResults() << "\n";
-
-  return success();
-}
+template <> HWModuleExternOp PassHelper::getMod<SPNBody>() const { return hwBodyOp; }
 
 void prepare(ModuleOp modOp, PassHelper& helper) {
   MLIRContext *ctxt = modOp.getContext();
@@ -67,25 +41,32 @@ void prepare(ModuleOp modOp, PassHelper& helper) {
     op->setAttr("instance_id", builder.getI64IntegerAttr(uid++));
   });
 
+  Type intType = helper.getIntType();
+  Type floatType = helper.getFloatType();
+
   // create the hardware extern modules on top of the body
   std::vector<PortInfo> binPorts{
-    helper.port("in_a", PortDirection::INPUT, builder.getF64Type()),
-    helper.port("in_a", PortDirection::INPUT, builder.getF64Type()),
-    helper.port("out_c", PortDirection::OUTPUT, builder.getF64Type())
+    helper.port("in_a", PortDirection::INPUT, floatType),
+    helper.port("in_a", PortDirection::INPUT, floatType),
+    helper.port("out_c", PortDirection::OUTPUT, floatType)
   };
 
   std::vector<PortInfo> catPorts{
-    helper.port("in_index", PortDirection::INPUT, builder.getIntegerType(8)),
-    helper.port("out_prob", PortDirection::OUTPUT, builder.getF64Type())
+    helper.port("in_index", PortDirection::INPUT, intType),
+    helper.port("out_prob", PortDirection::OUTPUT, floatType)
   };
 
   std::vector<PortInfo> constPorts{
-    helper.port("out_const", PortDirection::OUTPUT, builder.getF64Type())
+    helper.port("out_const", PortDirection::OUTPUT, floatType)
   };
 
   std::vector<PortInfo> logPorts{
-    helper.port("in_a", PortDirection::INPUT, builder.getF64Type()),
-    helper.port("out_b", PortDirection::OUTPUT, builder.getF64Type())
+    helper.port("in_a", PortDirection::INPUT, floatType),
+    helper.port("out_b", PortDirection::OUTPUT, floatType)
+  };
+
+  std::vector<PortInfo> bodyPorts{
+    helper.port("out_prob", PortDirection::OUTPUT, floatType)
   };
 
   helper.hwAddOp = builder.create<HWModuleExternOp>(
@@ -118,88 +99,102 @@ void prepare(ModuleOp modOp, PassHelper& helper) {
     llvm::ArrayRef<PortInfo>(logPorts)
   );
 
-  builder.setInsertionPointToStart(&modOp.getOperation()->getRegion(0).front());
-
-  builder.insert(helper.hwAddOp.getOperation());
-  builder.insert(helper.hwMulOp.getOperation());
-  builder.insert(helper.hwCatOp.getOperation());
-  builder.insert(helper.hwConstOp.getOperation());
-  builder.insert(helper.hwLogOp.getOperation());
+  helper.hwBodyOp = builder.create<HWModuleExternOp>(
+    builder.getUnknownLoc(),
+    builder.getStringAttr("sv_body"),
+    llvm::ArrayRef<PortInfo>(bodyPorts)
+  );
 }
 
-LogicalResult createModuleFromBody(SPNBody body, PassHelper& helper) {
+static Optional<HWModuleOp> createModuleFromBody(ModuleOp root, SPNBody body, PassHelper& helper) {
   OpBuilder builder(helper.getContext());
 
-  // go through all the computation nodes and replace them with instances
-  //body.walk([&](LoSPN_Op op) {
+  // remove attribute, otherwise verifier is mad
+  root.getOperation()->removeAttr("instance_id");
 
+  // create hw module from scratch
+  builder.clearInsertionPoint();
 
-
-  //});
-
-  // trivially replace all the computation operations in the body with hw instances
-  ConversionTarget target(*helper.getContext());
-
-  target.addLegalDialect<LoSPNDialect>();
-  target.addLegalDialect<HWDialect>();
-
-  target.addIllegalOp<SPNAdd>();
-  target.addIllegalOp<SPNMul>();
-  target.addIllegalOp<SPNConstant>();
-  target.addIllegalOp<SPNCategoricalLeaf>();
-  target.addIllegalOp<SPNYield>();
-  target.addIllegalOp<SPNLog>();
-
-  RewritePatternSet patterns(helper.getContext());
-  patterns.add<SPNAddConversionPattern>(helper.getContext(), helper);
-  patterns.add<SPNMulConversionPattern>(helper.getContext(), helper);
-  patterns.add<SPNConstantConversionPattern>(helper.getContext(), helper);
-  patterns.add<SPNCategoricalLeafConversionPattern>(helper.getContext(), helper);
-  patterns.add<SPNYieldConversionPattern>(helper.getContext());
-  patterns.add<SPNLogConversionPattern>(helper.getContext(), helper);
-  FrozenRewritePatternSet frozenPatterns(std::move(patterns));
-
-  if (failed(applyPartialConversion(body, target, frozenPatterns)))
-    return failure();
-
-  // create a new hw module and insert the new body
-  std::vector<PortInfo> ports{
-    helper.port("in_index", PortDirection::INPUT, builder.getI8Type())
+  std::vector<PortInfo> modOpPorts{
+    helper.port("out_prob", PortDirection::OUTPUT, helper.getFloatType())
   };
 
-  for (uint32_t i = 0; i < body.getOperands().size(); ++i)
-    ports.push_back(
-      helper.port("out_" + std::to_string(i), PortDirection::OUTPUT, builder.getF64Type())
-    );
+  for (std::size_t i = 0; i < body.getOperands().size(); ++i)
+    modOpPorts.push_back(helper.port(
+      "in_" + std::to_string(i), PortDirection::INPUT, helper.getIntType()
+    ));
 
-  uint64_t instanceId = llvm::dyn_cast<IntegerAttr>(body.getOperation()->getAttr("instance_id")).getInt();
-  std::string modName = "instance_" + std::to_string(instanceId);
-
-  builder.setInsertionPointAfter(body.getOperation());
   HWModuleOp modOp = builder.create<HWModuleOp>(
-    body.getLoc(),
-    builder.getStringAttr(modName),
-    ArrayRef<PortInfo>(ports)
+    builder.getUnknownLoc(),
+    builder.getStringAttr("spn_body_mod"),
+    ArrayRef<PortInfo>(modOpPorts)
   );
 
-  // see FunctionInterfaces.td
-  //modOp.eraseBody();
-  //modOp.getBody().push_back(new Block);
-  
+  // rewrite
+  {
+    ConversionTarget target(*helper.getContext());
+
+    target.addLegalDialect<LoSPNDialect>();
+    target.addLegalDialect<HWDialect>();
+
+    target.addIllegalOp<SPNAdd>();
+    target.addIllegalOp<SPNMul>();
+    target.addIllegalOp<SPNConstant>();
+    target.addIllegalOp<SPNCategoricalLeaf>();
+    target.addIllegalOp<SPNYield>();
+    target.addIllegalOp<SPNLog>();
+    //target.addIllegalOp<SPNBody>();
+
+    SPNTypeConverter typeConverter(
+      helper.getIntType(),
+      helper.getFloatType()
+    );
+
+    RewritePatternSet patterns(helper.getContext());
+    patterns.add<SPNAddConversionPattern>(typeConverter, helper.getContext(), helper);
+    patterns.add<SPNMulConversionPattern>(typeConverter, helper.getContext(), helper);
+    patterns.add<SPNConstantConversionPattern>(typeConverter, helper.getContext(), helper);
+    patterns.add<SPNCategoricalLeafConversionPattern>(typeConverter, helper.getContext(), helper);
+    patterns.add<SPNYieldConversionPattern>(helper.getContext());
+    patterns.add<SPNLogConversionPattern>(typeConverter, helper.getContext(), helper);
+    //patterns.add<SPNBodyConversionPattern>(helper.getContext(), helper);
+    FrozenRewritePatternSet frozenPatterns(std::move(patterns));
+
+    if (failed(applyPartialConversion(body, target, frozenPatterns)))
+      return Optional<HWModuleOp>();
+  }
+ 
+  // delete hw output, see FunctionInterfaces.td
+  modOp.eraseBody();
+  modOp.getBody().push_back(new Block);
+
+  builder.setInsertionPointToStart(modOp.getBodyBlock());
+
+  // region, first block
+  auto& bodyOps = body.getBody().front().getOperations();
+
   //modOp.getBodyBlock()->getOperations().splice(
-  //  modOp.getBodyBlock()->getOperations().begin(), // where
-  //  body.getOperation()->getBlock()->getOperations(),
-  //  body.getOperation()->getBlock()->begin(),
-  //  body.getOperation()->getBlock()->end()
+  //  modOp.getBodyBlock()->getOperations().begin(), // where to insert
+  //  bodyOps, bodyOps.begin(), bodyOps.end() // where to take from
   //);
 
-  //body.getOperation()->getBlock()->getOperations().splice(
-  //  modOp.getBody()
-  //);
+  // performs all the cleanup that I'm too stupid to do
+  modOp.getRegion().takeBody(body.getRegion());
 
-  //modOp.dump();
+  // insert external hw modules and hw module
+  builder.setInsertionPointAfter(&root.front());
+  builder.insert(helper.hwAddOp);
+  builder.insert(helper.hwMulOp);
+  builder.insert(helper.hwCatOp);
+  builder.insert(helper.hwConstOp);
+  builder.insert(helper.hwLogOp);
+  builder.insert(helper.hwBodyOp);
+  builder.insert(modOp);
 
-  return success();
+  // delete the first operation i.e. remaining spn stuff
+  root.getRegion().front().front().erase();
+
+  return modOp;
 }
 
 void test(MLIRContext *ctxt) {
@@ -231,6 +226,9 @@ void test(MLIRContext *ctxt) {
     ValueRange{constOp.getResult()}
   );
 
+  newOp.appendInput("hello", builder.getI8Type());
+  llvm::outs() << "result count: " << newOp.getResultTypes().size() << "\n";
+
   newOp.dump(); 
 }
 
@@ -243,7 +241,8 @@ void convert(ModuleOp modOp) {
   prepare(modOp, helper);
 
   modOp.walk([&](SPNBody body) {
-    std::ignore = createModuleFromBody(body, helper);
+    createModuleFromBody(modOp, body, helper);
+    return WalkResult::interrupt();
   });
 }
 

@@ -24,29 +24,45 @@ namespace lo2hw {
 
 class PassHelper {
 public:
-  HWModuleExternOp hwAddOp, hwMulOp, hwCatOp, hwConstOp, hwLogOp;
+  HWModuleExternOp hwAddOp, hwMulOp, hwCatOp, hwConstOp, hwLogOp, hwBodyOp;
   MLIRContext *ctxt;
+  OpBuilder builder;
 
-  PassHelper(MLIRContext *ctxt): ctxt(ctxt) {}
+  PassHelper(MLIRContext *ctxt): ctxt(ctxt), builder(ctxt) {}
 
   PortInfo port(const std::string& name, PortDirection direction, Type type);
   StringAttr str(const std::string& s) { return StringAttr::get(ctxt, s); }
   MLIRContext *getContext() const { return ctxt; }
 
+  Type getIntType() { return builder.getI32Type(); }
+  Type getFloatType() { return builder.getI64Type(); }
+
   template <class ConcreteOp>
   HWModuleExternOp getMod() const;
 };
 
-class SPNBodyConversionPattern : public OpConversionPattern<SPNBody> {
-  PassHelper& helper;
+class SPNTypeConverter : public TypeConverter {
 public:
-  using OpAdaptor = OpConversionPattern<SPNBody>::OpAdaptor;
+  explicit SPNTypeConverter(Type hwIntType, Type hwFloatType) {
+    addConversion([hwFloatType](FloatType floatType) -> Optional<Type> {
+      return hwFloatType;
+    });
 
-  SPNBodyConversionPattern(MLIRContext *ctxt, PassHelper& helper):
-    OpConversionPattern<SPNBody>::OpConversionPattern(ctxt),
-    helper(helper) {}
+    // TODO: What's the difference between IntType and IntegerType?
+    addConversion([hwIntType](IntegerType intType) -> Optional<Type> {
+      return hwIntType;
+    });
 
-  LogicalResult matchAndRewrite(SPNBody body, OpAdaptor adaptor, ConversionPatternRewriter& rewriter) const override;
+    addSourceMaterialization([hwFloatType](OpBuilder& builder, FloatType resultType, ValueRange inputs, Location loc) -> Optional<Value> {
+      builder.getIntegerAttr(
+        builder.getI32Type(),
+        123456
+      );
+      
+      
+      llvm::outs() << "?\n";
+    });
+  }
 };
 
 template <class ConcreteOp>
@@ -55,8 +71,8 @@ class SPNOpConversionPattern : public OpConversionPattern<ConcreteOp> {
 public:
   using OpAdaptor = typename OpConversionPattern<ConcreteOp>::OpAdaptor;
 
-  SPNOpConversionPattern(MLIRContext *ctxt, PassHelper& helper):
-    OpConversionPattern<ConcreteOp>::OpConversionPattern(ctxt),
+  SPNOpConversionPattern(TypeConverter& typeConverter, MLIRContext *ctxt, PassHelper& helper):
+    OpConversionPattern<ConcreteOp>::OpConversionPattern(typeConverter, ctxt),
     helper(helper) {}
 
   LogicalResult matchAndRewrite(ConcreteOp op, OpAdaptor adaptor, ConversionPatternRewriter &rewriter) const override {
@@ -67,7 +83,7 @@ public:
     uint64_t id = llvm::dyn_cast<IntegerAttr>(op.getOperation()->getAttr("instance_id")).getInt();
 
     std::vector<Value> _operands(std::begin(operands), std::end(operands));
-    InstanceOp fadd_inst = rewriter.replaceOpWithNewOp<InstanceOp>(op.getOperation(),
+    InstanceOp inst = rewriter.replaceOpWithNewOp<InstanceOp>(op.getOperation(),
         mod.getOperation(),
         rewriter.getStringAttr("instance_" + std::to_string(id)),
         ArrayRef<Value>(_operands)
@@ -102,6 +118,11 @@ public:
   using SPNOpConversionPattern<SPNLog>::SPNOpConversionPattern;
 };
 
+class SPNBodyConversionPattern : public SPNOpConversionPattern<SPNBody> {
+public:
+  using SPNOpConversionPattern<SPNBody>::SPNOpConversionPattern;
+};
+
 //class SPNBodyConversionPattern : public OpConversionPattern<SPNBody> {
 //public:
 //  using OpConversionPattern<SPNBody>::OpConversionPattern;
@@ -116,8 +137,11 @@ public:
   using OpConversionPattern<SPNYield>::OpConversionPattern;
 
   LogicalResult matchAndRewrite(SPNYield op, OpAdaptor adaptor, ConversionPatternRewriter &rewriter) const override {
+    // adaptor is the already converted result
+    auto operand = adaptor.getOperands()[0];
+
     rewriter.replaceOpWithNewOp<OutputOp>(op,
-      ValueRange{op.getOperation()->getOperand(0)}
+      ValueRange{operand}
     );
 
     return success();
@@ -126,9 +150,9 @@ public:
 
 static PortInfo port(const std::string& name, PortDirection direction, Type type);
 static void prepare(ModuleOp modOp, PassHelper& helper);
-static LogicalResult createModuleFromBody(SPNBody body, PassHelper& helper);
-static void test(MLIRContext *ctxt);
 
 void convert(ModuleOp modOp);
+
+static void test(MLIRContext *ctxt);
 
 }

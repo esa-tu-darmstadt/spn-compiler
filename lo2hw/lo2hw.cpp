@@ -57,6 +57,8 @@ void walk_block(mlir::Block& block)
 
 void dump_mlir(const std::string& src_file_path)
 {
+    //llvm::DebugFlag = true;
+
     std::unique_ptr<mlir::MLIRContext> context = std::make_unique<mlir::MLIRContext>();
     assert(context->getOrLoadDialect<mlir::spn::low::LoSPNDialect>());
     assert(context->getOrLoadDialect<mlir::spn::high::HiSPNDialect>());
@@ -70,15 +72,15 @@ void dump_mlir(const std::string& src_file_path)
     mlir::Operation *op = result.get();
     assert(op);
 
-    llvm::outs() << "INFO: Got:\n";
-    op->dump();
+    //llvm::outs() << "INFO: Got:\n";
+    //op->dump();
 
     // walk the AST and print the nodes
     //llvm::outs() << "INFO: Walking:\n";
     //walk_operation(reinterpret_cast<mlir::Operation *>(op));
 
     // walk the AST and create new nodes in HW
-    llvm::outs() << "INFO: Converting...\n";
+    //llvm::outs() << "INFO: Converting...\n";
     //assert(applyLo2hw(context.get(), op).succeeded());
     //op->dump();
     auto modOp = llvm::dyn_cast<ModuleOp>(op);

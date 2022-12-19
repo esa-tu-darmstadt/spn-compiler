@@ -41,6 +41,7 @@ link_directories(${CIRCT_BUILD_LIBRARY_DIR})
 add_definitions(${CIRCT_DEFINITIONS})
 
 add_executable(lo2hw lo2hw.cpp mlirgen.cpp rewrite.cpp lo2hwPass.cpp)
+#add_executable(lo2hw test.cpp)
 
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
