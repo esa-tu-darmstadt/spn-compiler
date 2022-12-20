@@ -1,5 +1,6 @@
 #include "lo2hwPass.h"
 
+#include <mlir/IR/BuiltinDialect.h>
 /*
   What is a SPN task?
   
@@ -41,8 +42,8 @@ void prepare(ModuleOp modOp, PassHelper& helper) {
     op->setAttr("instance_id", builder.getI64IntegerAttr(uid++));
   });
 
-  Type intType = helper.getIntType();
-  Type floatType = helper.getFloatType();
+  Type indexType = helper.getInputIndexType();
+  Type floatType = helper.getProbabilityType();
 
   // create the hardware extern modules on top of the body
   std::vector<PortInfo> binPorts{
@@ -52,7 +53,7 @@ void prepare(ModuleOp modOp, PassHelper& helper) {
   };
 
   std::vector<PortInfo> catPorts{
-    helper.port("in_index", PortDirection::INPUT, intType),
+    helper.port("in_index", PortDirection::INPUT, indexType),
     helper.port("out_prob", PortDirection::OUTPUT, floatType)
   };
 
@@ -116,12 +117,12 @@ static Optional<HWModuleOp> createModuleFromBody(ModuleOp root, SPNBody body, Pa
   builder.clearInsertionPoint();
 
   std::vector<PortInfo> modOpPorts{
-    helper.port("out_prob", PortDirection::OUTPUT, helper.getFloatType())
+    helper.port("out_prob", PortDirection::OUTPUT, helper.getProbabilityType())
   };
 
   for (std::size_t i = 0; i < body.getOperands().size(); ++i)
     modOpPorts.push_back(helper.port(
-      "in_" + std::to_string(i), PortDirection::INPUT, helper.getIntType()
+      "in_" + std::to_string(i), PortDirection::INPUT, helper.getInputIndexType()
     ));
 
   HWModuleOp modOp = builder.create<HWModuleOp>(
@@ -130,12 +131,41 @@ static Optional<HWModuleOp> createModuleFromBody(ModuleOp root, SPNBody body, Pa
     ArrayRef<PortInfo>(modOpPorts)
   );
 
-  // rewrite
+  // delete hw output, see FunctionInterfaces.td
+  modOp.eraseBody();
+  modOp.getBody().push_back(new Block);
+
+  builder.setInsertionPointToStart(modOp.getBodyBlock());
+
+  // region, first block
+  auto& bodyOps = body.getBody().front().getOperations();
+
+  // performs all the cleanup that I'm too stupid to do
+  modOp.getRegion().takeBody(body.getRegion());
+
+  builder.setInsertionPointAfter(&root.front());
+  builder.insert(modOp);
+
+  // delete the first operation i.e. remaining spn stuff
+  root.getRegion().front().front().erase();
+
+  // insert the external modules with the final types
+  builder.setInsertionPoint(&root.front());
+  builder.insert(helper.hwAddOp);
+  builder.insert(helper.hwMulOp);
+  builder.insert(helper.hwCatOp);
+  builder.insert(helper.hwConstOp);
+  builder.insert(helper.hwLogOp);
+  builder.insert(helper.hwBodyOp);
+
+  // rewrite and type convert
   {
     ConversionTarget target(*helper.getContext());
 
     target.addLegalDialect<LoSPNDialect>();
     target.addLegalDialect<HWDialect>();
+    target.addLegalOp<UnrealizedConversionCastOp>();
+    target.addLegalDialect<BuiltinDialect>();
 
     target.addIllegalOp<SPNAdd>();
     target.addIllegalOp<SPNMul>();
@@ -146,8 +176,8 @@ static Optional<HWModuleOp> createModuleFromBody(ModuleOp root, SPNBody body, Pa
     //target.addIllegalOp<SPNBody>();
 
     SPNTypeConverter typeConverter(
-      helper.getIntType(),
-      helper.getFloatType()
+      helper.getInputIndexType(),
+      helper.getProbabilityType()
     );
 
     RewritePatternSet patterns(helper.getContext());
@@ -155,87 +185,19 @@ static Optional<HWModuleOp> createModuleFromBody(ModuleOp root, SPNBody body, Pa
     patterns.add<SPNMulConversionPattern>(typeConverter, helper.getContext(), helper);
     patterns.add<SPNConstantConversionPattern>(typeConverter, helper.getContext(), helper);
     patterns.add<SPNCategoricalLeafConversionPattern>(typeConverter, helper.getContext(), helper);
-    patterns.add<SPNYieldConversionPattern>(helper.getContext());
+    patterns.add<SPNYieldConversionPattern>(typeConverter, helper.getContext());
     patterns.add<SPNLogConversionPattern>(typeConverter, helper.getContext(), helper);
     //patterns.add<SPNBodyConversionPattern>(helper.getContext(), helper);
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 
-    if (failed(applyPartialConversion(body, target, frozenPatterns)))
+    if (failed(applyPartialConversion(modOp, target, frozenPatterns)))
       return Optional<HWModuleOp>();
   }
- 
-  // delete hw output, see FunctionInterfaces.td
-  modOp.eraseBody();
-  modOp.getBody().push_back(new Block);
-
-  builder.setInsertionPointToStart(modOp.getBodyBlock());
-
-  // region, first block
-  auto& bodyOps = body.getBody().front().getOperations();
-
-  //modOp.getBodyBlock()->getOperations().splice(
-  //  modOp.getBodyBlock()->getOperations().begin(), // where to insert
-  //  bodyOps, bodyOps.begin(), bodyOps.end() // where to take from
-  //);
-
-  // performs all the cleanup that I'm too stupid to do
-  modOp.getRegion().takeBody(body.getRegion());
-
-  // insert external hw modules and hw module
-  builder.setInsertionPointAfter(&root.front());
-  builder.insert(helper.hwAddOp);
-  builder.insert(helper.hwMulOp);
-  builder.insert(helper.hwCatOp);
-  builder.insert(helper.hwConstOp);
-  builder.insert(helper.hwLogOp);
-  builder.insert(helper.hwBodyOp);
-  builder.insert(modOp);
-
-  // delete the first operation i.e. remaining spn stuff
-  root.getRegion().front().front().erase();
 
   return modOp;
 }
 
-void test(MLIRContext *ctxt) {
-  OpBuilder builder(ctxt);
-  PassHelper helper(ctxt);
-
-  std::vector<PortInfo> ports{
-    helper.port("in_index", PortDirection::INPUT, builder.getIntegerType(8)),
-    helper.port("out_prob", PortDirection::OUTPUT, builder.getF64Type())
-  };
-
-  HWModuleOp newOp = builder.create<HWModuleOp>(
-    builder.getUnknownLoc(),
-    builder.getStringAttr("extract_cstfold"),
-    ArrayRef<PortInfo>(ports)
-  );
-
-  builder.setInsertionPointToStart(newOp.getBodyBlock());
-  ConstantOp constOp = builder.create<ConstantOp>(
-    builder.getUnknownLoc(),
-    builder.getIntegerType(16),
-    420
-  );
-
-  newOp.getBodyBlock()->getTerminator()->erase();
-  builder.setInsertionPointToEnd(newOp.getBodyBlock());
-  builder.create<OutputOp>(
-    builder.getUnknownLoc(),
-    ValueRange{constOp.getResult()}
-  );
-
-  newOp.appendInput("hello", builder.getI8Type());
-  llvm::outs() << "result count: " << newOp.getResultTypes().size() << "\n";
-
-  newOp.dump(); 
-}
-
 void convert(ModuleOp modOp) {
-  //test(modOp.getContext());
-  //return;
-
   PassHelper helper(modOp.getContext());
   
   prepare(modOp, helper);

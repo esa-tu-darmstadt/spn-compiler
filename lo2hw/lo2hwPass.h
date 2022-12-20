@@ -34,8 +34,22 @@ public:
   StringAttr str(const std::string& s) { return StringAttr::get(ctxt, s); }
   MLIRContext *getContext() const { return ctxt; }
 
-  Type getIntType() { return builder.getI32Type(); }
-  Type getFloatType() { return builder.getI64Type(); }
+  Type getDefaultInputIndexType() {
+    return builder.getI32Type();
+  }
+
+  Type getDefaultProbabilityType() {
+    return builder.getF64Type();
+  }
+
+  Type getInputIndexType() {
+    return IntType::get(builder.getI32IntegerAttr(8));
+  }
+
+  Type getProbabilityType() {
+    // 64 bit float for now
+    return IntType::get(builder.getI32IntegerAttr(64));
+  }
 
   template <class ConcreteOp>
   HWModuleExternOp getMod() const;
@@ -53,15 +67,13 @@ public:
       return hwIntType;
     });
 
-    addSourceMaterialization([hwFloatType](OpBuilder& builder, FloatType resultType, ValueRange inputs, Location loc) -> Optional<Value> {
-      builder.getIntegerAttr(
-        builder.getI32Type(),
-        123456
-      );
-      
-      
-      llvm::outs() << "?\n";
+    addArgumentMaterialization([hwFloatType](OpBuilder& builder, Type resultType, ValueRange inputs, Location loc) -> Optional<Value> {
+      // just force a different type
+      Value singleValue = inputs[0];
+      singleValue.setType(resultType);
+      return singleValue;
     });
+
   }
 };
 
@@ -123,15 +135,6 @@ public:
   using SPNOpConversionPattern<SPNBody>::SPNOpConversionPattern;
 };
 
-//class SPNBodyConversionPattern : public OpConversionPattern<SPNBody> {
-//public:
-//  using OpConversionPattern<SPNBody>::OpConversionPattern;
-//
-//  LogicalResult matchAndRewrite(SPNBody op, OpAdaptor adaptor, ConversionPatternRewriter &rewriter) const override {
-//
-//  }
-//};
-
 class SPNYieldConversionPattern : public OpConversionPattern<SPNYield> {
 public:
   using OpConversionPattern<SPNYield>::OpConversionPattern;
@@ -148,11 +151,91 @@ public:
   }
 };
 
-static PortInfo port(const std::string& name, PortDirection direction, Type type);
+// type conversion pass
+
+class HWTypeConverter : public TypeConverter {
+public:
+  explicit HWTypeConverter(PassHelper& helper) {
+    addConversion([&helper](IntegerType indexType) {
+      return helper.getInputIndexType();
+    });
+
+    addConversion([&helper](FloatType probType) {
+      return helper.getProbabilityType();
+    });
+  }
+};
+
+class InstanceOpConversionPattern : public OpConversionPattern<InstanceOp> {
+public:
+  using OpConversionPattern<InstanceOp>::OpConversionPattern;
+
+  //HWConversionPattern(HWTypeConverter& tc, MLIRContext *ctxt):
+  //  ConversionPattern::ConversionPattern(tc, SPNLog::getOperationName(), 1, ctxt) {}
+
+  LogicalResult matchAndRewrite(InstanceOp op, OpAdaptor adaptor, ConversionPatternRewriter &rewriter) const override {
+    //for (Value operand : adaptor.getOperands())
+    //  operand.setType(typeConverter->convertType(operand.getType()));
+
+    //for (OpResult result : op->getResults())
+    //  result.setType(typeConverter->convertType(result.getType()));
+
+    //ValueRange
+
+    auto operands = adaptor.getOperands();
+    std::vector<Value> _operands(std::begin(operands), std::end(operands));
+
+    auto first = operands[0];
+
+    rewriter.replaceOpWithNewOp<InstanceOp>(op,
+      op.getReferencedModule(nullptr),
+      op.getName(),
+      //rewriter.getStringAttr("instance_" + std::to_string(id)),
+      ArrayRef<Value>(_operands)
+    );
+
+    return success();
+  }
+};
+
+class ModuleExternOpConversionPattern : public OpConversionPattern<HWModuleExternOp> {
+  Type oldIndexType, oldProbType, newIndexType, newProbType;
+public:
+  using OpConversionPattern<HWModuleExternOp>::OpConversionPattern;
+
+  ModuleExternOpConversionPattern(PassHelper& helper, TypeConverter& typeConverter, MLIRContext *ctxt):
+    OpConversionPattern<HWModuleExternOp>::OpConversionPattern(typeConverter, ctxt) {
+    oldIndexType = helper.getDefaultInputIndexType();
+    oldProbType = helper.getDefaultProbabilityType();
+    newIndexType = helper.getInputIndexType();
+    newProbType = helper.getProbabilityType();
+  }
+
+  LogicalResult matchAndRewrite(HWModuleExternOp op, OpAdaptor adaptor, ConversionPatternRewriter &rewriter) const override {
+    std::vector<PortInfo> newPorts;
+
+    for (PortInfo newPortInfo : op.getAllPorts()) {
+      if (newPortInfo.type == oldIndexType)
+        newPortInfo.type = newIndexType;
+      else
+        newPortInfo.type = newProbType;
+
+      newPorts.push_back(newPortInfo);
+    }
+
+    HWModuleExternOp newMod = rewriter.replaceOpWithNewOp<HWModuleExternOp>(op,
+      op.getNameAttr(),
+      newPorts
+    );
+
+    
+
+    return success();
+  }
+};
+
 static void prepare(ModuleOp modOp, PassHelper& helper);
 
 void convert(ModuleOp modOp);
-
-static void test(MLIRContext *ctxt);
 
 }
