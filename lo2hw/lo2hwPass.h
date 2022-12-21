@@ -30,7 +30,14 @@ public:
 
   PassHelper(MLIRContext *ctxt): ctxt(ctxt), builder(ctxt) {}
 
-  PortInfo port(const std::string& name, PortDirection direction, Type type);
+  PortInfo port(const std::string& name, PortDirection direction, Type type) {
+    return PortInfo{
+      .name = builder.getStringAttr(name),
+      .direction = direction,
+      .type = type
+    };
+  }
+
   StringAttr str(const std::string& s) { return StringAttr::get(ctxt, s); }
   MLIRContext *getContext() const { return ctxt; }
 
@@ -233,8 +240,6 @@ public:
     return success();
   }
 };
-
-static void prepare(ModuleOp modOp, PassHelper& helper);
 
 void convert(ModuleOp modOp);
 

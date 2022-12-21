@@ -13,15 +13,6 @@
 
 namespace lo2hw {
 
-PortInfo PassHelper::port(const std::string& name, PortDirection direction, Type type)
-{
-  return PortInfo{
-    .name = StringAttr::get(ctxt, name),
-    .direction = direction,
-    .type = type
-  };
-}
-
 template <> HWModuleExternOp PassHelper::getMod<SPNAdd>() const { return hwAddOp; }
 template <> HWModuleExternOp PassHelper::getMod<SPNMul>() const { return hwMulOp; }
 template <> HWModuleExternOp PassHelper::getMod<SPNConstant>() const { return hwConstOp; }
@@ -29,7 +20,7 @@ template <> HWModuleExternOp PassHelper::getMod<SPNCategoricalLeaf>() const { re
 template <> HWModuleExternOp PassHelper::getMod<SPNLog>() const { return hwLogOp; }
 template <> HWModuleExternOp PassHelper::getMod<SPNBody>() const { return hwBodyOp; }
 
-void prepare(ModuleOp modOp, PassHelper& helper) {
+static void prepare(ModuleOp modOp, PassHelper& helper) {
   MLIRContext *ctxt = modOp.getContext();
   OpBuilder builder(ctxt);
 
@@ -107,7 +98,7 @@ void prepare(ModuleOp modOp, PassHelper& helper) {
   );
 }
 
-static Optional<HWModuleOp> createModuleFromBody(ModuleOp root, SPNBody body, PassHelper& helper) {
+static LogicalResult convertToHWModule(ModuleOp root, SPNBody body, PassHelper& helper) {
   OpBuilder builder(helper.getContext());
 
   // remove attribute, otherwise verifier is mad
@@ -191,10 +182,10 @@ static Optional<HWModuleOp> createModuleFromBody(ModuleOp root, SPNBody body, Pa
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 
     if (failed(applyPartialConversion(modOp, target, frozenPatterns)))
-      return Optional<HWModuleOp>();
+      return failure();
   }
 
-  return modOp;
+  return success();
 }
 
 void convert(ModuleOp modOp) {
@@ -203,7 +194,7 @@ void convert(ModuleOp modOp) {
   prepare(modOp, helper);
 
   modOp.walk([&](SPNBody body) {
-    createModuleFromBody(modOp, body, helper);
+    convertToHWModule(modOp, body, helper);
     return WalkResult::interrupt();
   });
 }
