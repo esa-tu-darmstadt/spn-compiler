@@ -62,6 +62,23 @@ void ConversionHelper::createHwOps() {
   );
 }
 
+int64_t ConversionHelper::getDelay(const std::string& name) const {
+  // just some arbitrary values
+  if (name == "sv_add") {
+    return 5;
+  } else if (name == "sv_mul") {
+    return 10;
+  } else if (name == "sv_categorical") {
+    return 1;
+  } else if (name == "sv_constant") {
+    return 0;
+  } else if (name == "sv_log") {
+    return 10;
+  }
+
+  throw std::runtime_error("Unknown module type!");
+}
+
 void ConversionHelper::assignInstanceIds(ModuleOp root) {
   uint64_t id = 0;
 
@@ -70,6 +87,7 @@ void ConversionHelper::assignInstanceIds(ModuleOp root) {
   });
 }
 
+// TODO: Decide if we want to utilize Optional or throw exceptions!
 Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
   OpBuilder builder(helper.getContext());
 
@@ -187,7 +205,83 @@ ModuleOp convert(ModuleOp root) {
   for (auto op : modOps)
     builder.insert(op);
 
+  schedule(newRoot, helper);
+
   return newRoot;
+}
+
+void schedule(ModuleOp root, ConversionHelper& helper) {
+  // inspired by Scheduling.cpp
+  
+  using namespace ::circt::scheduling;
+  using namespace ::llvm;
+  using OperatorType = SchedulingProblem::OperatorType;
+
+  //SPNBody body = root.getRegion().front().getOperations()[5];
+
+  SchedulingProblem problem;
+  problem.setContainingOp(root.getOperation());
+
+  // construct problem
+
+  for (const std::string& name : std::vector<std::string>{"sv_add", "sv_mul", "sv_constant", "sv_categorical", "sv_log"}) {
+    OperatorType opType = problem.getOrInsertOperatorType(name);
+    int64_t delay = helper.getDelay(name);
+    problem.setLatency(opType, delay);
+  }
+
+  root.walk([&](Operation *op) {
+
+    // check that this operation is relevant
+    InstanceOp instOp = dyn_cast<InstanceOp>(op);
+
+    if (!instOp)
+      return;
+
+    // ignore constants
+    Operation *refMod = instOp.getReferencedModule(nullptr);
+
+    //if (refMod == helper.getMod("sv_constant")) {
+    //  llvm::outs() << "ignoring constant\n";
+    //  return;
+    //}
+
+    HWModuleExternOp extOp = dyn_cast<HWModuleExternOp>(refMod);
+    std::string instName = instOp.getName().getValue().str();
+    std::string modName = extOp.getName().str();
+
+    llvm::outs() << "inserting operation " << instName << " (" << modName << ")" << "\n";
+    problem.insertOperation(op);  
+    
+    int64_t delay = helper.getDelay(modName);
+    llvm::outs() << "operator has delay " << delay << "\n";
+
+    // add dependencies
+    for (Value operand : op->getOperands()) {
+      if (!operand.getDefiningOp())
+        continue;
+      
+      
+      llvm::outs() << "adding dependency\n";
+      problem.insertDependence(std::make_pair(operand.getDefiningOp(), op));
+    }
+
+    // say what operator type we have
+    problem.setLinkedOperatorType(op, problem.getOrInsertOperatorType(modName));
+  });
+
+  llvm::outs() << "Checking problem...\n";
+  problem.check();
+
+  //dumpAsDOT(problem, llvm::outs());
+
+  if (failed(scheduleASAP(problem)))
+    llvm::errs() << "Could not schedule problem!\n";
+  else
+    llvm::outs() << "Problem scheduled!\n";
+
+
+  dumpAsDOT(problem, llvm::outs());
 }
 
 }

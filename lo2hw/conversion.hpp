@@ -13,6 +13,10 @@
 #include "LoSPN/LoSPNOps.h"
 #include "HiSPN/HiSPNDialect.h"
 
+#include "circt/Scheduling/Algorithms.h"
+#include "circt/Scheduling/Problems.h"
+#include "circt/Scheduling/Utilities.h"
+
 
 using namespace ::mlir;
 using namespace ::circt::hw;
@@ -37,7 +41,7 @@ public:
 
   ConversionHelper(MLIRContext *ctxt): ctxt(ctxt), builder(ctxt) {
     indexType = builder.getI8Type();
-    probType = builder.getF64Type();
+    probType = builder.getI64Type();
 
     createHwOps();
   }
@@ -62,11 +66,22 @@ public:
     return std::string("instance_") + std::to_string(instanceIds.at(op));
   }
 
+  int64_t getDelay(const std::string& name) const;
+
   void assignInstanceIds(ModuleOp root);
 };
 
 Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper);
 
 ModuleOp convert(ModuleOp root);
+
+class SchedulingProblem : public virtual ::circt::scheduling::Problem {
+public:
+  SchedulingProblem() = default;
+
+  
+};
+
+void schedule(ModuleOp root, ConversionHelper& helper);
 
 }
