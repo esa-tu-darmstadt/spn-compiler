@@ -40,7 +40,7 @@ add_definitions(${LLVM_DEFINITIONS})
 link_directories(${CIRCT_BUILD_LIBRARY_DIR})
 add_definitions(${CIRCT_DEFINITIONS})
 
-add_executable(lo2hw lo2hw.cpp mlirgen.cpp rewrite.cpp lo2hwPass.cpp)
+add_executable(lo2hw lo2hw.cpp mlirgen.cpp rewrite.cpp lo2hwPass.cpp conversion.cpp)
 #add_executable(lo2hw test.cpp)
 
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)

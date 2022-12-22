@@ -12,6 +12,7 @@
 #include "mlirgen.hpp"
 #include "rewrite.hpp"
 #include "lo2hwPass.h"
+#include "conversion.hpp"
 
 
 void walk_operation(mlir::Operation *);
@@ -84,8 +85,8 @@ void dump_mlir(const std::string& src_file_path)
     //assert(applyLo2hw(context.get(), op).succeeded());
     //op->dump();
     auto modOp = llvm::dyn_cast<ModuleOp>(op);
-    lo2hw::convert(modOp);
-    op->dump();
+    ModuleOp newRoot = ::spn::lo2hw::conversion::convert(modOp);
+    newRoot.dump();
 }
 
 
