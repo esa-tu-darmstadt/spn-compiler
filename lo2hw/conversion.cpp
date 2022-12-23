@@ -8,26 +8,36 @@ namespace spn::lo2hw::conversion {
 
 void ConversionHelper::createHwOps() {
   std::vector<PortInfo> binPorts{
+    inPort("clk", sigType),
+    inPort("rst", sigType),
     inPort("in_a", probType),
     inPort("in_a", probType),
     outPort("out_c", probType)
   };
 
   std::vector<PortInfo> catPorts{
+    inPort("clk", sigType),
+    inPort("rst", sigType),
     inPort("in_index", indexType),
     outPort("out_prob", probType)
   };
 
   std::vector<PortInfo> constPorts{
+    inPort("clk", sigType),
+    inPort("rst", sigType),
     outPort("out_const", probType)
   };
 
   std::vector<PortInfo> logPorts{
+    inPort("clk", sigType),
+    inPort("rst", sigType),
     inPort("in_a", probType),
     outPort("out_b", probType)
   };
 
   std::vector<PortInfo> bodyPorts{
+    inPort("clk", sigType),
+    inPort("rst", sigType),
     outPort("out_prob", probType)
   };
 
@@ -93,6 +103,8 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
 
   // build top hw module
   std::vector<PortInfo> modOpPorts{
+    helper.inPort("clk", helper.getSigType()),
+    helper.inPort("rst", helper.getSigType()),
     helper.port("out_prob", PortDirection::OUTPUT, helper.getProbType())
   };
 
@@ -109,6 +121,8 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
 
   // remove the default hw.output
   modOp.getBodyBlock()->front().erase();
+  Value modClk = modOp.getRegion().front().getArguments()[0];
+  Value modRst = modOp.getRegion().front().getArguments()[1];
 
   builder.setInsertionPointToStart(modOp.getBodyBlock());
 
@@ -118,7 +132,8 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
   // remap the block arguments
   mapping.map(
     body.getRegion().front().getArguments(),
-    modOp.getRegion().front().getArguments()
+    // drop clk and rst signals
+    modOp.getRegion().front().getArguments().drop_front(2)
   );
 
   body.walk([&](Operation *op) {
@@ -127,7 +142,10 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
       return;
 
     // get the new operands
-    std::vector<Value> operands;
+    std::vector<Value> operands{
+      modClk, modRst
+    };
+
     for (Value operand : op->getOperands()) {
       Value newOperand = mapping.lookupOrNull(operand);
 
@@ -146,7 +164,7 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
     if (SPNYield yield = llvm::dyn_cast<SPNYield>(op)) {
       builder.create<OutputOp>(
         loc,
-        ValueRange(operands)
+        ValueRange(operandsRef.drop_front(2))
       );
 
       return;
@@ -205,25 +223,27 @@ ModuleOp convert(ModuleOp root) {
   for (auto op : modOps)
     builder.insert(op);
 
-  schedule(newRoot, helper);
+  assert(succeeded(newRoot.verify()));
+
+  // schedule problem and insert buffers
+  SchedulingProblem problem(newRoot.getOperation());
+  schedule(newRoot, helper, problem);
+
+  // from here on the code gets ugly
+
+  dumpAsDOT(problem, llvm::outs());
 
   return newRoot;
 }
 
-void schedule(ModuleOp root, ConversionHelper& helper) {
+void schedule(ModuleOp root, ConversionHelper& helper, SchedulingProblem& problem) {
   // inspired by Scheduling.cpp
-  
+
   using namespace ::circt::scheduling;
   using namespace ::llvm;
   using OperatorType = SchedulingProblem::OperatorType;
 
-  //SPNBody body = root.getRegion().front().getOperations()[5];
-
-  SchedulingProblem problem;
-  problem.setContainingOp(root.getOperation());
-
   // construct problem
-
   for (const std::string& name : std::vector<std::string>{"sv_add", "sv_mul", "sv_constant", "sv_categorical", "sv_log"}) {
     OperatorType opType = problem.getOrInsertOperatorType(name);
     int64_t delay = helper.getDelay(name);
@@ -231,38 +251,27 @@ void schedule(ModuleOp root, ConversionHelper& helper) {
   }
 
   root.walk([&](Operation *op) {
-
     // check that this operation is relevant
     InstanceOp instOp = dyn_cast<InstanceOp>(op);
 
     if (!instOp)
       return;
 
-    // ignore constants
     Operation *refMod = instOp.getReferencedModule(nullptr);
-
-    //if (refMod == helper.getMod("sv_constant")) {
-    //  llvm::outs() << "ignoring constant\n";
-    //  return;
-    //}
 
     HWModuleExternOp extOp = dyn_cast<HWModuleExternOp>(refMod);
     std::string instName = instOp.getName().getValue().str();
     std::string modName = extOp.getName().str();
 
-    llvm::outs() << "inserting operation " << instName << " (" << modName << ")" << "\n";
     problem.insertOperation(op);  
     
     int64_t delay = helper.getDelay(modName);
-    llvm::outs() << "operator has delay " << delay << "\n";
 
     // add dependencies
     for (Value operand : op->getOperands()) {
       if (!operand.getDefiningOp())
         continue;
       
-      
-      llvm::outs() << "adding dependency\n";
       problem.insertDependence(std::make_pair(operand.getDefiningOp(), op));
     }
 
@@ -270,18 +279,11 @@ void schedule(ModuleOp root, ConversionHelper& helper) {
     problem.setLinkedOperatorType(op, problem.getOrInsertOperatorType(modName));
   });
 
-  llvm::outs() << "Checking problem...\n";
-  problem.check();
-
-  //dumpAsDOT(problem, llvm::outs());
+  if (failed(problem.check()))
+    throw std::runtime_error("Problem check failed!");
 
   if (failed(scheduleASAP(problem)))
-    llvm::errs() << "Could not schedule problem!\n";
-  else
-    llvm::outs() << "Problem scheduled!\n";
-
-
-  dumpAsDOT(problem, llvm::outs());
+    throw std::runtime_error("Could not schedule problem!");
 }
 
 }

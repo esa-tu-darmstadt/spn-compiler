@@ -30,7 +30,7 @@ class ConversionHelper {
   MLIRContext *ctxt;
   OpBuilder builder;
 
-  Type indexType, probType;
+  Type indexType, probType, sigType;
 
   std::unordered_map<Operation *, uint64_t> instanceIds;
   std::unordered_map<std::string, Operation *> hwOps;
@@ -42,6 +42,7 @@ public:
   ConversionHelper(MLIRContext *ctxt): ctxt(ctxt), builder(ctxt) {
     indexType = builder.getI8Type();
     probType = builder.getI64Type();
+    sigType = builder.getI1Type();
 
     createHwOps();
   }
@@ -49,6 +50,7 @@ public:
   MLIRContext *getContext() const { return ctxt; }
   Type getIndexType() const { return indexType; }
   Type getProbType() const { return probType; }
+  Type getSigType() const { return sigType; }
 
   PortInfo port(const std::string& name, PortDirection direction, Type type) {
     return PortInfo{
@@ -77,11 +79,11 @@ ModuleOp convert(ModuleOp root);
 
 class SchedulingProblem : public virtual ::circt::scheduling::Problem {
 public:
-  SchedulingProblem() = default;
-
-  
+  SchedulingProblem(Operation *containingOp) {
+    setContainingOp(containingOp);
+  }  
 };
 
-void schedule(ModuleOp root, ConversionHelper& helper);
+void schedule(ModuleOp root, ConversionHelper& helper, SchedulingProblem& problem);
 
 }
