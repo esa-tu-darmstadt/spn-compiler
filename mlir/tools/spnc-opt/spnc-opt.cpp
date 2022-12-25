@@ -19,6 +19,7 @@
 #if SPNC_CUDA_SUPPORT
 #include "LoSPNtoGPU/LoSPNtoGPUPasses.h"
 #endif
+#include "LoSPNtoFPGA/LoSPNtoFPGAPass.h"
 
 static llvm::cl::opt<bool> logSpace("use-log-space",
                                     llvm::cl::desc("Use log-space computation"),
@@ -71,6 +72,12 @@ int main(int argc, char** argv) {
                      []() -> std::unique_ptr<mlir::Pass> {
                        return mlir::spn::low::createLoSPNGraphStatsCollectionPass(graphStatsFile);
                      });
+
+  mlir::registerPass(
+    []() -> std::unique_ptr<mlir::Pass> {
+      return mlir::spn::fpga::createLoSPNtoFPGAPass();
+    }
+  );
 
   mlir::DialectRegistry registry;
   mlir::registerAllDialects(registry);
