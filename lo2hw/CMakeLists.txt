@@ -55,7 +55,7 @@ set(LIBS
 )
 
 message("Linking " ${LIBS} CIRCTHW)
-target_link_libraries(lo2hw PRIVATE ${LIBS} CIRCTHW CIRCTScheduling)
+target_link_libraries(lo2hw PRIVATE ${LIBS} CIRCTHW CIRCTScheduling CIRCTSeq)
 
 include_directories(${LLVM_INCLUDE_DIRS})
 include_directories(${MLIR_INCLUDE_DIRS})

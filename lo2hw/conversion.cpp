@@ -11,7 +11,7 @@ void ConversionHelper::createHwOps() {
     inPort("clk", sigType),
     inPort("rst", sigType),
     inPort("in_a", probType),
-    inPort("in_a", probType),
+    inPort("in_b", probType),
     outPort("out_c", probType)
   };
 
@@ -230,8 +230,9 @@ ModuleOp convert(ModuleOp root) {
   schedule(newRoot, helper, problem);
 
   // from here on the code gets ugly
+  insertShiftRegisters(newRoot, helper, problem);
 
-  dumpAsDOT(problem, llvm::outs());
+  //dumpAsDOT(problem, llvm::outs());
 
   return newRoot;
 }
@@ -284,6 +285,128 @@ void schedule(ModuleOp root, ConversionHelper& helper, SchedulingProblem& proble
 
   if (failed(scheduleASAP(problem)))
     throw std::runtime_error("Could not schedule problem!");
+}
+
+void insertShiftRegisters(ModuleOp root, ConversionHelper& helper, SchedulingProblem& problem) {
+  OpBuilder builder(root.getContext());
+
+  std::vector<std::tuple<
+    Operation *,  // from
+    Operation *,  // to
+    uint32_t      // delay
+  >> jobs;
+
+  // first collect all the delays we want to insert
+  root.walk([&](InstanceOp op) {
+    for (Value operand : op.getOperands()) {
+      Operation *defOp = operand.getDefiningOp();
+
+      // is a block argument or something
+      if (!defOp)
+        continue;
+
+      assert(problem.getStartTime(op).has_value());
+      assert(problem.getLatency(problem.getLinkedOperatorType(op).value()).has_value());
+      assert(problem.getStartTime(defOp).has_value());
+
+      uint32_t meStartTime = problem.getStartTime(op).value();
+      uint32_t defOpLatency = problem.getLatency(problem.getLinkedOperatorType(defOp).value()).value();
+      uint32_t defOpStartTime = problem.getStartTime(defOp).value();
+
+      assert(defOpStartTime + defOpLatency <= meStartTime);
+
+      uint32_t delay = meStartTime - (defOpStartTime + defOpLatency);
+
+      if (delay == 0)
+        continue;
+
+      jobs.emplace_back(
+        defOp,
+        op.getOperation(),
+        delay
+      );
+    }
+  });
+
+  Value clk, rst;
+
+  // stupid way to find the clk and rst signals
+  root.walk([&](HWModuleOp op) {
+    Block *body = op.getBodyBlock();
+    clk = body->getArguments()[0];
+    rst = body->getArguments()[1];
+    return WalkResult::interrupt();
+  });
+
+  auto delaySignal = [&](Value input, uint32_t delay) -> std::tuple<Value, Operation *> {
+    assert(delay >= 1);
+    
+    builder.setInsertionPointAfter(input.getDefiningOp());
+    Value prev = input;
+    Operation *ignoreOp = nullptr;
+
+    for (uint32_t i = 0; i < delay; ++i) {
+      CompRegOp reg = builder.create<CompRegOp>(
+        builder.getUnknownLoc(), std::move(prev), clk, "someReg"
+      );
+      prev = reg.getResult();
+
+      if (!ignoreOp)
+        ignoreOp = reg;
+    }
+
+    return std::make_tuple(prev, ignoreOp);
+  };
+
+  // finally insert delays
+  for (auto [from, to, delay] : jobs) {
+    Value result = from->getResults()[0];
+    auto [delayedResult, ignoreOp] = delaySignal(result, delay);
+    // we introduce a new usage which we need to ignore
+    result.replaceAllUsesExcept(delayedResult, ignoreOp);
+  }
+}
+
+void test(MLIRContext *ctxt) {
+  OpBuilder builder(ctxt);
+  ConversionHelper helper(ctxt);
+
+  std::vector<PortInfo> ports{
+    helper.inPort("clk", builder.getI1Type()),
+    helper.inPort("rst", builder.getI1Type())
+  };
+
+  HWModuleOp mod = builder.create<HWModuleOp>(
+    builder.getUnknownLoc(),
+    builder.getStringAttr("hw_mod"),
+    ArrayRef<PortInfo>(ports)
+  );
+
+  Value clk = mod.getBodyBlock()->getArguments()[0];
+
+  builder.setInsertionPointToStart(mod.getBodyBlock());
+
+  ConstantOp constOp = builder.create<ConstantOp>(
+    builder.getUnknownLoc(),
+    builder.getI32Type(),
+    123456
+  );
+
+  ConstantOp secondClk = builder.create<ConstantOp>(
+    builder.getUnknownLoc(),
+    builder.getI1Type(),
+    0
+  );
+
+  builder.create<CompRegOp>(
+    builder.getUnknownLoc(),
+    constOp.getResult(),
+    secondClk.getResult(),
+    //builder.getStringAttr("someReg")
+    "someReg"
+  );
+
+  mod.dump();
 }
 
 }

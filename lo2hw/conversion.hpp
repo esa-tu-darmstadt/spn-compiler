@@ -17,11 +17,15 @@
 #include "circt/Scheduling/Problems.h"
 #include "circt/Scheduling/Utilities.h"
 
+#include "circt/Dialect/Seq/SeqDialect.h"
+#include "circt/Dialect/Seq/SeqOps.h"
+
 
 using namespace ::mlir;
 using namespace ::circt::hw;
 using namespace ::mlir::spn::low;
 using namespace ::mlir::spn::high;
+using namespace ::circt::seq;
 
 
 namespace spn::lo2hw::conversion {
@@ -85,5 +89,86 @@ public:
 };
 
 void schedule(ModuleOp root, ConversionHelper& helper, SchedulingProblem& problem);
+
+void insertShiftRegisters(ModuleOp root, ConversionHelper& helper, SchedulingProblem& problem);
+
+class ShiftRegisterPattern : public OpConversionPattern<InstanceOp> {
+  ConversionHelper& helper;
+  SchedulingProblem& problem;
+
+  Value delaySignal(ConversionPatternRewriter &rewriter, Value input, Value clk, Value rst, Value rstValue, uint32_t delay) const {
+    Value prev = input;
+
+    for (uint32_t i = 0; i < delay; ++i) {
+      prev = rewriter.create<CompRegOp>(
+        rewriter.getUnknownLoc(),
+        prev,
+        clk,
+        rst,
+        rstValue,
+        "lalalala"
+      ).getResult();
+    }
+
+    return prev;
+  }
+public:
+  ShiftRegisterPattern(ConversionHelper& helper, SchedulingProblem& problem, MLIRContext *ctxt):
+    OpConversionPattern<InstanceOp>::OpConversionPattern(ctxt),
+    helper(helper), problem(problem) {}
+
+  LogicalResult matchAndRewrite(InstanceOp op, OpAdaptor adaptor, ConversionPatternRewriter &rewriter) const override {
+    std::vector<Value> delayedOperands;
+
+    Value clk = adaptor.getOperands()[0];
+    Value rst = adaptor.getOperands()[1];
+    Value rstValue = Value(); // TODO
+
+    for (uint32_t i = 0; i < adaptor.getOperands().size(); ++i) {
+      Value operand = adaptor.getOperands()[i];
+
+      // ignore clk, rst
+      if (i <= 1) {
+        delayedOperands.push_back(operand);
+        continue;
+      }
+
+      Operation *defOp = operand.getDefiningOp();
+
+      // does not stem from an operation and does therefore not need to be delay
+      if (!defOp) {
+        delayedOperands.push_back(operand);
+        continue;
+      }
+
+      Optional<unsigned> startTime = problem.getStartTime(defOp);
+      Optional<unsigned> latency = problem.getLatency(problem.getLinkedOperatorType(defOp).value());
+      Optional<unsigned> meStartTime = problem.getStartTime(op);
+
+      if (!startTime.has_value() || !latency.has_value() || !meStartTime.has_value())
+        return failure();
+
+      uint32_t operandFinishTime = startTime.value() + latency.value();
+
+      if (operandFinishTime > meStartTime.value())
+        return failure();
+
+      uint32_t artificialDelay = meStartTime.value() - operandFinishTime;
+      Value delayedOperand = delaySignal(rewriter, operand, clk, rst, rstValue, artificialDelay);
+
+      delayedOperands.push_back(delayedOperand);
+    }
+
+    rewriter.replaceOpWithNewOp<InstanceOp>(op,
+      op.getReferencedModule(),
+      op.getName(),
+      ArrayRef<Value>(delayedOperands)
+    );
+
+    return success();
+  }
+};
+
+void test(MLIRContext *ctxt);
 
 }

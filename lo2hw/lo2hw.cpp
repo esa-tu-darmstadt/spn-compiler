@@ -64,6 +64,7 @@ void dump_mlir(const std::string& src_file_path)
     assert(context->getOrLoadDialect<mlir::spn::low::LoSPNDialect>());
     assert(context->getOrLoadDialect<mlir::spn::high::HiSPNDialect>());
     assert(context->getOrLoadDialect<circt::hw::HWDialect>());
+    assert(context->getOrLoadDialect<circt::seq::SeqDialect>());
 
     mlir::ParserConfig parser_config(context.get());
 
@@ -87,6 +88,8 @@ void dump_mlir(const std::string& src_file_path)
     auto modOp = llvm::dyn_cast<ModuleOp>(op);
     ModuleOp newRoot = ::spn::lo2hw::conversion::convert(modOp);
     newRoot.dump();
+
+    //::spn::lo2hw::conversion::test(context.get());
 }
 
 
