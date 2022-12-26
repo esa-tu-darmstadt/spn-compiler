@@ -92,6 +92,4 @@ void schedule(ModuleOp root, ConversionHelper& helper, SchedulingProblem& proble
 
 void insertShiftRegisters(ModuleOp root, ConversionHelper& helper, SchedulingProblem& problem);
 
-void test(MLIRContext *ctxt);
-
 }

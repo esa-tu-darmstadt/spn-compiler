@@ -370,46 +370,4 @@ void insertShiftRegisters(ModuleOp root, ConversionHelper& helper, SchedulingPro
   }
 }
 
-void test(MLIRContext *ctxt) {
-  OpBuilder builder(ctxt);
-  ConversionHelper helper(ctxt);
-
-  std::vector<PortInfo> ports{
-    helper.inPort("clk", builder.getI1Type()),
-    helper.inPort("rst", builder.getI1Type())
-  };
-
-  HWModuleOp mod = builder.create<HWModuleOp>(
-    builder.getUnknownLoc(),
-    builder.getStringAttr("hw_mod"),
-    ArrayRef<PortInfo>(ports)
-  );
-
-  Value clk = mod.getBodyBlock()->getArguments()[0];
-
-  builder.setInsertionPointToStart(mod.getBodyBlock());
-
-  ConstantOp constOp = builder.create<ConstantOp>(
-    builder.getUnknownLoc(),
-    builder.getI32Type(),
-    123456
-  );
-
-  ConstantOp secondClk = builder.create<ConstantOp>(
-    builder.getUnknownLoc(),
-    builder.getI1Type(),
-    0
-  );
-
-  builder.create<CompRegOp>(
-    builder.getUnknownLoc(),
-    constOp.getResult(),
-    secondClk.getResult(),
-    //builder.getStringAttr("someReg")
-    "someReg"
-  );
-
-  mod.dump();
-}
-
 }

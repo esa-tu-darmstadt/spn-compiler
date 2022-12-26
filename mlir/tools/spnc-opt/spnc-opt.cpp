@@ -21,6 +21,10 @@
 #endif
 #include "LoSPNtoFPGA/LoSPNtoFPGAPass.h"
 
+#include "circt/InitAllDialects.h"
+#include "circt/InitAllPasses.h"
+#include "circt/Dialect/Seq/SeqPasses.h"
+
 static llvm::cl::opt<bool> logSpace("use-log-space",
                                     llvm::cl::desc("Use log-space computation"),
                                     llvm::cl::init(false));
@@ -83,6 +87,17 @@ int main(int argc, char** argv) {
   mlir::registerAllDialects(registry);
   registry.insert<mlir::spn::high::HiSPNDialect>();
   registry.insert<mlir::spn::low::LoSPNDialect>();
+
+  // circt stuff
+  //circt::registerAllPasses();
+  circt::registerExportVerilogPass();
+  circt::registerExportSplitVerilogPass();
+  registry.insert<circt::hw::HWDialect,
+                  circt::seq::SeqDialect,
+                  circt::sv::SVDialect>();
+  mlir::registerPass(
+    circt::seq::createSeqLowerToSVPass
+  );
 
   return failed(
       mlir::MlirOptMain(argc, argv, "SPNC optimizer driver\n", registry, false));

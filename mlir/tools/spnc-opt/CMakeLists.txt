@@ -16,6 +16,8 @@ set(LIBS
         MLIRHiSPNtoLoSPNTransforms
         MLIRLoSPNtoCPUTransforms
         MLIROptLib
+        CIRCTExportVerilog
+        CIRCTSeqTransforms
         cpu_targetinfo
         )
 
