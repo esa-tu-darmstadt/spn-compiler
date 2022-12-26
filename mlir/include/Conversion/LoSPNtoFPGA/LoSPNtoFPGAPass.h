@@ -12,8 +12,6 @@
 
 #include "circt/Dialect/Seq/SeqDialect.h"
 
-//#include "lo2hw/conversion.hpp"
-
 
 namespace mlir::spn::fpga {
 

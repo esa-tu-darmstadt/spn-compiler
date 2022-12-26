@@ -1,5 +1,6 @@
 add_mlir_conversion_library(MLIRLoSPNtoFPGATransforms
     LoSPNtoFPGAPass.cpp
+    conversion.cpp
     #main.cpp
 
     ADDITIONAL_HEADER_DIRS
@@ -21,9 +22,10 @@ add_mlir_conversion_library(MLIRLoSPNtoFPGATransforms
 
 target_link_libraries(MLIRLoSPNtoFPGATransforms PRIVATE)
 
-message("adding include dir " ${PROJECT_SOURCE_DIR}/lo2hw)
+#message("adding include  dir " ${PROJECT_SOURCE_DIR}/lo2hw)
 
 #target_include_directories(lo2hw PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+#target_include_directories(MLIRLoSPNtoFPGATransforms PRIVATE ${PROJECT_SOURCE_DIR}/lo2hw)
 
 #add_executable(lo2hw main.cpp)
 
