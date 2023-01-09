@@ -3,10 +3,10 @@
 #PREFIX_PATH="$BASE_DIR/llvm/build-llvm/lib/cmake/llvm;"
 #PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/llvm/build-llvm/lib/cmake/mlir;"
 
-PREFIX_PATH="$BASE_DIR/circt/circt/llvm/build/lib/cmake/llvm;"
-PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/circt/circt/llvm/build/lib/cmake/mlir;"
+PREFIX_PATH="$BASE_DIR/circt/llvm/build/lib/cmake/llvm;"
+PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/circt/llvm/build/lib/cmake/mlir;"
 
-PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/circt/circt/build/lib/cmake/circt;"
+PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/circt/build/lib/cmake/circt;"
 
 PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/pybind11/install/share/cmake/pybind11;"
 PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/spdlog/install/lib/cmake/spdlog;"

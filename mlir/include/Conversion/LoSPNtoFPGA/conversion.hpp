@@ -56,6 +56,7 @@ public:
   }
 
   MLIRContext *getContext() const { return ctxt; }
+  OpBuilder getBuilder() const { return builder; }
   Type getIndexType() const { return indexType; }
   Type getProbType() const { return probType; }
   Type getSigType() const { return sigType; }
@@ -75,10 +76,28 @@ public:
   std::string getInstanceName(Operation *op) const {
     return std::string("instance_") + std::to_string(instanceIds.at(op));
   }
+  uint64_t getInstanceId(Operation *op) const { return instanceIds.at(op); }
 
   int64_t getDelay(const std::string& name) const;
 
   void assignInstanceIds(ModuleOp root);
+
+  std::string getVerilogIncludeString() const {
+    return R"(
+`include "FPAdd.sv"
+`include "FPMult.sv"
+    )";
+  }
+
+  Value getProbConstant(double value) {
+    int64_t bits = *reinterpret_cast<const int64_t *>(&value);
+
+    return builder.create<ConstantOp>(
+      builder.getUnknownLoc(),
+      getProbType(),
+      123456 //bits
+    ).getResult();
+  }
 };
 
 Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper);
@@ -95,5 +114,7 @@ public:
 void schedule(ModuleOp root, ConversionHelper& helper, SchedulingProblem& problem);
 
 void insertShiftRegisters(ModuleOp root, ConversionHelper& helper, SchedulingProblem& problem);
+
+Optional<HWModuleOp> createCategoricalModule(ConversionHelper& helper, SPNCategoricalLeaf op, uint64_t id);
 
 }

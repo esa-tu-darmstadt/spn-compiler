@@ -199,6 +199,7 @@ Optional<ModuleOp> convert(ModuleOp root) {
   ConversionHelper helper(root.getContext());
   helper.assignInstanceIds(root);
   std::vector<HWModuleOp> modOps;
+  std::vector<HWModuleOp> catOps;
 
   root.walk([&](SPNBody body) {
     Optional<HWModuleOp> modOp = createBodyModule(body, helper);
@@ -207,6 +208,11 @@ Optional<ModuleOp> convert(ModuleOp root) {
       modOps.clear();
       return WalkResult::interrupt();
     }
+
+    body.walk([&](SPNCategoricalLeaf leaf) {
+      HWModuleOp catOp = createCategoricalModule(helper, leaf, helper.getInstanceId(leaf)).value();
+      catOps.push_back(catOp);
+    });
 
     modOps.push_back(modOp.value());
   });
@@ -223,14 +229,16 @@ Optional<ModuleOp> convert(ModuleOp root) {
 
   builder.create<VerbatimOp>(
     builder.getUnknownLoc(),
-    "`include \"operators.sv\""
+    helper.getVerilogIncludeString()
   );
 
   builder.insert(helper.getMod("sv_add"));
   builder.insert(helper.getMod("sv_mul"));
   builder.insert(helper.getMod("sv_log"));
   builder.insert(helper.getMod("sv_constant"));
-  builder.insert(helper.getMod("sv_categorical"));
+  
+  for (HWModuleOp catOp : catOps)
+    builder.insert(catOp);
   
   for (auto op : modOps)
     builder.insert(op);
@@ -238,11 +246,13 @@ Optional<ModuleOp> convert(ModuleOp root) {
   assert(succeeded(newRoot.verify()));
 
   // schedule problem and insert buffers
-  SchedulingProblem problem(newRoot.getOperation());
-  schedule(newRoot, helper, problem);
+  //SchedulingProblem problem(newRoot.getOperation());
+  //schedule(newRoot, helper, problem);
 
   // from here on the code gets ugly
-  insertShiftRegisters(newRoot, helper, problem);
+  //insertShiftRegisters(newRoot, helper, problem);
+
+  newRoot.dump();
 
   return newRoot;
 }
@@ -356,8 +366,11 @@ void insertShiftRegisters(ModuleOp root, ConversionHelper& helper, SchedulingPro
     Operation *ignoreOp = nullptr;
 
     for (uint32_t i = 0; i < delay; ++i) {
-      CompRegOp reg = builder.create<CompRegOp>(
-        builder.getUnknownLoc(), std::move(prev), clk, "shiftReg"
+      //CompRegOp reg = builder.create<CompRegOp>(
+      //  builder.getUnknownLoc(), std::move(prev), clk, "shiftReg"
+      //);
+      FirRegOp reg = builder.create<FirRegOp>(
+        builder.getUnknownLoc(), std::move(prev), clk, builder.getStringAttr("shiftReg")
       );
       prev = reg.getResult();
 
@@ -375,6 +388,68 @@ void insertShiftRegisters(ModuleOp root, ConversionHelper& helper, SchedulingPro
     // we introduce a new usage which we need to ignore
     result.replaceAllUsesExcept(delayedResult, ignoreOp);
   }
+}
+
+Optional<HWModuleOp> createCategoricalModule(ConversionHelper& helper, SPNCategoricalLeaf op, uint64_t id) {
+  
+  OpBuilder builder = helper.getBuilder();
+
+  std::vector<PortInfo> catPorts{
+    helper.inPort("clk", helper.getSigType()),
+    helper.inPort("rst", helper.getSigType()),
+    helper.inPort("in_index", helper.getIndexType()),
+    helper.outPort("out_prob", helper.getProbType())
+  };
+
+  HWModuleOp catOp = builder.create<HWModuleOp>(
+    builder.getUnknownLoc(),
+    builder.getStringAttr("spn_categorical_" + std::to_string(id)),
+    ArrayRef<PortInfo>(catPorts)
+  );
+
+  // remove the default hw.output
+  catOp.getBodyBlock()->front().erase();
+  Value modClk = catOp.getRegion().front().getArguments()[0];
+  Value modRst = catOp.getRegion().front().getArguments()[1];
+
+  builder.setInsertionPointToStart(catOp.getBodyBlock());
+
+  // create probability array
+  std::vector<Value> probabilities;
+
+  for (Attribute prob : op.getProbabilities()) {
+    float f32 = float(llvm::dyn_cast<FloatAttr>(prob).getValueAsDouble());
+    uint32_t bits = *reinterpret_cast<const uint32_t *>(&f32);
+
+    // TODO: Conversion must be configurable!
+    ConstantOp constant = builder.create<ConstantOp>(
+      builder.getUnknownLoc(),
+      helper.getProbType(),
+      bits
+    );
+
+    probabilities.push_back(constant.getResult());
+  }
+
+  ArrayCreateOp arrayOp = builder.create<ArrayCreateOp>(
+    builder.getUnknownLoc(),
+    ValueRange(probabilities)
+  );
+
+  Value indexOp = catOp.getRegion().front().getArguments()[2];
+
+  ArrayGetOp getOp = builder.create<ArrayGetOp>(
+    builder.getUnknownLoc(),
+    arrayOp,
+    indexOp
+  );
+
+  builder.create<OutputOp>(
+    builder.getUnknownLoc(),
+    ValueRange(std::vector<Value>{getOp.getResult()})
+  );
+
+  return catOp;
 }
 
 }

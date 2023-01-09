@@ -98,6 +98,9 @@ int main(int argc, char** argv) {
   mlir::registerPass(
     circt::seq::createSeqLowerToSVPass
   );
+  mlir::registerPass(
+    []() { return circt::seq::createSeqFIRRTLLowerToSVPass(); }
+  );
 
   return failed(
       mlir::MlirOptMain(argc, argv, "SPNC optimizer driver\n", registry, false));
