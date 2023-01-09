@@ -20,12 +20,16 @@
 #include "circt/Dialect/Seq/SeqDialect.h"
 #include "circt/Dialect/Seq/SeqOps.h"
 
+#include "circt/Dialect/SV/SVDialect.h"
+#include "circt/Dialect/SV/SVOps.h"
+
 
 using namespace ::mlir;
 using namespace ::circt::hw;
 using namespace ::mlir::spn::low;
 using namespace ::mlir::spn::high;
 using namespace ::circt::seq;
+using namespace ::circt::sv;
 
 
 namespace mlir::spn::fpga {

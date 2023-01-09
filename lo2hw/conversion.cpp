@@ -367,13 +367,18 @@ void insertShiftRegisters(ModuleOp root, ConversionHelper& helper, SchedulingPro
   }
 }
 
+// TODO: See what lowering to systemverilog does to the generated hw module!
 void test(MLIRContext *ctxt) {
   OpBuilder builder(ctxt);
   ConversionHelper helper(ctxt);
 
+  ModuleOp root = builder.create<ModuleOp>(builder.getUnknownLoc());
+  builder.setInsertionPointToStart(&root.getRegion().front());
+
   std::vector<PortInfo> ports{
     helper.inPort("clk", builder.getI1Type()),
-    helper.inPort("rst", builder.getI1Type())
+    helper.inPort("rst", builder.getI1Type()),
+    helper.outPort("result", builder.getI32Type())
   };
 
   HWModuleOp mod = builder.create<HWModuleOp>(
@@ -381,6 +386,9 @@ void test(MLIRContext *ctxt) {
     builder.getStringAttr("hw_mod"),
     ArrayRef<PortInfo>(ports)
   );
+
+  // remove old hw output
+  mod.getBodyBlock()->clear();
 
   Value clk = mod.getBodyBlock()->getArguments()[0];
 
@@ -398,15 +406,42 @@ void test(MLIRContext *ctxt) {
     0
   );
 
-  builder.create<CompRegOp>(
+  CompRegOp reg = builder.create<CompRegOp>(
     builder.getUnknownLoc(),
     constOp.getResult(),
-    secondClk.getResult(),
+    clk,
     //builder.getStringAttr("someReg")
     "someReg"
   );
 
-  mod.dump();
+  builder.setInsertionPointToStart(mod.getOperation()->getBlock());
+  
+  std::vector<StringRef> requiredAttributes{};
+  
+  HWGeneratorSchemaOp schema = builder.create<HWGeneratorSchemaOp>(
+    builder.getUnknownLoc(),
+    "SOME_SCHEMA",
+    "lalalala",
+    builder.getStrArrayAttr(ArrayRef<StringRef>(requiredAttributes))
+  );
+
+  /*
+  std::vector<PortInfo> ports2;
+
+  builder.create<HWModuleGeneratedOp>(
+    builder.getUnknownLoc(),
+    SymbolRefAttr::get(schema),
+    builder.getStringAttr("SomeGeneratedModule"),
+    ArrayRef<PortInfo>(ports2)
+  );
+   */
+
+  builder.create<OutputOp>(
+    builder.getUnknownLoc(),
+    reg.getResult()
+  );
+
+  root.dump();
 }
 
 }

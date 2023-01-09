@@ -85,11 +85,11 @@ void dump_mlir(const std::string& src_file_path)
     //llvm::outs() << "INFO: Converting...\n";
     //assert(applyLo2hw(context.get(), op).succeeded());
     //op->dump();
-    auto modOp = llvm::dyn_cast<ModuleOp>(op);
-    ModuleOp newRoot = ::spn::lo2hw::conversion::convert(modOp);
-    newRoot.dump();
+    //auto modOp = llvm::dyn_cast<ModuleOp>(op);
+    //ModuleOp newRoot = ::spn::lo2hw::conversion::convert(modOp);
+    //newRoot.dump();
 
-    //::spn::lo2hw::conversion::test(context.get());
+    ::spn::lo2hw::conversion::test(context.get());
 }
 
 

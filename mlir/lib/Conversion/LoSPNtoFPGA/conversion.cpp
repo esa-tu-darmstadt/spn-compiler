@@ -68,8 +68,11 @@ void ConversionHelper::createHwOps() {
   hwOps["sv_log"] = builder.create<HWModuleExternOp>(
     builder.getUnknownLoc(),
     builder.getStringAttr("sv_log"),
-    ArrayRef<PortInfo>(logPorts)
+    ArrayRef<PortInfo>(logPorts),
+    "sv_log"
   );
+
+  //hwOps["sv_log"]->setAttr("filenames", builder.getStringAttr("somefile.sv"));
 }
 
 int64_t ConversionHelper::getDelay(const std::string& name) const {
@@ -216,9 +219,13 @@ Optional<ModuleOp> convert(ModuleOp root) {
   OpBuilder builder(root.getContext());
 
   ModuleOp newRoot = builder.create<ModuleOp>(builder.getUnknownLoc());
-  assert(llvm::hasNItems(newRoot.getRegion(), 1));
-  size_t n = std::distance(newRoot.getRegion().begin(), newRoot.getRegion().end());
   builder.setInsertionPointToStart(&newRoot.getRegion().front());
+
+  builder.create<VerbatimOp>(
+    builder.getUnknownLoc(),
+    "`include \"operators.sv\""
+  );
+
   builder.insert(helper.getMod("sv_add"));
   builder.insert(helper.getMod("sv_mul"));
   builder.insert(helper.getMod("sv_log"));
@@ -350,7 +357,7 @@ void insertShiftRegisters(ModuleOp root, ConversionHelper& helper, SchedulingPro
 
     for (uint32_t i = 0; i < delay; ++i) {
       CompRegOp reg = builder.create<CompRegOp>(
-        builder.getUnknownLoc(), std::move(prev), clk, "someReg"
+        builder.getUnknownLoc(), std::move(prev), clk, "shiftReg"
       );
       prev = reg.getResult();
 
