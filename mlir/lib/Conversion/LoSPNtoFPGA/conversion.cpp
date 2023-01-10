@@ -6,6 +6,12 @@
 
 namespace mlir::spn::fpga {
 
+static const char *SV_ADD = "FPAdd";
+static const char *SV_MUL = "FPMult";
+static const char *SV_LOG = "FPLog";
+static const char *SV_CONSTANT = "sv_constant";
+static const char *SV_CATEGORICAL = "sv_categorical";
+
 void ConversionHelper::createHwOps() {
   std::vector<PortInfo> binPorts{
     inPort("clk", sigType),
@@ -41,51 +47,51 @@ void ConversionHelper::createHwOps() {
     outPort("out_prob", probType)
   };
 
-  hwOps["sv_add"] = builder.create<HWModuleExternOp>(
+  hwOps[SV_ADD] = builder.create<HWModuleExternOp>(
     builder.getUnknownLoc(),
-    builder.getStringAttr("sv_add"),
+    builder.getStringAttr(SV_ADD),
     ArrayRef<PortInfo>(binPorts)
   );
 
-  hwOps["sv_mul"] = builder.create<HWModuleExternOp>(
+  hwOps[SV_MUL] = builder.create<HWModuleExternOp>(
     builder.getUnknownLoc(),
-    builder.getStringAttr("sv_mul"),
+    builder.getStringAttr(SV_MUL),
     ArrayRef<PortInfo>(binPorts)
   );
 
-  hwOps["sv_categorical"] = builder.create<HWModuleExternOp>(
+  hwOps[SV_CATEGORICAL] = builder.create<HWModuleExternOp>(
     builder.getUnknownLoc(),
-    builder.getStringAttr("sv_categorical"),
+    builder.getStringAttr(SV_CATEGORICAL),
     ArrayRef<PortInfo>(catPorts)
   );
 
-  hwOps["sv_constant"] = builder.create<HWModuleExternOp>(
+  hwOps[SV_CONSTANT] = builder.create<HWModuleExternOp>(
     builder.getUnknownLoc(),
-    builder.getStringAttr("sv_constant"),
+    builder.getStringAttr(SV_CONSTANT),
     ArrayRef<PortInfo>(constPorts)
   );
 
-  hwOps["sv_log"] = builder.create<HWModuleExternOp>(
+  hwOps[SV_LOG] = builder.create<HWModuleExternOp>(
     builder.getUnknownLoc(),
-    builder.getStringAttr("sv_log"),
+    builder.getStringAttr(SV_LOG),
     ArrayRef<PortInfo>(logPorts),
-    "sv_log"
+    SV_LOG
   );
 
-  //hwOps["sv_log"]->setAttr("filenames", builder.getStringAttr("somefile.sv"));
+  //hwOps[SV_LOG]->setAttr("filenames", builder.getStringAttr("somefile.sv"));
 }
 
 int64_t ConversionHelper::getDelay(const std::string& name) const {
   // just some arbitrary values
-  if (name == "sv_add") {
+  if (name == SV_ADD) {
     return 5;
-  } else if (name == "sv_mul") {
+  } else if (name == SV_MUL) {
     return 10;
-  } else if (name == "sv_categorical") {
+  } else if (name == SV_CATEGORICAL) {
     return 1;
-  } else if (name == "sv_constant") {
+  } else if (name == SV_CONSTANT) {
     return 0;
-  } else if (name == "sv_log") {
+  } else if (name == SV_LOG) {
     return 10;
   }
 
@@ -179,13 +185,13 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
 
     // get the external module which we refer to in the new instance
     Operation *hwExtMod = llvm::TypeSwitch<Operation *, Operation *>(op)
-      .Case<SPNAdd>([&](SPNAdd op) { return helper.getMod("sv_add"); })
-      .Case<SPNMul>([&](SPNMul op) { return helper.getMod("sv_mul"); })
+      .Case<SPNAdd>([&](SPNAdd op) { return helper.getMod(SV_ADD); })
+      .Case<SPNMul>([&](SPNMul op) { return helper.getMod(SV_MUL); })
       .Case<SPNCategoricalLeaf>([&](SPNCategoricalLeaf op) {
         return helper.getCatModule(op);
       })
-      .Case<SPNConstant>([&](SPNConstant op) { return helper.getMod("sv_constant"); })
-      .Case<SPNLog>([&](SPNLog op) { return helper.getMod("sv_log"); })
+      .Case<SPNConstant>([&](SPNConstant op) { return helper.getMod(SV_CONSTANT); })
+      .Case<SPNLog>([&](SPNLog op) { return helper.getMod(SV_LOG); })
       .Default([&](Operation *op) -> InstanceOp {
         assert(false && "Unexpected type");
       });
@@ -236,10 +242,10 @@ Optional<ModuleOp> convert(ModuleOp root) {
     helper.getVerilogIncludeString()
   );
 
-  builder.insert(helper.getMod("sv_add"));
-  builder.insert(helper.getMod("sv_mul"));
-  builder.insert(helper.getMod("sv_log"));
-  builder.insert(helper.getMod("sv_constant"));
+  builder.insert(helper.getMod(SV_ADD));
+  builder.insert(helper.getMod(SV_MUL));
+  builder.insert(helper.getMod(SV_LOG));
+  builder.insert(helper.getMod(SV_CONSTANT));
   
   for (auto e : helper.getCatModules())
     builder.insert(std::get<1>(e));
@@ -252,7 +258,6 @@ Optional<ModuleOp> convert(ModuleOp root) {
   // schedule problem and insert buffers
   // TODO: Refactor!!!
   for (auto modOp : modOps) {
-    break;
     SchedulingProblem problem(modOp.getOperation());
     schedule(modOp, helper, problem);
 
@@ -271,7 +276,7 @@ void schedule(HWModuleOp root, ConversionHelper& helper, SchedulingProblem& prob
   using OperatorType = SchedulingProblem::OperatorType;
 
   // construct problem
-  for (const std::string& name : std::vector<std::string>{"sv_add", "sv_mul", "sv_constant", "sv_categorical", "sv_log"}) {
+  for (const std::string& name : std::vector<std::string>{SV_ADD, SV_MUL, SV_CONSTANT, SV_CATEGORICAL, SV_LOG}) {
     OperatorType opType = problem.getOrInsertOperatorType(name);
     int64_t delay = helper.getDelay(name);
     problem.setLatency(opType, delay);
@@ -287,8 +292,13 @@ void schedule(HWModuleOp root, ConversionHelper& helper, SchedulingProblem& prob
     Operation *refMod = instOp.getReferencedModule(nullptr);
 
     HWModuleExternOp extOp = dyn_cast<HWModuleExternOp>(refMod);
-    std::string instName = instOp.getName().getValue().str();
-    std::string modName = extOp.getName().str();
+    std::string modName;
+
+    // TODO: This is super hacky but works for now!!!
+    if (!extOp)
+      modName = SV_CATEGORICAL;
+    else
+      modName = extOp.getName().str();
 
     problem.insertOperation(op);  
     

@@ -58,7 +58,7 @@ public:
 
   ConversionHelper(MLIRContext *ctxt): ctxt(ctxt), builder(ctxt) {
     indexType = builder.getI8Type();
-    probType = builder.getI64Type();
+    probType = builder.getIntegerType(31);
     sigType = builder.getI1Type();
 
     createHwOps();
