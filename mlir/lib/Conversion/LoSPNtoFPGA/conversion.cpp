@@ -502,4 +502,8 @@ Optional<HWModuleOp> createCategoricalModule(ConversionHelper& helper, SPNCatego
   return catOp;
 }
 
+Optional<HWModuleOp> createHistogramModule(ConversionHelper& helper, SPNHistogramLeaf op, uint64_t id) {
+  
+}
+
 }

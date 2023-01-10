@@ -96,8 +96,9 @@ public:
 
   std::string getVerilogIncludeString() const {
     return R"(
-`include "FPAdd.sv"
-`include "FPMult.sv"
+`include "FPAdd.v"
+`include "FPMult.v"
+`include "FPLog.v"
     )";
   }
 };
@@ -118,5 +119,6 @@ void schedule(HWModuleOp root, ConversionHelper& helper, SchedulingProblem& prob
 void insertShiftRegisters(HWModuleOp root, ConversionHelper& helper, SchedulingProblem& problem);
 
 Optional<HWModuleOp> createCategoricalModule(ConversionHelper& helper, SPNCategoricalLeaf op, uint64_t id);
+Optional<HWModuleOp> createHistogramModule(ConversionHelper& helper, SPNHistogramLeaf op, uint64_t id);
 
 }
