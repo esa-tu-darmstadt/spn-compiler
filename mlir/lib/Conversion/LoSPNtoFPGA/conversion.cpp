@@ -14,11 +14,11 @@ static const char *SV_CATEGORICAL = "sv_categorical";
 
 void ConversionHelper::createHwOps() {
   std::vector<PortInfo> binPorts{
-    inPort("clk", sigType),
-    inPort("rst", sigType),
-    inPort("in_a", probType),
-    inPort("in_b", probType),
-    outPort("out_c", probType)
+    inPort("clock", sigType),
+    inPort("reset", sigType),
+    inPort("io_a", probType),
+    inPort("io_b", probType),
+    outPort("io_r", probType)
   };
 
   std::vector<PortInfo> catPorts{
@@ -184,27 +184,43 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
     }
 
     // get the external module which we refer to in the new instance
-    Operation *hwExtMod = llvm::TypeSwitch<Operation *, Operation *>(op)
+    Operation *mod = llvm::TypeSwitch<Operation *, Operation *>(op)
       .Case<SPNAdd>([&](SPNAdd op) { return helper.getMod(SV_ADD); })
       .Case<SPNMul>([&](SPNMul op) { return helper.getMod(SV_MUL); })
       .Case<SPNCategoricalLeaf>([&](SPNCategoricalLeaf op) {
         return helper.getCatModule(op);
       })
-      .Case<SPNConstant>([&](SPNConstant op) { return helper.getMod(SV_CONSTANT); })
+      .Case<SPNConstant>([&](SPNConstant op) {
+        float f32 = op.getValue().convertToDouble();
+        uint32_t bits = *reinterpret_cast<const uint32_t *>(&f32);
+
+        // TODO: Conversion must be configurable!
+        return builder.create<ConstantOp>(
+          builder.getUnknownLoc(),
+          helper.getProbType(),
+          bits
+        );
+      })
       .Case<SPNLog>([&](SPNLog op) { return helper.getMod(SV_LOG); })
       .Default([&](Operation *op) -> InstanceOp {
         assert(false && "Unexpected type");
       });
 
-    InstanceOp newInstance = builder.create<InstanceOp>(
-      loc,
-      hwExtMod,
-      instanceName,
-      operandsRef
-    );
+    Operation *newInstance = nullptr;
+    
+    if (llvm::isa<ConstantOp>(mod)) {
+      newInstance = mod;
+    } else {
+      newInstance = builder.create<InstanceOp>(
+        loc,
+        mod,
+        instanceName,
+        operandsRef
+      ).getOperation();
+    }
 
     // the old result value now points to the new result value
-    mapping.map(op->getResults(), newInstance.getResults());
+    mapping.map(op->getResults(), newInstance->getResults());
   });
 
   return modOp;
@@ -282,12 +298,20 @@ void schedule(HWModuleOp root, ConversionHelper& helper, SchedulingProblem& prob
     problem.setLatency(opType, delay);
   }
 
+  OperatorType opType = problem.getOrInsertOperatorType("hw.constant");
+  problem.setLatency(opType, 0);
+
   root.walk([&](Operation *op) {
     // check that this operation is relevant
     InstanceOp instOp = dyn_cast<InstanceOp>(op);
 
-    if (!instOp)
+    if (!instOp) {
+      if (llvm::isa<ConstantOp>(op)) {
+        problem.setLinkedOperatorType(op, problem.getOrInsertOperatorType("hw.constant"));
+      }
+
       return;
+    }
 
     Operation *refMod = instOp.getReferencedModule(nullptr);
 
