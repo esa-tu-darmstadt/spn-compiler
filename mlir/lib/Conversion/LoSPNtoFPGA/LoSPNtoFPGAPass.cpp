@@ -11,6 +11,7 @@ void LoSPNtoFPGAPass::getDependentDialects(DialectRegistry& registry) const {
   registry.insert<circt::hw::HWDialect>();
   registry.insert<circt::seq::SeqDialect>();
   registry.insert<circt::sv::SVDialect>();
+  registry.insert<circt::comb::CombDialect>();
 }
 
 void LoSPNtoFPGAPass::runOnOperation() {

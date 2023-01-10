@@ -100,6 +100,13 @@ void ConversionHelper::assignInstanceIds(ModuleOp root) {
   });
 }
 
+void ConversionHelper::assignCatModules(ModuleOp root) {
+  root.walk([&](SPNCategoricalLeaf leaf) {
+    HWModuleOp catOp = createCategoricalModule(*this, leaf, getInstanceId(leaf)).value();
+    catModules[leaf.getOperation()] = catOp.getOperation();
+  });
+}
+
 // TODO: Decide if we want to utilize Optional or throw exceptions!
 Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
   OpBuilder builder(helper.getContext());
@@ -174,7 +181,9 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
     Operation *hwExtMod = llvm::TypeSwitch<Operation *, Operation *>(op)
       .Case<SPNAdd>([&](SPNAdd op) { return helper.getMod("sv_add"); })
       .Case<SPNMul>([&](SPNMul op) { return helper.getMod("sv_mul"); })
-      .Case<SPNCategoricalLeaf>([&](SPNCategoricalLeaf op) { return helper.getMod("sv_categorical"); })
+      .Case<SPNCategoricalLeaf>([&](SPNCategoricalLeaf op) {
+        return helper.getCatModule(op);
+      })
       .Case<SPNConstant>([&](SPNConstant op) { return helper.getMod("sv_constant"); })
       .Case<SPNLog>([&](SPNLog op) { return helper.getMod("sv_log"); })
       .Default([&](Operation *op) -> InstanceOp {
@@ -198,8 +207,8 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
 Optional<ModuleOp> convert(ModuleOp root) {
   ConversionHelper helper(root.getContext());
   helper.assignInstanceIds(root);
+  helper.assignCatModules(root);
   std::vector<HWModuleOp> modOps;
-  std::vector<HWModuleOp> catOps;
 
   root.walk([&](SPNBody body) {
     Optional<HWModuleOp> modOp = createBodyModule(body, helper);
@@ -208,11 +217,6 @@ Optional<ModuleOp> convert(ModuleOp root) {
       modOps.clear();
       return WalkResult::interrupt();
     }
-
-    body.walk([&](SPNCategoricalLeaf leaf) {
-      HWModuleOp catOp = createCategoricalModule(helper, leaf, helper.getInstanceId(leaf)).value();
-      catOps.push_back(catOp);
-    });
 
     modOps.push_back(modOp.value());
   });
@@ -237,8 +241,8 @@ Optional<ModuleOp> convert(ModuleOp root) {
   builder.insert(helper.getMod("sv_log"));
   builder.insert(helper.getMod("sv_constant"));
   
-  for (HWModuleOp catOp : catOps)
-    builder.insert(catOp);
+  for (auto e : helper.getCatModules())
+    builder.insert(std::get<1>(e));
   
   for (auto op : modOps)
     builder.insert(op);
@@ -246,18 +250,20 @@ Optional<ModuleOp> convert(ModuleOp root) {
   assert(succeeded(newRoot.verify()));
 
   // schedule problem and insert buffers
-  //SchedulingProblem problem(newRoot.getOperation());
-  //schedule(newRoot, helper, problem);
+  // TODO: Refactor!!!
+  for (auto modOp : modOps) {
+    break;
+    SchedulingProblem problem(modOp.getOperation());
+    schedule(modOp, helper, problem);
 
-  // from here on the code gets ugly
-  //insertShiftRegisters(newRoot, helper, problem);
-
-  newRoot.dump();
+    // from here on the code gets ugly
+    insertShiftRegisters(modOp, helper, problem);
+  }
 
   return newRoot;
 }
 
-void schedule(ModuleOp root, ConversionHelper& helper, SchedulingProblem& problem) {
+void schedule(HWModuleOp root, ConversionHelper& helper, SchedulingProblem& problem) {
   // inspired by Scheduling.cpp
 
   using namespace ::circt::scheduling;
@@ -307,7 +313,7 @@ void schedule(ModuleOp root, ConversionHelper& helper, SchedulingProblem& proble
     assert(false && "Could not schedule problem!");
 }
 
-void insertShiftRegisters(ModuleOp root, ConversionHelper& helper, SchedulingProblem& problem) {
+void insertShiftRegisters(HWModuleOp root, ConversionHelper& helper, SchedulingProblem& problem) {
   OpBuilder builder(root.getContext());
 
   std::vector<std::tuple<
@@ -436,12 +442,22 @@ Optional<HWModuleOp> createCategoricalModule(ConversionHelper& helper, SPNCatego
     ValueRange(probabilities)
   );
 
+  // The contraints require that the input bit width is just large enough
+  // to index all elements.
   Value indexOp = catOp.getRegion().front().getArguments()[2];
+  unsigned bitWidth = llvm::APInt(32, probabilities.size()).ceilLogBase2();
+  
+  ExtractOp extractOp = builder.create<ExtractOp>(
+    builder.getUnknownLoc(),
+    indexOp,
+    0,
+    bitWidth
+  );
 
   ArrayGetOp getOp = builder.create<ArrayGetOp>(
     builder.getUnknownLoc(),
     arrayOp,
-    indexOp
+    extractOp.getResult()
   );
 
   builder.create<OutputOp>(

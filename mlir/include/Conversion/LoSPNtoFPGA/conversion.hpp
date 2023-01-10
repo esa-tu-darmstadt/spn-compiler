@@ -9,6 +9,13 @@
 #include "circt/Dialect/HW/HWOps.h"
 #include "circt/Dialect/HW/HWTypes.h"
 
+#include "circt/Dialect/HWArith/HWArithDialect.h"
+#include "circt/Dialect/HWArith/HWArithOps.h"
+#include "circt/Dialect/HWArith/HWArithTypes.h"
+
+#include "circt/Dialect/Comb/CombDialect.h"
+#include "circt/Dialect/Comb/CombOps.h"
+
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
 #include "HiSPN/HiSPNDialect.h"
@@ -30,6 +37,7 @@ using namespace ::mlir::spn::low;
 using namespace ::mlir::spn::high;
 using namespace ::circt::seq;
 using namespace ::circt::sv;
+using namespace ::circt::comb;;
 
 
 namespace mlir::spn::fpga {
@@ -42,6 +50,7 @@ class ConversionHelper {
 
   std::unordered_map<Operation *, uint64_t> instanceIds;
   std::unordered_map<std::string, Operation *> hwOps;
+  std::unordered_map<Operation *, Operation *> catModules;
 
   void createHwOps();
 public:
@@ -81,22 +90,15 @@ public:
   int64_t getDelay(const std::string& name) const;
 
   void assignInstanceIds(ModuleOp root);
+  void assignCatModules(ModuleOp root);
+  std::unordered_map<Operation *, Operation *>& getCatModules() { return catModules; }
+  Operation *getCatModule(Operation *op) const { return catModules.at(op); }
 
   std::string getVerilogIncludeString() const {
     return R"(
 `include "FPAdd.sv"
 `include "FPMult.sv"
     )";
-  }
-
-  Value getProbConstant(double value) {
-    int64_t bits = *reinterpret_cast<const int64_t *>(&value);
-
-    return builder.create<ConstantOp>(
-      builder.getUnknownLoc(),
-      getProbType(),
-      123456 //bits
-    ).getResult();
   }
 };
 
@@ -111,9 +113,9 @@ public:
   }  
 };
 
-void schedule(ModuleOp root, ConversionHelper& helper, SchedulingProblem& problem);
+void schedule(HWModuleOp root, ConversionHelper& helper, SchedulingProblem& problem);
 
-void insertShiftRegisters(ModuleOp root, ConversionHelper& helper, SchedulingProblem& problem);
+void insertShiftRegisters(HWModuleOp root, ConversionHelper& helper, SchedulingProblem& problem);
 
 Optional<HWModuleOp> createCategoricalModule(ConversionHelper& helper, SPNCategoricalLeaf op, uint64_t id);
 

@@ -16,6 +16,8 @@ add_mlir_conversion_library(MLIRLoSPNtoFPGATransforms
     MLIRMathDialect
 
     CIRCTHW
+    CIRCTHWArith
+    CIRCTComb
     CIRCTScheduling
     CIRCTSeq
 )
