@@ -1,11 +1,11 @@
-SIM ?= verilator
+SIM = questa
 TOPLEVEL_LANG ?= verilog
 
 PWD=$(shell pwd)
 
 export PYTHONPATH := $(PWD)/../model:$(PYTHONPATH)
 
-EXTRA_ARGS+=-I$(PWD)/../hdl
+#EXTRA_ARGS+=-I$(PWD)/../hdl
 
 VERILOG_SOURCES += $(PWD)/../hdl/top.sv
 

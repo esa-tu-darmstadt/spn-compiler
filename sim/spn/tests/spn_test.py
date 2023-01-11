@@ -1,8 +1,26 @@
 import numpy as np
+import struct
+from codecs import decode
 
 import cocotb
 from cocotb.triggers import Timer, RisingEdge, FallingEdge
 from cocotb.clock import Clock
+
+
+# https://stackoverflow.com/questions/8751653/how-to-convert-a-binary-string-into-a-float-value/8762541
+def int_to_bytes(n, length):  # Helper function
+    """ Int/long to byte string.
+
+        Python 3.2+ has a built-in int.to_bytes() method that could be used
+        instead, but the following works in earlier versions including 2.x.
+    """
+    return decode('%%0%dx' % (length << 1) % n, 'hex')[-length:]
+
+
+def bin_to_float(b):
+    """ Convert binary string to a float. """
+    bf = int_to_bytes(int(b, 2), 8)  # 8 bytes needed for IEEE 754 binary64.
+    return struct.unpack('>d', bf)[0]
 
 
 async def reset(dut):
@@ -38,10 +56,13 @@ async def read_outputs(port, count, delay):
     await Timer(2, units="ns")
 
   print(f'GOT:')
-  print(results)
+  for result in results:
+    bit_str = str(result)
+    f = bin_to_float(bit_str)
+    print(f'{bit_str}: {f}')
 
 async def run_clock(dut):
-  for i in range(100):
+  for i in range(1000):
     print("tick")
     dut.clk.value = 0
     await Timer(1, units="ns")
@@ -53,8 +74,8 @@ async def run_clock(dut):
 async def generate_clock(dut):
   """Generate clock pulses."""
 
-  for cycle in range(10):
-    dut._log.info("tick")
+  for cycle in range(200):
+    #dut._log.info("tick")
     dut.clk.value = 0
     await Timer(1, units="ns")
     dut.clk.value = 1
@@ -71,7 +92,7 @@ async def spn_basic_test(dut):
     1
   ])
 
-  spn_delay = 123
+  spn_delay = 50
 
   in_ports = [
     dut.in_0, dut.in_1, dut.in_2, dut.in_3, dut.in_4
@@ -79,31 +100,22 @@ async def spn_basic_test(dut):
 
   out_port = dut.out_prob
 
-  #cocotb.start_soon(Clock(dut.clk, 2, units="ns").start())
   await cocotb.start(generate_clock(dut))  # run the clock "in the background"
-
-  await Timer(5, units="ns")  # wait a bit
-  await FallingEdge(dut.clk)  # wait for falling edge/"negedge"
   
-  dut._log.info("my_signal_1 is %s", dut.my_signal_1.value)
-  assert dut.my_signal_2.value[0] == 0, "my_signal_2[0] is not 0!"
-
-  return
-
-  print("resetting...")
+  # reset internal state
   await reset(dut)
-  print("done")
 
-  # write inputs and read outputs concurrently
-  write_thread = cocotb.start_soon(
+  # write inputs
+  await cocotb.start(
     write_inputs(in_ports, inputs, 0)
   )
 
-  read_thread = cocotb.start_soon(
-    read_outputs(out_port, outputs.shape[0], spn_delay)
+  # read outputs
+  await cocotb.start(
+    read_outputs(out_port, 10, spn_delay)
   )
 
-  await write_thread
-  await read_thread
-  await clk_thread
-
+  # wait until everything is done
+  await Timer(500, units="ns")  # wait a bit
+  await FallingEdge(dut.clk)  # wait for falling edge/"negedge"
+  
