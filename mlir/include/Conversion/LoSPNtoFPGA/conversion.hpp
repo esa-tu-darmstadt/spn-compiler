@@ -31,6 +31,7 @@
 #include "circt/Dialect/SV/SVOps.h"
 
 #include "scheduling.hpp"
+#include "types.hpp"
 
 
 using namespace ::mlir;
@@ -41,6 +42,7 @@ using namespace ::circt::seq;
 using namespace ::circt::sv;
 using namespace ::circt::comb;
 using namespace ::mlir::spn::fpga::operators;
+using namespace ::mlir::spn::fpga::types;
 
 
 namespace mlir::spn::fpga {
@@ -52,14 +54,18 @@ class ConversionHelper {
   Type indexType, probType, sigType;
 
   std::unordered_map<Operation *, uint64_t> instanceIds;
-  std::unordered_map<std::string, Operation *> hwOps;
-  std::unordered_map<Operation *, Operation *> catModules;
+  // contains external ops
+  std::unordered_map<OperatorType, Operation *> hwOps;
+  // contains all categoricals and histograms
+  std::unordered_map<Operation *, Operation *> leafModules;
 
+  std::vector<PortInfo> hwPorts(const std::vector<OperatorPortInfo>& ports);
   void createHwOps();
 public:
   OperatorTypeMapping opMapping;
+  TargetTypes targetTypes;
 
-  ConversionHelper(MLIRContext *ctxt): ctxt(ctxt), builder(ctxt) {
+  ConversionHelper(MLIRContext *ctxt): ctxt(ctxt), builder(ctxt), targetTypes(builder) {
     indexType = builder.getI8Type();
     probType = builder.getIntegerType(31);
     sigType = builder.getI1Type();
@@ -73,6 +79,14 @@ public:
   Type getProbType() const { return probType; }
   Type getSigType() const { return sigType; }
 
+  //PortInfo port(const OperatorPortInfo& portInfo) {
+  //  return PortInfo{
+  //    .name = builder.getStringAttr(portInfo.name),
+  //    .direction = portInfo.direction,
+  //    .type = portInfo.type
+  //  };
+  //}
+
   PortInfo port(const std::string& name, PortDirection direction, Type type) {
     return PortInfo{
       .name = builder.getStringAttr(name),
@@ -84,7 +98,7 @@ public:
   PortInfo inPort(const std::string& name, Type type) { return port(name, PortDirection::INPUT, type); }
   PortInfo outPort(const std::string& name, Type type) { return port(name, PortDirection::OUTPUT, type); }
 
-  Operation *getMod(const std::string& name) const { return hwOps.at(name); }
+  Operation *getMod(OperatorType type) const { return hwOps.at(type); }
   std::string getInstanceName(Operation *op) const {
     return std::string("instance_") + std::to_string(instanceIds.at(op));
   }
@@ -93,9 +107,9 @@ public:
   int64_t getDelay(const std::string& name) const;
 
   void assignInstanceIds(ModuleOp root);
-  void assignCatModules(ModuleOp root);
-  std::unordered_map<Operation *, Operation *>& getCatModules() { return catModules; }
-  Operation *getCatModule(Operation *op) const { return catModules.at(op); }
+  void assignLeafModules(ModuleOp root);
+  std::unordered_map<Operation *, Operation *>& getLeafModules() { return leafModules; }
+  Operation *getLeafModule(Operation *op) const { return leafModules.at(op); }
 
   std::string getVerilogIncludeString() const {
     return R"(

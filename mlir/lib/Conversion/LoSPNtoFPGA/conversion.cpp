@@ -6,96 +6,43 @@
 
 namespace mlir::spn::fpga {
 
-static const char *SV_ADD = "FPAdd";
-static const char *SV_MUL = "FPMult";
-static const char *SV_LOG = "FPLog";
-static const char *SV_CONSTANT = "sv_constant";
-static const char *SV_CATEGORICAL = "sv_categorical";
+std::vector<PortInfo> ConversionHelper::hwPorts(const std::vector<OperatorPortInfo>& ports) {
+  std::vector<PortInfo> newPorts;
 
-void ConversionHelper::createHwOps() {
-  std::vector<PortInfo> binPorts{
-    inPort("clock", sigType),
-    inPort("reset", sigType),
-    inPort("io_a", probType),
-    inPort("io_b", probType),
-    outPort("io_r", probType)
-  };
+  for (const OperatorPortInfo& portInfo : ports) {
+    PortDirection direction =
+      portInfo.direction == INPUT ? PortDirection::INPUT : PortDirection::OUTPUT;
 
-  std::vector<PortInfo> catPorts{
-    inPort("clk", sigType),
-    inPort("rst", sigType),
-    inPort("in_index", indexType),
-    outPort("out_prob", probType)
-  };
+    Type type;
+    switch (portInfo.type) {
+      case PORT_SIGNAL: type = targetTypes.getSignalType(); break;
+      case PORT_INDEX: type = targetTypes.getIndexType(); break;
+      case PORT_PROBABILITY: type = targetTypes.getProbType(); break;
+    }
 
-  std::vector<PortInfo> constPorts{
-    inPort("clk", sigType),
-    inPort("rst", sigType),
-    outPort("out_const", probType)
-  };
+    PortInfo newPort{
+      .name = builder.getStringAttr(portInfo.name),
+      .direction = direction,
+      .type = type
+    };
 
-  std::vector<PortInfo> logPorts{
-    inPort("clk", sigType),
-    inPort("rst", sigType),
-    inPort("in_a", probType),
-    outPort("out_b", probType)
-  };
-
-  std::vector<PortInfo> bodyPorts{
-    inPort("clk", sigType),
-    inPort("rst", sigType),
-    outPort("out_prob", probType)
-  };
-
-  hwOps[SV_ADD] = builder.create<HWModuleExternOp>(
-    builder.getUnknownLoc(),
-    builder.getStringAttr(SV_ADD),
-    ArrayRef<PortInfo>(binPorts)
-  );
-
-  hwOps[SV_MUL] = builder.create<HWModuleExternOp>(
-    builder.getUnknownLoc(),
-    builder.getStringAttr(SV_MUL),
-    ArrayRef<PortInfo>(binPorts)
-  );
-
-  hwOps[SV_CATEGORICAL] = builder.create<HWModuleExternOp>(
-    builder.getUnknownLoc(),
-    builder.getStringAttr(SV_CATEGORICAL),
-    ArrayRef<PortInfo>(catPorts)
-  );
-
-  hwOps[SV_CONSTANT] = builder.create<HWModuleExternOp>(
-    builder.getUnknownLoc(),
-    builder.getStringAttr(SV_CONSTANT),
-    ArrayRef<PortInfo>(constPorts)
-  );
-
-  hwOps[SV_LOG] = builder.create<HWModuleExternOp>(
-    builder.getUnknownLoc(),
-    builder.getStringAttr(SV_LOG),
-    ArrayRef<PortInfo>(logPorts),
-    SV_LOG
-  );
-
-  //hwOps[SV_LOG]->setAttr("filenames", builder.getStringAttr("somefile.sv"));
-}
-
-int64_t ConversionHelper::getDelay(const std::string& name) const {
-  // just some arbitrary values
-  if (name == SV_ADD) {
-    return 5;
-  } else if (name == SV_MUL) {
-    return 10;
-  } else if (name == SV_CATEGORICAL) {
-    return 1;
-  } else if (name == SV_CONSTANT) {
-    return 0;
-  } else if (name == SV_LOG) {
-    return 10;
+    newPorts.push_back(newPort);
   }
 
-  assert(false && "Unknown module type!");
+  return newPorts;
+}
+
+void ConversionHelper::createHwOps() {
+  for (OperatorType opType : {TYPE_ADD, TYPE_MUL, TYPE_LOG}) {
+    std::vector<PortInfo> ports = hwPorts(opMapping.getOperatorPorts(opType));
+    std::string name = opMapping.getTypeBaseName(opType);
+
+    hwOps[opType] = builder.create<HWModuleExternOp>(
+      builder.getUnknownLoc(),
+      builder.getStringAttr(name),
+      ArrayRef<PortInfo>(ports)
+    );
+  }
 }
 
 void ConversionHelper::assignInstanceIds(ModuleOp root) {
@@ -106,14 +53,13 @@ void ConversionHelper::assignInstanceIds(ModuleOp root) {
   });
 }
 
-void ConversionHelper::assignCatModules(ModuleOp root) {
+void ConversionHelper::assignLeafModules(ModuleOp root) {
   root.walk([&](SPNCategoricalLeaf leaf) {
     HWModuleOp catOp = createCategoricalModule(*this, leaf, getInstanceId(leaf)).value();
-    catModules[leaf.getOperation()] = catOp.getOperation();
+    leafModules[leaf.getOperation()] = catOp.getOperation();
   });
 }
 
-// TODO: Decide if we want to utilize Optional or throw exceptions!
 Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
   OpBuilder builder(helper.getContext());
 
@@ -158,17 +104,7 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
       return;
 
     // map op type
-    OperatorType opType = llvm::TypeSwitch<Operation *, OperatorType>(op) 
-      .Case<SPNAdd>([&](SPNAdd op) { return TYPE_ADD; })
-      .Case<SPNMul>([&](SPNMul op) { return TYPE_MUL; })
-      .Case<SPNCategoricalLeaf>([&](SPNCategoricalLeaf op) { return TYPE_CATEGORICAL; })
-      .Case<SPNConstant>([&](SPNConstant op) { return TYPE_CONSTANT; })
-      .Case<SPNLog>([&](SPNLog op) { return TYPE_LOG; })
-      .Case<SPNHistogramLeaf>([&](SPNHistogramLeaf op) { return TYPE_HISTOGRAM; })
-      .Case<SPNYield>([&](SPNYield op) { return TYPE_YIELD; })
-      .Default([&](Operation *op) -> OperatorType {
-        assert(false && "Unexpected type");
-      });
+    OperatorType opType = OperatorTypeMapping::getOperatorType(op);
 
     // get the new operands
     std::vector<Value> operands{
@@ -187,7 +123,7 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
     StringAttr instanceName = builder.getStringAttr(helper.getInstanceName(op));
 
     // SPNYield forms an exception
-    if (SPNYield yield = llvm::dyn_cast<SPNYield>(op)) {
+    if (opType == TYPE_YIELD) {
       builder.create<OutputOp>(
         loc,
         ValueRange(operandsRef.drop_front(2))
@@ -197,43 +133,31 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
     }
 
     // get the external module which we refer to in the new instance
-    Operation *mod = llvm::TypeSwitch<Operation *, Operation *>(op)
-      .Case<SPNAdd>([&](SPNAdd op) { return helper.getMod(SV_ADD); })
-      .Case<SPNMul>([&](SPNMul op) { return helper.getMod(SV_MUL); })
-      .Case<SPNCategoricalLeaf>([&](SPNCategoricalLeaf op) {
-        return helper.getCatModule(op);
-      })
-      .Case<SPNConstant>([&](SPNConstant op) {
-        float f32 = op.getValue().convertToDouble();
-        uint32_t bits = *reinterpret_cast<const uint32_t *>(&f32);
-
-        // TODO: Conversion must be configurable!
-        return builder.create<ConstantOp>(
-          builder.getUnknownLoc(),
-          helper.getProbType(),
-          bits
-        );
-      })
-      .Case<SPNLog>([&](SPNLog op) { return helper.getMod(SV_LOG); })
-      .Default([&](Operation *op) -> InstanceOp {
-        assert(false && "Unexpected type");
-      });
-
     Operation *newInstance = nullptr;
-    
-    if (llvm::isa<ConstantOp>(mod)) {
-      newInstance = mod;
+
+    if (opType == TYPE_CONSTANT) {
+      uint32_t bits = helper.targetTypes.convertProb(
+        llvm::dyn_cast<SPNConstant>(op).getValue().convertToDouble()
+      );
+
+      newInstance = builder.create<ConstantOp>(
+        builder.getUnknownLoc(),
+        helper.targetTypes.getProbType(),
+        bits
+      );
     } else {
+      Operation *refMod = (opType == TYPE_CATEGORICAL || opType == TYPE_HISTOGRAM) ?
+        helper.getLeafModule(op) : helper.getMod(opType);
+
       newInstance = builder.create<InstanceOp>(
         loc,
-        mod,
+        refMod,
         instanceName,
         operandsRef
       ).getOperation();
     }
 
     helper.opMapping.setType(newInstance, opType);
-
     // the old result value now points to the new result value
     mapping.map(op->getResults(), newInstance->getResults());
   });
@@ -244,7 +168,7 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
 Optional<ModuleOp> convert(ModuleOp root) {
   ConversionHelper helper(root.getContext());
   helper.assignInstanceIds(root);
-  helper.assignCatModules(root);
+  helper.assignLeafModules(root);
   std::vector<HWModuleOp> modOps;
 
   root.walk([&](SPNBody body) {
@@ -273,12 +197,10 @@ Optional<ModuleOp> convert(ModuleOp root) {
     helper.getVerilogIncludeString()
   );
 
-  builder.insert(helper.getMod(SV_ADD));
-  builder.insert(helper.getMod(SV_MUL));
-  builder.insert(helper.getMod(SV_LOG));
-  builder.insert(helper.getMod(SV_CONSTANT));
-  
-  for (auto e : helper.getCatModules())
+  for (OperatorType opType : {TYPE_ADD, TYPE_MUL, TYPE_LOG})
+    builder.insert(helper.getMod(opType));
+
+  for (auto e : helper.getLeafModules())
     builder.insert(std::get<1>(e));
   
   for (auto op : modOps)
@@ -324,8 +246,6 @@ Optional<HWModuleOp> createCategoricalModule(ConversionHelper& helper, SPNCatego
 
   // remove the default hw.output
   catOp.getBodyBlock()->front().erase();
-  Value modClk = catOp.getRegion().front().getArguments()[0];
-  Value modRst = catOp.getRegion().front().getArguments()[1];
 
   builder.setInsertionPointToStart(catOp.getBodyBlock());
 
