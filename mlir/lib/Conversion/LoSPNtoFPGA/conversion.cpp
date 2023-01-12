@@ -55,7 +55,7 @@ void ConversionHelper::assignInstanceIds(ModuleOp root) {
 
 void ConversionHelper::assignLeafModules(ModuleOp root) {
   root.walk([&](SPNCategoricalLeaf leaf) {
-    HWModuleOp catOp = createCategoricalModule(*this, leaf, getInstanceId(leaf)).value();
+    HWModuleOp catOp = createLeafModule(leaf.getOperation()).value();
     leafModules[leaf.getOperation()] = catOp.getOperation();
   });
 }
@@ -227,44 +227,25 @@ Optional<ModuleOp> convert(ModuleOp root) {
   return newRoot;
 }
 
-Optional<HWModuleOp> createCategoricalModule(ConversionHelper& helper, SPNCategoricalLeaf op, uint64_t id) {
-  
-  OpBuilder builder = helper.getBuilder();
+Optional<HWModuleOp> ConversionHelper::createLeafModule(Operation *op) {
+  // we need a new builder
+  OpBuilder builder(ctxt);
 
-  std::vector<PortInfo> catPorts{
-    helper.inPort("clk", helper.getSigType()),
-    helper.inPort("rst", helper.getSigType()),
-    helper.inPort("in_index", helper.getIndexType()),
-    helper.outPort("out_prob", helper.getProbType())
-  };
+  std::vector<PortInfo> catPorts = hwPorts(opMapping.getOperatorPorts(TYPE_CATEGORICAL));
+  uint64_t id = getInstanceId(op);
 
-  HWModuleOp catOp = builder.create<HWModuleOp>(
+  HWModuleOp leafOp = builder.create<HWModuleOp>(
     builder.getUnknownLoc(),
-    builder.getStringAttr("spn_categorical_" + std::to_string(id)),
+    builder.getStringAttr(opMapping.getFullModuleName(TYPE_CATEGORICAL, id)),
     ArrayRef<PortInfo>(catPorts)
   );
 
   // remove the default hw.output
-  catOp.getBodyBlock()->front().erase();
-
-  builder.setInsertionPointToStart(catOp.getBodyBlock());
+  leafOp.getBodyBlock()->front().erase();
+  builder.setInsertionPointToStart(leafOp.getBodyBlock());
 
   // create probability array
-  std::vector<Value> probabilities;
-
-  for (Attribute prob : op.getProbabilities()) {
-    float f32 = float(llvm::dyn_cast<FloatAttr>(prob).getValueAsDouble());
-    uint32_t bits = *reinterpret_cast<const uint32_t *>(&f32);
-
-    // TODO: Conversion must be configurable!
-    ConstantOp constant = builder.create<ConstantOp>(
-      builder.getUnknownLoc(),
-      helper.getProbType(),
-      bits
-    );
-
-    probabilities.push_back(constant.getResult());
-  }
+  std::vector<Value> probabilities = createProbabilityArray(builder, op);
 
   ArrayCreateOp arrayOp = builder.create<ArrayCreateOp>(
     builder.getUnknownLoc(),
@@ -273,7 +254,7 @@ Optional<HWModuleOp> createCategoricalModule(ConversionHelper& helper, SPNCatego
 
   // The contraints require that the input bit width is just large enough
   // to index all elements.
-  Value indexOp = catOp.getRegion().front().getArguments()[2];
+  Value indexOp = leafOp.getRegion().front().getArguments()[2];
   unsigned bitWidth = llvm::APInt(32, probabilities.size()).ceilLogBase2();
   
   ExtractOp extractOp = builder.create<ExtractOp>(
@@ -294,11 +275,33 @@ Optional<HWModuleOp> createCategoricalModule(ConversionHelper& helper, SPNCatego
     ValueRange(std::vector<Value>{getOp.getResult()})
   );
 
-  return catOp;
+  return leafOp;
 }
 
-Optional<HWModuleOp> createHistogramModule(ConversionHelper& helper, SPNHistogramLeaf op, uint64_t id) {
-  
+std::vector<Value> ConversionHelper::createProbabilityArray(OpBuilder& builder, Operation *op) {
+  ArrayAttr probs;
+
+  // TODO: Histogram
+  if (SPNCategoricalLeaf leaf = llvm::dyn_cast<SPNCategoricalLeaf>(op))
+    probs = leaf.getProbabilities();
+
+  std::vector<Value> probabilities;
+
+  for (Attribute prob : probs) {
+    uint32_t bits = targetTypes.convertProb(
+      llvm::dyn_cast<FloatAttr>(prob).getValueAsDouble()
+    );
+
+    ConstantOp constant = builder.create<ConstantOp>(
+      builder.getUnknownLoc(),
+      targetTypes.getProbType(),
+      bits
+    );
+
+    probabilities.push_back(constant.getResult());
+  }
+
+  return probabilities;
 }
 
 }

@@ -118,6 +118,10 @@ public:
 `include "FPLog.v"
     )";
   }
+
+private:
+  Optional<HWModuleOp> createLeafModule(Operation *op);
+  std::vector<Value> createProbabilityArray(OpBuilder& builder, Operation *op);
 };
 
 Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper);
@@ -134,8 +138,5 @@ public:
 void schedule(HWModuleOp root, ConversionHelper& helper, SchedulingProblem& problem);
 
 void insertShiftRegisters(HWModuleOp root, ConversionHelper& helper, SchedulingProblem& problem);
-
-Optional<HWModuleOp> createCategoricalModule(ConversionHelper& helper, SPNCategoricalLeaf op, uint64_t id);
-Optional<HWModuleOp> createHistogramModule(ConversionHelper& helper, SPNHistogramLeaf op, uint64_t id);
 
 }

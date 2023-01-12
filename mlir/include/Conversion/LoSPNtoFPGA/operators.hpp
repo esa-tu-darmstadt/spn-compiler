@@ -111,6 +111,15 @@ public:
     return baseName + "_" + std::to_string(id);
   }
 
+  std::string getFullModuleName(OperatorType type, uint64_t id) const {
+    std::string baseName = getTypeBaseName(type);
+
+    if (isExternalType(type))
+      return baseName;
+
+    return baseName + "_" + std::to_string(id);
+  }
+
   bool isMapped(Operation *op) const { return operatorTypes.find(op) != operatorTypes.end(); }
   uint64_t getDelay(OperatorType type) const { return delays.at(type); }
   uint64_t getDelay(std::string& baseName) const { return getDelay(baseNameToType.at(baseName)); }
