@@ -40,6 +40,7 @@ using namespace ::mlir::spn::high;
 using namespace ::circt::seq;
 using namespace ::circt::sv;
 using namespace ::circt::comb;
+using namespace ::mlir::spn::fpga::operators;
 
 
 namespace mlir::spn::fpga {
@@ -56,7 +57,7 @@ class ConversionHelper {
 
   void createHwOps();
 public:
-
+  OperatorTypeMapping opMapping;
 
   ConversionHelper(MLIRContext *ctxt): ctxt(ctxt), builder(ctxt) {
     indexType = builder.getI8Type();

@@ -157,6 +157,19 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
     if (llvm::isa<SPNBody>(op))
       return;
 
+    // map op type
+    OperatorType opType = llvm::TypeSwitch<Operation *, OperatorType>(op) 
+      .Case<SPNAdd>([&](SPNAdd op) { return TYPE_ADD; })
+      .Case<SPNMul>([&](SPNMul op) { return TYPE_MUL; })
+      .Case<SPNCategoricalLeaf>([&](SPNCategoricalLeaf op) { return TYPE_CATEGORICAL; })
+      .Case<SPNConstant>([&](SPNConstant op) { return TYPE_CONSTANT; })
+      .Case<SPNLog>([&](SPNLog op) { return TYPE_LOG; })
+      .Case<SPNHistogramLeaf>([&](SPNHistogramLeaf op) { return TYPE_HISTOGRAM; })
+      .Case<SPNYield>([&](SPNYield op) { return TYPE_YIELD; })
+      .Default([&](Operation *op) -> OperatorType {
+        assert(false && "Unexpected type");
+      });
+
     // get the new operands
     std::vector<Value> operands{
       modClk, modRst
@@ -219,6 +232,8 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
       ).getOperation();
     }
 
+    helper.opMapping.setType(newInstance, opType);
+
     // the old result value now points to the new result value
     mapping.map(op->getResults(), newInstance->getResults());
   });
@@ -273,7 +288,7 @@ Optional<ModuleOp> convert(ModuleOp root) {
 
   // schedule problem and insert buffers
   for (auto modOp : modOps) {
-    scheduling::SchedulingProblem problem(modOp.getOperation());
+    scheduling::SchedulingProblem problem(modOp.getOperation(), helper.opMapping);
 
     problem.construct();
 
