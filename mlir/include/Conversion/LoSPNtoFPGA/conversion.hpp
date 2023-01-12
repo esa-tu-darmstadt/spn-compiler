@@ -30,6 +30,8 @@
 #include "circt/Dialect/SV/SVDialect.h"
 #include "circt/Dialect/SV/SVOps.h"
 
+#include "scheduling.hpp"
+
 
 using namespace ::mlir;
 using namespace ::circt::hw;
@@ -37,7 +39,7 @@ using namespace ::mlir::spn::low;
 using namespace ::mlir::spn::high;
 using namespace ::circt::seq;
 using namespace ::circt::sv;
-using namespace ::circt::comb;;
+using namespace ::circt::comb;
 
 
 namespace mlir::spn::fpga {

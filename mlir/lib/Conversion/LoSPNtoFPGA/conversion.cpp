@@ -272,162 +272,22 @@ Optional<ModuleOp> convert(ModuleOp root) {
   assert(succeeded(newRoot.verify()));
 
   // schedule problem and insert buffers
-  // TODO: Refactor!!!
   for (auto modOp : modOps) {
-    SchedulingProblem problem(modOp.getOperation());
-    schedule(modOp, helper, problem);
+    scheduling::SchedulingProblem problem(modOp.getOperation());
+
+    problem.construct();
+
+    if (failed(problem.check()))
+      assert(false && "Problem check failed!");
+
+    if (failed(scheduleASAP(problem)))
+      assert(false && "Could not schedule problem!");
 
     // from here on the code gets ugly
-    insertShiftRegisters(modOp, helper, problem);
+    problem.insertDelays();
   }
 
   return newRoot;
-}
-
-void schedule(HWModuleOp root, ConversionHelper& helper, SchedulingProblem& problem) {
-  // inspired by Scheduling.cpp
-
-  using namespace ::circt::scheduling;
-  using namespace ::llvm;
-  using OperatorType = SchedulingProblem::OperatorType;
-
-  // construct problem
-  for (const std::string& name : std::vector<std::string>{SV_ADD, SV_MUL, SV_CONSTANT, SV_CATEGORICAL, SV_LOG}) {
-    OperatorType opType = problem.getOrInsertOperatorType(name);
-    int64_t delay = helper.getDelay(name);
-    problem.setLatency(opType, delay);
-  }
-
-  OperatorType opType = problem.getOrInsertOperatorType("hw.constant");
-  problem.setLatency(opType, 0);
-
-  root.walk([&](Operation *op) {
-    // check that this operation is relevant
-    InstanceOp instOp = dyn_cast<InstanceOp>(op);
-
-    if (!instOp) {
-      if (llvm::isa<ConstantOp>(op)) {
-        problem.setLinkedOperatorType(op, problem.getOrInsertOperatorType("hw.constant"));
-      }
-
-      return;
-    }
-
-    Operation *refMod = instOp.getReferencedModule(nullptr);
-
-    HWModuleExternOp extOp = dyn_cast<HWModuleExternOp>(refMod);
-    std::string modName;
-
-    // TODO: This is super hacky but works for now!!!
-    if (!extOp)
-      modName = SV_CATEGORICAL;
-    else
-      modName = extOp.getName().str();
-
-    problem.insertOperation(op);  
-    
-    int64_t delay = helper.getDelay(modName);
-
-    // add dependencies
-    for (Value operand : op->getOperands()) {
-      if (!operand.getDefiningOp())
-        continue;
-      
-      problem.insertDependence(std::make_pair(operand.getDefiningOp(), op));
-    }
-
-    // say what operator type we have
-    problem.setLinkedOperatorType(op, problem.getOrInsertOperatorType(modName));
-  });
-
-  if (failed(problem.check()))
-    assert(false && "Problem check failed!");
-
-  if (failed(scheduleASAP(problem)))
-    assert(false && "Could not schedule problem!");
-}
-
-void insertShiftRegisters(HWModuleOp root, ConversionHelper& helper, SchedulingProblem& problem) {
-  OpBuilder builder(root.getContext());
-
-  std::vector<std::tuple<
-    Operation *,  // from
-    Operation *,  // to
-    uint32_t      // delay
-  >> jobs;
-
-  // first collect all the delays we want to insert
-  root.walk([&](InstanceOp op) {
-    for (Value operand : op.getOperands()) {
-      Operation *defOp = operand.getDefiningOp();
-
-      // is a block argument or something
-      if (!defOp)
-        continue;
-
-      assert(problem.getStartTime(op).has_value());
-      assert(problem.getLatency(problem.getLinkedOperatorType(op).value()).has_value());
-      assert(problem.getStartTime(defOp).has_value());
-
-      uint32_t meStartTime = problem.getStartTime(op).value();
-      uint32_t defOpLatency = problem.getLatency(problem.getLinkedOperatorType(defOp).value()).value();
-      uint32_t defOpStartTime = problem.getStartTime(defOp).value();
-
-      assert(defOpStartTime + defOpLatency <= meStartTime);
-
-      uint32_t delay = meStartTime - (defOpStartTime + defOpLatency);
-
-      if (delay == 0)
-        continue;
-
-      jobs.emplace_back(
-        defOp,
-        op.getOperation(),
-        delay
-      );
-    }
-  });
-
-  Value clk, rst;
-
-  // stupid way to find the clk and rst signals
-  root.walk([&](HWModuleOp op) {
-    Block *body = op.getBodyBlock();
-    clk = body->getArguments()[0];
-    rst = body->getArguments()[1];
-    return WalkResult::interrupt();
-  });
-
-  auto delaySignal = [&](Value input, uint32_t delay) -> std::tuple<Value, Operation *> {
-    assert(delay >= 1);
-    
-    builder.setInsertionPointAfter(input.getDefiningOp());
-    Value prev = input;
-    Operation *ignoreOp = nullptr;
-
-    for (uint32_t i = 0; i < delay; ++i) {
-      //CompRegOp reg = builder.create<CompRegOp>(
-      //  builder.getUnknownLoc(), std::move(prev), clk, "shiftReg"
-      //);
-      FirRegOp reg = builder.create<FirRegOp>(
-        builder.getUnknownLoc(), std::move(prev), clk, builder.getStringAttr("shiftReg")
-      );
-      prev = reg.getResult();
-
-      if (!ignoreOp)
-        ignoreOp = reg;
-    }
-
-    return std::make_tuple(prev, ignoreOp);
-  };
-
-  // finally insert delays
-  for (auto [from, to, delay] : jobs) {
-    Value result = from->getResults()[0];
-    auto [delayedResult, ignoreOp] = delaySignal(result, delay);
-    // we introduce a new usage which we need to ignore
-    result.replaceAllUsesExcept(delayedResult, ignoreOp);
-  }
 }
 
 Optional<HWModuleOp> createCategoricalModule(ConversionHelper& helper, SPNCategoricalLeaf op, uint64_t id) {
