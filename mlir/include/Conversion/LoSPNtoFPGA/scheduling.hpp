@@ -43,29 +43,113 @@ using namespace ::circt::comb;
 
 namespace mlir::spn::fpga::scheduling {
 
-inline const std::string TYPE_ADD = "FPAdd";
-inline const std::string TYPE_MUL = "FPMult";
-inline const std::string TYPE_LOG = "FPLog";
-inline const std::string TYPE_CATEGORICAL = "categorical";
-inline const std::string TYPE_HISTOGRAM = "histogram";
-inline const std::string TYPE_CONSTANT = "constant";
+// We want to further detach the operator type string from the verilog
+// module name because the latter should be freely configurable by the user.
+// For that the user must implement the methods in DelayLibrary to their needs.
+enum OpType {
+  // these come from external verilog sources
+  TYPE_ADD, TYPE_MUL, TYPE_LOG,
+  // these are generated
+  TYPE_CATEGORICAL, TYPE_HISTOGRAM, TYPE_CONSTANT
+};
 
 class DelayLibrary {
-  std::unordered_map<std::string, uint64_t> delays;
+protected:
+  std::unordered_map<OpType, uint64_t> delays;
+  std::unordered_map<std::string, uint64_t> delaysByName;
+
+  // contains for example FPAdd -> TYPE_ADD
+  std::unordered_map<std::string, OpType> externalNameToType;
 public:
   DelayLibrary() {
+    // TODO: Load this from a config file or similar.
+
+    // for now these are the delays for the ufloat operators with 8;23 bits
+    // FPOps_build_mult delay: 5
+    // FPOps_build_add delay: 6
     delays = {
-      {TYPE_ADD, 5},
-      {TYPE_MUL, 10},
+      {TYPE_ADD, 6},
+      {TYPE_MUL, 5},
       {TYPE_LOG, 0},
       {TYPE_CATEGORICAL, 1},
       {TYPE_CONSTANT, 0},
       {TYPE_HISTOGRAM, 1}
     };
+
+    for (const auto& pair : delays)
+      delaysByName[typeToString(std::get<0>(pair))] = std::get<1>(pair);
+
+    externalNameToType = {
+       {"FPAdd", TYPE_ADD},
+       {"FPMult", TYPE_MUL},
+       {"FPLog", TYPE_LOG}
+    };
+  } 
+protected:
+  std::string typeToString(OpType type) const {
+    switch (type) {
+      case TYPE_ADD: return "TYPE_ADD";
+      case TYPE_MUL: return "TYPE_MUL";
+      case TYPE_LOG: return "TYPE_LOG";
+      case TYPE_CATEGORICAL: return "TYPE_CATEGORICAL";
+      case TYPE_HISTOGRAM: return "TYPE_HISTOGRAM";
+      case TYPE_CONSTANT: return "TYPE_CONSTANT";
+    }
+
+    return "TYPE_UNKNOWN";
   }
 
-  uint64_t getDelay(const std::string& operatorType) const {
-    return delays.at(operatorType);
+  // The following 2 functions basically encode the naming conventions used
+  // to identify the modules.
+  std::optional<OpType> getExternalType(const std::string& name) const {
+    return externalNameToType.at(name);
+  }
+
+  virtual std::optional<OpType> getGeneratedModuleType(const std::string& name) const {
+    if (name.find("categorical") != std::string::npos)
+      return TYPE_CATEGORICAL;
+    else if (name.find("histogram") != std::string::npos)
+      return TYPE_HISTOGRAM;
+    else
+      return std::nullopt;
+  }
+
+  std::optional<OpType> _determineOperatorType(Operation *op) const {
+    if (InstanceOp instOp = llvm::dyn_cast<InstanceOp>(op)) {
+      Operation *refMod = instOp.getReferencedModule(nullptr);
+      assert(refMod);
+
+      // check if the reference is to an external verilog module
+      if (HWModuleExternOp extOp = llvm::dyn_cast<HWModuleExternOp>(refMod)) {
+        auto it = externalNameToType.find(extOp.getName().str());
+
+        if (it != externalNameToType.end())
+          return std::get<1>(*it);
+      } else if (HWModuleOp modOp = llvm::dyn_cast<HWModuleOp>(refMod)) {
+        // we need to do some string processing to extract the operator type name
+        return getGeneratedModuleType(modOp.getName().str());
+      }
+    } else if (llvm::isa<ConstantOp>(op)) {
+      return TYPE_CONSTANT;
+    }
+
+    return std::nullopt;
+  }
+public:
+  std::optional<std::string> determineOperatorType(Operation *op) const {
+    std::optional<OpType> opType = _determineOperatorType(op);
+
+    if (!opType)
+      return std::nullopt;
+
+    return typeToString(opType.value());
+  }
+
+  void insertDelays(::circt::scheduling::Problem& problem) {
+    for (const auto& pair : delaysByName) {
+      auto opType = problem.getOrInsertOperatorType(std::get<0>(pair));
+      problem.setLatency(opType, std::get<1>(pair));
+    }
   }
 };
 
@@ -77,17 +161,13 @@ public:
     setContainingOp(containingOp);
   }
 
-  // Similar to verify() we don't want to do this in the constructor.
+  // Similar to check() we don't want to do this in the constructor.
   void construct() {
     // insert the operator types and their delays
-    for (const auto& type : {TYPE_ADD, TYPE_MUL, TYPE_LOG, TYPE_CATEGORICAL,
-                             TYPE_HISTOGRAM, TYPE_CONSTANT}) {
-      OperatorType opType = getOrInsertOperatorType(type);
-      setLatency(opType, delayLibrary.getDelay(type));
-    }
+    delayLibrary.insertDelays(*this);
 
     root->walk([&](Operation *op) {
-      std::optional<std::string> optOpType = determineOperatorType(op);
+      std::optional<std::string> optOpType = delayLibrary.determineOperatorType(op);
 
       if (!optOpType)
         return;
@@ -190,34 +270,6 @@ public:
       // we introduce a new usage which we need to ignore
       result.replaceAllUsesExcept(delayedResult, ignoreOp);
     }
-  }
-
-private:
-  static std::optional<std::string> determineOperatorType(Operation *op) {
-    if (InstanceOp instOp = llvm::dyn_cast<InstanceOp>(op)) {
-      Operation *refMod = instOp.getReferencedModule(nullptr);
-      assert(refMod);
-
-      // check if the reference is to an external verilog module
-      if (HWModuleExternOp extOp = llvm::dyn_cast<HWModuleExternOp>(refMod))
-        return extOp.getName().str();
-
-      if (HWModuleOp modOp = llvm::dyn_cast<HWModuleOp>(refMod)) {
-        // we need to do some string processing to extract the operator type name
-        std::string modName = modOp.getName().str();
-
-        if (modName.find(TYPE_CATEGORICAL) != std::string::npos)
-          return TYPE_CATEGORICAL;
-        else if (modName.find(TYPE_HISTOGRAM) != std::string::npos)
-          return TYPE_HISTOGRAM;
-      }
-
-      return std::nullopt;
-    } else if (llvm::isa<ConstantOp>(op)) {
-      return TYPE_CONSTANT;
-    }
-
-    return std::nullopt;
   }
 };
 
