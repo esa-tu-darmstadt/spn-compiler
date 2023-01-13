@@ -17,6 +17,8 @@
 #include "circt/Scheduling/Problems.h"
 #include "circt/Scheduling/Utilities.h"
 
+#include "util/json.hpp"
+
 #include "operators.hpp"
 
 
@@ -49,6 +51,13 @@ public:
       auto type = problem.getOrInsertOperatorType(opMapping.getTypeBaseName(opType));
       problem.setLatency(type, opMapping.getDelay(opType));
     }
+  }
+
+  uint64_t getDelay(Operation *op) const {
+    if (!opMapping.isMapped(op))
+      return 0;
+
+    return opMapping.getDelay(opMapping.getType(op));
   }
 };
 
@@ -169,6 +178,22 @@ public:
       // we introduce a new usage which we need to ignore
       result.replaceAllUsesExcept(delayedResult, ignoreOp);
     }
+  }
+
+  void writeScheduling(llvm::raw_fd_ostream& os) {
+    Operation *hwOutput = &root->getRegion(0).front().back();
+    assert(hwOutput != nullptr && "Could not find hw.output!");
+
+    Operation *last = hwOutput->getOperand(0).getDefiningOp();
+    Optional<unsigned> startTime = getStartTime(last);
+    assert(startTime.has_value() && "Could not find start time of last op!");
+
+    using json = nlohmann::json;
+
+    json js;
+    js["endTime"] = startTime.value() + delayLibrary.getDelay(last);
+
+    os << js.dump() << "\n";
   }
 };
 

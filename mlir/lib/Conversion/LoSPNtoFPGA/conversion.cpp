@@ -208,6 +208,10 @@ Optional<ModuleOp> convert(ModuleOp root) {
 
   assert(succeeded(newRoot.verify()));
 
+  std::error_code ec;
+  llvm::raw_fd_ostream scheduleFile("schedule_info.json", ec);
+  assert(!ec && "Could not open file!");
+
   // schedule problem and insert buffers
   for (auto modOp : modOps) {
     scheduling::SchedulingProblem problem(modOp.getOperation(), helper.opMapping);
@@ -222,6 +226,8 @@ Optional<ModuleOp> convert(ModuleOp root) {
 
     // from here on the code gets ugly
     problem.insertDelays();
+
+    problem.writeScheduling(scheduleFile);
   }
 
   return newRoot;

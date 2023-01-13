@@ -26,7 +26,7 @@ target_link_libraries(MLIRLoSPNtoFPGATransforms PRIVATE)
 
 #message("adding include  dir " ${PROJECT_SOURCE_DIR}/lo2hw)
 
-#target_include_directories(lo2hw PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(MLIRLoSPNtoFPGATransforms PRIVATE ${PROJECT_SOURCE_DIR}/common/include)
 #target_include_directories(MLIRLoSPNtoFPGATransforms PRIVATE ${PROJECT_SOURCE_DIR}/lo2hw)
 
 #add_executable(lo2hw main.cpp)
