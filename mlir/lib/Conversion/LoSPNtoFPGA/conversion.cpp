@@ -285,27 +285,48 @@ Optional<HWModuleOp> ConversionHelper::createLeafModule(Operation *op) {
 }
 
 std::vector<Value> ConversionHelper::createProbabilityArray(OpBuilder& builder, Operation *op) {
-  ArrayAttr probs;
-
-  // TODO: Histogram
-  if (SPNCategoricalLeaf leaf = llvm::dyn_cast<SPNCategoricalLeaf>(op))
-    probs = leaf.getProbabilities();
-
   std::vector<Value> probabilities;
 
-  for (Attribute prob : probs) {
-    uint32_t bits = targetTypes.convertProb(
-      llvm::dyn_cast<FloatAttr>(prob).getValueAsDouble()
-    );
+  llvm::TypeSwitch<Operation *>(op)
+    .Case<SPNCategoricalLeaf>([&](SPNCategoricalLeaf op) {
+      // just convert the FloatAttr to a double
+      for (Attribute prob : op.getProbabilities()) {
+        uint32_t bits = targetTypes.convertProb(
+          llvm::dyn_cast<FloatAttr>(prob).getValueAsDouble()
+        );
 
-    ConstantOp constant = builder.create<ConstantOp>(
-      builder.getUnknownLoc(),
-      targetTypes.getProbType(),
-      bits
-    );
+        ConstantOp constant = builder.create<ConstantOp>(
+          builder.getUnknownLoc(),
+          targetTypes.getProbType(),
+          bits
+        );
 
-    probabilities.push_back(constant.getResult());
-  }
+        probabilities.push_back(constant.getResult());
+      }
+    })
+    .Case<SPNHistogramLeaf>([&](SPNHistogramLeaf op) {
+      // expand the buckets
+      for (Attribute _attr : op.getBuckets()) {
+        BucketAttr attr = llvm::dyn_cast<BucketAttr>(_attr);
+        assert(attr);
+
+        // bounds are [lb, ub)
+        int size = attr.getUb() - attr.getLb();
+        double prob = attr.getVal().convertToDouble();
+
+        uint32_t bits = targetTypes.convertProb(prob);
+
+        for (int i = 0; i < size; ++i) {
+          ConstantOp constant = builder.create<ConstantOp>(
+            builder.getUnknownLoc(),
+            targetTypes.getProbType(),
+            bits
+          );
+
+          probabilities.push_back(constant.getResult());
+        }
+      }
+    });
 
   return probabilities;
 }

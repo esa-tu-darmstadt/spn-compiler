@@ -18,6 +18,7 @@
 
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
+#include "LoSPN/LoSPNAttributes.h"
 #include "HiSPN/HiSPNDialect.h"
 
 #include "circt/Scheduling/Algorithms.h"
