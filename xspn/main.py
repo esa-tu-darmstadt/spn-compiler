@@ -14,6 +14,20 @@ def bin_name(spn_name: str):
     return spn_name.split('.')[0] + '.bin'
 
 if __name__ == '__main__':
+    """
+      1. A SPN is parsed and serialized into a binary file, a more efficient format.
+      2. A kernel binary is compiled and returned to the calling python function.
+      3. The queries can be executed by providing the kernel and the spn to the runtime (in binary format or whatever).
+
+      The FPGA flow must be a little different:
+      1. First, a SPN is converted into a binary file. That binary file is sent to the compiler that produces IP-XACT zip.
+      2. That zip can be processes by Vivado via scripts. The resulting bitstream file is our kernel binary.
+      3. The user then calls the SPN compiler with the bitstream. The compiler tries to load the bitstream via Tapasco onto the FPGA.
+      4. Querying then happens through the usual interface as for CPUs and GPUs.
+
+      Because bitstream synthesis is so slow the steps 1, 2 and 3, 4 are separated.
+    """
+
     if len(sys.argv) <= 1:
         print_usage()
         exit()

@@ -16,6 +16,7 @@
 // Only include if CUDA GPU support was enabled.
 #include "toolchain/CUDAGPUToolchain.h"
 #endif
+#include "toolchain/FPGAToolchain.h"
 
 using namespace spnc;
 
@@ -30,6 +31,9 @@ Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t&
     SPNC_FATAL_ERROR("Target was 'CUDA', but the compiler does not support CUDA GPUs. "
                      "Enable with CUDA_GPU_SUPPORT=ON during build")
 #endif
+  } else if (spnc::option::compilationTarget.get(*config) == option::TargetMachine::FPGA) {
+    SPNC_FATAL_ERROR("Not implemented!");
+    pipeline = FPGAToolchain::setupPipeline(inputFile, std::move(config));
   } else {
     pipeline = CPUToolchain::setupPipeline(inputFile, std::move(config));
   }
