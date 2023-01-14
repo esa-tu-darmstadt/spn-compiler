@@ -19,6 +19,7 @@ namespace mlir::spn::fpga {
 struct LoSPNtoFPGAPass : public PassWrapper<LoSPNtoFPGAPass, OperationPass<ModuleOp>> {
 public:
   LoSPNtoFPGAPass() = default;
+  virtual ~LoSPNtoFPGAPass() = default;
   StringRef getArgument() const override { return "convert-lospn-to-fpga"; }
   StringRef getDescription() const override { return "Converts a SPN in LoSPN format to a format that can be exported to verilog using circt-opt."; }
   void getDependentDialects(DialectRegistry& registry) const override;

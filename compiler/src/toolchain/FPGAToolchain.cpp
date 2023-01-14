@@ -10,6 +10,9 @@
 #include "pipeline/steps/mlir/transformation/LoSPNTransformations.h"
 #include "pipeline/steps/codegen/EmitObjectCode.h"
 #include "pipeline/steps/linker/ClangKernelLinking.h"
+#include "pipeline/steps/hdl/EmitVerilogCode.h"
+#include "pipeline/steps/hdl/CreateIPXACT.h"
+#include "pipeline/steps/mlir/conversion/LoSPNtoFPGAConversion.h"
 #include "TargetInformation.h"
 
 using namespace spnc;
@@ -21,6 +24,8 @@ namespace spnc {
 std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string& inputFile,
                                                                std::unique_ptr<interface::Configuration> config)
 {
+  llvm::outs() << "FPGAToolchain::setupPipeline() called\n";
+
   // Initialize the pipeline.
   std::unique_ptr<Pipeline<Kernel>> pipeline = std::make_unique<Pipeline<Kernel>>();
 
@@ -38,21 +43,13 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   pipeline->getContext()->add(std::move(diagHandler));
   pipeline->getContext()->add(std::move(ctx));
 
-  // Create an LLVM target machine and set the optimization level.
-  int mcOptLevel = spnc::option::optLevel.get(*config);
-  if (spnc::option::mcOptLevel.isPresent(*config) && spnc::option::mcOptLevel.get(*config) != mcOptLevel) {
-    auto optionValue = spnc::option::mcOptLevel.get(*config);
-    SPDLOG_INFO("Option mc-opt-level (value: {}) takes precedence over option opt-level (value: {})",
-                optionValue, mcOptLevel);
-    mcOptLevel = optionValue;
-  }
-  auto targetMachine = createTargetMachine(mcOptLevel);
+  //auto targetMachine = createTargetMachine(mcOptLevel);
   // Initialize kernel information.
-  auto kernelInfo = std::make_unique<KernelInfo>();
-  kernelInfo->target = KernelTarget::FPGA;
+  //auto kernelInfo = std::make_unique<KernelInfo>();
+  //kernelInfo->target = KernelTarget::FPGA;
   // Attach the LLVM target machine and the kernel information to the pipeline context
-  pipeline->getContext()->add(std::move(targetMachine));
-  pipeline->getContext()->add(std::move(kernelInfo));
+  //pipeline->getContext()->add(std::move(targetMachine));
+  //pipeline->getContext()->add(std::move(kernelInfo));
 
   // First step of the pipeline: Locate the input file.
   auto& locateInput = pipeline->emplaceStep < LocateFile < FileType::SPN_BINARY >> (inputFile);
@@ -63,29 +60,16 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   // Convert from HiSPN dialect to LoSPN.
   auto& hispn2lospn = pipeline->emplaceStep<HiSPNtoLoSPNConversion>(deserialized);
 
-  // TODO: add lospn to fpga pass
+  auto& lospn2fpga = pipeline->emplaceStep<LoSPNtoFPGAConversion>(hispn2lospn);
 
-  // TODO: This is not a tmp file! And arguments?
-  auto& ipXactFile = pipeline->emplaceStep<CreateTmpFile<FileType::ZIP>>(true);
-  //auto& emitIpXact = pipeline->emplaceStep<EmitObjectCode>(llvmConversion, ipXactFile);
+  auto& emitVerilogCode = pipeline->emplaceStep<EmitVerilogCode>(lospn2fpga);
 
-  // Translate the generated LLVM IR module to object code and write it to an object file.
-  auto& objectFile = pipeline->emplaceStep < CreateTmpFile < FileType::OBJECT >> (true);
-  auto& emitObjectCode = pipeline->emplaceStep<EmitObjectCode>(llvmConversion, objectFile);
+  IPXACTConfig ipConfig{
+    .targetDir = "./ipxact_core",
+    .topModuleFileName = "top.sv"
+  };
+  auto& createIPXACT = pipeline->emplaceStep<CreateIPXACT>(ipConfig, emitVerilogCode);
 
-  // Link generated object file into shared object.
-  auto& sharedObject = pipeline->emplaceStep < CreateTmpFile < FileType::SHARED_OBJECT >> (false);
-  // Add additional libraries to the link command if necessary.
-  llvm::SmallVector<std::string, 3> additionalLibs;
-
-  // TODO: Instead of libraries we search for exteral verilog sources here.
-
-  auto searchPaths = parseLibrarySearchPaths(spnc::option::searchPaths.get(*config));
-  auto libraryInfo = std::make_unique<LibraryInfo>(additionalLibs, searchPaths);
-  pipeline->getContext()->add(std::move(libraryInfo));
-  // Link the kernel with the libraries to produce executable (shared object).
-  (void) pipeline->emplaceStep<ClangKernelLinking>(emitObjectCode, sharedObject);
-  // Add the CLI configuration to the pipeline context.
   pipeline->getContext()->add(std::move(config));
 
   return pipeline;

@@ -184,16 +184,18 @@ void mlir::spn::high::HistogramNode::build(::mlir::OpBuilder& odsBuilder,
                                            llvm::ArrayRef<std::tuple<int, int, double>> buckets) {
   SmallVector<mlir::Attribute, 256> bucketList;
   // Create StructAttr for each bucket, comprising the inclusive lower bound,
-  // the exclusive lower bound and the probability value.
-  //for (auto& bucket : buckets) {
-    //auto bucketAttr = Bucket::get(odsBuilder.getI32IntegerAttr(std::get<0>(bucket)),
-    //                              odsBuilder.getI32IntegerAttr(std::get<1>(bucket)),
-    //                              odsBuilder.getF64FloatAttr(std::get<2>(bucket)), odsBuilder.getContext());
-    //auto bucketAttr = Bucket::get(odsBuilder.getContext(), 
-    //bucketList.push_back(bucketAttr);
-  //}
+  // the exclusive upper bound and the probability value.
+  for (auto& bucket : buckets) {
+    int lb = std::get<0>(bucket);
+    int ub = std::get<1>(bucket);
+    double prob = std::get<2>(bucket);
 
-  llvm::errs() << "HistogramNode::build()\n";
+    auto bucketAttr = BucketAttr::get(
+      odsBuilder.getContext(), lb, ub, APFloat(prob)
+    );
+
+    bucketList.push_back(bucketAttr);
+  }
 
   auto arrAttr = odsBuilder.getArrayAttr(bucketList);
   build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), indexVal,

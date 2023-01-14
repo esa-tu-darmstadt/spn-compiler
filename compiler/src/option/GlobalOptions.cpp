@@ -20,7 +20,8 @@ Option<std::string> spnc::option::graphStatsFile{"graph-stats-file",
 using spnc::option::TargetMachine;
 EnumOpt spnc::option::compilationTarget{"target",
                                         {EnumVal(CPU, "CPU"),
-                                         EnumVal(CUDA, "CUDA")},
+                                         EnumVal(CUDA, "CUDA"),
+                                         EnumVal(FPGA, "FPGA")},
                                         {required()}};
 
 Option<int> spnc::option::optLevel{"optLevel", 3};

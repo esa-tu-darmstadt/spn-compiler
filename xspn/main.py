@@ -6,6 +6,8 @@ from xspn.serialization.binary.BinarySerialization import BinarySerializer, Bina
 from xspn.structure.Model import SPNModel
 from xspn.structure.Query import JointProbability, ErrorKind
 
+from spn.io.Text import spn_to_str_ref_graph
+
 
 def print_usage():
     print("usage: ./main.py <path to .spn file>")
@@ -36,6 +38,8 @@ if __name__ == '__main__':
     print(f'loading {spn_path}')
 
     spn, variables_to_index, index_to_min, index_to_max = load_spn(str(spn_path))
+
+    print(f'got {spn_to_str_ref_graph(spn)}')
 
     model = SPNModel(spn, featureValueType='uint32')
     query = JointProbability(model)

@@ -9,6 +9,9 @@
 find_package(MLIR REQUIRED CONFIG)
 message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
 
+find_package(CIRCT REQUIRED CONFIG)
+message(STATUS "Using CIRCTConfig.cmake in: ${CIRCT_DIR}")
+
 if (${CUDA_GPU_SUPPORT})
     include(DetectCUDALibs.cmake)
     detect_cuda_libs()
@@ -38,6 +41,10 @@ add_library(spnc
         src/pipeline/steps/mlir/conversion/MLIRtoLLVMIRConversion.cpp
         src/pipeline/steps/mlir/transformation/LoSPNTransformations.cpp
         src/pipeline/steps/frontend/SPFlowToMLIRDeserializer.cpp
+        src/pipeline/steps/hdl/CreateIPXACT.cpp
+        src/pipeline/steps/hdl/EmitVerilogCode.cpp
+        src/pipeline/steps/mlir/conversion/LoSPNtoFPGAConversion.cpp
+        src/toolchain/FPGAToolchain.cpp
         ${CAPNP_SRCS}
         )
 
@@ -61,6 +68,7 @@ target_include_directories(spnc
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${LLVM_INCLUDE_DIRS}
         ${MLIR_INCLUDE_DIRS}
+        ${CIRCT_INCLUDE_DIRS}
         ${SPN_DIALECT_INCLUDE_DIRS}
         ${CAPNP_HDR_DIRS}
         ${CAPNPC_OUTPUT_DIR})
@@ -119,6 +127,16 @@ set(mlir_libs
         MLIRPass
         MLIRSupport
         MLIRExecutionEngine
+
+        MLIRLoSPNtoFPGATransforms
+        
+        CIRCTExportVerilog
+        CIRCTHW
+        CIRCTHWArith
+        CIRCTComb
+        CIRCTScheduling
+        CIRCTSeq
+        CIRCTSeqTransforms
         )
 
 llvm_map_components_to_libnames(llvm_libs bitwriter native passes)

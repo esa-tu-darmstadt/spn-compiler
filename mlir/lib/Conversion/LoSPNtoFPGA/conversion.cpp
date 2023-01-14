@@ -58,6 +58,11 @@ void ConversionHelper::assignLeafModules(ModuleOp root) {
     HWModuleOp catOp = createLeafModule(leaf.getOperation()).value();
     leafModules[leaf.getOperation()] = catOp.getOperation();
   });
+
+  root.walk([&](SPNHistogramLeaf leaf) {
+    HWModuleOp histOp = createLeafModule(leaf.getOperation()).value();
+    leafModules[leaf.getOperation()] = histOp.getOperation();
+  });
 }
 
 Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
@@ -227,6 +232,7 @@ Optional<ModuleOp> convert(ModuleOp root) {
     // from here on the code gets ugly
     problem.insertDelays();
 
+    // TODO: Implement this as a pipeline step.
     problem.writeScheduling(scheduleFile);
   }
 
@@ -237,12 +243,14 @@ Optional<HWModuleOp> ConversionHelper::createLeafModule(Operation *op) {
   // we need a new builder
   OpBuilder builder(ctxt);
 
-  std::vector<PortInfo> catPorts = hwPorts(opMapping.getOperatorPorts(TYPE_CATEGORICAL));
+  OperatorType opType = OperatorTypeMapping::getOperatorType(op);
+
+  std::vector<PortInfo> catPorts = hwPorts(opMapping.getOperatorPorts(opType));
   uint64_t id = getInstanceId(op);
 
   HWModuleOp leafOp = builder.create<HWModuleOp>(
     builder.getUnknownLoc(),
-    builder.getStringAttr(opMapping.getFullModuleName(TYPE_CATEGORICAL, id)),
+    builder.getStringAttr(opMapping.getFullModuleName(opType, id)),
     ArrayRef<PortInfo>(catPorts)
   );
 

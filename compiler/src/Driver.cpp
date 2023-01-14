@@ -32,8 +32,8 @@ Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t&
                      "Enable with CUDA_GPU_SUPPORT=ON during build")
 #endif
   } else if (spnc::option::compilationTarget.get(*config) == option::TargetMachine::FPGA) {
-    SPNC_FATAL_ERROR("Not implemented!");
     pipeline = FPGAToolchain::setupPipeline(inputFile, std::move(config));
+    //SPNC_FATAL_ERROR("Not implemented!");
   } else {
     pipeline = CPUToolchain::setupPipeline(inputFile, std::move(config));
   }
@@ -58,6 +58,9 @@ bool spn_compiler::isTargetSupported(const std::string& target){
     #else
     return false;
     #endif
+  }
+  if (target == "FPGA") {
+    return true;
   }
   return false;
 }

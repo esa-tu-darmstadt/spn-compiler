@@ -19,6 +19,12 @@
 #include "llvm/MC/TargetRegistry.h"
 #include "mlir/Target/LLVMIR/Dialect/All.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+
+#include "circt/Dialect/HW/HWDialect.h"
+#include "circt/Dialect/Comb/CombDialect.h"
+#include "circt/Dialect/Seq/SeqDialect.h"
+#include "circt/Dialect/SV/SVDialect.h"
+
 #include <unistd.h>
 
 using namespace spnc;
@@ -40,6 +46,13 @@ void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext& ctx) {
   ctx.loadDialect<mlir::math::MathDialect>();
   ctx.loadDialect<mlir::gpu::GPUDialect>();
   ctx.loadDialect<mlir::NVVM::NVVMDialect>();
+
+  // CIRCT stuff
+  ctx.loadDialect<circt::hw::HWDialect>();
+  ctx.loadDialect<circt::seq::SeqDialect>();
+  ctx.loadDialect<circt::sv::SVDialect>();
+  ctx.loadDialect<circt::comb::CombDialect>();
+
   ctx.appendDialectRegistry(registry);
   mlir::registerLLVMDialectTranslation(ctx);
   for (auto* D : ctx.getLoadedDialects()) {
