@@ -10,6 +10,8 @@ namespace spnc {
 ExecutionResult CreateIPXACT::executeStep(std::string *verilogSource) {
   namespace fs = std::filesystem;
 
+  fs::create_directory(config.targetDir);
+
   // copy source files into target dir
   for (const auto& from : config.sourceFilePaths) {
     std::error_code ec;
@@ -20,8 +22,6 @@ ExecutionResult CreateIPXACT::executeStep(std::string *verilogSource) {
         fmt::format("File {} could not be copied to {}", from.string(), config.targetDir.string())
       );
   };
-
-  fs::create_directory(config.targetDir);
 
   // write verilog source to target dir
   fs::path path = config.targetDir / config.topModuleFileName;
