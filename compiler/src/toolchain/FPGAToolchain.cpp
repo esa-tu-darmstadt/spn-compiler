@@ -43,13 +43,13 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   pipeline->getContext()->add(std::move(diagHandler));
   pipeline->getContext()->add(std::move(ctx));
 
-  //auto targetMachine = createTargetMachine(mcOptLevel);
+  auto targetMachine = createTargetMachine(0);
   // Initialize kernel information.
-  //auto kernelInfo = std::make_unique<KernelInfo>();
-  //kernelInfo->target = KernelTarget::FPGA;
+  auto kernelInfo = std::make_unique<KernelInfo>();
+  kernelInfo->target = KernelTarget::FPGA;
   // Attach the LLVM target machine and the kernel information to the pipeline context
-  //pipeline->getContext()->add(std::move(targetMachine));
-  //pipeline->getContext()->add(std::move(kernelInfo));
+  pipeline->getContext()->add(std::move(targetMachine));
+  pipeline->getContext()->add(std::move(kernelInfo));
 
   // First step of the pipeline: Locate the input file.
   auto& locateInput = pipeline->emplaceStep < LocateFile < FileType::SPN_BINARY >> (inputFile);
@@ -65,6 +65,11 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   auto& emitVerilogCode = pipeline->emplaceStep<EmitVerilogCode>(lospn2fpga);
 
   IPXACTConfig ipConfig{
+    .sourceFilePaths = {
+      "../resources/ufloat/FPOps_build_add/FPAdd.v",
+      "../resources/ufloat/FPOps_build_mult/FPMult.v",
+      "../resources/ufloat/FPLog.v"
+    },
     .targetDir = "./ipxact_core",
     .topModuleFileName = "top.sv"
   };

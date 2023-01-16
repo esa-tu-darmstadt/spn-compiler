@@ -12,6 +12,12 @@ struct IPXACTConfig {
   std::filesystem::path targetDir;
   std::filesystem::path topModuleFileName;
 
+  std::string vendor = "esa.informatik.tu-darmstadt.de";
+  std::string projectName = "test.project";
+  std::string directory = ".";
+  std::string topModule = "spn_body";
+  std::string tmpdir = "tmp";
+
   void addSourceFilePath(const std::filesystem::path& path);
 };
 
