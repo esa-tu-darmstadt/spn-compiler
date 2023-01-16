@@ -22,7 +22,8 @@ public:
 
   uint64_t convertProb(double prob) const {
     float f32 = float(prob);
-    return *reinterpret_cast<const uint32_t *>(&f32);
+    // remove the sign bit
+    return *reinterpret_cast<const uint32_t *>(&f32) & 0x7fffffff;
   }
 };
 

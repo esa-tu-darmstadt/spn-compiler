@@ -180,7 +180,7 @@ public:
     }
   }
 
-  void writeScheduling(llvm::raw_fd_ostream& os) {
+  void writeSchedule(llvm::raw_fd_ostream& os) {
     Operation *hwOutput = &root->getRegion(0).front().back();
     assert(hwOutput != nullptr && "Could not find hw.output!");
 

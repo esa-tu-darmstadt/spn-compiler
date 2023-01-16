@@ -233,7 +233,7 @@ Optional<ModuleOp> convert(ModuleOp root) {
     problem.insertDelays();
 
     // TODO: Implement this as a pipeline step.
-    problem.writeScheduling(scheduleFile);
+    problem.writeSchedule(scheduleFile);
   }
 
   return newRoot;

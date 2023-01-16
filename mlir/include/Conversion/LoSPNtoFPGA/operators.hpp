@@ -68,7 +68,7 @@ public:
     // TODO: Load these from a file or similar.
     baseNames = {
       {TYPE_ADD, "FPAdd"},
-      {TYPE_MUL, "FPMul"},
+      {TYPE_MUL, "FPMult"},
       {TYPE_LOG, "FPLog"},
       {TYPE_CATEGORICAL, "categorical"},
       {TYPE_HISTOGRAM, "histogram"},
@@ -77,7 +77,7 @@ public:
 
     baseNameToType = {
       {"FPAdd", TYPE_ADD},
-      {"FPMul", TYPE_MUL},
+      {"FPMult", TYPE_MUL},
       {"FPLog", TYPE_LOG},
       {"categorical", TYPE_CATEGORICAL},
       {"histogram", TYPE_HISTOGRAM},

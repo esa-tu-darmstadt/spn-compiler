@@ -7,6 +7,7 @@
 
 namespace spnc {
 
+// taken from https://github.com/esa-tu-darmstadt/BSVTools/blob/d4b389170e973b87b592a53896bb051fe5fe773e/scripts/bsvTools.py
 static const char TCL[] = R"(
 ipx::infer_core -vendor {vendor} -name {projectname} -library user -taxonomy /UserIP -files {directory}/src/{topModule}.v -root_dir {directory}
 ipx::edit_ip_in_project -upgrade true -name edit_ip_project -directory {tmpdir} {directory}/component.xml
