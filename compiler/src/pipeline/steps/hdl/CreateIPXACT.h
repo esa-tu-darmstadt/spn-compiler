@@ -39,6 +39,8 @@ private:
   std::unique_ptr<Kernel> kernel = std::make_unique<Kernel>(
     "", "", 0, 0, 0, 0, 0, 0, 0, ""
   );
+
+  std::string generateSimulationSourceCode();
 };
 
 }

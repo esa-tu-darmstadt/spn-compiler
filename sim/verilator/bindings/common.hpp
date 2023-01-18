@@ -10,6 +10,9 @@
 class PySPNSim {
   std::unique_ptr<VerilatedContext> context;
   std::unique_ptr<Vspn_body> top;
+
+  static uint8_t convertIndex(uint32_t input);
+  static double convertProb(uint32_t prob);
 public:
   void init(const std::vector<std::string>& args);
   void clock();

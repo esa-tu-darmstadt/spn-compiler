@@ -2,6 +2,7 @@
 
 #include "spdlog/fmt/fmt.h"
 #include "util/Command.h"
+#include "toolchain/MLIRToolchain.h"
 #include <fstream>
 
 
@@ -77,6 +78,19 @@ ExecutionResult CreateIPXACT::executeStep(std::string *verilogSource) {
     outFile << *verilogSource;
   }
 
+  // write simulation helper code to file
+  {
+    fs::path path = srcPath / "simimpl.cpp";
+    std::ofstream outFile(path);
+
+    if (!outFile.is_open())
+      return failure(
+        fmt::format("Could not open file {}", path.string())
+      );
+
+    outFile << generateSimulationSourceCode();
+  }
+
   fs::path tclPath = config.targetDir / "build.tcl";
 
   // construct tcl script
@@ -120,6 +134,47 @@ ExecutionResult CreateIPXACT::executeStep(std::string *verilogSource) {
 
   // TODO: Build IPXACT XMLs
   return failure("CreateIPXACT cannot return a kernel!");
+}
+
+std::string CreateIPXACT::generateSimulationSourceCode() {
+  KernelInfo kernelInfo = *getContext()->get<KernelInfo>();
+
+  std::stringstream ss;
+
+  // code for type conversion
+  ss << R"(
+#include "common.hpp"
+
+
+uint8_t PySPNSim::convertIndex(uint32_t input) {
+  uint8_t result = static_cast<uint8_t>(input);
+  return result;
+}
+
+double PySPNSim::convertProb(uint32_t prob) {
+  uint64_t p = prob;
+  return *reinterpret_cast<const float *>(&p);
+}
+  )";
+
+  // code for setting input
+  std::stringstream setInputs;
+  for (unsigned int i = 0; i < kernelInfo.numFeatures; ++i)
+    setInputs << "  top->in_" << i << " = convertIndex(input[" << i << "]);\n";
+
+  std::string txt = fmt::format(R"(
+void PySPNSim::setInput(const std::vector<uint32_t>& input) {{
+  assert(input.size() == {count});
+
+{setInputs}
+}}
+  )",
+    fmt::arg("count", kernelInfo.numFeatures),
+    fmt::arg("setInputs", setInputs.str()));
+
+  ss << txt;
+
+  return ss.str();
 }
 
 }

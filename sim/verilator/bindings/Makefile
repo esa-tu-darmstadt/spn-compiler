@@ -4,7 +4,7 @@ SHELL := /bin/bash
 #VERILATOR_INCLUDES = -I$(BASE_DIR)/spn-compiler/ipxact_core/src/
 
 #.PHONY: sim
-sim: sim.cpp $(VERILATOR_TOP_SOURCE)
+sim: sim.cpp simimpl.cpp $(VERILATOR_TOP_SOURCE)
 	verilator --top-module spn_body --lib-create spnverilator --cc --build $(VERILATOR_INCLUDES) $^
 
 PY_INC = -I$(BASE_DIR)/pybind11/include/

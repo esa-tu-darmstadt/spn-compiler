@@ -21,7 +21,7 @@ PYBIND11_MODULE(pyspnsim, m) {
     .def("step", &PySPNSim::step)
     .def("setInput", [](PySPNSim& self, py::array input) {
       assert(input.ndim() == 1);
-      assert(input.shape()[0] == 1);
+      //assert(input.shape()[0] == 1);
       // TODO: Assert correct dtype!
 
       const uint32_t *begin = reinterpret_cast<const uint32_t *>(input.data(0));

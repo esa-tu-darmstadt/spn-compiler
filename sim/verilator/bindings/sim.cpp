@@ -3,17 +3,6 @@
 #include <iostream>
 
 
-static uint8_t convertIndex(uint32_t input) {
-  uint8_t result = static_cast<uint8_t>(input);
-  //std::cout << "convertIndex: " << uint32_t(result) << "\n";
-  return result;
-}
-
-static double convertProb(uint32_t prob) {
-  uint64_t p = prob;
-  return *reinterpret_cast<const float *>(&p);
-}
-
 void PySPNSim::init(const std::vector<std::string>& args) {
   std::cout << "init() called with the following arguments:\n";
   for (const auto& arg : args)
@@ -37,11 +26,6 @@ void PySPNSim::clock() {
 
 void PySPNSim::step() {
   top->eval();
-}
-
-void PySPNSim::setInput(const std::vector<uint32_t>& input) {
-  assert(input.size() == 1);
-  top->in_0 = convertIndex(input[0]);
 }
 
 double PySPNSim::getOutput() const {

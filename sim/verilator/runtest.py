@@ -2,6 +2,7 @@
 
 import sys
 import os
+import shutil
 import subprocess
 from pathlib import PurePath
 import numpy as np
@@ -16,7 +17,6 @@ from spnc.fpga import FPGACompiler
 
 
 def test_single_histogram(spn, sim):
-  assert isinstance(spn, Histogram)
   hist: Histogram = spn
 
   lb = hist.breaks[0]
@@ -37,6 +37,19 @@ def test_single_histogram(spn, sim):
     sim.step()
 
 
+def test_spn(spn, sim):
+  data = np.zeros((1, 5))
+  expected = likelihood(spn, data)
+
+  sim.setInput(np.zeros(5))
+  
+  for i in range(100):
+    sim.clock()
+    sim.step()
+
+  print(f'got: {sim.getOutput()} expected: {expected}')
+
+
 if __name__ == '__main__':
   if len(sys.argv) <= 1:
     print('Usage: test.py <spn path>')
@@ -44,7 +57,7 @@ if __name__ == '__main__':
 
   # load spn from spn file
   spn_path = sys.argv[1]
-  spn, _, _, _ = load_spn_2(spn_path)
+  spn, var_2_index, _, _ = load_spn_2(spn_path)
 
   # invoke the driver to compile create the verilog sources
   compiler = FPGACompiler(computeInLogSpace=False)
@@ -55,10 +68,16 @@ if __name__ == '__main__':
     pass
 
   # invoke the Makefile to compile the verilator shared library + python bindings
+  shutil.copy(
+    'ipxact_core/src/simimpl.cpp',
+    './sim/verilator/bindings/'
+  )
+
   env = {
     **os.environ.copy(),
     'VERILATOR_TOP_SOURCE': '$(BASE_DIR)/spn-compiler/ipxact_core/src/spn_body.v',
-    'VERILATOR_INCLUDES': '-I$(BASE_DIR)/spn-compiler/ipxact_core/src/'
+    'VERILATOR_INCLUDES': '-I$(BASE_DIR)/spn-compiler/ipxact_core/src/',
+    'VERILATOR_SIMIMPL': '$(BASE_DIR)/spn-compiler/ipxact_core/src/simimpl.cpp'
   }
 
   cwd = './sim/verilator/bindings/'
@@ -73,6 +92,9 @@ if __name__ == '__main__':
   sim = pyspnsim.PySPNSim()
   sim.init(sys.argv)
 
-  test_single_histogram(spn, sim)
+  if isinstance(spn, Histogram):
+    test_single_histogram(spn, sim)
+  else:
+    test_spn(spn, sim)
 
   sim.final()
