@@ -3,6 +3,8 @@
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include <algorithm>
+
 
 namespace mlir::spn::fpga {
 
@@ -260,6 +262,8 @@ Optional<HWModuleOp> ConversionHelper::createLeafModule(Operation *op) {
 
   // create probability array
   std::vector<Value> probabilities = createProbabilityArray(builder, op);
+  // reverse to counteract the endianess of the array indexing types in the verilog generator
+  std::reverse(probabilities.begin(), probabilities.end());
 
   ArrayCreateOp arrayOp = builder.create<ArrayCreateOp>(
     builder.getUnknownLoc(),

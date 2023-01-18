@@ -66,12 +66,12 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
 
   IPXACTConfig ipConfig{
     .sourceFilePaths = {
-      "../resources/ufloat/FPOps_build_add/FPAdd.v",
-      "../resources/ufloat/FPOps_build_mult/FPMult.v",
-      "../resources/ufloat/FPLog.v"
+      "resources/ufloat/FPOps_build_add/FPAdd.v",
+      "resources/ufloat/FPOps_build_mult/FPMult.v",
+      "resources/ufloat/FPLog.v"
     },
     .targetDir = "./ipxact_core",
-    .topModuleFileName = "top.sv"
+    .topModuleFileName = "spn_body.v"
   };
   auto& createIPXACT = pipeline->emplaceStep<CreateIPXACT>(ipConfig, emitVerilogCode);
 

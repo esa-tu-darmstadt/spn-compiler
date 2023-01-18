@@ -39,7 +39,7 @@ module DSPMult24x17( // @[:@3.2]
     rOut <= _T_11;
   end
 endmodule
-module PipelinedAdder( // @[:@23.2]
+module PipelinedAdder1( // @[:@23.2]
   input         clock, // @[:@24.4]
   input  [47:0] io_a, // @[:@26.4]
   input  [47:0] io_b, // @[:@26.4]
@@ -49,48 +49,48 @@ module PipelinedAdder( // @[:@23.2]
   reg [31:0] _RAND_0;
   reg [31:0] bDelayed_1; // @[Reg.scala 11:16:@38.4]
   reg [31:0] _RAND_1;
-  reg [32:0] _T_21; // @[PipelinedAdder.scala 82:25:@45.4]
+  reg [32:0] _T_21; // @[PipelinedAdder1.scala 82:25:@45.4]
   reg [63:0] _RAND_2;
-  reg [32:0] _T_26; // @[PipelinedAdder.scala 82:25:@52.4]
+  reg [32:0] _T_26; // @[PipelinedAdder1.scala 82:25:@52.4]
   reg [63:0] _RAND_3;
   reg [31:0] flushRes_0; // @[Reg.scala 11:16:@56.4]
   reg [31:0] _RAND_4;
   wire [63:0] aPad; // @[Cat.scala 30:58:@28.4]
   wire [63:0] bPad; // @[Cat.scala 30:58:@29.4]
-  wire [31:0] a_0; // @[PipelinedAdder.scala 39:53:@30.4]
-  wire [31:0] a_1; // @[PipelinedAdder.scala 39:53:@31.4]
-  wire [31:0] b_0; // @[PipelinedAdder.scala 40:53:@32.4]
-  wire [31:0] b_1; // @[PipelinedAdder.scala 40:53:@33.4]
-  wire [32:0] _T_17; // @[PipelinedAdder.scala 82:28:@42.4]
-  wire [33:0] _T_18; // @[PipelinedAdder.scala 82:33:@43.4]
-  wire [32:0] _T_19; // @[PipelinedAdder.scala 82:33:@44.4]
-  wire [31:0] resultSignals_0; // @[PipelinedAdder.scala 83:12:@47.4]
-  wire  carrySignals_1; // @[PipelinedAdder.scala 83:38:@48.4]
-  wire [32:0] _T_22; // @[PipelinedAdder.scala 82:28:@49.4]
-  wire [32:0] _GEN_3; // @[PipelinedAdder.scala 82:33:@50.4]
-  wire [33:0] _T_23; // @[PipelinedAdder.scala 82:33:@50.4]
-  wire [32:0] _T_24; // @[PipelinedAdder.scala 82:33:@51.4]
-  wire [31:0] flushRes_1; // @[PipelinedAdder.scala 83:12:@54.4]
-  wire  carrySignals_2; // @[PipelinedAdder.scala 83:38:@55.4]
+  wire [31:0] a_0; // @[PipelinedAdder1.scala 39:53:@30.4]
+  wire [31:0] a_1; // @[PipelinedAdder1.scala 39:53:@31.4]
+  wire [31:0] b_0; // @[PipelinedAdder1.scala 40:53:@32.4]
+  wire [31:0] b_1; // @[PipelinedAdder1.scala 40:53:@33.4]
+  wire [32:0] _T_17; // @[PipelinedAdder1.scala 82:28:@42.4]
+  wire [33:0] _T_18; // @[PipelinedAdder1.scala 82:33:@43.4]
+  wire [32:0] _T_19; // @[PipelinedAdder1.scala 82:33:@44.4]
+  wire [31:0] resultSignals_0; // @[PipelinedAdder1.scala 83:12:@47.4]
+  wire  carrySignals_1; // @[PipelinedAdder1.scala 83:38:@48.4]
+  wire [32:0] _T_22; // @[PipelinedAdder1.scala 82:28:@49.4]
+  wire [32:0] _GEN_3; // @[PipelinedAdder1.scala 82:33:@50.4]
+  wire [33:0] _T_23; // @[PipelinedAdder1.scala 82:33:@50.4]
+  wire [32:0] _T_24; // @[PipelinedAdder1.scala 82:33:@51.4]
+  wire [31:0] flushRes_1; // @[PipelinedAdder1.scala 83:12:@54.4]
+  wire  carrySignals_2; // @[PipelinedAdder1.scala 83:38:@55.4]
   wire [63:0] _T_29; // @[Cat.scala 30:58:@60.4]
   wire [64:0] _T_30; // @[Cat.scala 30:58:@61.4]
   assign aPad = {16'h0,io_a}; // @[Cat.scala 30:58:@28.4]
   assign bPad = {16'h0,io_b}; // @[Cat.scala 30:58:@29.4]
-  assign a_0 = aPad[31:0]; // @[PipelinedAdder.scala 39:53:@30.4]
-  assign a_1 = aPad[63:32]; // @[PipelinedAdder.scala 39:53:@31.4]
-  assign b_0 = bPad[31:0]; // @[PipelinedAdder.scala 40:53:@32.4]
-  assign b_1 = bPad[63:32]; // @[PipelinedAdder.scala 40:53:@33.4]
-  assign _T_17 = a_0 + b_0; // @[PipelinedAdder.scala 82:28:@42.4]
-  assign _T_18 = _T_17 + 33'h0; // @[PipelinedAdder.scala 82:33:@43.4]
-  assign _T_19 = _T_18[32:0]; // @[PipelinedAdder.scala 82:33:@44.4]
-  assign resultSignals_0 = _T_21[31:0]; // @[PipelinedAdder.scala 83:12:@47.4]
-  assign carrySignals_1 = _T_21[32]; // @[PipelinedAdder.scala 83:38:@48.4]
-  assign _T_22 = aDelayed_1 + bDelayed_1; // @[PipelinedAdder.scala 82:28:@49.4]
-  assign _GEN_3 = {{32'd0}, carrySignals_1}; // @[PipelinedAdder.scala 82:33:@50.4]
-  assign _T_23 = _T_22 + _GEN_3; // @[PipelinedAdder.scala 82:33:@50.4]
-  assign _T_24 = _T_23[32:0]; // @[PipelinedAdder.scala 82:33:@51.4]
-  assign flushRes_1 = _T_26[31:0]; // @[PipelinedAdder.scala 83:12:@54.4]
-  assign carrySignals_2 = _T_26[32]; // @[PipelinedAdder.scala 83:38:@55.4]
+  assign a_0 = aPad[31:0]; // @[PipelinedAdder1.scala 39:53:@30.4]
+  assign a_1 = aPad[63:32]; // @[PipelinedAdder1.scala 39:53:@31.4]
+  assign b_0 = bPad[31:0]; // @[PipelinedAdder1.scala 40:53:@32.4]
+  assign b_1 = bPad[63:32]; // @[PipelinedAdder1.scala 40:53:@33.4]
+  assign _T_17 = a_0 + b_0; // @[PipelinedAdder1.scala 82:28:@42.4]
+  assign _T_18 = _T_17 + 33'h0; // @[PipelinedAdder1.scala 82:33:@43.4]
+  assign _T_19 = _T_18[32:0]; // @[PipelinedAdder1.scala 82:33:@44.4]
+  assign resultSignals_0 = _T_21[31:0]; // @[PipelinedAdder1.scala 83:12:@47.4]
+  assign carrySignals_1 = _T_21[32]; // @[PipelinedAdder1.scala 83:38:@48.4]
+  assign _T_22 = aDelayed_1 + bDelayed_1; // @[PipelinedAdder1.scala 82:28:@49.4]
+  assign _GEN_3 = {{32'd0}, carrySignals_1}; // @[PipelinedAdder1.scala 82:33:@50.4]
+  assign _T_23 = _T_22 + _GEN_3; // @[PipelinedAdder1.scala 82:33:@50.4]
+  assign _T_24 = _T_23[32:0]; // @[PipelinedAdder1.scala 82:33:@51.4]
+  assign flushRes_1 = _T_26[31:0]; // @[PipelinedAdder1.scala 83:12:@54.4]
+  assign carrySignals_2 = _T_26[32]; // @[PipelinedAdder1.scala 83:38:@55.4]
   assign _T_29 = {flushRes_1,flushRes_0}; // @[Cat.scala 30:58:@60.4]
   assign _T_30 = {carrySignals_2,_T_29}; // @[Cat.scala 30:58:@61.4]
   assign io_r = _T_30[48:0];
@@ -156,10 +156,10 @@ module DSPMult( // @[:@64.2]
   wire [23:0] DSPMult24x17_1_io_a; // @[DSPMult.scala 178:22:@79.4]
   wire [16:0] DSPMult24x17_1_io_b; // @[DSPMult.scala 178:22:@79.4]
   wire [40:0] DSPMult24x17_1_io_r; // @[DSPMult.scala 178:22:@79.4]
-  wire  PipelinedAdder_clock; // @[PipelinedAdder.scala 98:21:@84.4]
-  wire [47:0] PipelinedAdder_io_a; // @[PipelinedAdder.scala 98:21:@84.4]
-  wire [47:0] PipelinedAdder_io_b; // @[PipelinedAdder.scala 98:21:@84.4]
-  wire [48:0] PipelinedAdder_io_r; // @[PipelinedAdder.scala 98:21:@84.4]
+  wire  PipelinedAdder1_clock; // @[PipelinedAdder1.scala 98:21:@84.4]
+  wire [47:0] PipelinedAdder1_io_a; // @[PipelinedAdder1.scala 98:21:@84.4]
+  wire [47:0] PipelinedAdder1_io_b; // @[PipelinedAdder1.scala 98:21:@84.4]
+  wire [48:0] PipelinedAdder1_io_r; // @[PipelinedAdder1.scala 98:21:@84.4]
   wire [6:0] _T_12; // @[DSPMult.scala 114:16:@70.4]
   wire [57:0] _T_14; // @[Cat.scala 30:58:@76.4]
   wire [16:0] _T_16; // @[DSPMult.scala 114:16:@78.4]
@@ -175,25 +175,25 @@ module DSPMult( // @[:@64.2]
     .io_b(DSPMult24x17_1_io_b),
     .io_r(DSPMult24x17_1_io_r)
   );
-  PipelinedAdder PipelinedAdder ( // @[PipelinedAdder.scala 98:21:@84.4]
-    .clock(PipelinedAdder_clock),
-    .io_a(PipelinedAdder_io_a),
-    .io_b(PipelinedAdder_io_b),
-    .io_r(PipelinedAdder_io_r)
+  PipelinedAdder1 PipelinedAdder1 ( // @[PipelinedAdder1.scala 98:21:@84.4]
+    .clock(PipelinedAdder1_clock),
+    .io_a(PipelinedAdder1_io_a),
+    .io_b(PipelinedAdder1_io_b),
+    .io_r(PipelinedAdder1_io_r)
   );
   assign _T_12 = io_b[23:17]; // @[DSPMult.scala 114:16:@70.4]
   assign _T_14 = {DSPMult24x17_io_r,17'h0}; // @[Cat.scala 30:58:@76.4]
   assign _T_16 = io_b[16:0]; // @[DSPMult.scala 114:16:@78.4]
-  assign io_r = PipelinedAdder_io_r[47:0];
+  assign io_r = PipelinedAdder1_io_r[47:0];
   assign DSPMult24x17_clock = clock;
   assign DSPMult24x17_io_a = io_a;
   assign DSPMult24x17_io_b = {{10'd0}, _T_12};
   assign DSPMult24x17_1_clock = clock;
   assign DSPMult24x17_1_io_a = io_a;
   assign DSPMult24x17_1_io_b = _T_16;
-  assign PipelinedAdder_clock = clock;
-  assign PipelinedAdder_io_a = _T_14[47:0];
-  assign PipelinedAdder_io_b = {{7'd0}, DSPMult24x17_1_io_r};
+  assign PipelinedAdder1_clock = clock;
+  assign PipelinedAdder1_io_a = _T_14[47:0];
+  assign PipelinedAdder1_io_b = {{7'd0}, DSPMult24x17_1_io_r};
 endmodule
 module ZeroCheckComb( // @[:@91.2]
   input  [22:0] io_op1_m, // @[:@94.4]
