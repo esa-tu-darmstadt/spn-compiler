@@ -288,9 +288,14 @@ Optional<HWModuleOp> ConversionHelper::createLeafModule(Operation *op) {
     extractOp.getResult()
   );
 
+  Value clk = leafOp.getBodyBlock()->getArguments()[0];
+  FirRegOp buffered = builder.create<FirRegOp>(
+    builder.getUnknownLoc(), getOp.getResult(), clk, builder.getStringAttr("bufferReg")
+  );
+
   builder.create<OutputOp>(
     builder.getUnknownLoc(),
-    ValueRange(std::vector<Value>{getOp.getResult()})
+    ValueRange(std::vector<Value>{buffered.getResult()})
   );
 
   return leafOp;
