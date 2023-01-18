@@ -36,9 +36,7 @@ public:
 
   STEP_NAME("create-ipxact")
 private:
-  std::unique_ptr<Kernel> kernel = std::make_unique<Kernel>(
-    "", "", 0, 0, 0, 0, 0, 0, 0, ""
-  );
+  std::unique_ptr<Kernel> kernel;
 
   std::string generateSimulationSourceCode();
 };

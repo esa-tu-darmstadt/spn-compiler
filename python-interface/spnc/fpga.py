@@ -59,5 +59,5 @@ class FPGACompiler:
             print(f"Invoking compiler with options: {options}")
 
         # This step will fail and is expected.
-        spncpy.SPNCompiler().compileQuery(tmpfile.name, options)
-        return None
+        kernel = spncpy.SPNCompiler().compileQuery(tmpfile.name, options)
+        return kernel

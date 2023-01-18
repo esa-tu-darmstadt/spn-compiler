@@ -62,7 +62,7 @@ if __name__ == '__main__':
   # invoke the driver to compile create the verilog sources
   compiler = FPGACompiler(computeInLogSpace=False)
   try:
-    compiler.compile_ll(spn)
+    kernel = compiler.compile_ll(spn)
     pass
   except:
     pass

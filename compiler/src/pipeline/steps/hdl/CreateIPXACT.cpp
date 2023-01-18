@@ -128,12 +128,26 @@ ExecutionResult CreateIPXACT::executeStep(std::string *verilogSource) {
       Command::executeExternalCommand(cmd);
     } catch (const std::runtime_error& e) {
       std::filesystem::current_path(pwd);
-      throw e;
+      spdlog::warn(e.what());
+      spdlog::warn("Continuing without executing Vivado!");
     }
   }
 
-  // TODO: Build IPXACT XMLs
-  return failure("CreateIPXACT cannot return a kernel!");
+  const KernelInfo *kernelInfo = getContext()->get<KernelInfo>();
+  kernel = std::make_unique<Kernel>(
+    "",
+    "",
+    kernelInfo->queryType, // query_type
+    kernelInfo->target, //target
+    kernelInfo->batchSize, // batch size
+    kernelInfo->numFeatures, // num features
+    kernelInfo->bytesPerFeature, // bytes per feature
+    kernelInfo->numResults, // num results
+    kernelInfo->bytesPerResult, // bytes per result
+    "uint32_t" // data type
+  );
+
+  return success();
 }
 
 std::string CreateIPXACT::generateSimulationSourceCode() {
