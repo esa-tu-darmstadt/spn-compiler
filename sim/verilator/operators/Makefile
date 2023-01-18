@@ -1,5 +1,6 @@
 SHELL := /bin/bash
 
+# Don't forget so set LD_LIBRARY_PATH
 
 #c++ -O3 -Wall -shared -std=c++11 -fPIC $(python3 -m pybind11 --includes) example.cpp -o example$(python3-config --extension-suffix)
 #.PHONY: pybind
@@ -30,3 +31,7 @@ test: src/test.cpp #spnverilator
 clean:
 	rm -f spnsim.cpython-310-x86_64-linux-gnu.so
 	rm -rf obj_dir
+
+.PHONY: vufloat
+vufloat: vufloat.cpp vufloat.hpp ../ipxact_core/src/FPAdd.v
+	verilator --exe vufloat.cpp --cc --build -I../ipxact_core/src/ FPMult.v #FPAdd.v

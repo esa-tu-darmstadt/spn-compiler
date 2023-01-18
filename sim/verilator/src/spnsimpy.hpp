@@ -6,15 +6,29 @@
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
 
-#include "spn.hpp"
-
 
 namespace py = pybind11;
 
 
-class NIPS5SimWrapper : public NIPS5Sim {
+extern "C" void initSim(int argc, const char **argv);
+extern "C" void stepSim(void);
+extern "C" void setInputSim(const std::vector<uint32_t>& input);
+extern "C" double getOutputSim(void);
+extern "C" void finalSim(void);
+
+class NIPS5Sim {
 public:
-  NIPS5SimWrapper(): NIPS5Sim(0, nullptr) {}
+  NIPS5Sim() {
+    initSim(0, nullptr);
+  }
+
+  NIPS5Sim(int argc, const char **argv) {
+    initSim(argc, argv);
+  }
+
+  void step() {
+    stepSim();
+  }
 
   void setInput(py::array& input) {
     assert(input.ndim() == 1);
@@ -25,18 +39,26 @@ public:
     const uint32_t *end = begin + 5;
 
     std::vector<uint32_t> inputVector(begin, end);
-    NIPS5Sim::setInput(inputVector);
+    setInputSim(inputVector);
+  }
+
+  double getOutput() {
+    return getOutputSim();
+  }
+
+  void final() {
+    finalSim();
   }
 };
 
-NIPS5Sim createNIPS5Sim() {
-  return NIPS5Sim(0, nullptr);
-}
-
 PYBIND11_MODULE(spnsimpy, m) {
 
-  py::class_<NIPS5Sim>(m, "NIPS5SimBase")
-    .def(py::init<>(&createNIPS5Sim));
+  py::class_<NIPS5Sim>(m, "NIPS5Sim")
+    //.def(py::init<>())
+    .def("step", &NIPS5Sim::step);
+
+  //py::class_<NIPS5Sim>(m, "NIPS5SimBase")
+  //  .def(py::init<>(&createNIPS5Sim));
 
   //py::class_<NIPS5SimWrapper>(m, "NIPS5Sim")
   //  .def(py::init<>())
