@@ -52,7 +52,7 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   pipeline->getContext()->add(std::move(kernelInfo));
 
   // First step of the pipeline: Locate the input file.
-  auto& locateInput = pipeline->emplaceStep < LocateFile < FileType::SPN_BINARY >> (inputFile);
+  auto& locateInput = pipeline->emplaceStep<LocateFile<FileType::SPN_BINARY>>(inputFile);
 
   // Deserialize the SPFlow graph serialized via Cap'n Proto to MLIR.
   auto& deserialized = pipeline->emplaceStep<SPFlowToMLIRDeserializer>(locateInput);

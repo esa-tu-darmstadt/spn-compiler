@@ -6,6 +6,7 @@ import shutil
 import subprocess
 from pathlib import PurePath
 import numpy as np
+import csv
 from spn_parser import load_spn_2
 from spn.algorithms.Inference import likelihood
 from spn.structure.leaves.histogram.Histograms import Histogram
@@ -37,17 +38,49 @@ def test_single_histogram(spn, sim):
     sim.step()
 
 
-def test_spn(spn, sim):
-  data = np.zeros((1, 5))
-  expected = likelihood(spn, data)
+def generate_data(count, index_2_min, index_2_max):
+  np.random.seed(123456)
+  var_count = len(index_2_min.items())
+  data = np.zeros((count, var_count), dtype=np.int32)
 
-  sim.setInput(np.zeros(5))
-  
-  for i in range(100):
+  for j in range(var_count):
+    low = index_2_min[j]
+    high = index_2_max[j] + 1
+
+    for i in range(count):
+      val = np.random.randint(low, high)
+      data[i][j] = val
+
+  return data
+
+
+def test_spn(spn, sim, index_2_min, index_2_max):
+  count = 100
+  delay = 27
+
+  data = generate_data(count, index_2_min, index_2_max)
+  expected = likelihood(spn, data, dtype=np.float32)
+
+  data_queue = list(data)
+
+  for i in range(delay + count + delay):
+    if len(data_queue) > 0:
+      x = data_queue.pop(0)
+      sim.setInput(x)
+    
+    if i > delay and i - delay < count:
+      got = sim.getOutput()
+      exp = expected[i - delay]
+      diff = abs((exp - got) / exp)
+      print(f'got: {got} expected: {exp} diff: {diff}')
+
+    sim.clock()
+    sim.step()
     sim.clock()
     sim.step()
 
-  print(f'got: {sim.getOutput()} expected: {expected}')
+
+  #print(f'got: {sim.getOutput()} expected: {expected}')
 
 
 if __name__ == '__main__':
@@ -57,7 +90,7 @@ if __name__ == '__main__':
 
   # load spn from spn file
   spn_path = sys.argv[1]
-  spn, var_2_index, _, _ = load_spn_2(spn_path)
+  spn, var_2_index, index_2_min, index_2_max = load_spn_2(spn_path)
 
   # invoke the driver to compile create the verilog sources
   compiler = FPGACompiler(computeInLogSpace=False)
@@ -95,6 +128,6 @@ if __name__ == '__main__':
   if isinstance(spn, Histogram):
     test_single_histogram(spn, sim)
   else:
-    test_spn(spn, sim)
+    test_spn(spn, sim, index_2_min, index_2_max)
 
   sim.final()

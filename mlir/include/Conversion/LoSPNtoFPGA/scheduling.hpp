@@ -9,6 +9,9 @@
 #include "circt/Dialect/HW/HWOps.h"
 #include "circt/Dialect/HW/HWTypes.h"
 
+#include "circt/Dialect/Seq/SeqDialect.h"
+#include "circt/Dialect/Seq/SeqOps.h"
+
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
 #include "HiSPN/HiSPNDialect.h"
@@ -27,8 +30,6 @@ using namespace ::circt::hw;
 using namespace ::mlir::spn::low;
 using namespace ::mlir::spn::high;
 using namespace ::circt::seq;
-using namespace ::circt::sv;
-using namespace ::circt::comb;
 using namespace ::mlir::spn::fpga::operators;
 
 
@@ -61,9 +62,19 @@ public:
   }
 };
 
+struct SchedulingResult {
+  std::vector<std::tuple<
+      Operation *,  // from
+      Operation *,  // to
+      uint32_t      // delay
+    >> delays;
+  uint32_t totalDelay;
+};
+
 class SchedulingProblem : public virtual ::circt::scheduling::Problem {
   Operation *root;
   DelayLibrary delayLibrary;
+  SchedulingResult result;
 public:
   SchedulingProblem(Operation *containingOp, const OperatorTypeMapping& opMapping): root(containingOp), delayLibrary(opMapping) {
     setContainingOp(containingOp);
@@ -178,20 +189,60 @@ public:
       // we introduce a new usage which we need to ignore
       result.replaceAllUsesExcept(delayedResult, ignoreOp);
     }
+
+    /*
+    
+    OpBuilder builder(root->getContext());
+    uint32_t maxEndTime = 0;
+
+    // first collect all the delays we want to insert
+    root->walk([&](InstanceOp op) {
+      for (Value operand : op.getOperands()) {
+        Operation *defOp = operand.getDefiningOp();
+
+        // is a block argument or something
+        if (!defOp)
+          continue;
+
+        assert(getStartTime(op).has_value());
+        assert(getLatency(getLinkedOperatorType(op).value()).has_value());
+        assert(getStartTime(defOp).has_value());
+
+        uint32_t meStartTime = getStartTime(op).value();
+        uint32_t meLatency = getLatency(getLinkedOperatorType(op).value()).value();
+        maxEndTime = std::max(maxEndTime, meStartTime + meLatency);
+
+        uint32_t defOpLatency = getLatency(getLinkedOperatorType(defOp).value()).value();
+        uint32_t defOpStartTime = getStartTime(defOp).value();
+
+        assert(defOpStartTime + defOpLatency <= meStartTime);
+
+        uint32_t delay = meStartTime - (defOpStartTime + defOpLatency);
+
+        if (delay == 0)
+          continue;
+
+        result.delays.emplace_back(
+          defOp,
+          op.getOperation(),
+          delay
+        );
+      }
+    });
+
+    result.totalDelay = maxEndTime;
+    
+    */
+
   }
 
+  SchedulingResult getResult() const { return result; }
+
   void writeSchedule(llvm::raw_fd_ostream& os) {
-    Operation *hwOutput = &root->getRegion(0).front().back();
-    assert(hwOutput != nullptr && "Could not find hw.output!");
-
-    Operation *last = hwOutput->getOperand(0).getDefiningOp();
-    Optional<unsigned> startTime = getStartTime(last);
-    assert(startTime.has_value() && "Could not find start time of last op!");
-
     using json = nlohmann::json;
 
     json js;
-    js["endTime"] = startTime.value() + delayLibrary.getDelay(last);
+    js["endTime"] = getResult().totalDelay;
 
     os << js.dump() << "\n";
   }
