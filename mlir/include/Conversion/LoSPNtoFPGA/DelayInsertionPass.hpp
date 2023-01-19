@@ -6,6 +6,7 @@
 
 namespace mlir::spn::fpga {
 
+// TODO: Work in progress!
 class DelayInsertionPass : public PassWrapper<DelayInsertionPass, OperationPass<ModuleOp>> {
   scheduling::SchedulingResult schedule;
 public:

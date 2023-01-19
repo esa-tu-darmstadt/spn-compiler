@@ -149,6 +149,18 @@ public:
       }
     });
 
+    // add discardable attributes containg information about the scheduling
+    root->walk([&](Operation *op) {
+      if (!llvm::isa<InstanceOp>(op) && !llvm::isa<ConstantOp>(op))
+        return;
+
+      uint32_t startTime = getStartTime(op).value();
+      uint32_t delay = getLatency(getLinkedOperatorType(op).value()).value();
+
+      op->setAttr("tmp.startTime", builder.getI32IntegerAttr(startTime));
+      op->setAttr("tmp.delay", builder.getI32IntegerAttr(delay));
+    });
+
     Value clk, rst;
 
     // stupid way to find the clk and rst signals
