@@ -43,6 +43,7 @@ add_library(spnc
         src/pipeline/steps/frontend/SPFlowToMLIRDeserializer.cpp
         src/pipeline/steps/hdl/CreateIPXACT.cpp
         src/pipeline/steps/hdl/EmitVerilogCode.cpp
+        src/pipeline/steps/hdl/EmbedController.cpp
         src/pipeline/steps/mlir/conversion/LoSPNtoFPGAConversion.cpp
         src/toolchain/FPGAToolchain.cpp
         ${CAPNP_SRCS}

@@ -169,6 +169,9 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
     mapping.map(op->getResults(), newInstance->getResults());
   });
 
+  // insert meta information
+  modOp.getOperation()->setAttr("magic_value", builder.getI32IntegerAttr(123456));
+
   return modOp;
 }
 
@@ -234,8 +237,7 @@ Optional<ModuleOp> convert(ModuleOp root) {
     // from here on the code gets ugly
     problem.insertDelays();
 
-    // TODO: Implement this as a pipeline step.
-    problem.writeSchedule(scheduleFile);
+    problem.insertScheduleAsAttribute();
   }
 
   return newRoot;

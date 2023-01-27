@@ -1,3 +1,5 @@
+#pragma once
+
 #include "pipeline/PipelineStep.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "Kernel.h"

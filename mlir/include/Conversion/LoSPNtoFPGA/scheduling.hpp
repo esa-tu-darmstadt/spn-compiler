@@ -117,6 +117,8 @@ public:
       uint32_t      // delay
     >> jobs;
 
+    uint32_t maxEndTime = 0;
+
     // first collect all the delays we want to insert
     root->walk([&](InstanceOp op) {
       for (Value operand : op.getOperands()) {
@@ -137,6 +139,7 @@ public:
         assert(defOpStartTime + defOpLatency <= meStartTime);
 
         uint32_t delay = meStartTime - (defOpStartTime + defOpLatency);
+        maxEndTime = std::max(maxEndTime, meStartTime + delay);
 
         if (delay == 0)
           continue;
@@ -149,6 +152,8 @@ public:
       }
     });
 
+    result.totalDelay = maxEndTime;
+
     // add discardable attributes containg information about the scheduling
     root->walk([&](Operation *op) {
       if (!llvm::isa<InstanceOp>(op) && !llvm::isa<ConstantOp>(op))
@@ -157,8 +162,8 @@ public:
       uint32_t startTime = getStartTime(op).value();
       uint32_t delay = getLatency(getLinkedOperatorType(op).value()).value();
 
-      op->setAttr("tmp.startTime", builder.getI32IntegerAttr(startTime));
-      op->setAttr("tmp.delay", builder.getI32IntegerAttr(delay));
+      op->setAttr("fpga.startTime", builder.getI32IntegerAttr(startTime));
+      op->setAttr("fpga.delay", builder.getI32IntegerAttr(delay));
     });
 
     Value clk, rst;
@@ -257,6 +262,11 @@ public:
     js["endTime"] = getResult().totalDelay;
 
     os << js.dump() << "\n";
+  }
+
+  void insertScheduleAsAttribute() {
+    OpBuilder builder(root->getContext());
+    root->setAttr("fpga.body_delay", builder.getI32IntegerAttr(getResult().totalDelay));
   }
 };
 

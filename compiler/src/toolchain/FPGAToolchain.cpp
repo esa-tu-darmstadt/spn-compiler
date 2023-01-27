@@ -12,6 +12,7 @@
 #include "pipeline/steps/linker/ClangKernelLinking.h"
 #include "pipeline/steps/hdl/EmitVerilogCode.h"
 #include "pipeline/steps/hdl/CreateIPXACT.h"
+#include "pipeline/steps/hdl/EmbedController.hpp"
 #include "pipeline/steps/mlir/conversion/LoSPNtoFPGAConversion.h"
 #include "TargetInformation.h"
 
@@ -47,9 +48,6 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   // Initialize kernel information.
   auto kernelInfo = std::make_unique<KernelInfo>();
   kernelInfo->target = KernelTarget::FPGA;
-  // Attach the LLVM target machine and the kernel information to the pipeline context
-  pipeline->getContext()->add(std::move(targetMachine));
-  pipeline->getContext()->add(std::move(kernelInfo));
 
   // First step of the pipeline: Locate the input file.
   auto& locateInput = pipeline->emplaceStep<LocateFile<FileType::SPN_BINARY>>(inputFile);
@@ -60,9 +58,20 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   // Convert from HiSPN dialect to LoSPN.
   auto& hispn2lospn = pipeline->emplaceStep<HiSPNtoLoSPNConversion>(deserialized);
 
+  // TODO: LoSPNtoFPGAConversion must return some meta information about the SPN body.
   auto& lospn2fpga = pipeline->emplaceStep<LoSPNtoFPGAConversion>(hispn2lospn);
 
-  auto& emitVerilogCode = pipeline->emplaceStep<EmitVerilogCode>(lospn2fpga);
+  ControllerConfig controllerConfig{
+    .inputBitWidth = kernelInfo->numFeatures * kernelInfo->bytesPerFeature * 8,
+    .outputBitWidth = kernelInfo->numResults * kernelInfo->bytesPerResult * 8,
+    //.bodyDelay = 0,
+    //.preFifoDepth = 0,
+    //.postFifoDepth = 0,
+    .generatorPath = ""
+  };
+  auto& embedController = pipeline->emplaceStep<EmbedController>(controllerConfig, lospn2fpga);
+
+  auto& emitVerilogCode = pipeline->emplaceStep<EmitVerilogCode>(embedController);
 
   IPXACTConfig ipConfig{
     .sourceFilePaths = {
@@ -75,6 +84,9 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   };
   auto& createIPXACT = pipeline->emplaceStep<CreateIPXACT>(ipConfig, emitVerilogCode);
 
+  // Attach the LLVM target machine and the kernel information to the pipeline context
+  pipeline->getContext()->add(std::move(targetMachine));
+  pipeline->getContext()->add(std::move(kernelInfo));
   pipeline->getContext()->add(std::move(config));
 
   return pipeline;
