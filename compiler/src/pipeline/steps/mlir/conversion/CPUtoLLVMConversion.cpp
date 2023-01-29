@@ -15,25 +15,19 @@
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
+#include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
+#include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 
 
 void spnc::CPUtoLLVMConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
-  /*
-  pm->nest<mlir::FuncOp>().addPass(mlir::createConvertVectorToSCFPass());
-  pm->addPass(mlir::createLowerToCFGPass());                                        scf -> standard (now math + arith)
-  pm->addPass(mlir::createConvertVectorToLLVMPass());                               vector -> llvm
-  
-  pm->nest<mlir::FuncOp>().addPass(mlir::createConvertMathToLLVMPass());            math -> llvm
-  pm->addPass(mlir::createMemRefToLLVMPass());                                      memref -> llvm
-  pm->addPass(mlir::createLowerToLLVMPass());                                       standard -> llvm
-  */
-  
-  // TODO: Check if a pass is missing!
+  pm->addPass(mlir::createConvertFuncToLLVMPass());
+
   pm->nest<mlir::func::FuncOp>().addPass(mlir::createConvertVectorToSCFPass());
   pm->addPass(mlir::createConvertVectorToLLVMPass());
 
-  // NOTE: Replaced standard -> llvm with arith -> llvm
-  pm->nest<mlir::func::FuncOp>().addPass(mlir::createConvertMathToLLVMPass());
+  pm->addPass(mlir::createConvertMathToLLVMPass());
   pm->addPass(mlir::createMemRefToLLVMConversionPass());
   pm->addPass(mlir::createArithToLLVMConversionPass());
+
+  pm->addPass(mlir::createReconcileUnrealizedCastsPass());
 }

@@ -1,10 +1,15 @@
 #pragma once
 
+#include "pipeline/steps/mlir/MLIRPassPipeline.h"
+
 #include "pipeline/PipelineStep.h"
+#include "toolchain/MLIRToolchain.h"
 #include "mlir/IR/BuiltinOps.h"
 
 #include "circt/Dialect/HW/HWDialect.h"
 #include "circt/Dialect/HW/HWOps.h"
+
+#include "circt/Dialect/FIRRTL/FIRParser.h"
 
 #include <filesystem>
 
@@ -21,12 +26,6 @@ namespace spnc {
 namespace fs = std::filesystem;
 
 struct ControllerConfig {
-  uint32_t inputBitWidth;
-  uint32_t outputBitWidth;
-  //uint32_t bodyDelay;
-  //uint32_t preFifoDepth:
-  //uint32_t postFifoDepth;
-
   fs::path generatorPath;
 };
 
@@ -34,16 +33,40 @@ using namespace ::circt::hw;
 using namespace ::mlir;
 using namespace ::circt::firrtl;
 
+struct GeneratorConfig {
+  fs::path generatorPath;
+  uint32_t
+    inputBitWidth,
+    outputBitWidth,
+    bodyDelay,
+    preFifoDepth,
+    postFifoDepth;
+};
+
+/*
+  TODO:
+    - convert FIR code to HW code
+    - replace the HW external op definition of the SPN body with the actual
+      implementation
+    - insert the categorical/histogram modules (and more) in the controller AST
+ */
+
 class EmbedController : public StepSingleInput<EmbedController, mlir::ModuleOp>,
                         public StepWithResult<mlir::ModuleOp> {
   ControllerConfig config;
-  uint32_t bodyDelay, preFifoDepth, postFifoDepth;
+  uint32_t
+    inputBitWidth,
+    outputBitWidth,
+    bodyDelay,
+    preFifoDepth,
+    postFifoDepth;
 
-  std::optional<mlir::ModuleOp> generateController();
+  std::optional<mlir::ModuleOp> generateController(MLIRContext *ctxt);
 
   // fails if there is more than one spn_body
   std::optional<HWModuleOp> getUniqueBody(mlir::ModuleOp root);
-  bool insertBodyIntoController(ModuleOp controller, HWModuleOp body);
+  LogicalResult insertBodyIntoController(ModuleOp controller, HWModuleOp body);
+  void setParameters(uint32_t bodyDelay);
 public:
   explicit EmbedController(const ControllerConfig& config, StepWithResult<mlir::ModuleOp>& spnBody):
     StepSingleInput<EmbedController, mlir::ModuleOp>(spnBody),    

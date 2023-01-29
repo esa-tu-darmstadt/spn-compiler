@@ -1,7 +1,10 @@
 #include "EmbedController.hpp"
 
-#include "circt/Dialect/FIRRTL/FIRParser.h"
+#include "circt/Dialect/FIRRTL/FIRRTLDialect.h"
+#include "circt/Dialect/FIRRTL/FIRRTLOps.h"
 
+#include "llvm/Support/SourceMgr.h"
+#include "mlir/Support/Timing.h"
 #include "spdlog/fmt/fmt.h"
 #include "util/Command.h"
 #include <filesystem>
@@ -9,23 +12,33 @@
 
 namespace spnc {
 
-std::optional<ModuleOp> EmbedController::generateController() {
+std::optional<ModuleOp> EmbedController::generateController(MLIRContext *ctxt) {
   // call scala CLI app
   std::string cmdArgs =
-    fmt::format("-in-width {} -out-width {} -body-depth {} -pre-fifo-depth {} -post-fifo-depth {}",
-      config.inputBitWidth,
-      config.outputBitWidth,
+    fmt::format(" -in-width {} -out-width {} -body-depth {} -pre-fifo-depth {} -post-fifo-depth {}",
+      inputBitWidth,
+      outputBitWidth,
       bodyDelay,
       preFifoDepth,
       postFifoDepth
     );
 
   std::string cmdString = config.generatorPath.string() + cmdArgs;
+  spdlog::info("Executing shell command: {}", cmdString);
   std::string result = spnc::Command::executeExternalCommandAndGetOutput(cmdString);
+  auto sourceBuffer = llvm::MemoryBuffer::getMemBufferCopy(result);
 
-  // importFIRFile(???, ???, ???);
+  llvm::SourceMgr sourceMgr;
+  sourceMgr.AddNewSourceBuffer(std::move(sourceBuffer), llvm::SMLoc());
 
-  return std::nullopt;
+  TimingScope ts;
+
+  mlir::OwningOpRef<mlir::ModuleOp> op = importFIRFile(sourceMgr, ctxt, ts, {});
+
+  if (!op)
+    return std::nullopt;
+
+  return op.release();
 }
 
 std::optional<HWModuleOp> EmbedController::getUniqueBody(ModuleOp root) {
@@ -46,10 +59,30 @@ std::optional<HWModuleOp> EmbedController::getUniqueBody(ModuleOp root) {
   return body;
 }
 
-bool EmbedController::insertBodyIntoController(ModuleOp controller, HWModuleOp body) {
+LogicalResult EmbedController::insertBodyIntoController(ModuleOp controller, HWModuleOp body) {
   // find the external module
   // instantiate hw instance with a reference to our body
-  return false;
+
+  controller.walk([&](::circt::firrtl::InstanceOp op) {
+    if (op.getModuleName() != "ExternalSPNBody")
+      return;
+
+    auto refMod = op.getModule();
+    refMod
+  });
+
+  return mlir::failure();
+}
+
+void EmbedController::setParameters(uint32_t bodyDelay) {
+  KernelInfo *kernelInfo = getContext()->get<KernelInfo>();
+
+  inputBitWidth = kernelInfo->numFeatures * kernelInfo->bytesPerFeature * 8;
+  outputBitWidth = kernelInfo->numResults * kernelInfo->bytesPerResult * 8;
+
+  this->bodyDelay = bodyDelay;
+  preFifoDepth = bodyDelay * 2;
+  postFifoDepth = bodyDelay * 2;
 }
 
 ExecutionResult EmbedController::executeStep(ModuleOp *root) {
@@ -76,18 +109,16 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
       "EmbedController: fpga.body_delay is not an integer."
     );
 
-  bodyDelay = attr.getInt();
-  preFifoDepth = bodyDelay * 2;
-  postFifoDepth = bodyDelay * 2;
+  setParameters(attr.getInt());
 
-  std::optional<ModuleOp> firController = generateController();
+  std::optional<ModuleOp> firController = generateController(root->getContext());
 
   if (!firController.has_value())
     return failure(
       "EmbedController: generateController() has failed."
     );
 
-  if (!insertBodyIntoController(firController.value(), spnBody.value()))
+  if (failed(insertBodyIntoController(firController.value(), spnBody.value())))
     return failure(
       "EmbedController: Could not insert body into controller."
     );

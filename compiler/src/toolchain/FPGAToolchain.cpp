@@ -58,16 +58,14 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   // Convert from HiSPN dialect to LoSPN.
   auto& hispn2lospn = pipeline->emplaceStep<HiSPNtoLoSPNConversion>(deserialized);
 
+  // does some preprocessing and fills KernelInfo with the correct information
+  auto& lospnTransform = pipeline->emplaceStep<LoSPNTransformations>(hispn2lospn);
+
   // TODO: LoSPNtoFPGAConversion must return some meta information about the SPN body.
-  auto& lospn2fpga = pipeline->emplaceStep<LoSPNtoFPGAConversion>(hispn2lospn);
+  auto& lospn2fpga = pipeline->emplaceStep<LoSPNtoFPGAConversion>(lospnTransform);
 
   ControllerConfig controllerConfig{
-    .inputBitWidth = kernelInfo->numFeatures * kernelInfo->bytesPerFeature * 8,
-    .outputBitWidth = kernelInfo->numResults * kernelInfo->bytesPerResult * 8,
-    //.bodyDelay = 0,
-    //.preFifoDepth = 0,
-    //.postFifoDepth = 0,
-    .generatorPath = ""
+    .generatorPath = "/home/jsch/projects/mthesis/ChiselSPNController/build/generate"
   };
   auto& embedController = pipeline->emplaceStep<EmbedController>(controllerConfig, lospn2fpga);
 

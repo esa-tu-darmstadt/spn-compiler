@@ -15,6 +15,7 @@ from xspn.structure.Model import SPNModel
 from xspn.serialization.binary.BinarySerialization import BinarySerializer
 
 from spnc.fpga import FPGACompiler
+from spnc.cpu import CPUCompiler
 
 
 def test_single_histogram(spn, sim):
@@ -93,12 +94,15 @@ if __name__ == '__main__':
   spn, var_2_index, index_2_min, index_2_max = load_spn_2(spn_path)
 
   # invoke the driver to compile create the verilog sources
-  compiler = FPGACompiler(computeInLogSpace=False)
+  #compiler = FPGACompiler(computeInLogSpace=False)
+  compiler = CPUCompiler(computeInLogSpace=False)
   try:
     kernel = compiler.compile_ll(spn)
     pass
   except:
     pass
+
+  sys.exit()
 
   # invoke the Makefile to compile the verilator shared library + python bindings
   shutil.copy(
