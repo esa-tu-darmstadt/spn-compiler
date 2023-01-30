@@ -4,6 +4,7 @@
 #include "circt/Dialect/FIRRTL/FIRRTLOps.h"
 
 #include "circt/Conversion/FIRRTLToHW.h"
+#include "circt/Dialect/FIRRTL/Passes.h"
 
 #include "llvm/Support/SourceMgr.h"
 #include "mlir/Support/Timing.h"
@@ -141,9 +142,16 @@ ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op) {
   MLIRContext *ctxt = op.getContext();
   PassManager pm(ctxt);
 
+  // inspired by firtool
+  pm.addNestedPass<circt::firrtl::CircuitOp>(
+    circt::firrtl::createLowerFIRRTLTypesPass(
+      circt::firrtl::PreserveAggregate::PreserveMode::None
+    )
+  );
+  auto &modulePM = pm.nest<circt::firrtl::CircuitOp>().nest<circt::firrtl::FModuleOp>();
+  modulePM.addPass(circt::firrtl::createExpandWhensPass());
+  modulePM.addPass(circt::firrtl::createSFCCompatPass());  
   pm.addPass(circt::createLowerFIRRTLToHWPass());
-
-  //op.dump();
 
   if (failed(pm.run(op)))
     return failure("Converting FIRRTL to HW failed");
