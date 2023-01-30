@@ -3,6 +3,8 @@
 #include "circt/Dialect/FIRRTL/FIRRTLDialect.h"
 #include "circt/Dialect/FIRRTL/FIRRTLOps.h"
 
+#include "circt/Conversion/FIRRTLToHW.h"
+
 #include "llvm/Support/SourceMgr.h"
 #include "mlir/Support/Timing.h"
 #include "spdlog/fmt/fmt.h"
@@ -63,13 +65,13 @@ LogicalResult EmbedController::insertBodyIntoController(ModuleOp controller, HWM
   // find the external module
   // instantiate hw instance with a reference to our body
 
-  controller.walk([&](::circt::firrtl::InstanceOp op) {
-    if (op.getModuleName() != "ExternalSPNBody")
-      return;
-
-    auto refMod = op.getModule();
-    refMod
-  });
+  //controller.walk([&](::circt::firrtl::InstanceOp op) {
+  //  if (op.getModuleName() != "ExternalSPNBody")
+  //    return;
+//
+  //  auto refMod = op.getModule();
+  //  refMod
+  //});
 
   return mlir::failure();
 }
@@ -111,19 +113,45 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
 
   setParameters(attr.getInt());
 
-  std::optional<ModuleOp> firController = generateController(root->getContext());
+  std::optional<ModuleOp> controllerOpt = generateController(root->getContext());
 
-  if (!firController.has_value())
+  if (!controllerOpt.has_value())
     return failure(
       "EmbedController: generateController() has failed."
     );
 
-  if (failed(insertBodyIntoController(firController.value(), spnBody.value())))
-    return failure(
-      "EmbedController: Could not insert body into controller."
-    );
+  ModuleOp controller = controllerOpt.value();
+  {
+    ExecutionResult result = convertFirrtlToHw(controller);
+    if (failed(result))
+      return result;
+  }
+
+  controller.dump();
+
+  //if (failed(insertBodyIntoController(firController.value(), spnBody.value())))
+  //  return failure(
+  //    "EmbedController: Could not insert body into controller."
+  //  );
 
   return failure("EmbedController is not implemented!");
+}
+
+ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op) {
+  MLIRContext *ctxt = op.getContext();
+  PassManager pm(ctxt);
+
+  pm.addPass(circt::createLowerFIRRTLToHWPass());
+
+  //op.dump();
+
+  if (failed(pm.run(op)))
+    return failure("Converting FIRRTL to HW failed");
+
+  if (failed(op.verify()))
+    return failure("Verifying module after conversion failed");
+
+  return success();
 }
 
 }

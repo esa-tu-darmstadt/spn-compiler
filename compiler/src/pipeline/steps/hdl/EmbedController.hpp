@@ -79,6 +79,8 @@ public:
   STEP_NAME("embed-controller");
 private:
   std::unique_ptr<mlir::ModuleOp> topModule;
+
+  static ExecutionResult convertFirrtlToHw(mlir::ModuleOp op);
 };
 
 }

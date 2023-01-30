@@ -33,6 +33,8 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   // Initialize the MLIR context.
   auto ctx = std::make_unique<MLIRContext>();
   initializeMLIRContext(*ctx);
+  // for debugging
+  ctx->disableMultithreading();
 
   // If IR should be dumped between steps/passes, we need to disable
   // multi-threading in MLIR

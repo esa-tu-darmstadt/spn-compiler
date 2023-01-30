@@ -33,7 +33,6 @@ Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t&
 #endif
   } else if (spnc::option::compilationTarget.get(*config) == option::TargetMachine::FPGA) {
     pipeline = FPGAToolchain::setupPipeline(inputFile, std::move(config));
-    //SPNC_FATAL_ERROR("Not implemented!");
   } else {
     pipeline = CPUToolchain::setupPipeline(inputFile, std::move(config));
   }

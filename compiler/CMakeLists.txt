@@ -139,6 +139,7 @@ set(mlir_libs
         CIRCTSeq
         CIRCTSeqTransforms
         CIRCTImportFIRFile
+        CIRCTFIRRTLToHW
         )
 
 llvm_map_components_to_libnames(llvm_libs bitwriter native passes)
