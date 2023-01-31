@@ -59,13 +59,15 @@ class EmbedController : public StepSingleInput<EmbedController, mlir::ModuleOp>,
     outputBitWidth,
     bodyDelay,
     preFifoDepth,
-    postFifoDepth;
+    postFifoDepth,
+    variableCount,
+    bitsPerVariable;
 
   std::optional<mlir::ModuleOp> generateController(MLIRContext *ctxt);
 
   // fails if there is more than one spn_body
   std::optional<HWModuleOp> getUniqueBody(mlir::ModuleOp root);
-  LogicalResult insertBodyIntoController(ModuleOp controller, HWModuleOp body);
+  LogicalResult insertBodyIntoController(ModuleOp controller, ModuleOp root, HWModuleOp spnBody);
   void setParameters(uint32_t bodyDelay);
 public:
   explicit EmbedController(const ControllerConfig& config, StepWithResult<mlir::ModuleOp>& spnBody):

@@ -6,6 +6,10 @@
 #include "circt/Conversion/FIRRTLToHW.h"
 #include "circt/Dialect/FIRRTL/Passes.h"
 
+#include "circt/Dialect/Seq/SeqPasses.h"
+
+#include "circt/Dialect/SV/SVPasses.h"
+
 #include "llvm/Support/SourceMgr.h"
 #include "mlir/Support/Timing.h"
 #include "spdlog/fmt/fmt.h"
@@ -18,12 +22,14 @@ namespace spnc {
 std::optional<ModuleOp> EmbedController::generateController(MLIRContext *ctxt) {
   // call scala CLI app
   std::string cmdArgs =
-    fmt::format(" -in-width {} -out-width {} -body-depth {} -pre-fifo-depth {} -post-fifo-depth {}",
+    fmt::format(" -in-width {} -out-width {} -body-depth {} -pre-fifo-depth {} -post-fifo-depth {} -variable-count {} -bits-per-variable {}",
       inputBitWidth,
       outputBitWidth,
       bodyDelay,
       preFifoDepth,
-      postFifoDepth
+      postFifoDepth,
+      variableCount,
+      bitsPerVariable
     );
 
   std::string cmdString = config.generatorPath.string() + cmdArgs;
@@ -62,30 +68,49 @@ std::optional<HWModuleOp> EmbedController::getUniqueBody(ModuleOp root) {
   return body;
 }
 
-LogicalResult EmbedController::insertBodyIntoController(ModuleOp controller, HWModuleOp body) {
-  // find the external module
-  // instantiate hw instance with a reference to our body
+LogicalResult EmbedController::insertBodyIntoController(ModuleOp controller, ModuleOp root, HWModuleOp spnBody) {
+  // append all the operations at the end
+  auto& dest = controller.getOperation()->getRegion(0).front().getOperations();
+  auto& sourceOps = root.getOperation()->getRegion(0).front().getOperations();
 
-  //controller.walk([&](::circt::firrtl::InstanceOp op) {
-  //  if (op.getModuleName() != "ExternalSPNBody")
-  //    return;
-//
-  //  auto refMod = op.getModule();
-  //  refMod
-  //});
+  dest.splice(
+    dest.end(),
+    sourceOps
+  );
+  
+  // find the reference to the external module
+  Operation *refMod = nullptr;
+  uint32_t refCount = 0;
 
-  return mlir::failure();
+  controller.walk([&](::circt::hw::InstanceOp op) {
+    if (op.getModuleName() != "ExternalSPNBody")
+      return;
+
+    op.getModuleName();
+    op.setModuleName(spnBody.moduleName());
+    refMod = op.getReferencedModule();
+    ++refCount;
+  });
+
+  assert(refMod);
+  assert(refCount == 1);
+  assert(refMod == spnBody.getOperation());
+
+  return mlir::success();
 }
 
 void EmbedController::setParameters(uint32_t bodyDelay) {
   KernelInfo *kernelInfo = getContext()->get<KernelInfo>();
 
-  inputBitWidth = kernelInfo->numFeatures * kernelInfo->bytesPerFeature * 8;
-  outputBitWidth = kernelInfo->numResults * kernelInfo->bytesPerResult * 8;
+  inputBitWidth = kernelInfo->numFeatures * 8;
+  outputBitWidth = 31;
 
   this->bodyDelay = bodyDelay;
   preFifoDepth = bodyDelay * 2;
   postFifoDepth = bodyDelay * 2;
+
+  variableCount = kernelInfo->numFeatures;
+  bitsPerVariable = 8;
 }
 
 ExecutionResult EmbedController::executeStep(ModuleOp *root) {
@@ -128,14 +153,14 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
       return result;
   }
 
-  controller.dump();
+  if (failed(insertBodyIntoController(controller, *root, spnBody.value())))
+    return failure(
+      "EmbedController: Could not insert body into controller."
+    );
 
-  //if (failed(insertBodyIntoController(firController.value(), spnBody.value())))
-  //  return failure(
-  //    "EmbedController: Could not insert body into controller."
-  //  );
+  topModule = std::make_unique<mlir::ModuleOp>(controller);
 
-  return failure("EmbedController is not implemented!");
+  return success();
 }
 
 ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op) {
@@ -152,6 +177,20 @@ ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op) {
   modulePM.addPass(circt::firrtl::createExpandWhensPass());
   modulePM.addPass(circt::firrtl::createSFCCompatPass());  
   pm.addPass(circt::createLowerFIRRTLToHWPass());
+  // export verilog doesn't know about seq.firreg
+  pm.addNestedPass<circt::hw::HWModuleOp>(
+    circt::seq::createSeqFIRRTLLowerToSVPass()
+  );
+  pm.addNestedPass<circt::hw::HWModuleOp>(
+    circt::sv::createHWLegalizeModulesPass()
+  );
+  pm.addPass(circt::sv::createHWMemSimImplPass(
+    //replSeqMem, ignoreReadEnableMem, stripMuxPragmas,
+    //!isRandomEnabled(RandomKind::Mem), !isRandomEnabled(RandomKind::Reg),
+    //addVivadoRAMAddressConflictSynthesisBugWorkaround
+  ));
+
+  // TODO: Add cleanup and canonicalization!
 
   if (failed(pm.run(op)))
     return failure("Converting FIRRTL to HW failed");

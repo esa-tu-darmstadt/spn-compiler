@@ -150,6 +150,10 @@ namespace spnc {
     /// Flag to indicate whether an optimal representation for SPN evaluation shall be determined.
     extern Option<bool> optRepresentation;
 
+
+    ///
+    /// Specifies which type to use for internal computation and output. For example: ufloat-31
+    extern Option<std::string> fpgaFloatType;
   }
 }
 

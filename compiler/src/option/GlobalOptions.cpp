@@ -74,3 +74,5 @@ Option<bool> spnc::option::deleteTemporaryFiles{"delete-temps", true};
 Option<bool> spnc::option::dumpIR{"dump-ir", false};
 
 Option<bool> spnc::option::optRepresentation{"opt-repr", false};
+
+Option<std::string> spnc::option::fpgaFloatType{"fpga-float-type", "ufloat-31"};
