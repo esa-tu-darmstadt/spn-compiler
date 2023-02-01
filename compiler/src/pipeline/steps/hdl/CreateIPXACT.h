@@ -23,16 +23,16 @@ struct IPXACTConfig {
   void addSourceFilePath(const std::filesystem::path& path);
 };
 
-class CreateIPXACT : public StepSingleInput<CreateIPXACT, std::string>,
+class CreateIPXACT : public StepSingleInput<CreateIPXACT, mlir::ModuleOp>,
                      // TODO: Make the compiler not expect a Kernel as the pipeline result.
                      public StepWithResult<Kernel> {
   IPXACTConfig config;
 public:
-  explicit CreateIPXACT(const IPXACTConfig& config, StepWithResult<std::string>& input):
-    StepSingleInput<CreateIPXACT, std::string>(input),
+  explicit CreateIPXACT(const IPXACTConfig& config, StepWithResult<mlir::ModuleOp>& input):
+    StepSingleInput<CreateIPXACT, mlir::ModuleOp>(input),
     config(config) {}
 
-  ExecutionResult executeStep(std::string *verilogSource);
+  ExecutionResult executeStep(mlir::ModuleOp *mod);
 
   Kernel *result() override { return kernel.get(); }
 
@@ -41,6 +41,7 @@ private:
   std::unique_ptr<Kernel> kernel;
 
   std::string generateSimulationSourceCode();
+  std::string generateFullSimulationSourceCode() const;
 };
 
 }

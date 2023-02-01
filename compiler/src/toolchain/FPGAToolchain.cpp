@@ -71,8 +71,6 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   };
   auto& embedController = pipeline->emplaceStep<EmbedController>(controllerConfig, lospn2fpga);
 
-  auto& emitVerilogCode = pipeline->emplaceStep<EmitVerilogCode>(embedController);
-
   IPXACTConfig ipConfig{
     .sourceFilePaths = {
       "resources/ufloat/FPOps_build_add/FPAdd.v",
@@ -80,9 +78,9 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
       "resources/ufloat/FPLog.v"
     },
     .targetDir = "./ipxact_core",
-    .topModuleFileName = "spn_body.v"
+    .topModuleFileName = "SPNController.v"
   };
-  auto& createIPXACT = pipeline->emplaceStep<CreateIPXACT>(ipConfig, emitVerilogCode);
+  auto& createIPXACT = pipeline->emplaceStep<CreateIPXACT>(ipConfig, embedController);
 
   // Attach the LLVM target machine and the kernel information to the pipeline context
   pipeline->getContext()->add(std::move(targetMachine));

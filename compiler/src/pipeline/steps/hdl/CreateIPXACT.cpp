@@ -1,5 +1,7 @@
 #include "CreateIPXACT.h"
 
+#include "circt/Conversion/ExportVerilog.h"
+
 #include "spdlog/fmt/fmt.h"
 #include "util/Command.h"
 #include "toolchain/MLIRToolchain.h"
@@ -45,7 +47,7 @@ close_project -delete
 puts "VIVADO FINISHED SUCCESSFULLY"
 )";
 
-ExecutionResult CreateIPXACT::executeStep(std::string *verilogSource) {
+ExecutionResult CreateIPXACT::executeStep(mlir::ModuleOp *mod) {
   namespace fs = std::filesystem;
 
   fs::create_directory(config.targetDir);
@@ -66,17 +68,8 @@ ExecutionResult CreateIPXACT::executeStep(std::string *verilogSource) {
   };
 
   // write verilog source to target dir
-  {
-    fs::path path = srcPath / config.topModuleFileName;
-    std::ofstream outFile(path);
-
-    if (!outFile.is_open())
-      return failure(
-        fmt::format("Could not open file {}", path.string())
-      );
-
-    outFile << *verilogSource;
-  }
+  if (failed(::circt::exportSplitVerilog(*mod, srcPath.string())))
+    return failure("exportSplitVerilog() failed");
 
   // write simulation helper code to file
   {
@@ -157,9 +150,6 @@ std::string CreateIPXACT::generateSimulationSourceCode() {
 
   // code for type conversion
   ss << R"(
-#include "common.hpp"
-
-
 uint8_t PySPNSim::convertIndex(uint32_t input) {
   uint8_t result = static_cast<uint8_t>(input);
   return result;
@@ -187,6 +177,25 @@ void PySPNSim::setInput(const std::vector<uint32_t>& input) {{
     fmt::arg("setInputs", setInputs.str()));
 
   ss << txt;
+
+  return ss.str();
+}
+
+std::string CreateIPXACT::generateFullSimulationSourceCode() const {
+  std::stringstream ss;
+
+  // code for type conversion
+  ss << R"(
+uint8_t PySPNSim::convertIndex(uint32_t input) {
+  uint8_t result = static_cast<uint8_t>(input);
+  return result;
+}
+
+double PySPNSim::convertProb(uint32_t prob) {
+  uint64_t p = prob;
+  return *reinterpret_cast<const float *>(&p);
+}
+  )";
 
   return ss.str();
 }

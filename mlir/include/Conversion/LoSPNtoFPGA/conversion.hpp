@@ -113,6 +113,7 @@ public:
   Operation *getLeafModule(Operation *op) const { return leafModules.at(op); }
 
   std::string getVerilogIncludeString() const {
+    return "";
     return R"(
 `include "FPAdd.v"
 `include "FPMult.v"

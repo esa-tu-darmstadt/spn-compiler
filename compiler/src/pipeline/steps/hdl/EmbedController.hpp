@@ -43,14 +43,6 @@ struct GeneratorConfig {
     postFifoDepth;
 };
 
-/*
-  TODO:
-    - convert FIR code to HW code
-    - replace the HW external op definition of the SPN body with the actual
-      implementation
-    - insert the categorical/histogram modules (and more) in the controller AST
- */
-
 class EmbedController : public StepSingleInput<EmbedController, mlir::ModuleOp>,
                         public StepWithResult<mlir::ModuleOp> {
   ControllerConfig config;
