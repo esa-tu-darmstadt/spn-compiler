@@ -1,10 +1,20 @@
+
 import numpy as np
 import struct
 from codecs import decode
+import math
 
 import cocotb
 from cocotb.triggers import Timer, RisingEdge, FallingEdge
 from cocotb.clock import Clock
+
+from cocotbext.axi import AxiStreamBus, AxiStreamSource, AxiStreamSink
+
+from spn_parser import load_spn_2
+from spn.algorithms.Inference import likelihood
+from spn.structure.leaves.histogram.Histograms import Histogram
+
+from functools import reduce
 
 
 # https://stackoverflow.com/questions/8751653/how-to-convert-a-binary-string-into-a-float-value/8762541
@@ -23,99 +33,116 @@ def bin_to_float(b):
     return struct.unpack('>d', bf)[0]
 
 
-async def reset(dut):
-  dut.in_0.value = 0
-  dut.in_1.value = 0
-  dut.in_2.value = 0
-  dut.in_3.value = 0
-  dut.in_4.value = 0
+async def write_inputs(axis_source, data):
+  def to_bitstring(arr):
+    return [int(bit) for bit in ''.join([format(el, '#010b')[2:] for el in arr])]
 
-  dut.rst.value = 1
-  for _ in range(3):
-    await RisingEdge(dut.clk)
-  dut.rst.value = 0
+  for row in data:
+    bits = to_bitstring(row)
 
+    print(f'{row} <-> {bits}')
 
-async def write_inputs(ports, inputs, delay):
-  if delay > 0:
-    await Timer(delay, units="ns")
+    assert(len(bits) == 5 * 8)
+    await axis_source.send(bits)
 
-  for row in inputs:
-    for i in range(5):
-      ports[i].value = int(row[i])
-    
-    await Timer(2, units="ns")
-
-
-async def read_outputs(port, count, delay):
-  await Timer(delay, units="ns")
+async def read_outputs(axis_sink, count):
   results = []
 
   for i in range(count):
-    results.append(port.value)
-    await Timer(2, units="ns")
+    data = await axis_sink.recv()
+    got = struct.unpack('f', data.tdata[0:4])[0]
+    results.append(got)
 
-  print(f'GOT:')
-  for result in results:
-    bit_str = str(result)
-    f = bin_to_float(bit_str)
-    print(f'{bit_str}: {f}')
-
-async def run_clock(dut):
-  for i in range(1000):
-    print("tick")
-    dut.clk.value = 0
-    await Timer(1, units="ns")
-    dut.clk.value = 1
-    await Timer(1, units="ns")
-  print("done")
-
+  return results
 
 async def generate_clock(dut):
   """Generate clock pulses."""
 
   for cycle in range(200):
     #dut._log.info("tick")
-    dut.clk.value = 0
+    dut.clock.value = 0
     await Timer(1, units="ns")
-    dut.clk.value = 1
+    dut.clock.value = 1
     await Timer(1, units="ns")
 
+def generate_data(count, index_2_min, index_2_max):
+  np.random.seed(123456)
+  var_count = len(index_2_min.items())
+  data = np.zeros((count, var_count), dtype=np.int32)
+
+  for j in range(var_count):
+    low = index_2_min[j]
+    high = index_2_max[j] + 1
+
+    for i in range(count):
+      val = np.random.randint(low, high)
+      data[i][j] = val
+
+  return data
+
+# cocotb does not like capslock signal names Q_Q
+def rename_signals(dut):
+  signals = ["AXI_SLAVE_TVALID",
+             "AXI_SLAVE_TDATA",
+             "AXI_SLAVE_TSTRB",
+             "AXI_SLAVE_TKEEP",
+             "AXI_SLAVE_TLAST",
+             "AXI_SLAVE_TUSER",
+             "AXI_SLAVE_TDEST",
+             "AXI_SLAVE_TID",
+             "AXI_MASTER_TREADY",
+             "AXI_SLAVE_TREADY",
+             "AXI_MASTER_TVALID",
+             "AXI_MASTER_TDATA",
+             "AXI_MASTER_TSTRB",
+             "AXI_MASTER_TKEEP",
+             "AXI_MASTER_TLAST",
+             "AXI_MASTER_TUSER",
+             "AXI_MASTER_TDEST",
+             "AXI_MASTER_TID"]
+
+  for signal in signals:
+    parts = signal.split('_')
+    prefix = parts[0] + '_' + parts[1]
+    suffix = parts[-1]
+    lower = suffix.lower()
+
+    print(f'Linking signals: {prefix + "_" + lower} <-> {signal}')
+    dut.__dict__[prefix + '_' + lower] = dut.__getattr__(signal)
 
 @cocotb.test()
 async def spn_basic_test(dut):
-  # setup
-  inputs = np.array([
-    [0, 0, 0, 0, 0]
-  ])
-  outputs = np.array([
-    1
-  ])
+  spn_path = '../../../examples/nips5.spn'
+  spn, var_2_index, index_2_min, index_2_max = load_spn_2(spn_path)
+  data = generate_data(100, index_2_min, index_2_max)
+  expected = likelihood(spn, data)
 
-  spn_delay = 50
+  rename_signals(dut)
 
-  in_ports = [
-    dut.in_0, dut.in_1, dut.in_2, dut.in_3, dut.in_4
-  ]
+  axis_source = AxiStreamSource(AxiStreamBus.from_prefix(dut, "AXI_SLAVE"), dut.clock, dut.reset)
+  axis_sink = AxiStreamSink(AxiStreamBus.from_prefix(dut, "AXI_MASTER"), dut.clock, dut.reset)
+  cocotb.fork(Clock(dut.clock, 1, units='ns').start())
 
-  out_port = dut.out_prob
+  print(f'source width: {len(axis_source.bus.tdata)}')
+  print(f'sink width: {len(axis_sink.bus.tdata)}')
 
-  await cocotb.start(generate_clock(dut))  # run the clock "in the background"
-  
-  # reset internal state
-  await reset(dut)
+  dut.reset <= 1
+  for i in range(0, 5):
+      await RisingEdge(dut.clock)
+  dut.reset <= 0
 
   # write inputs
-  await cocotb.start(
-    write_inputs(in_ports, inputs, 0)
-  )
+  await write_inputs(axis_source, data)
 
   # read outputs
-  await cocotb.start(
-    read_outputs(out_port, 10, spn_delay)
-  )
+  results = await read_outputs(axis_sink, data.shape[0])
 
   # wait until everything is done
-  await Timer(500, units="ns")  # wait a bit
-  await FallingEdge(dut.clk)  # wait for falling edge/"negedge"
+  await Timer(5000, units="ns")  # wait a bit
+  await FallingEdge(dut.clock)  # wait for falling edge/"negedge"
   
+  #expected = likelihood(spn, np.zeros((100, 5)))
+  results = np.array(results).reshape((100, 1))
+  print(results.shape)
+  print(expected.shape)
+  print(np.hstack((results, expected)))
