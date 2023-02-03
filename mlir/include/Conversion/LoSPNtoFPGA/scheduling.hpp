@@ -184,11 +184,15 @@ public:
       Operation *ignoreOp = nullptr;
 
       for (uint32_t i = 0; i < delay; ++i) {
-        //CompRegOp reg = builder.create<CompRegOp>(
-        //  builder.getUnknownLoc(), std::move(prev), clk, "shiftReg"
-        //);
+        Value rstValue = builder.create<ConstantOp>(
+          builder.getUnknownLoc(),
+          input.getType(),
+          0
+        ).getResult();
+
         FirRegOp reg = builder.create<FirRegOp>(
-          builder.getUnknownLoc(), std::move(prev), clk, builder.getStringAttr("shiftReg")
+          builder.getUnknownLoc(), std::move(prev), clk, builder.getStringAttr("shiftReg"),
+          rst, rstValue
         );
         prev = reg.getResult();
 

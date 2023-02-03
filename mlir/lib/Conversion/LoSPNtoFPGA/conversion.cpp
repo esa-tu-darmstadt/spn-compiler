@@ -291,8 +291,15 @@ Optional<HWModuleOp> ConversionHelper::createLeafModule(Operation *op) {
   );
 
   Value clk = leafOp.getBodyBlock()->getArguments()[0];
+  Value rst = leafOp.getBodyBlock()->getArguments()[1];
+  Value rstValue = builder.create<ConstantOp>(
+    builder.getUnknownLoc(),
+    targetTypes.getProbType(),
+    0
+  ).getResult();
   FirRegOp buffered = builder.create<FirRegOp>(
-    builder.getUnknownLoc(), getOp.getResult(), clk, builder.getStringAttr("bufferReg")
+    builder.getUnknownLoc(), getOp.getResult(), clk, builder.getStringAttr("bufferReg"),
+    rst, rstValue
   );
 
   builder.create<OutputOp>(
