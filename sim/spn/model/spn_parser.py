@@ -296,4 +296,16 @@ varlist: ["#" PARAMNAME (";" PARAMNAME)*]
     spn = rebuild_scopes_bottom_up(spn)
     var_2_index = {v: i for i, v in enumerate(var_list)}
 
-    return spn, var_2_index, [], []
+    histogram_nodes = get_nodes_by_type(spn, Histogram)
+    index_to_min = dict()
+    index_to_max = dict()
+
+    for var, index in var_2_index.items():
+        # find any histogram
+        for histo in histogram_nodes:
+            if index == histo.scope[0]:
+                index_to_min[index] = int(min(histo.breaks))
+                index_to_max[index] = int(max(histo.breaks))
+                break
+
+    return spn, var_2_index, index_to_min, index_to_max
