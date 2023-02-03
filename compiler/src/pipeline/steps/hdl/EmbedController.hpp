@@ -53,7 +53,8 @@ class EmbedController : public StepSingleInput<EmbedController, mlir::ModuleOp>,
     preFifoDepth,
     postFifoDepth,
     variableCount,
-    bitsPerVariable;
+    bitsPerVariable,
+    bodyOutputWidth;
 
   std::optional<mlir::ModuleOp> generateController(MLIRContext *ctxt);
 

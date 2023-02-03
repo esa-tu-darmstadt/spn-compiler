@@ -22,14 +22,15 @@ namespace spnc {
 std::optional<ModuleOp> EmbedController::generateController(MLIRContext *ctxt) {
   // call scala CLI app
   std::string cmdArgs =
-    fmt::format(" -in-width {} -out-width {} -body-depth {} -pre-fifo-depth {} -post-fifo-depth {} -variable-count {} -bits-per-variable {}",
+    fmt::format(" -in-width {} -out-width {} -body-depth {} -pre-fifo-depth {} -post-fifo-depth {} -variable-count {} -bits-per-variable {} -body-output-width {}",
       inputBitWidth,
       outputBitWidth,
       bodyDelay,
       preFifoDepth,
       postFifoDepth,
       variableCount,
-      bitsPerVariable
+      bitsPerVariable,
+      bodyOutputWidth
     );
 
   std::string cmdString = config.generatorPath.string() + cmdArgs;
@@ -103,7 +104,7 @@ void EmbedController::setParameters(uint32_t bodyDelay) {
   KernelInfo *kernelInfo = getContext()->get<KernelInfo>();
 
   inputBitWidth = kernelInfo->numFeatures * 8;
-  outputBitWidth = 31;
+  outputBitWidth = 32;
 
   this->bodyDelay = bodyDelay;
   preFifoDepth = bodyDelay * 2;
@@ -111,6 +112,8 @@ void EmbedController::setParameters(uint32_t bodyDelay) {
 
   variableCount = kernelInfo->numFeatures;
   bitsPerVariable = 8;
+
+  bodyOutputWidth = 31;
 }
 
 ExecutionResult EmbedController::executeStep(ModuleOp *root) {
