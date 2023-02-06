@@ -139,7 +139,9 @@ public:
         assert(defOpStartTime + defOpLatency <= meStartTime);
 
         uint32_t delay = meStartTime - (defOpStartTime + defOpLatency);
-        maxEndTime = std::max(maxEndTime, meStartTime + delay);
+
+        uint32_t meDelay = getLatency(getLinkedOperatorType(op).value()).value();
+        maxEndTime = std::max(maxEndTime, meStartTime + meDelay);
 
         if (delay == 0)
           continue;
