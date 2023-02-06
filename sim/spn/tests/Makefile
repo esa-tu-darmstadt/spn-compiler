@@ -15,8 +15,9 @@ INCLUDE_DIR := $(PWD)/../hdl/
 VERILOG_SOURCES := $(call rwildcard,$(INCLUDE_DIR),*.v)
 VERILOG_SOURCES += $(call rwildcard,$(INCLUDE_DIR),*.sv)
 
-
 TOPLEVEL := SPNController
 MODULE   := spn_test
+
+#VSIM_ARGS=-t 1us
 
 include $(shell cocotb-config --makefiles)/Makefile.sim

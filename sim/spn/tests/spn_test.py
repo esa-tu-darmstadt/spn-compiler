@@ -8,13 +8,15 @@ import cocotb
 from cocotb.triggers import Timer, RisingEdge, FallingEdge
 from cocotb.clock import Clock
 
-from cocotbext.axi import AxiStreamBus, AxiStreamSource, AxiStreamSink
+from cocotbext.axi import AxiStreamBus, AxiStreamSource, AxiStreamSink, AxiStreamFrame
 
 from spn_parser import load_spn_2
 from spn.algorithms.Inference import likelihood
 from spn.structure.leaves.histogram.Histograms import Histogram
 
 from functools import reduce
+
+from init import prepare
 
 
 # https://stackoverflow.com/questions/8751653/how-to-convert-a-binary-string-into-a-float-value/8762541
@@ -26,44 +28,32 @@ def int_to_bytes(n, length):  # Helper function
     """
     return decode('%%0%dx' % (length << 1) % n, 'hex')[-length:]
 
-
 def bin_to_float(b):
     """ Convert binary string to a float. """
     bf = int_to_bytes(int(b, 2), 8)  # 8 bytes needed for IEEE 754 binary64.
     return struct.unpack('>d', bf)[0]
 
-
 async def write_inputs(axis_source, data):
-  def to_bitstring(arr):
-    return [int(bit) for bit in ''.join([format(el, '#010b')[2:] for el in arr])]
+  # every element gehts interpreted as a byte
+  to_send = []
 
   for row in data:
-    bits = to_bitstring(row)
+    for el in row:
+      to_send.append(int(el))
 
-    print(f'{row} <-> {bits}')
-
-    assert(len(bits) == 5 * 8)
-    await axis_source.send(bits)
+  # cocotb splits this up into the appropriate number of frames
+  await axis_source.send(to_send)
 
 async def read_outputs(axis_sink, count):
-  results = []
+  data = await axis_sink.recv()
 
-  for i in range(count):
-    data = await axis_sink.recv()
-    got = struct.unpack('f', data.tdata[0:4])[0]
-    results.append(got)
+  got = []
+  
+  for i in range(len(data.tdata) // 4):
+    b = data.tdata[i * 4 : (i + 1) * 4]
+    got.append(struct.unpack('f', b))
 
-  return results
-
-async def generate_clock(dut):
-  """Generate clock pulses."""
-
-  for cycle in range(200):
-    #dut._log.info("tick")
-    dut.clock.value = 0
-    await Timer(1, units="ns")
-    dut.clock.value = 1
-    await Timer(1, units="ns")
+  return got
 
 def generate_data(count, index_2_min, index_2_max):
   np.random.seed(123456)
@@ -72,7 +62,7 @@ def generate_data(count, index_2_min, index_2_max):
 
   for j in range(var_count):
     low = index_2_min[j]
-    high = index_2_max[j] + 1
+    high = index_2_max[j]
 
     for i in range(count):
       val = np.random.randint(low, high)
@@ -112,9 +102,11 @@ def rename_signals(dut):
 
 @cocotb.test()
 async def spn_basic_test(dut):
+  #prepare(True, 'SPNController')
+
   spn_path = '../../../examples/nips5.spn'
   spn, var_2_index, index_2_min, index_2_max = load_spn_2(spn_path)
-  data = generate_data(100, index_2_min, index_2_max)
+  data = generate_data(100000, index_2_min, index_2_max)
   expected = likelihood(spn, data)
 
   rename_signals(dut)
@@ -124,12 +116,14 @@ async def spn_basic_test(dut):
   cocotb.fork(Clock(dut.clock, 1, units='ns').start())
 
   print(f'source width: {len(axis_source.bus.tdata)}')
-  print(f'sink width: {len(axis_sink.bus.tdata)}')
+  #print(f'sink width: {len(axis_sink.bus.tdata)}')
 
+  print(f'resetting...')
   dut.reset <= 1
   for i in range(0, 5):
       await RisingEdge(dut.clock)
   dut.reset <= 0
+  print(f'done')
 
   # write inputs
   await write_inputs(axis_source, data)
@@ -138,11 +132,23 @@ async def spn_basic_test(dut):
   results = await read_outputs(axis_sink, data.shape[0])
 
   # wait until everything is done
-  await Timer(5000, units="ns")  # wait a bit
+  await Timer(1000, units="ns")  # wait a bit
   await FallingEdge(dut.clock)  # wait for falling edge/"negedge"
   
-  #expected = likelihood(spn, np.zeros((100, 5)))
-  results = np.array(results).reshape((100, 1))
-  print(results.shape)
-  print(expected.shape)
-  print(np.hstack((results, expected)))
+  expected = likelihood(spn, data)
+  results = np.array(results).reshape((data.shape[0], 1))
+  error = np.abs((results - expected) / expected)
+
+  print(f'Max relative error is {np.max(error)}')
+
+  assert np.max(error) <= 1e-3
+
+"""
+`ifdef COCOTB_SIM
+  initial begin
+    $dumpfile("SPNController.vcd");
+    $dumpvars (0, SPNController);
+    #1;
+  end
+`endif
+"""

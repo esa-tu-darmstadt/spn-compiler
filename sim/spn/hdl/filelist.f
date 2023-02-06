@@ -13,12 +13,12 @@ Queue_2.sv
 SPNController.sv
 histogram_20.sv
 histogram_19.sv
+histogram_18.sv
+histogram_17.sv
 histogram_11.sv
 histogram_16.sv
 histogram_10.sv
-histogram_18.sv
 histogram_9.sv
-histogram_17.sv
 histogram_8.sv
 histogram_7.sv
 spn_body.sv
