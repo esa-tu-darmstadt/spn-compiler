@@ -44,7 +44,7 @@ async def write_inputs(axis_source, data):
   # cocotb splits this up into the appropriate number of frames
   await axis_source.send(to_send)
 
-async def read_outputs(axis_sink, count):
+async def read_outputs(axis_sink):
   data = await axis_sink.recv()
 
   got = []

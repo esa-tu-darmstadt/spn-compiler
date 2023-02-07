@@ -9,6 +9,8 @@
 #include "circt/Dialect/Seq/SeqPasses.h"
 
 #include "circt/Dialect/SV/SVPasses.h"
+#include "circt/Dialect/SV/SVDialect.h"
+#include "circt/Dialect/SV/SVOps.h"
 
 #include "llvm/Support/SourceMgr.h"
 #include "mlir/Support/Timing.h"
@@ -18,6 +20,31 @@
 
 
 namespace spnc {
+
+void EmbedController::insertCocoTbDebug(ModuleOp controller, MLIRContext *ctxt) {
+  OpBuilder builder(ctxt);
+
+  const std::string debugString = R"(
+`ifdef COCOTB_SIM
+  initial begin
+    $dumpfile("SPNController.vcd");
+    $dumpvars (0, SPNController);
+    #1;
+  end
+`endif
+  )";
+  
+  controller.walk([&](FModuleOp modOp) {
+    if (modOp.getName() != "SPNController")
+      return;
+
+    builder.setInsertionPointToEnd(modOp.getBodyBlock());
+    builder.create<::circt::sv::VerbatimOp>(
+      builder.getUnknownLoc(),
+      debugString
+    );
+  });
+}
 
 std::optional<ModuleOp> EmbedController::generateController(MLIRContext *ctxt) {
   // call scala CLI app
@@ -48,7 +75,10 @@ std::optional<ModuleOp> EmbedController::generateController(MLIRContext *ctxt) {
   if (!op)
     return std::nullopt;
 
-  return op.release();
+  ModuleOp controllerOp = op.release();
+  insertCocoTbDebug(controllerOp, ctxt);
+
+  return controllerOp;
 }
 
 std::optional<HWModuleOp> EmbedController::getUniqueBody(ModuleOp root) {

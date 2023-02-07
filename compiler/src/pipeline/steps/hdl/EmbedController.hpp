@@ -56,6 +56,7 @@ class EmbedController : public StepSingleInput<EmbedController, mlir::ModuleOp>,
     bitsPerVariable,
     bodyOutputWidth;
 
+  static void insertCocoTbDebug(ModuleOp controller, MLIRContext *ctxt);
   std::optional<mlir::ModuleOp> generateController(MLIRContext *ctxt);
 
   // fails if there is more than one spn_body
