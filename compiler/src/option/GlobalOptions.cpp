@@ -76,3 +76,5 @@ Option<bool> spnc::option::dumpIR{"dump-ir", false};
 Option<bool> spnc::option::optRepresentation{"opt-repr", false};
 
 Option<std::string> spnc::option::fpgaFloatType{"fpga-float-type", "ufloat-31"};
+
+Option<std::string> spnc::option::controllerGeneratorPath{"controller-generator-path"};

@@ -154,6 +154,10 @@ namespace spnc {
     ///
     /// Specifies which type to use for internal computation and output. For example: ufloat-31
     extern Option<std::string> fpgaFloatType;
+
+    ///
+    /// Specifies the path of the SPN Controller generator.
+    extern Option<std::string> controllerGeneratorPath;
   }
 }
 

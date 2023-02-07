@@ -67,7 +67,7 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   auto& lospn2fpga = pipeline->emplaceStep<LoSPNtoFPGAConversion>(lospnTransform);
 
   ControllerConfig controllerConfig{
-    .generatorPath = "/home/jsch/projects/mthesis/ChiselSPNController/build/generate"
+    .generatorPath = spnc::option::controllerGeneratorPath.get(*config)
   };
   auto& embedController = pipeline->emplaceStep<EmbedController>(controllerConfig, lospn2fpga);
 
