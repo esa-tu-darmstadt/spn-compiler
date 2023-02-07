@@ -158,6 +158,10 @@ namespace spnc {
     ///
     /// Specifies the path of the SPN Controller generator.
     extern Option<std::string> controllerGeneratorPath;
+
+    ///
+    /// Specifies the output path.
+    extern Option<std::string> outputPath;
   }
 }
 
