@@ -189,7 +189,10 @@ Optional<ModuleOp> convert(ModuleOp root) {
       return WalkResult::interrupt();
     }
 
-    modOps.push_back(modOp.value());
+    auto val = modOp.value();
+    modOps.push_back(val);
+
+    return WalkResult::advance();
   });
 
   // fails if one module could not be converted or none were found
