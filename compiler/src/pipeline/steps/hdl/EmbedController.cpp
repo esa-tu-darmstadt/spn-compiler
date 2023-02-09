@@ -48,17 +48,23 @@ void EmbedController::insertCocoTbDebug(ModuleOp controller, MLIRContext *ctxt) 
 
 std::optional<ModuleOp> EmbedController::generateController(MLIRContext *ctxt) {
   // call scala CLI app
-  std::string cmdArgs =
-    fmt::format(" -in-width {} -out-width {} -body-depth {} -pre-fifo-depth {} -post-fifo-depth {} -variable-count {} -bits-per-variable {} -body-output-width {}",
-      inputBitWidth,
-      outputBitWidth,
-      bodyDelay,
-      preFifoDepth,
-      postFifoDepth,
-      variableCount,
-      bitsPerVariable,
-      bodyOutputWidth
-    );
+
+  std::vector<std::tuple<std::string, uint32_t>> args{
+    {"--mm-data-width", 32},
+    {"--mm-addr-width", 32},
+    {"--stream-in-bytes", inputBitWidth / 8},
+    {"--stream-out-bytes", outputBitWidth / 8},
+    {"--pre-fifo-depth", preFifoDepth},
+    {"--post-fifo-depth", postFifoDepth},
+    {"--body-pipeline-depth", bodyDelay},
+    {"--variable-count", variableCount},
+    {"--bits-per-variable", bitsPerVariable},
+    {"--body-output-width", bodyOutputWidth}
+  };
+
+  std::string cmdArgs;
+  for (const auto& [param, value] : args)
+    cmdArgs.append(std::string(" ") + param + " " + std::to_string(value));
 
   std::string cmdString = config.generatorPath.string() + cmdArgs;
   spdlog::info("Executing shell command: {}", cmdString);
