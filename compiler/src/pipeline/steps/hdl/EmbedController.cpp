@@ -17,6 +17,7 @@
 #include "spdlog/fmt/fmt.h"
 #include "util/Command.h"
 #include <filesystem>
+#include <regex>
 
 
 namespace spnc {
@@ -202,6 +203,62 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
   return success();
 }
 
+void EmbedController::fixAXISignalNames(mlir::ModuleOp op) {
+  using namespace ::circt::hw;
+  using PortInfo = ::circt::hw::PortInfo;
+
+  static const std::string PREFIXES[] = {
+    "M_AXI_"
+  };
+
+  OpBuilder builder(op.getContext());
+
+  auto removeUnderscores = [](const std::string& name) -> std::string {
+    return std::regex_replace(name, std::regex("_"), "");
+  };
+
+  op.walk([&](HWModuleOp modOp) {
+    SmallVector<PortInfo> allPorts = modOp.getAllPorts();
+    std::vector<std::pair<unsigned, PortInfo>> insertInputs, insertOutputs;
+    std::vector<unsigned> eraseInputs, eraseOutputs;
+
+    for (const PortInfo& portInfo : allPorts) {
+      std::string name = portInfo.getName().str();
+      std::string newName;
+      bool found = false;
+
+      for (const std::string& PREFIX : PREFIXES)
+        if (name.find(PREFIX) == 0) {
+          newName = removeUnderscores(name.substr(PREFIX.length()));
+          found = true;
+          break;
+        }
+
+      if (!found)
+        continue;
+
+      PortInfo newPortInfo = portInfo;
+      newPortInfo.name = builder.getStringAttr(newName);
+      unsigned portIndex = portInfo.argNum;
+
+      if (portInfo.direction == PortDirection::INPUT) {
+        insertInputs.emplace_back(portIndex, newPortInfo);
+        eraseInputs.push_back(portIndex);
+      } else {
+        insertOutputs.emplace_back(portIndex, newPortInfo);
+        eraseOutputs.push_back(portIndex);
+      }
+    }
+
+    modOp.modifyPorts(
+      insertInputs,
+      insertOutputs,
+      eraseInputs,
+      eraseOutputs
+    );
+  });
+}
+
 ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op) {
   MLIRContext *ctxt = op.getContext();
   PassManager pm(ctxt);
@@ -237,7 +294,12 @@ ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op) {
   if (failed(op.verify()))
     return failure("Verifying module after conversion failed");
 
-  return success();
+  // TODO: Add signal renaming as pass
+  fixAXISignalNames(op);
+
+  op.dump();
+
+  return failure("not implemented");
 }
 
 }

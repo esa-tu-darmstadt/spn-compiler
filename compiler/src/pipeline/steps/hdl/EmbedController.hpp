@@ -76,6 +76,7 @@ public:
 private:
   std::unique_ptr<mlir::ModuleOp> topModule;
 
+  static void fixAXISignalNames(mlir::ModuleOp op);
   static ExecutionResult convertFirrtlToHw(mlir::ModuleOp op);
 };
 
