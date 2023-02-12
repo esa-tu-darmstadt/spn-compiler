@@ -78,7 +78,11 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
       "resources/ufloat/FPLog.v"
     },
     .targetDir = spnc::option::outputPath.get(*config) + "/ipxact_core",
-    .topModuleFileName = "SPNController.v"
+    .topModuleFileName = "SPNController.v",
+    .liteAddrWidth = 32,
+    .liteDataWidth = 32,
+    .mmAddrWidth = 32,
+    .mmDataWidth = 32
   };
   auto& createIPXACT = pipeline->emplaceStep<CreateIPXACT>(ipConfig, embedController);
 

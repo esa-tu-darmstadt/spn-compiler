@@ -162,6 +162,10 @@ namespace spnc {
     ///
     /// Specifies the output path.
     extern Option<std::string> outputPath;
+
+    ///
+    /// Specify wether the user wants to launch vivado.
+    extern Option<bool> launchVivado;
   }
 }
 

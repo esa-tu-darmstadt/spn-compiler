@@ -80,3 +80,5 @@ Option<std::string> spnc::option::fpgaFloatType{"fpga-float-type", "ufloat-31"};
 Option<std::string> spnc::option::controllerGeneratorPath{"controller-generator-path"};
 
 Option<std::string> spnc::option::outputPath{"o", "."};
+
+Option<bool> spnc::option::launchVivado{"vivado", false};
