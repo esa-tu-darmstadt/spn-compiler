@@ -157,12 +157,14 @@ ExecutionResult CreateIPXACT::executeStep(mlir::ModuleOp *mod) {
   };
 
   // write verilog source to target dir
+  spdlog::info("Exporting verilog sources to: {}", srcPath.string());
   if (failed(::circt::exportSplitVerilog(*mod, srcPath.string())))
     return failure("exportSplitVerilog() failed");
 
   // write simulation helper code to file
   {
     fs::path path = srcPath / "simimpl.cpp";
+    spdlog::info("Generating simulation implementation in: {}", path.string());
     std::ofstream outFile(path);
 
     if (!outFile.is_open())
@@ -177,6 +179,7 @@ ExecutionResult CreateIPXACT::executeStep(mlir::ModuleOp *mod) {
 
   // construct package tcl script
   {
+    spdlog::info("Generating packaging script in: {}", tclPath.string());
     std::optional<std::string> fileList = getFileListString(srcPath / "filelist.f");
 
     if (!fileList.has_value())

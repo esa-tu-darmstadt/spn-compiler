@@ -14,8 +14,13 @@ PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/capnproto/install;"
 
 #echo $PREFIX_PATH
 
+# https://bugzilla.redhat.com/show_bug.cgi?id=2140764
 cmake -DCMAKE_PREFIX_PATH=$PREFIX_PATH\
+    -DLLVM_TARGETS_TO_BUILD="X86;NVPTX;AMDGPU"\
     -DLLVM_ENABLE_LLD=ON\
+    -DCMAKE_C_COMPILER=/usr/bin/clang\
+    -DCMAKE_CXX_COMPILER=/usr/bin/clang++\
+    -DCMAKE_CXX_FLAGS="-fuse-ld=lld"\
     -DLLVM_ENABLE_ASSERTIONS=ON\
     -DSPNC_BUILD_DOC=ON\
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON\

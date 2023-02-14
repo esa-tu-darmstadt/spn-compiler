@@ -204,21 +204,25 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
 }
 
 bool EmbedController::fixAXISignalNames(mlir::ModuleOp op) {
-  using namespace ::circt::hw;
-  using PortInfo = ::circt::hw::PortInfo;
-
   ConversionTarget target(*op.getContext());
 
-  target.addDynamicallyLegalOp<HWModuleOp>(
-    AXI4SignalNameRewriting::containsUnfixedAXI4Names
+  target.addLegalDialect<::circt::sv::SVDialect>();
+  target.addDynamicallyLegalDialect<::circt::hw::HWDialect>(
+    [](Operation *op) {
+      auto modOp = llvm::dyn_cast<::circt::hw::HWModuleOp>(op);
+      
+      if (!modOp)
+        return true;
+
+      return AXI4SignalNameRewriting::containsUnfixedAXI4Names(modOp);  
+    }
   );
 
   RewritePatternSet patterns(op.getContext());
-
   patterns.add<AXI4SignalNameRewriting>(op.getContext());
 
   FrozenRewritePatternSet frozenPatterns(std::move(patterns));
-
+  
   return mlir::succeeded(
     applyPartialConversion(op, target, frozenPatterns)
   );
@@ -264,12 +268,12 @@ ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op) {
 
   op.dump();
 
-  return failure("not implemented");
+  return success();
 }
 
 const std::string AXI4SignalNameRewriting::PREFIXES[] = {
   "M_AXI_",
-  "S_AXI_"
+  "S_AXI_LITE_"
 };
 
 LogicalResult AXI4SignalNameRewriting::matchAndRewrite(::circt::hw::HWModuleOp op,
@@ -290,9 +294,9 @@ LogicalResult AXI4SignalNameRewriting::matchAndRewrite(::circt::hw::HWModuleOp o
     std::string newName;
     bool found = false;
 
-    for (const std::string& PREFIX : PREFIXES)
-      if (name.find(PREFIX) == 0) {
-        newName = removeUnderscores(name.substr(PREFIX.length()));
+    for (const std::string& prefix : PREFIXES)
+      if (name.find(prefix) == 0) {
+        newName = prefix + removeUnderscores(name.substr(prefix.length()));
         found = true;
         break;
       }
@@ -305,13 +309,15 @@ LogicalResult AXI4SignalNameRewriting::matchAndRewrite(::circt::hw::HWModuleOp o
     newPorts.push_back(newPortInfo);
   }
 
-  rewriter.replaceOpWithNewOp<::circt::hw::HWModuleOp>(op,
+  ::circt::hw::HWModuleOp newOp = rewriter.replaceOpWithNewOp<::circt::hw::HWModuleOp>(op,
     op.getNameAttr(),
-    newPorts,
-    op.getParameters(),
-    op.getOperation()->getAttrs(),
-    op.getCommentAttr()
+    newPorts
   );
+
+  // TODO: I don't know if this is dangerous :S
+  Region& newBody = newOp.getFunctionBody();
+  Region& oldBody = op.getFunctionBody();
+  newBody.takeBody(oldBody);
 
   return mlir::success();
 }
@@ -331,12 +337,16 @@ bool AXI4SignalNameRewriting::containsUnfixedAXI4Names(::circt::hw::HWModuleOp o
 
   for (const PortInfo& portInfo : op.getAllPorts()) {
     std::string name = portInfo.getName().str();
+    //llvm::outs() << "Checking " << name << "\n";
 
     for (const std::string& prefix : PREFIXES)
-      if (name.find(prefix) == 0 && !std::regex_match(name, legal))
+      if (name.find(prefix) == 0 && !std::regex_match(name, legal)) {
+        //llvm::outs() << "  Illegal!\n";
         return false;
+      }
   }
 
+  //llvm::outs() << "  Legal!\n";
   return true;
 }
 
