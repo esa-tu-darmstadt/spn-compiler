@@ -203,60 +203,25 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
   return success();
 }
 
-void EmbedController::fixAXISignalNames(mlir::ModuleOp op) {
+bool EmbedController::fixAXISignalNames(mlir::ModuleOp op) {
   using namespace ::circt::hw;
   using PortInfo = ::circt::hw::PortInfo;
 
-  static const std::string PREFIXES[] = {
-    "M_AXI_"
-  };
+  ConversionTarget target(*op.getContext());
 
-  OpBuilder builder(op.getContext());
+  target.addDynamicallyLegalOp<HWModuleOp>(
+    AXI4SignalNameRewriting::containsUnfixedAXI4Names
+  );
 
-  auto removeUnderscores = [](const std::string& name) -> std::string {
-    return std::regex_replace(name, std::regex("_"), "");
-  };
+  RewritePatternSet patterns(op.getContext());
 
-  op.walk([&](HWModuleOp modOp) {
-    SmallVector<PortInfo> allPorts = modOp.getAllPorts();
-    std::vector<std::pair<unsigned, PortInfo>> insertInputs, insertOutputs;
-    std::vector<unsigned> eraseInputs, eraseOutputs;
+  patterns.add<AXI4SignalNameRewriting>(op.getContext());
 
-    for (const PortInfo& portInfo : allPorts) {
-      std::string name = portInfo.getName().str();
-      std::string newName;
-      bool found = false;
+  FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 
-      for (const std::string& PREFIX : PREFIXES)
-        if (name.find(PREFIX) == 0) {
-          newName = removeUnderscores(name.substr(PREFIX.length()));
-          found = true;
-          break;
-        }
-
-      if (!found)
-        continue;
-
-      PortInfo newPortInfo = portInfo;
-      newPortInfo.name = builder.getStringAttr(newName);
-      unsigned portIndex = portInfo.argNum;
-
-      if (portInfo.direction == PortDirection::INPUT) {
-        insertInputs.emplace_back(portIndex, newPortInfo);
-        eraseInputs.push_back(portIndex);
-      } else {
-        insertOutputs.emplace_back(portIndex, newPortInfo);
-        eraseOutputs.push_back(portIndex);
-      }
-    }
-
-    modOp.modifyPorts(
-      insertInputs,
-      insertOutputs,
-      eraseInputs,
-      eraseOutputs
-    );
-  });
+  return mlir::succeeded(
+    applyPartialConversion(op, target, frozenPatterns)
+  );
 }
 
 ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op) {
@@ -294,12 +259,85 @@ ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op) {
   if (failed(op.verify()))
     return failure("Verifying module after conversion failed");
 
-  // TODO: Add signal renaming as pass
-  fixAXISignalNames(op);
+  if (!fixAXISignalNames(op))
+    return failure("Fixing signal names failed");
 
   op.dump();
 
   return failure("not implemented");
+}
+
+const std::string AXI4SignalNameRewriting::PREFIXES[] = {
+  "M_AXI_",
+  "S_AXI_"
+};
+
+LogicalResult AXI4SignalNameRewriting::matchAndRewrite(::circt::hw::HWModuleOp op,
+                                                       OpAdaptor adaptor,
+                                                       ConversionPatternRewriter& rewriter) const {
+  using namespace ::circt::hw;
+  using PortInfo = ::circt::hw::PortInfo;
+
+  auto removeUnderscores = [](const std::string& name) -> std::string {
+    return std::regex_replace(name, std::regex("_"), "");
+  };
+
+  SmallVector<PortInfo> allPorts = op.getAllPorts();
+  std::vector<PortInfo> newPorts;
+
+  for (const PortInfo& portInfo : allPorts) {
+    std::string name = portInfo.getName().str();
+    std::string newName;
+    bool found = false;
+
+    for (const std::string& PREFIX : PREFIXES)
+      if (name.find(PREFIX) == 0) {
+        newName = removeUnderscores(name.substr(PREFIX.length()));
+        found = true;
+        break;
+      }
+
+    PortInfo newPortInfo = portInfo;
+
+    if (found)
+      newPortInfo.name = rewriter.getStringAttr(newName);
+
+    newPorts.push_back(newPortInfo);
+  }
+
+  rewriter.replaceOpWithNewOp<::circt::hw::HWModuleOp>(op,
+    op.getNameAttr(),
+    newPorts,
+    op.getParameters(),
+    op.getOperation()->getAttrs(),
+    op.getCommentAttr()
+  );
+
+  return mlir::success();
+}
+
+bool AXI4SignalNameRewriting::containsUnfixedAXI4Names(::circt::hw::HWModuleOp op) {
+  using namespace ::circt::hw;
+  using PortInfo = ::circt::hw::PortInfo;
+
+  static std::regex legal{ []() {
+    size_t i = 0, n = sizeof(PREFIXES) / sizeof(PREFIXES[0]); std::string s;
+    for (const std::string& prefix : PREFIXES) {
+      bool isLast = i++ == n - 1;
+      s = s + (prefix + "[a-zA-Z]+") + (isLast ? "" : "|");
+    }
+    return s;
+  }() };
+
+  for (const PortInfo& portInfo : op.getAllPorts()) {
+    std::string name = portInfo.getName().str();
+
+    for (const std::string& prefix : PREFIXES)
+      if (name.find(prefix) == 0 && !std::regex_match(name, legal))
+        return false;
+  }
+
+  return true;
 }
 
 }

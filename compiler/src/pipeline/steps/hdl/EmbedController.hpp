@@ -11,6 +11,8 @@
 
 #include "circt/Dialect/FIRRTL/FIRParser.h"
 
+#include "mlir/Transforms/DialectConversion.h"
+
 #include <filesystem>
 
 
@@ -76,8 +78,20 @@ public:
 private:
   std::unique_ptr<mlir::ModuleOp> topModule;
 
-  static void fixAXISignalNames(mlir::ModuleOp op);
+  static bool fixAXISignalNames(mlir::ModuleOp op);
   static ExecutionResult convertFirrtlToHw(mlir::ModuleOp op);
+};
+
+class AXI4SignalNameRewriting : public OpConversionPattern<::circt::hw::HWModuleOp> {
+  static const std::string PREFIXES[];
+public:
+  using OpConversionPattern<::circt::hw::HWModuleOp>::OpConversionPattern;
+
+  LogicalResult matchAndRewrite(::circt::hw::HWModuleOp op,
+                                OpAdaptor adaptor,
+                                ConversionPatternRewriter& rewriter) const override;
+
+  static bool containsUnfixedAXI4Names(::circt::hw::HWModuleOp op);
 };
 
 }

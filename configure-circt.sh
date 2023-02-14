@@ -9,8 +9,8 @@ PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/circt/llvm/build/lib/cmake/mlir;"
 PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/circt/build/lib/cmake/circt;"
 
 PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/pybind11/install/share/cmake/pybind11;"
-PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/spdlog/install/lib/cmake/spdlog;"
-PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/capnproto/install"
+PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/spdlog/install/lib64/cmake/spdlog;"
+PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/capnproto/install;"
 
 #echo $PREFIX_PATH
 
