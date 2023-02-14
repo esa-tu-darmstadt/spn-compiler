@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vector>
 #include <tapasco.hpp>
 
 #include "runtime/src/Executable.h"
@@ -11,6 +12,14 @@ class TapascoSPNDevice {
   tapasco::Tapasco tap;
   size_t kernelId;
   size_t peCount;
+  Kernel kernel;
+  // we don't want to allocate memory every execution if we don't have to
+  std::vector<char> inputBuffer;
+
+  void fillInputBuffer(void* input_ptr, void* aligned_input_ptr,
+                       int64_t input_offset, int64_t input_size_dim1,
+                       int64_t input_size_dim2, int64_t input_stride_dim1,
+                       int64_t input_stride_dim2);
 public:
   // these functions can fail
   TapascoSPNDevice(const Kernel& kernel);

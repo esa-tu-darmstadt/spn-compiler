@@ -5,7 +5,7 @@
 
 namespace spnc_rt::tapasco_wrapper {
 
-TapascoSPNDevice::TapascoSPNDevice(const Kernel& kernel) {
+TapascoSPNDevice::TapascoSPNDevice(const Kernel& kernel): kernel(kernel) {
   using namespace tapasco;
 
   // TODO: Add functionality to query device information to verify that
@@ -23,6 +23,16 @@ TapascoSPNDevice::TapascoSPNDevice(const Kernel& kernel) {
     throw std::runtime_error("not PE with the provided kernel id found");
 }
 
+void TapascoSPNDevice::fillInputBuffer(void* input_ptr,
+                                       void* aligned_input_ptr,
+                                       int64_t input_offset,
+                                       int64_t input_size_dim1,
+                                       int64_t input_size_dim2,
+                                       int64_t input_stride_dim1,
+                                       int64_t input_stride_dim2) {
+  
+}
+
 void TapascoSPNDevice::execute_query(void* input_ptr,
                                      void* aligned_input_ptr,
                                      int64_t input_offset,
@@ -37,7 +47,17 @@ void TapascoSPNDevice::execute_query(void* input_ptr,
                                      int64_t output_size_dim2,
                                      int64_t output_stride_dim1,
                                      int64_t output_stride_dim2) {
+  using namespace tapasco;
   assert(false && "not implemented");
+
+  fillInputBuffer(
+    input_ptr, aligned_input_ptr, input_offset,
+    input_size_dim1, input_size_dim2,
+    input_stride_dim1, input_stride_dim2
+  );
+
+  WrappedPointer<char> inputPtr = makeWrappedPointer(inputBuffer.data(), inputBuffer.size());
+
 
   
 }
