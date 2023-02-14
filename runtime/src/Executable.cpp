@@ -44,13 +44,18 @@ void Executable::execute(size_t num_elements, void* inputs, void* outputs) {
   }
   if (kernel->target() == KernelTarget::CUDA) {
     executeGPU(num_elements, inputs, outputs);
-  } else {
-    assert(kernel->target() == KernelTarget::CPU);
+  } else if (kernel->target() == KernelTarget::CPU) {
     if (kernel->batchSize() == 1) {
       executeSingle(num_elements, inputs, outputs);
     } else {
       executeBatch(num_elements, inputs, outputs);
     }
+  } else if (kernel->target() == KernelTarget::FPGA) {
+
+
+
+
+    assert(false && "not implemented");
   }
 
 }
@@ -115,19 +120,31 @@ void Executable::executeGPU(size_t num_samples, void* inputs, void* outputs) {
 
 void Executable::initialize() {
   char* error = nullptr;
-  // Try to open the shared object file.
-  handle = dlopen(kernel->fileName().c_str(), RTLD_LAZY);
-  if (!handle) {
-    SPN_RT_FATAL_ERROR("Error opening Kernel file {}: {}", kernel->fileName(), dlerror());
-  }
+  bool isSharedObject = kernel->target() == KernelTarget::CPU || kernel->target() == KernelTarget::CUDA;
 
-  // Clear existing errors.
-  dlerror();
+  if (isSharedObject) {
+    // Try to open the shared object file.
+    handle = dlopen(kernel->fileName().c_str(), RTLD_LAZY);
+    if (!handle) {
+      SPN_RT_FATAL_ERROR("Error opening Kernel file {}: {}", kernel->fileName(), dlerror());
+    }
 
-  // Try to locate a function with the given name in the shared object.
-  *(void**) (&kernel_func) = dlsym(handle, kernel->kernelName().c_str());
+    // Clear existing errors.
+    dlerror();
 
-  if ((error = dlerror()) != nullptr) {
-    SPNC_FATAL_ERROR("Could not locate Kernel function {} in {}: {}", kernel->kernelName(), kernel->fileName(), error);
+    // Try to locate a function with the given name in the shared object.
+    *(void**) (&kernel_func) = dlsym(handle, kernel->kernelName().c_str());
+
+    if ((error = dlerror()) != nullptr) {
+      SPNC_FATAL_ERROR("Could not locate Kernel function {} in {}: {}", kernel->kernelName(), kernel->fileName(), error);
+    }
+  } else {
+    assert(kernel->target() == KernelTarget::FPGA);
+    assert(false && "not implemented");
+
+    kernel_func = tapasco_get_kernel_func(*kernel);
+
+    if (!kernel_func)
+      SPNC_FATAL_ERROR("Could not get kernel function in context of Tapasco");
   }
 }

@@ -79,6 +79,7 @@ namespace spnc_rt {
 
   };
 
+  kernel_function tapasco_get_kernel_func(const Kernel& kernel);
 }
 
 #endif //SPNC_EXECUTABLE_H
