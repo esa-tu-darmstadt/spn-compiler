@@ -169,7 +169,7 @@ ExecutionResult CreateIPXACT::executeStep(mlir::ModuleOp *mod) {
 
     for (const fs::directory_entry& entry : fs::directory_iterator(srcPath))
       if (entry.is_regular_file())
-        fileList += entry.path().filename().string() + " ";
+        fileList += "src/" + entry.path().filename().string() + " ";
   }
 
   // write simulation helper code to file
@@ -217,7 +217,7 @@ ExecutionResult CreateIPXACT::executeStep(mlir::ModuleOp *mod) {
     std::filesystem::current_path(config.targetDir);
 
     std::vector<std::string> cmd{
-      "vivado", "-mode", "batch", "-source", tclPath.string(), "-nojournal", "-nolog"
+      "vivado", "-mode", "batch", "-source", tclPath.filename().string(), "-nojournal", "-nolog"
     };
 
     try {
