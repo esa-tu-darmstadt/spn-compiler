@@ -147,7 +147,6 @@ ExecutionResult CreateIPXACT::executeStep(mlir::ModuleOp *mod) {
   // copy source files into target dir
   for (const auto& from : config.sourceFilePaths) {
     try {
-      //llvm::outs() << "copying " << from.string() << " to " << config.targetDir.string() << "\n";
       fs::copy(from, srcPath, fs::copy_options::overwrite_existing);
     } catch (const fs::filesystem_error& err) {
       return failure(
@@ -160,6 +159,18 @@ ExecutionResult CreateIPXACT::executeStep(mlir::ModuleOp *mod) {
   spdlog::info("Exporting verilog sources to: {}", srcPath.string());
   if (failed(::circt::exportSplitVerilog(*mod, srcPath.string())))
     return failure("exportSplitVerilog() failed");
+
+  // remove filelist.f, rename AXI4StreamMapper.sv, get whole file list
+  std::string fileList;
+
+  {
+    fs::remove(srcPath / "filelist.f");
+    fs::rename(srcPath / "AXI4StreamMapper.sv", srcPath / "AXI4StreamMapper.v");
+
+    for (const fs::directory_entry& entry : fs::directory_iterator(srcPath))
+      if (entry.is_regular_file())
+        fileList += entry.path().filename().string() + " ";
+  }
 
   // write simulation helper code to file
   {
@@ -180,14 +191,10 @@ ExecutionResult CreateIPXACT::executeStep(mlir::ModuleOp *mod) {
   // construct package tcl script
   {
     spdlog::info("Generating packaging script in: {}", tclPath.string());
-    std::optional<std::string> fileList = getFileListString(srcPath / "filelist.f");
-
-    if (!fileList.has_value())
-      return failure("Could not open filefilelist.f");
 
     std::string tclSource = fmt::format(TCL_PREAMBLE,
       fmt::arg("projectName", config.projectName),
-      fmt::arg("fileList", fileList.value()),
+      fmt::arg("fileList", fileList),
       fmt::arg("liteDataWidth", config.liteDataWidth),
       fmt::arg("liteAddrWidth", config.liteAddrWidth),
       fmt::arg("mmAddrWidth", config.mmAddrWidth),
@@ -298,20 +305,6 @@ double PySPNSim::convertProb(uint32_t prob) {
   )";
 
   return ss.str();
-}
-
-std::optional<std::string> CreateIPXACT::getFileListString(const std::filesystem::path& fileListFile) {
-  std::ifstream inFile(fileListFile);
-
-  if (!inFile.is_open())
-    return std::nullopt;
-
-  std::string lines = "./ipxact_core/src/FPAdd.v ./ipxact_core/src/FPMult.v ./ipxact_core/src/FPLog.v ",
-    line;
-  while (std::getline(inFile, line))
-    lines.append("./ipxact_core/src/" + line + " ");
-
-  return lines;
 }
 
 }

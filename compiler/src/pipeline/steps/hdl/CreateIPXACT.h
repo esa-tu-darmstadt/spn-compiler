@@ -47,8 +47,6 @@ private:
 
   std::string generateSimulationSourceCode();
   std::string generateFullSimulationSourceCode() const;
-
-  static std::optional<std::string> getFileListString(const std::filesystem::path& fileListFile);
 };
 
 }
