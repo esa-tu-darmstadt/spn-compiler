@@ -218,6 +218,8 @@ ExecutionResult CreateVivadoProject::executeStep(mlir::ModuleOp *mod) {
       std::filesystem::current_path(pwd);
       return failure(e.what());
     }
+
+    std::filesystem::current_path(pwd);
   } else {
     spdlog::info("--vivado was not specified: Continuing without it...");
   }
