@@ -287,6 +287,8 @@ ExecutionResult CreateVivadoProject::tapascoCompose() {
     return failure(e.what());
   }
 
+  std::filesystem::current_path(pwd);
+
   return success();
 }
 
