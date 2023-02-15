@@ -82,3 +82,5 @@ Option<std::string> spnc::option::controllerGeneratorPath{"controller-generator-
 Option<std::string> spnc::option::outputPath{"o", "."};
 
 Option<bool> spnc::option::launchVivado{"vivado", false};
+
+Option<bool> spnc::option::tapascoCompose{"tapasco-compose", false, {depends(spnc::option::launchVivado, true)}};

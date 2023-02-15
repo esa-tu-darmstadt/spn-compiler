@@ -11,7 +11,7 @@
 #include "pipeline/steps/codegen/EmitObjectCode.h"
 #include "pipeline/steps/linker/ClangKernelLinking.h"
 #include "pipeline/steps/hdl/EmitVerilogCode.h"
-#include "pipeline/steps/hdl/CreateIPXACT.h"
+#include "pipeline/steps/hdl/CreateVivadoProject.h"
 #include "pipeline/steps/hdl/EmbedController.hpp"
 #include "pipeline/steps/mlir/conversion/LoSPNtoFPGAConversion.h"
 #include "TargetInformation.h"
@@ -71,7 +71,7 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   };
   auto& embedController = pipeline->emplaceStep<EmbedController>(controllerConfig, lospn2fpga);
 
-  IPXACTConfig ipConfig{
+  VivadoProjectConfig ipConfig{
     .sourceFilePaths = {
       "resources/ufloat/FPOps_build_add/FPAdd.v",
       "resources/ufloat/FPOps_build_mult/FPMult.v",
@@ -84,7 +84,7 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
     .mmAddrWidth = 32,
     .mmDataWidth = 32
   };
-  auto& createIPXACT = pipeline->emplaceStep<CreateIPXACT>(ipConfig, embedController);
+  auto& createIPXACT = pipeline->emplaceStep<CreateVivadoProject>(ipConfig, embedController);
 
   // Attach the LLVM target machine and the kernel information to the pipeline context
   pipeline->getContext()->add(std::move(targetMachine));

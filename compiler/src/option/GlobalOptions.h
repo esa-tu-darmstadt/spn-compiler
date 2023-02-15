@@ -166,6 +166,10 @@ namespace spnc {
     ///
     /// Specify wether the user wants to launch vivado.
     extern Option<bool> launchVivado;
+
+    ///
+    /// Specify wether the user wants to call tapasco to synthesize a bitstream.
+    extern Option<bool> tapascoCompose;
   }
 }
 

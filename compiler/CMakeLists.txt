@@ -41,7 +41,7 @@ add_library(spnc
         src/pipeline/steps/mlir/conversion/MLIRtoLLVMIRConversion.cpp
         src/pipeline/steps/mlir/transformation/LoSPNTransformations.cpp
         src/pipeline/steps/frontend/SPFlowToMLIRDeserializer.cpp
-        src/pipeline/steps/hdl/CreateIPXACT.cpp
+        src/pipeline/steps/hdl/CreateVivadoProject.cpp
         src/pipeline/steps/hdl/EmitVerilogCode.cpp
         src/pipeline/steps/hdl/EmbedController.cpp
         src/pipeline/steps/mlir/conversion/LoSPNtoFPGAConversion.cpp

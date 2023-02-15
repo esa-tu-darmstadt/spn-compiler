@@ -1,6 +1,7 @@
 #include "TapascoWrapper.hpp"
 
 #include <cassert>
+#include "bitpacker/include/bitpacker/bitpacker.hpp"
 
 
 namespace spnc_rt::tapasco_wrapper {
@@ -33,6 +34,36 @@ void TapascoSPNDevice::fillInputBuffer(void* input_ptr,
   
 }
 
+void TapascoSPNDevice::execute() {
+  WrappedPointer<char> inputPtr = makeWrappedPointer(inputBuffer.data(), inputBuffer.size());
+  InOnly<char> inOnly = makeInOnly(inputPtr);
+  size_t inSize = inputBuffer.size();
+
+  WrappedPointer<char> outputPtr = makeWrappedPointer(outputBuffer.data(), output.size());
+  OutOnly<char> outOnly = makeOutOnly(outputPtr);
+  size_t outSize = output.size();
+
+
+  /*
+      val status             = rf.getRegAtAddress(0x000)
+      val retVal             = rf.getRegAtAddress(0x010)
+      val loadBaseAddress    = rf.getRegAtAddress(0x020)
+      val numLdTransfers     = rf.getRegAtAddress(0x030)
+      val storeBaseAddress   = rf.getRegAtAddress(0x040)
+      val numSdTransfers     = rf.getRegAtAddress(0x050)
+   */
+
+  size_t cycleCounter;
+  RetVal<size_t> retVal(cycleCounter);
+
+  tap.launch(
+    kernelId,
+    retVal,
+    inOnly, inSize,
+    outOnly, outSize
+  );
+}
+
 void TapascoSPNDevice::execute_query(void* input_ptr,
                                      void* aligned_input_ptr,
                                      int64_t input_offset,
@@ -50,16 +81,11 @@ void TapascoSPNDevice::execute_query(void* input_ptr,
   using namespace tapasco;
   assert(false && "not implemented");
 
-  fillInputBuffer(
-    input_ptr, aligned_input_ptr, input_offset,
-    input_size_dim1, input_size_dim2,
-    input_stride_dim1, input_stride_dim2
-  );
-
-  WrappedPointer<char> inputPtr = makeWrappedPointer(inputBuffer.data(), inputBuffer.size());
-
 
   
+
+
+  execute();  
 }
 
 void tapasco_kernel_func(void* input_ptr,
