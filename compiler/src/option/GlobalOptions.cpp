@@ -84,3 +84,5 @@ Option<std::string> spnc::option::outputPath{"o", "."};
 Option<bool> spnc::option::launchVivado{"vivado", false};
 
 Option<bool> spnc::option::tapascoCompose{"tapasco-compose", false, {depends(spnc::option::launchVivado, true)}};
+
+Option<std::string> spnc::option::fpgaDevice{"fpga-device", "ultra96v2"};

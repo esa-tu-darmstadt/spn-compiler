@@ -82,9 +82,10 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
     .liteAddrWidth = 32,
     .liteDataWidth = 32,
     .mmAddrWidth = 32,
-    .mmDataWidth = 32
+    .mmDataWidth = 32,
+    .device = spnc::option::fpgaDevice.get(*config)
   };
-  auto& createIPXACT = pipeline->emplaceStep<CreateVivadoProject>(ipConfig, embedController);
+  auto& createVivadoProject = pipeline->emplaceStep<CreateVivadoProject>(ipConfig, embedController);
 
   // Attach the LLVM target machine and the kernel information to the pipeline context
   pipeline->getContext()->add(std::move(targetMachine));

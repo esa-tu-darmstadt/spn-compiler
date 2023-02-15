@@ -257,8 +257,10 @@ ExecutionResult CreateVivadoProject::tapascoCompose() {
   auto pwd = std::filesystem::current_path();
   std::filesystem::current_path(config.targetDir);
 
+  // TODO: How is the zip file name determined?
   std::string zipString =
-    config.projectName + "_" + std::regex_replace(config.version, std::regex("\\."), "_") + ".zip";
+    //config.projectName + "_" + std::regex_replace(config.version, std::regex("\\."), "_") + ".zip";
+    config.projectName + "_1.0.zip";
   std::string idString = kernel->fileName();
   std::string deviceString = config.device;
   std::string mhzString = "@" + std::to_string(config.mhz) + "Mhz";

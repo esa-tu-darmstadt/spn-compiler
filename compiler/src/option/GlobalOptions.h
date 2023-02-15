@@ -170,6 +170,10 @@ namespace spnc {
     ///
     /// Specify wether the user wants to call tapasco to synthesize a bitstream.
     extern Option<bool> tapascoCompose;
+
+    ///
+    /// Specify which specific FPGA device to target.
+    extern Option<std::string> fpgaDevice;
   }
 }
 
