@@ -14,8 +14,8 @@ class TapascoSPNDevice {
   size_t peCount;
   Kernel kernel;
   // we don't want to allocate memory every execution if we don't have to
-  std::vector<char> inputBuffer;
-  std::vector<char> outputBuffer;
+  std::vector<uint8_t> inputBuffer;
+  std::vector<uint8_t> outputBuffer;
 
   void fillInputBuffer(void* input_ptr, void* aligned_input_ptr,
                        int64_t input_offset, int64_t input_size_dim1,

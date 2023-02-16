@@ -2,6 +2,8 @@
 
 #include <cassert>
 #include "bitpacker/include/bitpacker/bitpacker.hpp"
+#include "spdlog/spdlog.h"
+#include "packing.hpp"
 
 
 namespace spnc_rt::tapasco_wrapper {
@@ -22,6 +24,9 @@ TapascoSPNDevice::TapascoSPNDevice(const Kernel& kernel): kernel(kernel) {
 
   if (peCount == 0)
     throw std::runtime_error("not PE with the provided kernel id found");
+
+  spdlog::info("Using {} PEs with id {}", peCount, kernelId);
+  spdlog::info("The accelerator runs at frequency {}Mhz", tap.design_frequency());
 }
 
 void TapascoSPNDevice::fillInputBuffer(void* input_ptr,
@@ -32,6 +37,13 @@ void TapascoSPNDevice::fillInputBuffer(void* input_ptr,
                                        int64_t input_stride_dim1,
                                        int64_t input_stride_dim2) {
   
+  pack<uint32_t>(
+    reinterpret_cast<const uint32_t *>(input_ptr),
+    reinterpret_cast<const uint32_t *>(input_ptr) + 123,
+    8,
+    inputBuffer
+  );
+
 }
 
 void TapascoSPNDevice::execute() {

@@ -51,16 +51,15 @@ std::optional<ModuleOp> EmbedController::generateController(MLIRContext *ctxt) {
   // call scala CLI app
 
   std::vector<std::tuple<std::string, uint32_t>> args{
-    {"--mm-data-width", 32},
-    {"--mm-addr-width", 32},
+    {"--memory-data-width", 32},
+    {"--memory-addr-width", 32},
     {"--stream-in-bytes", inputBitWidth / 8},
     {"--stream-out-bytes", outputBitWidth / 8},
-    {"--pre-fifo-depth", preFifoDepth},
-    {"--post-fifo-depth", postFifoDepth},
+    {"--fifo-depth", preFifoDepth},
     {"--body-pipeline-depth", bodyDelay},
-    {"--variable-count", variableCount},
-    {"--bits-per-variable", bitsPerVariable},
-    {"--body-output-width", bodyOutputWidth}
+    {"--var-count", variableCount},
+    {"--bits-per-var", bitsPerVariable},
+    {"--result-bit-width", bodyOutputWidth}
   };
 
   std::string cmdArgs;
@@ -266,7 +265,7 @@ ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op) {
   if (!fixAXISignalNames(op))
     return failure("Fixing signal names failed");
 
-  op.dump();
+  //op.dump();
 
   return success();
 }
