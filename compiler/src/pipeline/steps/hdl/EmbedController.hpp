@@ -51,7 +51,9 @@ struct ControllerDescription {
 
 template <class T>
 T round8(const T& n) {
-  return n + (n % T(8));
+  if (n % T(8) == 0)
+    return n;
+  return n + (T(8) - n % T(8));
 }
 
 struct ControllerConfig {

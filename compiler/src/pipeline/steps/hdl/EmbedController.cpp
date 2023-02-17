@@ -150,7 +150,7 @@ void EmbedController::setParameters(uint32_t bodyDelay) {
   desc->spnResultWidth = 31; // TODO
 
   desc->mAxisControllerWidth = round8(desc->spnResultWidth);
-  desc->sAxisControllerWidth = round8(desc->spnBitsPerVar * desc->spnResultWidth);
+  desc->sAxisControllerWidth = round8(desc->spnBitsPerVar * desc->spnVarCount);
 
   desc->memDataWidth = 32;
   desc->memAddrWidth = 32;
