@@ -77,6 +77,7 @@ namespace spnc_rt {
 
     void executeGPU(size_t num_samples, void* inputs, void* outputs);
 
+    void executeFPGA(size_t num_samples, void *inputs, void *outputs);
   };
 
   kernel_function tapasco_get_kernel_func(const Kernel& kernel);

@@ -14,8 +14,6 @@
 
 namespace spnc {
 
-// TODO: Vivado does not seem to accept underscores in AXI signal names!
-
 static const char TCL_PREAMBLE[] = R"(
 set project_name {projectName}
 set files [list {fileList}]
