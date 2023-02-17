@@ -1,0 +1,3 @@
+[submodule "runtime/wrappers/tapasco/bitpacker"]
+	path = runtime/wrappers/tapasco/bitpacker
+	url = https://github.com/CrustyAuklet/bitpacker

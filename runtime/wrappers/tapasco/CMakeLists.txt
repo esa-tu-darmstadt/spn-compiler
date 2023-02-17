@@ -1,3 +1,5 @@
+
+
 include($ENV{TAPASCO_HOME_RUNTIME}/cmake/Tapasco.cmake NO_POLICY_SCOPE)
 
 # TaPaSCo Setup
@@ -10,12 +12,16 @@ if(NOT TARGET tapasco)
 endif(NOT TARGET tapasco)
 
 
-add_library(
+add_executable(
   tapasco-wrapper
-  STATIC
   TapascoWrapper.cpp
 )
 
+set_property(TARGET tapasco-wrapper PROPERTY CXX_STANDARD 20)
+
+find_package(spdlog REQUIRED)
+
+target_link_libraries(tapasco-wrapper PRIVATE elf spdlog::spdlog)
 
 target_include_directories(
   tapasco-wrapper
@@ -26,6 +32,8 @@ target_include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/../../..
   ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/bitpacker/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../../compiler/src
 )
 
 target_link_libraries(tapasco-wrapper tapasco ${CMAKE_THREAD_LIBS_INIT})

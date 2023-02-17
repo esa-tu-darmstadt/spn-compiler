@@ -5,77 +5,52 @@
 
 #include "runtime/src/Executable.h"
 
+#include "pipeline/steps/hdl/ControllerDescription.hpp"
+
 
 namespace spnc_rt::tapasco_wrapper {
 
+template <class T>
+T roundN(const T& n, const T& N) {
+  if (n % N == 0)
+    return n;
+  return n + (N - n % N);
+}
+
 class TapascoSPNDevice {
+  Kernel kernel;
+  ::spnc::ControllerDescription controllerDescription;
+
   tapasco::Tapasco tap;
   size_t kernelId;
   size_t peCount;
-  Kernel kernel;
+
   // we don't want to allocate memory every execution if we don't have to
   std::vector<uint8_t> inputBuffer;
   std::vector<uint8_t> outputBuffer;
 
-  void fillInputBuffer(void* input_ptr, void* aligned_input_ptr,
-                       int64_t input_offset, int64_t input_size_dim1,
-                       int64_t input_size_dim2, int64_t input_stride_dim1,
-                       int64_t input_stride_dim2);
-
-
+  void setInputBuffer(size_t numElements, const void *inputs);
+  void resizeOutputBuffer(size_t numElements);
   void execute();
 public:
   // these functions can fail
-  TapascoSPNDevice(const Kernel& kernel);
-  void execute_query(void* input_ptr,
-                     void* aligned_input_ptr,
-                     int64_t input_offset,
-                     int64_t input_size_dim1,
-                     int64_t input_size_dim2,
-                     int64_t input_stride_dim1,
-                     int64_t input_stride_dim2,
-                     void* output_ptr,
-                     void* output_aligned_ptr,
-                     int64_t output_offset,
-                     int64_t output_size_dim1,
-                     int64_t output_size_dim2,
-                     int64_t output_stride_dim1,
-                     int64_t output_stride_dim2);
+  TapascoSPNDevice(const Kernel& kernel, const ::spnc::ControllerDescription& controllerDescription);
+  void execute_query(size_t numElements, const void *inputs, void *outputs);
 };
 
 static std::unique_ptr<TapascoSPNDevice> device;
-
-static void tapasco_kernel_func(void* input_ptr,
-                                void* aligned_input_ptr,
-                                int64_t input_offset,
-                                int64_t input_size_dim1,
-                                int64_t input_size_dim2,
-                                int64_t input_stride_dim1,
-                                int64_t input_stride_dim2,
-                                void* output_ptr,
-                                void* output_aligned_ptr,
-                                int64_t output_offset,
-                                int64_t output_size_dim1,
-                                int64_t output_size_dim2,
-                                int64_t output_stride_dim1,
-                                int64_t output_stride_dim2);
 
 }
 
 namespace spnc_rt {
 
-kernel_function tapasco_get_kernel_func(const Kernel& kernel) {
+tapasco_wrapper::TapascoSPNDevice *initTapasco(const Kernel& kernel, const ::spnc::ControllerDescription& controllerDescription) {
   using namespace tapasco_wrapper;
 
-  if (!device) {
-    try {
-      device = std::make_unique<TapascoSPNDevice>(kernel);
-    } catch (const std::exception& e) {
-      return nullptr;
-    }
-  }
+  if (!device)
+    device = std::make_unique<TapascoSPNDevice>(kernel, controllerDescription);
 
-  return tapasco_wrapper::tapasco_kernel_func;
+  return device.get();
 }
 
 }

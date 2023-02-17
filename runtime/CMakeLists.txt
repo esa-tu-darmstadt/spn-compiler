@@ -6,9 +6,13 @@
 #  SPDX-License-Identifier: Apache-2.0
 # ==============================================================================
 
+find_package(spdlog REQUIRED)
+
 add_library(spnc-rt
         src/runtime.cpp
         src/Executable.cpp)
+
+
 
 target_include_directories(spnc-rt
         PUBLIC
@@ -16,7 +20,8 @@ target_include_directories(spnc-rt
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 
         PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src)
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/../common/include/)
 
 target_link_libraries(spnc-rt PRIVATE elf spnc-common spdlog::spdlog)
 
@@ -37,11 +42,11 @@ if (${SPNC_SLP_DEBUG})
     target_compile_definitions(spnc-rt PRIVATE SLP_DEBUG=true)
 endif (${SPNC_SLP_DEBUG})
 
-doxygen_doc(TARGET_NAME spnc-rt
-        SRC_DIRECTORIES
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-        DEPENDS
-        spnc-common)
+#doxygen_doc(TARGET_NAME spnc-rt
+#        SRC_DIRECTORIES
+#        ${CMAKE_CURRENT_SOURCE_DIR}/include
+#        ${CMAKE_CURRENT_SOURCE_DIR}/src
+#        DEPENDS
+#        spnc-common)
 
 add_subdirectory(wrappers)
