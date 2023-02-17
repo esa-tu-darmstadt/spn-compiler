@@ -20,11 +20,6 @@ struct VivadoProjectConfig {
   std::string topModule = "spn_body";
   std::string tmpdir = "tmp";
 
-  uint32_t liteAddrWidth;
-  uint32_t liteDataWidth;
-  uint32_t mmAddrWidth;
-  uint32_t mmDataWidth;
-
   std::string version = "1.23";
   std::string device = "ultra96v2";
   uint32_t mhz = 200;

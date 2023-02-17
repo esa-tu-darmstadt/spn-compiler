@@ -49,17 +49,18 @@ void EmbedController::insertCocoTbDebug(ModuleOp controller, MLIRContext *ctxt) 
 
 std::optional<ModuleOp> EmbedController::generateController(MLIRContext *ctxt) {
   // call scala CLI app
+  ControllerDescription *desc = getContext()->get<ControllerDescription>();
 
   std::vector<std::tuple<std::string, uint32_t>> args{
-    {"--memory-data-width", 32},
-    {"--memory-addr-width", 32},
-    {"--stream-in-bytes", inputBitWidth / 8},
-    {"--stream-out-bytes", outputBitWidth / 8},
-    {"--fifo-depth", preFifoDepth},
-    {"--body-pipeline-depth", bodyDelay},
-    {"--var-count", variableCount},
-    {"--bits-per-var", bitsPerVariable},
-    {"--result-bit-width", bodyOutputWidth}
+    {"--memory-data-width", desc->memDataWidth},
+    {"--memory-addr-width", desc->memAddrWidth},
+    {"--stream-in-bytes", desc->sAxisControllerWidth / 8},
+    {"--stream-out-bytes", desc->mAxisControllerWidth / 8},
+    {"--fifo-depth", desc->fifoDepth},
+    {"--body-pipeline-depth", desc->bodyDelay},
+    {"--var-count", desc->spnVarCount},
+    {"--bits-per-var", desc->spnBitsPerVar},
+    {"--result-bit-width", desc->spnResultWidth}
   };
 
   std::string cmdArgs;
@@ -139,17 +140,23 @@ LogicalResult EmbedController::insertBodyIntoController(ModuleOp controller, Mod
 void EmbedController::setParameters(uint32_t bodyDelay) {
   KernelInfo *kernelInfo = getContext()->get<KernelInfo>();
 
-  inputBitWidth = kernelInfo->numFeatures * 8;
-  outputBitWidth = 32;
+  ControllerDescription cfg;
+  getContext()->add<ControllerDescription>(std::move(cfg));
+  ControllerDescription *desc = getContext()->get<ControllerDescription>();
+  desc->bodyDelay = bodyDelay;
+  desc->fifoDepth = bodyDelay * 2;
+  desc->spnVarCount = kernelInfo->numFeatures;
+  desc->spnBitsPerVar = 8; // TODO
+  desc->spnResultWidth = 31; // TODO
 
-  this->bodyDelay = bodyDelay;
-  preFifoDepth = bodyDelay * 2;
-  postFifoDepth = bodyDelay * 2;
+  desc->mAxisControllerWidth = round8(desc->spnResultWidth);
+  desc->sAxisControllerWidth = round8(desc->spnBitsPerVar * desc->spnResultWidth);
 
-  variableCount = kernelInfo->numFeatures;
-  bitsPerVariable = 8;
+  desc->memDataWidth = 32;
+  desc->memAddrWidth = 32;
 
-  bodyOutputWidth = 31;
+  desc->liteDataWidth = 32;
+  desc->liteAddrWidth = 32;
 }
 
 ExecutionResult EmbedController::executeStep(ModuleOp *root) {

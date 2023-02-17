@@ -27,6 +27,33 @@ namespace spnc {
 
 namespace fs = std::filesystem;
 
+struct ControllerDescription {
+  uint32_t bodyDelay;
+  uint32_t fifoDepth;
+  // these can be weird numbers like 31 bits
+  uint32_t spnVarCount;
+  uint32_t spnBitsPerVar;
+  uint32_t spnResultWidth;
+
+  // sets the width for S_AXIS_CONTROLLER and M_AXIS_CONTROLLER
+  // + sets the widths of the SPNController input/output AXIStreams
+  uint32_t mAxisControllerWidth;
+  uint32_t sAxisControllerWidth;
+
+  // sets the width for S_AXIS and M_AXIS and also M_AXI
+  uint32_t memDataWidth;
+  uint32_t memAddrWidth;
+
+  // sets the width for S_AXI_LITE
+  uint32_t liteDataWidth;
+  uint32_t liteAddrWidth;
+};
+
+template <class T>
+T round8(const T& n) {
+  return n + (n % T(8));
+}
+
 struct ControllerConfig {
   fs::path generatorPath;
 };
@@ -35,28 +62,9 @@ using namespace ::circt::hw;
 using namespace ::mlir;
 using namespace ::circt::firrtl;
 
-struct GeneratorConfig {
-  fs::path generatorPath;
-  uint32_t
-    inputBitWidth,
-    outputBitWidth,
-    bodyDelay,
-    preFifoDepth,
-    postFifoDepth;
-};
-
 class EmbedController : public StepSingleInput<EmbedController, mlir::ModuleOp>,
                         public StepWithResult<mlir::ModuleOp> {
   ControllerConfig config;
-  uint32_t
-    inputBitWidth,
-    outputBitWidth,
-    bodyDelay,
-    preFifoDepth,
-    postFifoDepth,
-    variableCount,
-    bitsPerVariable,
-    bodyOutputWidth;
 
   static void insertCocoTbDebug(ModuleOp controller, MLIRContext *ctxt);
   std::optional<mlir::ModuleOp> generateController(MLIRContext *ctxt);

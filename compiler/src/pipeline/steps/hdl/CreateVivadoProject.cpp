@@ -1,5 +1,7 @@
 #include "CreateVivadoProject.h"
 
+#include "EmbedController.hpp"
+
 #include "option/GlobalOptions.h"
 #include "circt/Conversion/ExportVerilog.h"
 
@@ -21,8 +23,10 @@ set vendor de.tu-darmstadt.esa
 set library chisel-if
 set litedata {liteDataWidth}
 set liteaddr {liteAddrWidth}
-set fulladdr {mmAddrWidth}
-set fulldata {mmDataWidth}
+set fulladdr {memAddrWidth}
+set fulldata {memDataWidth}
+set controllerInWidth {controllerInWidth}
+set controllerOutWidth {controllerOutWidth}
 set version {version}
 )";
 
@@ -49,7 +53,7 @@ set_property CONFIG.ADDR_WIDTH $liteaddr [get_bd_intf_ports $S_AXI_LITE]
 set_property CONFIG.PROTOCOL AXI4LITE [get_bd_intf_ports $S_AXI_LITE]
 #set AXI4_STREAM_MASTER [create_bd_intf_port -mode Master -vlnv xilinx.com:interface:axis_rtl:1.0 AXI4_STREAM_MASTER]
 #set AXI4_STREAM_SLAVE  [create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 AXI4_STREAM_SLAVE]
-#set_property CONFIG.TDATA_NUM_BYTES $streamin_bytes [get_bd_intf_ports $AXI4_STREAM_SLAVE]
+#set_property CONFIG.TDATA_NUM_BYTES $streamin_bytes [get_<bd_intf_ports $AXI4_STREAM_SLAVE]
 #set_property CONFIG.TDATA_NUM_BYTES $streamout_bytes [get_bd_intf_ports $AXI4_STREAM_MASTER]
 
 proc create_inverter {name} {
@@ -68,13 +72,13 @@ set_property CONFIG.POLARITY ACTIVE_LOW $ap_rst_n
 set TAP [create_bd_cell -type module -reference AXI4StreamMapper TAP]
 set_property CONFIG.POLARITY ACTIVE_HIGH [get_bd_pins $TAP/reset]
 
-#set DWCS [create_bd_cell -type ip -vlnv xilinx.com:ip:axis_dwidth_converter:1.1 DWCS]
-#set_property -dict [list CONFIG.S_TDATA_NUM_BYTES.VALUE_SRC USER] [get_bd_cells $DWCS]
-#set_property CONFIG.S_TDATA_NUM_BYTES $streamin_bytes [get_bd_cells $DWCS]
-#set_property CONFIG.M_TDATA_NUM_BYTES $fulldata_bytes [get_bd_cells $DWCS]
+set DWCS [create_bd_cell -type ip -vlnv xilinx.com:ip:axis_dwidth_converter:1.1 DWCS]
+set_property -dict [list CONFIG.S_TDATA_NUM_BYTES.VALUE_SRC USER] [get_bd_cells $DWCS]
+set_property CONFIG.S_TDATA_NUM_BYTES [expr $controllerOutWidth / 8] [get_bd_cells $DWCS]
+set_property CONFIG.M_TDATA_NUM_BYTES [expr $fulldata / 8] [get_bd_cells $DWCS]
 
-#set DWCM [create_bd_cell -type ip -vlnv xilinx.com:ip:axis_dwidth_converter:1.1 DWCM]
-#set_property -dict [list CONFIG.S_TDATA_NUM_BYTES.VALUE_SRC USER] [get_bd_cells $DWCM]
+set DWCM [create_bd_cell -type ip -vlnv xilinx.com:ip:axis_dwidth_converter:1.1 DWCM]
+set_property -dict [list CONFIG.S_TDATA_NUM_BYTES.VALUE_SRC USER] [get_bd_cells $DWCM]
 #set_property CONFIG.S_TDATA_NUM_BYTES $fulldata_bytes [get_bd_cells $DWCM]
 #set_property CONFIG.M_TDATA_NUM_BYTES $streamout_bytes [get_bd_cells $DWCM]
 
@@ -82,17 +86,19 @@ connect_bd_net [get_bd_port $ap_rst_n] [get_bd_pins $out_inv/Op1]
 connect_bd_net [get_bd_pins $out_inv/Res] [get_bd_pins $TAP/reset]
 connect_bd_net [get_bd_ports $interrupt] [get_bd_pins $TAP/interrupt]
 connect_bd_net [get_bd_ports $ap_clk] [get_bd_pins $TAP/clock]
-#connect_bd_net [get_bd_port $ap_rst_n] [get_bd_pins $DWCM/aresetn]
-#connect_bd_net [get_bd_port $ap_rst_n] [get_bd_pins $DWCS/aresetn]
-#connect_bd_net [get_bd_port $ap_clk] [get_bd_pins $DWCM/aclk]
-#connect_bd_net [get_bd_port $ap_clk] [get_bd_pins $DWCS/aclk]
+connect_bd_net [get_bd_port $ap_rst_n] [get_bd_pins $DWCM/aresetn]
+connect_bd_net [get_bd_port $ap_rst_n] [get_bd_pins $DWCS/aresetn]
+connect_bd_net [get_bd_port $ap_clk] [get_bd_pins $DWCM/aclk]
+connect_bd_net [get_bd_port $ap_clk] [get_bd_pins $DWCS/aclk]
 
 connect_bd_intf_net [get_bd_intf_ports $S_AXI_LITE] [get_bd_intf_pins $TAP/S_AXI_LITE]
 connect_bd_intf_net [get_bd_intf_ports $M_AXI] [get_bd_intf_pins $TAP/M_AXI]
-#connect_bd_intf_net [get_bd_intf_ports $AXI4_STREAM_SLAVE] [get_bd_intf_pins $DWCS/S_AXIS]
-#connect_bd_intf_net [get_bd_intf_pins $DWCS/M_AXIS] [get_bd_intf_pins $TAP/S_AXIS]
-#connect_bd_intf_net [get_bd_intf_pins $TAP/M_AXIS] [get_bd_intf_pins $DWCM/S_AXIS]
-#connect_bd_intf_net [get_bd_intf_ports $AXI4_STREAM_MASTER] [get_bd_intf_pins $DWCM/M_AXIS]
+
+connect_bd_intf_net [get_bd_intf_pins $TAP/M_AXIS_CONTROLLER] [get_bd_intf_pins $DWCS/S_AXIS]
+connect_bd_intf_net [get_bd_intf_pins $DWCS/M_AXIS] [get_bd_intf_pins $TAP/S_AXIS]
+
+connect_bd_intf_net [get_bd_intf_pins $TAP/S_AXIS_CONTROLLER] [get_bd_intf_pins $DWCM/M_AXIS]
+connect_bd_intf_net [get_bd_intf_pins $TAP/M_AXIS] [get_bd_intf_pins $DWCM/S_AXIS]
 
 assign_bd_address
 set_property range 64K [get_bd_addr_segs {S_AXI_LITE/SEG_TAP_reg0}]
@@ -181,14 +187,17 @@ ExecutionResult CreateVivadoProject::executeStep(mlir::ModuleOp *mod) {
   // construct package tcl script
   {
     spdlog::info("Generating packaging script in: {}", tclPath.string());
+    ControllerDescription *desc = getContext()->get<ControllerDescription>();
 
     std::string tclSource = fmt::format(TCL_PREAMBLE,
       fmt::arg("projectName", config.projectName),
       fmt::arg("fileList", fileList),
-      fmt::arg("liteDataWidth", config.liteDataWidth),
-      fmt::arg("liteAddrWidth", config.liteAddrWidth),
-      fmt::arg("mmAddrWidth", config.mmAddrWidth),
-      fmt::arg("mmDataWidth", config.mmDataWidth),
+      fmt::arg("liteDataWidth", desc->liteDataWidth),
+      fmt::arg("liteAddrWidth", desc->liteAddrWidth),
+      fmt::arg("memAddrWidth", desc->memAddrWidth),
+      fmt::arg("memDataWidth", desc->memDataWidth),
+      fmt::arg("controllerInWidth", desc->sAxisControllerWidth),
+      fmt::arg("controllerOutWidth", desc->mAxisControllerWidth),
       fmt::arg("version", config.version)
     ) + TCL_PACKAGE;
 
