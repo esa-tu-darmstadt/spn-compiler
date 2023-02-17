@@ -79,8 +79,8 @@ set_property CONFIG.M_TDATA_NUM_BYTES [expr $fulldata / 8] [get_bd_cells $DWCS]
 
 set DWCM [create_bd_cell -type ip -vlnv xilinx.com:ip:axis_dwidth_converter:1.1 DWCM]
 set_property -dict [list CONFIG.S_TDATA_NUM_BYTES.VALUE_SRC USER] [get_bd_cells $DWCM]
-#set_property CONFIG.S_TDATA_NUM_BYTES $fulldata_bytes [get_bd_cells $DWCM]
-#set_property CONFIG.M_TDATA_NUM_BYTES $streamout_bytes [get_bd_cells $DWCM]
+set_property CONFIG.S_TDATA_NUM_BYTES [expr $fulldata / 8] [get_bd_cells $DWCM]
+set_property CONFIG.M_TDATA_NUM_BYTES [expr $controllerInWidth / 8] [get_bd_cells $DWCM]
 
 connect_bd_net [get_bd_port $ap_rst_n] [get_bd_pins $out_inv/Op1]
 connect_bd_net [get_bd_pins $out_inv/Res] [get_bd_pins $TAP/reset]
