@@ -31,40 +31,6 @@ TapascoSPNDevice::TapascoSPNDevice(const Kernel& kernel, const ::spnc::Controlle
   spdlog::info("The accelerator runs at frequency {}Mhz", tap.design_frequency());
 }
 
-void TapascoSPNDevice::execute() {
-  /*
-  WrappedPointer<char> inputPtr = makeWrappedPointer(inputBuffer.data(), inputBuffer.size());
-  InOnly<char> inOnly = makeInOnly(inputPtr);
-  size_t inSize = inputBuffer.size();
-
-  WrappedPointer<char> outputPtr = makeWrappedPointer(outputBuffer.data(), output.size());
-  OutOnly<char> outOnly = makeOutOnly(outputPtr);
-  size_t outSize = output.size();
-   */
-
-
-  /*
-      val status             = rf.getRegAtAddress(0x000)
-      val retVal             = rf.getRegAtAddress(0x010)
-      val loadBaseAddress    = rf.getRegAtAddress(0x020)
-      val numLdTransfers     = rf.getRegAtAddress(0x030)
-      val storeBaseAddress   = rf.getRegAtAddress(0x040)
-      val numSdTransfers     = rf.getRegAtAddress(0x050)
-   */
-
-  /*
-  size_t cycleCounter;
-  RetVal<size_t> retVal(cycleCounter);
-
-  tap.launch(
-    kernelId,
-    retVal,
-    inOnly, inSize,
-    outOnly, outSize
-  );
-   */
-}
-
 void TapascoSPNDevice::setInputBuffer(size_t numElements, const void *inputs) {
   // NOTE: We will assume uint32_t for now!
 
@@ -118,9 +84,14 @@ void TapascoSPNDevice::execute_query(size_t numElements, const void *inputs, voi
   if (job() != TAPASCO_SUCCESS)
     spdlog::error("Tapasco job failed");
 
-  // TODO: unpacking
-
   spdlog::info("Tapasco job executed successfully");
+
+  // NOTE: We will assume float32 for now. This should be changed to float64 in the future.
+  std::copy_n(
+    reinterpret_cast<const float *>(outputBuffer.data()),
+    numElements,
+    reinterpret_cast<float *>(outputs)
+  );
 }
 
 }
@@ -156,15 +127,16 @@ int main() {
 
   TapascoSPNDevice *device = initTapasco(kernel, controllerDescription);
 
-  std::vector<uint32_t> inputs{
-    0, 0, 0, 0, 0
-  };
+  size_t count = 100;
 
-  std::vector<double> outputs{
-    0.0
-  };
+  std::vector<uint32_t> inputs(count, 0);
+  std::vector<float> outputs(count);
 
-  device->execute_query(1, inputs.data(), outputs.data());
+  device->execute_query(count, inputs.data(), outputs.data());
+
+  spdlog::info("Got");
+  for (float d : outputs)
+    spdlog::info("{}", d);
 
   return 0;
 }

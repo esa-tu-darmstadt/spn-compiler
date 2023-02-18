@@ -31,7 +31,6 @@ class TapascoSPNDevice {
 
   void setInputBuffer(size_t numElements, const void *inputs);
   void resizeOutputBuffer(size_t numElements);
-  void execute();
 public:
   // these functions can fail
   TapascoSPNDevice(const Kernel& kernel, const ::spnc::ControllerDescription& controllerDescription);
