@@ -23,7 +23,9 @@ int main(int argc, char* argv[]) {
 
   auto options = spnc::interface::Options::collectCLOptions(app);
   auto parseResult = spnc::spn_compiler::compileQuery(std::string(argv[1]), options);
-  std::cout << "Compiled kernel into file " << parseResult.fileName() << std::endl;
+  std::string fileName = parseResult.getKernelType() == KernelType::CLASSICAL_KERNEL ?
+    parseResult.getClassicalKernel().fileName : parseResult.getFPGAKernel().fileName;
+  std::cout << "Compiled kernel into file " << fileName << std::endl;
 
   //
   // Simple test to see if the compiled kernels are executable via the runtime.

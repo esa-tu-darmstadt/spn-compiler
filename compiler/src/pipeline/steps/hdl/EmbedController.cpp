@@ -49,18 +49,18 @@ void EmbedController::insertCocoTbDebug(ModuleOp controller, MLIRContext *ctxt) 
 
 std::optional<ModuleOp> EmbedController::generateController(MLIRContext *ctxt) {
   // call scala CLI app
-  ControllerDescription *desc = getContext()->get<ControllerDescription>();
+  FPGAKernel *kernel = getContext()->get<FPGAKernel>();
 
   std::vector<std::tuple<std::string, uint32_t>> args{
-    {"--memory-data-width", desc->memDataWidth},
-    {"--memory-addr-width", desc->memAddrWidth},
-    {"--stream-in-bytes", desc->sAxisControllerWidth / 8},
-    {"--stream-out-bytes", desc->mAxisControllerWidth / 8},
-    {"--fifo-depth", desc->fifoDepth},
-    {"--body-pipeline-depth", desc->bodyDelay},
-    {"--var-count", desc->spnVarCount},
-    {"--bits-per-var", desc->spnBitsPerVar},
-    {"--result-bit-width", desc->spnResultWidth}
+    {"--memory-data-width", kernel->memDataWidth},
+    {"--memory-addr-width", kernel->memAddrWidth},
+    {"--stream-in-bytes", kernel->sAxisControllerWidth / 8},
+    {"--stream-out-bytes", kernel->mAxisControllerWidth / 8},
+    {"--fifo-depth", kernel->fifoDepth},
+    {"--body-pipeline-depth", kernel->bodyDelay},
+    {"--var-count", kernel->spnVarCount},
+    {"--bits-per-var", kernel->spnBitsPerVar},
+    {"--result-bit-width", kernel->spnResultWidth}
   };
 
   std::string cmdArgs;
@@ -140,23 +140,23 @@ LogicalResult EmbedController::insertBodyIntoController(ModuleOp controller, Mod
 void EmbedController::setParameters(uint32_t bodyDelay) {
   KernelInfo *kernelInfo = getContext()->get<KernelInfo>();
 
-  ControllerDescription cfg;
-  getContext()->add<ControllerDescription>(std::move(cfg));
-  ControllerDescription *desc = getContext()->get<ControllerDescription>();
-  desc->bodyDelay = bodyDelay;
-  desc->fifoDepth = bodyDelay * 2;
-  desc->spnVarCount = kernelInfo->numFeatures;
-  desc->spnBitsPerVar = 8; // TODO
-  desc->spnResultWidth = 31; // TODO
+  FPGAKernel kernel;
+  getContext()->add<FPGAKernel>(std::move(kernel));
+  FPGAKernel *pKernel = getContext()->get<FPGAKernel>();
+  pKernel->bodyDelay = bodyDelay;
+  pKernel->fifoDepth = bodyDelay * 2;
+  pKernel->spnVarCount = kernelInfo->numFeatures;
+  pKernel->spnBitsPerVar = 8; // TODO
+  pKernel->spnResultWidth = 31; // TODO
 
-  desc->mAxisControllerWidth = round8(desc->spnResultWidth);
-  desc->sAxisControllerWidth = round8(desc->spnBitsPerVar * desc->spnVarCount);
+  pKernel->mAxisControllerWidth = round8(pKernel->spnResultWidth);
+  pKernel->sAxisControllerWidth = round8(pKernel->spnBitsPerVar * pKernel->spnVarCount);
 
-  desc->memDataWidth = 32;
-  desc->memAddrWidth = 32;
+  pKernel->memDataWidth = 32;
+  pKernel->memAddrWidth = 32;
 
-  desc->liteDataWidth = 32;
-  desc->liteAddrWidth = 32;
+  pKernel->liteDataWidth = 32;
+  pKernel->liteAddrWidth = 32;
 }
 
 ExecutionResult EmbedController::executeStep(ModuleOp *root) {

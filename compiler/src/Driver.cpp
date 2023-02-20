@@ -42,7 +42,17 @@ Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t&
     SPNC_FATAL_ERROR("Execution of the compilation pipeline stopped with message: {}", result.message());
   }
   auto kernel = pipeline->result();
-  SPDLOG_INFO("Generated Kernel in {}, kernel name {}", kernel->fileName(), kernel->kernelName());
+
+  if (kernel->getKernelType() == KernelType::CLASSICAL_KERNEL) {
+    ClassicalKernel classical = kernel->getClassicalKernel();
+    SPDLOG_INFO("Generated Kernel in {}, kernel name {}", classical.fileName, classical.kernelName);
+  } else if (kernel->getKernelType() == KernelType::FPGA_KERNEL) {
+    FPGAKernel fpga = kernel->getFPGAKernel();
+    SPDLOG_INFO("Generated Kernel in {}, kernel name {}", fpga.fileName, fpga.kernelName);
+  } else {
+    assert(false);
+  }
+
   return *kernel;
 }
 

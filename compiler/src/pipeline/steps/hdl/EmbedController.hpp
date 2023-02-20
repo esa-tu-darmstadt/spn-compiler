@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ControllerDescription.hpp"
+#include "Kernel.h"
 
 #include "pipeline/steps/mlir/MLIRPassPipeline.h"
 

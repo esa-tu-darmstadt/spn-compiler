@@ -185,7 +185,7 @@ ExecutionResult CreateVivadoProject::executeStep(mlir::ModuleOp *mod) {
   // construct package tcl script
   {
     spdlog::info("Generating packaging script in: {}", tclPath.string());
-    ControllerDescription *desc = getContext()->get<ControllerDescription>();
+    FPGAKernel *desc = getContext()->get<FPGAKernel>();
 
     std::string tclSource = fmt::format(TCL_PREAMBLE,
       fmt::arg("projectName", config.projectName),
@@ -231,20 +231,12 @@ ExecutionResult CreateVivadoProject::executeStep(mlir::ModuleOp *mod) {
     spdlog::info("--vivado was not specified: Continuing without it...");
   }
 
-  // create the kernel information which we later return
-  const KernelInfo *kernelInfo = getContext()->get<KernelInfo>();
-  kernel = std::make_unique<Kernel>(
-    std::to_string(KERNEL_ID),
-    "",
-    kernelInfo->queryType, // query_type
-    kernelInfo->target, //target
-    kernelInfo->batchSize, // batch size
-    kernelInfo->numFeatures, // num features
-    kernelInfo->bytesPerFeature, // bytes per feature
-    kernelInfo->numResults, // num results
-    kernelInfo->bytesPerResult, // bytes per result
-    "uint32_t" // data type
-  );
+  FPGAKernel *fpgaKernel = getContext()->get<FPGAKernel>();
+  // TODO: Fill in the remaining missing information.
+  fpgaKernel->fileName = "blablabla.bit";
+  fpgaKernel->kernelName = "spn-blablabla";
+  fpgaKernel->kernelId = KERNEL_ID;
+  kernel = std::make_unique<Kernel>(*fpgaKernel);
 
   if (option::tapascoCompose.get(*options)) {
     spdlog::info("--tapasco-compose was specified: Calling tapasco compose...");
@@ -268,7 +260,7 @@ ExecutionResult CreateVivadoProject::tapascoCompose() {
   std::string zipString =
     //config.projectName + "_" + std::regex_replace(config.version, std::regex("\\."), "_") + ".zip";
     config.projectName + "_1.0.zip";
-  std::string idString = kernel->fileName();
+  std::string idString = std::to_string(kernel->getFPGAKernel().kernelId);
   std::string deviceString = config.device;
   std::string mhzString = "@" + std::to_string(config.mhz) + "Mhz";
 

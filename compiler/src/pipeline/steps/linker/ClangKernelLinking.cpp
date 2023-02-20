@@ -31,11 +31,19 @@ spnc::ExecutionResult ClangKernelLinking::executeStep(ObjectFile* objectFile, Sh
   }
   Command::executeExternalCommand(command);
   auto* kernelInfo = getContext()->get<KernelInfo>();
-  kernel = std::make_unique<Kernel>(sharedObject->fileName(), kernelInfo->kernelName,
-                                    kernelInfo->queryType, kernelInfo->target, kernelInfo->batchSize,
-                                    kernelInfo->numFeatures, kernelInfo->bytesPerFeature,
-                                    kernelInfo->numResults, kernelInfo->bytesPerResult,
-                                    kernelInfo->dtype);
+  ClassicalKernel classical{
+    .fileName = sharedObject->fileName(),
+    .kernelName = kernelInfo->kernelName,
+    .query = kernelInfo->queryType,
+    .targetArch = kernelInfo->target,
+    .batchSize = kernelInfo->batchSize,
+    .numFeatures = kernelInfo->numFeatures,
+    .bytesPerFeature = kernelInfo->bytesPerFeature,
+    .numResults = kernelInfo->numResults,
+    .bytesPerResult = kernelInfo->bytesPerResult,
+    .dtype = kernelInfo->dtype
+  };
+  kernel = std::make_unique<Kernel>(classical);
   outFile = sharedObject;
   return success();
 }

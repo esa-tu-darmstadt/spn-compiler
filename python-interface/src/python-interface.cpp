@@ -19,31 +19,52 @@ namespace py = pybind11;
 PYBIND11_MODULE(spncpy, m) {
 
   py::class_<Kernel>(m, "Kernel")
-      .def(py::init<const std::string&, const std::string&, unsigned, unsigned, unsigned, unsigned,
-                    unsigned, unsigned, unsigned, const std::string&>())
-      .def("fileName", &Kernel::fileName)
-      .def("kernelName", &Kernel::kernelName)
+      //.def(py::init<const std::string&, const std::string&, unsigned, unsigned, unsigned, unsigned,
+      //              unsigned, unsigned, unsigned, const std::string&>())
+      .def("fileName",
+            [](const Kernel& kernel) {
+              if (kernel.getKernelType() == KernelType::CLASSICAL_KERNEL)
+                return kernel.getClassicalKernel().fileName;
+              else
+                return kernel.getFPGAKernel().fileName;
+            })
+      .def("kernelName",
+            [](const Kernel& kernel) {
+              if (kernel.getKernelType() == KernelType::FPGA_KERNEL)
+                return kernel.getClassicalKernel().kernelName;
+              else
+                return kernel.getFPGAKernel().kernelName;
+            })
       .def("execute",
            [](const Kernel& kernel, int num_elements, py::array& inputs) {
-             py::buffer_info input_buf = inputs.request();
+             if (kernel.getKernelType() == KernelType::CLASSICAL_KERNEL) {
+              std::cout << "kernel type: " << kernel.getKernelType() << "\n";
+              std::cout << "kernel index: " << kernel.kernel.index() << "\n";
+              ClassicalKernel classical = kernel.getClassicalKernel();
+              std::cout << "got classical\n";
+             
+              py::buffer_info input_buf = inputs.request();
 
-             // Get a new array to hold the result values, using the data-type
-             // and shape information attached to the kernel.
-             auto dtype = py::dtype(kernel.dataType());
-             std::vector<unsigned> shape;
-             shape.push_back(num_elements);
-             if (kernel.numResults() > 1) {
-               shape.push_back(kernel.numResults());
+              // Get a new array to hold the result values, using the data-type
+              // and shape information attached to the kernel.
+              auto dtype = py::dtype(classical.dtype);
+              std::vector<unsigned> shape;
+              shape.push_back(num_elements);
+              if (classical.numResults > 1) {
+                shape.push_back(classical.numResults);
+              }
+              auto result = py::array(dtype, shape);
+              py::buffer_info result_buf = result.request(true);
+
+              void* input_ptr = (void*) input_buf.ptr;
+              void* output_ptr = (void*) result_buf.ptr;
+
+              spnc_rt::spn_runtime::instance().execute(kernel, num_elements, input_ptr, output_ptr);
+
+              return result;
              }
-             auto result = py::array(dtype, shape);
-             py::buffer_info result_buf = result.request(true);
 
-             void* input_ptr = (void*) input_buf.ptr;
-             void* output_ptr = (void*) result_buf.ptr;
-
-             spnc_rt::spn_runtime::instance().execute(kernel, num_elements, input_ptr, output_ptr);
-
-             return result;
+             throw std::runtime_error("not implemented");
            });
 
   py::class_<spn_compiler>(m, "SPNCompiler")
