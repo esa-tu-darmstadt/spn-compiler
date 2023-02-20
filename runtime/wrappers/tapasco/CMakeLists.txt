@@ -21,7 +21,7 @@ set_property(TARGET tapasco-wrapper PROPERTY CXX_STANDARD 20)
 
 find_package(spdlog REQUIRED)
 
-target_link_libraries(tapasco-wrapper PRIVATE elf spdlog::spdlog)
+target_link_libraries(tapasco-wrapper PRIVATE elf spdlog::spdlog tapasco ${CMAKE_THREAD_LIBS_INIT})
 
 target_include_directories(
   tapasco-wrapper
@@ -35,5 +35,3 @@ target_include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/bitpacker/include
   ${CMAKE_CURRENT_SOURCE_DIR}/../../../compiler/src
 )
-
-target_link_libraries(tapasco-wrapper tapasco ${CMAKE_THREAD_LIBS_INIT})
