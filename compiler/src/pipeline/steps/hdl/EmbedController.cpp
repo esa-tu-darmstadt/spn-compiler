@@ -49,18 +49,18 @@ void EmbedController::insertCocoTbDebug(ModuleOp controller, MLIRContext *ctxt) 
 
 std::optional<ModuleOp> EmbedController::generateController(MLIRContext *ctxt) {
   // call scala CLI app
-  FPGAKernel *kernel = getContext()->get<FPGAKernel>();
+  FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
 
   std::vector<std::tuple<std::string, uint32_t>> args{
-    {"--memory-data-width", kernel->memDataWidth},
-    {"--memory-addr-width", kernel->memAddrWidth},
-    {"--stream-in-bytes", kernel->sAxisControllerWidth / 8},
-    {"--stream-out-bytes", kernel->mAxisControllerWidth / 8},
-    {"--fifo-depth", kernel->fifoDepth},
-    {"--body-pipeline-depth", kernel->bodyDelay},
-    {"--var-count", kernel->spnVarCount},
-    {"--bits-per-var", kernel->spnBitsPerVar},
-    {"--result-bit-width", kernel->spnResultWidth}
+    {"--memory-data-width", kernel.memDataWidth},
+    {"--memory-addr-width", kernel.memAddrWidth},
+    {"--stream-in-bytes", kernel.sAxisControllerWidth / 8},
+    {"--stream-out-bytes", kernel.mAxisControllerWidth / 8},
+    {"--fifo-depth", kernel.fifoDepth},
+    {"--body-pipeline-depth", kernel.bodyDelay},
+    {"--var-count", kernel.spnVarCount},
+    {"--bits-per-var", kernel.spnBitsPerVar},
+    {"--result-bit-width", kernel.spnResultWidth}
   };
 
   std::string cmdArgs;
@@ -138,9 +138,9 @@ LogicalResult EmbedController::insertBodyIntoController(ModuleOp controller, Mod
 }
 
 void EmbedController::setParameters(uint32_t bodyDelay) {
-  FPGAKernel *pKernel = getContext()->get<FPGAKernel>();
-  pKernel->bodyDelay = bodyDelay;
-  pKernel->fifoDepth = bodyDelay * 2;
+  FPGAKernel& pKernel = getContext()->get<Kernel>()->getFPGAKernel();
+  pKernel.bodyDelay = bodyDelay;
+  pKernel.fifoDepth = bodyDelay * 2;
 }
 
 ExecutionResult EmbedController::executeStep(ModuleOp *root) {
