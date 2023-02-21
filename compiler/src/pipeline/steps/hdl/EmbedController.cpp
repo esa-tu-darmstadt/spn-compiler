@@ -147,7 +147,7 @@ void EmbedController::setParameters(uint32_t bodyDelay) {
   pKernel->fifoDepth = bodyDelay * 2;
   pKernel->spnVarCount = kernelInfo->numFeatures;
   pKernel->spnBitsPerVar = 8; // TODO
-  pKernel->spnResultWidth = 31; // TODO
+  pKernel->spnResultWidth = 64; // double precision float
 
   pKernel->mAxisControllerWidth = round8(pKernel->spnResultWidth);
   pKernel->sAxisControllerWidth = round8(pKernel->spnBitsPerVar * pKernel->spnVarCount);
