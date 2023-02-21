@@ -75,7 +75,8 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
     .sourceFilePaths = {
       "resources/ufloat/FPOps_build_add/FPAdd.v",
       "resources/ufloat/FPOps_build_mult/FPMult.v",
-      "resources/ufloat/FPLog.v"
+      "resources/ufloat/FPLog.v",
+      "resources/ufloat/FPOps_build_convert/FP2DoubleConverter.v"
     },
     .targetDir = spnc::option::outputPath.get(*config) + "/ipxact_core",
     .topModuleFileName = "SPNController.v",

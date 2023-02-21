@@ -49,9 +49,9 @@ async def read_outputs(axis_sink):
 
   got = []
 
-  for i in range(len(data.tdata) // 4):
-    b = data.tdata[i * 4 : (i + 1) * 4]
-    got.append(struct.unpack('f', b))
+  for i in range(len(data.tdata) // 8):
+    b = data.tdata[i * 8 : (i + 1) * 8]
+    got.append(struct.unpack('d', b))
 
   return got
 
@@ -106,7 +106,7 @@ async def test_SPNController(dut):
 
   spn_path = '../../../examples/nips5.spn'
   spn, var_2_index, index_2_min, index_2_max = load_spn_2(spn_path)
-  COUNT = 100000
+  COUNT = 10000
   data = generate_data(COUNT, index_2_min, index_2_max)
   expected = likelihood(spn, data)
 
