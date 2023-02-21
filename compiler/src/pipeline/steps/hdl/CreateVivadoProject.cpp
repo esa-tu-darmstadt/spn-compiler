@@ -185,17 +185,17 @@ ExecutionResult CreateVivadoProject::executeStep(mlir::ModuleOp *mod) {
   // construct package tcl script
   {
     spdlog::info("Generating packaging script in: {}", tclPath.string());
-    FPGAKernel *desc = getContext()->get<FPGAKernel>();
+    FPGAKernel& fpgaKernel = getContext()->get<Kernel>()->getFPGAKernel();
 
     std::string tclSource = fmt::format(TCL_PREAMBLE,
       fmt::arg("projectName", config.projectName),
       fmt::arg("fileList", fileList),
-      fmt::arg("liteDataWidth", desc->liteDataWidth),
-      fmt::arg("liteAddrWidth", desc->liteAddrWidth),
-      fmt::arg("memAddrWidth", desc->memAddrWidth),
-      fmt::arg("memDataWidth", desc->memDataWidth),
-      fmt::arg("controllerInWidth", desc->sAxisControllerWidth),
-      fmt::arg("controllerOutWidth", desc->mAxisControllerWidth),
+      fmt::arg("liteDataWidth", fpgaKernel.liteDataWidth),
+      fmt::arg("liteAddrWidth", fpgaKernel.liteAddrWidth),
+      fmt::arg("memAddrWidth", fpgaKernel.memAddrWidth),
+      fmt::arg("memDataWidth", fpgaKernel.memDataWidth),
+      fmt::arg("controllerInWidth", fpgaKernel.sAxisControllerWidth),
+      fmt::arg("controllerOutWidth", fpgaKernel.mAxisControllerWidth),
       fmt::arg("version", config.version)
     ) + TCL_PACKAGE;
 
@@ -231,10 +231,9 @@ ExecutionResult CreateVivadoProject::executeStep(mlir::ModuleOp *mod) {
     spdlog::info("--vivado was not specified: Continuing without it...");
   }
 
-  FPGAKernel *fpgaKernel = getContext()->get<FPGAKernel>();
-  fpgaKernel->kernelName = "spn_fpga";
-  fpgaKernel->kernelId = KERNEL_ID;
-  kernel = std::make_unique<Kernel>(*fpgaKernel);
+  FPGAKernel& fpgaKernel = getContext()->get<Kernel>()->getFPGAKernel();
+  fpgaKernel.kernelName = "spn_fpga";
+  fpgaKernel.kernelId = KERNEL_ID;
 
   if (option::tapascoCompose.get(*options)) {
     spdlog::info("--tapasco-compose was specified: Calling tapasco compose...");
@@ -253,6 +252,7 @@ ExecutionResult CreateVivadoProject::tapascoCompose() {
 
   auto pwd = std::filesystem::current_path();
   std::filesystem::current_path(config.targetDir);
+  Kernel *kernel = getContext()->get<Kernel>();
 
   // TODO: How is the zip file name determined?
   std::string zipString =

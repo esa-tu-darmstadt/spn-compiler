@@ -66,26 +66,26 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
 
   // set kernel information
   {
-    FPGAKernel kernel;
-    pipeline->getContext()->add<FPGAKernel>(std::move(kernel));
-    FPGAKernel *pKernel = pipeline->getContext()->get<FPGAKernel>();
+    Kernel kernel{FPGAKernel()};
+    pipeline->getContext()->add<Kernel>(std::move(kernel));
+    FPGAKernel& fpgaKernel = pipeline->getContext()->get<Kernel>()->getFPGAKernel();
 
-    pKernel->spnVarCount = kernelInfo->numFeatures;
-    pKernel->spnBitsPerVar = kernelInfo->bytesPerFeature * 8; // TODO
-    pKernel->spnResultWidth = 64; // double precision float
+    fpgaKernel.spnVarCount = kernelInfo->numFeatures;
+    fpgaKernel.spnBitsPerVar = kernelInfo->bytesPerFeature * 8; // TODO
+    fpgaKernel.spnResultWidth = 64; // double precision float
 
-    pKernel->mAxisControllerWidth = round8(pKernel->spnResultWidth);
-    pKernel->sAxisControllerWidth = round8(pKernel->spnBitsPerVar * pKernel->spnVarCount);
+    fpgaKernel.mAxisControllerWidth = round8(fpgaKernel.spnResultWidth);
+    fpgaKernel.sAxisControllerWidth = round8(fpgaKernel.spnBitsPerVar * fpgaKernel.spnVarCount);
 
     // TODO: Make this parameterizable
-    pKernel->memDataWidth = 32;
-    pKernel->memAddrWidth = 32;
+    fpgaKernel.memDataWidth = 32;
+    fpgaKernel.memAddrWidth = 32;
 
-    pKernel->liteDataWidth = 32;
-    pKernel->liteAddrWidth = 32;
+    fpgaKernel.liteDataWidth = 32;
+    fpgaKernel.liteAddrWidth = 32;
   }
 
-  if (option::justGetKernel.get(*config)) {
+  if (!option::justGetKernel.get(*config)) {
     auto& lospn2fpga = pipeline->emplaceStep<LoSPNtoFPGAConversion>(lospnTransform);
 
     ControllerConfig controllerConfig{

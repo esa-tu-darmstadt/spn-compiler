@@ -37,12 +37,10 @@ public:
 
   ExecutionResult executeStep(mlir::ModuleOp *mod);
 
-  Kernel *result() override { return kernel.get(); }
+  Kernel *result() override { return getContext()->get<Kernel>(); }
 
   STEP_NAME("create-ipxact")
 private:
-  std::unique_ptr<Kernel> kernel;
-
   ExecutionResult tapascoCompose();
   static void execShell(const std::vector<std::string>& cmd);
   static std::string execShellAndGetOutput(const std::vector<std::string>& cmd);
