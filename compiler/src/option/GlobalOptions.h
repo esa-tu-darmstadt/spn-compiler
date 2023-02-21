@@ -174,6 +174,10 @@ namespace spnc {
     ///
     /// Specify which specific FPGA device to target.
     extern Option<std::string> fpgaDevice;
+
+    ///
+    /// Specify whether the user just wants to get the kernel information.
+    extern Option<bool> justGetKernel;
   }
 }
 

@@ -13,6 +13,7 @@
 #include "pipeline/steps/hdl/EmitVerilogCode.h"
 #include "pipeline/steps/hdl/CreateVivadoProject.h"
 #include "pipeline/steps/hdl/EmbedController.hpp"
+#include "pipeline/steps/hdl/ReturnKernel.h"
 #include "pipeline/steps/mlir/conversion/LoSPNtoFPGAConversion.h"
 #include "TargetInformation.h"
 
@@ -63,26 +64,50 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   // does some preprocessing and fills KernelInfo with the correct information
   auto& lospnTransform = pipeline->emplaceStep<LoSPNTransformations>(hispn2lospn);
 
-  // TODO: LoSPNtoFPGAConversion must return some meta information about the SPN body.
-  auto& lospn2fpga = pipeline->emplaceStep<LoSPNtoFPGAConversion>(lospnTransform);
+  // set kernel information
+  {
+    FPGAKernel kernel;
+    pipeline->getContext()->add<FPGAKernel>(std::move(kernel));
+    FPGAKernel *pKernel = pipeline->getContext()->get<FPGAKernel>();
 
-  ControllerConfig controllerConfig{
-    .generatorPath = spnc::option::controllerGeneratorPath.get(*config)
-  };
-  auto& embedController = pipeline->emplaceStep<EmbedController>(controllerConfig, lospn2fpga);
+    pKernel->spnVarCount = kernelInfo->numFeatures;
+    pKernel->spnBitsPerVar = kernelInfo->bytesPerFeature * 8; // TODO
+    pKernel->spnResultWidth = 64; // double precision float
 
-  VivadoProjectConfig ipConfig{
-    .sourceFilePaths = {
-      "resources/ufloat/FPOps_build_add/FPAdd.v",
-      "resources/ufloat/FPOps_build_mult/FPMult.v",
-      "resources/ufloat/FPLog.v",
-      "resources/ufloat/FPOps_build_convert/FP2DoubleConverter.v"
-    },
-    .targetDir = spnc::option::outputPath.get(*config) + "/ipxact_core",
-    .topModuleFileName = "SPNController.v",
-    .device = spnc::option::fpgaDevice.get(*config)
-  };
-  auto& createVivadoProject = pipeline->emplaceStep<CreateVivadoProject>(ipConfig, embedController);
+    pKernel->mAxisControllerWidth = round8(pKernel->spnResultWidth);
+    pKernel->sAxisControllerWidth = round8(pKernel->spnBitsPerVar * pKernel->spnVarCount);
+
+    // TODO: Make this parameterizable
+    pKernel->memDataWidth = 32;
+    pKernel->memAddrWidth = 32;
+
+    pKernel->liteDataWidth = 32;
+    pKernel->liteAddrWidth = 32;
+  }
+
+  if (option::justGetKernel.get(*config)) {
+    auto& lospn2fpga = pipeline->emplaceStep<LoSPNtoFPGAConversion>(lospnTransform);
+
+    ControllerConfig controllerConfig{
+      .generatorPath = spnc::option::controllerGeneratorPath.get(*config)
+    };
+    auto& embedController = pipeline->emplaceStep<EmbedController>(controllerConfig, lospn2fpga);
+
+    VivadoProjectConfig ipConfig{
+      .sourceFilePaths = {
+        "resources/ufloat/FPOps_build_add/FPAdd.v",
+        "resources/ufloat/FPOps_build_mult/FPMult.v",
+        "resources/ufloat/FPLog.v",
+        "resources/ufloat/FPOps_build_convert/FP2DoubleConverter.v"
+      },
+      .targetDir = spnc::option::outputPath.get(*config) + "/ipxact_core",
+      .topModuleFileName = "SPNController.v",
+      .device = spnc::option::fpgaDevice.get(*config)
+    };
+    auto& createVivadoProject = pipeline->emplaceStep<CreateVivadoProject>(ipConfig, embedController);
+  } else {
+    auto& returnKernel = pipeline->emplaceStep<ReturnKernel>();
+  }
 
   // Attach the LLVM target machine and the kernel information to the pipeline context
   pipeline->getContext()->add(std::move(targetMachine));

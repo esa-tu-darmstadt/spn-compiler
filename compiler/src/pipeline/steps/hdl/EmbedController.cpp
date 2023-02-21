@@ -138,25 +138,9 @@ LogicalResult EmbedController::insertBodyIntoController(ModuleOp controller, Mod
 }
 
 void EmbedController::setParameters(uint32_t bodyDelay) {
-  KernelInfo *kernelInfo = getContext()->get<KernelInfo>();
-
-  FPGAKernel kernel;
-  getContext()->add<FPGAKernel>(std::move(kernel));
   FPGAKernel *pKernel = getContext()->get<FPGAKernel>();
   pKernel->bodyDelay = bodyDelay;
   pKernel->fifoDepth = bodyDelay * 2;
-  pKernel->spnVarCount = kernelInfo->numFeatures;
-  pKernel->spnBitsPerVar = 8; // TODO
-  pKernel->spnResultWidth = 64; // double precision float
-
-  pKernel->mAxisControllerWidth = round8(pKernel->spnResultWidth);
-  pKernel->sAxisControllerWidth = round8(pKernel->spnBitsPerVar * pKernel->spnVarCount);
-
-  pKernel->memDataWidth = 32;
-  pKernel->memAddrWidth = 32;
-
-  pKernel->liteDataWidth = 32;
-  pKernel->liteAddrWidth = 32;
 }
 
 ExecutionResult EmbedController::executeStep(ModuleOp *root) {

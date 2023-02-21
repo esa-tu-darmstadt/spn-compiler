@@ -27,9 +27,7 @@ struct VivadoProjectConfig {
   void addSourceFilePath(const std::filesystem::path& path);
 };
 
-class CreateVivadoProject : public StepSingleInput<CreateVivadoProject, mlir::ModuleOp>,
-                     // TODO: Make the compiler not expect a Kernel as the pipeline result.
-                     public StepWithResult<Kernel> {
+class CreateVivadoProject : public StepSingleInput<CreateVivadoProject, mlir::ModuleOp>, public StepWithResult<Kernel> {
   static constexpr uint64_t KERNEL_ID = 123;
   VivadoProjectConfig config;
 public:

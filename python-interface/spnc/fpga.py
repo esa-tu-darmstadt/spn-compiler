@@ -25,6 +25,9 @@ class FPGACompiler:
         self.computeInLogSpace = computeInLogSpace
         self.otherOptions = kwargs
 
+    def load_bitstream(self, bitstream_path: str):
+        pass
+
     def compile_ll(self, spn, inputDataType = "float64", errorModel = ErrorModel(), 
                     batchSize = 4096, supportMarginal = True, name = "spn_cpu"):
         model = SPNModel(spn, inputDataType, name)
@@ -43,7 +46,10 @@ class FPGACompiler:
         # Compile the query into a Kernel.
         options = dict({"target": "FPGA",
                         "use-log-space": convertToFlag(self.computeInLogSpace),
-                        "dump-ir": convertToFlag(self.verbose)
+                        "dump-ir": convertToFlag(self.verbose),
+                        "vivado": ...,
+                        "tapasco-compose": ...,
+                        "controller-generator-path": ...
                         })
 
         # Add the extra options, if they do not clash with an existing option.
