@@ -1,10 +1,11 @@
+SHELL=/bin/bash
 SIM = questa
 TOPLEVEL_LANG ?= verilog
 
 PWD=$(shell pwd)
 
 #export PYTHONPATH=$(PWD)/../model:$(PYTHONPATH)
-export PYTHONPATH=$(PYTHONPATH):$(PYS)
+#export PYTHONPATH=$(shell "$$PYTHONPATH"):$(PYS)
 
 #EXTRA_ARGS+=-I$(PWD)/../hdl
 
@@ -17,7 +18,7 @@ VERILOG_SOURCES := $(call rwildcard,$(INCLUDE_DIR),*.v)
 VERILOG_SOURCES += $(call rwildcard,$(INCLUDE_DIR),*.sv)
 
 TOPLEVEL := SPNController
-MODULE   := spn_test
+MODULE   := test_SPNController
 
 #VSIM_ARGS=-t 1us
 

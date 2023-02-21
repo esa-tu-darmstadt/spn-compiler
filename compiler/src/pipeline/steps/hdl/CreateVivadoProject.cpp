@@ -232,8 +232,6 @@ ExecutionResult CreateVivadoProject::executeStep(mlir::ModuleOp *mod) {
   }
 
   FPGAKernel *fpgaKernel = getContext()->get<FPGAKernel>();
-  // TODO: Fill in the remaining missing information.
-  fpgaKernel->fileName = "blablabla.bit";
   fpgaKernel->kernelName = "spn_fpga";
   fpgaKernel->kernelId = KERNEL_ID;
   kernel = std::make_unique<Kernel>(*fpgaKernel);
