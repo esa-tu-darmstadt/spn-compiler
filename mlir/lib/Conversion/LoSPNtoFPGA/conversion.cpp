@@ -20,6 +20,7 @@ std::vector<PortInfo> ConversionHelper::hwPorts(const std::vector<OperatorPortIn
       case PORT_SIGNAL: type = targetTypes.getSignalType(); break;
       case PORT_INDEX: type = targetTypes.getIndexType(); break;
       case PORT_PROBABILITY: type = targetTypes.getProbType(); break;
+      case PORT_FLOAT64: type = targetTypes.getFloat64Type(); break;
     }
 
     PortInfo newPort{
@@ -35,7 +36,7 @@ std::vector<PortInfo> ConversionHelper::hwPorts(const std::vector<OperatorPortIn
 }
 
 void ConversionHelper::createHwOps() {
-  for (OperatorType opType : {TYPE_ADD, TYPE_MUL, TYPE_LOG}) {
+  for (OperatorType opType : {TYPE_ADD, TYPE_MUL, TYPE_LOG, TYPE_CONVERT}) {
     std::vector<PortInfo> ports = hwPorts(opMapping.getOperatorPorts(opType));
     std::string name = opMapping.getTypeBaseName(opType);
 
@@ -72,14 +73,14 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
 
   // build top hw module
   std::vector<PortInfo> modOpPorts{
-    helper.inPort("clk", helper.getSigType()),
-    helper.inPort("rst", helper.getSigType()),
-    helper.port("out_prob", PortDirection::OUTPUT, helper.getProbType())
+    helper.inPort("clk", helper.targetTypes.getSignalType()),
+    helper.inPort("rst", helper.targetTypes.getSignalType()),
+    helper.port("out_prob", PortDirection::OUTPUT, helper.targetTypes.getFloat64Type())
   };
 
   for (std::size_t i = 0; i < body.getOperands().size(); ++i)
     modOpPorts.push_back(helper.port(
-      "in_" + std::to_string(i), PortDirection::INPUT, helper.getIndexType()
+      "in_" + std::to_string(i), PortDirection::INPUT, helper.targetTypes.getIndexType()
     ));
 
   HWModuleOp modOp = builder.create<HWModuleOp>(
@@ -129,11 +130,24 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
     Location loc = op->getLoc();
     StringAttr instanceName = builder.getStringAttr(helper.getInstanceName(op));
 
-    // SPNYield forms an exception
-    if (opType == TYPE_YIELD) {
+    // SPNYield is given the type TYPE_CONVERT and forms an exception
+    if (opType == TYPE_CONVERT) {
+      InstanceOp converter = builder.create<InstanceOp>(
+        loc,
+        helper.getMod(TYPE_CONVERT),
+        instanceName,
+        operandsRef
+      );
+
+      helper.opMapping.setType(converter.getOperation(), opType);
+
+      std::vector<Value> result{
+        converter.getResult(0)
+      };
+
       builder.create<OutputOp>(
         loc,
-        ValueRange(operandsRef.drop_front(2))
+        ValueRange(result)
       );
 
       return;
@@ -168,9 +182,6 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
     // the old result value now points to the new result value
     mapping.map(op->getResults(), newInstance->getResults());
   });
-
-  // insert meta information
-  modOp.getOperation()->setAttr("magic_value", builder.getI32IntegerAttr(123456));
 
   return modOp;
 }
@@ -210,7 +221,7 @@ Optional<ModuleOp> convert(ModuleOp root) {
     helper.getVerilogIncludeString()
   );
 
-  for (OperatorType opType : {TYPE_ADD, TYPE_MUL, TYPE_LOG})
+  for (OperatorType opType : {TYPE_ADD, TYPE_MUL, TYPE_LOG, TYPE_CONVERT})
     builder.insert(helper.getMod(opType));
 
   for (auto e : helper.getLeafModules())
@@ -220,10 +231,6 @@ Optional<ModuleOp> convert(ModuleOp root) {
     builder.insert(op);
 
   assert(succeeded(newRoot.verify()));
-
-  std::error_code ec;
-  llvm::raw_fd_ostream scheduleFile("schedule_info.json", ec);
-  assert(!ec && "Could not open file!");
 
   // schedule problem and insert buffers
   for (auto modOp : modOps) {

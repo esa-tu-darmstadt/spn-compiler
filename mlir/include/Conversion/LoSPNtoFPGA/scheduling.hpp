@@ -48,7 +48,7 @@ public:
   }
 
   void insertDelays(::circt::scheduling::Problem& problem) {
-    for (OperatorType opType : {TYPE_ADD, TYPE_MUL, TYPE_LOG, TYPE_CATEGORICAL, TYPE_HISTOGRAM, TYPE_CONSTANT}) {
+    for (OperatorType opType : {TYPE_ADD, TYPE_MUL, TYPE_LOG, TYPE_CONVERT, TYPE_CATEGORICAL, TYPE_HISTOGRAM, TYPE_CONSTANT}) {
       auto type = problem.getOrInsertOperatorType(opMapping.getTypeBaseName(opType));
       problem.setLatency(type, opMapping.getDelay(opType));
     }
@@ -127,6 +127,8 @@ public:
         // is a block argument or something
         if (!defOp)
           continue;
+
+        op.dump();
 
         assert(getStartTime(op).has_value());
         assert(getLatency(getLinkedOperatorType(op).value()).has_value());

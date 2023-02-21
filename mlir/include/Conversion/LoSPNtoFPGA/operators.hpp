@@ -17,21 +17,21 @@ using namespace ::mlir::spn::low;
 
 enum OperatorType {
   // these come from external verilog sources
-  TYPE_ADD, TYPE_MUL, TYPE_LOG,
+  TYPE_ADD, TYPE_MUL, TYPE_LOG, TYPE_CONVERT,
   // these are generated
   TYPE_CATEGORICAL, TYPE_HISTOGRAM, TYPE_CONSTANT,
   // not important for scheduling
   TYPE_YIELD, TYPE_BODY
 };
 
-inline const std::array<OperatorType, 8> OPERATOR_TYPES = {
-  TYPE_ADD, TYPE_MUL, TYPE_LOG,
+inline const std::array<OperatorType, 9> OPERATOR_TYPES = {
+  TYPE_ADD, TYPE_MUL, TYPE_LOG, TYPE_CONVERT,
   TYPE_CATEGORICAL, TYPE_HISTOGRAM, TYPE_CONSTANT,
   TYPE_YIELD, TYPE_BODY
 };
 
 enum OperatorPortType {
-  PORT_SIGNAL, PORT_INDEX, PORT_PROBABILITY
+  PORT_SIGNAL, PORT_INDEX, PORT_PROBABILITY, PORT_FLOAT64
 };
 
 enum OperatorPortDirection {
@@ -53,7 +53,7 @@ class OperatorTypeMapping {
   std::unordered_map<OperatorType, uint64_t> delays;
 
   static bool isExternalType(OperatorType type) {
-    return type == TYPE_ADD || type == TYPE_MUL || type == TYPE_LOG;
+    return type == TYPE_ADD || type == TYPE_MUL || type == TYPE_LOG || type == TYPE_CONVERT;
   }
 
   static OperatorPortInfo inPort(const std::string& name, OperatorPortType type) {
@@ -70,6 +70,7 @@ public:
       {TYPE_ADD, "FPAdd"},
       {TYPE_MUL, "FPMult"},
       {TYPE_LOG, "FPLog"},
+      {TYPE_CONVERT, "FP2DoubleConverter"},
       {TYPE_CATEGORICAL, "categorical"},
       {TYPE_HISTOGRAM, "histogram"},
       {TYPE_CONSTANT, "constant"}
@@ -79,6 +80,7 @@ public:
       {"FPAdd", TYPE_ADD},
       {"FPMult", TYPE_MUL},
       {"FPLog", TYPE_LOG},
+      {"FP2DoubleConverter", TYPE_CONVERT},
       {"categorical", TYPE_CATEGORICAL},
       {"histogram", TYPE_HISTOGRAM},
       {"constant", TYPE_CONSTANT}
@@ -91,6 +93,7 @@ public:
       {TYPE_ADD, 6},
       {TYPE_MUL, 5},
       {TYPE_LOG, 0},
+      {TYPE_CONVERT, 2},
       {TYPE_CATEGORICAL, 1},
       {TYPE_CONSTANT, 0},
       {TYPE_HISTOGRAM, 1}
@@ -154,11 +157,18 @@ public:
           inPort("in_a", PORT_PROBABILITY),
           outPort("out_b", PORT_PROBABILITY)
         };
+      case TYPE_CONVERT:
+        return std::vector<OperatorPortInfo>{
+          inPort("clock", PORT_SIGNAL),
+          inPort("reset", PORT_SIGNAL),
+          inPort("io_op", PORT_PROBABILITY),
+          outPort("io_r", PORT_FLOAT64)
+        };
       case TYPE_BODY:
         return std::vector<OperatorPortInfo>{
           inPort("clk", PORT_SIGNAL),
           inPort("rst", PORT_SIGNAL),
-          outPort("out_prob", PORT_PROBABILITY)
+          outPort("out_prob", PORT_FLOAT64)
         };
       default:
         assert(false);
@@ -173,7 +183,7 @@ public:
       .Case<SPNConstant>([&](SPNConstant op) { return TYPE_CONSTANT; })
       .Case<SPNLog>([&](SPNLog op) { return TYPE_LOG; })
       .Case<SPNHistogramLeaf>([&](SPNHistogramLeaf op) { return TYPE_HISTOGRAM; })
-      .Case<SPNYield>([&](SPNYield op) { return TYPE_YIELD; })
+      .Case<SPNYield>([&](SPNYield op) { return TYPE_CONVERT; })
       .Default([&](Operation *op) -> OperatorType {
         assert(false && "Unexpected type");
       });

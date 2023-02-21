@@ -76,9 +76,9 @@ public:
 
   MLIRContext *getContext() const { return ctxt; }
   OpBuilder getBuilder() const { return builder; }
-  Type getIndexType() const { return indexType; }
-  Type getProbType() const { return probType; }
-  Type getSigType() const { return sigType; }
+  //Type getIndexType() const { return indexType; }
+  //Type getProbType() const { return probType; }
+  //Type getSigType() const { return sigType; }
 
   //PortInfo port(const OperatorPortInfo& portInfo) {
   //  return PortInfo{
