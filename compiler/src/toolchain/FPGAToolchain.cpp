@@ -93,27 +93,6 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   pipeline->getContext()->add(std::move(kernelInfo));
   pipeline->getContext()->add(std::move(config));
 
-  // set kernel information
-  {
-    Kernel kernel{FPGAKernel()};
-    pipeline->getContext()->add<Kernel>(std::move(kernel));
-    FPGAKernel& fpgaKernel = pipeline->getContext()->get<Kernel>()->getFPGAKernel();
-
-    fpgaKernel.spnVarCount = kernelInfo->numFeatures;
-    fpgaKernel.spnBitsPerVar = kernelInfo->bytesPerFeature * 8; // TODO
-    fpgaKernel.spnResultWidth = 64; // double precision float
-
-    fpgaKernel.mAxisControllerWidth = round8(fpgaKernel.spnResultWidth);
-    fpgaKernel.sAxisControllerWidth = round8(fpgaKernel.spnBitsPerVar * fpgaKernel.spnVarCount);
-
-    // TODO: Make this parameterizable
-    fpgaKernel.memDataWidth = 32;
-    fpgaKernel.memAddrWidth = 32;
-
-    fpgaKernel.liteDataWidth = 32;
-    fpgaKernel.liteAddrWidth = 32;
-  }
-
   return pipeline;
 }
 

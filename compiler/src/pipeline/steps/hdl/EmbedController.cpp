@@ -12,6 +12,7 @@
 #include "circt/Dialect/SV/SVDialect.h"
 #include "circt/Dialect/SV/SVOps.h"
 
+#include "ReturnKernel.h"
 #include "llvm/Support/SourceMgr.h"
 #include "mlir/Support/Timing.h"
 #include "spdlog/fmt/fmt.h"
@@ -144,6 +145,8 @@ void EmbedController::setParameters(uint32_t bodyDelay) {
 }
 
 ExecutionResult EmbedController::executeStep(ModuleOp *root) {
+  ReturnKernel::setKernel(getContext());
+
   std::optional<HWModuleOp> spnBody = getUniqueBody(*root);
 
   if (!spnBody.has_value())
