@@ -47,6 +47,8 @@ private:
 
   ExecutionResult tapascoCompose();
   static void execShell(const std::vector<std::string>& cmd);
+  static std::string execShellAndGetOutput(const std::vector<std::string>& cmd);
+  static std::optional<std::string> grepBitstreamPath(const std::string& shellOutput);
 };
 
 }

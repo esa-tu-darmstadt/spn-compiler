@@ -63,7 +63,7 @@ namespace spnc_rt {
     void execute(size_t num_elements, void* inputs, void* outputs);
 
   private:
-    const Kernel* kernel;
+    Kernel kernel;
 
     void* handle;
 

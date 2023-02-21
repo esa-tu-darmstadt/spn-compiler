@@ -234,7 +234,7 @@ ExecutionResult CreateVivadoProject::executeStep(mlir::ModuleOp *mod) {
   FPGAKernel *fpgaKernel = getContext()->get<FPGAKernel>();
   // TODO: Fill in the remaining missing information.
   fpgaKernel->fileName = "blablabla.bit";
-  fpgaKernel->kernelName = "spn-blablabla";
+  fpgaKernel->kernelName = "spn_fpga";
   fpgaKernel->kernelId = KERNEL_ID;
   kernel = std::make_unique<Kernel>(*fpgaKernel);
 
@@ -282,9 +282,16 @@ ExecutionResult CreateVivadoProject::tapascoCompose() {
 
   try {
     // tapasco compose [spnc x 1] @200Mhz -p ultra96v2
-    execShell({
+    std::string output = execShellAndGetOutput({
       "tapasco", "compose", "[", config.projectName, "x", "1", "]", mhzString, "-p", deviceString
     });
+
+    std::optional<std::string> opt = grepBitstreamPath(output);
+
+    if (!opt)
+      throw std::runtime_error("could not parse output bit stream file from tapasco compose output");
+
+    getContext()->get<Kernel>()->getFPGAKernel().fileName = opt.value();
   } catch (const std::runtime_error& e) {
     std::filesystem::current_path(pwd);
     return failure(e.what());
@@ -301,6 +308,24 @@ void CreateVivadoProject::execShell(const std::vector<std::string>& cmd) {
     cmdString.append(s + " ");
   spdlog::info("Executing shell command: {}", cmdString);
   Command::executeExternalCommand(cmd);
+}
+
+std::string CreateVivadoProject::execShellAndGetOutput(const std::vector<std::string>& cmd) {
+  std::string cmdString;
+  for (const std::string& s : cmd)
+    cmdString.append(s + " ");
+  spdlog::info("Executing shell command: {}", cmdString);
+  return Command::executeExternalCommandAndGetOutput(cmdString);
+}
+
+std::optional<std::string> CreateVivadoProject::grepBitstreamPath(const std::string& shellOutput) {
+  static const std::regex rx("produced file: '([^']+)'");
+  std::smatch matches;
+
+  if (!std::regex_search(shellOutput, matches, rx))
+    return std::nullopt;
+
+  return matches[1].str();
 }
 
 }

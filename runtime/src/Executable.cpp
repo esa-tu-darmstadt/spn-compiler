@@ -15,12 +15,11 @@
 
 using namespace spnc_rt;
 
-Executable::Executable(const Kernel& _kernel) : kernel{&_kernel}, handle{nullptr}, kernel_func{nullptr} {}
+Executable::Executable(const Kernel& _kernel) : kernel{_kernel}, handle{nullptr}, kernel_func{nullptr} {}
 
 Executable::Executable(spnc_rt::Executable&& other) noexcept: kernel{other.kernel}, handle{other.handle},
                                                               kernel_func{other.kernel_func} {
   other.handle = nullptr;
-  other.kernel = nullptr;
 }
 
 Executable& Executable::operator=(Executable&& other) noexcept {
@@ -28,7 +27,6 @@ Executable& Executable::operator=(Executable&& other) noexcept {
   handle = other.handle;
   other.handle = nullptr;
   kernel = other.kernel;
-  other.kernel = nullptr;
   return *this;
 }
 
@@ -43,17 +41,15 @@ void Executable::execute(size_t num_elements, void* inputs, void* outputs) {
     initialize();
   }
 
-  std::cout << "Executable::execute\n";
-
-  if (kernel->getKernelType() == KernelType::CLASSICAL_KERNEL) {
-    ClassicalKernel classical = kernel->getClassicalKernel();
+  if (kernel.getKernelType() == KernelType::CLASSICAL_KERNEL) {
+    ClassicalKernel classical = kernel.getClassicalKernel();
 
     if (classical.targetArch == KernelTarget::CUDA)
       executeGPU(num_elements, inputs, outputs);
     else if (classical.targetArch == KernelTarget::CPU)
       executeBatch(num_elements, inputs, outputs);
-  } else if (kernel->getKernelType() == KernelType::FPGA_KERNEL) {
-    FPGAKernel fpga = kernel->getFPGAKernel();
+  } else if (kernel.getKernelType() == KernelType::FPGA_KERNEL) {
+    FPGAKernel fpga = kernel.getFPGAKernel();
     assert(false && "not implemented");
   }
 }
@@ -75,7 +71,7 @@ void Executable::executeSingle(size_t num_samples, void* inputs, void* outputs) 
 #if SLP_DEBUG
   TimePoint start = std::chrono::high_resolution_clock::now();
 #endif
-  ClassicalKernel kernel = this->kernel->getClassicalKernel();
+  ClassicalKernel kernel = this->kernel.getClassicalKernel();
   kernel_func(inputs, inputs, 0, 1, kernel.numFeatures, 1, 1, outputs, outputs, 0, 1, 1, 1, 1);
 #if SLP_DEBUG
   TimePoint end = std::chrono::high_resolution_clock::now();
@@ -86,7 +82,7 @@ void Executable::executeSingle(size_t num_samples, void* inputs, void* outputs) 
 
 void Executable::executeBatch(size_t num_samples, void* inputs, void* outputs) {
   assert(kernel_func);
-  ClassicalKernel kernel = this->kernel->getClassicalKernel();
+  ClassicalKernel kernel = this->kernel.getClassicalKernel();
   // Cast to char (i.e. byte) pointer to perform pointer arithmetic.
   char* input_ptr = reinterpret_cast<char*>(inputs);
   char* output_ptr = reinterpret_cast<char*>(outputs);
@@ -109,7 +105,7 @@ void Executable::executeBatch(size_t num_samples, void* inputs, void* outputs) {
 
 void Executable::executeGPU(size_t num_samples, void* inputs, void* outputs) {
   assert(kernel_func);
-  ClassicalKernel kernel = this->kernel->getClassicalKernel();
+  ClassicalKernel kernel = this->kernel.getClassicalKernel();
   // For GPUs, we launch all inputs at once. The host-part of the compiled kernel will split the samples
   // into multiple blocks, which in turn are processed by multiple GPU threads at once.
   // TODO: We need to specify the number of features as stride in the first dimension here,
@@ -120,11 +116,11 @@ void Executable::executeGPU(size_t num_samples, void* inputs, void* outputs) {
 }
 
 void Executable::initialize() {
-  if (this->kernel->getKernelType() != KernelType::CLASSICAL_KERNEL)
+  if (this->kernel.getKernelType() != KernelType::CLASSICAL_KERNEL)
     throw std::runtime_error("not implemented");
   
   char* error = nullptr;
-  ClassicalKernel kernel = this->kernel->getClassicalKernel();
+  ClassicalKernel kernel = this->kernel.getClassicalKernel();
   bool isSharedObject = kernel.targetArch == KernelTarget::CPU || kernel.targetArch == KernelTarget::CUDA;
 
   if (isSharedObject) {

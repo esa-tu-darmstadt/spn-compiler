@@ -90,11 +90,19 @@ namespace spnc {
       return KernelType(kernel.index() + 1);
     }
 
-    ClassicalKernel getClassicalKernel() const {
+    const ClassicalKernel& getClassicalKernel() const {
       return std::get<ClassicalKernel>(kernel);
     }
 
-    FPGAKernel getFPGAKernel() const {
+    ClassicalKernel& getClassicalKernel() {
+      return std::get<ClassicalKernel>(kernel);
+    }
+
+    const FPGAKernel& getFPGAKernel() const {
+      return std::get<FPGAKernel>(kernel);
+    }
+
+    FPGAKernel& getFPGAKernel() {
       return std::get<FPGAKernel>(kernel);
     }
   };

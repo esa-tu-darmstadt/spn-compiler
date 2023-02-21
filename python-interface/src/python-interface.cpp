@@ -36,13 +36,10 @@ PYBIND11_MODULE(spncpy, m) {
                 return kernel.getFPGAKernel().kernelName;
             })
       .def("execute",
-           [](const Kernel& kernel, int num_elements, py::array& inputs) {
-             if (kernel.getKernelType() == KernelType::CLASSICAL_KERNEL) {
-              std::cout << "kernel type: " << kernel.getKernelType() << "\n";
-              std::cout << "kernel index: " << kernel.kernel.index() << "\n";
+          [](const Kernel& kernel, int num_elements, py::array& inputs) {
+            if (kernel.getKernelType() == KernelType::CLASSICAL_KERNEL) {
               ClassicalKernel classical = kernel.getClassicalKernel();
-              std::cout << "got classical\n";
-             
+              
               py::buffer_info input_buf = inputs.request();
 
               // Get a new array to hold the result values, using the data-type
@@ -62,10 +59,10 @@ PYBIND11_MODULE(spncpy, m) {
               spnc_rt::spn_runtime::instance().execute(kernel, num_elements, input_ptr, output_ptr);
 
               return result;
-             }
+            }
 
-             throw std::runtime_error("not implemented");
-           });
+            throw std::runtime_error("not implemented");
+          });
 
   py::class_<spn_compiler>(m, "SPNCompiler")
       .def(py::init())
