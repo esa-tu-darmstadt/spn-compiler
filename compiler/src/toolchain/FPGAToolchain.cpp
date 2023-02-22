@@ -14,6 +14,7 @@
 #include "pipeline/steps/hdl/CreateVivadoProject.h"
 #include "pipeline/steps/hdl/EmbedController.hpp"
 #include "pipeline/steps/hdl/ReturnKernel.h"
+#include "pipeline/steps/hdl/WriteDebugInfo.hpp"
 #include "pipeline/steps/mlir/conversion/LoSPNtoFPGAConversion.h"
 #include "TargetInformation.h"
 
@@ -64,8 +65,10 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   // does some preprocessing and fills KernelInfo with the correct information
   auto& lospnTransform = pipeline->emplaceStep<LoSPNTransformations>(hispn2lospn);
 
+  // map the SPN operator to HW operators and perform scheduling
+  auto& lospn2fpga = pipeline->emplaceStep<LoSPNtoFPGAConversion>(lospnTransform);
+
   if (!option::justGetKernel.get(*config)) {
-    auto& lospn2fpga = pipeline->emplaceStep<LoSPNtoFPGAConversion>(lospnTransform);
 
     ControllerConfig controllerConfig{
       .generatorPath = spnc::option::controllerGeneratorPath.get(*config)
@@ -84,8 +87,10 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
       .device = spnc::option::fpgaDevice.get(*config)
     };
     auto& createVivadoProject = pipeline->emplaceStep<CreateVivadoProject>(ipConfig, embedController);
+    auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(spnc::option::outputPath.get(*config) + "/ipxact_core", createVivadoProject);
   } else {
     auto& returnKernel = pipeline->emplaceStep<ReturnKernel>();
+    auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(spnc::option::outputPath.get(*config) + "/ipxact_core", returnKernel);
   }
 
   // Attach the LLVM target machine and the kernel information to the pipeline context

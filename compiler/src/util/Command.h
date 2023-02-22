@@ -58,6 +58,7 @@ namespace spnc {
       }
       while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
           result += buffer.data();
+          printf("%s", buffer.data());
       }
       return result;
     }

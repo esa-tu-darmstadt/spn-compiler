@@ -22,6 +22,8 @@ using namespace spnc;
 
 Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t& options) {
   SPDLOG_INFO("Welcome to the SPN compiler!");
+  for (const auto& [k, v] : options)
+    std::cout << k << ": " << v << "\n";
   auto config = interface::Options::parse(options);
   std::unique_ptr<Pipeline<Kernel>> pipeline;
   if (spnc::option::compilationTarget.get(*config) == option::TargetMachine::CUDA) {

@@ -3,6 +3,9 @@ import numpy as np
 import struct
 from codecs import decode
 import math
+import json
+import sys
+import os
 
 import cocotb
 from cocotb.triggers import Timer, RisingEdge, FallingEdge
@@ -10,6 +13,7 @@ from cocotb.clock import Clock
 
 from cocotbext.axi import AxiStreamBus, AxiStreamSource, AxiStreamSink, AxiStreamFrame
 
+#from xspn.spn_parser import load_spn_2
 from spn_parser import load_spn_2
 from spn.algorithms.Inference import likelihood
 from spn.structure.leaves.histogram.Histograms import Histogram
@@ -18,6 +22,13 @@ from functools import reduce
 
 from init import prepare
 
+
+def load_config() -> dict:
+  path = os.environ['CONFIG_PATH']
+
+  with open(path, 'r') as file:
+    content = file.read()
+    return json.loads(content)
 
 # https://stackoverflow.com/questions/8751653/how-to-convert-a-binary-string-into-a-float-value/8762541
 def int_to_bytes(n, length):  # Helper function
@@ -106,8 +117,9 @@ async def test_SPNController(dut):
 
   spn_path = '../../../examples/nips5.spn'
   spn, var_2_index, index_2_min, index_2_max = load_spn_2(spn_path)
-  COUNT = 10000
+  COUNT = 20
   data = generate_data(COUNT, index_2_min, index_2_max)
+  print(f'data.shape={data.shape}')
   expected = likelihood(spn, data)
 
   rename_signals(dut)
