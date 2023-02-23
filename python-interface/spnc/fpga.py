@@ -109,3 +109,48 @@ class FPGACompiler:
         # This step will fail and is expected.
         kernel = spncpy.SPNCompiler().compileQuery(str(bin_path), options)
         return kernel
+
+    def compile_normal(self, spn, wdir):
+        model = SPNModel(spn, 'uint8')
+        query = JointProbability(model)
+
+        print(f'using working directory path {wdir}')
+        try:
+            os.mkdir(wdir)
+        except:
+            pass
+        bin_path = wdir / 'spn.bin'
+
+        # Serialize the SPN to binary format as input to the compiler.
+        if self.verbose:
+            print(f"Serializing SPN to {bin_path}")
+        BinarySerializer(bin_path).serialize_to_file(query)
+        # Check that the serialization worked.
+        if not os.path.isfile(bin_path):
+            raise RuntimeError("Serialization of the SPN failed")
+
+        # Compile the query into a Kernel.
+        options = dict({"target": "FPGA",
+                        "controller-generator-path": "../ChiselSPNController/build/generate",
+                        "o": str(wdir),
+                        "vivado": "true",
+                        "tapasco-compose": "true",
+                        "fpga-device": "vc709"
+                        })
+
+        # Add the extra options, if they do not clash with an existing option.
+        if self.otherOptions is not None:
+            extraOptions = [(str(k), str(v)) for k, v in self.otherOptions.items()]
+            for k, v in extraOptions:
+                if k in options and options[k] != v:
+                    print(f"WARNING: Option {k} specified twice, ignoring option value {v}")
+                else:
+                    options[k] = v
+
+        if self.verbose:
+            print(f"Invoking compiler with options: {options}")
+
+        print(options)
+        # This step will fail and is expected.
+        kernel = spncpy.SPNCompiler().compileQuery(str(bin_path), options)
+        return kernel
