@@ -25,6 +25,8 @@ public:
     targetPath(targetPath) {}
 
   ExecutionResult executeStep(Kernel *kernel) {
+    fs::create_directories(targetPath);
+
     fs::path targetFile = targetPath / "debug_info.json";
     std::ofstream outFile(targetFile);
 

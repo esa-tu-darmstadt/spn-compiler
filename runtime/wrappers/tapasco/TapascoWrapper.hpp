@@ -3,12 +3,12 @@
 #include <vector>
 #include <tapasco.hpp>
 
-#include "runtime/src/Executable.h"
-
-#include "pipeline/steps/hdl/ControllerDescription.hpp"
+#include "Kernel.h"
 
 
 namespace spnc_rt::tapasco_wrapper {
+
+using namespace spnc;
 
 template <class T>
 T roundN(const T& n, const T& N) {
@@ -19,7 +19,7 @@ T roundN(const T& n, const T& N) {
 
 class TapascoSPNDevice {
   Kernel kernel;
-  ::spnc::ControllerDescription controllerDescription;
+  FPGAKernel fpgaKernel;
 
   tapasco::Tapasco tap;
   size_t kernelId;
@@ -33,8 +33,8 @@ class TapascoSPNDevice {
   void resizeOutputBuffer(size_t numElements);
 public:
   // these functions can fail
-  TapascoSPNDevice(const Kernel& kernel, const ::spnc::ControllerDescription& controllerDescription);
-  void execute_query(size_t numElements, const void *inputs, void *outputs);
+  TapascoSPNDevice(const Kernel& kernel);
+  void executeQuery(size_t numElements, const void *inputs, void *outputs);
 };
 
 static std::unique_ptr<TapascoSPNDevice> device;
@@ -43,11 +43,13 @@ static std::unique_ptr<TapascoSPNDevice> device;
 
 namespace spnc_rt {
 
-tapasco_wrapper::TapascoSPNDevice *initTapasco(const Kernel& kernel, const ::spnc::ControllerDescription& controllerDescription) {
+using namespace spnc;
+
+tapasco_wrapper::TapascoSPNDevice *initTapasco(const Kernel& kernel) {
   using namespace tapasco_wrapper;
 
   if (!device)
-    device = std::make_unique<TapascoSPNDevice>(kernel, controllerDescription);
+    device = std::make_unique<TapascoSPNDevice>(kernel);
 
   return device.get();
 }

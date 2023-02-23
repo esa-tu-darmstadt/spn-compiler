@@ -41,17 +41,14 @@ void Executable::execute(size_t num_elements, void* inputs, void* outputs) {
     initialize();
   }
 
-  if (kernel.getKernelType() == KernelType::CLASSICAL_KERNEL) {
-    ClassicalKernel classical = kernel.getClassicalKernel();
+  assert(kernel.getKernelType() == KernelType::CLASSICAL_KERNEL);
 
-    if (classical.targetArch == KernelTarget::CUDA)
-      executeGPU(num_elements, inputs, outputs);
-    else if (classical.targetArch == KernelTarget::CPU)
-      executeBatch(num_elements, inputs, outputs);
-  } else if (kernel.getKernelType() == KernelType::FPGA_KERNEL) {
-    FPGAKernel fpga = kernel.getFPGAKernel();
-    assert(false && "not implemented");
-  }
+  ClassicalKernel classical = kernel.getClassicalKernel();
+
+  if (classical.targetArch == KernelTarget::CUDA)
+    executeGPU(num_elements, inputs, outputs);
+  else if (classical.targetArch == KernelTarget::CPU)
+    executeBatch(num_elements, inputs, outputs);
 }
 // =======================================================================================================//
 #ifndef SLP_DEBUG
@@ -117,7 +114,7 @@ void Executable::executeGPU(size_t num_samples, void* inputs, void* outputs) {
 
 void Executable::initialize() {
   if (this->kernel.getKernelType() != KernelType::CLASSICAL_KERNEL)
-    throw std::runtime_error("not implemented");
+    throw std::runtime_error("wrong kernel type");
   
   char* error = nullptr;
   ClassicalKernel kernel = this->kernel.getClassicalKernel();
@@ -139,13 +136,5 @@ void Executable::initialize() {
     if ((error = dlerror()) != nullptr) {
       SPNC_FATAL_ERROR("Could not locate Kernel function {} in {}: {}", kernel.kernelName, kernel.fileName, error);
     }
-  } else {
-    assert(kernel.targetArch == KernelTarget::FPGA);
-    assert(false && "not implemented");
-
-    //kernel_func = tapasco_get_kernel_func(*kernel);
-
-    //if (!kernel_func)
-    //  SPNC_FATAL_ERROR("Could not get kernel function in context of Tapasco");
   }
 }

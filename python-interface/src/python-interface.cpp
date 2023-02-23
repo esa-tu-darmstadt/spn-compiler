@@ -61,6 +61,30 @@ PYBIND11_MODULE(spncpy, m) {
               return result;
             }
 
+            if (kernel.getKernelType() == KernelType::FPGA_KERNEL) {
+              FPGAKernel fpga = kernel.getFPGAKernel();
+
+              py::buffer_info input_buf = inputs.request();
+
+              // The inner data type of the inputs don't matter here.
+              // The Tapasco implementation assumes uint32_t and then performs
+              // bit packing before sending the data to the accelerator.
+              auto dtype = py::dtype("uint32");
+              std::vector<uint32_t> shape{
+                uint32_t(num_elements)
+              };
+
+              auto result = py::array(dtype, shape);
+              py::buffer_info result_buf = result.request(true);
+
+              void* input_ptr = (void*) input_buf.ptr;
+              void* output_ptr = (void*) result_buf.ptr;
+
+              spnc_rt::spn_runtime::instance().execute(kernel, num_elements, input_ptr, output_ptr);
+
+              return result;
+            }
+
             throw std::runtime_error("not implemented");
           });
 

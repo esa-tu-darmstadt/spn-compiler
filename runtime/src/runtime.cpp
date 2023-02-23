@@ -11,6 +11,10 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/cfg/env.h>
 
+#ifdef TAPASCO_FPGA_SUPPORT
+#include "../wrappers/tapasco/TapascoWrapper.hpp"
+#endif
+
 namespace spnc_rt {
 
   static bool initLogger() {
@@ -49,5 +53,11 @@ void spn_runtime::execute(const Kernel& kernel, size_t num_elements, void* input
                                                                                 std::make_unique<Executable>(classicalKernel)});
     }
     cached_executables[classicalKernel.uniqueId()]->execute(num_elements, inputs, outputs);
+  } else if (kernel.getKernelType() == KernelType::FPGA_KERNEL) {
+#ifdef TAPASCO_FPGA_SUPPORT
+    initTapasco(kernel)->executeQuery(num_elements, inputs, outputs);
+#else
+    throw std::runtime_error("TAPASCO_FPGA_SUPPORT is not defined and therefore not implemented");
+#endif
   }
 }

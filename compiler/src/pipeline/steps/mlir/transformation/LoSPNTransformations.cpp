@@ -73,6 +73,8 @@ void spnc::LoSPNTransformations::postProcess(mlir::ModuleOp* transformedModule) 
 
   fpgaKernel.liteDataWidth = 32;
   fpgaKernel.liteAddrWidth = 32;
+
+  fpgaKernel.kernelId = 123;
 }
 
 std::string spnc::LoSPNTransformations::translateType(mlir::Type type) {

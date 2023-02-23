@@ -12,7 +12,7 @@ if(NOT TARGET tapasco)
 endif(NOT TARGET tapasco)
 
 
-add_executable(
+add_library(
   tapasco-wrapper
   TapascoWrapper.cpp
 )

@@ -3,4 +3,6 @@ if (${CUDA_GPU_SUPPORT})
     add_subdirectory(cuda)
 endif (${CUDA_GPU_SUPPORT})
 
-#add_subdirectory(tapasco)
+if(${TAPASCO_FPGA_SUPPORT})
+  add_subdirectory(tapasco)
+endif(${TAPASCO_FPGA_SUPPORT})
