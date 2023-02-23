@@ -11,6 +11,7 @@
 #include "LoSPN/LoSPNPasses.h"
 #include "LoSPN/Analysis/SPNGraphStatistics.h"
 #include "LoSPN/Analysis/SPNNodeLevel.h"
+#include "LoSPN/Analysis/SPNBitWidth.h"
 #include <util/json.hpp>
 
 using namespace mlir;

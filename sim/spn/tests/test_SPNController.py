@@ -13,8 +13,8 @@ from cocotb.clock import Clock
 
 from cocotbext.axi import AxiStreamBus, AxiStreamSource, AxiStreamSink, AxiStreamFrame
 
-#from xspn.spn_parser import load_spn_2
-from spn_parser import load_spn_2
+from xspn.spn_parser import load_spn_2
+#from spn_parser import load_spn_2
 from spn.algorithms.Inference import likelihood
 from spn.structure.leaves.histogram.Histograms import Histogram
 
@@ -76,7 +76,7 @@ def generate_data(count, index_2_min, index_2_max):
     high = index_2_max[j]
 
     for i in range(count):
-      val = np.random.randint(low, high)
+      val = 0.0 if np.random.uniform() < 0.9 else np.random.randint(low, high)
       data[i][j] = val
 
   return data
@@ -113,14 +113,12 @@ def rename_signals(dut):
 
 @cocotb.test()
 async def test_SPNController(dut):
-  #prepare(True, 'SPNController')
-
-  spn_path = '../../../examples/nips5.spn'
+  spn_path = os.environ['SPN_PATH']
   spn, var_2_index, index_2_min, index_2_max = load_spn_2(spn_path)
-  COUNT = 20
+  COUNT = 1000
   data = generate_data(COUNT, index_2_min, index_2_max)
   print(f'data.shape={data.shape}')
-  expected = likelihood(spn, data)
+  expected = likelihood(spn, data, dtype=np.float32)
 
   rename_signals(dut)
 
@@ -147,14 +145,14 @@ async def test_SPNController(dut):
   # wait until everything is done
   await Timer(1000, units="ns")  # wait a bit
   await FallingEdge(dut.clock)  # wait for falling edge/"negedge"
-  
-  expected = likelihood(spn, data)
+
+  # TODO: fix case where result = expected = 0
   results = np.array(results).reshape((data.shape[0], 1))
   error = np.abs((results - expected) / expected)
 
   print(f'Max relative error is {np.max(error)}')
 
-  if np.max(error) > 1e-3:
+  if np.max(error) > 1e-3 or np.any(np.isnan(error)):
     for e, r in zip(expected, results):
       print(f'exp={e} got={r}')
 

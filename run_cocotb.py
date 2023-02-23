@@ -11,7 +11,7 @@ from spn.io.Text import spn_to_str_ref_graph
 
 
 def print_usage():
-  print('')
+  print('Usage: run_cocotb <path to .spn file>')
 
 def bin_name(spn_name: str):
     return spn_name.split('.')[0] + '.bin'
@@ -50,6 +50,8 @@ if __name__ == '__main__':
   # call cocotb Makefile
   cmd = f'make -C sim/spn/tests/ INCLUDE_DIR={hdl_sources_path}'
   env = {
-    **os.environ.copy()
+    **os.environ.copy(),
+    'PYTHONPATH': ':'.join(sys.path),
+    'SPN_PATH': str(Path(spn_path).resolve())
   }
   subprocess.run(cmd, shell=True, cwd='.', env=env)

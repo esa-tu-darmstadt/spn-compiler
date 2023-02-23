@@ -145,8 +145,6 @@ void EmbedController::setParameters(uint32_t bodyDelay) {
 }
 
 ExecutionResult EmbedController::executeStep(ModuleOp *root) {
-  ReturnKernel::setKernel(getContext());
-
   std::optional<HWModuleOp> spnBody = getUniqueBody(*root);
 
   if (!spnBody.has_value())
