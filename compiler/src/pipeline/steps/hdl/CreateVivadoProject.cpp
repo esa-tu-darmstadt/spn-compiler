@@ -291,7 +291,7 @@ ExecutionResult CreateVivadoProject::tapascoCompose() {
 
     std::string bitFilePath = opt.value();
     fs::path destFilePath = fs::path("spn.bit");
-    fs::copy_file(bitFilePath, destFilePath);
+    fs::copy_file(bitFilePath, destFilePath, fs::copy_options::overwrite_existing);
 
     getContext()->get<Kernel>()->getFPGAKernel().fileName = destFilePath.string();
   } catch (const std::runtime_error& e) {
