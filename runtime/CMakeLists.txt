@@ -34,7 +34,11 @@ target_include_directories(spnc-rt
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/../common/include/)
 
-target_link_libraries(spnc-rt PRIVATE elf spnc-common tapasco tapasco-wrapper spdlog::spdlog)
+if(${TAPASCO_FPGA_SUPPORT})
+  target_link_libraries(spnc-rt PRIVATE elf spnc-common tapasco tapasco-wrapper spdlog::spdlog)
+else(${TAPASCO_FPGA_SUPPORT})
+  target_link_libraries(spnc-rt PRIVATE elf spnc-common spdlog::spdlog)
+endif(${TAPASCO_FPGA_SUPPORT})
 
 option(CPU_PARALLEL_RUNTIME
         "Enable/disable thread-parallel execution of multiple batches on CPU in the runtime"

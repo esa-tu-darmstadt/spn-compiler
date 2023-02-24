@@ -34,8 +34,9 @@ def test_fpga_histogram():
 
   # Execute the compiled Kernel.
   compiler = FPGACompiler(computeInLogSpace=False)
-  #kernel = compiler.compile_normal(spn, Path('test_fpga_histogram'))
-  kernel = compiler.compile_kernel_info(spn, Path('test_fpga_histogram'))
+  kernel = compiler.compile_normal(spn, Path('test_fpga_histogram'))
+  #kernel = compiler.compile_kernel_info(spn, Path('test_fpga_histogram'))
+  return
 
   num_samples = inputs.shape[0]
   outputs = kernel.execute(num_samples, inputs)

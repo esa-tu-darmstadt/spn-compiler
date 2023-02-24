@@ -250,8 +250,8 @@ ExecutionResult CreateVivadoProject::executeStep(mlir::ModuleOp *mod) {
 ExecutionResult CreateVivadoProject::tapascoCompose() {
   namespace fs = std::filesystem;
 
-  auto pwd = std::filesystem::current_path();
-  std::filesystem::current_path(config.targetDir);
+  auto pwd = fs::current_path();
+  fs::current_path(config.targetDir);
   Kernel *kernel = getContext()->get<Kernel>();
 
   // TODO: How is the zip file name determined?
@@ -263,7 +263,7 @@ ExecutionResult CreateVivadoProject::tapascoCompose() {
   std::string mhzString = "@" + std::to_string(config.mhz) + "Mhz";
 
   if (!fs::is_regular_file(fs::path(zipString))) {
-    std::filesystem::current_path(pwd);
+    fs::current_path(pwd);
     return failure(
       fmt::format("file {} is not a valid zip file", zipString)
     );
@@ -274,7 +274,7 @@ ExecutionResult CreateVivadoProject::tapascoCompose() {
       "tapasco", "import", zipString, "as", idString, "-p", deviceString
     });
   } catch (const std::runtime_error& e) {
-    std::filesystem::current_path(pwd);
+    fs::current_path(pwd);
     return failure(e.what());
   }
 
@@ -289,13 +289,17 @@ ExecutionResult CreateVivadoProject::tapascoCompose() {
     if (!opt)
       throw std::runtime_error("could not parse output bit stream file from tapasco compose output");
 
-    getContext()->get<Kernel>()->getFPGAKernel().fileName = opt.value();
+    std::string bitFilePath = opt.value();
+    fs::path destFilePath = fs::path("spn.bit");
+    fs::copy_file(bitFilePath, destFilePath);
+
+    getContext()->get<Kernel>()->getFPGAKernel().fileName = destFilePath.string();
   } catch (const std::runtime_error& e) {
-    std::filesystem::current_path(pwd);
+    fs::current_path(pwd);
     return failure(e.what());
   }
 
-  std::filesystem::current_path(pwd);
+  fs::current_path(pwd);
 
   return success();
 }
