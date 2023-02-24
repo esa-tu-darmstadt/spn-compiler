@@ -78,6 +78,15 @@ void TapascoSPNDevice::executeQuery(size_t numElements, const void *inputs, void
   size_t loadBeatCount = inSize / (fpgaKernel.memDataWidth / 8);
   size_t storeBeatCount = outSize / (fpgaKernel.memDataWidth / 8);
 
+  spdlog::info(
+    "Would execute Tapasco with {} load beats and {} save beats (numElements = {})",
+    loadBeatCount,
+    storeBeatCount,
+    numElements
+  );
+
+  return;
+
   auto job = tap.launch(
     kernelId, retVal, inOnly, loadBeatCount,
     outOnly, storeBeatCount
