@@ -178,6 +178,10 @@ namespace spnc {
     ///
     /// Specify whether the user just wants to get the kernel information.
     extern Option<bool> justGetKernel;
+
+    ///
+    /// Specify the target frequency of the accelerator.
+    extern Option<int> fpgaFrequency;
   }
 }
 

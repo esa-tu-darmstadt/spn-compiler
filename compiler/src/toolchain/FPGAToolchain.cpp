@@ -84,7 +84,8 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
       },
       .targetDir = spnc::option::outputPath.get(*config) + "/ipxact_core",
       .topModuleFileName = "SPNController.v",
-      .device = spnc::option::fpgaDevice.get(*config)
+      .device = spnc::option::fpgaDevice.get(*config),
+      .mhz = uint32_t(spnc::option::fpgaFrequency.get(*config))
     };
     auto& createVivadoProject = pipeline->emplaceStep<CreateVivadoProject>(ipConfig, embedController);
     auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(spnc::option::outputPath.get(*config) + "/ipxact_core", createVivadoProject);

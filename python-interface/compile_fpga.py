@@ -32,7 +32,9 @@ if __name__ == "__main__":
     compiler = FPGACompiler(computeInLogSpace=False)
     kernel = compiler.compile_kernel_info(spn, Path(wdir_name))
 
-    inputs = np.zeros((10, len(index_to_min.items())))
+    inputs = np.zeros((8, len(index_to_min.items())))
+
+    print(f'inputs={inputs}')
 
     num_samples = inputs.shape[0]
     outputs = kernel.execute(num_samples, inputs)

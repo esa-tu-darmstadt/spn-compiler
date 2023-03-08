@@ -135,7 +135,8 @@ class FPGACompiler:
                         "o": str(wdir),
                         "vivado": "true",
                         "tapasco-compose": "true",
-                        "fpga-device": "vc709"
+                        "fpga-device": "vc709",
+                        "fpga-frequency": "100"
                         })
 
         # Add the extra options, if they do not clash with an existing option.
@@ -177,7 +178,8 @@ class FPGACompiler:
                         "controller-generator-path": "../ChiselSPNController/build/generate",
                         "o": str(wdir),
                         "fpga-device": "vc709",
-                        "just-get-kernel": "true"
+                        "just-get-kernel": "true",
+                        "fpga-frequency": "100"
                         })
 
         # Add the extra options, if they do not clash with an existing option.
