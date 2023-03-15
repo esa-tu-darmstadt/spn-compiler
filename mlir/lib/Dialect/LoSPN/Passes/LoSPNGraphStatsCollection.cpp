@@ -19,7 +19,7 @@ using namespace mlir::spn;
 using namespace mlir::spn::low;
 using json = nlohmann::json;
 
-namespace {
+namespace mlir::spn::low {
 
   struct LoSPNGraphStatsCollection : public PassWrapper<LoSPNGraphStatsCollection, OperationPass<ModuleOp>> {
   public:
