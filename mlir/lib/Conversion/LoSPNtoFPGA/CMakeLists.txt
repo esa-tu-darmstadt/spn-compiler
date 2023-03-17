@@ -2,6 +2,7 @@ add_mlir_conversion_library(MLIRLoSPNtoFPGATransforms
     LoSPNtoFPGAPass.cpp
     conversion.cpp
     DelayInsertionPass.cpp
+    Primitives/Primitives.cpp
     #main.cpp
 
     ADDITIONAL_HEADER_DIRS
@@ -21,6 +22,7 @@ add_mlir_conversion_library(MLIRLoSPNtoFPGATransforms
     CIRCTComb
     CIRCTScheduling
     CIRCTSeq
+    CIRCTFIRRTL
 )
 
 target_link_libraries(MLIRLoSPNtoFPGATransforms PRIVATE)
@@ -37,3 +39,5 @@ target_include_directories(MLIRLoSPNtoFPGATransforms PRIVATE ${PROJECT_SOURCE_DI
 #add_compile_definitions(TEST_KERNEL_DIR="${CMAKE_CURRENT_BINARY_DIR}")
 
 #set(SPNC_DRIVER_BINARY_PATH "${CMAKE_CURRENT_BINARY_DIR}/driver" CACHE INTERNAL "")
+
+add_subdirectory(Primitives)
