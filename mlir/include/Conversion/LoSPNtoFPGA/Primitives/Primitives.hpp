@@ -30,6 +30,7 @@ namespace mlir::spn::fpga::primitives {
 
 using namespace ::mlir;
 using namespace ::circt::firrtl;
+using namespace ::circt::hw;
 
 class PrimitiveBuilder {
 public:
@@ -54,11 +55,11 @@ void initPrimitiveBuilder(MLIRContext *ctxt, Value clk);
 
 Value constant(int64_t value, uint32_t bitWidth);
 
-inline Type UInt(uint32_t bitWidth) {
+inline circt::firrtl::IntType UInt(uint32_t bitWidth) {
   return IntType::get(prim->context, false, bitWidth);
 }
 
-inline Type SInt(uint32_t bitWidth) {
+inline circt::firrtl::IntType SInt(uint32_t bitWidth) {
   return IntType::get(prim->context, true, bitWidth);
 }
 
@@ -95,6 +96,26 @@ public:
 };
 
 inline std::shared_ptr<Expression> lift(Value val) {
+  return std::make_shared<ValueExpression>(val);
+}
+
+inline std::shared_ptr<Expression> UInt(int64_t value, uint32_t bitWidth) {
+  Value val = prim->builder.create<ConstantOp>(
+    prim->builder.getUnknownLoc(),
+    UInt(bitWidth),
+    ::llvm::APInt(bitWidth, value)
+  ).getResult();
+
+  return std::make_shared<ValueExpression>(val);
+}
+
+inline std::shared_ptr<Expression> SInt(int64_t value, uint32_t bitWidth) {
+  Value val = prim->builder.create<ConstantOp>(
+    prim->builder.getUnknownLoc(),
+    SInt(bitWidth),
+    ::llvm::APInt(bitWidth, value)
+  ).getResult();
+
   return std::make_shared<ValueExpression>(val);
 }
 
@@ -260,6 +281,93 @@ public:
       regOp,
       input
     );
+  }
+};
+
+// ::circt::hw::PortInfo doesn't really fit into the design of primitives
+struct Port {
+  enum Direction { Input, Output };
+
+  Direction direction;
+  std::string name;
+  Type type;
+};
+
+
+
+template <class ConcreteModule>
+class Module {
+  // The template is a trick to enforce that modOp exists per concrete module class.
+  static FModuleOp modOp;
+  std::vector<Port> ports;
+  InstanceOp instOp;
+
+  void declareOnce() {
+    // check if it has already been declared
+    if (modOp)
+      return;
+
+    // if not, declare
+    std::vector<PortInfo> portInfos;
+
+    for (const Port& port : ports) {
+      portInfos.push_back(
+        PortInfo{
+          // ...
+        }
+      );
+    }
+
+    modOp = prim->builder.create<FModuleOp>(
+      prim->builder.getUnknownLoc(),
+      prim->builder.getStringAttr("some name"),
+      portInfos
+    );
+  }
+
+  void instantiate() {
+    instOp = prim->builder.create<InstanceOp>(
+      prim->builder.getUnknownLoc(),
+      modOp,
+      prim->builder.getStringAttr("some instance name")
+    );
+  }
+protected:
+  Module(std::initializer_list<Port> ports):
+    ports(ports) {
+    // This constructor is used for declaration and instantiation at the same time.
+    // Declaration can happen at most once.
+    declareOnce();
+    instantiate();
+  }
+
+  virtual ~Module() {}
+public:
+  class PortRef {
+    Port *port;
+    Module<ConcreteModule> *mod;
+  public:
+    void operator<<(std::shared_ptr<Expression> what) {
+      assert(port->direction == Input);
+      
+      // TODO: Deduce the getResults() index from the specified port list with the
+      // port with the matching name.
+    }
+  };
+
+  PortRef operator()(const std::string& name) const {
+    // ...
+  }
+
+};
+
+class Queue : public Module<Queue> {
+public:
+  Queue(Type type, uint32_t depth):
+    Module<Queue>({
+      // ...
+    }) {
+
   }
 };
 

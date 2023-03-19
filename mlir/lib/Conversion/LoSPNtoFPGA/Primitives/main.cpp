@@ -26,9 +26,9 @@ int main(int argc, const char **argv)
     &root.getBodyRegion().front()
   );
 
-  auto valid = lift(constant(1, 1));
-  auto ready = lift(constant(1, 1));
-  auto count = lift(constant(123, 16));
+  auto valid = UInt(1, 1);
+  auto ready = UInt(1, 1);
+  auto count = UInt(123, 16);
 
   Value canEnqueue = (valid & ready & (count < lift(constant(8, 16))))->build();
 
