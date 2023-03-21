@@ -20,53 +20,58 @@ Value constant(int64_t value, uint32_t bitWidth) {
 
 }
 
-namespace mlir::spn::fpga::primitives::operators {
-
-std::shared_ptr<BinaryExpression> operator&(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b) {
-  return std::make_unique<BinaryExpression>(a, b, Expression::Operation::OP_AND);
-}
-
-std::shared_ptr<BinaryExpression> operator|(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b) {
-  return std::make_unique<BinaryExpression>(a, b, Expression::Operation::OP_OR);
-}
-
-std::shared_ptr<BinaryExpression> operator+(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b) {
-  return std::make_unique<BinaryExpression>(a, b, Expression::Operation::OP_ADD);
-}
-
-std::shared_ptr<BinaryExpression> operator-(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b) {
-  return std::make_unique<BinaryExpression>(a, b, Expression::Operation::OP_SUB);
-}
-
-std::shared_ptr<BinaryExpression> operator>(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b) {
-  return std::make_unique<BinaryExpression>(a, b, Expression::Operation::OP_GT);
-}
-
-std::shared_ptr<BinaryExpression> operator>=(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b) {
-  return std::make_unique<BinaryExpression>(a, b, Expression::Operation::OP_GEQ);
-}
-
-std::shared_ptr<BinaryExpression> operator<(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b) {
-  return std::make_unique<BinaryExpression>(a, b, Expression::Operation::OP_LT);
-}
-
-std::shared_ptr<BinaryExpression> operator<=(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b) {
-  return std::make_unique<BinaryExpression>(a, b, Expression::Operation::OP_LEQ);
-}
-
-std::shared_ptr<BinaryExpression> operator==(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b) {
-  return std::make_unique<BinaryExpression>(a, b, Expression::Operation::OP_EQ);
-}
-
-std::shared_ptr<BinaryExpression> operator!=(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b) {
-  return std::make_unique<BinaryExpression>(a, b, Expression::Operation::OP_NEQ);
-}
-
-}
-
 namespace mlir::spn::fpga::primitives {
-template <class T>
-FModuleOp Module<T>::modOp;
 
+ExpressionWrapper ExpressionWrapper::operator&(ExpressionWrapper b) const {
+  return ExpressionWrapper::make<BinaryExpression>(*this, b, Expression::Operation::OP_AND);
+}
+
+ExpressionWrapper ExpressionWrapper::operator|(ExpressionWrapper b) const {
+  return ExpressionWrapper::make<BinaryExpression>(*this, b, Expression::Operation::OP_AND);
+}
+
+ExpressionWrapper ExpressionWrapper::operator+(ExpressionWrapper b) const {
+  return ExpressionWrapper::make<BinaryExpression>(*this, b, Expression::Operation::OP_AND);
+}
+
+ExpressionWrapper ExpressionWrapper::operator-(ExpressionWrapper b) const {
+  return ExpressionWrapper::make<BinaryExpression>(*this, b, Expression::Operation::OP_AND);
+}
+
+ExpressionWrapper ExpressionWrapper::operator>(ExpressionWrapper b) const {
+  return ExpressionWrapper::make<BinaryExpression>(*this, b, Expression::Operation::OP_AND);
+}
+
+ExpressionWrapper ExpressionWrapper::operator>=(ExpressionWrapper b) const {
+  return ExpressionWrapper::make<BinaryExpression>(*this, b, Expression::Operation::OP_AND);
+}
+
+ExpressionWrapper ExpressionWrapper::operator<(ExpressionWrapper b) const {
+  return ExpressionWrapper::make<BinaryExpression>(*this, b, Expression::Operation::OP_AND);
+}
+
+ExpressionWrapper ExpressionWrapper::operator<=(ExpressionWrapper b) const {
+  return ExpressionWrapper::make<BinaryExpression>(*this, b, Expression::Operation::OP_AND);
+}
+
+ExpressionWrapper ExpressionWrapper::operator==(ExpressionWrapper b) const {
+  return ExpressionWrapper::make<BinaryExpression>(*this, b, Expression::Operation::OP_AND);
+}
+
+ExpressionWrapper ExpressionWrapper::operator!=(ExpressionWrapper b) const {
+  return ExpressionWrapper::make<BinaryExpression>(*this, b, Expression::Operation::OP_AND);
+}
+
+ExpressionWrapper ExpressionWrapper::operator()(const std::string& fieldName) const {
+  return ExpressionWrapper::make<FieldExpression>(*this, fieldName);
+}
+
+ExpressionWrapper ExpressionWrapper::operator()(size_t hi, size_t lo) const {
+  return ExpressionWrapper::make<BitsExpression>(*this, hi, lo);
+}
+
+ExpressionWrapper ExpressionWrapper::operator()(size_t bitIndex) const {
+
+}
 
 }

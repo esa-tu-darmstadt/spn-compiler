@@ -11,7 +11,6 @@ int main(int argc, const char **argv)
   assert(context->getOrLoadDialect<circt::firrtl::FIRRTLDialect>());
 
   using namespace ::mlir::spn::fpga::primitives;
-  using namespace ::mlir::spn::fpga::primitives::operators;
   using namespace ::circt::firrtl;
   using namespace ::mlir;
 
@@ -35,6 +34,7 @@ int main(int argc, const char **argv)
 
   auto testModule = TestModule();
 
+  assert(succeeded(getPrimitiveBuilder()->root.verify()));
   getPrimitiveBuilder()->dump();
 
   return 0;

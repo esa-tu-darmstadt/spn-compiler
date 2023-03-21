@@ -64,6 +64,10 @@ public:
     builder = circuitOp.getBodyBuilder();
   }
 
+  void setClock(Value value) {
+    clk = value;
+  }
+
   Value getClock() {
     return clk;
   }
@@ -129,6 +133,44 @@ public:
   virtual Value build() const = 0;
 };
 
+// This class ensures that everything lands on the heap and that the references
+// therefore not point to destructed stack objects.
+class ExpressionWrapper {
+  std::shared_ptr<Expression> ptr;
+public:
+  ExpressionWrapper() {}
+  ExpressionWrapper(std::shared_ptr<Expression> ptr): ptr(ptr) {}
+
+  template <class T, class ...Args>
+  static ExpressionWrapper make(Args&&...args) {
+    return ExpressionWrapper(std::make_shared<T>(args...));
+  }
+
+  Value build() const {
+    return ptr->build();
+  }
+
+  // We can now implement all the operators we couldn't before.
+
+  ExpressionWrapper operator&(ExpressionWrapper b) const;
+  ExpressionWrapper operator|(ExpressionWrapper b) const;
+  ExpressionWrapper operator+(ExpressionWrapper b) const;
+  ExpressionWrapper operator-(ExpressionWrapper b) const;
+  ExpressionWrapper operator>(ExpressionWrapper b) const;
+  ExpressionWrapper operator>=(ExpressionWrapper b) const;
+  ExpressionWrapper operator<(ExpressionWrapper b) const;
+  ExpressionWrapper operator<=(ExpressionWrapper b) const;
+  ExpressionWrapper operator==(ExpressionWrapper b) const;
+  ExpressionWrapper operator!=(ExpressionWrapper b) const;
+
+  // field
+  ExpressionWrapper operator()(const std::string& fieldName) const;
+  // bits
+  ExpressionWrapper operator()(size_t hi, size_t lo) const;
+  // single bit
+  ExpressionWrapper operator()(size_t bitIndex) const;
+};
+
 class ValueExpression : public Expression {
   Value value;
 public:
@@ -140,44 +182,44 @@ public:
   }
 };
 
-inline std::shared_ptr<Expression> lift(Value val) {
-  return std::make_shared<ValueExpression>(val);
+inline ExpressionWrapper lift(Value val) {
+  return ExpressionWrapper::make<ValueExpression>(val);
 }
 
-inline std::shared_ptr<Expression> UInt(int64_t value, uint32_t bitWidth) {
+inline ExpressionWrapper UInt(int64_t value, uint32_t bitWidth) {
   Value val = prim->builder.create<ConstantOp>(
     prim->builder.getUnknownLoc(),
     UInt(bitWidth),
     ::llvm::APInt(bitWidth, value)
   ).getResult();
 
-  return std::make_shared<ValueExpression>(val);
+  return ExpressionWrapper::make<ValueExpression>(val);
 }
 
-inline std::shared_ptr<Expression> SInt(int64_t value, uint32_t bitWidth) {
+inline ExpressionWrapper SInt(int64_t value, uint32_t bitWidth) {
   Value val = prim->builder.create<ConstantOp>(
     prim->builder.getUnknownLoc(),
     SInt(bitWidth),
     ::llvm::APInt(bitWidth, value)
   ).getResult();
 
-  return std::make_shared<ValueExpression>(val);
+  return ExpressionWrapper::make<ValueExpression>(val);
 }
 
 class UnaryExpression : public Expression {
-  std::shared_ptr<Expression> operand;
+  ExpressionWrapper operand;
   Operation operation;
 public:
   UnaryExpression(UnaryExpression&) = delete;
   UnaryExpression(const UnaryExpression&) = delete;
   UnaryExpression(UnaryExpression&&) = delete;
 
-  UnaryExpression(std::shared_ptr<Expression> operand, Operation operation):
+  UnaryExpression(ExpressionWrapper operand, Operation operation):
     operand(operand),
     operation(operation) {}
 
   Value build() const override {
-    Value input = operand->build();
+    Value input = operand.build();
     Value output;
 
     switch (operation) {
@@ -197,22 +239,22 @@ public:
 };
 
 class BinaryExpression : public Expression {
-  std::shared_ptr<Expression> lhs;
-  std::shared_ptr<Expression> rhs;
+  ExpressionWrapper lhs;
+  ExpressionWrapper rhs;
   Operation operation;
 public:
   //BinaryExpression(BinaryExpression&) = delete;
   //BinaryExpression(const BinaryExpression&) = delete;
   //BinaryExpression(BinaryExpression&&) = delete;
 
-  BinaryExpression(std::shared_ptr<Expression> lhs, std::shared_ptr<Expression> rhs, Operation operation):
+  BinaryExpression(ExpressionWrapper lhs, ExpressionWrapper rhs, Operation operation):
     lhs(lhs),
     rhs(rhs),
     operation(operation) {}
 
   Value build() const override {
-    Value leftInput = lhs->build();
-    Value rightInput = rhs->build();
+    Value leftInput = lhs.build();
+    Value rightInput = rhs.build();
     Location loc = prim->builder.getUnknownLoc();
     Value output;
 
@@ -257,74 +299,44 @@ public:
 };
 
 class BitsExpression : public Expression {
-  std::shared_ptr<Expression> operand;
+  ExpressionWrapper operand;
   uint32_t hi, lo;
 public:
-  BitsExpression(std::shared_ptr<Expression> operand, uint32_t hi, uint32_t lo):
+  BitsExpression(ExpressionWrapper operand, uint32_t hi, uint32_t lo):
     operand(operand), hi(hi), lo(lo) {}
 
   Value build() const override {
     return prim->builder.create<BitsPrimOp>(
       prim->builder.getUnknownLoc(),
-      operand->build(),
+      operand.build(),
       prim->builder.getI32IntegerAttr(hi),
       prim->builder.getI32IntegerAttr(lo)
     ).getResult();
   }
 };
 
-inline std::shared_ptr<BitsExpression> bits(std::shared_ptr<Expression> of, uint32_t hi, uint32_t lo) {
-  return std::make_shared<BitsExpression>(of, hi, lo);
+inline ExpressionWrapper bits(ExpressionWrapper of, uint32_t hi, uint32_t lo) {
+  return ExpressionWrapper::make<BitsExpression>(of, hi, lo);
 }
 
 class FieldExpression : public Expression {
-  std::shared_ptr<Expression> operand;
+  ExpressionWrapper operand;
   std::string fieldName;
 public:
-  FieldExpression(std::shared_ptr<Expression> operand, const std::string& fieldName):
+  FieldExpression(ExpressionWrapper operand, const std::string& fieldName):
     operand(operand), fieldName(fieldName) {}
 
   Value build() const override {
     return prim->builder.create<SubfieldOp>(
       prim->builder.getUnknownLoc(),
-      operand->build(),
+      operand.build(),
       fieldName
     ).getResult();
   }
 };
 
-inline std::shared_ptr<FieldExpression> field(std::shared_ptr<Expression> of, const std::string& fieldName) {
-  return std::make_shared<FieldExpression>(of, fieldName);
-}
-
-namespace operators {
-
-std::shared_ptr<BinaryExpression> operator&(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator|(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator+(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator-(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator>(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator>=(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator<(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator<=(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator==(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator!=(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-
-// Idea: We create an automatic promoting of std::shared_ptr such that we can then define
-// all kinds of custom operators for our needs.
-class ExpressionPointer {
-  std::shared_ptr<Expression> ptr;  
-public:
-  ExpressionPointer(std::shared_ptr<Expression> ptr): ptr(ptr) {}
-  // back conversion
-  operator std::shared_ptr<Expression>() { return ptr; }
-
-  // define your custom operators here
-  std::shared_ptr<FieldExpression> operator[](const std::string& fieldName) const {
-    return std::make_shared<FieldExpression>(ptr, fieldName);
-  }
-};
-
+inline ExpressionWrapper field(ExpressionWrapper of, const std::string& fieldName) {
+  return ExpressionWrapper::make<FieldExpression>(of, fieldName);
 }
 
 class Statement {
@@ -334,13 +346,10 @@ class Reg : public Statement {
   RegOp regOp;
 public:
   Reg(Type type) {
-    // TODO
-    Value clk = constant(1, 1);
-
     regOp = prim->builder.create<RegOp>(
       prim->builder.getUnknownLoc(),
       type,
-      clk //prim->getClock()
+      prim->getClock()
     );
   }
 
@@ -348,12 +357,12 @@ public:
     return regOp.getResult();
   }
 
-  operator std::shared_ptr<Expression>() {
+  operator ExpressionWrapper() {
     return lift(*this);
   }
 
-  void operator<<(std::shared_ptr<Expression> what) {
-    Value input = what->build();
+  void operator<<(ExpressionWrapper what) {
+    Value input = what.build();
     prim->builder.create<ConnectOp>(
       prim->builder.getUnknownLoc(),
       regOp,
@@ -378,7 +387,9 @@ protected:
   // The template is a trick to enforce that modOp exists per concrete module class.
   static FModuleOp modOp;
 
+  std::string moduleName;
   std::vector<Port> ports;
+  bool hasClock;
   std::unordered_map<std::string, size_t> portIndices;
   //std::unordered_map<std::string, size_t> inPortIndices;
   //std::unordered_map<std::string, size_t> outPortIndices;
@@ -400,8 +411,7 @@ protected:
       portInfos.emplace_back(
         prim->builder.getStringAttr(port.name),
         port.type,
-        port.direction == Port::Direction::Input ? Direction::In : Direction::Out,
-        prim->builder.getStringAttr("TestModule")
+        port.direction == Port::Direction::Input ? Direction::In : Direction::Out
       );
 
     Block *lastInsertion = prim->builder.getInsertionBlock();
@@ -409,12 +419,17 @@ protected:
 
     modOp = prim->builder.create<FModuleOp>(
       prim->builder.getUnknownLoc(),
-      prim->builder.getStringAttr("TestModule"),
+      prim->builder.getStringAttr(moduleName),
       portInfos
     );
 
-    prim->builder.setInsertionPointToEnd(modOp.getBodyBlock());
-    ConcreteModule::body();
+    Block *bodyBlock = modOp.getBodyBlock();
+    prim->builder.setInsertionPointToEnd(bodyBlock);
+
+    if (hasClock)
+      prim->setClock(bodyBlock->getArguments()[0]);
+
+    body();
     prim->builder.setInsertionPointToEnd(lastInsertion);
   }
 
@@ -426,41 +441,58 @@ protected:
     );
   }
 
+  void body() {
+    static_cast<ConcreteModule *>(this)->body();
+  }
 protected:
-  Module(std::initializer_list<Port> ports):
-    ports(ports) {
+  Module(const std::string& moduleName, std::initializer_list<Port> ports, bool hasClock = true):
+    moduleName(moduleName),
+    ports(ports),
+    hasClock(hasClock) {
     // This constructor is used for declaration and instantiation at the same time.
+
+    // By default every module has the clk as its first argument.
+    if (hasClock) {
+      this->ports.insert(
+        this->ports.begin(),
+        Port{
+          .direction = Port::Direction::Input,
+          .name = "clk",
+          .type = ClockType::get(prim->context)
+        }
+      );
+    }
+    
     // Declaration can happen at most once.
     declareOnce();
-    instantiate();
+    //instantiate();
   }
 
-  // only valid at the runtime of ConcreteModule::body()
-  static void getArgument(const std::string& name);
-
-  virtual ~Module() {}
+  Value getArgument(const std::string& name) {
+    size_t index = portIndices.at(name);
+    return modOp.getBodyBlock()->getArgument(index);
+  }
 public:
-
-
-  //Value operator()(const std::string& name) {
-  //  return instOp.getResults()[inPortIndices.at(name)];
-  //}
+  virtual ~Module() {}
 };
+
+template <class T>
+FModuleOp Module<T>::modOp;
 
 class TestModule : public Module<TestModule> {
 public:
   TestModule():
-    Module<TestModule>({
-      Port{.direction = Port::Direction::Input, .name = "x", .type = UInt(6)},
-      Port{.direction = Port::Direction::Output, .name = "y", .type = UInt(7)},
-      Port{.direction = Port::Direction::Output, .name = "z", .type = UInt(8)}
-    }) {
+    Module<TestModule>(
+      "MyCircuit",
+      {
+        Port{.direction = Port::Direction::Input, .name = "x", .type = UInt(6)},
+        Port{.direction = Port::Direction::Output, .name = "y", .type = UInt(6)}
+      }) {
 
   }
 
-  static void body() {
-    using namespace operators;
-
+  void body() {
+    /*
     auto valid = UInt(1, 1);
     auto ready = UInt(1, 1);
     auto count = UInt(123, 16);
@@ -473,6 +505,14 @@ public:
     auto reg = Reg(UInt(32));
     reg << count + count;
     reg << count + count;
+     */
+
+    auto x = lift(getArgument("x"));
+    auto c = lift(constant(3, 6));
+    auto reg = Reg(UInt(7));
+    reg << x + c;
+    auto reg2 = Reg(UInt(2));
+    reg2 << c(1, 0);
   }
 };
  
