@@ -18,28 +18,24 @@ int main(int argc, const char **argv)
   Value clk;
   initPrimitiveBuilder(context.get(), clk);
 
-  ModuleOp root = getPrimitiveBuilder()->builder.create<ModuleOp>(
-    getPrimitiveBuilder()->builder.getUnknownLoc()
-  );
-
-  getPrimitiveBuilder()->builder.setInsertionPointToStart(
-    &root.getBodyRegion().front()
-  );
-
+  /*
   auto valid = UInt(1, 1);
   auto ready = UInt(1, 1);
   auto count = UInt(123, 16);
 
   Value canEnqueue = (valid & ready & (count < lift(constant(8, 16))))->build();
 
-  Value lower = bits(count, 3, 0)->build();
+  auto lower = bits(count, 3, 0);
+  auto someField = field(lower, "someField");
 
   auto reg = Reg(UInt(32));
   reg << count + count;
   reg << count + count;
+   */
 
-  root.dump();
-  assert(succeeded(root.verify()));
+  auto testModule = TestModule();
+
+  getPrimitiveBuilder()->dump();
 
   return 0;
 }

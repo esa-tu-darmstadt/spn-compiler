@@ -63,3 +63,10 @@ std::shared_ptr<BinaryExpression> operator!=(std::shared_ptr<Expression> a, std:
 }
 
 }
+
+namespace mlir::spn::fpga::primitives {
+template <class T>
+FModuleOp Module<T>::modOp;
+
+
+}

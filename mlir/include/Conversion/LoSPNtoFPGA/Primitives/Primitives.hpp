@@ -30,21 +30,56 @@ namespace mlir::spn::fpga::primitives {
 
 using namespace ::mlir;
 using namespace ::circt::firrtl;
-using namespace ::circt::hw;
+//using namespace ::circt::hw;
 
 class PrimitiveBuilder {
 public:
   MLIRContext *context;
   OpBuilder builder;
+
+  ModuleOp root;
+  CircuitOp circuitOp;
+  Block *lastInsertionBlock;
+
   Value clk;
 public:
   PrimitiveBuilder(MLIRContext *context, Value clk):
     context(context),
     builder(context),
-    clk(clk) {}
+    clk(clk) {
+
+    root = builder.create<ModuleOp>(
+      builder.getUnknownLoc()
+    );
+
+    builder.setInsertionPointToStart(
+      &root.getBodyRegion().front()
+    );
+
+    circuitOp = builder.create<CircuitOp>(
+      builder.getUnknownLoc(),
+      builder.getStringAttr("MyCircuit")
+    );
+
+    builder = circuitOp.getBodyBuilder();
+  }
 
   Value getClock() {
     return clk;
+  }
+
+  void dump() {
+    assert(succeeded(root.verify()));
+    root.dump();
+  }
+
+  void beginModule() {
+    lastInsertionBlock = builder.getInsertionBlock();
+    builder.setInsertionPointToEnd(circuitOp.getBodyBlock());
+  }
+
+  void endModule() {
+    builder.setInsertionPointToEnd(lastInsertionBlock);
   }
 };
 
@@ -56,11 +91,15 @@ void initPrimitiveBuilder(MLIRContext *ctxt, Value clk);
 Value constant(int64_t value, uint32_t bitWidth);
 
 inline circt::firrtl::IntType UInt(uint32_t bitWidth) {
-  return IntType::get(prim->context, false, bitWidth);
+  return circt::firrtl::IntType::get(prim->context, false, bitWidth);
 }
 
 inline circt::firrtl::IntType SInt(uint32_t bitWidth) {
-  return IntType::get(prim->context, true, bitWidth);
+  return circt::firrtl::IntType::get(prim->context, true, bitWidth);
+}
+
+inline BundleType Bundle(ArrayRef<BundleType::BundleElement> elements) {
+  return BundleType::get(elements, prim->context);
 }
 
 // can be used to build any kind of expression
@@ -69,15 +108,21 @@ inline circt::firrtl::IntType SInt(uint32_t bitWidth) {
   Value a, b, c, d;
   ...
   Value e = (  (a & b) | c + d  ).build(primBuilder);
+
+  auto x = ...;
+
+  // Problem: x can be any expression-ptr and access operators cannot be defined
+  // outside the class they operate on.
+  auto isValid = x["bits"]["valid"];
+
+
  */
 
 class Expression {
 public:
   enum Operation {
     OP_AND, OP_OR, OP_NEG, OP_ADD, OP_SUB, OP_GT, OP_GEQ,
-    OP_LT, OP_LEQ, OP_EQ, OP_NEQ,
-
-
+    OP_LT, OP_LEQ, OP_EQ, OP_NEQ
   };
 
   virtual ~Expression() {}
@@ -211,21 +256,6 @@ public:
   }
 };
 
-namespace operators {
-
-std::shared_ptr<BinaryExpression> operator&(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator|(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator+(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator-(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator>(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator>=(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator<(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator<=(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator==(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-std::shared_ptr<BinaryExpression> operator!=(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
-
-}
-
 class BitsExpression : public Expression {
   std::shared_ptr<Expression> operand;
   uint32_t hi, lo;
@@ -247,7 +277,55 @@ inline std::shared_ptr<BitsExpression> bits(std::shared_ptr<Expression> of, uint
   return std::make_shared<BitsExpression>(of, hi, lo);
 }
 
+class FieldExpression : public Expression {
+  std::shared_ptr<Expression> operand;
+  std::string fieldName;
+public:
+  FieldExpression(std::shared_ptr<Expression> operand, const std::string& fieldName):
+    operand(operand), fieldName(fieldName) {}
 
+  Value build() const override {
+    return prim->builder.create<SubfieldOp>(
+      prim->builder.getUnknownLoc(),
+      operand->build(),
+      fieldName
+    ).getResult();
+  }
+};
+
+inline std::shared_ptr<FieldExpression> field(std::shared_ptr<Expression> of, const std::string& fieldName) {
+  return std::make_shared<FieldExpression>(of, fieldName);
+}
+
+namespace operators {
+
+std::shared_ptr<BinaryExpression> operator&(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
+std::shared_ptr<BinaryExpression> operator|(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
+std::shared_ptr<BinaryExpression> operator+(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
+std::shared_ptr<BinaryExpression> operator-(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
+std::shared_ptr<BinaryExpression> operator>(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
+std::shared_ptr<BinaryExpression> operator>=(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
+std::shared_ptr<BinaryExpression> operator<(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
+std::shared_ptr<BinaryExpression> operator<=(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
+std::shared_ptr<BinaryExpression> operator==(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
+std::shared_ptr<BinaryExpression> operator!=(std::shared_ptr<Expression> a, std::shared_ptr<Expression> b);
+
+// Idea: We create an automatic promoting of std::shared_ptr such that we can then define
+// all kinds of custom operators for our needs.
+class ExpressionPointer {
+  std::shared_ptr<Expression> ptr;  
+public:
+  ExpressionPointer(std::shared_ptr<Expression> ptr): ptr(ptr) {}
+  // back conversion
+  operator std::shared_ptr<Expression>() { return ptr; }
+
+  // define your custom operators here
+  std::shared_ptr<FieldExpression> operator[](const std::string& fieldName) const {
+    return std::make_shared<FieldExpression>(ptr, fieldName);
+  }
+};
+
+}
 
 class Statement {
 };
@@ -284,6 +362,7 @@ public:
   }
 };
 
+
 // ::circt::hw::PortInfo doesn't really fit into the design of primitives
 struct Port {
   enum Direction { Input, Output };
@@ -293,13 +372,17 @@ struct Port {
   Type type;
 };
 
-
-
 template <class ConcreteModule>
 class Module {
+protected:
   // The template is a trick to enforce that modOp exists per concrete module class.
   static FModuleOp modOp;
+
   std::vector<Port> ports;
+  std::unordered_map<std::string, size_t> portIndices;
+  //std::unordered_map<std::string, size_t> inPortIndices;
+  //std::unordered_map<std::string, size_t> outPortIndices;
+
   InstanceOp instOp;
 
   void declareOnce() {
@@ -308,30 +391,41 @@ class Module {
       return;
 
     // if not, declare
-    std::vector<PortInfo> portInfos;
+    size_t portIndex = 0;
+    for (const Port& port : ports)
+      portIndices[port.name] = portIndex++;
 
-    for (const Port& port : ports) {
-      portInfos.push_back(
-        PortInfo{
-          // ...
-        }
+    std::vector<PortInfo> portInfos;
+    for (const Port& port : ports)
+      portInfos.emplace_back(
+        prim->builder.getStringAttr(port.name),
+        port.type,
+        port.direction == Port::Direction::Input ? Direction::In : Direction::Out,
+        prim->builder.getStringAttr("TestModule")
       );
-    }
+
+    Block *lastInsertion = prim->builder.getInsertionBlock();
+    prim->builder.setInsertionPointToEnd(prim->circuitOp.getBodyBlock());
 
     modOp = prim->builder.create<FModuleOp>(
       prim->builder.getUnknownLoc(),
-      prim->builder.getStringAttr("some name"),
+      prim->builder.getStringAttr("TestModule"),
       portInfos
     );
+
+    prim->builder.setInsertionPointToEnd(modOp.getBodyBlock());
+    ConcreteModule::body();
+    prim->builder.setInsertionPointToEnd(lastInsertion);
   }
 
   void instantiate() {
     instOp = prim->builder.create<InstanceOp>(
       prim->builder.getUnknownLoc(),
       modOp,
-      prim->builder.getStringAttr("some instance name")
+      prim->builder.getStringAttr("TestModuleInstance")
     );
   }
+
 protected:
   Module(std::initializer_list<Port> ports):
     ports(ports) {
@@ -341,34 +435,45 @@ protected:
     instantiate();
   }
 
+  // only valid at the runtime of ConcreteModule::body()
+  static void getArgument(const std::string& name);
+
   virtual ~Module() {}
 public:
-  class PortRef {
-    Port *port;
-    Module<ConcreteModule> *mod;
-  public:
-    void operator<<(std::shared_ptr<Expression> what) {
-      assert(port->direction == Input);
-      
-      // TODO: Deduce the getResults() index from the specified port list with the
-      // port with the matching name.
-    }
-  };
 
-  PortRef operator()(const std::string& name) const {
-    // ...
-  }
 
+  //Value operator()(const std::string& name) {
+  //  return instOp.getResults()[inPortIndices.at(name)];
+  //}
 };
 
-class Queue : public Module<Queue> {
+class TestModule : public Module<TestModule> {
 public:
-  Queue(Type type, uint32_t depth):
-    Module<Queue>({
-      // ...
+  TestModule():
+    Module<TestModule>({
+      Port{.direction = Port::Direction::Input, .name = "x", .type = UInt(6)},
+      Port{.direction = Port::Direction::Output, .name = "y", .type = UInt(7)},
+      Port{.direction = Port::Direction::Output, .name = "z", .type = UInt(8)}
     }) {
 
   }
-};
 
+  static void body() {
+    using namespace operators;
+
+    auto valid = UInt(1, 1);
+    auto ready = UInt(1, 1);
+    auto count = UInt(123, 16);
+
+    Value canEnqueue = (valid & ready & (count < lift(constant(8, 16))))->build();
+
+    auto lower = bits(count, 3, 0);
+    auto someField = field(lower, "someField");
+
+    auto reg = Reg(UInt(32));
+    reg << count + count;
+    reg << count + count;
+  }
+};
+ 
 }
