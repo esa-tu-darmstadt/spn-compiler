@@ -72,7 +72,9 @@ target_include_directories(spnc
         ${CIRCT_INCLUDE_DIRS}
         ${SPN_DIALECT_INCLUDE_DIRS}
         ${CAPNP_HDR_DIRS}
-        ${CAPNPC_OUTPUT_DIR})
+        ${CAPNPC_OUTPUT_DIR}
+        ${FIRRTLPP_INCLUDE_DIRS}
+)
 
 if (${CUDA_GPU_SUPPORT})
     #
@@ -139,13 +141,14 @@ set(mlir_libs
         CIRCTSeq
         CIRCTSeqTransforms
         CIRCTImportFIRFile
+        CIRCTFIRRTL
         CIRCTFIRRTLToHW
         CIRCTSVTransforms
         )
 
 llvm_map_components_to_libnames(llvm_libs bitwriter native passes)
 target_link_libraries(spnc PRIVATE spnc-common ${llvm_libs} ${mlir_libs} spdlog::spdlog
-        CapnProto::capnp cpu_targetinfo stdc++fs)
+        CapnProto::capnp cpu_targetinfo stdc++fs firp)
 
 target_compile_options(spnc PRIVATE ${SPNC_CXX_WARNING_LEVEL})
 

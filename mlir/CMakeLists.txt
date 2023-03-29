@@ -62,10 +62,15 @@ set(SPN_DIALECT_INCLUDE_DIRS
         ${CMAKE_CURRENT_BINARY_DIR}/include/Conversion
         PARENT_SCOPE)
 
+set(FIRRTLPP_INCLUDE_DIRS
+        ${CMAKE_CURRENT_SOURCE_DIR}/FIRRTLPP/include
+        PARENT_SCOPE)
+
 add_subdirectory(include)
 add_subdirectory(lib)
 add_subdirectory(tools)
 add_subdirectory(test)
+add_subdirectory(FIRRTLPP)
 
 doxygen_doc(TARGET_NAME mlir-doc
         SRC_DIRECTORIES

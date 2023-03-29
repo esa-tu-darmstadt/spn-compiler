@@ -144,7 +144,58 @@ void EmbedController::setParameters(uint32_t bodyDelay) {
   pKernel.fifoDepth = bodyDelay * 2;
 }
 
+ModuleOp EmbedController::createController(MLIRContext *ctxt) {
+  using namespace ::firp;
+  using namespace ::firp::axis;
+
+  FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
+
+  initFirpContext(ctxt, "Controller");
+
+  AXIStreamConfig slaveConfig{
+    .dataBits = uint32_t(kernel.sAxisControllerWidth),
+    .userBits = 0,
+    .destBits = 0,
+    .idBits = 0
+  };
+
+  AXIStreamConfig masterConfig{
+    .dataBits =  uint32_t(kernel.mAxisControllerWidth),
+    .userBits = 0,
+    .destBits = 0,
+    .idBits = 0
+  };
+
+  /*
+  FIRRTLBaseType t1 = bundleType({
+    {"test", true, uintType(32)}
+  });
+
+  FIRRTLBaseType t2 = bundleType({
+    {"test", true, uintType(32)}
+  });
+
+  std::hash<FIRRTLBaseType> hasher;
+
+  llvm::outs() << hasher(t1) << " " << hasher(t2) << "\n";
+   */
+
+  Controller controller(slaveConfig, masterConfig,
+    kernel.spnVarCount * kernel.spnBitsPerVar, kernel.spnResultWidth,
+    kernel.fifoDepth);
+  controller.makeTop();
+
+  firpContext()->finish();
+  firpContext()->dump();
+  firpContext()->verify();
+
+  return ModuleOp();
+}
+
 ExecutionResult EmbedController::executeStep(ModuleOp *root) {
+  createController(root->getContext());
+  return failure("EmbedController: Testing new implementation.");
+
   std::optional<HWModuleOp> spnBody = getUniqueBody(*root);
 
   if (!spnBody.has_value())
@@ -340,5 +391,126 @@ bool AXI4SignalNameRewriting::containsUnfixedAXI4Names(::circt::hw::HWModuleOp o
   //llvm::outs() << "  Legal!\n";
   return true;
 }
+
+void Controller::body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig& masterConfig,
+  uint32_t inputWidth, uint32_t resultWidth, uint32_t fifoDepth) {
+  // TODO: reinstert
+  //assert(kernel.bodyDelay <= kernel.fifoDepth);
+
+  AXIStreamReceiver receiver(slaveConfig);
+  receiver.io("AXIS") <<= io("SLAVE");
+  auto receiverDeqFire = receiver.io("deq")("valid") & receiver.io("deq")("ready");
+
+  AXIStreamSender sender(masterConfig);
+  io("MASTER") <<= sender.io("AXIS");
+
+  //FirpQueue fifo(uintType(resultWidth), fifoDepth);
+  //sender.io("enq")("valid") <<= fifo.io("deq")("valid");
+  //sender.io("enq")("bits")("bits") <<= fifo.io("deq")("bits")("bits").extend(masterConfig.dataBits);
+  //sender.io("enq")("bits")("last") <<= fifo.io("deq")("bits")("last");
+  //fifo.io("deq")("ready") <<= sender.io("enq")("ready");
+  //auto fifoEnqFire = fifo.io("enq")("valid") & fifo.io("enq")("ready");
+
+  return;
+
+  /*
+  SPNBodyPlaceholder body(kernel);
+  // TODO: check endianness / order
+  body.io("in") <<= receiver.io("deq")("bits")("bits")(inputWidth - 1, 0);
+
+  return;
+
+  // TODO: Build controller after scheduling!
+  size_t bodyDelay = 23;
+  ShiftRegister lastDelayed(bitType(), bodyDelay);
+  lastDelayed.io("in") <<= receiver.io("deq")("bits")("last");
+
+  ShiftRegister validDelayed(bitType(), bodyDelay);
+  validDelayed.io("in") <<= receiver.io("deq")("valid");
+
+  fifo.io("enq")("bits")("bits") <<= body.io("out");
+  fifo.io("enq")("bits")("last") <<= lastDelayed.io("out");
+  fifo.io("enq")("valid") <<= validDelayed.io("out");
+
+  Reg itemCountInPipeline(uintType(16), "itemCountInPipeline");
+  itemCountInPipeline.write(
+    itemCountInPipeline.read()
+    + mux(receiverDeqFire, cons(1), cons(0))
+    - mux(fifoEnqFire, cons(1), cons(0))
+  );
+
+  auto canEnqueue = itemCountInPipeline.read() + fifo.io("count") + cons(2) <= cons(kernel.fifoDepth);
+  receiver.io("deq")("ready") <<= canEnqueue;
+   */
+}
+
+/*
+
+class SPNController(config: SPNControllerConfig, modGen: SPNControllerConfig => SPN) extends Module {
+  val slaveConfig = AXIStreamConfig(
+    dataWidth = config.streamInBytes * 8,
+    userWidth = 1,
+    destWidth = 1,
+    idWidth = 1
+  )
+
+  val masterConfig = AXIStreamConfig(
+    dataWidth = config.streamOutBytes * 8,
+    userWidth = 1,
+    destWidth = 1,
+    idWidth = 1
+  )
+
+  val AXI_SLAVE = IO(VerilogAXIStreamSlave(slaveConfig))
+  val AXI_MASTER = IO(VerilogAXIStreamMaster(masterConfig))
+
+  val receiver = Module(new AXIStreamReceiver(slaveConfig, 2))
+  val sender = Module(new AXIStreamSender(masterConfig, 2))
+  //val body = Module(new SPNBody(config))
+  val body = modGen(config)
+  body.clk := clock.asBool
+  body.rst := reset.asBool
+  // the actual fifo that buffers the results of spn body
+  require(config.bodyPipelineDepth <= config.fifoDepth)
+  val fifo = Module(new Queue[WithLast[UInt]](WithLast(UInt((config.streamOutBytes * 8).W)), 2))
+  val itemCountInPipeline = RegInit(0.U(16.W))
+  val canEnqueue = WireInit(2.U + itemCountInPipeline + fifo.io.count <= fifo.entries.U)
+
+  receiver.AXI_SLAVE <> AXI_SLAVE
+  sender.AXI_MASTER <> AXI_MASTER
+
+  // the results can be moved into the body when there is a query and the fifo has enough capacity to buffer
+  //body.io.in := receiver.out.bits.bits.asTypeOf(Vector(UInt(config.bitsPerVariable.W), config.variableCount))
+  for (i <- 0 until config.varCount)
+    body.in(i) := receiver.out.bits.bits((i + 1) * config.bitsPerVar - 1, i * config.bitsPerVar)
+
+  // TODO: Logic loop with receiver.out.ready?
+  receiver.out.ready := canEnqueue
+
+  // connect spn body to the fifo (the fifo ready signal plays no role)
+  fifo.io.enq.bits.bits := body.out.pad(fifo.io.enq.bits.bits.getWidth)
+  fifo.io.enq.bits.last :=
+    ShiftRegister(
+      receiver.out.bits.last, config.bodyPipelineDepth,
+      0.U, true.B
+    )
+  fifo.io.enq.valid := ShiftRegister(receiver.out.fire, config.bodyPipelineDepth, false.B, true.B)
+
+  fifo.io.deq <> sender.in
+
+  val receiverCounter = Counter(receiver.out.fire, 1000000)
+  dontTouch(receiverCounter._1)
+  val sendCounter = Counter(sender.in.fire, 1000000)
+  dontTouch(sendCounter._1)
+
+  // count how many items currently are in the spn body pipeline
+  itemCountInPipeline := (
+    itemCountInPipeline
+    + Mux(receiver.out.fire, 1.U, 0.U)
+    - Mux(fifo.io.enq.fire, 1.U, 0.U)
+  )
+}
+
+*/
 
 }

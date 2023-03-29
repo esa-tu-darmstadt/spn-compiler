@@ -15,6 +15,10 @@
 
 #include "mlir/Transforms/DialectConversion.h"
 
+#include "AXIStream.hpp"
+#include "ShiftRegister.hpp"
+#include "firpQueue.hpp"
+
 #include <filesystem>
 
 
@@ -55,6 +59,8 @@ class EmbedController : public StepSingleInput<EmbedController, mlir::ModuleOp>,
   std::optional<HWModuleOp> getUniqueBody(mlir::ModuleOp root);
   LogicalResult insertBodyIntoController(ModuleOp controller, ModuleOp root, HWModuleOp spnBody);
   void setParameters(uint32_t bodyDelay);
+
+  ModuleOp createController(MLIRContext *ctxt);
 public:
   explicit EmbedController(const ControllerConfig& config, StepWithResult<mlir::ModuleOp>& spnBody):
     StepSingleInput<EmbedController, mlir::ModuleOp>(spnBody),    
@@ -82,6 +88,40 @@ public:
                                 ConversionPatternRewriter& rewriter) const override;
 
   static bool containsUnfixedAXI4Names(::circt::hw::HWModuleOp op);
+};
+
+using namespace firp;
+using namespace firp::axis;
+
+class SPNBodyPlaceholder : public Module<SPNBodyPlaceholder> {
+public:
+  SPNBodyPlaceholder(const FPGAKernel& kernel):
+    Module<SPNBodyPlaceholder>(
+      "SPNBodyPlaceholder",
+      {
+        Port("in", true, uintType(kernel.spnVarCount * kernel.spnBitsPerVar)),
+        Port("out", false, uintType(kernel.spnResultWidth))
+      }
+    ) {}
+
+  void body() {}
+};
+
+class Controller : public Module<Controller> {
+public:
+  Controller(const AXIStreamConfig& slaveConfig, const AXIStreamConfig& masterConfig,
+    uint32_t inputWidth, uint32_t resultWidth, uint32_t fifoDepth):
+    Module<Controller>(
+      "Controller",
+      {
+        Port("SLAVE", true, AXIStreamBundleType(slaveConfig)),
+        Port("MASTER", false, AXIStreamBundleType(masterConfig))
+      },
+      slaveConfig, masterConfig, inputWidth, resultWidth, fifoDepth
+    ) {}
+
+  void body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig& masterConfig,
+    uint32_t inputWidth, uint32_t resultWidth, uint32_t fifoDepth);
 };
 
 }
