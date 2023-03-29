@@ -166,20 +166,6 @@ ModuleOp EmbedController::createController(MLIRContext *ctxt) {
     .idBits = 0
   };
 
-  /*
-  FIRRTLBaseType t1 = bundleType({
-    {"test", true, uintType(32)}
-  });
-
-  FIRRTLBaseType t2 = bundleType({
-    {"test", true, uintType(32)}
-  });
-
-  std::hash<FIRRTLBaseType> hasher;
-
-  llvm::outs() << hasher(t1) << " " << hasher(t2) << "\n";
-   */
-
   Controller controller(slaveConfig, masterConfig,
     kernel.spnVarCount * kernel.spnBitsPerVar, kernel.spnResultWidth,
     kernel.fifoDepth);
@@ -394,31 +380,23 @@ bool AXI4SignalNameRewriting::containsUnfixedAXI4Names(::circt::hw::HWModuleOp o
 
 void Controller::body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig& masterConfig,
   uint32_t inputWidth, uint32_t resultWidth, uint32_t fifoDepth) {
-  // TODO: reinstert
+  // TODO: reinsert
   //assert(kernel.bodyDelay <= kernel.fifoDepth);
 
   AXIStreamReceiver receiver(slaveConfig);
   receiver.io("AXIS") <<= io("SLAVE");
-  auto receiverDeqFire = receiver.io("deq")("valid") & receiver.io("deq")("ready");
+  auto receiverDeqFire = doesFire(receiver.io("deq"));
 
   AXIStreamSender sender(masterConfig);
   io("MASTER") <<= sender.io("AXIS");
 
-  //FirpQueue fifo(uintType(resultWidth), fifoDepth);
-  //sender.io("enq")("valid") <<= fifo.io("deq")("valid");
-  //sender.io("enq")("bits")("bits") <<= fifo.io("deq")("bits")("bits").extend(masterConfig.dataBits);
-  //sender.io("enq")("bits")("last") <<= fifo.io("deq")("bits")("last");
-  //fifo.io("deq")("ready") <<= sender.io("enq")("ready");
-  //auto fifoEnqFire = fifo.io("enq")("valid") & fifo.io("enq")("ready");
+  FirpQueue fifo(withLast(uintType(resultWidth)), fifoDepth);
+  sender.io("enq") <<= fifo.io("deq");
+  auto fifoEnqFire = doesFire(fifo.io("enq"));
 
-  return;
-
-  /*
-  SPNBodyPlaceholder body(kernel);
+  SPNBodyPlaceholder spnBody(inputWidth, resultWidth);
   // TODO: check endianness / order
-  body.io("in") <<= receiver.io("deq")("bits")("bits")(inputWidth - 1, 0);
-
-  return;
+  spnBody.io("in") <<= receiver.io("deq")("bits")("bits");
 
   // TODO: Build controller after scheduling!
   size_t bodyDelay = 23;
@@ -428,7 +406,7 @@ void Controller::body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig&
   ShiftRegister validDelayed(bitType(), bodyDelay);
   validDelayed.io("in") <<= receiver.io("deq")("valid");
 
-  fifo.io("enq")("bits")("bits") <<= body.io("out");
+  fifo.io("enq")("bits")("bits") <<= spnBody.io("out");
   fifo.io("enq")("bits")("last") <<= lastDelayed.io("out");
   fifo.io("enq")("valid") <<= validDelayed.io("out");
 
@@ -439,12 +417,13 @@ void Controller::body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig&
     - mux(fifoEnqFire, cons(1), cons(0))
   );
 
-  auto canEnqueue = itemCountInPipeline.read() + fifo.io("count") + cons(2) <= cons(kernel.fifoDepth);
+  auto canEnqueue = itemCountInPipeline.read() + fifo.io("count") + cons(2) <= cons(fifoDepth);
   receiver.io("deq")("ready") <<= canEnqueue;
-   */
 }
 
 /*
+
+Original source code:
 
 class SPNController(config: SPNControllerConfig, modGen: SPNControllerConfig => SPN) extends Module {
   val slaveConfig = AXIStreamConfig(

@@ -95,16 +95,19 @@ using namespace firp::axis;
 
 class SPNBodyPlaceholder : public Module<SPNBodyPlaceholder> {
 public:
-  SPNBodyPlaceholder(const FPGAKernel& kernel):
+  SPNBodyPlaceholder(uint32_t inputWidth, uint32_t resultWidth):
     Module<SPNBodyPlaceholder>(
       "SPNBodyPlaceholder",
       {
-        Port("in", true, uintType(kernel.spnVarCount * kernel.spnBitsPerVar)),
-        Port("out", false, uintType(kernel.spnResultWidth))
-      }
+        Port("in", true, uintType(inputWidth)),
+        Port("out", false, uintType(resultWidth))
+      },
+      inputWidth, resultWidth
     ) {}
 
-  void body() {}
+  void body(uint32_t inputWidth, uint32_t resultWidth) {
+    io("out") <<= cons(0, uintType(resultWidth));
+  }
 };
 
 class Controller : public Module<Controller> {
