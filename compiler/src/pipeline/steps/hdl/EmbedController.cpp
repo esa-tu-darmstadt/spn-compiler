@@ -512,6 +512,8 @@ void Controller::body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig&
 
   auto canEnqueue = itemCountInPipeline.read() + fifo.io("count") + cons(2) <= cons(fifoDepth);
   receiver.io("deq")("ready") <<= canEnqueue;
+
+  svCocoTBVerbatim(getName());
 }
 
 /*
