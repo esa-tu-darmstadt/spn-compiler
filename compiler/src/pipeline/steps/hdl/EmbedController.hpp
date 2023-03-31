@@ -75,7 +75,7 @@ private:
   std::unique_ptr<mlir::ModuleOp> topModule;
 
   static bool fixAXISignalNames(mlir::ModuleOp op);
-  static ExecutionResult convertFirrtlToHw(mlir::ModuleOp op);
+  static ExecutionResult convertFirrtlToHw(mlir::ModuleOp op, circt::hw::HWModuleOp spnBody);
 };
 
 class AXI4SignalNameRewriting : public OpConversionPattern<::circt::hw::HWModuleOp> {
@@ -93,38 +93,49 @@ public:
 using namespace firp;
 using namespace firp::axis;
 
-class SPNBodyPlaceholder : public Module<SPNBodyPlaceholder> {
+class ExternalSPNBody : public ExternalModule<ExternalSPNBody> {
 public:
-  SPNBodyPlaceholder(uint32_t inputWidth, uint32_t resultWidth):
-    Module<SPNBodyPlaceholder>(
-      "SPNBodyPlaceholder",
+  ExternalSPNBody(const std::vector<Port>& ports):
+    ExternalModule<ExternalSPNBody>(
+      "spn_body_external",
+      ports
+    ) {}
+};
+
+class SPNBody : public Module<SPNBody> {
+public:
+  SPNBody(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t spnResultWidth):
+    Module<SPNBody>(
+      "SPNBody",
       {
-        Port("in", true, uintType(inputWidth)),
-        Port("out", false, uintType(resultWidth))
+        Port("in", true, uintType(spnVarCount * bitsPerVar)),
+        Port("out", false, uintType(spnResultWidth))
       },
-      inputWidth, resultWidth
+      spnVarCount, bitsPerVar, spnResultWidth
     ) {}
 
-  void body(uint32_t inputWidth, uint32_t resultWidth) {
-    io("out") <<= cons(0, uintType(resultWidth));
-  }
+  void body(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t spnResultWidth);
 };
 
 class Controller : public Module<Controller> {
 public:
   Controller(const AXIStreamConfig& slaveConfig, const AXIStreamConfig& masterConfig,
-    uint32_t inputWidth, uint32_t resultWidth, uint32_t fifoDepth):
+    uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth):
     Module<Controller>(
       "Controller",
       {
         Port("SLAVE", true, AXIStreamBundleType(slaveConfig)),
         Port("MASTER", false, AXIStreamBundleType(masterConfig))
       },
-      slaveConfig, masterConfig, inputWidth, resultWidth, fifoDepth
+      slaveConfig, masterConfig, spnVarCount, bitsPerVar, resultWidth, fifoDepth
     ) {}
 
   void body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig& masterConfig,
-    uint32_t inputWidth, uint32_t resultWidth, uint32_t fifoDepth);
+    uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth);
+};
+
+class ReplaceSPNBodyExternalPass {
+
 };
 
 }

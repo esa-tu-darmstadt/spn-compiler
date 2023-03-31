@@ -167,8 +167,7 @@ ModuleOp EmbedController::createController(MLIRContext *ctxt) {
   };
 
   Controller controller(slaveConfig, masterConfig,
-    kernel.spnVarCount * kernel.spnBitsPerVar, kernel.spnResultWidth,
-    kernel.fifoDepth);
+    kernel.spnVarCount, kernel.spnBitsPerVar, kernel.spnResultWidth, kernel.fifoDepth);
   controller.makeTop();
 
   firpContext()->finish();
@@ -179,9 +178,6 @@ ModuleOp EmbedController::createController(MLIRContext *ctxt) {
 }
 
 ExecutionResult EmbedController::executeStep(ModuleOp *root) {
-  createController(root->getContext());
-  return failure("EmbedController: Testing new implementation.");
-
   std::optional<HWModuleOp> spnBody = getUniqueBody(*root);
 
   if (!spnBody.has_value())
@@ -207,6 +203,42 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
 
   setParameters(attr.getInt());
 
+  using namespace ::firp;
+  using namespace ::firp::axis;
+
+  FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
+  initFirpContext(*root, "Controller");
+
+  AXIStreamConfig slaveConfig{
+    .dataBits = uint32_t(kernel.sAxisControllerWidth),
+    .userBits = 0,
+    .destBits = 0,
+    .idBits = 0
+  };
+
+  AXIStreamConfig masterConfig{
+    .dataBits =  uint32_t(kernel.mAxisControllerWidth),
+    .userBits = 0,
+    .destBits = 0,
+    .idBits = 0
+  };
+
+  // Build a wrapper around 
+
+  Controller controller(slaveConfig, masterConfig,
+    kernel.spnVarCount, kernel.spnBitsPerVar, kernel.spnResultWidth, kernel.fifoDepth);
+  controller.makeTop();
+
+  firpContext()->finish();
+  firpContext()->verify();
+
+  ExecutionResult result = convertFirrtlToHw(*root, spnBody.value());
+  topModule = std::make_unique<mlir::ModuleOp>(*root);
+
+  return result;
+
+  /*
+
   std::optional<ModuleOp> controllerOpt = generateController(root->getContext());
 
   if (!controllerOpt.has_value())
@@ -229,6 +261,7 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
   topModule = std::make_unique<mlir::ModuleOp>(controller);
 
   return success();
+   */
 }
 
 bool EmbedController::fixAXISignalNames(mlir::ModuleOp op) {
@@ -256,11 +289,14 @@ bool EmbedController::fixAXISignalNames(mlir::ModuleOp op) {
   );
 }
 
-ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op) {
+ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op, circt::hw::HWModuleOp spnBody) {
   MLIRContext *ctxt = op.getContext();
   PassManager pm(ctxt);
 
   // inspired by firtool
+  pm.addNestedPass<circt::firrtl::CircuitOp>(
+    circt::firrtl::createInferWidthsPass()
+  );
   pm.addNestedPass<circt::firrtl::CircuitOp>(
     circt::firrtl::createLowerFIRRTLTypesPass(
       circt::firrtl::PreserveAggregate::PreserveMode::None
@@ -288,15 +324,52 @@ ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op) {
   if (failed(pm.run(op)))
     return failure("Converting FIRRTL to HW failed");
 
-  if (failed(op.verify()))
-    return failure("Verifying module after conversion failed");
+  // replace the external spn_body_external instance with an instance to the actual
+  // spn_body
+  struct RewriteInstance : public OpConversionPattern<circt::hw::InstanceOp> {
+  private:
+    Operation *modOp;
+  public:
+    RewriteInstance(MLIRContext *ctxt, Operation *modOp):
+      OpConversionPattern(ctxt), modOp(modOp) {}
 
-  if (!fixAXISignalNames(op))
-    return failure("Fixing signal names failed");
+    LogicalResult matchAndRewrite(circt::hw::InstanceOp op,
+                                  OpAdaptor adaptor,
+                                  ConversionPatternRewriter& rewriter) const override {
+      if (op.getModuleName() != "spn_body_external")
+        return mlir::failure();
 
-  //op.dump();
+      std::vector<Value> inputs(adaptor.getInputs().begin(), adaptor.getInputs().end());
 
-  return success();
+      rewriter.replaceOpWithNewOp<circt::hw::InstanceOp>(op,
+        modOp,
+        op.getName(),
+        ArrayRef<Value>(inputs)
+      );
+
+      return mlir::success();
+    }
+
+    static bool isLegal(Operation *op) {
+      auto instOp = llvm::dyn_cast<circt::hw::InstanceOp>(op);
+      return !instOp || instOp.getModuleName() != "spn_body_external";
+    }
+  };
+
+  ConversionTarget target(*ctxt);
+
+  target.addLegalDialect<::circt::sv::SVDialect>();
+  target.addDynamicallyLegalDialect<::circt::hw::HWDialect>(RewriteInstance::isLegal);
+
+  RewritePatternSet patterns(ctxt);
+  patterns.add<RewriteInstance>(ctxt, spnBody.getOperation());
+
+  FrozenRewritePatternSet frozenPatterns(std::move(patterns));
+  
+  if (mlir::succeeded(applyPartialConversion(op, target, frozenPatterns)))
+    return success();
+
+  return failure("rewriting instances failed");
 }
 
 const std::string AXI4SignalNameRewriting::PREFIXES[] = {
@@ -378,8 +451,28 @@ bool AXI4SignalNameRewriting::containsUnfixedAXI4Names(::circt::hw::HWModuleOp o
   return true;
 }
 
+void SPNBody::body(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t spnResultWidth) {
+  std::vector<Port> ports;
+
+  for (size_t i = 0; i < spnVarCount; ++i)
+    ports.push_back(
+      Port("in_" + std::to_string(i), true, uintType(bitsPerVar))
+    );
+
+  ports.push_back(
+    Port("out_prob", false, uintType(spnResultWidth))
+  );
+
+  ExternalSPNBody extBody(ports);
+
+  for (size_t i = 0; i < spnVarCount; ++i)
+    extBody.io("in_" + std::to_string(i)) <<= io("in")((i + 1) * bitsPerVar - 1, i * bitsPerVar);
+
+  io("out") <<= extBody.io("out_prob");
+}
+
 void Controller::body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig& masterConfig,
-  uint32_t inputWidth, uint32_t resultWidth, uint32_t fifoDepth) {
+  uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth) {
   // TODO: reinsert
   //assert(kernel.bodyDelay <= kernel.fifoDepth);
 
@@ -394,12 +487,12 @@ void Controller::body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig&
   sender.io("enq") <<= fifo.io("deq");
   auto fifoEnqFire = doesFire(fifo.io("enq"));
 
-  SPNBodyPlaceholder spnBody(inputWidth, resultWidth);
+  SPNBody spnBody(spnVarCount, bitsPerVar, resultWidth);
   // TODO: check endianness / order
   spnBody.io("in") <<= receiver.io("deq")("bits")("bits");
 
   // TODO: Build controller after scheduling!
-  size_t bodyDelay = 23;
+  size_t bodyDelay = fifoDepth;
   ShiftRegister lastDelayed(bitType(), bodyDelay);
   lastDelayed.io("in") <<= receiver.io("deq")("bits")("last");
 
