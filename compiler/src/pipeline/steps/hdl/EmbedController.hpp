@@ -122,10 +122,10 @@ public:
   Controller(const AXIStreamConfig& slaveConfig, const AXIStreamConfig& masterConfig,
     uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth):
     Module<Controller>(
-      "Controller",
+      "SPNController",
       {
-        Port("SLAVE", true, AXIStreamBundleType(slaveConfig)),
-        Port("MASTER", false, AXIStreamBundleType(masterConfig))
+        Port("AXIS_SLAVE", true, AXIStreamBundleType(slaveConfig)),
+        Port("AXIS_MASTER", false, AXIStreamBundleType(masterConfig))
       },
       slaveConfig, masterConfig, spnVarCount, bitsPerVar, resultWidth, fifoDepth
     ) {}
