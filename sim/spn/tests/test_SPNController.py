@@ -124,6 +124,7 @@ async def test_SPNController(dut):
 
   axis_source = AxiStreamSource(AxiStreamBus.from_prefix(dut, "AXIS_SLAVE"), dut.clock, dut.reset)
   axis_sink = AxiStreamSink(AxiStreamBus.from_prefix(dut, "AXIS_MASTER"), dut.clock, dut.reset)
+
   cocotb.fork(Clock(dut.clock, 1, units='ns').start())
 
   print(f'source width: {len(axis_source.bus.tdata)}')
@@ -149,10 +150,11 @@ async def test_SPNController(dut):
   # TODO: fix case where result = expected = 0
   results = np.array(results).reshape((data.shape[0], 1))
   error = np.abs((results - expected) / expected)
+  # verbose = True
 
   print(f'Max relative error is {np.max(error)}')
 
-  if np.max(error) > 1e-3 or np.any(np.isnan(error)):
+  if np.max(error) > 1e-3 or np.any(np.isnan(error)) or verbose:
     for e, r in zip(expected, results):
       print(f'exp={e} got={r}')
 

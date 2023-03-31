@@ -145,35 +145,6 @@ void EmbedController::setParameters(uint32_t bodyDelay) {
 }
 
 ModuleOp EmbedController::createController(MLIRContext *ctxt) {
-  using namespace ::firp;
-  using namespace ::firp::axis;
-
-  FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
-
-  initFirpContext(ctxt, "SPNController");
-
-  AXIStreamConfig slaveConfig{
-    .dataBits = uint32_t(kernel.sAxisControllerWidth),
-    .userBits = 0,
-    .destBits = 0,
-    .idBits = 0
-  };
-
-  AXIStreamConfig masterConfig{
-    .dataBits =  uint32_t(kernel.mAxisControllerWidth),
-    .userBits = 0,
-    .destBits = 0,
-    .idBits = 0
-  };
-
-  Controller controller(slaveConfig, masterConfig,
-    kernel.spnVarCount, kernel.spnBitsPerVar, kernel.spnResultWidth, kernel.fifoDepth);
-  controller.makeTop();
-
-  firpContext()->finish();
-  firpContext()->dump();
-  firpContext()->verify();
-
   return ModuleOp();
 }
 
@@ -226,7 +197,7 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
   // Build a wrapper around 
 
   Controller controller(slaveConfig, masterConfig,
-    kernel.spnVarCount, kernel.spnBitsPerVar, kernel.spnResultWidth, kernel.fifoDepth);
+    kernel.spnVarCount, kernel.spnBitsPerVar, kernel.spnResultWidth, kernel.fifoDepth, kernel.bodyDelay);
   controller.makeTop();
 
   firpContext()->finish();
@@ -472,27 +443,27 @@ void SPNBody::body(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t spnResult
 }
 
 void Controller::body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig& masterConfig,
-  uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth) {
+  uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay) {
   // TODO: reinsert
   //assert(kernel.bodyDelay <= kernel.fifoDepth);
 
   AXIStreamReceiver receiver(slaveConfig);
   receiver.io("AXIS") <<= io("AXIS_SLAVE");
-  auto receiverDeqFire = doesFire(receiver.io("deq"));
+  auto receiverDeqFire = Wire(doesFire(receiver.io("deq")), "receiverDeqFire");
 
   AXIStreamSender sender(masterConfig);
   io("AXIS_MASTER") <<= sender.io("AXIS");
 
   FirpQueue fifo(withLast(uintType(resultWidth)), fifoDepth);
   sender.io("enq") <<= fifo.io("deq");
-  auto fifoEnqFire = doesFire(fifo.io("enq"));
+  auto fifoEnqFire = Wire(doesFire(fifo.io("enq")), "fifoEnqFire");
 
   SPNBody spnBody(spnVarCount, bitsPerVar, resultWidth);
   // TODO: check endianness / order
   spnBody.io("in") <<= receiver.io("deq")("bits")("bits");
 
   // TODO: Build controller after scheduling!
-  size_t bodyDelay = fifoDepth;
+  //size_t bodyDelay = fifoDepth;
   ShiftRegister lastDelayed(bitType(), bodyDelay);
   lastDelayed.io("in") <<= receiver.io("deq")("bits")("last");
 
@@ -510,7 +481,7 @@ void Controller::body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig&
     - mux(fifoEnqFire, cons(1), cons(0))
   );
 
-  auto canEnqueue = itemCountInPipeline.read() + fifo.io("count") + cons(2) <= cons(fifoDepth);
+  auto canEnqueue = Wire(itemCountInPipeline.read() + fifo.io("count") + cons(2) <= cons(fifoDepth), "canEnqueue");
   receiver.io("deq")("ready") <<= canEnqueue;
 
   svCocoTBVerbatim(getName());

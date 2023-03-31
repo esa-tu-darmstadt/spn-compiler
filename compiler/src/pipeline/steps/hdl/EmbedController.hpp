@@ -120,18 +120,18 @@ public:
 class Controller : public Module<Controller> {
 public:
   Controller(const AXIStreamConfig& slaveConfig, const AXIStreamConfig& masterConfig,
-    uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth):
+    uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay):
     Module<Controller>(
       "SPNController",
       {
         Port("AXIS_SLAVE", true, AXIStreamBundleType(slaveConfig)),
         Port("AXIS_MASTER", false, AXIStreamBundleType(masterConfig))
       },
-      slaveConfig, masterConfig, spnVarCount, bitsPerVar, resultWidth, fifoDepth
+      slaveConfig, masterConfig, spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay
     ) {}
 
   void body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig& masterConfig,
-    uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth);
+    uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay);
 };
 
 class ReplaceSPNBodyExternalPass {
