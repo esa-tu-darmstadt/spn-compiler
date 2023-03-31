@@ -83,24 +83,24 @@ def generate_data(count, index_2_min, index_2_max):
 
 # cocotb does not like capslock signal names Q_Q
 def rename_signals(dut):
-  signals = ["AXI_SLAVE_TVALID",
-             "AXI_SLAVE_TDATA",
-             "AXI_SLAVE_TSTRB",
-             "AXI_SLAVE_TKEEP",
-             "AXI_SLAVE_TLAST",
-             "AXI_SLAVE_TUSER",
-             "AXI_SLAVE_TDEST",
-             "AXI_SLAVE_TID",
-             "AXI_MASTER_TREADY",
-             "AXI_SLAVE_TREADY",
-             "AXI_MASTER_TVALID",
-             "AXI_MASTER_TDATA",
-             "AXI_MASTER_TSTRB",
-             "AXI_MASTER_TKEEP",
-             "AXI_MASTER_TLAST",
-             "AXI_MASTER_TUSER",
-             "AXI_MASTER_TDEST",
-             "AXI_MASTER_TID"]
+  signals = ["AXIS_SLAVE_TVALID",
+             "AXIS_SLAVE_TDATA",
+             "AXIS_SLAVE_TSTRB",
+             "AXIS_SLAVE_TKEEP",
+             "AXIS_SLAVE_TLAST",
+             "AXIS_SLAVE_TUSER",
+             "AXIS_SLAVE_TDEST",
+             "AXIS_SLAVE_TID",
+             "AXIS_MASTER_TREADY",
+             "AXIS_SLAVE_TREADY",
+             "AXIS_MASTER_TVALID",
+             "AXIS_MASTER_TDATA",
+             "AXIS_MASTER_TSTRB",
+             "AXIS_MASTER_TKEEP",
+             "AXIS_MASTER_TLAST",
+             "AXIS_MASTER_TUSER",
+             "AXIS_MASTER_TDEST",
+             "AXIS_MASTER_TID"]
 
   for signal in signals:
     parts = signal.split('_')
@@ -122,8 +122,8 @@ async def test_SPNController(dut):
 
   rename_signals(dut)
 
-  axis_source = AxiStreamSource(AxiStreamBus.from_prefix(dut, "AXI_SLAVE"), dut.clock, dut.reset)
-  axis_sink = AxiStreamSink(AxiStreamBus.from_prefix(dut, "AXI_MASTER"), dut.clock, dut.reset)
+  axis_source = AxiStreamSource(AxiStreamBus.from_prefix(dut, "AXIS_SLAVE"), dut.clock, dut.reset)
+  axis_sink = AxiStreamSink(AxiStreamBus.from_prefix(dut, "AXIS_MASTER"), dut.clock, dut.reset)
   cocotb.fork(Clock(dut.clock, 1, units='ns').start())
 
   print(f'source width: {len(axis_source.bus.tdata)}')

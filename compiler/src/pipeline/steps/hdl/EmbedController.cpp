@@ -150,7 +150,7 @@ ModuleOp EmbedController::createController(MLIRContext *ctxt) {
 
   FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
 
-  initFirpContext(ctxt, "Controller");
+  initFirpContext(ctxt, "SPNController");
 
   AXIStreamConfig slaveConfig{
     .dataBits = uint32_t(kernel.sAxisControllerWidth),
@@ -207,20 +207,20 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
   using namespace ::firp::axis;
 
   FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
-  initFirpContext(*root, "Controller");
+  initFirpContext(*root, "SPNController");
 
   AXIStreamConfig slaveConfig{
     .dataBits = uint32_t(kernel.sAxisControllerWidth),
-    .userBits = 0,
-    .destBits = 0,
-    .idBits = 0
+    .userBits = 1,
+    .destBits = 1,
+    .idBits = 1
   };
 
   AXIStreamConfig masterConfig{
     .dataBits =  uint32_t(kernel.mAxisControllerWidth),
-    .userBits = 0,
-    .destBits = 0,
-    .idBits = 0
+    .userBits = 1,
+    .destBits = 1,
+    .idBits = 1
   };
 
   // Build a wrapper around 
@@ -477,11 +477,11 @@ void Controller::body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig&
   //assert(kernel.bodyDelay <= kernel.fifoDepth);
 
   AXIStreamReceiver receiver(slaveConfig);
-  receiver.io("AXIS") <<= io("SLAVE");
+  receiver.io("AXIS") <<= io("AXIS_SLAVE");
   auto receiverDeqFire = doesFire(receiver.io("deq"));
 
   AXIStreamSender sender(masterConfig);
-  io("MASTER") <<= sender.io("AXIS");
+  io("AXIS_MASTER") <<= sender.io("AXIS");
 
   FirpQueue fifo(withLast(uintType(resultWidth)), fifoDepth);
   sender.io("enq") <<= fifo.io("deq");

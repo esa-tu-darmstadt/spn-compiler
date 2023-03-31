@@ -173,7 +173,7 @@ ExecutionResult CreateVivadoProject::executeStep(mlir::ModuleOp *mod) {
 
   {
     fs::remove(srcPath / "filelist.f");
-    fs::rename(srcPath / "AXI4StreamMapper.sv", srcPath / "AXI4StreamMapper.v");
+    //fs::rename(srcPath / "AXI4StreamMapper.sv", srcPath / "AXI4StreamMapper.v");
 
     for (const fs::directory_entry& entry : fs::directory_iterator(srcPath))
       if (entry.is_regular_file())
