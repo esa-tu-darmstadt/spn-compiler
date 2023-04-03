@@ -52,15 +52,9 @@ class EmbedController : public StepSingleInput<EmbedController, mlir::ModuleOp>,
                         public StepWithResult<mlir::ModuleOp> {
   ControllerConfig config;
 
-  static void insertCocoTbDebug(ModuleOp controller, MLIRContext *ctxt);
-  std::optional<mlir::ModuleOp> generateController(MLIRContext *ctxt);
-
   // fails if there is more than one spn_body
   std::optional<HWModuleOp> getUniqueBody(mlir::ModuleOp root);
-  LogicalResult insertBodyIntoController(ModuleOp controller, ModuleOp root, HWModuleOp spnBody);
   void setParameters(uint32_t bodyDelay);
-
-  ModuleOp createController(MLIRContext *ctxt);
 public:
   explicit EmbedController(const ControllerConfig& config, StepWithResult<mlir::ModuleOp>& spnBody):
     StepSingleInput<EmbedController, mlir::ModuleOp>(spnBody),    
@@ -74,20 +68,7 @@ public:
 private:
   std::unique_ptr<mlir::ModuleOp> topModule;
 
-  static bool fixAXISignalNames(mlir::ModuleOp op);
   static ExecutionResult convertFirrtlToHw(mlir::ModuleOp op, circt::hw::HWModuleOp spnBody);
-};
-
-class AXI4SignalNameRewriting : public OpConversionPattern<::circt::hw::HWModuleOp> {
-  static const std::string PREFIXES[];
-public:
-  using OpConversionPattern<::circt::hw::HWModuleOp>::OpConversionPattern;
-
-  LogicalResult matchAndRewrite(::circt::hw::HWModuleOp op,
-                                OpAdaptor adaptor,
-                                ConversionPatternRewriter& rewriter) const override;
-
-  static bool containsUnfixedAXI4Names(::circt::hw::HWModuleOp op);
 };
 
 using namespace firp;
