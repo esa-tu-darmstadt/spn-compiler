@@ -449,14 +449,14 @@ void Controller::body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig&
 
   AXIStreamReceiver receiver(slaveConfig);
   receiver.io("AXIS") <<= io("AXIS_SLAVE");
-  auto receiverDeqFire = Wire(doesFire(receiver.io("deq")), "receiverDeqFire");
+  auto receiverDeqFire = wireInit(doesFire(receiver.io("deq")), "receiverDeqFire");
 
   AXIStreamSender sender(masterConfig);
   io("AXIS_MASTER") <<= sender.io("AXIS");
 
   FirpQueue fifo(withLast(uintType(resultWidth)), fifoDepth);
   sender.io("enq") <<= fifo.io("deq");
-  auto fifoEnqFire = Wire(doesFire(fifo.io("enq")), "fifoEnqFire");
+  auto fifoEnqFire = wireInit(doesFire(fifo.io("enq")), "fifoEnqFire");
 
   SPNBody spnBody(spnVarCount, bitsPerVar, resultWidth);
   // TODO: check endianness / order
@@ -481,7 +481,7 @@ void Controller::body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig&
     - mux(fifoEnqFire, cons(1), cons(0))
   );
 
-  auto canEnqueue = Wire(itemCountInPipeline.read() + fifo.io("count") + cons(2) <= cons(fifoDepth), "canEnqueue");
+  auto canEnqueue = wireInit(itemCountInPipeline.read() + fifo.io("count") + cons(2) <= cons(fifoDepth), "canEnqueue");
   receiver.io("deq")("ready") <<= canEnqueue;
 
   svCocoTBVerbatim(getName());
