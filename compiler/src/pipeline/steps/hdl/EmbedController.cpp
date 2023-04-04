@@ -327,4 +327,56 @@ class SPNController(config: SPNControllerConfig, modGen: SPNControllerConfig => 
 
 */
 
+/*
+  Roadmap:
+  1. Wrap the datapath currently with AXI stream endpoints into a module with ESI endpoints.
+    - Do we return a top level module with 2 ESI channels?
+    - Implementation:
+      - we have our data path module with clk, rst, 2 ESI channels
+      - build a top module just with clk, rst and instantiate our data path
+      - instantiate two ESI cosim endpoints  
+  2. Run a simulation with ESI Cosim.
+    - Our HW Code with the endpoints is compiled to verilog and put into a test bench. But how
+      does it interface with the RPC CapnProto server?
+    - How do we communicate with the RPC server?
+  3. Extend this to the full controller.
+    - How does it work with TaPaScO? Does it replace it?
+  4. Think about AXI in context of ESI.
+
+  Notes:
+    - We seem to be able (theoretically) to lift clk and rst into the ESI-space via ESIPureModuleInputOp.
+
+
+
+  Testing stuff:
+
+  module {
+
+    hw.module.extern @i1Fifo0(%in: !esi.channel<i16, FIFO0>) -> (out: !esi.channel<i16, FIFO0>)
+
+    hw.module.extern @something(%in: !esi.channel<i16, ValidReady>) -> (out: !esi.channel<i16, ValidReady>)
+
+    // by default this is also ValidReady
+    hw.module.extern @something2(%in: !esi.channel<i16>) -> (out: !esi.channel<i16>)
+
+
+    hw.module.extern @SenderHaha() -> (x: !esi.channel<si14>)
+    hw.module.extern @RecieverLol(%a: !esi.channel<i32>)
+    hw.module.extern @ArrRecieverLalala(%x: !esi.channel<!hw.array<4xsi64>>)
+
+    hw.module @top(%clk:i1, %rst:i1) -> () {
+      hw.instance "recv" @RecieverLol (a: %cosimRecv: !esi.channel<i32>) -> ()
+      %send.x = hw.instance "send" @SenderHaha () -> (x: !esi.channel<si14>)
+      %cosimRecv = esi.cosim %clk, %rst, %send.x, "TestEP" : !esi.channel<si14> -> !esi.channel<i32>
+      %send2.x = hw.instance "send2" @SenderHaha () -> (x: !esi.channel<si14>)
+      %cosimArrRecv = esi.cosim %clk, %rst, %send2.x, "ArrTestEP" : !esi.channel<si14> -> !esi.channel<!hw.array<4xsi64>>
+      hw.instance "arrRecv" @ArrRecieverLalala (x: %cosimArrRecv: !esi.channel<!hw.array<4 x si64>>) -> ()
+    }
+
+  }
+
+  ../../circt/build/bin/circt-opt --esi-emit-collateral=schema-file=s.capnp  --lower-esi-to-physical --lower-esi-ports --lower-esi-to-hw --export-verilog $1
+
+ */
+
 }
