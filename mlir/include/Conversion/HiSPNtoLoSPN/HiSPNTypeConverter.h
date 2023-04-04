@@ -27,7 +27,7 @@ namespace mlir {
       explicit HiSPNTypeConverter(mlir::Type spnComputeType) {
         addConversion([](TensorType tensorType) -> Optional<Type> {
           if (!tensorType.hasRank()) {
-            return llvm::None;
+            return std::nullopt;
           }
           return tensorType;
         });

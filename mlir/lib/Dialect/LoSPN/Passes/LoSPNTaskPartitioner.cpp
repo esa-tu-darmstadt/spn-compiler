@@ -11,7 +11,7 @@
 //#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
@@ -76,7 +76,7 @@ namespace mlir {
                 // to the external operand of the task.
                 assert(externalTensors.count(tensorArg.cast<BlockArgument>()));
                 auto externalTensor = externalTensors[tensorArg.cast<BlockArgument>()];
-                inputs[blockArg] = InputInfo{externalTensor, llvm::None, extract.getStaticIndex()};
+                inputs[blockArg] = InputInfo{externalTensor, std::nullopt, extract.getStaticIndex()};
                 // All users of the entry block args potentially do not have outside operands.
                 for (auto* U : blockArg.getUsers()) {
                   inNodes.insert(U);
@@ -269,7 +269,7 @@ namespace mlir {
             }
           }
           // Populate a mapping from external Value to block argument.
-          BlockAndValueMapping mapper;
+          IRMapping mapper;
           for (auto remapped : inputIndices) {
             mapper.map(remapped.getFirst(), bodyBlock->getArgument(remapped.second));
           }
@@ -282,7 +282,7 @@ namespace mlir {
           // Create a SPNYield with all results at the end of the body.
           for (auto retVal : nonPartitionOutputs) {
             bodyYields.push_back(mapper.lookupOrNull(retVal));
-            inputs[retVal] = InputInfo{task->getResult(0), resultIndex++, llvm::None};
+            inputs[retVal] = InputInfo{task->getResult(0), resultIndex++, std::nullopt};
           }
           rewriter.create<SPNYield>(loc, bodyYields);
           rewriter.restoreInsertionPoint(restoreBody);
@@ -293,7 +293,7 @@ namespace mlir {
           rewriter.restoreInsertionPoint(restore);
         }
 
-        void copyOperation(Operation* op, PatternRewriter& rewriter, BlockAndValueMapping& mapper) const {
+        void copyOperation(Operation* op, PatternRewriter& rewriter, IRMapping& mapper) const {
           for (auto operand : op->getOperands()) {
             if (!mapper.contains(operand)) {
               // Copy definition first to ensure legality of def-use-chains

@@ -14,7 +14,7 @@
 #include "../Target/TargetInformation.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "llvm/Support/FormatVariadic.h"
 
@@ -379,7 +379,7 @@ LogicalResult VectorizeBatchTask::matchAndRewrite(SPNTask op,
   auto restoreTask = rewriter.saveInsertionPoint();
   rewriter.setInsertionPointToStart(&vectorLoopBody);
   auto oldTaskArgs = op.getBody().front().getArguments();
-  BlockAndValueMapping mapVectorTaskArgs;
+  IRMapping mapVectorTaskArgs;
   // Map from batchIndex to vectorized loop induction var.
   mapVectorTaskArgs.map(oldTaskArgs.front(), vectorizedLoop.getInductionVar());
   int i = 1;
@@ -413,7 +413,7 @@ LogicalResult VectorizeBatchTask::matchAndRewrite(SPNTask op,
   for (auto bArg : taskBlock->getArguments()) {
     blockReplacementArgs.push_back(bArg);
   }
-  rewriter.mergeBlockBefore(&op.getBody().front(), scalarLoopBody.getTerminator(), blockReplacementArgs);
+  rewriter.inlineBlockBefore(&op.getBody().front(), scalarLoopBody.getTerminator(), blockReplacementArgs);
   scalarLoopBody.walk([&rewriter](SPNReturn ret) {
     assert(ret.getReturnValues().empty() && "Task return should be empty");
     rewriter.eraseOp(ret);

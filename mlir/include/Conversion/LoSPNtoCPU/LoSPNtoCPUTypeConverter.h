@@ -42,15 +42,15 @@ namespace mlir {
         addTargetMaterialization([](OpBuilder& builder, FloatType type,
                                     ValueRange inputs, Location loc) -> Optional<Value> {
           if (inputs.size() != 1) {
-            return llvm::None;
+            return std::nullopt;
           }
           if (auto logType = inputs[0].getType().dyn_cast<low::LogType>()) {
             if (logType.getBaseType() != type) {
-              return llvm::None;
+              return std::nullopt;
             }
             return builder.create<low::SPNStripLog>(loc, inputs[0], type).getResult();
           }
-          return llvm::None;
+          return std::nullopt;
         });
       }
     };

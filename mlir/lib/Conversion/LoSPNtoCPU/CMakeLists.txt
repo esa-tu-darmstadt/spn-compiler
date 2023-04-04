@@ -41,9 +41,10 @@ add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
 
         DEPENDS
         cpu_targetinfo
+        LLVMTargetParser
         )
 
-target_link_libraries(MLIRLoSPNtoCPUTransforms PRIVATE cpu_targetinfo)
+target_link_libraries(MLIRLoSPNtoCPUTransforms PRIVATE cpu_targetinfo LLVMTargetParser)
 
 if (${SPNC_SLP_DEBUG})
     # Usually, target_compile_definitions should be preferred over the following command,

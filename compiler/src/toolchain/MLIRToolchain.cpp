@@ -143,7 +143,7 @@ std::unique_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(in
 
   std::unique_ptr<llvm::TargetMachine> machine{target->createTargetMachine(targetTriple,
                                                                            cpu, features.getString(), {},
-                                                                           llvm::Reloc::PIC_, llvm::None,
+                                                                           llvm::Reloc::PIC_, std::nullopt,
                                                                            cgOptLevel)};
   return machine;
 }

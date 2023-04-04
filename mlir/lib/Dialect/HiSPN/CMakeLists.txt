@@ -25,4 +25,5 @@ add_mlir_dialect_library(MLIRHiSPN
         MLIRIR
         MLIRPass
         MLIRTransformUtils
+        LLVMTargetParser
         )

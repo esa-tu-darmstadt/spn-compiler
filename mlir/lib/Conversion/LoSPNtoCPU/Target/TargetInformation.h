@@ -10,7 +10,7 @@
 #define SPNC_COMPILER_SRC_DRIVER_TARGET_TARGETINFORMATION_H
 
 #include <llvm/ADT/StringMap.h>
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "mlir/IR/Types.h"
 
 namespace mlir {

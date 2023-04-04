@@ -368,13 +368,13 @@ Value ConversionManager::getValue(Superword* superword) const {
 Value ConversionManager::getOrCreateConstant(Location const& loc, Attribute const& attribute) {
   // Just hope that this doesn't blow up.
   mlir::TypedAttr typedAttr = attribute.dyn_cast<mlir::TypedAttr>();
-  Value result = folder.getOrCreateConstant(rewriter, &attribute.getDialect(), attribute, typedAttr.getType(), loc);
+  Value result = folder.getOrCreateConstant(rewriter.getBlock(), &attribute.getDialect(), attribute, typedAttr.getType(), loc);
   assert(result != nullptr);
   return result;
 }
 
 Value ConversionManager::getOrCreateConstant(Location loc, Attribute attr, Type type, Dialect *dialect) {
-  auto result = folder.getOrCreateConstant(rewriter, dialect, attr, type, loc);
+  auto result = folder.getOrCreateConstant(rewriter.getBlock(), dialect, attr, type, loc);
   assert(result != nullptr);
   return result;
 }

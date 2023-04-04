@@ -57,7 +57,7 @@ class EmbedController : public StepSingleInput<EmbedController, mlir::ModuleOp>,
   void setParameters(uint32_t bodyDelay);
 public:
   explicit EmbedController(const ControllerConfig& config, StepWithResult<mlir::ModuleOp>& spnBody):
-    StepSingleInput<EmbedController, mlir::ModuleOp>(spnBody),    
+    StepSingleInput<EmbedController, mlir::ModuleOp>(spnBody),
     config(config) {}
 
   ExecutionResult executeStep(mlir::ModuleOp *spnBody);

@@ -15,7 +15,8 @@
 #include <mlir/ExecutionEngine/OptUtils.h>
 #include <util/Logging.h>
 #include <option/GlobalOptions.h>
-#include <llvm/Transforms/IPO/PassManagerBuilder.h>
+//#include <llvm/Transforms/IPO/PassManagerBuilder.h>
+#include <llvm/Passes/PassBuilder.h>
 #include <llvm/Transforms/IPO.h>
 #include "llvm/IR/PassTimingInfo.h"
 
@@ -66,24 +67,44 @@ int spnc::MLIRtoLLVMIRConversion::retrieveOptLevel() {
 }
 
 void MLIRtoLLVMIRConversion::optimizeLLVMIR(int irOptLevel) {
-  llvm::legacy::PassManager modulePM;
-  llvm::legacy::FunctionPassManager funcPM(module.get());
-  llvm::PassManagerBuilder builder;
+  // TODO: I have no idea how to fix this!
+  assert(false && "not implemented");
+  //llvm::legacy::PassManager modulePM;
+  //llvm::legacy::FunctionPassManager funcPM(module.get());
+  //llvm::PassManagerBuilder builder;
+
+  /*
+  llvm::TargetMachine *machine = getContext()->get<llvm::TargetMachine>();
+
+  llvm::PipelineTuningOptions pto;
+  pto.LoopVectorization = false;
+  pto.SLPVectorization = false;
+  pto.LoopUnrolling = true;
+
   unsigned sizeLevel = 0;
-  builder.OptLevel = irOptLevel;
-  builder.SizeLevel = sizeLevel;
-  builder.Inliner = llvm::createFunctionInliningPass(irOptLevel, sizeLevel, false);
+  llvm::OptimizationLevel optLevel(irOptLevel, sizeLevel);
+
+  llvm::PassBuilder builder(machine, pto);
+
+  llvm::ModulePassManager modulePM = builder.buildModuleOptimizationPipeline(optLevel, llvm::ThinOrFullLTOPhase::FullLTOPreLink);
+  llvm::FunctionPassManager funcPM;*/
+
+  //unsigned sizeLevel = 0;
+  //builder.OptLevel = irOptLevel;
+  //builder.SizeLevel = sizeLevel;
+  //builder.Inliner = llvm::createFunctionInliningPass(irOptLevel, sizeLevel, false);
   // Currently both kinds of vectorization are always disabled. Either the
   // vectorization was already performed in MLIR or the user did not request vectorization.
-  builder.LoopVectorize = false;
-  builder.SLPVectorize = false;
-  builder.DisableUnrollLoops = false;
+  //builder.LoopVectorize = false;
+  //builder.SLPVectorize = false;
+  //builder.DisableUnrollLoops = false;
 
   // Add all coroutine passes to the builder.
   // TODO: What about this?
   //llvm::addCoroutinePassesToExtensionPoints(builder);
 
-  auto machine = getContext()->get<llvm::TargetMachine>();
+  //auto machine = getContext()->get<llvm::TargetMachine>();
+  /*
   if (machine) {
     // Add pass to initialize TTI for this specific target. Otherwise, TTI will
     // be initialized to NoTTIImpl by default.
@@ -91,9 +112,10 @@ void MLIRtoLLVMIRConversion::optimizeLLVMIR(int irOptLevel) {
         machine->getTargetIRAnalysis()));
     funcPM.add(createTargetTransformInfoWrapperPass(
         machine->getTargetIRAnalysis()));
-  }
+  }*/
 
   // Populate the pass managers
+  /*
   builder.populateModulePassManager(modulePM);
   builder.populateFunctionPassManager(funcPM);
 
@@ -103,7 +125,7 @@ void MLIRtoLLVMIRConversion::optimizeLLVMIR(int irOptLevel) {
     funcPM.run(F);
   }
   funcPM.doFinalization();
-  modulePM.run(*module);
+  modulePM.run(*module);*/
 }
 
 llvm::Module* MLIRtoLLVMIRConversion::result() {

@@ -29,7 +29,7 @@ def SPNKernel : LoSPN_Op<"kernel", [FunctionOpInterface, Symbol, IsolatedFromAbo
         The computation itself is represented by one or multiple Tasks associated with the Kernel.
     }];
 
-    let arguments = (ins TypeAttrOf<FunctionType>:$function_type);
+    let arguments = (ins TypeAttrOf<FunctionType>:$function_type, OptionalAttr<DictArrayAttr>:$arg_attrs, OptionalAttr<DictArrayAttr>:$res_attrs);
 
     let results = (outs);
 
@@ -55,10 +55,10 @@ def SPNKernel : LoSPN_Op<"kernel", [FunctionOpInterface, Symbol, IsolatedFromAbo
         ArrayRef<Type> getResultTypes() { return getFunctionType().getResults(); }
 
         /// Returns the number of arguments. Hook for OpTrait::FunctionLike.
-        unsigned getNumFuncArguments() { return getFunctionType().getInputs().size(); }
+        //unsigned getNumFuncArguments() { return getFunctionType().getInputs().size(); }
 
         /// Returns the number of results. Hook for OpTrait::FunctionLike.
-        unsigned getNumFuncResults() { return getFunctionType().getResults().size(); }
+        //unsigned getNumFuncResults() { return getFunctionType().getResults().size(); }
     }];
 
     //let verifier = [{ return mlir::spn::low::verifyKernel(*this); }];

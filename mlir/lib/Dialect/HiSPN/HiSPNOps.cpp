@@ -22,7 +22,7 @@ namespace mlir {
 
         template<typename HiSPNOp>
         unsigned numOperands(HiSPNOp op) {
-          return std::distance(op.operands().begin(), op.operands().end());
+          return std::distance(op.getOperands().begin(), op.getOperands().end());
         }
 
       }
@@ -57,7 +57,7 @@ namespace mlir {
       //===----------------------------------------------------------------------===//
 
       mlir::LogicalResult SumNode::verify() {
-        auto numAddends = numOperands(*this);
+        auto numAddends = getNumOperands();
         auto numWeights = getWeights().size();
         if (numWeights != numAddends) {
           return emitOpError("Number of weights must match the number of addends!");

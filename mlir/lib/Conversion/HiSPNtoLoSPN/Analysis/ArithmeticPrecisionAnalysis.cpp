@@ -299,7 +299,7 @@ llvm::SmallVector<ErrorEstimationValue>
 
 void ArithmeticPrecisionAnalysis::estimateErrorSum(mlir::spn::high::SumNode op) {
   // Assumption: There are at least two operands.
-  auto operands = op.operands();
+  auto operands = op.getOperands();
   assert(operands.size() > 1);
   auto weights = op.getWeights();
 
@@ -336,7 +336,7 @@ void ArithmeticPrecisionAnalysis::estimateErrorSum(mlir::spn::high::SumNode op) 
 
 void ArithmeticPrecisionAnalysis::estimateErrorProduct(mlir::spn::high::ProductNode op) {
   // Assumption: There are at least two operands.
-  auto operands = op.operands();
+  auto operands = op.getOperands();
   assert(operands.size() > 1);
 
   // Assumption: Operands were encountered beforehand -- i.e. their values are known.

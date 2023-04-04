@@ -96,7 +96,7 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
   for (auto& hostDevice : copyTo) {
     auto hostMem = hostDevice.first;
     auto deviceMem = hostDevice.second;
-    rewriter.create<gpu::MemcpyOp>(op->getLoc(), llvm::None, ValueRange{}, deviceMem, hostMem);
+    rewriter.create<gpu::MemcpyOp>(op->getLoc(), std::nullopt, ValueRange{}, deviceMem, hostMem);
   }
 
   // Determine the total number of samples to compute from the size of the memref passed as the
@@ -142,7 +142,7 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
   for (auto& deviceHost : copyFrom) {
     auto deviceMem = deviceHost.first;
     auto hostMem = deviceHost.second;
-    rewriter.create<gpu::MemcpyOp>(op->getLoc(), llvm::None, ValueRange{}, hostMem, deviceMem);
+    rewriter.create<gpu::MemcpyOp>(op->getLoc(), std::nullopt, ValueRange{}, hostMem, deviceMem);
   }
   // Deallocation is not performed here, because the buffer might be re-used by other tasks on the GPU to
   // eliminate unnecessary copies between host and device for intermediate results.

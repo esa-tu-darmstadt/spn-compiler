@@ -7,7 +7,7 @@
 //==============================================================================
 
 #include "TargetInformation.h"
-#include "llvm/Support/Host.h"
+#include "llvm/TargetParser/Host.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "mlir/IR/BuiltinTypes.h"
 

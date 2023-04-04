@@ -6,7 +6,6 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include <mlir/IR/BlockAndValueMapping.h>
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
 #include "LoSPNtoCPU/Vectorization/Util.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -120,7 +119,7 @@ mlir::LogicalResult mlir::spn::VectorizeBatchRead::matchAndRewrite(mlir::spn::lo
   auto constAttr = mlir::DenseElementsAttr::get(vectorOfIndex, (llvm::ArrayRef<unsigned long>) offsets);
   auto constOffset = rewriter.create<arith::ConstantOp>(op.getLoc(), constAttr);
   // Multiply the batchIndex with the number of features for the base address.
-  auto elements = broadcastVectorConstant(batchIndex.getVectorType(), numFeatures, rewriter, op->getLoc());
+  auto elements = broadcastVectorConstant(batchIndex.getResultVectorType(), numFeatures, rewriter, op->getLoc());
   auto baseAddress = rewriter.create<arith::MulIOp>(op->getLoc(), batchIndex, elements);
   // Add the offsets to the base index from the batchIndex.
   auto addresses = rewriter.create<arith::AddIOp>(op.getLoc(), baseAddress, constOffset);

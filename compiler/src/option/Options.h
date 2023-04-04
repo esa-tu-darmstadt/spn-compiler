@@ -303,12 +303,12 @@ namespace spnc {
       /// Parse the option.
       /// \param key String identifier of the option to parse.
       /// \param value Value to parse.
-      /// \return llvm::None if the string identifier did not match, otherwise the parsed value.
+      /// \return std::nullopt if the string identifier did not match, otherwise the parsed value.
       llvm::Optional<std::unique_ptr<OptValue>> parse(const std::string& key,
                                                       const std::string& value) override {
         if (key != keyName) {
           SPDLOG_WARN("Identifier did not match this option!");
-          return llvm::None;
+          return std::nullopt;
         }
         std::unique_ptr<OptValue>
             result = std::make_unique<OptionValue<Value>>(detail::OptionParsers::parse<Value>(value));
@@ -416,13 +416,13 @@ namespace spnc {
                                                       const std::string& value) override {
         if (key != keyName) {
           SPDLOG_WARN("Identifier did not match this option!");
-          return llvm::None;
+          return std::nullopt;
         }
         auto v = detail::OptionParsers::toLowerCase(value);
         if (!enumValues.count(v)) {
           // The value does not match any of the enum values.
           SPDLOG_WARN("Specified value {} did not match any of the possible values", v);
-          return llvm::None;
+          return std::nullopt;
         }
         auto id = enumValues.at(v).value;
         std::unique_ptr<OptValue> result = std::make_unique<OptionValue<int>>(id);

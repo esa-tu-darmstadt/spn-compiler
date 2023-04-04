@@ -11,7 +11,7 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
@@ -54,8 +54,8 @@ namespace mlir {
             auto restore = rewriter.saveInsertionPoint();
             rewriter.setInsertionPointToEnd(module.getBody(0));
             // External functions must not have public visibility, so it's marked private here.
-            replaceFunc = rewriter.create<mlir::func::FuncOp>(op->getLoc(), funcName.value(), funcType,
-                                                        rewriter.getStringAttr("private"));
+            replaceFunc = rewriter.create<mlir::func::FuncOp>(op->getLoc(), funcName.value(), funcType);
+            replaceFunc.setPrivate();
             rewriter.restoreInsertionPoint(restore);
           }
           rewriter.replaceOpWithNewOp<mlir::func::CallOp>(op, replaceFunc, op.getOperand());
@@ -86,7 +86,7 @@ namespace mlir {
           if (dim == 4 && elemTy.isF32()) {
             return StringRef("__v_expf");
           }
-          return llvm::None;
+          return std::nullopt;
         }
       };
 
@@ -104,7 +104,7 @@ namespace mlir {
           if (dim == 4 && elemTy.isF32()) {
             return StringRef("__v_logf");
           }
-          return llvm::None;
+          return std::nullopt;
         }
       };
 

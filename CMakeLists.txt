@@ -106,6 +106,5 @@ add_subdirectory(compiler)
 add_subdirectory(runtime)
 add_subdirectory(execute)
 add_subdirectory(python-interface)
-add_subdirectory(lo2hw)
 
 #doxygen_toplevel()

@@ -60,7 +60,7 @@ void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, m
   // conversion to FuncOp. This could be avoided at least for Kernels by
   // converting them to FuncOp earlier in the pipeline, e.g., during
   // bufferization of Kernels.
-  pm->nest<mlir::func::FuncOp>().addPass(mlir::createTensorBufferizePass());
+  pm->nest<mlir::func::FuncOp>().addPass(mlir::tensor::createTensorBufferizePass());
   pm->nest<mlir::func::FuncOp>().addPass(mlir::bufferization::createFinalizingBufferizePass());
   pm->nest<mlir::func::FuncOp>().addPass(mlir::bufferization::createBufferDeallocationPass());
 }

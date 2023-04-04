@@ -25,13 +25,14 @@
 
 void spnc::CPUtoLLVMConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
   pm->addPass(mlir::createConvertMathToLLVMPass());
-  pm->addPass(mlir::createMemRefToLLVMConversionPass());
+  // TODO: not sure how to fix this
+  //pm->addPass(mlir::createMemRefToLLVMConversionPass());
   pm->addPass(mlir::createArithToLLVMConversionPass());
   
   pm->nest<mlir::func::FuncOp>().addPass(mlir::createConvertVectorToSCFPass());
   pm->addPass(mlir::createConvertVectorToLLVMPass());
   pm->addPass(mlir::createConvertSCFToCFPass());
-  pm->addPass(mlir::cf::createConvertControlFlowToLLVMPass());
+  pm->addPass(mlir::createConvertControlFlowToLLVMPass());
 
   pm->addPass(mlir::createConvertFuncToLLVMPass());
 

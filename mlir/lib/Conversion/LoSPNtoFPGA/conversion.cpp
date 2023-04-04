@@ -1,6 +1,6 @@
 #include "LoSPNtoFPGA/conversion.hpp"
 
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 #include <algorithm>
@@ -97,7 +97,7 @@ Optional<HWModuleOp> createBodyModule(SPNBody body, ConversionHelper& helper) {
   builder.setInsertionPointToStart(modOp.getBodyBlock());
 
   // use this to map the old values to the new values
-  BlockAndValueMapping mapping;
+  IRMapping mapping;
 
   // remap the block arguments
   mapping.map(

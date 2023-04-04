@@ -30,9 +30,11 @@ spnc::ExecutionResult spnc::EmitObjectCode::executeStep(llvm::Module* module, Ob
   if (veclib != spnc::option::VectorLibrary::NONE) {
     llvm::TargetLibraryInfoImpl TLII(llvm::Triple(machine->getTargetTriple()));
     switch (veclib) {
-      case spnc::option::VectorLibrary::SVML:TLII.addVectorizableFunctionsFromVecLib(llvm::TargetLibraryInfoImpl::SVML);
+      case spnc::option::VectorLibrary::SVML:
+        TLII.addVectorizableFunctionsFromVecLib(llvm::TargetLibraryInfoImpl::SVML, llvm::Triple());
         break;
-      case spnc::option::VectorLibrary::LIBMVEC:TLII.addVectorizableFunctionsFromVecLib(llvm::TargetLibraryInfoImpl::LIBMVEC_X86);
+      case spnc::option::VectorLibrary::LIBMVEC:
+        TLII.addVectorizableFunctionsFromVecLib(llvm::TargetLibraryInfoImpl::LIBMVEC_X86, llvm::Triple());
         break;
       case spnc::option::VectorLibrary::ARM: /* ARM Optimized Routines are not available through the TLII.*/ break;
       default: return spnc::failure("Unknown vector library");

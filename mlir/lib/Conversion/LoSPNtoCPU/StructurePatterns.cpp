@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include <mlir/IR/BlockAndValueMapping.h>
+#include <mlir/IR/IRMapping.h>
 #include "LoSPNtoCPU/StructurePatterns.h"
 //#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -73,7 +73,7 @@ mlir::LogicalResult mlir::spn::BatchTaskLowering::matchAndRewrite(mlir::spn::low
   for (auto bArg : taskBlock->getArguments()) {
     blockReplacementArgs.push_back(bArg);
   }
-  rewriter.mergeBlockBefore(&op.getBody().front(), loopBlock.getTerminator(), blockReplacementArgs);
+  rewriter.inlineBlockBefore(&op.getBody().front(), loopBlock.getTerminator(), blockReplacementArgs);
   loopBlock.walk([&rewriter](low::SPNReturn ret) {
     assert(ret.getReturnValues().empty() && "Task return should be empty");
     rewriter.eraseOp(ret);
@@ -167,7 +167,7 @@ mlir::LogicalResult mlir::spn::BodyLowering::matchAndRewrite(mlir::spn::low::SPN
     }
     rewriter.eraseOp(yield);
   });
-  rewriter.mergeBlockBefore(&op.getBody().front(), op, argValues);
+  rewriter.inlineBlockBefore(&op.getBody().front(), op, argValues);
   rewriter.replaceOp(op, resultValues);
   return success();
 }

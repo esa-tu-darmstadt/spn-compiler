@@ -45,7 +45,7 @@ namespace mlir {
         addTargetMaterialization([](OpBuilder& builder, VectorType type,
                                     ValueRange inputs, Location loc) -> Optional<Value> {
           if (inputs.size() != 1) {
-            return llvm::None;
+            return std::nullopt;
           }
           if (auto toScalar = dyn_cast<low::SPNConvertToScalar>(inputs.front().getDefiningOp())) {
             // Handle the special case that the values was previously converted from a vector

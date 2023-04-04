@@ -253,9 +253,11 @@ struct FuncReplaceGatherWithShuffle : public OpRewritePattern<func::FuncOp> {
       RewritePatternSet patterns(func->getContext());
       patterns.add<ReplaceBatchReadWithShuffle>(func.getContext(), replacements);
       mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
-      for (auto& read : reads) {
-        (void) applyOpPatternsAndFold(read, frozenPatterns);
-      }
+      //for (auto& read : reads) {
+      //  (void) applyOpPatternsAndFold(read, frozenPatterns);
+      //}
+      std::vector<Operation *> ops(std::begin(reads), std::end(reads));
+      (void) applyOpPatternsAndFold(ops, frozenPatterns);
     }
     rewriter.finalizeRootUpdate(func);
     return mlir::success(changed);
@@ -271,7 +273,7 @@ void ReplaceGatherWithShufflePass::runOnOperation() {
   mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
   // Apply the pattern to all GPUFuncs in the module.
   module->walk([&frozenPatterns](func::FuncOp func) {
-    (void) applyOpPatternsAndFold(func, frozenPatterns);
+    (void) applyOpPatternsAndFold(std::vector<Operation *>{func.getOperation()}, frozenPatterns);
   });
 }
 

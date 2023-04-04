@@ -68,7 +68,7 @@ void SimpleMoveHeuristic::refinePartitioning() {
     auto i = getPartitionIDForNode(node);
 
     // Upward direction
-    llvm::Optional<int> upwardCost = llvm::None;
+    llvm::Optional<int> upwardCost = std::nullopt;
     if (i != maxPartition) {
       // Calculate the positive gain: All edges to users of 'node' that are in partition i+1
       // will become internal edges.
@@ -109,7 +109,7 @@ void SimpleMoveHeuristic::refinePartitioning() {
     }
 
     // Downward direction
-    llvm::Optional<int> downwardCost = llvm::None;
+    llvm::Optional<int> downwardCost = std::nullopt;
     if (i != 0) {
       // Calculate the positive gain: All edges from operands of 'node' that are in partition i-1
       // will become internal edges.
