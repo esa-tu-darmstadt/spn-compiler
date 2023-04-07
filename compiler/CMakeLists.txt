@@ -144,6 +144,7 @@ set(mlir_libs
         CIRCTFIRRTL
         CIRCTFIRRTLToHW
         CIRCTSVTransforms
+        CIRCTESI
         )
 
 llvm_map_components_to_libnames(llvm_libs bitwriter native passes)

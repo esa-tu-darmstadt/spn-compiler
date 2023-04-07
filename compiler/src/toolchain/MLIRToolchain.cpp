@@ -25,6 +25,7 @@
 #include "circt/Dialect/Seq/SeqDialect.h"
 #include "circt/Dialect/SV/SVDialect.h"
 #include "circt/Dialect/FIRRTL/FIRRTLDialect.h"
+#include "circt/Dialect/ESI/ESIDialect.h"
 
 #include <unistd.h>
 
@@ -54,6 +55,7 @@ void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext& ctx) {
   ctx.loadDialect<circt::sv::SVDialect>();
   ctx.loadDialect<circt::comb::CombDialect>();
   ctx.loadDialect<circt::firrtl::FIRRTLDialect>();
+  ctx.loadDialect<circt::esi::ESIDialect>();
 
   ctx.appendDialectRegistry(registry);
   mlir::registerLLVMDialectTranslation(ctx);

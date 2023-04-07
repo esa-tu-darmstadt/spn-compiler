@@ -10,14 +10,20 @@
 
 #include "circt/Dialect/HW/HWDialect.h"
 #include "circt/Dialect/HW/HWOps.h"
+#include "circt/Dialect/HW/HWOpInterfaces.h"
 
 #include "circt/Dialect/FIRRTL/FIRParser.h"
+
+#include "circt/Dialect/ESI/ESIDialect.h"
+#include "circt/Dialect/ESI/ESIOps.h"
+#include "circt/Dialect/ESI/ESITypes.h"
 
 #include "mlir/Transforms/DialectConversion.h"
 
 #include "AXIStream.hpp"
 #include "ShiftRegister.hpp"
 #include "firpQueue.hpp"
+#include "ESI.hpp"
 
 #include <filesystem>
 
@@ -69,6 +75,7 @@ private:
   std::unique_ptr<mlir::ModuleOp> topModule;
 
   static ExecutionResult convertFirrtlToHw(mlir::ModuleOp op, circt::hw::HWModuleOp spnBody);
+  void insertCosimTopLevel(mlir::ModuleOp root, uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultBitWidth);
 };
 
 using namespace firp;
@@ -115,8 +122,42 @@ public:
     uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay);
 };
 
-class ReplaceSPNBodyExternalPass {
+class ReadyValidController : public Module<ReadyValidController> {
+public:
+  ReadyValidController(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay):
+    Module<ReadyValidController>(
+      "ReadyValidController",
+      {
+        Port("enq", true, readyValidType(withLast(uintType(spnVarCount * bitsPerVar)))),
+        Port("deq", false, readyValidType(withLast(uintType(resultWidth))))
+      },
+      spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay
+    ) {}
 
+  void body(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay);
+};
+
+class CosimTop : public Module<CosimTop> {
+public:
+  CosimTop(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay):
+    Module<CosimTop>(
+      "CosimTop",
+      {},
+      spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay
+    ) {}
+
+  void body(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay);
+};
+
+class Receiver : public esi::ExternalHWModule<Receiver> {
+public:
+  Receiver(FIRRTLBaseType innerType):
+    ExternalHWModule<Receiver>(
+      "Receiver",
+      std::vector<std::tuple<std::string, bool, Type>>{
+        std::make_tuple("chan", true, circt::esi::ChannelType::get(firpContext()->context(), esi::lowerFIRRTLType(innerType)))
+      }
+    ) {}
 };
 
 }
