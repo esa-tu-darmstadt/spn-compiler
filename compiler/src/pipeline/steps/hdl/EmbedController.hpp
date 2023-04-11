@@ -160,4 +160,15 @@ public:
     ) {}
 };
 
+class TestHWModule : public esi::ExternalHWModule<TestHWModule> {
+public:
+  TestHWModule():
+    ExternalHWModule<TestHWModule>(
+      "TestHWModule",
+      std::vector<std::tuple<std::string, bool, Type>>{
+        
+      }
+    ) {}
+};
+
 }

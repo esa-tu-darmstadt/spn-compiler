@@ -123,19 +123,34 @@ ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op, circt::hw:
   PassManager pm(ctxt);
 
   // inspired by firtool
+  //auto &modulePM = pm.nest<circt::firrtl::CircuitOp>().nest<circt::firrtl::FModuleOp>();
+  //modulePM.addPass(circt::firrtl::createExpandWhensPass());
+  
   pm.addNestedPass<circt::firrtl::CircuitOp>(
     circt::firrtl::createInferWidthsPass()
   );
-  pm.addNestedPass<circt::firrtl::CircuitOp>(
-    circt::firrtl::createLowerFIRRTLTypesPass(
-      circt::firrtl::PreserveAggregate::PreserveMode::None
-    )
+
+  //pm.addNestedPass<circt::firrtl::CircuitOp>(
+  //  circt::firrtl::createLowerFIRRTLTypesPass(
+  //    circt::firrtl::PreserveAggregate::PreserveMode::None
+  //  )
+  //);
+
+  
+  //modulePM.addPass(circt::firrtl::createSFCCompatPass());  
+
+  //pm.addNestedPass<mlir::ModuleOp>(
+  //  circt::createLowerFIRRTLToHWPass()
+  //);
+
+  pm.addPass(
+    circt::createLowerFIRRTLToHWPass()
   );
-  auto &modulePM = pm.nest<circt::firrtl::CircuitOp>().nest<circt::firrtl::FModuleOp>();
-  modulePM.addPass(circt::firrtl::createExpandWhensPass());
-  modulePM.addPass(circt::firrtl::createSFCCompatPass());  
-  pm.addPass(circt::createLowerFIRRTLToHWPass());
+
+
   // export verilog doesn't know about seq.firreg
+  
+  /*
   pm.addNestedPass<circt::hw::HWModuleOp>(
     circt::seq::createSeqFIRRTLLowerToSVPass()
   );
@@ -146,7 +161,7 @@ ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op, circt::hw:
     //replSeqMem, ignoreReadEnableMem, stripMuxPragmas,
     //!isRandomEnabled(RandomKind::Mem), !isRandomEnabled(RandomKind::Reg),
     //addVivadoRAMAddressConflictSynthesisBugWorkaround
-  ));
+  ));*/
 
   // TODO: Add cleanup and canonicalization!
 
@@ -469,20 +484,28 @@ void ReadyValidController::body(uint32_t spnVarCount, uint32_t bitsPerVar, uint3
 }
 
 void CosimTop::body(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay) {
+  esi::ESIReceiver receiver(withLast(uintType(spnVarCount * bitsPerVar)));
+  esi::ESISender sender(withLast(uintType(spnVarCount * bitsPerVar)));
 
+//#define DEFAULT
+
+#ifdef DEFAULT
   ReadyValidController controller(spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay);
-
-  Receiver receiver(withLast(uintType(32)));
-
-  // need external receiver
-  // need external sender
-
-
-
-  firpContext()->builder().create<circt::hw::ConstantOp>(
-    firpContext()->builder().getUnknownLoc(),
-    firpContext()->builder().getIntegerAttr(firpContext()->builder().getIntegerType(1), 1)
-  ).getResult();
+  controller.io("enq") <<= receiver.io("deq");
+  sender.io("enq") <<= controller.io("deq");
+#else
+  //Reg someReg = regInit(cons(0, uintType(8)), "someReg");
+  //someReg <<= mux(doesFire(sender.io("enq")), cons(1) + someReg, someReg);
+  //Fifo fifo(withLast(uintType(spnVarCount * bitsPerVar)));
+  //fifo.io("enq") <<= receiver.io("deq");
+  //sender.io("enq") <<= fifo.io("deq");
+  //sender.io("enq") <<= receiver.io("deq");
+  // TODO: Why does this not work?
+  //sender.io("enq") <<= receiver.io("deq");
+  //sender.io("enq")("valid") <<= receiver.io("deq")("valid");
+  //queue.io("enq") <<= queue.io("deq");
+  sender.io("enq") <<= receiver.io("deq");
+#endif
 }
 
 /*
