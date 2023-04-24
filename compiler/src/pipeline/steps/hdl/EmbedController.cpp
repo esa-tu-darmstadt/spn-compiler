@@ -47,6 +47,82 @@ void EmbedController::setParameters(uint32_t bodyDelay) {
   pKernel.fifoDepth = bodyDelay * 2;
 }
 
+Operation *EmbedController::implementESIreceiver(ModuleOp *root, uint32_t varCount, uint32_t bitsPerVar) {
+  // create the HW implementation
+  using namespace circt::hw;
+
+  // TODO
+  OpBuilder builder(root->getContext());
+  builder.setInsertionPointToEnd(
+    &root->getBodyRegion().back()
+  );
+
+  // build the receiver
+  SmallVector<circt::hw::PortInfo> recvPorts{
+    {.name = builder.getStringAttr("clock"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
+    {.name = builder.getStringAttr("reset"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
+    {.name = builder.getStringAttr("ready"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
+    {.name = builder.getStringAttr("valid"), .direction = PortDirection::OUTPUT, .type = builder.getI1Type()},
+    {.name = builder.getStringAttr("last"), .direction = PortDirection::OUTPUT, .type = builder.getI1Type()}
+    // TODO: fix bit width
+    //{.name = builder.getStringAttr("deq_bits"), .direction = PortDirection::OUTPUT, .type = builder.getIntegerType(41)}
+  };
+
+  for (uint32_t i = 0; i < varCount; ++i)
+    recvPorts.push_back({
+      .name = builder.getStringAttr("v" + std::to_string(i)), .direction = PortDirection::OUTPUT, .type = builder.getIntegerType(bitsPerVar)
+    });
+
+  circt::hw::HWModuleOp recvOp = builder.create<circt::hw::HWModuleOp>(
+    builder.getUnknownLoc(),
+    builder.getStringAttr("ESIReceiverLol"), recvPorts
+  );
+
+  // descend into the body and construct it
+  builder.setInsertionPointToStart(recvOp.getBodyBlock());
+  ESIReceiver::constructBody(builder, varCount, bitsPerVar);
+
+  builder.getBlock()->back().erase();
+
+  return recvOp.getOperation();
+}
+
+Operation *EmbedController::implementESIsender(ModuleOp *root) {
+  // create the HW implementation
+  using namespace circt::hw;
+
+  // TODO
+  OpBuilder builder(root->getContext());
+  builder.setInsertionPointToEnd(
+    &root->getBodyRegion().back()
+  );
+
+  // build the sender
+  SmallVector<circt::hw::PortInfo> sendPorts{
+    {.name = builder.getStringAttr("clock"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
+    {.name = builder.getStringAttr("reset"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
+    {.name = builder.getStringAttr("ready"), .direction = PortDirection::OUTPUT, .type = builder.getI1Type()},
+    {.name = builder.getStringAttr("valid"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
+    // TODO: fix bit width
+    //{.name = builder.getStringAttr("enq_bits"), .direction = PortDirection::INPUT, .type = builder.getIntegerType(65)}
+    {.name = builder.getStringAttr("last"), .direction = PortDirection::INPUT, .type = builder.getIntegerType(1)},
+    {.name = builder.getStringAttr("data"), .direction = PortDirection::INPUT, .type = builder.getIntegerType(64)}
+  };
+
+  circt::hw::HWModuleOp sendOp = builder.create<circt::hw::HWModuleOp>(
+    builder.getUnknownLoc(),
+    builder.getStringAttr("ESISenderLol"), sendPorts
+  );
+
+  // descend into the body and construct it
+  builder.setInsertionPointToStart(sendOp.getBodyBlock());
+  ESISender::constructBody(builder);
+
+  builder.getBlock()->back().erase();
+
+  return sendOp.getOperation();
+}
+
 ExecutionResult EmbedController::executeStep(ModuleOp *root) {
   std::optional<HWModuleOp> spnBody = getUniqueBody(*root);
 
@@ -110,6 +186,74 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
 
   //insertCosimTopLevel(*root, kernel.spnVarCount, kernel.spnBitsPerVar, kernel.spnResultWidth);
 
+  Operation *recvModOp = implementESIreceiver(root, kernel.spnVarCount, kernel.spnBitsPerVar);
+  Operation *sendModOp = implementESIsender(root);
+
+  OpBuilder builder(root->getContext());
+
+  // TODO: Big problem: Ints with more than 64 bits are not supported!
+
+  // Find the instances of ESISender/ESIReceiver and replace them with instances pointing to
+  // the newly generated implementation.
+  if (false) {
+    Operation *esiReceiverInstance = nullptr;
+
+    // find the old receiver instance
+    root->walk([&](circt::hw::InstanceOp op) {
+      if (op.getInstanceName() == "ESIReceiver_instance")
+        esiReceiverInstance = op.getOperation();
+    });
+
+    assert(esiReceiverInstance && "could not find instance");
+
+    builder.setInsertionPointAfter(esiReceiverInstance);
+
+    std::vector<Value> operands(
+      esiReceiverInstance->operand_begin(),
+      esiReceiverInstance->operand_end()
+    );
+
+    auto newEsiReceiverInstance = builder.create<circt::hw::InstanceOp>(
+      builder.getUnknownLoc(),
+      recvModOp,
+      builder.getStringAttr("ESIReceiver_instance"),
+      operands
+    );
+
+    esiReceiverInstance->replaceAllUsesWith(newEsiReceiverInstance.getResults());
+    esiReceiverInstance->erase();
+  }
+
+  if (false) {
+    Operation *esiSenderInstance = nullptr;
+
+    // find the old receiver instance
+    root->walk([&](circt::hw::InstanceOp op) {
+      if (op.getInstanceName() == "ESISender_instance")
+        esiSenderInstance = op.getOperation();
+    });
+
+    assert(esiSenderInstance && "could not find instance");
+
+    builder.setInsertionPointAfter(esiSenderInstance);
+
+    std::vector<Value> operands(
+      esiSenderInstance->operand_begin(),
+      esiSenderInstance->operand_end()
+    );
+
+    auto newEsiSenderInstance = builder.create<circt::hw::InstanceOp>(
+      builder.getUnknownLoc(),
+      sendModOp,
+      builder.getStringAttr("ESISender_instance"),
+      operands
+    );
+
+    esiSenderInstance->replaceAllUsesWith(newEsiSenderInstance.getResults());
+    esiSenderInstance->erase();
+  }  
+
+
 
   topModule = std::make_unique<mlir::ModuleOp>(*root);
 
@@ -123,21 +267,27 @@ ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op, circt::hw:
   PassManager pm(ctxt);
 
   // inspired by firtool
-  //auto &modulePM = pm.nest<circt::firrtl::CircuitOp>().nest<circt::firrtl::FModuleOp>();
-  //modulePM.addPass(circt::firrtl::createExpandWhensPass());
   
   pm.addNestedPass<circt::firrtl::CircuitOp>(
     circt::firrtl::createInferWidthsPass()
   );
 
-  //pm.addNestedPass<circt::firrtl::CircuitOp>(
-  //  circt::firrtl::createLowerFIRRTLTypesPass(
-  //    circt::firrtl::PreserveAggregate::PreserveMode::None
-  //  )
-  //);
+  // this pass cannot be applied selectively
+  pm.addNestedPass<circt::firrtl::CircuitOp>(
+    circt::firrtl::createLowerFIRRTLTypesPass(
+      // mode
+      circt::firrtl::PreserveAggregate::PreserveMode::None,
+      // memory mode
+      circt::firrtl::PreserveAggregate::PreserveMode::None,
+      // preserve public types
+      false
+    )
+  );
 
+  auto &modulePM = pm.nest<circt::firrtl::CircuitOp>().nest<circt::firrtl::FModuleOp>();
+  modulePM.addPass(circt::firrtl::createExpandWhensPass());
   
-  //modulePM.addPass(circt::firrtl::createSFCCompatPass());  
+  //modulePM.addPass(circt::firrtl::createSFCCompatPass());
 
   //pm.addNestedPass<mlir::ModuleOp>(
   //  circt::createLowerFIRRTLToHWPass()
@@ -484,28 +634,179 @@ void ReadyValidController::body(uint32_t spnVarCount, uint32_t bitsPerVar, uint3
 }
 
 void CosimTop::body(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay) {
-  esi::ESIReceiver receiver(withLast(uintType(spnVarCount * bitsPerVar)));
-  esi::ESISender sender(withLast(uintType(spnVarCount * bitsPerVar)));
+  ESIReceiver receiver(spnVarCount, bitsPerVar);
+  ESISender sender(resultWidth);
 
-//#define DEFAULT
-
-#ifdef DEFAULT
   ReadyValidController controller(spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay);
-  controller.io("enq") <<= receiver.io("deq");
-  sender.io("enq") <<= controller.io("deq");
-#else
-  //Reg someReg = regInit(cons(0, uintType(8)), "someReg");
-  //someReg <<= mux(doesFire(sender.io("enq")), cons(1) + someReg, someReg);
-  //Fifo fifo(withLast(uintType(spnVarCount * bitsPerVar)));
-  //fifo.io("enq") <<= receiver.io("deq");
-  //sender.io("enq") <<= fifo.io("deq");
-  //sender.io("enq") <<= receiver.io("deq");
-  // TODO: Why does this not work?
-  //sender.io("enq") <<= receiver.io("deq");
-  //sender.io("enq")("valid") <<= receiver.io("deq")("valid");
-  //queue.io("enq") <<= queue.io("deq");
-  sender.io("enq") <<= receiver.io("deq");
-#endif
+
+  controller.io("enq")("valid") <<= receiver.io("valid");
+  
+  std::vector<FValue> varValues;
+  for (uint32_t i = 0; i < spnVarCount; ++i)
+    varValues.push_back(receiver.io("v" + std::to_string(i)));
+  controller.io("enq")("bits")("bits") <<= cat(varValues);
+
+  controller.io("enq")("bits")("last") <<= receiver.io("last");
+  receiver.io("ready") <<= controller.io("enq")("ready");
+
+  sender.io("valid") <<= controller.io("deq")("valid");
+  sender.io("last") <<= controller.io("deq")("bits")("last");
+  sender.io("data") <<= controller.io("deq")("bits")("bits");
+  controller.io("deq")("ready") <<= sender.io("ready");
+}
+
+void ESIReceiver::constructBody(OpBuilder builder, uint32_t varCount, uint32_t bitsPerVar) {
+  // assume we are constructing the body of the HW module here
+
+  /*
+    hw.module @ESIReceiver(%clk: i1, %rst: i1, %deq_ready: i1) -> (deq_bits: i8, deq_valid: i1) {
+      %nullChannel = esi.null : !esi.channel<i1>
+      %cosimRecv = esi.cosim %clk, %rst, %nullChannel, "MyEP" : !esi.channel<i1> -> !esi.channel<i8>
+      %bits, %valid = esi.unwrap.vr %cosimRecv, %deq_ready : i8
+      hw.output %bits, %valid : i8, i1
+    }
+   */
+
+  using namespace circt::esi;
+
+  // build the struct type we receive
+  using FieldInfo = circt::hw::detail::FieldInfo;
+  std::vector<FieldInfo> structFieldInfos{
+    FieldInfo{
+      .name = builder.getStringAttr("last"),
+      .type = builder.getI1Type()
+    }
+  };
+
+  for (uint32_t i = 0; i < varCount; ++i)
+    structFieldInfos.push_back(FieldInfo{
+      .name = builder.getStringAttr("v" + std::to_string(i)),
+      .type = builder.getIntegerType(bitsPerVar)
+    });
+
+  Type structType = circt::hw::StructType::get(builder.getContext(), structFieldInfos);
+
+  // input arguments to the module
+  Value clk, rst, deqReady;
+
+  Block *block = builder.getBlock();
+  clk = block->getArgument(0);
+  rst = block->getArgument(1);
+  deqReady = block->getArgument(2);
+
+  // build a null channel
+  Value nullChannel = builder.create<NullSourceOp>(
+    builder.getUnknownLoc(),
+    ChannelType::get(builder.getContext(), builder.getI1Type()) // cannot have 0 width for some reason
+  ).getResult();
+
+  // endpoint
+  Value cosimRecv = builder.create<CosimEndpointOp>(
+    builder.getUnknownLoc(),
+    ChannelType::get(builder.getContext(), structType),
+    clk, rst, nullChannel, builder.getStringAttr("MyReceiver")      
+  ).getResult();
+
+  // unwrap
+  UnwrapValidReadyOp urvOp = builder.create<UnwrapValidReadyOp>(
+    builder.getUnknownLoc(),
+    cosimRecv, deqReady
+  );
+
+  Value rawOutput = urvOp.getResult(0);
+  Value valid = urvOp.getResult(1);
+
+  // decompose the struct and output it
+  SmallVector<Value, 16> outputs{
+    valid
+  };
+
+  outputs.push_back(
+    builder.create<circt::hw::StructExtractOp>(
+      builder.getUnknownLoc(),
+      rawOutput,
+      builder.getStringAttr("last")
+    ).getResult()
+  );
+
+  for (uint32_t i = 0; i < varCount; ++i)
+    outputs.push_back(
+      builder.create<circt::hw::StructExtractOp>(
+        builder.getUnknownLoc(),
+        rawOutput,
+        builder.getStringAttr("v" + std::to_string(i))
+      ).getResult()
+    );
+
+  // output the results
+  builder.create<circt::hw::OutputOp>(
+    builder.getUnknownLoc(),
+    outputs
+  );
+}
+
+void ESISender::constructBody(OpBuilder builder) {
+  using namespace circt::esi;
+
+  // build the struct type we send
+  using FieldInfo = circt::hw::detail::FieldInfo;
+  std::vector<FieldInfo> structFieldInfos{
+    FieldInfo{
+      .name = builder.getStringAttr("last"),
+      .type = builder.getI1Type()
+    },
+    FieldInfo{
+      .name = builder.getStringAttr("data"),
+      .type = builder.getI64Type()
+    }
+  };
+
+  Type structType = circt::hw::StructType::get(builder.getContext(), structFieldInfos);
+
+  // input arguments to the module
+  Value clk, rst, last, data, enqValid;
+
+  Block *block = builder.getBlock();
+  clk = block->getArgument(0);
+  rst = block->getArgument(1);
+  enqValid = block->getArgument(2);
+  last = block->getArgument(3);
+  data = block->getArgument(4);
+
+  // bundle the inputs into a struct
+  Value actualInput = builder.create<circt::hw::StructCreateOp>(
+    builder.getUnknownLoc(),
+    structType,
+    std::vector<Value>{last, data}
+  ).getResult();
+
+  // wrap
+  WrapValidReadyOp wrvOp = builder.create<WrapValidReadyOp>(
+    builder.getUnknownLoc(),
+    actualInput, enqValid
+  );
+
+  Value sendChannel = wrvOp.getResult(0);
+  Value enqReady = wrvOp.getResult(1);
+
+  // endpoint
+  Value cosimRecv = builder.create<CosimEndpointOp>(
+    builder.getUnknownLoc(),
+    // result type is something like { bits: i40, last: i1 }
+    // TODO: generalize bit width for any SPN
+    ChannelType::get(builder.getContext(), structType),
+    clk, rst, sendChannel, builder.getStringAttr("MySender")      
+  ).getResult();
+
+  SmallVector<Value, 1> outputs{
+    enqReady
+  };
+
+  // output the results
+  builder.create<circt::hw::OutputOp>(
+    builder.getUnknownLoc(),
+    outputs
+  );
 }
 
 /*

@@ -61,6 +61,8 @@ class EmbedController : public StepSingleInput<EmbedController, mlir::ModuleOp>,
   // fails if there is more than one spn_body
   std::optional<HWModuleOp> getUniqueBody(mlir::ModuleOp root);
   void setParameters(uint32_t bodyDelay);
+  Operation *implementESIreceiver(ModuleOp *root, uint32_t varCount, uint32_t bitsPerVar);
+  Operation *implementESIsender(ModuleOp *root);
 public:
   explicit EmbedController(const ControllerConfig& config, StepWithResult<mlir::ModuleOp>& spnBody):
     StepSingleInput<EmbedController, mlir::ModuleOp>(spnBody),
@@ -137,6 +139,47 @@ public:
   void body(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay);
 };
 
+class ESIReceiver : public ExternalModule<ESIReceiver> {
+  static std::vector<Port> getPorts(uint32_t varCount, uint32_t bitsPerVar) {
+    std::vector<Port> ports{
+      Port("ready", true, bitType()),
+      Port("valid", false, bitType()),
+      Port("last", false, bitType())
+    };
+
+    for (uint32_t i = 0; i < varCount; ++i)
+      ports.emplace_back("v" + std::to_string(i), false, uintType(bitsPerVar));
+
+    return ports;
+  }
+public:
+  ESIReceiver(uint32_t varCount, uint32_t bitsPerVar):
+    ExternalModule<ESIReceiver>(
+      "ESIReceiver",
+      getPorts(varCount, bitsPerVar)
+    ) {}
+
+  static void constructBody(OpBuilder builder, uint32_t varCount, uint32_t bitsPerVar);
+};
+
+class ESISender : public ExternalModule<ESISender> {
+  
+public:
+  ESISender(uint32_t width):
+    ExternalModule<ESISender>(
+      "ESISender",
+      std::vector<Port>{
+        // primitive types so we can find them in HW
+        Port("ready", false, bitType()),
+        Port("valid", true, bitType()),
+        Port("last", true, bitType()),
+        Port("data", true, uintType(width))
+      }
+    ) {}
+
+  static void constructBody(OpBuilder builder);
+};
+
 class CosimTop : public Module<CosimTop> {
 public:
   CosimTop(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay):
@@ -144,31 +187,13 @@ public:
       "CosimTop",
       {},
       spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay
-    ) {}
+    ) {
+    int x = 123;
+    llvm::outs() << x << "\n";
+  }
 
   void body(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay);
-};
-
-class Receiver : public esi::ExternalHWModule<Receiver> {
-public:
-  Receiver(FIRRTLBaseType innerType):
-    ExternalHWModule<Receiver>(
-      "Receiver",
-      std::vector<std::tuple<std::string, bool, Type>>{
-        std::make_tuple("chan", true, circt::esi::ChannelType::get(firpContext()->context(), esi::lowerFIRRTLType(innerType)))
-      }
-    ) {}
-};
-
-class TestHWModule : public esi::ExternalHWModule<TestHWModule> {
-public:
-  TestHWModule():
-    ExternalHWModule<TestHWModule>(
-      "TestHWModule",
-      std::vector<std::tuple<std::string, bool, Type>>{
-        
-      }
-    ) {}
+  void implementHWforESI(ModuleOp *root);
 };
 
 }
