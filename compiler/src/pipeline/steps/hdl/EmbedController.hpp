@@ -168,7 +168,7 @@ public:
   ESISender(uint32_t width):
     ExternalModule<ESISender>(
       "ESISender",
-      std::vector<Port>{
+      {
         // primitive types so we can find them in HW
         Port("ready", false, bitType()),
         Port("valid", true, bitType()),

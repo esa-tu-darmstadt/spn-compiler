@@ -59,8 +59,8 @@ Operation *EmbedController::implementESIreceiver(ModuleOp *root, uint32_t varCou
 
   // build the receiver
   SmallVector<circt::hw::PortInfo> recvPorts{
-    {.name = builder.getStringAttr("clock"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
-    {.name = builder.getStringAttr("reset"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
+    {.name = builder.getStringAttr("clk"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
+    {.name = builder.getStringAttr("rst"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
     {.name = builder.getStringAttr("ready"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
     {.name = builder.getStringAttr("valid"), .direction = PortDirection::OUTPUT, .type = builder.getI1Type()},
     {.name = builder.getStringAttr("last"), .direction = PortDirection::OUTPUT, .type = builder.getI1Type()}
@@ -99,8 +99,8 @@ Operation *EmbedController::implementESIsender(ModuleOp *root) {
 
   // build the sender
   SmallVector<circt::hw::PortInfo> sendPorts{
-    {.name = builder.getStringAttr("clock"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
-    {.name = builder.getStringAttr("reset"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
+    {.name = builder.getStringAttr("clk"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
+    {.name = builder.getStringAttr("rst"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
     {.name = builder.getStringAttr("ready"), .direction = PortDirection::OUTPUT, .type = builder.getI1Type()},
     {.name = builder.getStringAttr("valid"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
     // TODO: fix bit width
@@ -153,7 +153,7 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
   using namespace ::firp::axis;
 
   FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
-  initFirpContext(*root, "top");
+  initFirpContext(*root, "top", "clk", "rst");
 
   AXIStreamConfig slaveConfig{
     .dataBits = uint32_t(kernel.sAxisControllerWidth),
@@ -430,8 +430,8 @@ void EmbedController::insertCosimTopLevel(mlir::ModuleOp root, uint32_t spnVarCo
 
   // create actual module
   std::vector<circt::hw::PortInfo> ports{
-    circt::hw::PortInfo{.name = strAttr("clock"), .direction = circt::hw::PortDirection::INPUT, .type = builder.getI1Type()},
-    circt::hw::PortInfo{.name = strAttr("reset"), .direction = circt::hw::PortDirection::INPUT, .type = builder.getI1Type()}
+    circt::hw::PortInfo{.name = strAttr("clk"), .direction = circt::hw::PortDirection::INPUT, .type = builder.getI1Type()},
+    circt::hw::PortInfo{.name = strAttr("rst"), .direction = circt::hw::PortDirection::INPUT, .type = builder.getI1Type()}
   };
 
   HWModuleOp hwModOp = builder.create<HWModuleOp>(
