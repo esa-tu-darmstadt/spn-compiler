@@ -153,7 +153,7 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
   using namespace ::firp::axis;
 
   FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
-  initFirpContext(*root, "CosimTop");
+  initFirpContext(*root, "top");
 
   AXIStreamConfig slaveConfig{
     .dataBits = uint32_t(kernel.sAxisControllerWidth),
@@ -180,7 +180,7 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
 
   firpContext()->finish();
   //firpContext()->verify();
-  firpContext()->dump();
+  //firpContext()->dump();
 
   ExecutionResult result = convertFirrtlToHw(*root, spnBody.value());
 
@@ -195,7 +195,7 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
 
   // Find the instances of ESISender/ESIReceiver and replace them with instances pointing to
   // the newly generated implementation.
-  if (false) {
+  if (true) {
     Operation *esiReceiverInstance = nullptr;
 
     // find the old receiver instance
@@ -224,7 +224,7 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
     esiReceiverInstance->erase();
   }
 
-  if (false) {
+  if (true) {
     Operation *esiSenderInstance = nullptr;
 
     // find the old receiver instance
@@ -257,7 +257,12 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
 
   topModule = std::make_unique<mlir::ModuleOp>(*root);
 
-  topModule->dump();
+  {
+    std::error_code ec;
+    llvm::raw_fd_ostream outFile("output.mlir", ec);
+    topModule->print(outFile);
+    //topModule->dump();
+  }
 
   return result;
 }
@@ -299,8 +304,7 @@ ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op, circt::hw:
 
 
   // export verilog doesn't know about seq.firreg
-  
-  /*
+
   pm.addNestedPass<circt::hw::HWModuleOp>(
     circt::seq::createSeqFIRRTLLowerToSVPass()
   );
@@ -311,7 +315,7 @@ ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op, circt::hw:
     //replSeqMem, ignoreReadEnableMem, stripMuxPragmas,
     //!isRandomEnabled(RandomKind::Mem), !isRandomEnabled(RandomKind::Reg),
     //addVivadoRAMAddressConflictSynthesisBugWorkaround
-  ));*/
+  ));
 
   // TODO: Add cleanup and canonicalization!
 

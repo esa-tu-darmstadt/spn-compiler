@@ -184,13 +184,10 @@ class CosimTop : public Module<CosimTop> {
 public:
   CosimTop(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay):
     Module<CosimTop>(
-      "CosimTop",
+      "top", // needs to be called top
       {},
       spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay
-    ) {
-    int x = 123;
-    llvm::outs() << x << "\n";
-  }
+    ) {}
 
   void body(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay);
   void implementHWforESI(ModuleOp *root);
