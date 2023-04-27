@@ -23,7 +23,6 @@
 #include "AXIStream.hpp"
 #include "ShiftRegister.hpp"
 #include "firpQueue.hpp"
-#include "ESI.hpp"
 
 #include <filesystem>
 
@@ -93,6 +92,7 @@ public:
 };
 
 class SPNBody : public Module<SPNBody> {
+  uint32_t spnVarCount, bitsPerVar, spnResultWidth;
 public:
   SPNBody(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t spnResultWidth):
     Module<SPNBody>(
@@ -102,12 +102,17 @@ public:
         Port("out", false, uintType(spnResultWidth))
       },
       spnVarCount, bitsPerVar, spnResultWidth
-    ) {}
+    ),
+    spnVarCount(spnVarCount), bitsPerVar(bitsPerVar), spnResultWidth(spnResultWidth)
+    {}
 
-  void body(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t spnResultWidth);
+  void body();
 };
 
 class Controller : public Module<Controller> {
+  uint32_t spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay;
+  AXIStreamConfig slaveConfig;
+  AXIStreamConfig masterConfig;
 public:
   Controller(const AXIStreamConfig& slaveConfig, const AXIStreamConfig& masterConfig,
     uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay):
@@ -117,14 +122,19 @@ public:
         Port("AXIS_SLAVE", true, AXIStreamBundleType(slaveConfig)),
         Port("AXIS_MASTER", false, AXIStreamBundleType(masterConfig))
       },
-      slaveConfig, masterConfig, spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay
-    ) {}
+      slaveConfig.dataBits, slaveConfig.userBits, slaveConfig.destBits, slaveConfig.idBits,
+      masterConfig.dataBits, masterConfig.userBits, masterConfig.destBits, masterConfig.idBits,
+      spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay
+    ),
+    slaveConfig(slaveConfig), masterConfig(masterConfig),
+    spnVarCount(spnVarCount), bitsPerVar(bitsPerVar), resultWidth(resultWidth), fifoDepth(fifoDepth), bodyDelay(bodyDelay)
+    {}
 
-  void body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig& masterConfig,
-    uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay);
+  void body();
 };
 
 class ReadyValidController : public Module<ReadyValidController> {
+  uint32_t spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay;
 public:
   ReadyValidController(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay):
     Module<ReadyValidController>(
@@ -134,9 +144,11 @@ public:
         Port("deq", false, readyValidType(withLast(uintType(resultWidth))))
       },
       spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay
-    ) {}
+    ),
+    spnVarCount(spnVarCount), bitsPerVar(bitsPerVar), resultWidth(resultWidth), fifoDepth(fifoDepth), bodyDelay(bodyDelay)
+    {}
 
-  void body(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay);
+  void body();
 };
 
 class ESIReceiver : public ExternalModule<ESIReceiver> {
@@ -181,15 +193,18 @@ public:
 };
 
 class CosimTop : public Module<CosimTop> {
+  uint32_t spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay;
 public:
   CosimTop(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay):
     Module<CosimTop>(
       "top", // needs to be called top
       {},
       spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay
-    ) {}
+    ),
+    spnVarCount(spnVarCount), bitsPerVar(bitsPerVar), resultWidth(resultWidth), fifoDepth(fifoDepth), bodyDelay(bodyDelay)
+    {}
 
-  void body(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay);
+  void body();
   void implementHWforESI(ModuleOp *root);
 };
 

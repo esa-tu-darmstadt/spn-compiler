@@ -175,8 +175,10 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
   //  kernel.spnVarCount, kernel.spnBitsPerVar, kernel.spnResultWidth, kernel.fifoDepth, kernel.bodyDelay);
   //ReadyValidController controller(kernel.spnVarCount, kernel.spnBitsPerVar, kernel.spnResultWidth, kernel.fifoDepth, kernel.bodyDelay);
   //controller.makeTop();
-  CosimTop top(kernel.spnVarCount, kernel.spnBitsPerVar, kernel.spnResultWidth, kernel.fifoDepth, kernel.bodyDelay);
-  top.makeTop();
+  {
+    CosimTop top(kernel.spnVarCount, kernel.spnBitsPerVar, kernel.spnResultWidth, kernel.fifoDepth, kernel.bodyDelay);
+    top.makeTop();
+  }
 
   firpContext()->finish();
   //firpContext()->verify();
@@ -370,176 +372,7 @@ ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op, circt::hw:
   return failure("rewriting instances failed");
 }
 
-void EmbedController::insertCosimTopLevel(mlir::ModuleOp root, uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultBitWidth) {
-  // ReadyValidController
-
-  MLIRContext *context = root.getContext();
-  OpBuilder builder(context);
-
-  // set insertion point
-  builder.setInsertionPointToEnd(&root.getOperation()->getRegion(0).front());
-
-  // helper functions
-  auto strAttr = [&](const std::string& s) {
-    return builder.getStringAttr(s);
-  };
-
-  auto portInfo = [&](const std::string& name, bool isInput, Type type) {
-    return circt::hw::PortInfo{
-      .name = strAttr(name),
-      .direction = isInput ? circt::hw::PortDirection::INPUT : circt::hw::PortDirection::OUTPUT,
-      type
-    };
-  };
-
-  Type hwInputType = esi::lowerFIRRTLType(withLast(uintType(spnVarCount * bitsPerVar)));
-
-  // define sender/receiver external ops
-  auto senderChannelType = circt::esi::ChannelType::get(
-    context,
-    // this is actually withLast(uintType(...))
-    // How do we predictably map this to HW types?
-    hwInputType //,
-    //circt::hw::StructType::get(context, ArrayRef<>)
-  );
-
-  std::vector<circt::hw::PortInfo> senderPorts{
-    portInfo("chan", false, senderChannelType)
-  };
-
-  HWModuleExternOp mySender = builder.create<HWModuleExternOp>(
-    builder.getUnknownLoc(),
-    strAttr("MySender"),
-    ArrayRef<circt::hw::PortInfo>(senderPorts)
-  );
-
-  auto receiverChannelType = circt::esi::ChannelType::get(
-    context,
-    builder.getIntegerType(spnVarCount * bitsPerVar)
-  );
-
-  std::vector<circt::hw::PortInfo> receiverPorts{
-    portInfo("chan", true, receiverChannelType)
-  };
-
-  HWModuleExternOp myReceiver = builder.create<HWModuleExternOp>(
-    builder.getUnknownLoc(),
-    strAttr("MyReceiver"),
-    ArrayRef<circt::hw::PortInfo>(receiverPorts)
-  );
-
-  // create actual module
-  std::vector<circt::hw::PortInfo> ports{
-    circt::hw::PortInfo{.name = strAttr("clk"), .direction = circt::hw::PortDirection::INPUT, .type = builder.getI1Type()},
-    circt::hw::PortInfo{.name = strAttr("rst"), .direction = circt::hw::PortDirection::INPUT, .type = builder.getI1Type()}
-  };
-
-  HWModuleOp hwModOp = builder.create<HWModuleOp>(
-    builder.getUnknownLoc(),
-    builder.getStringAttr("top"),
-    ArrayRef<circt::hw::PortInfo>(ports)
-  );
-
-  // set insertion point
-  builder.setInsertionPointToStart(hwModOp.getBodyBlock());
-
-  Value clock = builder.getBlock()->getArgument(0);
-  Value reset = builder.getBlock()->getArgument(1);
-
-  // instantiate sender/receiver
-  circt::hw::InstanceOp mySenderInstance = builder.create<circt::hw::InstanceOp>(
-    builder.getUnknownLoc(),
-    mySender,
-    strAttr("MySenderInstance"),
-    ArrayRef<Value>()
-  );
-
-  // define the endpoints
-  circt::esi::CosimEndpointOp ep = builder.create<circt::esi::CosimEndpointOp>(
-    builder.getUnknownLoc(),
-    receiverChannelType,
-    clock, reset,
-    mySenderInstance.getResult(0),
-    strAttr("FuckingFunnyEP")
-  );
-
-  circt::hw::InstanceOp myReceiverInstance = builder.create<circt::hw::InstanceOp>(
-    builder.getUnknownLoc(),
-    myReceiver,
-    strAttr("MyReceiverInstance"),
-    ArrayRef<Value>(std::vector<Value>{ep.getOperation()->getResult(0)})
-  );
-
-  Value temporary = builder.create<circt::hw::ConstantOp>(
-    builder.getUnknownLoc(),
-    builder.getIntegerAttr(builder.getIntegerType(1), 1)
-  ).getResult();
-
-  // expose the ready-valid interfaces of the channels
-  auto unwrapOp = builder.create<circt::esi::UnwrapValidReadyOp>(
-    builder.getUnknownLoc(),
-    mySenderInstance.getResult(0),
-    temporary
-  );
-
-  /*
-  Value rawData = unwrapOp.getResult(0);
-  Value valid = unwrapOp.getResult(1);
-
-  Value bits = builder.create<circt::hw::StructExtractOp>(
-    builder.getUnknownLoc(),
-    rawData,
-    strAttr("bits")
-  ).getResult();
-
-  Value last = builder.create<circt::hw::StructExtractOp>(
-    builder.getUnknownLoc(),
-    rawData,
-    strAttr("last")
-  ).getResult();
-
-  Value ready = builder.create<circt::hw::ConstantOp>(
-    builder.getUnknownLoc(),
-    builder.getIntegerAttr(builder.getIntegerType(1), 1)
-  );
-
-  // instantiate ReadyValidController
-  std::vector<Value> inputs{
-    clock, reset,
-    valid, bits, last,
-    ready
-  };
-
-  Operation *controller = nullptr;
-  root.walk([&](HWModuleOp op){
-    if (op.getName() == "ReadyValidController")
-      controller = op.getOperation();
-  });
-
-  circt::hw::InstanceOp rvControllerInstance = builder.create<circt::hw::InstanceOp>(
-    builder.getUnknownLoc(),
-    controller,
-    strAttr("ReadyValidControllerInstance"),
-    ArrayRef<Value>(inputs)
-  );
-
-  Value enqReady = rvControllerInstance.getResult(0);
-  Value deqValid = rvControllerInstance.getResult(1);
-  Value deqBitsBits = rvControllerInstance.getResult(2);
-  Value deqBitsLast = rvControllerInstance.getResult(3);
-
-  Value deqBits = builder.create<circt::hw::StructCreateOp>(
-
-  ).getResult();
-
-  auto wrapOp = builder.create<circt::esi::UnwrapValidReadyOp>(
-    builder.getUnknownLoc(),
-    myReceiverInstance.getResult(0),
-    deqBits, deqValid
-  );*/
-}
-
-void SPNBody::body(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t spnResultWidth) {
+void SPNBody::body() {
   std::vector<Port> ports;
 
   for (size_t i = 0; i < spnVarCount; ++i)
@@ -559,8 +392,7 @@ void SPNBody::body(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t spnResult
   io("out") <<= extBody.io("out_prob");
 }
 
-void Controller::body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig& masterConfig,
-  uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay) {
+void Controller::body() {
   // TODO: reinsert
   //assert(kernel.bodyDelay <= kernel.fifoDepth);
 
@@ -604,7 +436,7 @@ void Controller::body(const AXIStreamConfig& slaveConfig, const AXIStreamConfig&
   svCocoTBVerbatim(getName());
 }
 
-void ReadyValidController::body(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay) {
+void ReadyValidController::body() {
   auto enqFire = wireInit(doesFire(io("enq")), "enqFire");
 
   FirpQueue fifo(withLast(uintType(resultWidth)), fifoDepth);
@@ -637,7 +469,7 @@ void ReadyValidController::body(uint32_t spnVarCount, uint32_t bitsPerVar, uint3
   svCocoTBVerbatim(getName());
 }
 
-void CosimTop::body(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay) {
+void CosimTop::body() {
   ESIReceiver receiver(spnVarCount, bitsPerVar);
   ESISender sender(resultWidth);
 

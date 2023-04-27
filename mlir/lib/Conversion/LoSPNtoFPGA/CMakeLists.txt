@@ -2,6 +2,7 @@ add_mlir_conversion_library(MLIRLoSPNtoFPGATransforms
     LoSPNtoFPGAPass.cpp
     conversion.cpp
     DelayInsertionPass.cpp
+    firrtlOperators.cpp
 
     ADDITIONAL_HEADER_DIRS
     ${PROJECT_SOURCE_DIR}/mlir/include/Conversion
