@@ -244,7 +244,7 @@ Optional<ModuleOp> convert(ModuleOp root) {
     if (failed(scheduleASAP(problem)))
       assert(false && "Could not schedule problem!");
 
-    ::circt::scheduling::dumpAsDOT(problem, "schedule.dot");
+    //::circt::scheduling::dumpAsDOT(problem, "schedule.dot");
 
     // from here on the code gets ugly
     problem.insertDelays();

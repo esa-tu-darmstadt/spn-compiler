@@ -392,6 +392,10 @@ void SPNBody::body() {
   io("out") <<= extBody.io("out_prob");
 }
 
+void SPNDummyBody::body() {
+  io("out") <<= cons(123, uintType(spnResultWidth));
+}
+
 void Controller::body() {
   // TODO: reinsert
   //assert(kernel.bodyDelay <= kernel.fifoDepth);
