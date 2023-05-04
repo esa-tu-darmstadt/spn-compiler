@@ -123,6 +123,53 @@ Operation *EmbedController::implementESIsender(ModuleOp *root) {
   return sendOp.getOperation();
 }
 
+Operation *EmbedController::implementESIEndpoint(ModuleOp *root, uint32_t varCount, uint32_t bitsPerVar) {
+  // create the HW implementation
+  using namespace circt::hw;
+
+  // TODO
+  OpBuilder builder(root->getContext());
+  builder.setInsertionPointToEnd(
+    &root->getBodyRegion().back()
+  );
+
+  // a lot of ports...
+  SmallVector<circt::hw::PortInfo> ports{
+    {.name = builder.getStringAttr("clk"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
+    {.name = builder.getStringAttr("rst"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
+    {.name = builder.getStringAttr("varReady"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
+    {.name = builder.getStringAttr("probValid"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
+    {.name = builder.getStringAttr("probLast"), .direction = PortDirection::INPUT, .type = builder.getI1Type()},
+    {.name = builder.getStringAttr("probData"), .direction = PortDirection::INPUT, .type = builder.getI64Type()}, // TODO: fix bit width
+
+    {.name = builder.getStringAttr("varValid"), .direction = PortDirection::OUTPUT, .type = builder.getI1Type()},
+    {.name = builder.getStringAttr("varLast"), .direction = PortDirection::OUTPUT, .type = builder.getI1Type()}
+  };
+
+  for (uint32_t i = 0; i < varCount; ++i)
+    ports.push_back({
+      .name = builder.getStringAttr("v" + std::to_string(i)), .direction = PortDirection::OUTPUT, .type = builder.getIntegerType(bitsPerVar)
+    });
+
+  ports.push_back(
+    {.name = builder.getStringAttr("probReady"), .direction = PortDirection::OUTPUT, .type = builder.getI1Type()}
+  );
+
+  circt::hw::HWModuleOp recvOp = builder.create<circt::hw::HWModuleOp>(
+    builder.getUnknownLoc(),
+    builder.getStringAttr("ESIEndpointAbc"),
+    ports
+  );
+
+  // descend into the body and construct it
+  builder.setInsertionPointToStart(recvOp.getBodyBlock());
+  ESIEndpoint::constructBody(builder, varCount, bitsPerVar);
+
+  builder.getBlock()->back().erase();
+
+  return recvOp.getOperation();
+}
+
 ExecutionResult EmbedController::executeStep(ModuleOp *root) {
   std::optional<HWModuleOp> spnBody = getUniqueBody(*root);
 
@@ -188,8 +235,10 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
 
   //insertCosimTopLevel(*root, kernel.spnVarCount, kernel.spnBitsPerVar, kernel.spnResultWidth);
 
-  Operation *recvModOp = implementESIreceiver(root, kernel.spnVarCount, kernel.spnBitsPerVar);
-  Operation *sendModOp = implementESIsender(root);
+  Operation *recvModOp = nullptr; //implementESIreceiver(root, kernel.spnVarCount, kernel.spnBitsPerVar);
+  Operation *sendModOp = nullptr; //implementESIsender(root);
+
+  Operation *epModOp = implementESIEndpoint(root, kernel.spnVarCount, kernel.spnBitsPerVar);
 
   OpBuilder builder(root->getContext());
 
@@ -197,7 +246,7 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
 
   // Find the instances of ESISender/ESIReceiver and replace them with instances pointing to
   // the newly generated implementation.
-  if (true) {
+  if (false) {
     Operation *esiReceiverInstance = nullptr;
 
     // find the old receiver instance
@@ -226,7 +275,7 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
     esiReceiverInstance->erase();
   }
 
-  if (true) {
+  if (false) {
     Operation *esiSenderInstance = nullptr;
 
     // find the old receiver instance
@@ -253,6 +302,35 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
 
     esiSenderInstance->replaceAllUsesWith(newEsiSenderInstance.getResults());
     esiSenderInstance->erase();
+  }
+
+  if (true) {
+    Operation *esiEndpointInstance = nullptr;
+
+    // find the old receiver instance
+    root->walk([&](circt::hw::InstanceOp op) {
+      if (op.getInstanceName() == "ESIEndpoint_instance")
+        esiEndpointInstance = op.getOperation();
+    });
+
+    assert(esiEndpointInstance && "could not find instance");
+
+    builder.setInsertionPointAfter(esiEndpointInstance);
+
+    std::vector<Value> operands(
+      esiEndpointInstance->operand_begin(),
+      esiEndpointInstance->operand_end()
+    );
+
+    auto newEsiEndpointInstance = builder.create<circt::hw::InstanceOp>(
+      builder.getUnknownLoc(),
+      epModOp,
+      builder.getStringAttr("ESIEndpoint_instance"),
+      operands
+    );
+
+    esiEndpointInstance->replaceAllUsesWith(newEsiEndpointInstance.getResults());
+    esiEndpointInstance->erase();
   }  
 
 
@@ -474,6 +552,7 @@ void ReadyValidController::body() {
 }
 
 void CosimTop::body() {
+  /*
   ESIReceiver receiver(spnVarCount, bitsPerVar);
   ESISender sender(resultWidth);
 
@@ -493,6 +572,25 @@ void CosimTop::body() {
   sender.io("last") <<= controller.io("deq")("bits")("last");
   sender.io("data") <<= controller.io("deq")("bits")("bits");
   controller.io("deq")("ready") <<= sender.io("ready");
+   */
+
+  ESIEndpoint endpoint(resultWidth, spnVarCount, bitsPerVar);
+  ReadyValidController controller(spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay);
+
+  controller.io("enq")("valid") <<= endpoint.io("varValid");
+  
+  std::vector<FValue> varValues;
+  for (uint32_t i = 0; i < spnVarCount; ++i)
+    varValues.push_back(endpoint.io("v" + std::to_string(i)));
+  controller.io("enq")("bits")("bits") <<= cat(varValues);
+
+  controller.io("enq")("bits")("last") <<= endpoint.io("varLast");
+  endpoint.io("varReady") <<= controller.io("enq")("ready");
+
+  endpoint.io("probValid") <<= controller.io("deq")("valid");
+  endpoint.io("probLast") <<= controller.io("deq")("bits")("last");
+  endpoint.io("probData") <<= controller.io("deq")("bits")("bits");
+  controller.io("deq")("ready") <<= endpoint.io("probReady");
 }
 
 void ESIReceiver::constructBody(OpBuilder builder, uint32_t varCount, uint32_t bitsPerVar) {
@@ -643,6 +741,114 @@ void ESISender::constructBody(OpBuilder builder) {
   };
 
   // output the results
+  builder.create<circt::hw::OutputOp>(
+    builder.getUnknownLoc(),
+    outputs
+  );
+}
+
+void ESIEndpoint::constructBody(OpBuilder builder, uint32_t varCount, uint32_t bitsPerVar) {
+  using namespace circt::esi;
+
+  // build the struct types
+  using FieldInfo = circt::hw::detail::FieldInfo;
+  std::vector<FieldInfo> probStructFieldInfos{
+    FieldInfo{
+      .name = builder.getStringAttr("last"),
+      .type = builder.getI1Type()
+    },
+    FieldInfo{
+      .name = builder.getStringAttr("data"),
+      .type = builder.getI64Type()
+    }
+  };
+
+  Type probStructType = circt::hw::StructType::get(builder.getContext(), probStructFieldInfos);
+
+  std::vector<FieldInfo> varStructFieldInfos{
+    FieldInfo{
+      .name = builder.getStringAttr("last"),
+      .type = builder.getI1Type()
+    }
+  };
+
+  for (uint32_t i = 0; i < varCount; ++i)
+    varStructFieldInfos.push_back(FieldInfo{
+      .name = builder.getStringAttr("v" + std::to_string(i)),
+      .type = builder.getIntegerType(bitsPerVar)
+    });
+
+  Type varStructType = circt::hw::StructType::get(builder.getContext(), varStructFieldInfos);
+
+  // input arguments to the module
+  Block *block = builder.getBlock();
+  Value clk = block->getArgument(0);
+  Value rst = block->getArgument(1);
+  Value varReady = block->getArgument(2);
+  Value probValid = block->getArgument(3);
+  Value probLast = block->getArgument(4);
+  Value probData = block->getArgument(5);
+
+  // bundle the inputs into a struct
+  Value probRaw = builder.create<circt::hw::StructCreateOp>(
+    builder.getUnknownLoc(),
+    probStructType,
+    std::vector<Value>{probLast, probData}
+  ).getResult();
+
+  // wrap probability
+  WrapValidReadyOp wrvOp = builder.create<WrapValidReadyOp>(
+    builder.getUnknownLoc(),
+    probRaw, probValid
+  );
+
+  Value probWrapped = wrvOp.getResult(0);
+  Value probReady = wrvOp.getResult(1);
+
+  // endpoint
+  Value cosimEndpoint = builder.create<CosimEndpointOp>(
+    builder.getUnknownLoc(),
+    // result type is something like { bits: i40, last: i1 }
+    // TODO: generalize bit width for any SPN
+    ChannelType::get(builder.getContext(), varStructType),
+    clk, rst, probWrapped, builder.getStringAttr("MyEndpoint")      
+  ).getResult();
+
+  // unwrap variables
+  UnwrapValidReadyOp urvOp = builder.create<UnwrapValidReadyOp>(
+    builder.getUnknownLoc(),
+    cosimEndpoint, varReady
+  );
+
+  Value varRaw = urvOp.getResult(0);
+  Value varValid = urvOp.getResult(1);
+
+  // decompose the struct and output it
+  SmallVector<Value, 16> outputs{
+    varValid
+  };
+
+  // varLast
+  outputs.push_back(
+    builder.create<circt::hw::StructExtractOp>(
+      builder.getUnknownLoc(),
+      varRaw,
+      builder.getStringAttr("last")
+    ).getResult()
+  );
+
+  // variables
+  for (uint32_t i = 0; i < varCount; ++i)
+    outputs.push_back(
+      builder.create<circt::hw::StructExtractOp>(
+        builder.getUnknownLoc(),
+        varRaw,
+        builder.getStringAttr("v" + std::to_string(i))
+      ).getResult()
+    );
+
+  outputs.push_back(probReady);
+
   builder.create<circt::hw::OutputOp>(
     builder.getUnknownLoc(),
     outputs

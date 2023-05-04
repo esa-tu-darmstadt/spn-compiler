@@ -62,6 +62,7 @@ class EmbedController : public StepSingleInput<EmbedController, mlir::ModuleOp>,
   void setParameters(uint32_t bodyDelay);
   Operation *implementESIreceiver(ModuleOp *root, uint32_t varCount, uint32_t bitsPerVar);
   Operation *implementESIsender(ModuleOp *root);
+  Operation *implementESIEndpoint(ModuleOp *root, uint32_t varCount, uint32_t bitsPerVar);
 public:
   explicit EmbedController(const ControllerConfig& config, StepWithResult<mlir::ModuleOp>& spnBody):
     StepSingleInput<EmbedController, mlir::ModuleOp>(spnBody),
@@ -208,6 +209,34 @@ public:
     ) {}
 
   static void constructBody(OpBuilder builder);
+};
+
+class ESIEndpoint : public ExternalModule<ESIEndpoint> {
+  static std::vector<Port> getPorts(uint32_t probWidth, uint32_t varCount, uint32_t bitsPerVar) {
+    std::vector<Port> ports{
+      Port("varReady", true, bitType()),
+      Port("probValid", true, bitType()),
+      Port("probLast", true, bitType()),
+      Port("probData", true, uintType(probWidth)),
+      Port("varValid", false, bitType()),
+      Port("varLast", false, bitType())
+    };
+
+    for (uint32_t i = 0; i < varCount; ++i)
+      ports.emplace_back("v" + std::to_string(i), false, uintType(bitsPerVar));
+
+    ports.emplace_back("probReady", false, bitType());
+
+    return ports;
+  }
+public:
+  ESIEndpoint(uint32_t probWidth, uint32_t varCount, uint32_t bitsPerVar):
+    ExternalModule<ESIEndpoint>(
+      "ESIEndpoint",
+      getPorts(probWidth, varCount, bitsPerVar)
+    ) {}
+
+  static void constructBody(OpBuilder builder, uint32_t varCount, uint32_t bitsPerVar);
 };
 
 class CosimTop : public Module<CosimTop> {
