@@ -44,7 +44,7 @@ class CosimTester(esi_cosim.CosimBase):
     )
 
     got = self.readMsg(ep, self.schema.Struct15544314350482218497)
-    value = struct.unpack('d', got.data.to_bytes(8))
+    value = struct.unpack('d', got.data.to_bytes(8, 'little'))
     print(f'got: {value}')
 
 
