@@ -363,9 +363,7 @@ ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op, circt::hw:
       // mode
       circt::firrtl::PreserveAggregate::PreserveMode::None,
       // memory mode
-      circt::firrtl::PreserveAggregate::PreserveMode::None,
-      // preserve public types
-      false
+      circt::firrtl::PreserveAggregate::PreserveMode::None
     )
   );
 
@@ -421,7 +419,7 @@ ExecutionResult EmbedController::convertFirrtlToHw(mlir::ModuleOp op, circt::hw:
 
       rewriter.replaceOpWithNewOp<circt::hw::InstanceOp>(op,
         modOp,
-        op.getName(),
+        op.getInstanceName(),
         ArrayRef<Value>(inputs)
       );
 

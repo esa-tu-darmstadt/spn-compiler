@@ -96,12 +96,14 @@ int main(int argc, char** argv) {
                   circt::seq::SeqDialect,
                   circt::sv::SVDialect>();
   mlir::registerPass(
-    circt::seq::createSeqLowerToSVPass
+    []() {
+      return circt::seq::createSeqLowerToSVPass(std::nullopt);
+    }
   );
   mlir::registerPass(
     []() { return circt::seq::createSeqFIRRTLLowerToSVPass(); }
   );
 
   return failed(
-      mlir::MlirOptMain(argc, argv, "SPNC optimizer driver\n", registry, false));
+      mlir::MlirOptMain(argc, argv, "SPNC optimizer driver\n", registry));
 }

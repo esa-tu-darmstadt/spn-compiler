@@ -4,6 +4,8 @@ Inspired by loopback.mlir
 
 #!/usr/bin/python3
 
+# Current CIRCT version: bd11d23489a1dd7f64a0e9028e63c4e0b79e8cb7
+
 import binascii
 import random
 import esi_cosim
@@ -50,7 +52,9 @@ if __name__ == "__main__":
   import os
   import sys
 
-  rpc = CosimTester(sys.argv[2], f"{os.uname()[1]}:{sys.argv[1]}")
+  # sys.argv[1] seems to be enough for a host string
+  host_string = sys.argv[1]
+  rpc = CosimTester(sys.argv[2], f"{host_string}")
   print(rpc.list())
 
   rpc.test_list()
