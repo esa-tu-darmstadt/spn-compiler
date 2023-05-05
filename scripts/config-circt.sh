@@ -11,3 +11,6 @@ cmake -G Ninja .. \
     -DLLVM_ENABLE_LLD=ON \
     -DCMAKE_C_COMPILER=/usr/bin/clang \
     -DCMAKE_CXX_COMPILER=/usr/bin/clang++
+
+# requires unified build
+# -DCIRCT_BINDINGS_PYTHON_ENABLED=ON -DCIRCT_ENABLE_FRONTENDS="PyCDE" \
