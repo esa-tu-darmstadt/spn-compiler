@@ -1,6 +1,7 @@
 #include "LoSPNtoFPGAConversion.h"
 
 #include "LoSPNtoFPGA/LoSPNtoFPGAPass.h"
+#include "LoSPNtoFPGA2/LoSPNtoFPGAPass2.hpp"
 #include "circt/Dialect/Seq/SeqPasses.h"
 #include "circt/Dialect/HW/HWOps.h"
 
@@ -10,7 +11,7 @@ namespace spnc {
 void LoSPNtoFPGAConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
 
   pm->addPass(
-    mlir::spn::fpga::createLoSPNtoFPGAPass()
+    mlir::spn::fpga::createLoSPNtoFPGAPass2()
   );
 
   //struct LowerSeqFIRRTLToSVOptions {

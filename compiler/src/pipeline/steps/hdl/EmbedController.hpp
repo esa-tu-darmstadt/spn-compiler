@@ -20,9 +20,9 @@
 
 #include "mlir/Transforms/DialectConversion.h"
 
-#include "AXIStream.hpp"
-#include "ShiftRegister.hpp"
-#include "firpQueue.hpp"
+#include <firp/AXIStream.hpp>
+#include <firp/ShiftRegister.hpp>
+#include <firp/firpQueue.hpp>
 
 #include <filesystem>
 

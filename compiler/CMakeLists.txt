@@ -132,6 +132,7 @@ set(mlir_libs
         MLIRExecutionEngine
 
         MLIRLoSPNtoFPGATransforms
+        MLIRLoSPNtoFPGATransforms2
         
         CIRCTExportVerilog
         CIRCTHW
