@@ -41,8 +41,6 @@ namespace mlir::spn::fpga {
 
 struct ConversionOptions {
   ufloat::UFloatConfig ufloatConfig;
-  circt::firrtl::FIRRTLBaseType probType;
-  circt::firrtl::FIRRTLBaseType indexType;
   bool use32Bit;
 };
 

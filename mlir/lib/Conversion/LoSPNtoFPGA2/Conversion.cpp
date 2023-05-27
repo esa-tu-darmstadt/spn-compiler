@@ -5,21 +5,30 @@
 #include "mlir/IR/IRMapping.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include <firp/lowering.hpp>
+
 
 namespace mlir::spn::fpga {
 
 using namespace firp;
 using namespace low;
 
+struct ConversionSettings {
+  ufloat::UFloatConfig ufloatConfig;
+  bool use32Bit;
+  circt::firrtl::FIRRTLBaseType probType;
+  circt::firrtl::FIRRTLBaseType indexType;
+};
+
 class Histogram : public Module<Histogram> {
   std::vector<double> probabilities;
-  ConversionOptions options;
+  ConversionSettings settings;
 public:
-  Histogram(SPNHistogramLeaf histogram, uint32_t id, const ConversionOptions& options):
+  Histogram(SPNHistogramLeaf histogram, uint32_t id, const ConversionSettings& settings):
     Module<Histogram>("Histogram", {
-      Port("in", true, options.indexType),
-      Port("out", false, options.probType)
-    }, id), options(options) {
+      Port("in", true, settings.indexType),
+      Port("out", false, settings.probType)
+    }, id), settings(settings) {
 
     for (Attribute _attr : histogram.getBuckets()) {
       BucketAttr attr = llvm::dyn_cast<BucketAttr>(_attr);
@@ -36,11 +45,11 @@ public:
     build();
   }
 
-  Histogram(SPNCategoricalLeaf categorical, uint32_t id, const ConversionOptions& options):
+  Histogram(SPNCategoricalLeaf categorical, uint32_t id, const ConversionSettings& settings):
     Module<Histogram>("Histogram", {
-      Port("in", true, options.indexType),
-      Port("out", false, options.probType)
-    }, id), options(options) {
+      Port("in", true, settings.indexType),
+      Port("out", false, settings.probType)
+    }, id), settings(settings) {
 
     for (Attribute prob : categorical.getProbabilities())
       probabilities.push_back(prob.dyn_cast<FloatAttr>().getValueAsDouble());
@@ -53,8 +62,8 @@ public:
 
     for (double prob : probabilities)
       probabilityBits.push_back(uval(
-        ufloat::doubleToUFloatBits(prob, options.ufloatConfig),
-        options.ufloatConfig.getWidth()
+        ufloat::doubleToUFloatBits(prob, settings.ufloatConfig),
+        settings.ufloatConfig.getWidth()
       ));
 
     auto vec = vector(probabilityBits);
@@ -63,24 +72,24 @@ public:
 };
 
 class SPNBodyTop : public Module<SPNBodyTop> {
-  ConversionOptions options;
+  ConversionSettings settings;
   SPNBody spnBody;
   SchedulingProblem& schedulingProblem;
 
-  static std::vector<Port> getPorts(SPNBody body, const ConversionOptions& options) {
+  static std::vector<Port> getPorts(SPNBody body, const ConversionSettings& settings) {
     std::vector<Port> ports {
-      Port("out_prob", false, options.probType)
+      Port("out_prob", false, uintType(settings.use32Bit ? 32 : 64))
     };
 
     for (std::size_t i = 0; i < body.getOperands().size(); ++i)
-      ports.push_back(Port("in_" + std::to_string(i), true, options.indexType));
+      ports.push_back(Port("in_" + std::to_string(i), true, settings.indexType));
 
     return ports;
   }
 public:
-  SPNBodyTop(SPNBody body, const ConversionOptions& options, SchedulingProblem& schedulingProblem):
-    Module<SPNBodyTop>("SPNBody", getPorts(body, options)),
-    options(options), spnBody(body), schedulingProblem(schedulingProblem) { build(); }
+  SPNBodyTop(SPNBody body, const ConversionSettings& settings, SchedulingProblem& schedulingProblem):
+    Module<SPNBodyTop>("SPNBody", getPorts(body, settings)),
+    settings(settings), spnBody(body), schedulingProblem(schedulingProblem) { build(); }
 
   void body() {
     IRMapping valueMapping;
@@ -98,7 +107,7 @@ public:
 
       TypeSwitch<Operation *>(op)
         .Case<SPNAdd>([&](SPNAdd op) {
-          ufloat::FPAdd add(options.ufloatConfig);
+          ufloat::FPAdd add(settings.ufloatConfig);
 
           // old op result is now associated with add result
           valueMapping.map(op->getResult(0), add.io("c"));
@@ -110,7 +119,7 @@ public:
           add.io("b") <<= shiftRegister(valueMapping.lookup(op->getOperand(1)), bDelay);
         })
         .Case<SPNMul>([&](SPNMul op) { 
-          ufloat::FPMult mult(options.ufloatConfig);
+          ufloat::FPMult mult(settings.ufloatConfig);
 
           // old op result is now associated with mult result
           valueMapping.map(op->getResult(0), mult.io("c"));
@@ -122,28 +131,29 @@ public:
           mult.io("b") <<= shiftRegister(valueMapping.lookup(op->getOperand(1)), bDelay);
         })
         .Case<SPNCategoricalLeaf>([&](SPNCategoricalLeaf op) {
-          Histogram hist(op, id++, options);
+          Histogram hist(op, id++, settings);
           valueMapping.map(op->getResult(0), hist.io("out"));
           uint32_t inDelay = schedulingProblem.getDelay(op->getOperand(0), op);
           hist.io("in") <<= shiftRegister(valueMapping.lookup(op->getOperand(0)), inDelay);
         })
         .Case<SPNHistogramLeaf>([&](SPNHistogramLeaf op) {
-          Histogram hist(op, id++, options);
+          Histogram hist(op, id++, settings);
           valueMapping.map(op->getResult(0), hist.io("out"));
           uint32_t inDelay = schedulingProblem.getDelay(op->getOperand(0), op);
           hist.io("in") <<= shiftRegister(valueMapping.lookup(op->getOperand(0)), inDelay);
         })
         .Case<SPNConstant>([&](SPNConstant op) {
-          uint64_t bits = ufloat::doubleToUFloatBits(op.getValue().convertToDouble(), options.ufloatConfig);
-          auto constant = firp::uval(bits, options.ufloatConfig.getWidth());
+          uint64_t bits = ufloat::doubleToUFloatBits(op.getValue().convertToDouble(), settings.ufloatConfig);
+          auto constant = firp::uval(bits, settings.ufloatConfig.getWidth());
           valueMapping.map(op->getResult(0), constant);
         })
         .Case<SPNLog>([&](SPNLog op) {
           // does nothing
-          valueMapping.map(op->getResult(0), op->getOperand(0));
+          valueMapping.map(op->getResult(0), valueMapping.lookup(op->getOperand(0)));
         })
         .Case<SPNYield>([&](SPNYield op) {
-          ufloat::FPConvert convert(options.ufloatConfig, options.use32Bit);
+          ufloat::FPConvert convert(settings.ufloatConfig, settings.use32Bit);
+          convert.io("in") <<= valueMapping.lookup(op->getOperand(0));
           io("out_prob") <<= convert.io("out");
         })
         .Default([&](Operation *op) {
@@ -174,6 +184,20 @@ llvm::Optional<mlir::ModuleOp> convert(mlir::ModuleOp modOp, const ConversionOpt
       ;
   };
 
+  OpBuilder builder(modOp.getContext());
+
+  ModuleOp newRoot = builder.create<ModuleOp>(builder.getUnknownLoc());
+  builder.setInsertionPointToStart(&newRoot.getRegion().front());
+
+  firp::initFirpContext(newRoot, "SPNBody");
+
+  ConversionSettings settings{
+    .ufloatConfig = options.ufloatConfig,
+    .use32Bit = options.use32Bit,
+    .probType = firp::uintType(options.ufloatConfig.getWidth()),
+    .indexType = firp::uintType(8)
+  };
+
   modOp.walk([&](SPNBody body) {
     SchedulingProblem schedulingProblem(body);
 
@@ -187,34 +211,17 @@ llvm::Optional<mlir::ModuleOp> convert(mlir::ModuleOp modOp, const ConversionOpt
 
     circt::scheduling::dumpAsDOT(schedulingProblem, "schedule.dot");
 
-    SPNBodyTop spnBody(body, options, schedulingProblem);
+    SPNBodyTop spnBody(body, settings, schedulingProblem);
     spnBody.makeTop();
 
     // TODO: insert schedule as attribute
 
     firpContext()->finish();
-    firpContext()->dump();
-
-    //for (double d = 0.0; d <= 100.0; d += 1.0) {
-    //  uint64_t x = ufloat::doubleToUFloatBits(d, options.ufloatConfig);
-    //  double y = ufloat::ufloatBitsToDouble(x, options.ufloatConfig);
-    //  llvm::outs() << "got " << y << "\n";
-    //}
-
-    assert(false);
-
-    /*
-    if (!modOp.has_value()) {
-      modOps.clear();
-      return WalkResult::interrupt();
-    }
-
-    auto val = modOp.value();
-    modOps.push_back(val);
-
-    return WalkResult::advance();
-     */
+    //firpContext()->dump();
+    assert(succeeded(lowerFirrtlToHw()));
   });
+
+  return newRoot;
 }
 
 }

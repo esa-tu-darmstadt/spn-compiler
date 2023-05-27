@@ -18,13 +18,9 @@ void LoSPNtoFPGAPass2::getDependentDialects(DialectRegistry& registry) const {
 void LoSPNtoFPGAPass2::runOnOperation() {
   ModuleOp modOp = getOperation();
 
-  firp::initFirpContext(modOp.getContext(), "SPNBody");
-
   ConversionOptions options;
   options.ufloatConfig.exponentWidth = 8;
   options.ufloatConfig.mantissaWidth = 23;
-  options.probType = firp::uintType(31);
-  options.indexType = firp::uintType(8);
   options.use32Bit = true;
 
   Optional<ModuleOp> newModOp = convert(modOp, options);
