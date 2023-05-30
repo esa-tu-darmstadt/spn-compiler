@@ -119,7 +119,7 @@ void ReadyValidWrapper::body() {
   FValue spnBodyOut = instOp.getResult(2);
 
   for (uint32_t i = 0; i < spnVarCount; ++i)
-    FValue(instOp.getResult(i + 3)) <<= io("enq")("bits")("bits")((i + 1) * bitsPerVar - 1, i * bitsPerVar);
+    FValue(instOp.getResult(i + 3)) <<= io("enq")("bits")("bits")("var_" + std::to_string(i));
 
   ShiftRegister lastDelayed(bitType(), bodyDelay);
   lastDelayed.io("in") <<= io("enq")("bits")("last");

@@ -54,15 +54,24 @@ private:
 class ReadyValidWrapper : public Module<ReadyValidWrapper> {
   circt::firrtl::FModuleOp spnBody;
   uint32_t spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay;
+
+  static std::vector<Port> getPorts(uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth) {
+    std::vector<std::tuple<std::string, bool, FIRRTLBaseType>> bundleElements;
+
+    for (uint32_t i = 0; i < spnVarCount; ++i)
+      bundleElements.emplace_back("var_" + std::to_string(i), false, uintType(bitsPerVar));
+
+    return std::vector<Port>{
+      Port("enq", true, readyValidType(withLast(bundleType(bundleElements)))),
+      Port("deq", false, readyValidType(withLast(uintType(resultWidth))))
+    };
+  }
 public:
   ReadyValidWrapper(circt::firrtl::FModuleOp spnBody,
     uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay):
     Module<ReadyValidWrapper>(
       "ReadyValidWrapper",
-      {
-        Port("enq", true, readyValidType(withLast(uintType(spnVarCount * bitsPerVar)))),
-        Port("deq", false, readyValidType(withLast(uintType(resultWidth))))
-      },
+      getPorts(spnVarCount, bitsPerVar, resultWidth),
       spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay
     ),
     spnBody(spnBody),
