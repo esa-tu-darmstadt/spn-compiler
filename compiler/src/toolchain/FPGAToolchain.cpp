@@ -13,6 +13,7 @@
 #include "pipeline/steps/hdl/EmitVerilogCode.h"
 #include "pipeline/steps/hdl/CreateVivadoProject.h"
 #include "pipeline/steps/hdl/EmbedController.hpp"
+#include "pipeline/steps/hdl/EmbedAXIStream.hpp"
 #include "pipeline/steps/hdl/ReturnKernel.h"
 #include "pipeline/steps/hdl/WriteDebugInfo.hpp"
 #include "pipeline/steps/mlir/conversion/LoSPNtoFPGAConversion.h"
@@ -73,7 +74,8 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
     ControllerConfig controllerConfig{
       .generatorPath = spnc::option::controllerGeneratorPath.get(*config)
     };
-    auto& embedController = pipeline->emplaceStep<EmbedController>(controllerConfig, lospn2fpga);
+    //auto& embedController = pipeline->emplaceStep<EmbedController>(controllerConfig, lospn2fpga);
+    auto& embedController = pipeline->emplaceStep<EmbedAXIStream>(lospn2fpga);
 
     VivadoProjectConfig ipConfig{
       .sourceFilePaths = {

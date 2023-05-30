@@ -214,11 +214,13 @@ llvm::Optional<mlir::ModuleOp> convert(mlir::ModuleOp modOp, const ConversionOpt
     SPNBodyTop spnBody(body, settings, schedulingProblem);
     spnBody.makeTop();
 
-    // TODO: insert schedule as attribute
+    FModuleOp topModule = firpContext()->finish();
 
-    firpContext()->finish();
-    //firpContext()->dump();
-    assert(succeeded(lowerFirrtlToHw()));
+    uint32_t totalEndTime = schedulingProblem.getTotalEndTime();
+    topModule->setAttr("fpga.body_delay", builder.getI32IntegerAttr(totalEndTime));
+
+    if (options.performLowering)
+      assert(succeeded(lowerFirrtlToHw()));
   });
 
   return newRoot;

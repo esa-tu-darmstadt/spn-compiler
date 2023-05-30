@@ -24,6 +24,7 @@ public:
   void construct(const std::function<std::tuple<uint32_t, std::string>(Operation *)>& getDelayAndType);
   uint32_t getDelay(Operation *parent, Operation *child);
   uint32_t getDelay(Value operand, Operation *op);
+  uint32_t getTotalEndTime();
 };
 
 }

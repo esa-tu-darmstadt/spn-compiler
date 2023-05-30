@@ -22,6 +22,7 @@ void LoSPNtoFPGAPass2::runOnOperation() {
   options.ufloatConfig.exponentWidth = 8;
   options.ufloatConfig.mantissaWidth = 23;
   options.use32Bit = true;
+  options.performLowering = false;
 
   Optional<ModuleOp> newModOp = convert(modOp, options);
 

@@ -46,4 +46,14 @@ uint32_t SchedulingProblem::getDelay(Value operand, Operation *op) {
   return getDelay(operand.getDefiningOp(), op);
 }
 
+uint32_t SchedulingProblem::getTotalEndTime() {
+  uint32_t endTime = 0;
+
+  root->walk([&](Operation *op) {
+    endTime = std::max(endTime, getEndTime(op).value_or(0));
+  });
+
+  return endTime;
+}
+
 }

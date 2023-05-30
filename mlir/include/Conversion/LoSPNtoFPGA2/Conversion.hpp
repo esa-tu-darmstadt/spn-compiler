@@ -42,6 +42,7 @@ namespace mlir::spn::fpga {
 struct ConversionOptions {
   ufloat::UFloatConfig ufloatConfig;
   bool use32Bit;
+  bool performLowering;
 };
 
 llvm::Optional<mlir::ModuleOp> convert(mlir::ModuleOp modOp, const ConversionOptions& options);

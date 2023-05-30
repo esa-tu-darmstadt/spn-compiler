@@ -44,6 +44,7 @@ add_library(spnc
         src/pipeline/steps/hdl/CreateVivadoProject.cpp
         src/pipeline/steps/hdl/EmitVerilogCode.cpp
         src/pipeline/steps/hdl/EmbedController.cpp
+        src/pipeline/steps/hdl/EmbedAXIStream.cpp
         src/pipeline/steps/mlir/conversion/LoSPNtoFPGAConversion.cpp
         src/toolchain/FPGAToolchain.cpp
         ${CAPNP_SRCS}
