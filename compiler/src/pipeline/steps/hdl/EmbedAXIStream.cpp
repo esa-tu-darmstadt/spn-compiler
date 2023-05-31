@@ -1,5 +1,7 @@
 #include "EmbedAXIStream.hpp"
 
+#include "circt/Dialect/FIRRTL/FIRRTLUtils.h"
+
 #include <firp/lowering.hpp>
 
 
@@ -73,11 +75,12 @@ ExecutionResult EmbedAXIStream::executeStep(mlir::ModuleOp *circuitRoot) {
   }
 
   firpContext()->finish();
-  //firpContext()->dump();
 
+  /*
   {
     OpBuilder builder(firpContext()->ctxt);
     builder.setInsertionPointAfter(firpContext()->circuitOp);
+    //builder.setInsertionPointToStart(&firpContext()->circuitOp.getBody().front());
 
     std::vector<circt::hw::PortInfo> ports;
 
@@ -87,15 +90,12 @@ ExecutionResult EmbedAXIStream::executeStep(mlir::ModuleOp *circuitRoot) {
       ArrayRef<circt::hw::PortInfo>(ports)
     );
   }
-
-  firpContext()->dump();
+   */
 
   if (mlir::failed(lowerFirrtlToHw()))
     return failure("lowering to HW failed");
 
-  firpContext()->dump();
-
-  return failure("not implemented");
+  topModule = std::make_unique<ModuleOp>(firpContext()->root);
 
   return success();
 }
@@ -119,7 +119,7 @@ void ReadyValidWrapper::body() {
   FValue spnBodyOut = instOp.getResult(2);
 
   for (uint32_t i = 0; i < spnVarCount; ++i)
-    FValue(instOp.getResult(i + 3)) <<= io("enq")("bits")("bits")("var_" + std::to_string(i));
+    FValue(instOp.getResult(i + 3)) <<= io("enq")("bits")("bits")[i];
 
   ShiftRegister lastDelayed(bitType(), bodyDelay);
   lastDelayed.io("in") <<= io("enq")("bits")("last");
@@ -142,6 +142,32 @@ void ReadyValidWrapper::body() {
   io("enq")("ready") <<= canEnqueue;
 
   svCocoTBVerbatim(getName());
+
+  /*
+  // some test
+  Type firrtlType = io("enq")("bits").getType();
+  Type hwType = lowerType(firrtlType);
+  auto castValue = hwStructCast(io("enq")("bits"), hwType);
+  auto castValue2 = hwStructCast(castValue, firrtlType);
+
+  class SomeESIModule : public ExternalModule<SomeESIModule> {
+    Type hwType;
+  public:
+    SomeESIModule(Type hwType):
+      ExternalModule<SomeESIModule>(
+        "SomeESIModule",
+        {
+          Port("x", true, firpContext()->opBuilder.getI8Type())
+          //Port("deq", false, hwType)
+          //Port("enq", true, hwType)
+        }
+      ), hwType(hwType)
+      {}
+  };
+
+  //SomeESIModule someESIModule(hwType);
+  //someESIModule.io("enq") <<= castValue;
+   */
 }
 
 void AXIStreamWrapper::body() {

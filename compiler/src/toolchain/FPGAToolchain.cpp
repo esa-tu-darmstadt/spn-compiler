@@ -14,6 +14,7 @@
 #include "pipeline/steps/hdl/CreateVivadoProject.h"
 #include "pipeline/steps/hdl/EmbedController.hpp"
 #include "pipeline/steps/hdl/EmbedAXIStream.hpp"
+#include "pipeline/steps/hdl/WrapESI.hpp"
 #include "pipeline/steps/hdl/ReturnKernel.h"
 #include "pipeline/steps/hdl/WriteDebugInfo.hpp"
 #include "pipeline/steps/mlir/conversion/LoSPNtoFPGAConversion.h"
@@ -76,6 +77,8 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
     };
     //auto& embedController = pipeline->emplaceStep<EmbedController>(controllerConfig, lospn2fpga);
     auto& embedController = pipeline->emplaceStep<EmbedAXIStream>(lospn2fpga);
+
+    auto& wrapESI = pipeline->emplaceStep<WrapESI>(embedController, "ReadyValidWrapper");
 
     VivadoProjectConfig ipConfig{
       .sourceFilePaths = {
