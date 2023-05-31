@@ -32,6 +32,8 @@ using namespace firp::axis;
 class WrapESI : public StepSingleInput<WrapESI, mlir::ModuleOp>,
                        public StepWithResult<mlir::ModuleOp> {
   std::string topName;
+  // TODO
+  bool doWrapEndpoint = true;
 public:
   explicit WrapESI(StepWithResult<mlir::ModuleOp>& root, const std::string &topName):
     StepSingleInput<WrapESI, mlir::ModuleOp>(root), topName(topName) {}
@@ -44,7 +46,9 @@ public:
 private:
   std::unique_ptr<mlir::ModuleOp> topModule;
 
+  // returns and empty ModuleOp if not modules named topName is found or it is not unique
   circt::hw::HWModuleOp findTop(mlir::ModuleOp root);
+  void wrapEndpoint(circt::hw::HWModuleOp esiWrapper, mlir::ModuleOp root);
 };
 
 }

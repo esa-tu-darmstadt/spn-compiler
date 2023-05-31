@@ -12,8 +12,6 @@ ExecutionResult WrapESI::executeStep(mlir::ModuleOp *root) {
   using namespace circt::hw;
   using namespace circt::esi;
 
-  // assume top name is ReadyValidWrapper
-
   HWModuleOp hwTop = findTop(*root);
 
   if (!hwTop)
@@ -61,7 +59,7 @@ ExecutionResult WrapESI::executeStep(mlir::ModuleOp *root) {
     builder.getBlock()->getArgument(0), // clk
     builder.getBlock()->getArgument(1), // rst
     builder.getBlock()->getArgument(0),  // valid
-    // 0, 1, 2, 3, 4
+    // variables 0, 1, 2, 3, 4
     unpacked[0], unpacked[1], unpacked[2], unpacked[3], unpacked[4],
     // last, ready
     unpacked[5], deqReady
@@ -93,38 +91,22 @@ ExecutionResult WrapESI::executeStep(mlir::ModuleOp *root) {
 
   deqReady.setValue(rrvOp.getResult(1));
 
-  // TODO: output rrvOp.getResult(0);
-
   builder.create<OutputOp>(
     builder.getUnknownLoc(),
     rrvOp.getResult(0)
   );
 
+  // remove the default hw.output
   builder.getBlock()->back().erase();
 
-  root->dump();
+  if (doWrapEndpoint)
+    wrapEndpoint(modOp, *root);
 
-  return failure("not implemented");
+  topModule = std::make_unique<ModuleOp>(*root);
 
-  /*
-  // hw.module @ReadyValidWrapper(%clock: i1, %reset: i1, %enq_valid: i1, %enq_bits_bits_0: i8, %enq_bits_bits_1: i8, %enq_bits_bits_2: i8, %enq_bits_bits_3: i8, %enq_bits_bits_4: i8, %enq_bits_last: i1, %deq_ready: i1)
-  // -> (enq_ready: i1, deq_valid: i1, deq_bits_bits: i64, deq_bits_last: i1)
+  topModule->dump();
 
-  std::vector<Value> inputs{
-    builder.getBlock()->getArgument(0), // clk
-    builder.getBlock()->getArgument(1), // rst
-    // TODO
-  };
-
-  InstanceOp inst = builder.create<InstanceOp>(
-    builder.getUnknownLoc(),
-    builder.getStringAttr(topName + "_inst"),
-    inputs
-  );
-   */
-
-
-
+  return success();
 }
 
 circt::hw::HWModuleOp WrapESI::findTop(mlir::ModuleOp root) {
@@ -142,6 +124,53 @@ circt::hw::HWModuleOp WrapESI::findTop(mlir::ModuleOp root) {
   });
 
   return top;
+}
+
+void WrapESI::wrapEndpoint(circt::hw::HWModuleOp esiWrapper, mlir::ModuleOp root) {
+  using namespace circt::hw;
+  using namespace circt::esi;
+
+  OpBuilder builder(root.getContext());
+  builder.setInsertionPointToEnd(root.getBody());
+
+  HWModuleOp modOp = builder.create<HWModuleOp>(
+    builder.getUnknownLoc(),
+    builder.getStringAttr("ESICosimTop"),
+    SmallVector<circt::hw::PortInfo>{
+      {builder.getStringAttr("clock"), PortDirection::INPUT, builder.getI1Type()},
+      {builder.getStringAttr("reset"), PortDirection::INPUT, builder.getI1Type()}
+    }
+  );
+
+  builder.setInsertionPointToStart(modOp.getBodyBlock());
+
+  circt::BackedgeBuilder back(builder, builder.getUnknownLoc());
+  circt::Backedge enqChannel = back.get(esiWrapper.getAllPorts()[2].type);
+
+  circt::hw::InstanceOp inst = builder.create<circt::hw::InstanceOp>(
+    builder.getUnknownLoc(),
+    esiWrapper,
+    builder.getStringAttr(topName + "_inst"),
+    SmallVector<Value>{
+      builder.getBlock()->getArgument(0), // clk
+      builder.getBlock()->getArgument(1), // rst
+      enqChannel
+    }
+  );
+
+  llvm::outs() << "ports size " << esiWrapper.getAllPorts().size() << "\n";
+  llvm::outs() << "results sizes " << esiWrapper->getNumResults() << "\n";
+
+  CosimEndpointOp ep = builder.create<CosimEndpointOp>(
+    builder.getUnknownLoc(),
+    esiWrapper.getAllPorts()[2].type, // recv type
+    builder.getBlock()->getArgument(0), // clk
+    builder.getBlock()->getArgument(1), // rst
+    inst.getResult(0), // send channel
+    builder.getStringAttr("MyEndpoint")
+  );
+
+  enqChannel.setValue(ep.getResult());
 }
 
 }
