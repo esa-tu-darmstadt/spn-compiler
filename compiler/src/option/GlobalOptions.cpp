@@ -90,3 +90,13 @@ Option<std::string> spnc::option::fpgaDevice{"fpga-device", "ultra96v2"};
 Option<bool> spnc::option::justGetKernel{"just-get-kernel", false};
 
 Option<int> spnc::option::fpgaFrequency{"fpga-frequency", 200};
+
+Option<bool> spnc::option::fpgaWrapReadyValid{"fpga-wrap-ready-valid", false};
+
+Option<bool> spnc::option::fpgaWrapESI{"fpga-wrap-esi", false, {depends(spnc::option::fpgaWrapReadyValid, true)}};
+
+Option<bool> spnc::option::fpgaWrapESICosim{"fpga-wrap-esi-cosim", false, {depends(spnc::option::fpgaWrapESI, true)}};
+
+Option<bool> spnc::option::fpgaWrapAXIStream{"fpga-wrap-axi-stream", false};
+
+Option<bool> spnc::option::fpgaCreateVerilogFiles{"fpga-create-verilog-files", false};

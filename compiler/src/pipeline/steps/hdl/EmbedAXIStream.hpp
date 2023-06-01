@@ -32,9 +32,21 @@ namespace spnc {
 using namespace firp;
 using namespace firp::axis;
 
-class EmbedAXIStream : public StepSingleInput<EmbedAXIStream, mlir::ModuleOp>,
-                       public StepWithResult<mlir::ModuleOp> {
-  void setParameters(uint32_t bodyDelay);
+class EmbedReadyValid : public StepSingleInput<EmbedReadyValid, mlir::ModuleOp>, public StepWithResult<mlir::ModuleOp> {
+public:
+  explicit EmbedReadyValid(StepWithResult<mlir::ModuleOp>& circuit):
+    StepSingleInput<EmbedReadyValid, mlir::ModuleOp>(circuit) {}
+
+  ExecutionResult executeStep(mlir::ModuleOp *circuit);
+
+  mlir::ModuleOp *result() override { return topModule.get(); }
+
+  STEP_NAME("embed-axistream");
+private:
+  std::unique_ptr<mlir::ModuleOp> topModule;
+};
+
+class EmbedAXIStream : public StepSingleInput<EmbedAXIStream, mlir::ModuleOp>, public StepWithResult<mlir::ModuleOp> {
 public:
   explicit EmbedAXIStream(StepWithResult<mlir::ModuleOp>& circuit):
     StepSingleInput<EmbedAXIStream, mlir::ModuleOp>(circuit) {}
@@ -46,9 +58,6 @@ public:
   STEP_NAME("embed-axistream");
 private:
   std::unique_ptr<mlir::ModuleOp> topModule;
-
-  //static ExecutionResult convertFirrtlToHw(mlir::ModuleOp op, circt::hw::HWModuleOp spnBody);
-  //void insertCosimTopLevel(mlir::ModuleOp root, uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultBitWidth);
 };
 
 class ReadyValidWrapper : public Module<ReadyValidWrapper> {

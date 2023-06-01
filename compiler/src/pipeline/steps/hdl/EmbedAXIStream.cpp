@@ -7,7 +7,7 @@
 
 namespace spnc {
 
-ExecutionResult EmbedAXIStream::executeStep(mlir::ModuleOp *circuitRoot) {
+static FModuleOp findSPNBody(mlir::ModuleOp *circuitRoot) {
   FModuleOp spnBody;
 
   circuitRoot->walk([&](FModuleOp op){
@@ -19,78 +19,89 @@ ExecutionResult EmbedAXIStream::executeStep(mlir::ModuleOp *circuitRoot) {
     }
   });
 
+  return spnBody;
+}
+
+ExecutionResult EmbedReadyValid::executeStep(mlir::ModuleOp *circuitRoot) {
+  FModuleOp spnBody = findSPNBody(circuitRoot);
+
   if (!spnBody)
     return failure("SPNBody module not found");
 
-  bool useReadyValidWrapper = true; // TODO
-  std::string topName = useReadyValidWrapper ? "ReadyValidWrapper" : "AXIStreamWrapper";
+  std::string topName = "ReadyValidWrapper";
   if (failed(setNewTopName(*circuitRoot, topName)))
       return failure("failed to rename circuit op");
 
   CircuitOp circuitOp = dyn_cast<CircuitOp>(circuitRoot->getBody()->front());
 
   FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
-
   kernel.bodyDelay = dyn_cast<IntegerAttr>(spnBody->getAttr("fpga.body_delay")).getInt();
   kernel.fifoDepth = kernel.bodyDelay * 2;
 
   // create the wrapper
-  if (useReadyValidWrapper) {
-    initFirpContext(circuitOp);
+  initFirpContext(circuitOp);
 
-    ReadyValidWrapper wrapper(
-      spnBody,
-      kernel.spnVarCount, kernel.spnBitsPerVar, kernel.spnResultWidth,
-      kernel.fifoDepth, kernel.bodyDelay
-    );
-
-    wrapper.makeTop();
-  } else {
-    assert(false && "not implemented");
-
-    initFirpContext(circuitRoot->getContext(), "AXIStreamWrapper");
-
-    AXIStreamConfig slaveConfig{
-      .dataBits = uint32_t(kernel.sAxisControllerWidth),
-      .userBits = 1,
-      .destBits = 1,
-      .idBits = 1
-    };
-
-    AXIStreamConfig masterConfig{
-      .dataBits =  uint32_t(kernel.mAxisControllerWidth),
-      .userBits = 1,
-      .destBits = 1,
-      .idBits = 1
-    };
-
-    AXIStreamWrapper wrapper(
-      spnBody,
-      slaveConfig, masterConfig,
-      kernel.spnVarCount, kernel.spnBitsPerVar, kernel.spnResultWidth,
-      kernel.fifoDepth, kernel.bodyDelay
-    );
-
-    wrapper.makeTop();
-  }
+  ReadyValidWrapper wrapper(
+    spnBody,
+    kernel.spnVarCount, kernel.spnBitsPerVar, kernel.spnResultWidth,
+    kernel.fifoDepth, kernel.bodyDelay
+  );
+  wrapper.makeTop();
 
   firpContext()->finish();
 
-  /*
-  {
-    OpBuilder builder(firpContext()->ctxt);
-    builder.setInsertionPointAfter(firpContext()->circuitOp);
-    //builder.setInsertionPointToStart(&firpContext()->circuitOp.getBody().front());
+  if (mlir::failed(lowerFirrtlToHw()))
+    return failure("lowering to HW failed");
 
-    std::vector<circt::hw::PortInfo> ports;
+  topModule = std::make_unique<ModuleOp>(firpContext()->root);
 
-    builder.create<circt::hw::HWModuleOp>(
-      builder.getUnknownLoc(),
-      builder.getStringAttr("Test"),
-      ArrayRef<circt::hw::PortInfo>(ports)
-    );
-  }
-   */
+  return success();
+}
+
+ExecutionResult EmbedAXIStream::executeStep(mlir::ModuleOp *circuitRoot) {
+  FModuleOp spnBody = findSPNBody(circuitRoot);
+
+  if (!spnBody)
+    return failure("SPNBody module not found");
+
+  std::string topName = "AXIStreamWrapper";
+  if (failed(setNewTopName(*circuitRoot, topName)))
+      return failure("failed to rename circuit op");
+
+  CircuitOp circuitOp = dyn_cast<CircuitOp>(circuitRoot->getBody()->front());
+
+  FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
+  kernel.bodyDelay = dyn_cast<IntegerAttr>(spnBody->getAttr("fpga.body_delay")).getInt();
+  kernel.fifoDepth = kernel.bodyDelay * 2;
+
+  // create the wrapper
+  initFirpContext(circuitOp);
+
+  AXIStreamConfig slaveConfig{
+    .dataBits = uint32_t(kernel.sAxisControllerWidth),
+    .userBits = 1,
+    .destBits = 1,
+    .idBits = 1
+  };
+
+  AXIStreamConfig masterConfig{
+    .dataBits =  uint32_t(kernel.mAxisControllerWidth),
+    .userBits = 1,
+    .destBits = 1,
+    .idBits = 1
+  };
+
+  AXIStreamWrapper wrapper(
+    spnBody,
+    slaveConfig, masterConfig,
+    kernel.spnVarCount, kernel.spnBitsPerVar, kernel.spnResultWidth,
+    kernel.fifoDepth, kernel.bodyDelay
+  );
+
+  wrapper.makeTop();
+
+  firpContext()->finish();
+  firpContext()->dump();
 
   if (mlir::failed(lowerFirrtlToHw()))
     return failure("lowering to HW failed");
@@ -142,32 +153,6 @@ void ReadyValidWrapper::body() {
   io("enq")("ready") <<= canEnqueue;
 
   svCocoTBVerbatim(getName());
-
-  /*
-  // some test
-  Type firrtlType = io("enq")("bits").getType();
-  Type hwType = lowerType(firrtlType);
-  auto castValue = hwStructCast(io("enq")("bits"), hwType);
-  auto castValue2 = hwStructCast(castValue, firrtlType);
-
-  class SomeESIModule : public ExternalModule<SomeESIModule> {
-    Type hwType;
-  public:
-    SomeESIModule(Type hwType):
-      ExternalModule<SomeESIModule>(
-        "SomeESIModule",
-        {
-          Port("x", true, firpContext()->opBuilder.getI8Type())
-          //Port("deq", false, hwType)
-          //Port("enq", true, hwType)
-        }
-      ), hwType(hwType)
-      {}
-  };
-
-  //SomeESIModule someESIModule(hwType);
-  //someESIModule.io("enq") <<= castValue;
-   */
 }
 
 void AXIStreamWrapper::body() {
@@ -197,7 +182,7 @@ void AXIStreamWrapper::body() {
   FValue spnBodyOut = instOp.getResult(2);
 
   for (uint32_t i = 0; i < spnVarCount; ++i)
-    FValue(instOp.getResult(i + 3)) <<= io("enq")("bits")("bits")((i + 1) * bitsPerVar - 1, i * bitsPerVar);
+    FValue(instOp.getResult(i + 3)) <<= receiver.io("deq")("bits")("bits")((i + 1) * bitsPerVar - 1, i * bitsPerVar);
 
   // TODO: Build controller after scheduling!
   //size_t bodyDelay = fifoDepth;

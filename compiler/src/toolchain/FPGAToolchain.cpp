@@ -17,6 +17,7 @@
 #include "pipeline/steps/hdl/WrapESI.hpp"
 #include "pipeline/steps/hdl/ReturnKernel.h"
 #include "pipeline/steps/hdl/WriteDebugInfo.hpp"
+#include "pipeline/steps/hdl/CreateVerilogFiles.hpp"
 #include "pipeline/steps/mlir/conversion/LoSPNtoFPGAConversion.h"
 #include "TargetInformation.h"
 
@@ -70,30 +71,55 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   // map the SPN operator to HW operators and perform scheduling
   auto& lospn2fpga = pipeline->emplaceStep<LoSPNtoFPGAConversion>(lospnTransform);
 
+  // TODO: FIX THIS MESS!!!
   if (!option::justGetKernel.get(*config)) {
+    //assert(option::fpgaWrapReadyValid.get(*config) || option::fpgaWrapAXIStream.get(*config) &&
+    //  "Either option::fpgaWrapReadyValid or option::fpgaWrapAXIStream must be set to true!");
 
-    ControllerConfig controllerConfig{
-      .generatorPath = spnc::option::controllerGeneratorPath.get(*config)
-    };
-    //auto& embedController = pipeline->emplaceStep<EmbedController>(controllerConfig, lospn2fpga);
-    auto& embedController = pipeline->emplaceStep<EmbedAXIStream>(lospn2fpga);
+    //auto& embed2 = option::fpgaWrapReadyValid.get(*config) ?
+    //  pipeline->emplaceStep<EmbedReadyValid>(lospn2fpga) :
+    //  pipeline->emplaceStep<EmbedAXIStream>(lospn2fpga);
 
-    auto& wrapESI = pipeline->emplaceStep<WrapESI>(embedController, "ReadyValidWrapper");
+    if (option::fpgaWrapReadyValid.get(*config)) {
+      auto& embed = pipeline->emplaceStep<EmbedReadyValid>(lospn2fpga);
 
-    VivadoProjectConfig ipConfig{
-      .sourceFilePaths = {
-        "resources/ufloat/FPOps_build_add/FPAdd.v",
-        "resources/ufloat/FPOps_build_mult/FPMult.v",
-        "resources/ufloat/FPLog.v",
-        "resources/ufloat/FPOps_build_convert/FP2DoubleConverter.v"
-      },
-      .targetDir = spnc::option::outputPath.get(*config) + "/ipxact_core",
-      .topModuleFileName = "SPNController.v",
-      .device = spnc::option::fpgaDevice.get(*config),
-      .mhz = uint32_t(spnc::option::fpgaFrequency.get(*config))
-    };
-    auto& createVivadoProject = pipeline->emplaceStep<CreateVivadoProject>(ipConfig, embedController);
-    auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(spnc::option::outputPath.get(*config) + "/ipxact_core", createVivadoProject);
+      if (option::fpgaWrapESI.get(*config)) {
+        assert(false && "not implemented");
+
+        //auto& wrapESI = pipeline->emplaceStep<WrapESI>(
+        //  embed, "ReadyValidWrapper",
+        //  option::fpgaWrapESICosim.get(*config)
+        //);
+      }
+
+      if (option::fpgaCreateVerilogFiles.get(*config)) {
+        CreateVerilogFilesConfig cfg{
+          .targetDir = option::outputPath.get(*config) + "/ipxact_core",
+          .tmpdirName = "tmp",
+          .topName = "ReadyValidWrapper"
+        };
+
+        auto& createVerilogFiles = pipeline->emplaceStep<CreateVerilogFiles>(embed, cfg);
+        auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(spnc::option::outputPath.get(*config) + "/ipxact_core", createVerilogFiles);
+      }
+    } else if (option::fpgaWrapAXIStream.get(*config)) {
+      auto& embed = pipeline->emplaceStep<EmbedAXIStream>(lospn2fpga);
+
+      if (option::fpgaCreateVerilogFiles.get(*config)) {
+        CreateVerilogFilesConfig cfg{
+          .targetDir = option::outputPath.get(*config) + "/ipxact_core",
+          .tmpdirName = "tmp",
+          .topName = "AXIStreamWrapper"
+        };
+
+        auto& createVerilogFiles = pipeline->emplaceStep<CreateVerilogFiles>(embed, cfg);
+        auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(spnc::option::outputPath.get(*config) + "/ipxact_core", createVerilogFiles);
+      }
+    } else {
+      assert(false && "not implemented");
+      //auto& embedController = pipeline->emplaceStep<EmbedAXIStream>(lospn2fpga);
+      //auto& wrapESI = pipeline->emplaceStep<WrapESI>(embedController, "AXIStreamWrapper", false);
+    }
   } else {
     auto& returnKernel = pipeline->emplaceStep<ReturnKernel>();
     auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(spnc::option::outputPath.get(*config) + "/ipxact_core", returnKernel);

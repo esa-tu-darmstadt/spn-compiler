@@ -35,8 +35,8 @@ class WrapESI : public StepSingleInput<WrapESI, mlir::ModuleOp>,
   // TODO
   bool doWrapEndpoint = true;
 public:
-  explicit WrapESI(StepWithResult<mlir::ModuleOp>& root, const std::string &topName):
-    StepSingleInput<WrapESI, mlir::ModuleOp>(root), topName(topName) {}
+  explicit WrapESI(StepWithResult<mlir::ModuleOp>& root, const std::string &topName, bool doWrapEndpoint):
+    StepSingleInput<WrapESI, mlir::ModuleOp>(root), topName(topName), doWrapEndpoint(doWrapEndpoint) {}
 
   ExecutionResult executeStep(mlir::ModuleOp *root);
 

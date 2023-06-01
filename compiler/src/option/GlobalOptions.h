@@ -182,6 +182,12 @@ namespace spnc {
     ///
     /// Specify the target frequency of the accelerator.
     extern Option<int> fpgaFrequency;
+
+    extern Option<bool> fpgaWrapReadyValid;
+    extern Option<bool> fpgaWrapESI;
+    extern Option<bool> fpgaWrapESICosim;
+    extern Option<bool> fpgaWrapAXIStream;
+    extern Option<bool> fpgaCreateVerilogFiles;
   }
 }
 
