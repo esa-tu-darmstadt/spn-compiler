@@ -20,7 +20,6 @@ from spn.structure.leaves.histogram.Histograms import Histogram
 
 from functools import reduce
 
-from init import prepare
 
 
 def load_config() -> dict:

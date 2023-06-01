@@ -89,8 +89,9 @@ class FPGACompiler:
 
         # Compile the query into a Kernel.
         options = dict({"target": "FPGA",
-                        "controller-generator-path": "../ChiselSPNController/build/generate",
-                        "o": str(wdir)
+                        "o": str(wdir),
+                        "fpga-wrap-axi-stream": "true",
+                        "fpga-create-verilog-files": "true"
                         })
 
         # Add the extra options, if they do not clash with an existing option.

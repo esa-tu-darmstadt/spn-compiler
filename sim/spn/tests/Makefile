@@ -1,5 +1,6 @@
 SHELL=/bin/bash
 SIM = questa
+#SIM = verilator
 TOPLEVEL_LANG ?= verilog
 
 PWD=$(shell pwd)
@@ -17,7 +18,7 @@ INCLUDE_DIR ?= $(PWD)/../hdl/
 VERILOG_SOURCES := $(call rwildcard,$(INCLUDE_DIR),*.v)
 VERILOG_SOURCES += $(call rwildcard,$(INCLUDE_DIR),*.sv)
 
-TOPLEVEL := SPNController
+TOPLEVEL := AXIStreamWrapper
 MODULE   := test_SPNController
 
 #VSIM_ARGS=-t 1us
