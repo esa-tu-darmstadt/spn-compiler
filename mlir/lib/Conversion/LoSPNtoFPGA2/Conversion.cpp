@@ -168,6 +168,11 @@ llvm::Optional<mlir::ModuleOp> convert(mlir::ModuleOp modOp, const ConversionOpt
   uint32_t multDelay = ufloat::scheduling::ufloatFPMultDelay(options.ufloatConfig);
   uint32_t convertDelay = ufloat::scheduling::ufloatFPConvertDelay(options.ufloatConfig);
 
+  llvm::outs() << "add delay: " << addDelay << "\n";
+  llvm::outs() << "mult delay: " << multDelay << "\n";
+  llvm::outs() << "convert delay: " << convertDelay << "\n";
+  //assert(false);
+
   auto getDelayAndType = [&](Operation *op) -> std::tuple<uint32_t, std::string> {
     return TypeSwitch<Operation *, std::tuple<uint32_t, std::string>>(op)
       .Case<SPNAdd>([&](SPNAdd op) { return std::make_tuple(addDelay, "add"); })

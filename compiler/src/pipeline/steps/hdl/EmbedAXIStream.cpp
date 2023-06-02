@@ -74,6 +74,8 @@ ExecutionResult EmbedAXIStream::executeStep(mlir::ModuleOp *circuitRoot) {
   kernel.bodyDelay = dyn_cast<IntegerAttr>(spnBody->getAttr("fpga.body_delay")).getInt();
   kernel.fifoDepth = kernel.bodyDelay * 2;
 
+  spdlog::info("FPGA body delay is {}", kernel.bodyDelay);
+
   // create the wrapper
   initFirpContext(circuitOp);
 
@@ -101,7 +103,7 @@ ExecutionResult EmbedAXIStream::executeStep(mlir::ModuleOp *circuitRoot) {
   wrapper.makeTop();
 
   firpContext()->finish();
-  firpContext()->dump();
+  //firpContext()->dump();
 
   if (mlir::failed(lowerFirrtlToHw()))
     return failure("lowering to HW failed");
@@ -206,7 +208,7 @@ void AXIStreamWrapper::body() {
   auto canEnqueue = wireInit(itemCountInPipeline.read() + fifo.io("count") + cons(2) <= cons(fifoDepth), "canEnqueue");
   receiver.io("deq")("ready") <<= canEnqueue;
 
-  //svCocoTBVerbatim(getName());
+  svCocoTBVerbatim(getName());
 }
 
 }

@@ -6,6 +6,7 @@ import math
 import json
 import sys
 import os
+import binascii
 
 import cocotb
 from cocotb.triggers import Timer, RisingEdge, FallingEdge
@@ -59,23 +60,30 @@ async def read_outputs(axis_sink):
 
   got = []
 
-  for i in range(len(data.tdata) // 8):
-    b = data.tdata[i * 8 : (i + 1) * 8]
-    got.append(struct.unpack('d', b))
+  for i in range(len(data.tdata) // 4):
+    #b = data.tdata[i * 8 : (i + 1) * 8]
+    #got.append(struct.unpack('d', b))
+    b = data.tdata[i * 4 : (i + 1) * 4]
+    print('got binary: ' + binascii.hexlify(b).decode())
+    #b = data.tdata[i * 4 : (i + 1) * 4]
+    got.append(struct.unpack('f', b))
 
   return got
 
 def generate_data(count, index_2_min, index_2_max):
+  # [ 0  0 34  0  0]
+  # [36  0  0  0  0] causes errors
+
   np.random.seed(123456)
   var_count = len(index_2_min.items())
   data = np.zeros((count, var_count), dtype=np.int32)
 
-  for j in range(var_count):
-    low = index_2_min[j]
-    high = index_2_max[j]
-
-    for i in range(count):
-      val = 0.0 if np.random.uniform() < 0.9 else np.random.randint(low, high)
+  
+  for i in range(count):
+    for j in range(var_count):  
+      low = index_2_min[j]
+      high = index_2_max[j]
+      val = 0 if np.random.uniform() < 0.9 else np.random.randint(low, high)
       data[i][j] = val
 
   return data
@@ -116,7 +124,6 @@ async def test_SPNController(dut):
   spn, var_2_index, index_2_min, index_2_max = load_spn_2(spn_path)
   COUNT = 1000
   data = generate_data(COUNT, index_2_min, index_2_max)
-  print(f'data.shape={data.shape}')
   expected = likelihood(spn, data, dtype=np.float32)
 
   rename_signals(dut)
@@ -149,13 +156,13 @@ async def test_SPNController(dut):
   # TODO: fix case where result = expected = 0
   results = np.array(results).reshape((data.shape[0], 1))
   error = np.abs((results - expected) / expected)
-  # verbose = True
+  verbose = True
 
   print(f'Max relative error is {np.max(error)}')
 
   if np.max(error) > 1e-3 or np.any(np.isnan(error)) or verbose:
     for e, r in zip(expected, results):
-      print(f'exp={e} got={r}')
+      print(f'exp={e} got={r} {np.abs((e - r) / e) <= 1e-3}')
 
   assert np.max(error) <= 1e-3
 
