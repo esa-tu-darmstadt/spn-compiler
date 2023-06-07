@@ -37,7 +37,7 @@ add_mlir_dialect_library(MLIRLoSPN
         MLIRTransforms
         MLIRTransformUtils
         MLIRMathDialect
-        MLIRGPUOps
+        MLIRGPUDialect
         MLIRBufferizationDialect
         MLIRSCFDialect
         MLIRBufferizationTransforms
