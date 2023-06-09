@@ -47,6 +47,7 @@ add_library(spnc
         src/pipeline/steps/hdl/EmbedAXIStream.cpp
         src/pipeline/steps/hdl/WrapESI.cpp
         src/pipeline/steps/hdl/CreateVerilogFiles.cpp
+        src/pipeline/steps/hdl/CreateAXIStreamMapper.cpp
         src/pipeline/steps/mlir/conversion/LoSPNtoFPGAConversion.cpp
         src/toolchain/FPGAToolchain.cpp
         ${CAPNP_SRCS}
