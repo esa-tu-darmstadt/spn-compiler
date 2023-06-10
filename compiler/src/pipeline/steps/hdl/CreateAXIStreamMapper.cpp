@@ -1,20 +1,93 @@
 #include "CreateAXIStreamMapper.hpp"
 
+#include <firp/lowering.hpp>
+
 
 namespace spnc {
 
 using namespace firp;
 using namespace firp::axis;
 
+FModuleOp CreateAXIStreamMapper::findModuleByName(const std::string& name) {
+  FModuleOp mod;
+
+  firpContext()->circuitOp.walk([&](FModuleOp op){
+    if (op.getName() == name) {
+      if (mod)
+        assert(false && "multiple modules found");
+
+      mod = op;
+    }
+  });
+
+  return mod;
+}
+
+FModuleOp CreateAXIStreamMapper::insertFIRFile(const std::filesystem::path& path, const std::string& moduleName) {
+  ModuleOp op = importFIRFile(path);
+
+  if (!op)
+    return FModuleOp();
+
+  auto bodyBlock = cast<CircuitOp>(op.getBody()->front()) // CircuitOp
+    .getBodyBlock(); //->begin(); // iterator on first FModuleOp
+
+  //auto targetBlock = firpContext()->circuitOp.getBodyBlock();
+
+  OpBuilder builder(firpContext()->context());
+  builder.setInsertionPointToEnd(firpContext()->circuitOp.getBodyBlock());
+
+  for (Operation &op : *bodyBlock) {
+    Operation *clone = op.clone();
+    builder.insert(clone);
+  }
+
+  return findModuleByName(moduleName);
+}
+
 ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
-  
+  llvm::outs() << "CreateAXIStreamMapper::executeStep()\n";
 
+  setNewTopName(*root, "AXI4StreamMapper");
+  CircuitOp circuitOp = cast<CircuitOp>(root->getBody()->front());
+  attachFirpContext(circuitOp);
 
+  FModuleOp loadUnit = insertFIRFile("resources/ipec/IPECLoadUnit_a32_d32.fir", "IPECLoadUnit");
+  FModuleOp storeUnit = insertFIRFile("resources/ipec/IPECStoreUnit_a32_d32.fir", "IPECStoreUnit");
 
-  return failure();
+  if (!loadUnit || !storeUnit)
+    return failure("failed to insert IPECLoadUnit_a64_d64.fir or IPECStoreUnit_a64_d64.fir");
+
+  FModuleOp streamWrapper = findModuleByName("AXIStreamWrapper");
+
+  if (!streamWrapper)
+    return failure("AXIStreamWrapper module not found");
+
+  const FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
+
+  AXI4StreamMapper mapper = AXI4StreamMapper::make(
+    kernel,
+    loadUnit,
+    storeUnit,
+    streamWrapper
+  );
+
+  mapper.makeTop();
+  firpContext()->finish();
+
+  firpContext()->dump();
+  assert(false && "fuck me");
+
+  firpContext()->finish();
+  firpContext()->dump();
+
+  assert(false && "not implemented");
+  return failure("not implemented");
 }
 
 void AXI4StreamMapper::body() {
+  return;
+
   axi4lite::AXI4LiteRegisterFile regs(
     liteConfig,
     {
@@ -39,22 +112,26 @@ void AXI4StreamMapper::body() {
   // instantiate load and store unit
   
   FIRModule loadUnit(ipecLoadUnit);
-  loadUnit.io("start") <<= status(0);
-  loadUnit.io("baseAddress") <<= loadBaseAddress;
-  loadUnit.io("numTransfers") <<= numLdTransfers;
+  loadUnit.io("clock") <<= io("clock");
+  loadUnit.io("reset") <<= io("reset");
+  loadUnit.io("io")("start") <<= status(0);
+  loadUnit.io("io")("baseAddress") <<= loadBaseAddress;
+  loadUnit.io("io")("numTransfers") <<= numLdTransfers;
 
   AXIStreamSender sender(mAxisConfig);
-  sender.io("enq") <<= loadUnit.io("data");
+  sender.io("enq") <<= loadUnit.io("io")("data");
   io("M_AXIS") <<= sender.io("AXIS");
 
   FIRModule storeUnit(ipecStoreUnit);
-  storeUnit.io("start") <<= status(0);
-  storeUnit.io("baseAddress") <<= storeBaseAddress;
-  storeUnit.io("numTransfers") <<= numSdTransfers;
+  storeUnit.io("clock") <<= io("clock");
+  storeUnit.io("reset") <<= io("reset");
+  storeUnit.io("io")("start") <<= status(0);
+  storeUnit.io("io")("baseAddress") <<= storeBaseAddress;
+  storeUnit.io("io")("numTransfers") <<= numSdTransfers;
 
   AXIStreamReceiver receiver(sAxisConfig);
   receiver.io("AXIS") <<= io("S_AXIS");
-  storeUnit.io("data") <<= receiver.io("deq");
+  storeUnit.io("io")("data") <<= receiver.io("deq");
 
   // connect controller directly to the outside world
   FIRModule spnController(spnAxisController);
@@ -77,7 +154,7 @@ void AXI4StreamMapper::body() {
     });
   })
   .elseWhen (state.read() == uval(RUNNING), [&](){
-    when (loadUnit.io("done") & storeUnit.io("done"), [&](){
+    when (loadUnit.io("io")("done") & storeUnit.io("io")("done"), [&](){
       state <<= uval(DONE);
       io("interrupt") <<= uval(1);
       retVal <<= cycleCount;

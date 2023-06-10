@@ -39,7 +39,7 @@ ExecutionResult EmbedReadyValid::executeStep(mlir::ModuleOp *circuitRoot) {
   kernel.fifoDepth = kernel.bodyDelay * 2;
 
   // create the wrapper
-  initFirpContext(circuitOp);
+  attachFirpContext(circuitOp);
 
   ReadyValidWrapper wrapper(
     spnBody,
@@ -77,7 +77,7 @@ ExecutionResult EmbedAXIStream::executeStep(mlir::ModuleOp *circuitRoot) {
   spdlog::info("FPGA body delay is {}", kernel.bodyDelay);
 
   // create the wrapper
-  initFirpContext(circuitOp);
+  attachFirpContext(circuitOp);
 
   AXIStreamConfig slaveConfig{
     .dataBits = uint32_t(kernel.sAxisControllerWidth),
@@ -105,8 +105,9 @@ ExecutionResult EmbedAXIStream::executeStep(mlir::ModuleOp *circuitRoot) {
   firpContext()->finish();
   //firpContext()->dump();
 
-  if (mlir::failed(lowerFirrtlToHw()))
-    return failure("lowering to HW failed");
+  // TODO: Decide when to do lowering.
+  //if (mlir::failed(lowerFirrtlToHw()))
+  //  return failure("lowering to HW failed");
 
   topModule = std::make_unique<ModuleOp>(firpContext()->root);
 

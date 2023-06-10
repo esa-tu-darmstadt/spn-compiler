@@ -194,7 +194,7 @@ llvm::Optional<mlir::ModuleOp> convert(mlir::ModuleOp modOp, const ConversionOpt
   ModuleOp newRoot = builder.create<ModuleOp>(builder.getUnknownLoc());
   builder.setInsertionPointToStart(&newRoot.getRegion().front());
 
-  firp::initFirpContext(newRoot, "SPNBody");
+  firp::attachFirpContext(newRoot, "SPNBody");
 
   ConversionSettings settings{
     .ufloatConfig = options.ufloatConfig,
@@ -217,9 +217,10 @@ llvm::Optional<mlir::ModuleOp> convert(mlir::ModuleOp modOp, const ConversionOpt
     circt::scheduling::dumpAsDOT(schedulingProblem, "schedule.dot");
 
     SPNBodyTop spnBody(body, settings, schedulingProblem);
-    spnBody.makeTop();
+    FModuleOp topModule = spnBody.makeTop();
 
-    FModuleOp topModule = firpContext()->finish();
+    if (failed(firpContext()->finish()))
+      assert(false && "firpContext()->finish() failed!");
 
     uint32_t totalEndTime = schedulingProblem.getTotalEndTime();
     topModule->setAttr("fpga.body_delay", builder.getI32IntegerAttr(totalEndTime));

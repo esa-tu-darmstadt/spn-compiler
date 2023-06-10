@@ -200,7 +200,9 @@ ExecutionResult EmbedController::executeStep(ModuleOp *root) {
   using namespace ::firp::axis;
 
   FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
-  initFirpContext(*root, "top", "clk", "rst");
+  attachFirpContext(*root, "top");
+  firpContext()->defaultClockName = "clk";
+  firpContext()->defaultResetName = "rst";
 
   AXIStreamConfig slaveConfig{
     .dataBits = uint32_t(kernel.sAxisControllerWidth),

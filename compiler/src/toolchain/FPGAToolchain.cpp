@@ -18,6 +18,7 @@
 #include "pipeline/steps/hdl/ReturnKernel.h"
 #include "pipeline/steps/hdl/WriteDebugInfo.hpp"
 #include "pipeline/steps/hdl/CreateVerilogFiles.hpp"
+#include "pipeline/steps/hdl/CreateAXIStreamMapper.hpp"
 #include "pipeline/steps/mlir/conversion/LoSPNtoFPGAConversion.h"
 #include "TargetInformation.h"
 
@@ -104,6 +105,8 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
       }
     } else if (option::fpgaWrapAXIStream.get(*config)) {
       auto& embed = pipeline->emplaceStep<EmbedAXIStream>(lospn2fpga);
+
+      auto& createAXIStreamMapper = pipeline->emplaceStep<CreateAXIStreamMapper>(embed);
 
       if (option::fpgaCreateVerilogFiles.get(*config)) {
         CreateVerilogFilesConfig cfg{
