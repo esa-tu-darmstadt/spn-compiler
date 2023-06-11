@@ -51,6 +51,7 @@ ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
   setNewTopName(*root, "AXI4StreamMapper");
   CircuitOp circuitOp = cast<CircuitOp>(root->getBody()->front());
   attachFirpContext(circuitOp);
+  firpContext()->moduleBuilder->setInitialUid(1000);
 
   FModuleOp loadUnit = insertFIRFile("resources/ipec/IPECLoadUnit_a32_d32.fir", "IPECLoadUnit");
   FModuleOp storeUnit = insertFIRFile("resources/ipec/IPECStoreUnit_a32_d32.fir", "IPECStoreUnit");
@@ -73,9 +74,11 @@ ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
   );
 
   mapper.makeTop();
-  firpContext()->finish();
-
+  
   firpContext()->dump();
+  
+  assert(mlir::succeeded(firpContext()->finish()));
+  
   assert(false && "fuck me");
 
   firpContext()->finish();
@@ -86,8 +89,6 @@ ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
 }
 
 void AXI4StreamMapper::body() {
-  return;
-
   axi4lite::AXI4LiteRegisterFile regs(
     liteConfig,
     {
@@ -108,6 +109,8 @@ void AXI4StreamMapper::body() {
   auto numSdTransfers = regs.io("numSdTransfers");
 
   regs.io("AXI4LiteSlave") <<= io("S_AXI_LITE");
+
+  return;
 
   // instantiate load and store unit
   
