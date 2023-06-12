@@ -1,5 +1,6 @@
 #include "CreateAXIStreamMapper.hpp"
 
+#include "circt/Dialect/FIRRTL/Passes.h"
 #include <firp/lowering.hpp>
 
 
@@ -27,6 +28,16 @@ FModuleOp CreateAXIStreamMapper::insertFIRFile(const std::filesystem::path& path
   ModuleOp op = importFIRFile(path);
 
   if (!op)
+    return FModuleOp();
+
+  // remove firrtl.constCast
+  PassManager pm(op.getContext());
+  pm.
+    nest<circt::firrtl::CircuitOp>().
+    nest<circt::firrtl::FModuleOp>().
+    addPass(circt::firrtl::createDropConstPass());
+
+  if (mlir::failed(pm.run(op)))
     return FModuleOp();
 
   auto bodyBlock = cast<CircuitOp>(op.getBody()->front()) // CircuitOp
@@ -76,20 +87,20 @@ ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
   mapper.makeTop();
   
   firpContext()->dump();
-  
-  assert(mlir::succeeded(firpContext()->finish()));
-  
-  assert(false && "fuck me");
 
-  firpContext()->finish();
-  firpContext()->dump();
+  if (mlir::failed(firpContext()->finish()))
+    return failure("could not verify generated FIRRTL");
 
-  assert(false && "not implemented");
-  return failure("not implemented");
+  if (mlir::failed(lowerFirrtlToHw()))
+    return failure("lowering to HW failed");
+
+  modOp = std::make_unique<mlir::ModuleOp>(firpContext()->root);
+
+  return success();
 }
 
 void AXI4StreamMapper::body() {
-  axi4lite::AXI4LiteRegisterFile regs(
+  auto regs = axi4LiteRegisterFile(
     liteConfig,
     {
       "status",
@@ -98,19 +109,16 @@ void AXI4StreamMapper::body() {
       "numLdTransfers",
       "storeBaseAddress",
       "numSdTransfers"
-    }
+    },
+    io("S_AXI_LITE")
   );
 
-  auto status = regs.io("status");
-  auto retVal = regs.io("retVal");
-  auto loadBaseAddress = regs.io("loadBaseAddress");
-  auto numLdTransfers = regs.io("numLdTransfers");
-  auto storeBaseAddress = regs.io("storeBaseAddress");
-  auto numSdTransfers = regs.io("numSdTransfers");
-
-  regs.io("AXI4LiteSlave") <<= io("S_AXI_LITE");
-
-  return;
+  auto status = regs[0];
+  auto retVal = regs[1];
+  auto loadBaseAddress = regs[2];
+  auto numLdTransfers = regs[3];
+  auto storeBaseAddress = regs[4];
+  auto numSdTransfers = regs[5];
 
   // instantiate load and store unit
   
@@ -120,6 +128,29 @@ void AXI4StreamMapper::body() {
   loadUnit.io("io")("start") <<= status(0);
   loadUnit.io("io")("baseAddress") <<= loadBaseAddress;
   loadUnit.io("io")("numTransfers") <<= numLdTransfers;
+
+  //{ ar : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, addr : UInt<32>, len : UInt<8>, size : UInt<3>, burst : UInt<2>, lock : UInt<1>, cache : UInt<4>, prot : UInt<3>, qos : UInt<4>, region : UInt<4>}
+  io("M_AXI")("AR")("VALID") <<= loadUnit.io("io")("axi4master")("ar")("valid");
+  io("M_AXI")("AR")("ID") <<= loadUnit.io("io")("axi4master")("ar")("id");
+  io("M_AXI")("AR")("ADDR") <<= loadUnit.io("io")("axi4master")("ar")("addr");
+  io("M_AXI")("AR")("LEN") <<= loadUnit.io("io")("axi4master")("ar")("len");
+  io("M_AXI")("AR")("SIZE") <<= loadUnit.io("io")("axi4master")("ar")("size");
+  io("M_AXI")("AR")("BURST") <<= loadUnit.io("io")("axi4master")("ar")("burst");
+  io("M_AXI")("AR")("LOCK") <<= loadUnit.io("io")("axi4master")("ar")("lock");
+  io("M_AXI")("AR")("CACHE") <<= loadUnit.io("io")("axi4master")("ar")("cache");
+  io("M_AXI")("AR")("PROT") <<= loadUnit.io("io")("axi4master")("ar")("prot");
+  io("M_AXI")("AR")("QOS") <<= loadUnit.io("io")("axi4master")("ar")("qos");
+  io("M_AXI")("AR")("REGION") <<= loadUnit.io("io")("axi4master")("ar")("region");
+  io("M_AXI")("AR")("USER") <<= uval(0, readConfig.userBits);
+  loadUnit.io("io")("axi4master")("ar")("ready") <<= io("M_AXI")("AR")("READY");
+
+  // flip r : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, data : UInt<32>, resp : UInt<2>, last : UInt<1>}}
+  loadUnit.io("io")("axi4master")("r")("valid") <<= io("M_AXI")("R")("VALID");
+  loadUnit.io("io")("axi4master")("r")("id") <<= io("M_AXI")("R")("ID");
+  loadUnit.io("io")("axi4master")("r")("data") <<= io("M_AXI")("R")("DATA");
+  loadUnit.io("io")("axi4master")("r")("resp") <<= io("M_AXI")("R")("RESP");
+  loadUnit.io("io")("axi4master")("r")("last") <<= io("M_AXI")("R")("LAST");
+  io("M_AXI")("R")("READY") <<= loadUnit.io("io")("axi4master")("r")("ready");
 
   AXIStreamSender sender(mAxisConfig);
   sender.io("enq") <<= loadUnit.io("io")("data");
@@ -132,12 +163,42 @@ void AXI4StreamMapper::body() {
   storeUnit.io("io")("baseAddress") <<= storeBaseAddress;
   storeUnit.io("io")("numTransfers") <<= numSdTransfers;
 
+  // aw : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, addr : UInt<32>, len : UInt<8>, size : UInt<3>, burst : UInt<2>, lock : UInt<1>, cache : UInt<4>, prot : UInt<3>, qos : UInt<4>, region : UInt<4>}
+  io("M_AXI")("AW")("VALID") <<= storeUnit.io("io")("axi4master")("aw")("valid");
+  io("M_AXI")("AW")("ID") <<= storeUnit.io("io")("axi4master")("aw")("id");
+  io("M_AXI")("AW")("ADDR") <<= storeUnit.io("io")("axi4master")("aw")("addr");
+  io("M_AXI")("AW")("LEN") <<= storeUnit.io("io")("axi4master")("aw")("len");
+  io("M_AXI")("AW")("SIZE") <<= storeUnit.io("io")("axi4master")("aw")("size");
+  io("M_AXI")("AW")("BURST") <<= storeUnit.io("io")("axi4master")("aw")("burst");
+  io("M_AXI")("AW")("LOCK") <<= storeUnit.io("io")("axi4master")("aw")("lock");
+  io("M_AXI")("AW")("CACHE") <<= storeUnit.io("io")("axi4master")("aw")("cache");
+  io("M_AXI")("AW")("PROT") <<= storeUnit.io("io")("axi4master")("aw")("prot");
+  io("M_AXI")("AW")("QOS") <<= storeUnit.io("io")("axi4master")("aw")("qos");
+  io("M_AXI")("AW")("REGION") <<= storeUnit.io("io")("axi4master")("aw")("region");
+  io("M_AXI")("AW")("USER") <<= uval(0, writeConfig.userBits);
+  storeUnit.io("io")("axi4master")("aw")("ready") <<= io("M_AXI")("AW")("READY");
+
+  // w : { valid : UInt<1>, flip ready : UInt<1>, data : UInt<32>, strb : UInt<4>, last : UInt<1>}
+  io("M_AXI")("W")("VALID") <<= storeUnit.io("io")("axi4master")("w")("valid");
+  io("M_AXI")("W")("DATA") <<= storeUnit.io("io")("axi4master")("w")("data");
+  io("M_AXI")("W")("STRB") <<= storeUnit.io("io")("axi4master")("w")("strb");
+  io("M_AXI")("W")("LAST") <<= storeUnit.io("io")("axi4master")("w")("last");
+  storeUnit.io("io")("axi4master")("w")("ready") <<= io("M_AXI")("W")("READY");
+
+  // flip b : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, resp : UInt<2>}}
+  storeUnit.io("io")("axi4master")("b")("valid") <<= io("M_AXI")("B")("VALID");
+  storeUnit.io("io")("axi4master")("b")("id") <<= io("M_AXI")("B")("ID");
+  storeUnit.io("io")("axi4master")("b")("resp") <<= io("M_AXI")("B")("RESP");
+  io("M_AXI")("B")("READY") <<= storeUnit.io("io")("axi4master")("b")("ready");
+
   AXIStreamReceiver receiver(sAxisConfig);
   receiver.io("AXIS") <<= io("S_AXIS");
   storeUnit.io("io")("data") <<= receiver.io("deq");
 
   // connect controller directly to the outside world
   FIRModule spnController(spnAxisController);
+  spnController.io("clock") <<= io("clock");
+  spnController.io("reset") <<= io("reset");
   spnController.io("AXIS_SLAVE") <<= io("S_AXIS_CONTROLLER");
   io("M_AXIS_CONTROLLER") <<= spnController.io("AXIS_MASTER");
 
@@ -150,6 +211,8 @@ void AXI4StreamMapper::body() {
 
   auto state = regInit(uval(0, 2), "state");
   auto cycleCount = regInit(uval(0, 32), "cycleCount");
+
+  io("interrupt") <<= uval(0);
 
   when (state.read() == uval(IDLE), [&](){
     when (status == uval(0), [&](){

@@ -115,7 +115,7 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
           .topName = "AXIStreamWrapper"
         };
 
-        auto& createVerilogFiles = pipeline->emplaceStep<CreateVerilogFiles>(embed, cfg);
+        auto& createVerilogFiles = pipeline->emplaceStep<CreateVerilogFiles>(createAXIStreamMapper, cfg);
         auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(spnc::option::outputPath.get(*config) + "/ipxact_core", createVerilogFiles);
       }
     } else {

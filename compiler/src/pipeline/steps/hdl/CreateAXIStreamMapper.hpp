@@ -16,17 +16,19 @@
 namespace spnc {
 
 class CreateAXIStreamMapper : public StepSingleInput<CreateAXIStreamMapper, mlir::ModuleOp>,
-                              public StepWithResult<Kernel> {
+                              public StepWithResult<mlir::ModuleOp> {
   //
   circt::firrtl::FModuleOp findModuleByName(const std::string& name);
   circt::firrtl::FModuleOp insertFIRFile(const std::filesystem::path& path, const std::string& moduleName);
+
+  std::unique_ptr<mlir::ModuleOp> modOp;
 public:
   explicit CreateAXIStreamMapper(StepWithResult<mlir::ModuleOp>& root):
     StepSingleInput<CreateAXIStreamMapper, mlir::ModuleOp>(root) {}
 
   ExecutionResult executeStep(mlir::ModuleOp *root);
 
-  Kernel *result() override { return getContext()->get<Kernel>(); }
+  mlir::ModuleOp *result() override { return modOp.get(); }
 
   STEP_NAME("create-axi-stream-mapper");
 };
@@ -57,7 +59,7 @@ public:
         firp::Port("M_AXIS", false, firp::axis::AXIStreamBundleType(mAxisConfig)),
         firp::Port("S_AXIS_CONTROLLER", true, firp::axis::AXIStreamBundleType(sAxisControllerConfig)),
         firp::Port("S_AXIS", true, firp::axis::AXIStreamBundleType(sAxisConfig)),
-        firp::Port("M_AXIS_CONTROLLER", true, firp::axis::AXIStreamBundleType(mAxisControllerConfig)),
+        firp::Port("M_AXIS_CONTROLLER", false, firp::axis::AXIStreamBundleType(mAxisControllerConfig)),
         firp::Port("interrupt", false, firp::bitType())
       },
       liteConfig, writeConfig, readConfig, mAxisConfig, sAxisControllerConfig, sAxisConfig, mAxisControllerConfig
