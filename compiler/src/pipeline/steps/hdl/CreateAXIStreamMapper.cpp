@@ -59,7 +59,8 @@ FModuleOp CreateAXIStreamMapper::insertFIRFile(const std::filesystem::path& path
 ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
   llvm::outs() << "CreateAXIStreamMapper::executeStep()\n";
 
-  setNewTopName(*root, "AXI4StreamMapper");
+  std::string topName = doPrepareForCocoTb ? "AXI4CocoTbTop" : "AXI4StreamMapper";
+  setNewTopName(*root, topName);
   CircuitOp circuitOp = cast<CircuitOp>(root->getBody()->front());
   attachFirpContext(circuitOp);
   firpContext()->moduleBuilder->setInitialUid(1000);
@@ -77,15 +78,28 @@ ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
 
   const FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
 
-  AXI4StreamMapper mapper = AXI4StreamMapper::make(
-    kernel,
-    loadUnit,
-    storeUnit,
-    streamWrapper
-  );
-
-  mapper.makeTop();
   
+
+  if (doPrepareForCocoTb) {
+    AXI4CocoTbTop tbTop = AXI4CocoTbTop::make(
+      kernel,
+      loadUnit,
+      storeUnit,
+      streamWrapper
+    );
+
+    tbTop.makeTop();
+  } else {
+    AXI4StreamMapper mapper = AXI4StreamMapper::make(
+      kernel,
+      loadUnit,
+      storeUnit,
+      streamWrapper
+    );
+
+    mapper.makeTop();
+  }
+
   firpContext()->dump();
 
   if (mlir::failed(firpContext()->finish()))
@@ -273,6 +287,87 @@ AXI4StreamMapper AXI4StreamMapper::make(
   };
 
   return AXI4StreamMapper(
+    liteConfig,
+    memConfig,
+    memConfig,
+    mAxisConfig,
+    sAxisControllerConfig,
+    sAxisConfig,
+    mAxisControllerConfig,
+    ipecLoadUnit,
+    ipecStoreUnit,
+    spnAxisController
+  );
+}
+
+void AXI4CocoTbTop::body() {
+  AXI4StreamMapper mapper(
+    liteConfig,
+    writeConfig,
+    readConfig,
+    mAxisConfig,
+    sAxisControllerConfig,
+    sAxisConfig,
+    mAxisControllerConfig,
+    ipecLoadUnit,
+    ipecStoreUnit,
+    spnAxisController
+  );
+
+  io("M_AXI") <<= mapper.io("M_AXI");
+  mapper.io("S_AXI_LITE") <<= io("S_AXI_LITE");
+
+  AXIStreamConverter converter1(mAxisConfig, sAxisControllerConfig);
+  converter1.io("AXIS_slave") <<= mapper.io("M_AXIS");
+  mapper.io("S_AXIS_CONTROLLER") <<= converter1.io("AXIS_master");
+
+  AXIStreamConverter converter2(mAxisControllerConfig, sAxisConfig);
+  converter2.io("AXIS_slave") <<= mapper.io("M_AXIS_CONTROLLER");
+  mapper.io("S_AXIS") <<= converter2.io("AXIS_master");
+
+  mapper.io("S_AXI_LITE") <<= io("S_AXI_LITE");
+  io("M_AXI") <<= mapper.io("M_AXI");
+}
+
+AXI4CocoTbTop AXI4CocoTbTop::make(
+  const FPGAKernel& kernel,
+  circt::firrtl::FModuleOp ipecLoadUnit,
+  circt::firrtl::FModuleOp ipecStoreUnit,
+  circt::firrtl::FModuleOp spnAxisController
+) {
+  // I think TaPaSco uses this
+  axi4lite::AXI4LiteConfig liteConfig{
+    .addrBits = 64,
+    .dataBits = 128
+  };
+
+  // used for the write and read channels of the memory AXI4 ports
+  axi4::AXI4Config memConfig{
+    .addrBits = uint32_t(kernel.memAddrWidth),
+    .dataBits = uint32_t(kernel.memDataWidth)
+  };
+
+  // is connected to the memory AXI4 port
+  firp::axis::AXIStreamConfig mAxisConfig{
+    .dataBits = uint32_t(kernel.memDataWidth)
+  };
+
+  // is connected to the memory AXI4 port
+  firp::axis::AXIStreamConfig sAxisConfig{
+    .dataBits = uint32_t(kernel.memDataWidth)
+  };
+
+  // is connected to the controller input
+  firp::axis::AXIStreamConfig sAxisControllerConfig{
+    .dataBits = uint32_t(kernel.sAxisControllerWidth)
+  };
+
+  // is connected to the controller output
+  firp::axis::AXIStreamConfig mAxisControllerConfig{
+    .dataBits = uint32_t(kernel.mAxisControllerWidth)
+  };
+
+  return AXI4CocoTbTop(
     liteConfig,
     memConfig,
     memConfig,
