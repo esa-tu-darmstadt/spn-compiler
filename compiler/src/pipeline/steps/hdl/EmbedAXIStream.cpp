@@ -209,7 +209,7 @@ void AXIStreamWrapper::body() {
   auto canEnqueue = wireInit(itemCountInPipeline.read() + fifo.io("count") + cons(2) <= cons(fifoDepth), "canEnqueue");
   receiver.io("deq")("ready") <<= canEnqueue;
 
-  svCocoTBVerbatim(getName());
+  //svCocoTBVerbatim(getName());
 }
 
 }
