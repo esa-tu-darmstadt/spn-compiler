@@ -182,11 +182,14 @@ async def wait_timeout(n):
 async def test_AXI4CocoTbTop(dut):
   spn_path = os.environ['SPN_PATH']
   spn, var_2_index, index_2_min, index_2_max = load_spn_2(spn_path)
-  COUNT = 20
+  COUNT = 20 * 10
   data = generate_data(COUNT, index_2_min, index_2_max)
   expected = likelihood(spn, data, dtype=np.float32)
 
   rename_signals(dut)
+
+  print('=====================INPUTS=====================')
+  print(data)
 
   # assume 1 byte per value
   read_base = 0x10000
@@ -233,3 +236,10 @@ async def test_AXI4CocoTbTop(dut):
     cocotb.start_soon(poll_interrupt(dut)),
     cocotb.start_soon(wait_timeout(10000))
   )
+
+  # we didn't crash => we got an interrupt and can now check the results
+  as_floats = list(struct.unpack(f'<{write_size // 4}f', axi_ram.read(write_base, write_size)))
+
+  for got, exp in zip(as_floats, expected):
+    print(f'got {got} expected {exp}')
+    assert math.isclose(got, exp, rel_tol=1e-5), f'got {got} expected {exp}'
