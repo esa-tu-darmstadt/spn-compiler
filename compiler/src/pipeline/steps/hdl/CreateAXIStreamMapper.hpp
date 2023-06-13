@@ -114,7 +114,8 @@ public:
       "AXI4CocoTbTop",
       {
         firp::Port("S_AXI_LITE", true, axi4lite::axi4LiteType(liteConfig)),
-        firp::Port("M_AXI", false, axi4::axi4Type(writeConfig, readConfig))
+        firp::Port("M_AXI", false, axi4::axi4Type(writeConfig, readConfig)),
+        firp::Output("interrupt", firp::bitType())
       },
       liteConfig, writeConfig, readConfig
     ),

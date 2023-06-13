@@ -8,7 +8,7 @@ import os
 import binascii
 
 import cocotb
-from cocotb.triggers import Timer, RisingEdge, FallingEdge
+from cocotb.triggers import Timer, RisingEdge, FallingEdge, First
 from cocotb.clock import Clock
 
 from cocotbext.axi import (
@@ -170,20 +170,49 @@ def rename_signals(dut):
     print(f'Linking signals: {lower} (new) <-> (old) {signal}')
     dut.__dict__[lower] = dut.__getattr__(signal)
 
+async def poll_interrupt(dut):
+  await RisingEdge(dut.interrupt)
+  print(f'Interrupt!')
+
+async def wait_timeout(n):
+  await Timer(n, units="us")
+  assert False, 'Timeout!'
+
 @cocotb.test()
 async def test_AXI4CocoTbTop(dut):
   spn_path = os.environ['SPN_PATH']
   spn, var_2_index, index_2_min, index_2_max = load_spn_2(spn_path)
-  COUNT = 1000
+  COUNT = 20
   data = generate_data(COUNT, index_2_min, index_2_max)
   expected = likelihood(spn, data, dtype=np.float32)
 
   rename_signals(dut)
 
-  reg_file = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "S_AXI_LITE"), dut.clock, dut.reset)
-  #axi_ram = AxiRam(AxiBus.from_prefix(dut, "M_AXI"), dut.clock, dut.reset, size=2**16)
+  # assume 1 byte per value
+  read_base = 0x10000
+  read_size = COUNT * len(index_2_min.items())
+  write_base = read_base + read_size
+  write_size = COUNT * 4 # TODO: 8 bytes per float (or 4?)
 
-  cocotb.fork(Clock(dut.clock, 1, units='ns').start())
+  # from tapasco
+  #size_t loadBeatCount = inSize / (fpgaKernel.memDataWidth / 8);
+  #size_t storeBeatCount = outSize / (fpgaKernel.memDataWidth / 8);
+  # TODO: read_size and write_size need to be padded first!
+  load_beat_count = read_size // (32 // 8)
+  store_beat_count = write_size // (32 // 8)
+
+  print(f'bytes to send: {read_size} in {load_beat_count} beats on a 4 byte bus')
+  print(f'bytes to receive: {write_size} in {store_beat_count} beats on a 4 byte bus')
+
+  #required_space = COUNT * len(index_2_min.items()) + COUNT * 8
+
+  reg_file = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "S_AXI_LITE"), dut.clock, dut.reset)
+  axi_ram = AxiRam(AxiBus.from_prefix(dut, "M_AXI"), dut.clock, dut.reset, size=2**32)
+
+  # write the generated input data to RAM
+  axi_ram.write(read_base, data.astype(np.int8).tobytes())
+
+  cocotb.fork(Clock(dut.clock, 1, units='us').start())
 
   print(f'resetting...')
   dut.reset.value = 1
@@ -194,14 +223,13 @@ async def test_AXI4CocoTbTop(dut):
   print(f'done')
 
   # write registers
-  #await reg_file.write(0x0, bytearray([0x1, 0x2, 0x3, 0x4]))
+  await reg_file.write(0x8, read_base.to_bytes(4, byteorder='little')) # loadBaseAddress
+  await reg_file.write(0xC, load_beat_count.to_bytes(4, byteorder='little')) # numLdTransfers
+  await reg_file.write(0x10, write_base.to_bytes(4, byteorder='little')) # storeBaseAddress
+  await reg_file.write(0x14, store_beat_count.to_bytes(4, byteorder='little')) # numStTransfers
+  await reg_file.write(0x0, int(1).to_bytes(4, byteorder='little')) # status, okay let's go
 
-  # write inputs
-  #await write_inputs(axis_source, data)
-
-  # read outputs
-  #results = await read_outputs(axis_sink)
-
-  # wait until everything is done
-  await Timer(1000, units="ns")  # wait a bit
-  await RisingEdge(dut.clock)  # wait for falling edge/"negedge"
+  await First(
+    cocotb.start_soon(poll_interrupt(dut)),
+    cocotb.start_soon(wait_timeout(10000))
+  )

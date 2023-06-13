@@ -139,7 +139,7 @@ void AXI4StreamMapper::body() {
   FIRModule loadUnit(ipecLoadUnit);
   loadUnit.io("clock") <<= io("clock");
   loadUnit.io("reset") <<= io("reset");
-  loadUnit.io("io")("start") <<= status(0);
+  loadUnit.io("io")("start") <<= uval(0);
   loadUnit.io("io")("baseAddress") <<= loadBaseAddress;
   loadUnit.io("io")("numTransfers") <<= numLdTransfers;
 
@@ -173,7 +173,7 @@ void AXI4StreamMapper::body() {
   FIRModule storeUnit(ipecStoreUnit);
   storeUnit.io("clock") <<= io("clock");
   storeUnit.io("reset") <<= io("reset");
-  storeUnit.io("io")("start") <<= status(0);
+  storeUnit.io("io")("start") <<= uval(0);
   storeUnit.io("io")("baseAddress") <<= storeBaseAddress;
   storeUnit.io("io")("numTransfers") <<= numSdTransfers;
 
@@ -229,8 +229,10 @@ void AXI4StreamMapper::body() {
   io("interrupt") <<= uval(0);
 
   when (state.read() == uval(IDLE), [&](){
-    when (status == uval(0), [&](){
+    when (status(0), [&](){
       state <<= uval(RUNNING);
+      loadUnit.io("io")("start") <<= uval(1);
+      storeUnit.io("io")("start") <<= uval(1);
     });
   })
   .elseWhen (state.read() == uval(RUNNING), [&](){
@@ -256,8 +258,8 @@ AXI4StreamMapper AXI4StreamMapper::make(
 ) {
   // I think TaPaSco uses this
   axi4lite::AXI4LiteConfig liteConfig{
-    .addrBits = 64,
-    .dataBits = 128
+    .addrBits = 32,
+    .dataBits = 32
   };
 
   // used for the write and read channels of the memory AXI4 ports
@@ -328,7 +330,9 @@ void AXI4CocoTbTop::body() {
   mapper.io("S_AXI_LITE") <<= io("S_AXI_LITE");
   io("M_AXI") <<= mapper.io("M_AXI");
 
-  //svCocoTBVerbatim("AXI4CocoTbTop");
+  io("interrupt") <<= mapper.io("interrupt");
+
+  svCocoTBVerbatim("AXI4CocoTbTop");
 }
 
 AXI4CocoTbTop AXI4CocoTbTop::make(
@@ -339,8 +343,8 @@ AXI4CocoTbTop AXI4CocoTbTop::make(
 ) {
   // I think TaPaSco uses this
   axi4lite::AXI4LiteConfig liteConfig{
-    .addrBits = 64,
-    .dataBits = 128
+    .addrBits = 32,
+    .dataBits = 32
   };
 
   // used for the write and read channels of the memory AXI4 ports

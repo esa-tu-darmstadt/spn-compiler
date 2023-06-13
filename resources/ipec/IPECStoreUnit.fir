@@ -1,26 +1,10 @@
-FIRRTL version 1.1.0
 circuit IPECStoreUnit :
-  module Queue_220588152 :
+  module Queue_1645578641 :
     input clock : Clock
-    input reset : UInt<1>
+    input reset : Reset
     output io : { flip enq : { flip ready : UInt<1>, valid : UInt<1>, bits : { last : UInt<1>, bits : UInt<512>}}, deq : { flip ready : UInt<1>, valid : UInt<1>, bits : { last : UInt<1>, bits : UInt<512>}}, count : UInt<2>} @[src/main/scala/chisel3/util/Decoupled.scala 272:14]
 
-    mem ram : @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-      data-type => { last : UInt<1>, bits : UInt<512>}
-      depth => 2
-      read-latency => 0
-      write-latency => 1
-      reader => io_deq_bits_MPORT
-      writer => MPORT
-      read-under-write => undefined
-    ram.io_deq_bits_MPORT.addr is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.io_deq_bits_MPORT.clk is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.io_deq_bits_MPORT.en <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.addr is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.clk is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.en <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.data is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.mask is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
+    cmem ram : { last : UInt<1>, bits : UInt<512>} [2] @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
     reg enq_ptr_value : UInt<1>, clock with :
       reset => (reset, UInt<1>("h0")) @[src/main/scala/chisel3/util/Counter.scala 61:40]
     reg deq_ptr_value : UInt<1>, clock with :
@@ -38,14 +22,8 @@ circuit IPECStoreUnit :
     wire do_deq : UInt<1> @[src/main/scala/chisel3/util/Decoupled.scala 281:27]
     do_deq <= _do_deq_T @[src/main/scala/chisel3/util/Decoupled.scala 281:27]
     when do_enq : @[src/main/scala/chisel3/util/Decoupled.scala 286:16]
-      ram.MPORT.addr <= enq_ptr_value @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.clk <= clock @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.en <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.mask.last <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.mask.bits <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.data <= io.enq.bits @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
-      ram.MPORT.mask.last <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
-      ram.MPORT.mask.bits <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
+      infer mport MPORT = ram[enq_ptr_value], clock @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
+      MPORT <= io.enq.bits @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
       node wrap = eq(enq_ptr_value, UInt<1>("h1")) @[src/main/scala/chisel3/util/Counter.scala 73:24]
       node _value_T = add(enq_ptr_value, UInt<1>("h1")) @[src/main/scala/chisel3/util/Counter.scala 77:24]
       node _value_T_1 = tail(_value_T, 1) @[src/main/scala/chisel3/util/Counter.scala 77:24]
@@ -66,10 +44,8 @@ circuit IPECStoreUnit :
     io.deq.valid <= _io_deq_valid_T @[src/main/scala/chisel3/util/Decoupled.scala 302:16]
     node _io_enq_ready_T = eq(full, UInt<1>("h0")) @[src/main/scala/chisel3/util/Decoupled.scala 303:19]
     io.enq.ready <= _io_enq_ready_T @[src/main/scala/chisel3/util/Decoupled.scala 303:16]
-    ram.io_deq_bits_MPORT.addr <= deq_ptr_value @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
-    ram.io_deq_bits_MPORT.clk <= clock @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
-    ram.io_deq_bits_MPORT.en <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
-    io.deq.bits <= ram.io_deq_bits_MPORT.data @[src/main/scala/chisel3/util/Decoupled.scala 310:17]
+    infer mport io_deq_bits_MPORT = ram[deq_ptr_value], clock @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
+    io.deq.bits <= io_deq_bits_MPORT @[src/main/scala/chisel3/util/Decoupled.scala 310:17]
     node _ptr_diff_T = sub(enq_ptr_value, deq_ptr_value) @[src/main/scala/chisel3/util/Decoupled.scala 326:32]
     node ptr_diff = tail(_ptr_diff_T, 1) @[src/main/scala/chisel3/util/Decoupled.scala 326:32]
     node _io_count_T = and(maybe_full, ptr_match) @[src/main/scala/chisel3/util/Decoupled.scala 329:32]
@@ -77,27 +53,12 @@ circuit IPECStoreUnit :
     node _io_count_T_2 = or(_io_count_T_1, ptr_diff) @[src/main/scala/chisel3/util/Decoupled.scala 329:62]
     io.count <= _io_count_T_2 @[src/main/scala/chisel3/util/Decoupled.scala 329:14]
 
-  module Queue_1038585959 :
+  module Queue_492971350 :
     input clock : Clock
-    input reset : UInt<1>
-    output io : { flip enq : { flip ready : UInt<1>, valid : UInt<1>, bits : { address : UInt<32>, numBeats : UInt<9>}}, deq : { flip ready : UInt<1>, valid : UInt<1>, bits : { address : UInt<32>, numBeats : UInt<9>}}, count : UInt<4>} @[src/main/scala/chisel3/util/Decoupled.scala 272:14]
+    input reset : Reset
+    output io : { flip enq : { flip ready : UInt<1>, valid : UInt<1>, bits : { address : UInt<64>, numBeats : UInt<9>}}, deq : { flip ready : UInt<1>, valid : UInt<1>, bits : { address : UInt<64>, numBeats : UInt<9>}}, count : UInt<4>} @[src/main/scala/chisel3/util/Decoupled.scala 272:14]
 
-    mem ram : @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-      data-type => { address : UInt<32>, numBeats : UInt<9>}
-      depth => 9
-      read-latency => 0
-      write-latency => 1
-      reader => io_deq_bits_MPORT
-      writer => MPORT
-      read-under-write => undefined
-    ram.io_deq_bits_MPORT.addr is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.io_deq_bits_MPORT.clk is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.io_deq_bits_MPORT.en <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.addr is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.clk is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.en <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.data is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.mask is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
+    cmem ram : { address : UInt<64>, numBeats : UInt<9>} [9] @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
     reg enq_ptr_value : UInt<4>, clock with :
       reset => (reset, UInt<4>("h0")) @[src/main/scala/chisel3/util/Counter.scala 61:40]
     reg deq_ptr_value : UInt<4>, clock with :
@@ -115,14 +76,8 @@ circuit IPECStoreUnit :
     wire do_deq : UInt<1> @[src/main/scala/chisel3/util/Decoupled.scala 281:27]
     do_deq <= _do_deq_T @[src/main/scala/chisel3/util/Decoupled.scala 281:27]
     when do_enq : @[src/main/scala/chisel3/util/Decoupled.scala 286:16]
-      ram.MPORT.addr <= enq_ptr_value @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.clk <= clock @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.en <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.mask.address <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.mask.numBeats <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.data <= io.enq.bits @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
-      ram.MPORT.mask.address <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
-      ram.MPORT.mask.numBeats <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
+      infer mport MPORT = ram[enq_ptr_value], clock @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
+      MPORT <= io.enq.bits @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
       node wrap = eq(enq_ptr_value, UInt<4>("h8")) @[src/main/scala/chisel3/util/Counter.scala 73:24]
       node _value_T = add(enq_ptr_value, UInt<1>("h1")) @[src/main/scala/chisel3/util/Counter.scala 77:24]
       node _value_T_1 = tail(_value_T, 1) @[src/main/scala/chisel3/util/Counter.scala 77:24]
@@ -147,10 +102,8 @@ circuit IPECStoreUnit :
     io.deq.valid <= _io_deq_valid_T @[src/main/scala/chisel3/util/Decoupled.scala 302:16]
     node _io_enq_ready_T = eq(full, UInt<1>("h0")) @[src/main/scala/chisel3/util/Decoupled.scala 303:19]
     io.enq.ready <= _io_enq_ready_T @[src/main/scala/chisel3/util/Decoupled.scala 303:16]
-    ram.io_deq_bits_MPORT.addr <= deq_ptr_value @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
-    ram.io_deq_bits_MPORT.clk <= clock @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
-    ram.io_deq_bits_MPORT.en <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
-    io.deq.bits <= ram.io_deq_bits_MPORT.data @[src/main/scala/chisel3/util/Decoupled.scala 310:17]
+    infer mport io_deq_bits_MPORT = ram[deq_ptr_value], clock @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
+    io.deq.bits <= io_deq_bits_MPORT @[src/main/scala/chisel3/util/Decoupled.scala 310:17]
     node _ptr_diff_T = sub(enq_ptr_value, deq_ptr_value) @[src/main/scala/chisel3/util/Decoupled.scala 326:32]
     node ptr_diff = tail(_ptr_diff_T, 1) @[src/main/scala/chisel3/util/Decoupled.scala 326:32]
     node _io_count_T = mux(maybe_full, UInt<4>("h9"), UInt<1>("h0")) @[src/main/scala/chisel3/util/Decoupled.scala 333:10]
@@ -161,27 +114,12 @@ circuit IPECStoreUnit :
     node _io_count_T_5 = mux(ptr_match, _io_count_T, _io_count_T_4) @[src/main/scala/chisel3/util/Decoupled.scala 331:20]
     io.count <= _io_count_T_5 @[src/main/scala/chisel3/util/Decoupled.scala 331:14]
 
-  module Queue_2078887126 :
+  module Queue_8678215 :
     input clock : Clock
-    input reset : UInt<1>
+    input reset : Reset
     output io : { flip enq : { flip ready : UInt<1>, valid : UInt<1>, bits : UInt<512>}, deq : { flip ready : UInt<1>, valid : UInt<1>, bits : UInt<512>}, count : UInt<6>} @[src/main/scala/chisel3/util/Decoupled.scala 272:14]
 
-    mem ram : @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-      data-type => UInt<512>
-      depth => 32
-      read-latency => 0
-      write-latency => 1
-      reader => io_deq_bits_MPORT
-      writer => MPORT
-      read-under-write => undefined
-    ram.io_deq_bits_MPORT.addr is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.io_deq_bits_MPORT.clk is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.io_deq_bits_MPORT.en <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.addr is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.clk is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.en <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.data is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.mask is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
+    cmem ram : UInt<512> [32] @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
     reg enq_ptr_value : UInt<5>, clock with :
       reset => (reset, UInt<5>("h0")) @[src/main/scala/chisel3/util/Counter.scala 61:40]
     reg deq_ptr_value : UInt<5>, clock with :
@@ -199,12 +137,8 @@ circuit IPECStoreUnit :
     wire do_deq : UInt<1> @[src/main/scala/chisel3/util/Decoupled.scala 281:27]
     do_deq <= _do_deq_T @[src/main/scala/chisel3/util/Decoupled.scala 281:27]
     when do_enq : @[src/main/scala/chisel3/util/Decoupled.scala 286:16]
-      ram.MPORT.addr <= enq_ptr_value @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.clk <= clock @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.en <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.mask <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.data <= io.enq.bits @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
-      ram.MPORT.mask <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
+      infer mport MPORT = ram[enq_ptr_value], clock @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
+      MPORT <= io.enq.bits @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
       node wrap = eq(enq_ptr_value, UInt<5>("h1f")) @[src/main/scala/chisel3/util/Counter.scala 73:24]
       node _value_T = add(enq_ptr_value, UInt<1>("h1")) @[src/main/scala/chisel3/util/Counter.scala 77:24]
       node _value_T_1 = tail(_value_T, 1) @[src/main/scala/chisel3/util/Counter.scala 77:24]
@@ -225,10 +159,8 @@ circuit IPECStoreUnit :
     io.deq.valid <= _io_deq_valid_T @[src/main/scala/chisel3/util/Decoupled.scala 302:16]
     node _io_enq_ready_T = eq(full, UInt<1>("h0")) @[src/main/scala/chisel3/util/Decoupled.scala 303:19]
     io.enq.ready <= _io_enq_ready_T @[src/main/scala/chisel3/util/Decoupled.scala 303:16]
-    ram.io_deq_bits_MPORT.addr <= deq_ptr_value @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
-    ram.io_deq_bits_MPORT.clk <= clock @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
-    ram.io_deq_bits_MPORT.en <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
-    io.deq.bits <= ram.io_deq_bits_MPORT.data @[src/main/scala/chisel3/util/Decoupled.scala 310:17]
+    infer mport io_deq_bits_MPORT = ram[deq_ptr_value], clock @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
+    io.deq.bits <= io_deq_bits_MPORT @[src/main/scala/chisel3/util/Decoupled.scala 310:17]
     node _ptr_diff_T = sub(enq_ptr_value, deq_ptr_value) @[src/main/scala/chisel3/util/Decoupled.scala 326:32]
     node ptr_diff = tail(_ptr_diff_T, 1) @[src/main/scala/chisel3/util/Decoupled.scala 326:32]
     node _io_count_T = and(maybe_full, ptr_match) @[src/main/scala/chisel3/util/Decoupled.scala 329:32]
@@ -236,27 +168,12 @@ circuit IPECStoreUnit :
     node _io_count_T_2 = or(_io_count_T_1, ptr_diff) @[src/main/scala/chisel3/util/Decoupled.scala 329:62]
     io.count <= _io_count_T_2 @[src/main/scala/chisel3/util/Decoupled.scala 329:14]
 
-  module Queue_460674260 :
+  module Queue_526968040 :
     input clock : Clock
-    input reset : UInt<1>
+    input reset : Reset
     output io : { flip enq : { flip ready : UInt<1>, valid : UInt<1>, bits : UInt<8>}, deq : { flip ready : UInt<1>, valid : UInt<1>, bits : UInt<8>}, count : UInt<4>} @[src/main/scala/chisel3/util/Decoupled.scala 272:14]
 
-    mem ram : @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-      data-type => UInt<8>
-      depth => 8
-      read-latency => 0
-      write-latency => 1
-      reader => io_deq_bits_MPORT
-      writer => MPORT
-      read-under-write => undefined
-    ram.io_deq_bits_MPORT.addr is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.io_deq_bits_MPORT.clk is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.io_deq_bits_MPORT.en <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.addr is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.clk is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.en <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.data is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.mask is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
+    cmem ram : UInt<8> [8] @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
     reg enq_ptr_value : UInt<3>, clock with :
       reset => (reset, UInt<3>("h0")) @[src/main/scala/chisel3/util/Counter.scala 61:40]
     reg deq_ptr_value : UInt<3>, clock with :
@@ -274,12 +191,8 @@ circuit IPECStoreUnit :
     wire do_deq : UInt<1> @[src/main/scala/chisel3/util/Decoupled.scala 281:27]
     do_deq <= _do_deq_T @[src/main/scala/chisel3/util/Decoupled.scala 281:27]
     when do_enq : @[src/main/scala/chisel3/util/Decoupled.scala 286:16]
-      ram.MPORT.addr <= enq_ptr_value @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.clk <= clock @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.en <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.mask <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.data <= io.enq.bits @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
-      ram.MPORT.mask <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
+      infer mport MPORT = ram[enq_ptr_value], clock @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
+      MPORT <= io.enq.bits @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
       node wrap = eq(enq_ptr_value, UInt<3>("h7")) @[src/main/scala/chisel3/util/Counter.scala 73:24]
       node _value_T = add(enq_ptr_value, UInt<1>("h1")) @[src/main/scala/chisel3/util/Counter.scala 77:24]
       node _value_T_1 = tail(_value_T, 1) @[src/main/scala/chisel3/util/Counter.scala 77:24]
@@ -300,10 +213,8 @@ circuit IPECStoreUnit :
     io.deq.valid <= _io_deq_valid_T @[src/main/scala/chisel3/util/Decoupled.scala 302:16]
     node _io_enq_ready_T = eq(full, UInt<1>("h0")) @[src/main/scala/chisel3/util/Decoupled.scala 303:19]
     io.enq.ready <= _io_enq_ready_T @[src/main/scala/chisel3/util/Decoupled.scala 303:16]
-    ram.io_deq_bits_MPORT.addr <= deq_ptr_value @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
-    ram.io_deq_bits_MPORT.clk <= clock @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
-    ram.io_deq_bits_MPORT.en <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
-    io.deq.bits <= ram.io_deq_bits_MPORT.data @[src/main/scala/chisel3/util/Decoupled.scala 310:17]
+    infer mport io_deq_bits_MPORT = ram[deq_ptr_value], clock @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
+    io.deq.bits <= io_deq_bits_MPORT @[src/main/scala/chisel3/util/Decoupled.scala 310:17]
     node _ptr_diff_T = sub(enq_ptr_value, deq_ptr_value) @[src/main/scala/chisel3/util/Decoupled.scala 326:32]
     node ptr_diff = tail(_ptr_diff_T, 1) @[src/main/scala/chisel3/util/Decoupled.scala 326:32]
     node _io_count_T = and(maybe_full, ptr_match) @[src/main/scala/chisel3/util/Decoupled.scala 329:32]
@@ -313,13 +224,13 @@ circuit IPECStoreUnit :
 
   module AXIWriteUnit :
     input clock : Clock
-    input reset : UInt<1>
-    output io : { flip writeAddress : { flip ready : UInt<1>, valid : UInt<1>, bits : { address : UInt<32>, numBeats : UInt<9>}}, flip writeData : { flip ready : UInt<1>, valid : UInt<1>, bits : { data : UInt<512>, strb : UInt<64>}}, transferComplete : UInt<1>, axi4master : { aw : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, addr : UInt<32>, len : UInt<8>, size : UInt<3>, burst : UInt<2>, lock : UInt<1>, cache : UInt<4>, prot : UInt<3>, qos : UInt<4>, region : UInt<4>}, w : { valid : UInt<1>, flip ready : UInt<1>, data : UInt<512>, strb : UInt<64>, last : UInt<1>}, flip b : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, resp : UInt<2>}}} @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 43:14]
+    input reset : Reset
+    output io : { flip writeAddress : { flip ready : UInt<1>, valid : UInt<1>, bits : { address : UInt<64>, numBeats : UInt<9>}}, flip writeData : { flip ready : UInt<1>, valid : UInt<1>, bits : { data : UInt<512>, strb : UInt<64>}}, transferComplete : UInt<1>, axi4master : { aw : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, addr : UInt<64>, len : UInt<8>, size : UInt<3>, burst : UInt<2>, lock : UInt<1>, cache : UInt<4>, prot : UInt<3>, qos : UInt<4>, region : UInt<4>}, w : { valid : UInt<1>, flip ready : UInt<1>, data : UInt<512>, strb : UInt<64>, last : UInt<1>}, flip b : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, resp : UInt<2>}}} @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 43:14]
 
     reg aState : UInt<1>, clock with :
       reset => (reset, UInt<1>("h0")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 54:23]
-    reg addrBuf : UInt<32>, clock with :
-      reset => (reset, UInt<32>("h0")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 55:24]
+    reg addrBuf : UInt<64>, clock with :
+      reset => (reset, UInt<64>("h0")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 55:24]
     reg aValidBuf : UInt<1>, clock with :
       reset => (reset, UInt<1>("h0")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 56:26]
     reg lenBuf : UInt<8>, clock with :
@@ -327,16 +238,16 @@ circuit IPECStoreUnit :
     reg burstBuf : UInt<2>, clock with :
       reset => (reset, UInt<2>("h0")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 58:25]
     wire counterQIn : { flip ready : UInt<1>, valid : UInt<1>, bits : UInt<8>} @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 60:25]
-    inst counterQOut_Queue_460674260 of Queue_460674260 @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 41:21]
-    counterQOut_Queue_460674260.clock <= clock
-    counterQOut_Queue_460674260.reset <= reset
-    counterQOut_Queue_460674260.io.enq.valid <= counterQIn.valid @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 43:22]
-    counterQOut_Queue_460674260.io.enq.bits <= counterQIn.bits @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 44:21]
-    counterQIn.ready <= counterQOut_Queue_460674260.io.enq.ready @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 45:17]
+    inst counterQOut_Queue_526968040 of Queue_526968040 @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 41:21]
+    counterQOut_Queue_526968040.clock <= clock
+    counterQOut_Queue_526968040.reset <= reset
+    counterQOut_Queue_526968040.io.enq.valid <= counterQIn.valid @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 43:22]
+    counterQOut_Queue_526968040.io.enq.bits <= counterQIn.bits @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 44:21]
+    counterQIn.ready <= counterQOut_Queue_526968040.io.enq.ready @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 45:17]
     counterQIn.valid <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 73:20]
     counterQIn.bits is invalid @[src/main/scala/chisel3/util/Decoupled.scala 74:19]
     counterQIn.bits <= UInt<1>("h0") @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 63:19]
-    counterQOut_Queue_460674260.io.deq.ready <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 89:20]
+    counterQOut_Queue_526968040.io.deq.ready <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 89:20]
     wire startNewRequest : UInt<1> @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 66:29]
     startNewRequest <= UInt<1>("h0") @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 67:19]
     reg numOutstanding : UInt<5>, clock with :
@@ -400,14 +311,14 @@ circuit IPECStoreUnit :
       reset => (reset, UInt<8>("h0")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 143:28]
     node _T_3 = eq(dState, UInt<2>("h0")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 145:15]
     when _T_3 : @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 145:25]
-      node _T_4 = and(io.writeData.valid, counterQOut_Queue_460674260.io.deq.valid) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 146:29]
+      node _T_4 = and(io.writeData.valid, counterQOut_Queue_526968040.io.deq.valid) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 146:29]
       when _T_4 : @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 146:50]
         dValidBuf <= UInt<1>("h1") @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 148:17]
         io.writeData.ready <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 82:20]
         dataBuf <= io.writeData.bits.data @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 150:15]
         strbBuf <= io.writeData.bits.strb @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 151:15]
-        counterQOut_Queue_460674260.io.deq.ready <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 82:20]
-        node _newCounter_T = sub(counterQOut_Queue_460674260.io.deq.bits, UInt<1>("h1")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 152:42]
+        counterQOut_Queue_526968040.io.deq.ready <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 82:20]
+        node _newCounter_T = sub(counterQOut_Queue_526968040.io.deq.bits, UInt<1>("h1")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 152:42]
         node newCounter = tail(_newCounter_T, 1) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 152:42]
         beatCounter <= newCounter @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 153:19]
         node _T_5 = eq(newCounter, UInt<1>("h0")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 154:23]
@@ -488,27 +399,12 @@ circuit IPECStoreUnit :
         numOutstanding <= _numOutstanding_T_3 @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 244:20]
     io.transferComplete <= io.axi4master.b.valid @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/axi4/AXI4Master.scala 247:23]
 
-  module Queue_251161714 :
+  module Queue_1900447251 :
     input clock : Clock
-    input reset : UInt<1>
+    input reset : Reset
     output io : { flip enq : { flip ready : UInt<1>, valid : UInt<1>, bits : { data : UInt<512>, strb : UInt<64>}}, deq : { flip ready : UInt<1>, valid : UInt<1>, bits : { data : UInt<512>, strb : UInt<64>}}, count : UInt<2>} @[src/main/scala/chisel3/util/Decoupled.scala 272:14]
 
-    mem ram : @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-      data-type => { data : UInt<512>, strb : UInt<64>}
-      depth => 2
-      read-latency => 0
-      write-latency => 1
-      reader => io_deq_bits_MPORT
-      writer => MPORT
-      read-under-write => undefined
-    ram.io_deq_bits_MPORT.addr is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.io_deq_bits_MPORT.clk is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.io_deq_bits_MPORT.en <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.addr is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.clk is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.en <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.data is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
-    ram.MPORT.mask is invalid @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
+    cmem ram : { data : UInt<512>, strb : UInt<64>} [2] @[src/main/scala/chisel3/util/Decoupled.scala 273:95]
     reg enq_ptr_value : UInt<1>, clock with :
       reset => (reset, UInt<1>("h0")) @[src/main/scala/chisel3/util/Counter.scala 61:40]
     reg deq_ptr_value : UInt<1>, clock with :
@@ -526,14 +422,8 @@ circuit IPECStoreUnit :
     wire do_deq : UInt<1> @[src/main/scala/chisel3/util/Decoupled.scala 281:27]
     do_deq <= _do_deq_T @[src/main/scala/chisel3/util/Decoupled.scala 281:27]
     when do_enq : @[src/main/scala/chisel3/util/Decoupled.scala 286:16]
-      ram.MPORT.addr <= enq_ptr_value @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.clk <= clock @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.en <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.mask.data <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.mask.strb <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
-      ram.MPORT.data <= io.enq.bits @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
-      ram.MPORT.mask.data <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
-      ram.MPORT.mask.strb <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
+      infer mport MPORT = ram[enq_ptr_value], clock @[src/main/scala/chisel3/util/Decoupled.scala 287:8]
+      MPORT <= io.enq.bits @[src/main/scala/chisel3/util/Decoupled.scala 287:24]
       node wrap = eq(enq_ptr_value, UInt<1>("h1")) @[src/main/scala/chisel3/util/Counter.scala 73:24]
       node _value_T = add(enq_ptr_value, UInt<1>("h1")) @[src/main/scala/chisel3/util/Counter.scala 77:24]
       node _value_T_1 = tail(_value_T, 1) @[src/main/scala/chisel3/util/Counter.scala 77:24]
@@ -554,10 +444,8 @@ circuit IPECStoreUnit :
     io.deq.valid <= _io_deq_valid_T @[src/main/scala/chisel3/util/Decoupled.scala 302:16]
     node _io_enq_ready_T = eq(full, UInt<1>("h0")) @[src/main/scala/chisel3/util/Decoupled.scala 303:19]
     io.enq.ready <= _io_enq_ready_T @[src/main/scala/chisel3/util/Decoupled.scala 303:16]
-    ram.io_deq_bits_MPORT.addr <= deq_ptr_value @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
-    ram.io_deq_bits_MPORT.clk <= clock @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
-    ram.io_deq_bits_MPORT.en <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
-    io.deq.bits <= ram.io_deq_bits_MPORT.data @[src/main/scala/chisel3/util/Decoupled.scala 310:17]
+    infer mport io_deq_bits_MPORT = ram[deq_ptr_value], clock @[src/main/scala/chisel3/util/Decoupled.scala 310:23]
+    io.deq.bits <= io_deq_bits_MPORT @[src/main/scala/chisel3/util/Decoupled.scala 310:17]
     node _ptr_diff_T = sub(enq_ptr_value, deq_ptr_value) @[src/main/scala/chisel3/util/Decoupled.scala 326:32]
     node ptr_diff = tail(_ptr_diff_T, 1) @[src/main/scala/chisel3/util/Decoupled.scala 326:32]
     node _io_count_T = and(maybe_full, ptr_match) @[src/main/scala/chisel3/util/Decoupled.scala 329:32]
@@ -568,61 +456,61 @@ circuit IPECStoreUnit :
   module IPECStoreUnit :
     input clock : Clock
     input reset : UInt<1>
-    output io : { flip start : UInt<1>, flip baseAddress : UInt<32>, flip numTransfers : UInt<32>, flip data : { flip ready : UInt<1>, valid : UInt<1>, bits : { last : UInt<1>, bits : UInt<512>}}, axi4master : { aw : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, addr : UInt<32>, len : UInt<8>, size : UInt<3>, burst : UInt<2>, lock : UInt<1>, cache : UInt<4>, prot : UInt<3>, qos : UInt<4>, region : UInt<4>}, w : { valid : UInt<1>, flip ready : UInt<1>, data : UInt<512>, strb : UInt<64>, last : UInt<1>}, flip b : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, resp : UInt<2>}}, done : UInt<1>} @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 44:14]
+    output io : { flip start : UInt<1>, flip baseAddress : UInt<64>, flip numTransfers : UInt<32>, flip data : { flip ready : UInt<1>, valid : UInt<1>, bits : { last : UInt<1>, bits : UInt<512>}}, axi4master : { aw : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, addr : UInt<64>, len : UInt<8>, size : UInt<3>, burst : UInt<2>, lock : UInt<1>, cache : UInt<4>, prot : UInt<3>, qos : UInt<4>, region : UInt<4>}, w : { valid : UInt<1>, flip ready : UInt<1>, data : UInt<512>, strb : UInt<64>, last : UInt<1>}, flip b : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, resp : UInt<2>}}, done : UInt<1>} @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 44:14]
 
-    inst inDataQ_Queue_220588152 of Queue_220588152 @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 41:21]
-    inDataQ_Queue_220588152.clock <= clock
-    inDataQ_Queue_220588152.reset <= reset
-    inDataQ_Queue_220588152.io.enq.valid <= io.data.valid @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 43:22]
-    inDataQ_Queue_220588152.io.enq.bits.bits <= io.data.bits.bits @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 44:21]
-    inDataQ_Queue_220588152.io.enq.bits.last <= io.data.bits.last @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 44:21]
-    io.data.ready <= inDataQ_Queue_220588152.io.enq.ready @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 45:17]
-    inDataQ_Queue_220588152.io.deq.ready <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 89:20]
-    wire nextAddressWire : { flip ready : UInt<1>, valid : UInt<1>, bits : { address : UInt<32>, numBeats : UInt<9>}} @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 58:29]
-    inst addrQ_Queue_1038585959 of Queue_1038585959 @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 41:21]
-    addrQ_Queue_1038585959.clock <= clock
-    addrQ_Queue_1038585959.reset <= reset
-    addrQ_Queue_1038585959.io.enq.valid <= nextAddressWire.valid @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 43:22]
-    addrQ_Queue_1038585959.io.enq.bits.numBeats <= nextAddressWire.bits.numBeats @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 44:21]
-    addrQ_Queue_1038585959.io.enq.bits.address <= nextAddressWire.bits.address @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 44:21]
-    nextAddressWire.ready <= addrQ_Queue_1038585959.io.enq.ready @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 45:17]
+    inst inDataQ_Queue_1645578641 of Queue_1645578641 @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 41:21]
+    inDataQ_Queue_1645578641.clock <= clock
+    inDataQ_Queue_1645578641.reset <= reset
+    inDataQ_Queue_1645578641.io.enq.valid <= io.data.valid @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 43:22]
+    inDataQ_Queue_1645578641.io.enq.bits.bits <= io.data.bits.bits @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 44:21]
+    inDataQ_Queue_1645578641.io.enq.bits.last <= io.data.bits.last @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 44:21]
+    io.data.ready <= inDataQ_Queue_1645578641.io.enq.ready @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 45:17]
+    inDataQ_Queue_1645578641.io.deq.ready <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 89:20]
+    wire nextAddressWire : { flip ready : UInt<1>, valid : UInt<1>, bits : { address : UInt<64>, numBeats : UInt<9>}} @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 58:29]
+    inst addrQ_Queue_492971350 of Queue_492971350 @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 41:21]
+    addrQ_Queue_492971350.clock <= clock
+    addrQ_Queue_492971350.reset <= reset
+    addrQ_Queue_492971350.io.enq.valid <= nextAddressWire.valid @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 43:22]
+    addrQ_Queue_492971350.io.enq.bits.numBeats <= nextAddressWire.bits.numBeats @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 44:21]
+    addrQ_Queue_492971350.io.enq.bits.address <= nextAddressWire.bits.address @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 44:21]
+    nextAddressWire.ready <= addrQ_Queue_492971350.io.enq.ready @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 45:17]
     nextAddressWire.valid <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 73:20]
     nextAddressWire.bits.numBeats is invalid @[src/main/scala/chisel3/util/Decoupled.scala 74:19]
     nextAddressWire.bits.address is invalid @[src/main/scala/chisel3/util/Decoupled.scala 74:19]
-    nextAddressWire.bits.address <= UInt<32>("h0") @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 62:33]
+    nextAddressWire.bits.address <= UInt<64>("h0") @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 62:33]
     nextAddressWire.bits.numBeats <= UInt<8>("h0") @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 63:33]
     wire nextDataWire : { flip ready : UInt<1>, valid : UInt<1>, bits : UInt<512>} @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 65:26]
-    inst dataQ_Queue_2078887126 of Queue_2078887126 @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 41:21]
-    dataQ_Queue_2078887126.clock <= clock
-    dataQ_Queue_2078887126.reset <= reset
-    dataQ_Queue_2078887126.io.enq.valid <= nextDataWire.valid @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 43:22]
-    dataQ_Queue_2078887126.io.enq.bits <= nextDataWire.bits @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 44:21]
-    nextDataWire.ready <= dataQ_Queue_2078887126.io.enq.ready @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 45:17]
+    inst dataQ_Queue_8678215 of Queue_8678215 @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 41:21]
+    dataQ_Queue_8678215.clock <= clock
+    dataQ_Queue_8678215.reset <= reset
+    dataQ_Queue_8678215.io.enq.valid <= nextDataWire.valid @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 43:22]
+    dataQ_Queue_8678215.io.enq.bits <= nextDataWire.bits @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 44:21]
+    nextDataWire.ready <= dataQ_Queue_8678215.io.enq.ready @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 45:17]
     nextDataWire.valid <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 73:20]
     nextDataWire.bits is invalid @[src/main/scala/chisel3/util/Decoupled.scala 74:19]
     nextDataWire.bits <= UInt<1>("h0") @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 69:20]
     inst writeUnit of AXIWriteUnit @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 72:25]
     writeUnit.clock <= clock
     writeUnit.reset <= reset
-    writeUnit.io.writeAddress <= addrQ_Queue_1038585959.io.deq @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 73:9]
+    writeUnit.io.writeAddress <= addrQ_Queue_492971350.io.deq @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 73:9]
     wire inW : { flip ready : UInt<1>, valid : UInt<1>, bits : { data : UInt<512>, strb : UInt<64>}} @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 75:17]
-    inst inQ_Queue_251161714 of Queue_251161714 @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 41:21]
-    inQ_Queue_251161714.clock <= clock
-    inQ_Queue_251161714.reset <= reset
-    inQ_Queue_251161714.io.enq.valid <= inW.valid @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 43:22]
-    inQ_Queue_251161714.io.enq.bits.strb <= inW.bits.strb @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 44:21]
-    inQ_Queue_251161714.io.enq.bits.data <= inW.bits.data @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 44:21]
-    inW.ready <= inQ_Queue_251161714.io.enq.ready @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 45:17]
+    inst inQ_Queue_1900447251 of Queue_1900447251 @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 41:21]
+    inQ_Queue_1900447251.clock <= clock
+    inQ_Queue_1900447251.reset <= reset
+    inQ_Queue_1900447251.io.enq.valid <= inW.valid @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 43:22]
+    inQ_Queue_1900447251.io.enq.bits.strb <= inW.bits.strb @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 44:21]
+    inQ_Queue_1900447251.io.enq.bits.data <= inW.bits.data @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 44:21]
+    inW.ready <= inQ_Queue_1900447251.io.enq.ready @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/util/ChiselUtilities.scala 45:17]
     inW.valid <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 73:20]
     inW.bits.strb is invalid @[src/main/scala/chisel3/util/Decoupled.scala 74:19]
     inW.bits.data is invalid @[src/main/scala/chisel3/util/Decoupled.scala 74:19]
-    writeUnit.io.writeData <= inQ_Queue_251161714.io.deq @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 78:7]
-    dataQ_Queue_2078887126.io.deq.ready <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 89:20]
-    node _T = and(dataQ_Queue_2078887126.io.deq.valid, inW.ready) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 81:20]
+    writeUnit.io.writeData <= inQ_Queue_1900447251.io.deq @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 78:7]
+    dataQ_Queue_8678215.io.deq.ready <= UInt<1>("h0") @[src/main/scala/chisel3/util/Decoupled.scala 89:20]
+    node _T = and(dataQ_Queue_8678215.io.deq.valid, inW.ready) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 81:20]
     when _T : @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 81:34]
       wire x : { data : UInt<512>, strb : UInt<64>} @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 82:17]
-      dataQ_Queue_2078887126.io.deq.ready <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 82:20]
-      x.data <= dataQ_Queue_2078887126.io.deq.bits @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 84:12]
+      dataQ_Queue_8678215.io.deq.ready <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 82:20]
+      x.data <= dataQ_Queue_8678215.io.deq.bits @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 84:12]
       x.strb <= UInt<64>("hffffffffffffffff") @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 85:12]
       inW.valid <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 64:20]
       inW.bits <= x @[src/main/scala/chisel3/util/Decoupled.scala 65:19]
@@ -644,8 +532,8 @@ circuit IPECStoreUnit :
     io.axi4master.aw.id <= writeUnit.io.axi4master.aw.id @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 90:17]
     writeUnit.io.axi4master.aw.ready <= io.axi4master.aw.ready @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 90:17]
     io.axi4master.aw.valid <= writeUnit.io.axi4master.aw.valid @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 90:17]
-    reg nextAddress : UInt<32>, clock with :
-      reset => (reset, UInt<32>("h0")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 92:28]
+    reg nextAddress : UInt<64>, clock with :
+      reset => (reset, UInt<64>("h0")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 92:28]
     reg numRemainingBeats : UInt<32>, clock with :
       reset => (reset, UInt<32>("h0")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 93:34]
     reg numTransfersIssued : UInt<32>, clock with :
@@ -700,7 +588,7 @@ circuit IPECStoreUnit :
       node _T_14 = gt(numRemainingBeats, UInt<1>("h0")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 145:97]
       node _T_15 = and(_T_13, _T_14) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 145:76]
       when _T_15 : @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 145:103]
-        wire request : { address : UInt<32>, numBeats : UInt<9>} @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 146:25]
+        wire request : { address : UInt<64>, numBeats : UInt<9>} @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 146:25]
         request.address <= nextAddress @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 147:23]
         request.numBeats <= numBeatsNextTransfer @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 148:24]
         nextAddressWire.valid <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 64:20]
@@ -715,7 +603,7 @@ circuit IPECStoreUnit :
         node _numTransfersIssued_T = add(numTransfersIssued, UInt<1>("h1")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 156:48]
         node _numTransfersIssued_T_1 = tail(_numTransfersIssued_T, 1) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 156:48]
         numTransfersIssued <= _numTransfersIssued_T_1 @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 156:26]
-        node _T_16 = and(inDataQ_Queue_220588152.io.deq.valid, nextDataWire.ready) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 157:26]
+        node _T_16 = and(inDataQ_Queue_1645578641.io.deq.valid, nextDataWire.ready) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 157:26]
         when _T_16 : @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 157:48]
           node _numWordsBuffered_T = sub(numBeatsNextTransfer, UInt<1>("h1")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 159:70]
           node _numWordsBuffered_T_1 = tail(_numWordsBuffered_T, 1) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 159:70]
@@ -727,7 +615,7 @@ circuit IPECStoreUnit :
           node _numWordsBuffered_T_5 = tail(_numWordsBuffered_T_4, 1) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 163:46]
           numWordsBuffered <= _numWordsBuffered_T_5 @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 163:26]
       else :
-        node _T_17 = and(inDataQ_Queue_220588152.io.deq.valid, nextDataWire.ready) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 167:26]
+        node _T_17 = and(inDataQ_Queue_1645578641.io.deq.valid, nextDataWire.ready) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 167:26]
         when _T_17 : @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 167:48]
           node _numWordsBuffered_T_6 = add(numWordsBuffered, UInt<1>("h1")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 169:46]
           node _numWordsBuffered_T_7 = tail(_numWordsBuffered_T_6, 1) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 169:46]
@@ -735,14 +623,15 @@ circuit IPECStoreUnit :
         else :
           numWordsBuffered <= numWordsBuffered @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 173:26]
     node _T_18 = eq(state, UInt<2>("h1")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 179:14]
-    node _T_19 = and(_T_18, inDataQ_Queue_220588152.io.deq.valid) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 179:27]
+    node _T_19 = and(_T_18, inDataQ_Queue_1645578641.io.deq.valid) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 179:27]
     node _T_20 = and(_T_19, nextDataWire.ready) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 179:44]
     when _T_20 : @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 179:66]
-      inDataQ_Queue_220588152.io.deq.ready <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 82:20]
+      inDataQ_Queue_1645578641.io.deq.ready <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 82:20]
       nextDataWire.valid <= UInt<1>("h1") @[src/main/scala/chisel3/util/Decoupled.scala 64:20]
-      nextDataWire.bits <= inDataQ_Queue_220588152.io.deq.bits.bits @[src/main/scala/chisel3/util/Decoupled.scala 65:19]
+      nextDataWire.bits <= inDataQ_Queue_1645578641.io.deq.bits.bits @[src/main/scala/chisel3/util/Decoupled.scala 65:19]
     when writeUnit.io.transferComplete : @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 185:38]
       node _numTransfersCompleted_T = add(numTransfersCompleted, UInt<1>("h1")) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 187:52]
       node _numTransfersCompleted_T_1 = tail(_numTransfersCompleted_T, 1) @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 187:52]
       numTransfersCompleted <= _numTransfersCompleted_T_1 @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 187:27]
     io.done <= doneBuf @[home/jsch/projects/mthesis/ChiselSPNController/src/main/scala/ipec.infrastructure/memory/IPECStoreUnit.scala 190:11]
+

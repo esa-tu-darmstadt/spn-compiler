@@ -1,6 +1,6 @@
 SHELL=/bin/bash
-#SIM = questa
-SIM = verilator
+SIM = questa
+#SIM = verilator
 TOPLEVEL_LANG ?= verilog
 
 PWD=$(shell pwd)
@@ -21,11 +21,11 @@ VERILOG_SOURCES += $(call rwildcard,$(INCLUDE_DIR),*.sv)
 TOPLEVEL := AXI4CocoTbTop
 MODULE   := test_AXI4CocoTbTop
 
-#VSIM_ARGS=-t 1us --no-timing
+VSIM_ARGS+="-t 1ns"
 
-COMPILE_ARGS+="--no-timing"
-COMPILE_ARGS+="--trace"
+#COMPILE_ARGS+="--no-timing"
+#COMPILE_ARGS+="--trace"
 
-SIM_ARGS+="--trace -t 1us"
+#SIM_ARGS+="--trace -t 1us"
 
 include $(shell cocotb-config --makefiles)/Makefile.sim
