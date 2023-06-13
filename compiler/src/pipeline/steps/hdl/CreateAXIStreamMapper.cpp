@@ -327,6 +327,8 @@ void AXI4CocoTbTop::body() {
 
   mapper.io("S_AXI_LITE") <<= io("S_AXI_LITE");
   io("M_AXI") <<= mapper.io("M_AXI");
+
+  //svCocoTBVerbatim("AXI4CocoTbTop");
 }
 
 AXI4CocoTbTop AXI4CocoTbTop::make(

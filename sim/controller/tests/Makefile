@@ -21,6 +21,11 @@ VERILOG_SOURCES += $(call rwildcard,$(INCLUDE_DIR),*.sv)
 TOPLEVEL := AXI4CocoTbTop
 MODULE   := test_AXI4CocoTbTop
 
-VSIM_ARGS=-t 1us
+#VSIM_ARGS=-t 1us --no-timing
+
+COMPILE_ARGS+="--no-timing"
+COMPILE_ARGS+="--trace"
+
+SIM_ARGS+="--trace -t 1us"
 
 include $(shell cocotb-config --makefiles)/Makefile.sim

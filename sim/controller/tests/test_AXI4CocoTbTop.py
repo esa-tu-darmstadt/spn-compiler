@@ -24,6 +24,10 @@ from spn.structure.leaves.histogram.Histograms import Histogram
 
 from functools import reduce
 
+#from remote_pdb import RemotePdb
+
+#rpdb = RemotePdb('127.0.0.1', 4000)
+
 
 def load_config() -> dict:
   path = os.environ['CONFIG_PATH']
@@ -176,46 +180,28 @@ async def test_AXI4CocoTbTop(dut):
 
   rename_signals(dut)
 
-  reg_file = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "S_AXI_LITE_"), dut.clock, dut.reset)
-  axi_ram = AxiRam(AxiBus.from_prefix(dut, "M_AXI_"), dut.clock, dut.reset, size=2**16)
-
-  return
-
-  axis_source = AxiStreamSource(AxiStreamBus.from_prefix(dut, "AXIS_SLAVE"), dut.clock, dut.reset)
-  axis_sink = AxiStreamSink(AxiStreamBus.from_prefix(dut, "AXIS_MASTER"), dut.clock, dut.reset)
+  reg_file = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "S_AXI_LITE"), dut.clock, dut.reset)
+  #axi_ram = AxiRam(AxiBus.from_prefix(dut, "M_AXI"), dut.clock, dut.reset, size=2**16)
 
   cocotb.fork(Clock(dut.clock, 1, units='ns').start())
 
-  print(f'source width: {len(axis_source.bus.tdata)}')
-  #print(f'sink width: {len(axis_sink.bus.tdata)}')
-
   print(f'resetting...')
-  dut.reset <= 1
-  for i in range(0, 5):
+  dut.reset.value = 1
+  for i in range(0, 50):
       await RisingEdge(dut.clock)
-  dut.reset <= 0
+  #await Timer(5, units="ns")
+  dut.reset.value = 0
   print(f'done')
 
+  # write registers
+  #await reg_file.write(0x0, bytearray([0x1, 0x2, 0x3, 0x4]))
+
   # write inputs
-  await write_inputs(axis_source, data)
+  #await write_inputs(axis_source, data)
 
   # read outputs
-  results = await read_outputs(axis_sink)
+  #results = await read_outputs(axis_sink)
 
   # wait until everything is done
   await Timer(1000, units="ns")  # wait a bit
-  await FallingEdge(dut.clock)  # wait for falling edge/"negedge"
-
-  # TODO: fix case where result = expected = 0
-  results = np.array(results).reshape((data.shape[0], 1))
-  error = np.abs((results - expected) / expected)
-  verbose = True
-
-  print(f'Max relative error is {np.max(error)}')
-
-  if np.max(error) > 1e-3 or np.any(np.isnan(error)) or verbose:
-    for e, r in zip(expected, results):
-      print(f'exp={e} got={r} {np.abs((e - r) / e) <= 1e-3}')
-
-  assert np.max(error) <= 1e-3
-
+  await RisingEdge(dut.clock)  # wait for falling edge/"negedge"
