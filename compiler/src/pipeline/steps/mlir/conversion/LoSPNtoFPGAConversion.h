@@ -7,8 +7,6 @@ namespace spnc {
 
 class LoSPNtoFPGAConversion : public MLIRPassPipeline<LoSPNtoFPGAConversion> {
 public:
-  //using MLIRPassPipeline<LoSPNtoFPGAConversion>::MLIRPassPipeline;
-
   LoSPNtoFPGAConversion(const std::string& fpgaConfigJson, StepWithResult<mlir::ModuleOp>& input):
     MLIRPassPipeline<LoSPNtoFPGAConversion>(input), fpgaConfigJson(fpgaConfigJson) {}
 

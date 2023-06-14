@@ -1,0 +1,13 @@
+{
+  "deviceName": "vc709",
+  "axi4": {
+    "addrWidth": 64,
+    "dataWidth": 128
+  },
+  "axi4Lite": {
+    "addrWidth": 32,
+    "dataWidth": 32
+  },
+  "kernelName": "MyKernel",
+  "kernelId": 123
+}
