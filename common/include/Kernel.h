@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <variant>
 #include <string>
+#include <sstream>
 
 ///
 /// Namespace for all entities related to the SPN compiler.
@@ -73,6 +74,27 @@ namespace spnc {
     // sets the width for S_AXI_LITE
     int32_t liteDataWidth = -1;
     int32_t liteAddrWidth = -1;
+
+    std::string to_string() const {
+      return (std::stringstream{}
+        << "FPGAKernel{"
+        << "fileName=" << fileName
+        << ", kernelName=" << kernelName
+        << ", kernelId=" << kernelId
+        << ", bodyDelay=" << bodyDelay
+        << ", fifoDepth=" << fifoDepth
+        << ", spnVarCount=" << spnVarCount
+        << ", spnBitsPerVar=" << spnBitsPerVar
+        << ", spnResultWidth=" << spnResultWidth
+        << ", mAxisControllerWidth=" << mAxisControllerWidth
+        << ", sAxisControllerWidth=" << sAxisControllerWidth
+        << ", memDataWidth=" << memDataWidth
+        << ", memAddrWidth=" << memAddrWidth
+        << ", liteDataWidth=" << liteDataWidth
+        << ", liteAddrWidth=" << liteAddrWidth
+        << "}"
+      ).str();
+    }
   };
 
   class Kernel {

@@ -33,10 +33,7 @@ ExecutionResult EmbedReadyValid::executeStep(mlir::ModuleOp *circuitRoot) {
       return failure("failed to rename circuit op");
 
   CircuitOp circuitOp = dyn_cast<CircuitOp>(circuitRoot->getBody()->front());
-
   FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
-  kernel.bodyDelay = dyn_cast<IntegerAttr>(spnBody->getAttr("fpga.body_delay")).getInt();
-  kernel.fifoDepth = kernel.bodyDelay * 2;
 
   // create the wrapper
   attachFirpContext(circuitOp);

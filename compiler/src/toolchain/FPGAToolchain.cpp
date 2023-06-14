@@ -70,7 +70,8 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   auto& lospnTransform = pipeline->emplaceStep<LoSPNTransformations>(hispn2lospn);
 
   // map the SPN operator to HW operators and perform scheduling
-  auto& lospn2fpga = pipeline->emplaceStep<LoSPNtoFPGAConversion>(lospnTransform);
+  std::string fpgaConfigJson = option::fpgaConfigJson.get(*config);
+  auto& lospn2fpga = pipeline->emplaceStep<LoSPNtoFPGAConversion>(fpgaConfigJson, lospnTransform);
 
   // TODO: FIX THIS MESS!!!
   if (!option::justGetKernel.get(*config)) {

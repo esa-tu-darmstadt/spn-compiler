@@ -63,6 +63,9 @@ void spnc::LoSPNTransformations::postProcess(mlir::ModuleOp* transformedModule) 
   fpgaKernel.spnBitsPerVar =
     bitWidth.getBitsPerVar() == 2 ? 2 : round8(bitWidth.getBitsPerVar());
   // TODO: Make this configurable!
+
+  
+
   fpgaKernel.spnResultWidth = 32; // double precision float
 
   fpgaKernel.mAxisControllerWidth = round8(fpgaKernel.spnResultWidth);

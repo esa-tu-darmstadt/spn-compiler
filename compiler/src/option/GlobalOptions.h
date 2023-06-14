@@ -188,6 +188,8 @@ namespace spnc {
     extern Option<bool> fpgaWrapESICosim;
     extern Option<bool> fpgaWrapAXIStream;
     extern Option<bool> fpgaCreateVerilogFiles;
+
+    extern Option<std::string> fpgaConfigJson;
   }
 }
 
