@@ -9,5 +9,6 @@
     "dataWidth": 32
   },
   "kernelName": "MyKernel",
-  "kernelId": 123
+  "kernelId": 123,
+  "floatType": "float32"
 }

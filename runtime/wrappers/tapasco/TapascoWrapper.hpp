@@ -10,13 +10,6 @@ namespace spnc_rt::tapasco_wrapper {
 
 using namespace spnc;
 
-template <class T>
-T roundN(const T& n, const T& N) {
-  if (n % N == 0)
-    return n;
-  return n + (N - n % N);
-}
-
 class TapascoSPNDevice {
   Kernel kernel;
   FPGAKernel fpgaKernel;

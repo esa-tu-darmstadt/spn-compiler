@@ -1,11 +1,14 @@
 #include "LoSPNtoFPGAConversion.h"
 
+#include "LoSPN/Analysis/SPNBitWidth.h"
 #include "LoSPNtoFPGA/LoSPNtoFPGAPass.h"
 #include "LoSPNtoFPGA2/LoSPNtoFPGAPass2.hpp"
+#include "toolchain/MLIRToolchain.h"
 #include "circt/Dialect/Seq/SeqPasses.h"
 #include "circt/Dialect/HW/HWOps.h"
 
 #include <filesystem>
+#include <sstream>
 #include <util/json.hpp>
 #include <Kernel.h>
 
@@ -27,12 +30,15 @@ void LoSPNtoFPGAConversion::preProcess(mlir::ModuleOp *inputModule) {
     spdlog::info("Attempting to parse fpga-config-json from file {}", fpgaConfigJson);
     std::ifstream jsonFile(fpgaConfigJson);
     assert(jsonFile.is_open() && "Could not open fpga-config-json file");
-    jsonFile >> jsonText;
+    std::stringstream buffer;
+    buffer << jsonFile.rdbuf();
+    jsonText = buffer.str();
   } else {
     spdlog::info("Attempting to parse fpga-config-json from command line argument");
     jsonText = fpgaConfigJson;
   }
 
+  getContext()->add<Kernel>(std::move(Kernel{FPGAKernel{}}));
   FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
 
   // Don't ask me what happens when an invalid json is passed. Exceptions are disabled Q_Q
@@ -41,11 +47,30 @@ void LoSPNtoFPGAConversion::preProcess(mlir::ModuleOp *inputModule) {
   kernel.memDataWidth = j.at("axi4").at("dataWidth");
   kernel.memAddrWidth = j.at("axi4").at("addrWidth");
 
-  kernel.liteDataWidth = j.at("axi4lite").at("dataWidth");
-  kernel.liteAddrWidth = j.at("axi4lite").at("addrWidth");
+  kernel.liteDataWidth = j.at("axi4Lite").at("dataWidth");
+  kernel.liteAddrWidth = j.at("axi4Lite").at("addrWidth");
 
   kernel.kernelName = j.at("kernelName");
   kernel.kernelId = j.at("kernelId");
+
+  std::string floatType = j.at("floatType");
+
+  if (floatType == "float32")
+    kernel.spnResultWidth = 32;
+  else if (floatType == "float64")
+    kernel.spnResultWidth = 64;
+  else
+    assert(false && "Invalid floatType in fpga-config-json");
+
+  ::mlir::spn::SPNBitWidth bitWidth(inputModule->getOperation());
+
+  auto kernelInfo = getContext()->get<KernelInfo>();
+  kernel.spnVarCount = kernelInfo->numFeatures;
+  kernel.spnBitsPerVar =
+    bitWidth.getBitsPerVar() == 2 ? 2 : roundN<uint32_t>(bitWidth.getBitsPerVar(), 8);
+
+  kernel.mAxisControllerWidth = roundN(kernel.spnResultWidth, 8);
+  kernel.sAxisControllerWidth = roundN(kernel.spnBitsPerVar * kernel.spnVarCount, 8);
 }
 
 void LoSPNtoFPGAConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {

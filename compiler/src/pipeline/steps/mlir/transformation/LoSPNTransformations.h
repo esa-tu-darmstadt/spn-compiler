@@ -25,8 +25,6 @@ namespace spnc {
 
     void preProcess(mlir::ModuleOp* inputModule) override;
 
-    void postProcess(mlir::ModuleOp* transformedModule) override;
-
     STEP_NAME("lospn-transform")
 
   private:

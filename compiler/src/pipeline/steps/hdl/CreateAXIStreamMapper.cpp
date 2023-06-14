@@ -65,8 +65,11 @@ ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
   attachFirpContext(circuitOp);
   firpContext()->moduleBuilder->setInitialUid(1000);
 
-  FModuleOp loadUnit = insertFIRFile("resources/ipec/IPECLoadUnit_a32_d32.fir", "IPECLoadUnit");
-  FModuleOp storeUnit = insertFIRFile("resources/ipec/IPECStoreUnit_a32_d32.fir", "IPECStoreUnit");
+  std::string aw = std::to_string(getContext()->get<Kernel>()->getFPGAKernel().memAddrWidth);
+  std::string dw = std::to_string(getContext()->get<Kernel>()->getFPGAKernel().memDataWidth);
+
+  FModuleOp loadUnit = insertFIRFile("resources/ipec/IPECLoadUnit_a" + aw + "_d" + dw + ".fir", "IPECLoadUnit");
+  FModuleOp storeUnit = insertFIRFile("resources/ipec/IPECStoreUnit_a" + aw + "_d" + dw + ".fir", "IPECStoreUnit");
 
   if (!loadUnit || !storeUnit)
     return failure("failed to insert IPECLoadUnit_a64_d64.fir or IPECStoreUnit_a64_d64.fir");
@@ -100,7 +103,7 @@ ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
     mapper.makeTop();
   }
 
-  firpContext()->dump();
+  //firpContext()->dump();
 
   if (mlir::failed(firpContext()->finish()))
     return failure("could not verify generated FIRRTL");
@@ -258,8 +261,8 @@ AXI4StreamMapper AXI4StreamMapper::make(
 ) {
   // I think TaPaSco uses this
   axi4lite::AXI4LiteConfig liteConfig{
-    .addrBits = 32,
-    .dataBits = 32
+    .addrBits = kernel.liteAddrWidth,
+    .dataBits = kernel.liteDataWidth
   };
 
   // used for the write and read channels of the memory AXI4 ports
@@ -343,8 +346,8 @@ AXI4CocoTbTop AXI4CocoTbTop::make(
 ) {
   // I think TaPaSco uses this
   axi4lite::AXI4LiteConfig liteConfig{
-    .addrBits = 32,
-    .dataBits = 32
+    .addrBits = kernel.liteAddrWidth,
+    .dataBits = kernel.liteDataWidth
   };
 
   // used for the write and read channels of the memory AXI4 ports
