@@ -102,7 +102,11 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
         };
 
         auto& createVerilogFiles = pipeline->emplaceStep<CreateVerilogFiles>(embed, cfg);
-        auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(spnc::option::outputPath.get(*config) + "/ipxact_core", createVerilogFiles);
+        auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(
+          spnc::option::outputPath.get(*config) + "/ipxact_core",
+          fpgaConfigJson,
+          createVerilogFiles
+        );
       }
     } else if (option::fpgaWrapAXIStream.get(*config)) {
       auto& embed = pipeline->emplaceStep<EmbedAXIStream>(lospn2fpga);
@@ -123,7 +127,11 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
 
         auto& createVerilogFiles = pipeline->emplaceStep<CreateVerilogFiles>(createAXIStreamMapper, cfg);
         auto& createVivadoProject = pipeline->emplaceStep<CreateVivadoProject>(createVerilogFiles, vivadoConfig);
-        auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(spnc::option::outputPath.get(*config) + "/ipxact_core", createVivadoProject);
+        auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(
+          spnc::option::outputPath.get(*config) + "/ipxact_core",
+          fpgaConfigJson,
+          createVivadoProject
+        );
       }
     } else {
       assert(false && "not implemented");
@@ -132,7 +140,11 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
     }
   } else {
     auto& returnKernel = pipeline->emplaceStep<ReturnKernel>();
-    auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(spnc::option::outputPath.get(*config) + "/ipxact_core", returnKernel);
+    auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(
+      spnc::option::outputPath.get(*config) + "/ipxact_core",
+      fpgaConfigJson,
+      returnKernel
+    );
   }
 
   // Attach the LLVM target machine and the kernel information to the pipeline context

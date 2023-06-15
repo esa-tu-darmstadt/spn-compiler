@@ -52,6 +52,8 @@ void LoSPNtoFPGAConversion::preProcess(mlir::ModuleOp *inputModule) {
 
   kernel.kernelName = j.at("kernelName");
   kernel.kernelId = j.at("kernelId");
+  kernel.deviceName = j.at("device").at("name");
+  kernel.deviceSpeed = j.at("device").at("mhz");
 
   std::string floatType = j.at("floatType");
 

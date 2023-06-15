@@ -85,8 +85,6 @@ Option<bool> spnc::option::launchVivado{"vivado", false};
 
 Option<bool> spnc::option::tapascoCompose{"tapasco-compose", false, {depends(spnc::option::launchVivado, true)}};
 
-Option<std::string> spnc::option::fpgaDevice{"fpga-device", "ultra96v2"};
-
 Option<bool> spnc::option::justGetKernel{"just-get-kernel", false};
 
 Option<int> spnc::option::fpgaFrequency{"fpga-frequency", 200};

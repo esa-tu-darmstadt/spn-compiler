@@ -54,6 +54,8 @@ namespace spnc {
     std::string fileName = "N/A";
     std::string kernelName = "N/A";
     int32_t kernelId = -1;
+    std::string deviceName = "N/A";
+    int32_t deviceSpeed = -1;
 
     int32_t bodyDelay = -1;
     int32_t fifoDepth = -1;

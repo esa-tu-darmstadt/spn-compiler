@@ -1,5 +1,8 @@
 {
-  "deviceName": "vc709",
+  "device": {
+    "name": "vc709",
+    "mhz": 200
+  },
   "axi4": {
     "addrWidth": 64,
     "dataWidth": 128

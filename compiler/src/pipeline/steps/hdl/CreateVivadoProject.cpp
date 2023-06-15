@@ -210,8 +210,6 @@ ExecutionResult CreateVivadoProject::executeStep(Kernel *kernel) {
     spdlog::info("--vivado was not specified: Continuing without it...");
   }
 
-  assert(false && "not implemented");
-
   FPGAKernel& fpgaKernel = getContext()->get<Kernel>()->getFPGAKernel();
   fpgaKernel.kernelName = "spn_fpga";
   fpgaKernel.kernelId = KERNEL_ID;

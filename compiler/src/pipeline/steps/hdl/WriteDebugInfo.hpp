@@ -4,6 +4,7 @@
 #include "pipeline/PipelineStep.h"
 
 #include <filesystem>
+#include <util/json.hpp>
 
 
 namespace spnc {
@@ -19,15 +20,40 @@ static const char JSON_TEMPLATE[] = R"(
 class WriteDebugInfo : public StepSingleInput<WriteDebugInfo, Kernel>,
                        public StepWithResult<Kernel> {
   fs::path targetPath;
+  std::string fpgaConfigJson;
 public:
-  explicit WriteDebugInfo(const fs::path& targetPath, StepWithResult<Kernel>& kernel):
+  explicit WriteDebugInfo(const fs::path& targetPath, const std::string& fpgaConfigJson, StepWithResult<Kernel>& kernel):
     StepSingleInput<WriteDebugInfo, Kernel>(kernel),
-    targetPath(targetPath) {}
+    targetPath(targetPath), fpgaConfigJson(fpgaConfigJson) {}
 
   ExecutionResult executeStep(Kernel *kernel) {
+    namespace fs = std::filesystem;
+    using json = nlohmann::json;
+
     fs::create_directories(targetPath);
 
-    fs::path targetFile = targetPath / "debug_info.json";
+    std::string jsonText;
+
+    if (fs::is_regular_file(fpgaConfigJson)) {
+      spdlog::info("Attempting to parse fpga-config-json from file {}", fpgaConfigJson);
+      std::ifstream jsonFile(fpgaConfigJson);
+      assert(jsonFile.is_open() && "Could not open fpga-config-json file");
+      std::stringstream buffer;
+      buffer << jsonFile.rdbuf();
+      jsonText = buffer.str();
+    } else {
+      spdlog::info("Attempting to parse fpga-config-json from command line argument");
+      jsonText = fpgaConfigJson;
+    }
+
+    // Don't ask me what happens when an invalid json is passed. Exceptions are disabled Q_Q
+    json j = json::parse(jsonText);
+
+    j["varCount"] = kernel->getFPGAKernel().spnVarCount;
+    j["bitsPerVar"] = kernel->getFPGAKernel().spnBitsPerVar;
+    j["bodyDelay"] = kernel->getFPGAKernel().bodyDelay;
+
+    fs::path targetFile = targetPath / "config.json";
     std::ofstream outFile(targetFile);
 
     if (!outFile.is_open())
@@ -35,11 +61,7 @@ public:
         fmt::format("could not open file {}", targetFile.string())
       );
 
-    outFile << fmt::format(JSON_TEMPLATE,
-      fmt::arg("varCount", kernel->getFPGAKernel().spnVarCount),
-      fmt::arg("bitsPerVar", kernel->getFPGAKernel().spnBitsPerVar),
-      fmt::arg("bodyDelay", kernel->getFPGAKernel().bodyDelay)
-    );
+    outFile << j.dump();
 
     return success();
   }
