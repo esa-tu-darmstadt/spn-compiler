@@ -190,6 +190,7 @@ namespace spnc {
     extern Option<bool> fpgaCreateVerilogFiles;
 
     extern Option<std::string> fpgaConfigJson;
+    extern Option<bool> fpgaCocoTb;
   }
 }
 

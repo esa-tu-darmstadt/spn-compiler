@@ -144,36 +144,15 @@ exit
 
 )";
 
-ExecutionResult CreateVivadoProject::executeStep(mlir::ModuleOp *mod) {
+ExecutionResult CreateVivadoProject::executeStep(Kernel *kernel) {
   namespace fs = std::filesystem;
 
-  fs::create_directory(config.targetDir);
-  fs::create_directory(config.targetDir / config.tmpdir);
-  fs::create_directory(config.targetDir / "src");
   fs::path srcPath = config.targetDir / "src";
-
-  // copy source files into target dir
-  for (const auto& from : config.sourceFilePaths) {
-    try {
-      fs::copy(from, srcPath, fs::copy_options::overwrite_existing);
-    } catch (const fs::filesystem_error& err) {
-      return failure(
-        fmt::format("File {} could not be copied to {}: {}", from.string(), srcPath.string(), err.what())
-      );
-    }
-  };
-
-  // write verilog source to target dir
-  spdlog::info("Exporting verilog sources to: {}", srcPath.string());
-  if (failed(::circt::exportSplitVerilog(*mod, srcPath.string())))
-    return failure("exportSplitVerilog() failed");
-
-  // remove filelist.f, rename AXI4StreamMapper.sv, get whole file list
   std::string fileList;
 
   {
     fs::remove(srcPath / "filelist.f");
-    //fs::rename(srcPath / "AXI4StreamMapper.sv", srcPath / "AXI4StreamMapper.v");
+    fs::rename(srcPath / "AXI4StreamMapper.sv", srcPath / "AXI4StreamMapper.v");
 
     for (const fs::directory_entry& entry : fs::directory_iterator(srcPath))
       if (entry.is_regular_file())
@@ -230,6 +209,8 @@ ExecutionResult CreateVivadoProject::executeStep(mlir::ModuleOp *mod) {
   } else {
     spdlog::info("--vivado was not specified: Continuing without it...");
   }
+
+  assert(false && "not implemented");
 
   FPGAKernel& fpgaKernel = getContext()->get<Kernel>()->getFPGAKernel();
   fpgaKernel.kernelName = "spn_fpga";

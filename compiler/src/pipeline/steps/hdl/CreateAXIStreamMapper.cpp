@@ -81,8 +81,6 @@ ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
 
   const FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
 
-  
-
   if (doPrepareForCocoTb) {
     AXI4CocoTbTop tbTop = AXI4CocoTbTop::make(
       kernel,

@@ -22,11 +22,11 @@ class CreateAXIStreamMapper : public StepSingleInput<CreateAXIStreamMapper, mlir
   circt::firrtl::FModuleOp findModuleByName(const std::string& name);
   circt::firrtl::FModuleOp insertFIRFile(const std::filesystem::path& path, const std::string& moduleName);
 
-  bool doPrepareForCocoTb = true;
+  bool doPrepareForCocoTb;
   std::unique_ptr<mlir::ModuleOp> modOp;
 public:
-  explicit CreateAXIStreamMapper(StepWithResult<mlir::ModuleOp>& root):
-    StepSingleInput<CreateAXIStreamMapper, mlir::ModuleOp>(root) {}
+  explicit CreateAXIStreamMapper(StepWithResult<mlir::ModuleOp>& root, bool doPrepareForCocoTb):
+    StepSingleInput<CreateAXIStreamMapper, mlir::ModuleOp>(root), doPrepareForCocoTb(doPrepareForCocoTb) {}
 
   ExecutionResult executeStep(mlir::ModuleOp *root);
 
