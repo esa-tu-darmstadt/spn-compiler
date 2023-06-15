@@ -147,27 +147,27 @@ void AXI4StreamMapper::body() {
   loadUnit.io("io")("numTransfers") <<= numLdTransfers;
 
   //{ ar : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, addr : UInt<32>, len : UInt<8>, size : UInt<3>, burst : UInt<2>, lock : UInt<1>, cache : UInt<4>, prot : UInt<3>, qos : UInt<4>, region : UInt<4>}
-  io("M_AXI")("AR")("VALID") <<= loadUnit.io("io")("axi4master")("ar")("valid");
-  io("M_AXI")("AR")("ID") <<= loadUnit.io("io")("axi4master")("ar")("id");
-  io("M_AXI")("AR")("ADDR") <<= loadUnit.io("io")("axi4master")("ar")("addr");
-  io("M_AXI")("AR")("LEN") <<= loadUnit.io("io")("axi4master")("ar")("len");
-  io("M_AXI")("AR")("SIZE") <<= loadUnit.io("io")("axi4master")("ar")("size");
-  io("M_AXI")("AR")("BURST") <<= loadUnit.io("io")("axi4master")("ar")("burst");
-  io("M_AXI")("AR")("LOCK") <<= loadUnit.io("io")("axi4master")("ar")("lock");
-  io("M_AXI")("AR")("CACHE") <<= loadUnit.io("io")("axi4master")("ar")("cache");
-  io("M_AXI")("AR")("PROT") <<= loadUnit.io("io")("axi4master")("ar")("prot");
-  io("M_AXI")("AR")("QOS") <<= loadUnit.io("io")("axi4master")("ar")("qos");
-  io("M_AXI")("AR")("REGION") <<= loadUnit.io("io")("axi4master")("ar")("region");
-  io("M_AXI")("AR")("USER") <<= uval(0, readConfig.userBits);
-  loadUnit.io("io")("axi4master")("ar")("ready") <<= io("M_AXI")("AR")("READY");
+  io("M_AXI")("ARVALID") <<= loadUnit.io("io")("axi4master")("ar")("valid");
+  io("M_AXI")("ARID") <<= loadUnit.io("io")("axi4master")("ar")("id");
+  io("M_AXI")("ARADDR") <<= loadUnit.io("io")("axi4master")("ar")("addr");
+  io("M_AXI")("ARLEN") <<= loadUnit.io("io")("axi4master")("ar")("len");
+  io("M_AXI")("ARSIZE") <<= loadUnit.io("io")("axi4master")("ar")("size");
+  io("M_AXI")("ARBURST") <<= loadUnit.io("io")("axi4master")("ar")("burst");
+  io("M_AXI")("ARLOCK") <<= loadUnit.io("io")("axi4master")("ar")("lock");
+  io("M_AXI")("ARCACHE") <<= loadUnit.io("io")("axi4master")("ar")("cache");
+  io("M_AXI")("ARPROT") <<= loadUnit.io("io")("axi4master")("ar")("prot");
+  io("M_AXI")("ARQOS") <<= loadUnit.io("io")("axi4master")("ar")("qos");
+  io("M_AXI")("ARREGION") <<= loadUnit.io("io")("axi4master")("ar")("region");
+  io("M_AXI")("ARUSER") <<= uval(0, readConfig.userBits);
+  loadUnit.io("io")("axi4master")("ar")("ready") <<= io("M_AXI")("ARREADY");
 
   // flip r : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, data : UInt<32>, resp : UInt<2>, last : UInt<1>}}
-  loadUnit.io("io")("axi4master")("r")("valid") <<= io("M_AXI")("R")("VALID");
-  loadUnit.io("io")("axi4master")("r")("id") <<= io("M_AXI")("R")("ID");
-  loadUnit.io("io")("axi4master")("r")("data") <<= io("M_AXI")("R")("DATA");
-  loadUnit.io("io")("axi4master")("r")("resp") <<= io("M_AXI")("R")("RESP");
-  loadUnit.io("io")("axi4master")("r")("last") <<= io("M_AXI")("R")("LAST");
-  io("M_AXI")("R")("READY") <<= loadUnit.io("io")("axi4master")("r")("ready");
+  loadUnit.io("io")("axi4master")("r")("valid") <<= io("M_AXI")("RVALID");
+  loadUnit.io("io")("axi4master")("r")("id") <<= io("M_AXI")("RID");
+  loadUnit.io("io")("axi4master")("r")("data") <<= io("M_AXI")("RDATA");
+  loadUnit.io("io")("axi4master")("r")("resp") <<= io("M_AXI")("RRESP");
+  loadUnit.io("io")("axi4master")("r")("last") <<= io("M_AXI")("RLAST");
+  io("M_AXI")("RREADY") <<= loadUnit.io("io")("axi4master")("r")("ready");
 
   AXIStreamSender sender(mAxisConfig);
   sender.io("enq") <<= loadUnit.io("io")("data");
@@ -181,32 +181,32 @@ void AXI4StreamMapper::body() {
   storeUnit.io("io")("numTransfers") <<= numSdTransfers;
 
   // aw : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, addr : UInt<32>, len : UInt<8>, size : UInt<3>, burst : UInt<2>, lock : UInt<1>, cache : UInt<4>, prot : UInt<3>, qos : UInt<4>, region : UInt<4>}
-  io("M_AXI")("AW")("VALID") <<= storeUnit.io("io")("axi4master")("aw")("valid");
-  io("M_AXI")("AW")("ID") <<= storeUnit.io("io")("axi4master")("aw")("id");
-  io("M_AXI")("AW")("ADDR") <<= storeUnit.io("io")("axi4master")("aw")("addr");
-  io("M_AXI")("AW")("LEN") <<= storeUnit.io("io")("axi4master")("aw")("len");
-  io("M_AXI")("AW")("SIZE") <<= storeUnit.io("io")("axi4master")("aw")("size");
-  io("M_AXI")("AW")("BURST") <<= storeUnit.io("io")("axi4master")("aw")("burst");
-  io("M_AXI")("AW")("LOCK") <<= storeUnit.io("io")("axi4master")("aw")("lock");
-  io("M_AXI")("AW")("CACHE") <<= storeUnit.io("io")("axi4master")("aw")("cache");
-  io("M_AXI")("AW")("PROT") <<= storeUnit.io("io")("axi4master")("aw")("prot");
-  io("M_AXI")("AW")("QOS") <<= storeUnit.io("io")("axi4master")("aw")("qos");
-  io("M_AXI")("AW")("REGION") <<= storeUnit.io("io")("axi4master")("aw")("region");
-  io("M_AXI")("AW")("USER") <<= uval(0, writeConfig.userBits);
-  storeUnit.io("io")("axi4master")("aw")("ready") <<= io("M_AXI")("AW")("READY");
+  io("M_AXI")("AWVALID") <<= storeUnit.io("io")("axi4master")("aw")("valid");
+  io("M_AXI")("AWID") <<= storeUnit.io("io")("axi4master")("aw")("id");
+  io("M_AXI")("AWADDR") <<= storeUnit.io("io")("axi4master")("aw")("addr");
+  io("M_AXI")("AWLEN") <<= storeUnit.io("io")("axi4master")("aw")("len");
+  io("M_AXI")("AWSIZE") <<= storeUnit.io("io")("axi4master")("aw")("size");
+  io("M_AXI")("AWBURST") <<= storeUnit.io("io")("axi4master")("aw")("burst");
+  io("M_AXI")("AWLOCK") <<= storeUnit.io("io")("axi4master")("aw")("lock");
+  io("M_AXI")("AWCACHE") <<= storeUnit.io("io")("axi4master")("aw")("cache");
+  io("M_AXI")("AWPROT") <<= storeUnit.io("io")("axi4master")("aw")("prot");
+  io("M_AXI")("AWQOS") <<= storeUnit.io("io")("axi4master")("aw")("qos");
+  io("M_AXI")("AWREGION") <<= storeUnit.io("io")("axi4master")("aw")("region");
+  io("M_AXI")("AWUSER") <<= uval(0, writeConfig.userBits);
+  storeUnit.io("io")("axi4master")("aw")("ready") <<= io("M_AXI")("AWREADY");
 
   // w : { valid : UInt<1>, flip ready : UInt<1>, data : UInt<32>, strb : UInt<4>, last : UInt<1>}
-  io("M_AXI")("W")("VALID") <<= storeUnit.io("io")("axi4master")("w")("valid");
-  io("M_AXI")("W")("DATA") <<= storeUnit.io("io")("axi4master")("w")("data");
-  io("M_AXI")("W")("STRB") <<= storeUnit.io("io")("axi4master")("w")("strb");
-  io("M_AXI")("W")("LAST") <<= storeUnit.io("io")("axi4master")("w")("last");
-  storeUnit.io("io")("axi4master")("w")("ready") <<= io("M_AXI")("W")("READY");
+  io("M_AXI")("WVALID") <<= storeUnit.io("io")("axi4master")("w")("valid");
+  io("M_AXI")("WDATA") <<= storeUnit.io("io")("axi4master")("w")("data");
+  io("M_AXI")("WSTRB") <<= storeUnit.io("io")("axi4master")("w")("strb");
+  io("M_AXI")("WLAST") <<= storeUnit.io("io")("axi4master")("w")("last");
+  storeUnit.io("io")("axi4master")("w")("ready") <<= io("M_AXI")("WREADY");
 
   // flip b : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, resp : UInt<2>}}
-  storeUnit.io("io")("axi4master")("b")("valid") <<= io("M_AXI")("B")("VALID");
-  storeUnit.io("io")("axi4master")("b")("id") <<= io("M_AXI")("B")("ID");
-  storeUnit.io("io")("axi4master")("b")("resp") <<= io("M_AXI")("B")("RESP");
-  io("M_AXI")("B")("READY") <<= storeUnit.io("io")("axi4master")("b")("ready");
+  storeUnit.io("io")("axi4master")("b")("valid") <<= io("M_AXI")("BVALID");
+  storeUnit.io("io")("axi4master")("b")("id") <<= io("M_AXI")("BID");
+  storeUnit.io("io")("axi4master")("b")("resp") <<= io("M_AXI")("BRESP");
+  io("M_AXI")("BREADY") <<= storeUnit.io("io")("axi4master")("b")("ready");
 
   AXIStreamReceiver receiver(sAxisConfig);
   receiver.io("AXIS") <<= io("S_AXIS");
@@ -261,8 +261,8 @@ AXI4StreamMapper AXI4StreamMapper::make(
 ) {
   // I think TaPaSco uses this
   axi4lite::AXI4LiteConfig liteConfig{
-    .addrBits = kernel.liteAddrWidth,
-    .dataBits = kernel.liteDataWidth
+    .addrBits = uint32_t(kernel.liteAddrWidth),
+    .dataBits = uint32_t(kernel.liteDataWidth)
   };
 
   // used for the write and read channels of the memory AXI4 ports
@@ -346,8 +346,8 @@ AXI4CocoTbTop AXI4CocoTbTop::make(
 ) {
   // I think TaPaSco uses this
   axi4lite::AXI4LiteConfig liteConfig{
-    .addrBits = kernel.liteAddrWidth,
-    .dataBits = kernel.liteDataWidth
+    .addrBits = uint32_t(kernel.liteAddrWidth),
+    .dataBits = uint32_t(kernel.liteDataWidth)
   };
 
   // used for the write and read channels of the memory AXI4 ports

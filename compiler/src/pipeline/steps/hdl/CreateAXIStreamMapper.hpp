@@ -113,8 +113,8 @@ public:
     : Module<AXI4CocoTbTop>(
       "AXI4CocoTbTop",
       {
-        firp::Port("S_AXI_LITE", true, axi4lite::axi4LiteType(liteConfig)),
-        firp::Port("M_AXI", false, axi4::axi4Type(writeConfig, readConfig)),
+        firp::Input("S_AXI_LITE", axi4lite::axi4LiteFlattenType(axi4lite::axi4LiteType(liteConfig))),
+        firp::Output("M_AXI", axi4::axi4FlattenType(axi4::axi4Type(writeConfig, readConfig))),
         firp::Output("interrupt", firp::bitType())
       },
       liteConfig, writeConfig, readConfig
