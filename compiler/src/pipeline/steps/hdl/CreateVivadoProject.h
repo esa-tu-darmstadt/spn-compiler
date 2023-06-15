@@ -27,15 +27,15 @@ struct VivadoProjectConfig {
   void addSourceFilePath(const std::filesystem::path& path);
 };
 
-class CreateVivadoProject : public StepSingleInput<CreateVivadoProject, mlir::ModuleOp>, public StepWithResult<Kernel> {
+class CreateVivadoProject : public StepSingleInput<CreateVivadoProject, Kernel>, public StepWithResult<Kernel> {
   static constexpr uint64_t KERNEL_ID = 123;
   VivadoProjectConfig config;
 public:
-  explicit CreateVivadoProject(const VivadoProjectConfig& config, StepWithResult<mlir::ModuleOp>& input):
-    StepSingleInput<CreateVivadoProject, mlir::ModuleOp>(input),
+  explicit CreateVivadoProject(StepWithResult<Kernel>& input, const VivadoProjectConfig& config):
+    StepSingleInput<CreateVivadoProject, Kernel>(input),
     config(config) {}
 
-  ExecutionResult executeStep(mlir::ModuleOp *mod);
+  ExecutionResult executeStep(Kernel *kernel);
 
   Kernel *result() override { return getContext()->get<Kernel>(); }
 

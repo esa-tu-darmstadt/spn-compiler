@@ -102,3 +102,5 @@ Option<bool> spnc::option::fpgaWrapAXIStream{"fpga-wrap-axi-stream", false};
 Option<bool> spnc::option::fpgaCreateVerilogFiles{"fpga-create-verilog-files", false};
 
 Option<std::string> spnc::option::fpgaConfigJson{"fpga-config-json", ""};
+
+Option<bool> spnc::option::fpgaCocoTb{"fpga-coco-tb", false};

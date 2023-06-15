@@ -107,7 +107,8 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
     } else if (option::fpgaWrapAXIStream.get(*config)) {
       auto& embed = pipeline->emplaceStep<EmbedAXIStream>(lospn2fpga);
 
-      auto& createAXIStreamMapper = pipeline->emplaceStep<CreateAXIStreamMapper>(embed);
+      bool doPrepareForCocoTb = option::fpgaCocoTb.get(*config);
+      auto& createAXIStreamMapper = pipeline->emplaceStep<CreateAXIStreamMapper>(embed, doPrepareForCocoTb);
 
       if (option::fpgaCreateVerilogFiles.get(*config)) {
         CreateVerilogFilesConfig cfg{
@@ -116,8 +117,13 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
           .topName = "AXIStreamWrapper"
         };
 
+        VivadoProjectConfig vivadoConfig{
+          .targetDir = cfg.targetDir
+        };
+
         auto& createVerilogFiles = pipeline->emplaceStep<CreateVerilogFiles>(createAXIStreamMapper, cfg);
-        auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(spnc::option::outputPath.get(*config) + "/ipxact_core", createVerilogFiles);
+        auto& createVivadoProject = pipeline->emplaceStep<CreateVivadoProject>(createVerilogFiles, vivadoConfig);
+        auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(spnc::option::outputPath.get(*config) + "/ipxact_core", createVivadoProject);
       }
     } else {
       assert(false && "not implemented");
