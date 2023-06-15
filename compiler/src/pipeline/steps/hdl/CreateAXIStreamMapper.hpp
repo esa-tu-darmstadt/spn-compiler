@@ -56,13 +56,13 @@ public:
     : Module<AXI4StreamMapper>(
       "AXI4StreamMapper",
       {
-        firp::Port("S_AXI_LITE", true, axi4lite::axi4LiteType(liteConfig)),
-        firp::Port("M_AXI", false, axi4::axi4Type(writeConfig, readConfig)),
-        firp::Port("M_AXIS", false, firp::axis::AXIStreamBundleType(mAxisConfig)),
-        firp::Port("S_AXIS_CONTROLLER", true, firp::axis::AXIStreamBundleType(sAxisControllerConfig)),
-        firp::Port("S_AXIS", true, firp::axis::AXIStreamBundleType(sAxisConfig)),
-        firp::Port("M_AXIS_CONTROLLER", false, firp::axis::AXIStreamBundleType(mAxisControllerConfig)),
-        firp::Port("interrupt", false, firp::bitType())
+        firp::Input("S_AXI_LITE", axi4lite::axi4LiteFlattenType(axi4lite::axi4LiteType(liteConfig))),
+        firp::Output("M_AXI", axi4::axi4FlattenType(axi4::axi4Type(writeConfig, readConfig))),
+        firp::Output("M_AXIS", firp::axis::AXIStreamBundleType(mAxisConfig)),
+        firp::Input("S_AXIS_CONTROLLER", firp::axis::AXIStreamBundleType(sAxisControllerConfig)),
+        firp::Input("S_AXIS", firp::axis::AXIStreamBundleType(sAxisConfig)),
+        firp::Output("M_AXIS_CONTROLLER", firp::axis::AXIStreamBundleType(mAxisControllerConfig)),
+        firp::Output("interrupt", firp::bitType())
       },
       liteConfig, writeConfig, readConfig, mAxisConfig, sAxisControllerConfig, sAxisConfig, mAxisControllerConfig
     ), 
