@@ -41,7 +41,8 @@ if __name__ == '__main__':
   
   wdir = Path('./spn_core_wdir')
   fpga = FPGACompiler(computeInLogSpace=False)
-  kernel = fpga.compile_testbench(spn, wdir)
+  json_config = 'resources/config/vc709-example.json'
+  kernel = fpga.compile_testbench(spn, wdir, json_config)
 
   # set environment variables for cocotb that point to the correct location
   debug_info_path = (wdir / 'ipxact_core' / 'debug_info.json').resolve()
@@ -52,6 +53,7 @@ if __name__ == '__main__':
   env = {
     **os.environ.copy(),
     'PYTHONPATH': ':'.join(sys.path),
-    'SPN_PATH': str(Path(spn_path).resolve())
+    'SPN_PATH': str(Path(spn_path).resolve()),
+    'CONFIG_PATH': str(Path(json_config).resolve())
   }
   subprocess.run(cmd, shell=True, cwd='.', env=env)

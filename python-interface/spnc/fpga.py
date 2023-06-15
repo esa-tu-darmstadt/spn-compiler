@@ -68,7 +68,7 @@ class FPGACompiler:
         kernel = spncpy.SPNCompiler().compileQuery(tmpfile.name, options)
         return kernel
 
-    def compile_testbench(self, spn, wdir):
+    def compile_testbench(self, spn, wdir, json_config='{"kernelName":"simKernel","kernelId":123,"axi4":{"addrWidth":32,"dataWidth":32},"axi4Lite":{"addrWidth":32,"dataWidth":32},"floatType":"float32"}'):
         model = SPNModel(spn, 'uint8')
         query = JointProbability(model)
 
@@ -87,11 +87,15 @@ class FPGACompiler:
         if not os.path.isfile(bin_path):
             raise RuntimeError("Serialization of the SPN failed")
 
+        #json_config = '{"kernelName":"simKernel","kernelId":123,"axi4":{"addrWidth":64,"dataWidth":128},"axi4Lite":{"addrWidth":32,"dataWidth":32},"floatType":"float32"}'
+        #json_config = '{"kernelName":"simKernel","kernelId":123,"axi4":{"addrWidth":32,"dataWidth":32},"axi4Lite":{"addrWidth":32,"dataWidth":32},"floatType":"float32"}'
+
         # Compile the query into a Kernel.
         options = dict({"target": "FPGA",
                         "o": str(wdir),
                         "fpga-wrap-axi-stream": "true",
-                        "fpga-create-verilog-files": "true"
+                        "fpga-create-verilog-files": "true",
+                        "fpga-config-json": json_config
                         })
 
         # Add the extra options, if they do not clash with an existing option.

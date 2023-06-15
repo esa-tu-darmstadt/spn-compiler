@@ -5,8 +5,8 @@
     "dataWidth": 128
   },
   "axi4Lite": {
-    "addrWidth": 32,
-    "dataWidth": 32
+    "addrWidth": 64,
+    "dataWidth": 64
   },
   "kernelName": "MyKernel",
   "kernelId": 123,

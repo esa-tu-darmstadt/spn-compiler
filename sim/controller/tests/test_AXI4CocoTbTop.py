@@ -36,6 +36,9 @@ def load_config() -> dict:
     content = file.read()
     return json.loads(content)
 
+  assert False, 'Could not load config'
+
+
 # https://stackoverflow.com/questions/8751653/how-to-convert-a-binary-string-into-a-float-value/8762541
 def int_to_bytes(n, length):  # Helper function
     """ Int/long to byte string.
@@ -178,13 +181,19 @@ async def wait_timeout(n):
   await Timer(n, units="us")
   assert False, 'Timeout!'
 
+def roundN(n, m):
+  # round n to the next multiple of m
+  return n + (m - n) % m
+
 @cocotb.test()
 async def test_AXI4CocoTbTop(dut):
   spn_path = os.environ['SPN_PATH']
   spn, var_2_index, index_2_min, index_2_max = load_spn_2(spn_path)
-  COUNT = 20 * 10
+  COUNT = 20 * 1000
   data = generate_data(COUNT, index_2_min, index_2_max)
   expected = likelihood(spn, data, dtype=np.float32)
+
+  cfg = load_config()
 
   rename_signals(dut)
 
@@ -194,15 +203,16 @@ async def test_AXI4CocoTbTop(dut):
   # assume 1 byte per value
   read_base = 0x10000
   read_size = COUNT * len(index_2_min.items())
-  write_base = read_base + read_size
-  write_size = COUNT * 4 # TODO: 8 bytes per float (or 4?)
+  # IPECStoreUnit does not adhere to the standard in the sense that it crosses 4k boundaries
+  write_base = roundN(read_base + read_size, 4096)
+  write_size = COUNT * (4 if cfg['floatType'] == 'float32' else 8)
 
   # from tapasco
   #size_t loadBeatCount = inSize / (fpgaKernel.memDataWidth / 8);
   #size_t storeBeatCount = outSize / (fpgaKernel.memDataWidth / 8);
   # TODO: read_size and write_size need to be padded first!
-  load_beat_count = read_size // (32 // 8)
-  store_beat_count = write_size // (32 // 8)
+  load_beat_count = read_size // (cfg['axi4']['dataWidth'] // 8)
+  store_beat_count = write_size // (cfg['axi4']['dataWidth'] // 8)
 
   print(f'bytes to send: {read_size} in {load_beat_count} beats on a 4 byte bus')
   print(f'bytes to receive: {write_size} in {store_beat_count} beats on a 4 byte bus')
@@ -226,15 +236,16 @@ async def test_AXI4CocoTbTop(dut):
   print(f'done')
 
   # write registers
-  await reg_file.write(0x8, read_base.to_bytes(4, byteorder='little')) # loadBaseAddress
-  await reg_file.write(0xC, load_beat_count.to_bytes(4, byteorder='little')) # numLdTransfers
-  await reg_file.write(0x10, write_base.to_bytes(4, byteorder='little')) # storeBaseAddress
-  await reg_file.write(0x14, store_beat_count.to_bytes(4, byteorder='little')) # numStTransfers
-  await reg_file.write(0x0, int(1).to_bytes(4, byteorder='little')) # status, okay let's go
+  off = cfg['axi4Lite']['dataWidth'] // 8
+  await reg_file.write(2 * off, read_base.to_bytes(off, byteorder='little')) # loadBaseAddress
+  await reg_file.write(3 * off, load_beat_count.to_bytes(off, byteorder='little')) # numLdTransfers
+  await reg_file.write(4 * off, write_base.to_bytes(off, byteorder='little')) # storeBaseAddress
+  await reg_file.write(5 * off, store_beat_count.to_bytes(off, byteorder='little')) # numStTransfers
+  await reg_file.write(0 * off, int(1).to_bytes(off, byteorder='little')) # status, okay let's go
 
   await First(
     cocotb.start_soon(poll_interrupt(dut)),
-    cocotb.start_soon(wait_timeout(10000))
+    cocotb.start_soon(wait_timeout(100000))
   )
 
   # we didn't crash => we got an interrupt and can now check the results

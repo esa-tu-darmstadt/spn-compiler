@@ -9,10 +9,14 @@ import os
 import binascii
 
 import cocotb
-from cocotb.triggers import Timer, RisingEdge, FallingEdge
+from cocotb.triggers import Timer, RisingEdge, FallingEdge, First
 from cocotb.clock import Clock
 
-from cocotbext.axi import AxiStreamBus, AxiStreamSource, AxiStreamSink, AxiStreamFrame
+from cocotbext.axi import (
+  AxiStreamBus, AxiStreamSource, AxiStreamSink, AxiStreamFrame,
+  AxiBus, AxiMaster, AxiSlave, AxiRam,
+  AxiLiteBus, AxiLiteMaster, AxiLiteRam
+)
 
 from xspn.spn_parser import load_spn_2
 #from spn_parser import load_spn_2
@@ -118,11 +122,15 @@ def rename_signals(dut):
     print(f'Linking signals: {prefix + "_" + lower} <-> {signal}')
     dut.__dict__[prefix + '_' + lower] = dut.__getattr__(signal)
 
+async def wait_timeout(n):
+  await Timer(n, units="us")
+  assert False, 'Timeout!'
+
 @cocotb.test()
 async def test_SPNController(dut):
   spn_path = os.environ['SPN_PATH']
   spn, var_2_index, index_2_min, index_2_max = load_spn_2(spn_path)
-  COUNT = 1000
+  COUNT = 10000
   data = generate_data(COUNT, index_2_min, index_2_max)
   expected = likelihood(spn, data, dtype=np.float32)
 
@@ -147,11 +155,16 @@ async def test_SPNController(dut):
   await write_inputs(axis_source, data)
 
   # read outputs
-  results = await read_outputs(axis_sink)
+  #results = await read_outputs(axis_sink)
+
+  results = await First(
+    cocotb.start_soon(read_outputs(axis_sink)),
+    cocotb.start_soon(wait_timeout(10000))
+  )
 
   # wait until everything is done
-  await Timer(1000, units="ns")  # wait a bit
-  await FallingEdge(dut.clock)  # wait for falling edge/"negedge"
+  #await Timer(1000, units="ns")  # wait a bit
+  #await FallingEdge(dut.clock)  # wait for falling edge/"negedge"
 
   # TODO: fix case where result = expected = 0
   results = np.array(results).reshape((data.shape[0], 1))
