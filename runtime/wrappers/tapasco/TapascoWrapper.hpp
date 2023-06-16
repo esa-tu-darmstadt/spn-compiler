@@ -30,21 +30,10 @@ public:
   void executeQuery(size_t numElements, const void *inputs, void *outputs);
 };
 
-static std::unique_ptr<TapascoSPNDevice> device;
-
 }
 
 namespace spnc_rt {
 
-using namespace spnc;
-
-tapasco_wrapper::TapascoSPNDevice *initTapasco(const Kernel& kernel) {
-  using namespace tapasco_wrapper;
-
-  if (!device)
-    device = std::make_unique<TapascoSPNDevice>(kernel);
-
-  return device.get();
-}
+tapasco_wrapper::TapascoSPNDevice *initTapasco(const spnc::Kernel& kernel);
 
 }

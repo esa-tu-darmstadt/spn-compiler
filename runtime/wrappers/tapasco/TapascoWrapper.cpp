@@ -8,6 +8,8 @@
 
 namespace spnc_rt::tapasco_wrapper {
 
+static std::unique_ptr<TapascoSPNDevice> device;
+
 TapascoSPNDevice::TapascoSPNDevice(const Kernel& kernel):
   kernel(kernel) {
 
@@ -104,6 +106,16 @@ void TapascoSPNDevice::executeQuery(size_t numElements, const void *inputs, void
 
 }
 
-int main() {
-  return 0;
+namespace spnc_rt {
+
+tapasco_wrapper::TapascoSPNDevice *initTapasco(const spnc::Kernel& kernel) {
+  using namespace spnc;
+  using namespace tapasco_wrapper;
+
+  if (!device)
+    device = std::make_unique<TapascoSPNDevice>(kernel);
+
+  return device.get();
+}
+
 }
