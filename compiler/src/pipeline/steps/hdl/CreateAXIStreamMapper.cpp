@@ -101,8 +101,6 @@ ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
     mapper.makeTop();
   }
 
-  firpContext()->dump();
-
   if (mlir::failed(firpContext()->finish()))
     return failure("could not verify generated FIRRTL");
 

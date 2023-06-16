@@ -34,8 +34,6 @@ TapascoSPNDevice::TapascoSPNDevice(const Kernel& kernel):
 }
 
 void TapascoSPNDevice::setInputBuffer(size_t numElements, const void *inputs) {
-  // NOTE: We will assume uint32_t for now!
-
   size_t inByteSize = roundN<size_t>(fpgaKernel.spnVarCount * fpgaKernel.spnBitsPerVar, 8) / 8;
   inputBuffer.resize(numElements * inByteSize);
 

@@ -59,9 +59,7 @@ PYBIND11_MODULE(spncpy, m) {
               spnc_rt::spn_runtime::instance().execute(kernel, num_elements, input_ptr, output_ptr);
 
               return result;
-            }
-
-            if (kernel.getKernelType() == KernelType::FPGA_KERNEL) {
+            } else if (kernel.getKernelType() == KernelType::FPGA_KERNEL) {
               FPGAKernel fpga = kernel.getFPGAKernel();
 
               py::buffer_info input_buf = inputs.request();

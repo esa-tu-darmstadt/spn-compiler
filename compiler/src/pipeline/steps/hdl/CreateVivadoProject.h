@@ -21,8 +21,6 @@ struct VivadoProjectConfig {
   std::string tmpdir = "tmp";
 
   std::string version = "1.23";
-  std::string device = "ultra96v2";
-  uint32_t mhz = 200;
 
   void addSourceFilePath(const std::filesystem::path& path);
 };

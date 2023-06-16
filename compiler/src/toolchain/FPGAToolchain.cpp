@@ -126,12 +126,21 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
         };
 
         auto& createVerilogFiles = pipeline->emplaceStep<CreateVerilogFiles>(createAXIStreamMapper, cfg);
-        auto& createVivadoProject = pipeline->emplaceStep<CreateVivadoProject>(createVerilogFiles, vivadoConfig);
-        auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(
-          spnc::option::outputPath.get(*config) + "/ipxact_core",
-          fpgaConfigJson,
-          createVivadoProject
-        );
+
+        if (option::fpgaCocoTb.get(*config)) {
+          auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(
+            spnc::option::outputPath.get(*config) + "/ipxact_core",
+            fpgaConfigJson,
+            createVerilogFiles
+          );
+        } else {
+          auto& createVivadoProject = pipeline->emplaceStep<CreateVivadoProject>(createVerilogFiles, vivadoConfig);
+          auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(
+            spnc::option::outputPath.get(*config) + "/ipxact_core",
+            fpgaConfigJson,
+            createVivadoProject
+          );
+        }
       }
     } else {
       assert(false && "not implemented");

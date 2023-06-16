@@ -231,15 +231,15 @@ ExecutionResult CreateVivadoProject::tapascoCompose() {
 
   auto pwd = fs::current_path();
   fs::current_path(config.targetDir);
-  Kernel *kernel = getContext()->get<Kernel>();
+  FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
 
   // TODO: How is the zip file name determined?
   std::string zipString =
     //config.projectName + "_" + std::regex_replace(config.version, std::regex("\\."), "_") + ".zip";
     config.projectName + "_1.0.zip";
-  std::string idString = std::to_string(kernel->getFPGAKernel().kernelId);
-  std::string deviceString = config.device;
-  std::string mhzString = "@" + std::to_string(config.mhz) + "Mhz";
+  std::string idString = std::to_string(kernel.kernelId);
+  std::string deviceString = kernel.deviceName;
+  std::string mhzString = "@" + std::to_string(kernel.deviceSpeed) + "Mhz";
 
   if (!fs::is_regular_file(fs::path(zipString))) {
     fs::current_path(pwd);
@@ -272,7 +272,7 @@ ExecutionResult CreateVivadoProject::tapascoCompose() {
     fs::path destFilePath = fs::path("spn.bit");
     fs::copy_file(bitFilePath, destFilePath, fs::copy_options::overwrite_existing);
 
-    getContext()->get<Kernel>()->getFPGAKernel().fileName = destFilePath.string();
+    kernel.fileName = destFilePath.string();
   } catch (const std::runtime_error& e) {
     fs::current_path(pwd);
     return failure(e.what());
