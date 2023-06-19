@@ -27,12 +27,12 @@ def get_fpga_device_config(device_name: str) -> str:
         "mhz": 200
       },
       "axi4": {
-        "addrWidth": 64,
-        "dataWidth": 128
+        "addrWidth": 32,
+        "dataWidth": 512
       },
       "axi4Lite": {
-        "addrWidth": 64,
-        "dataWidth": 64
+        "addrWidth": 32,
+        "dataWidth": 32
       },
       "kernelName": "MyKernel",
       "kernelId": 123,
