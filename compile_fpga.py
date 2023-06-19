@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 import subprocess
 import os
+import numpy as np
 
 from spn.io.Text import spn_to_str_ref_graph
 
@@ -52,10 +53,12 @@ if __name__ == '__main__':
   elif cmd == 'load':
     pass
   elif cmd == 'execute':
-    
-    
-    
-    pass
+    var_count = len(variables_to_index)
+    COUNT = 20
+    input_data = np.zeros((COUNT, var_count), dtype=np.uint8)
+
+    kernel = fpga.compile_get_kernel_info(spn, wdir_name, json_config)
+    fpga.execute(kernel, input_data)
   else:
     print_usage()
     exit(0)

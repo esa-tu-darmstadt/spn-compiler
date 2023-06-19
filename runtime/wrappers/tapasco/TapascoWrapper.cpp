@@ -85,11 +85,17 @@ void TapascoSPNDevice::executeQuery(size_t numElements, const void *inputs, void
     numElements
   );
 
-  return;
+  //return;
+
+  spdlog::info("Executing Tapasco job...");
+
+  size_t deviceMode = 1;
 
   auto job = tap.launch(
-    kernelId, retVal, inOnly, loadBeatCount,
-    outOnly, storeBeatCount
+    kernelId, retVal,
+    inOnly, loadBeatCount,
+    outOnly, storeBeatCount/*,
+    deviceMode*/
   );
 
   if (job() != TAPASCO_SUCCESS)
@@ -97,10 +103,12 @@ void TapascoSPNDevice::executeQuery(size_t numElements, const void *inputs, void
 
   spdlog::info("Tapasco job executed successfully");
 
+  size_t bytesPerFloat = fpgaKernel.spnResultWidth / 8;
+
   std::copy_n(
-    reinterpret_cast<const double *>(outputBuffer.data()),
-    numElements,
-    reinterpret_cast<double *>(outputs)
+    reinterpret_cast<const uint8_t *>(outputBuffer.data()),
+    numElements * bytesPerFloat,
+    reinterpret_cast<uint8_t *>(outputs)
   );
 }
 

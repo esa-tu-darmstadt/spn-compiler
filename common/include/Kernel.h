@@ -78,7 +78,9 @@ namespace spnc {
     int32_t liteAddrWidth = -1;
 
     std::string to_string() const {
-      return (std::stringstream{}
+      std::stringstream ss;
+
+      ss
         << "FPGAKernel{"
         << "fileName=" << fileName
         << ", kernelName=" << kernelName
@@ -94,8 +96,9 @@ namespace spnc {
         << ", memAddrWidth=" << memAddrWidth
         << ", liteDataWidth=" << liteDataWidth
         << ", liteAddrWidth=" << liteAddrWidth
-        << "}"
-      ).str();
+        << "}";
+
+      return ss.str();
     }
   };
 

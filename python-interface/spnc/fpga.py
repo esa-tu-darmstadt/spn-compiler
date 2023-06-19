@@ -14,8 +14,6 @@ import json
 from xspn.serialization.binary.BinarySerialization import BinarySerializer
 from xspn.structure.Model import SPNModel
 from xspn.structure.Query import JointProbability, ErrorModel
-#from spnc.test import func
-import spnc.test as testlalala
 import spnc.spncpy as spncpy
 
 

@@ -258,9 +258,10 @@ ExecutionResult CreateVivadoProject::tapascoCompose() {
   }
 
   try {
-    // tapasco compose [spnc x 1] @200Mhz -p ultra96v2
+    // tapasco compose [spnc x 1] @200Mhz -p ultra96v2 --deleteProjects false
     std::string output = execShellAndGetOutput({
-      "tapasco", "compose", "[", config.projectName, "x", "1", "]", mhzString, "-p", deviceString
+      "tapasco", "compose", "[", config.projectName, "x", "1", "]", mhzString, "-p", deviceString,
+      "--deleteProjects", "false"
     });
 
     std::optional<std::string> opt = grepBitstreamPath(output);

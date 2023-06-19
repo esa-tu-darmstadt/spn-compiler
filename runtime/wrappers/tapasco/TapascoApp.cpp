@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <util/json.hpp>
 
-#define COUNT 100
+#define COUNT 20
 
 
 void printUsage() {
@@ -39,15 +39,13 @@ int main(int argc, const char **argv) {
     .liteAddrWidth = data.at("axi4Lite").at("addrWidth")
   };
 
-  assert(fpgaKernel.spnResultWidth == 32);
-
   spnc::Kernel kernel{fpgaKernel};
 
   spnc_rt::tapasco_wrapper::TapascoSPNDevice *device =
     spnc_rt::initTapasco(kernel);
 
   std::vector<uint32_t> inputData;
-  std::vector<float> outputData(fpgaKernel.spnVarCount * COUNT);
+  std::vector<uint8_t> outputData(COUNT * fpgaKernel.spnResultWidth / 8);
 
   for (uint32_t i = 0; i < fpgaKernel.spnVarCount * COUNT; ++i)
     inputData.push_back(0);
@@ -55,8 +53,13 @@ int main(int argc, const char **argv) {
   device->executeQuery(COUNT, inputData.data(), outputData.data());
 
   std::cout << "got:\n";
-  for (uint32_t i = 0; i < outputData.size(); ++i)
-    std::cout << outputData[i] << "\n";
+  if (fpgaKernel.spnResultWidth == 32) {
+    for (uint32_t i = 0; i < outputData.size() / sizeof(float); ++i)
+      std::cout << reinterpret_cast<const float *>(outputData.data())[i] << "\n";
+  } else {
+    for (uint32_t i = 0; i < outputData.size() / sizeof(double); ++i)
+      std::cout << reinterpret_cast<const double *>(outputData.data())[i] << "\n";
+  }
 
   return 0;
 }
