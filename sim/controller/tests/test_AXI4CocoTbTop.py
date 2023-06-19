@@ -236,12 +236,13 @@ async def test_AXI4CocoTbTop(dut):
   print(f'done')
 
   # write registers
-  off = cfg['axi4Lite']['dataWidth'] // 8
-  await reg_file.write(2 * off, read_base.to_bytes(off, byteorder='little')) # loadBaseAddress
-  await reg_file.write(3 * off, load_beat_count.to_bytes(off, byteorder='little')) # numLdTransfers
-  await reg_file.write(4 * off, write_base.to_bytes(off, byteorder='little')) # storeBaseAddress
-  await reg_file.write(5 * off, store_beat_count.to_bytes(off, byteorder='little')) # numStTransfers
-  await reg_file.write(0 * off, int(1).to_bytes(off, byteorder='little')) # status, okay let's go
+  off = 0x10
+  byteCount = cfg['axi4Lite']['dataWidth'] // 8
+  await reg_file.write(2 * off, read_base.to_bytes(byteCount, byteorder='little'))        # loadBaseAddress
+  await reg_file.write(3 * off, load_beat_count.to_bytes(byteCount, byteorder='little'))  # numLdTransfers
+  await reg_file.write(4 * off, write_base.to_bytes(byteCount, byteorder='little'))       # storeBaseAddress
+  await reg_file.write(5 * off, store_beat_count.to_bytes(byteCount, byteorder='little')) # numStTransfers
+  await reg_file.write(0 * off, int(1).to_bytes(byteCount, byteorder='little'))           # status, okay let's go
 
   await First(
     cocotb.start_soon(poll_interrupt(dut)),

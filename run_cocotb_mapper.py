@@ -40,7 +40,7 @@ if __name__ == '__main__':
   from spnc.fpga import FPGACompiler
   
   wdir = Path('./spn_core_wdir')
-  fpga = FPGACompiler(computeInLogSpace=False)
+  fpga = FPGACompiler()
   json_config = 'resources/config/vc709-example.json'
   kernel = fpga.compile_testbench(spn, wdir, json_config)
 

@@ -123,6 +123,7 @@ void AXI4StreamMapper::body() {
       "storeBaseAddress",
       "numSdTransfers"
     },
+    0x10, // Tapasco uses 0x10 address increments
     io("S_AXI_LITE")
   );
 
@@ -224,6 +225,7 @@ void AXI4StreamMapper::body() {
 
   auto state = regInit(uval(0, 2), "state");
   auto cycleCount = regInit(uval(0, 32), "cycleCount");
+  auto maxCycleCount = regInit(uval(100000, 32), "maxCycleCount");
 
   io("interrupt") <<= uval(0);
 
@@ -232,6 +234,7 @@ void AXI4StreamMapper::body() {
       state <<= uval(RUNNING);
       loadUnit.io("io")("start") <<= uval(1);
       storeUnit.io("io")("start") <<= uval(1);
+      cycleCount <<= uval(0);
     });
   })
   .elseWhen (state.read() == uval(RUNNING), [&](){
@@ -239,6 +242,11 @@ void AXI4StreamMapper::body() {
       state <<= uval(DONE);
       io("interrupt") <<= uval(1);
       retVal <<= cycleCount;
+    })
+    .elseWhen (cycleCount.read() >= maxCycleCount.read(), [&](){
+      state <<= uval(DONE);
+      io("interrupt") <<= uval(1);
+      retVal <<= uval(0);
     });
 
     cycleCount <<= cycleCount.read() + uval(1);
