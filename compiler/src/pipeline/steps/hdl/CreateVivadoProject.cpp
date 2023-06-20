@@ -47,10 +47,10 @@ create_bd_design $project_name
 set M_AXI [create_bd_intf_port -mode Master -vlnv xilinx.com:interface:aximm_rtl:1.0 M_AXI]
 set_property CONFIG.DATA_WIDTH $fulldata [get_bd_intf_ports $M_AXI]
 set_property CONFIG.ADDR_WIDTH $fulladdr [get_bd_intf_ports $M_AXI]
-set S_AXI_LITE [create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0 S_AXI_LITE]
-set_property CONFIG.DATA_WIDTH $litedata [get_bd_intf_ports $S_AXI_LITE]
-set_property CONFIG.ADDR_WIDTH $liteaddr [get_bd_intf_ports $S_AXI_LITE]
-set_property CONFIG.PROTOCOL AXI4LITE [get_bd_intf_ports $S_AXI_LITE]
+set S_AXI [create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:aximm_rtl:1.0 S_AXI]
+set_property CONFIG.DATA_WIDTH $litedata [get_bd_intf_ports $S_AXI]
+set_property CONFIG.ADDR_WIDTH $liteaddr [get_bd_intf_ports $S_AXI]
+set_property CONFIG.PROTOCOL AXI4LITE [get_bd_intf_ports $S_AXI]
 #set AXI4_STREAM_MASTER [create_bd_intf_port -mode Master -vlnv xilinx.com:interface:axis_rtl:1.0 AXI4_STREAM_MASTER]
 #set AXI4_STREAM_SLAVE  [create_bd_intf_port -mode Slave -vlnv xilinx.com:interface:axis_rtl:1.0 AXI4_STREAM_SLAVE]
 #set_property CONFIG.TDATA_NUM_BYTES $streamin_bytes [get_<bd_intf_ports $AXI4_STREAM_SLAVE]
@@ -91,7 +91,7 @@ connect_bd_net [get_bd_port $ap_rst_n] [get_bd_pins $DWCS/aresetn]
 connect_bd_net [get_bd_port $ap_clk] [get_bd_pins $DWCM/aclk]
 connect_bd_net [get_bd_port $ap_clk] [get_bd_pins $DWCS/aclk]
 
-connect_bd_intf_net [get_bd_intf_ports $S_AXI_LITE] [get_bd_intf_pins $TAP/S_AXI_LITE]
+connect_bd_intf_net [get_bd_intf_ports $S_AXI] [get_bd_intf_pins $TAP/S_AXI_LITE]
 connect_bd_intf_net [get_bd_intf_ports $M_AXI] [get_bd_intf_pins $TAP/M_AXI]
 
 connect_bd_intf_net [get_bd_intf_pins $TAP/M_AXIS_CONTROLLER] [get_bd_intf_pins $DWCS/S_AXIS]
@@ -101,8 +101,8 @@ connect_bd_intf_net [get_bd_intf_pins $TAP/S_AXIS_CONTROLLER] [get_bd_intf_pins 
 connect_bd_intf_net [get_bd_intf_pins $TAP/M_AXIS] [get_bd_intf_pins $DWCM/S_AXIS]
 
 assign_bd_address
-set_property range 64K [get_bd_addr_segs {S_AXI_LITE/SEG_TAP_reg0}]
-set_property offset 0x00000000 [get_bd_addr_segs {S_AXI_LITE/SEG_TAP_reg0}]
+set_property range 64K [get_bd_addr_segs {S_AXI/SEG_TAP_reg0}]
+set_property offset 0x00000000 [get_bd_addr_segs {S_AXI/SEG_TAP_reg0}]
 set_property offset 0x00000000 [get_bd_addr_segs {TAP/M_AXI/SEG_M_AXI_Reg}]
 set_property range 4G [get_bd_addr_segs {TAP/M_AXI/SEG_M_AXI_Reg}]
 validate_bd_design
