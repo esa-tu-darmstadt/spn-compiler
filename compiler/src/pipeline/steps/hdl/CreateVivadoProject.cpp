@@ -28,6 +28,8 @@ set controllerOutWidth {controllerOutWidth}
 set version {version}
 )";
 
+// TODO: Maybe S_AXI_LITE must be called S_AXI?
+
 static const char TCL_PACKAGE[] = R"(
 
 create_project -force $project_name ./$project_name
@@ -100,6 +102,7 @@ connect_bd_intf_net [get_bd_intf_pins $TAP/M_AXIS] [get_bd_intf_pins $DWCM/S_AXI
 
 assign_bd_address
 set_property range 64K [get_bd_addr_segs {S_AXI_LITE/SEG_TAP_reg0}]
+set_property offset 0x00000000 [get_bd_addr_segs {S_AXI_LITE/SEG_TAP_reg0}]
 set_property offset 0x00000000 [get_bd_addr_segs {TAP/M_AXI/SEG_M_AXI_Reg}]
 set_property range 4G [get_bd_addr_segs {TAP/M_AXI/SEG_M_AXI_Reg}]
 validate_bd_design

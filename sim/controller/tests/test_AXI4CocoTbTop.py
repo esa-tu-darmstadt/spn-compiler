@@ -189,7 +189,7 @@ def roundN(n, m):
 async def test_AXI4CocoTbTop(dut):
   spn_path = os.environ['SPN_PATH']
   spn, var_2_index, index_2_min, index_2_max = load_spn_2(spn_path)
-  COUNT = 20 * 1000
+  COUNT = 2 * 20 * 1000
   data = generate_data(COUNT, index_2_min, index_2_max)
   expected = likelihood(spn, data, dtype=np.float32)
 
@@ -236,18 +236,22 @@ async def test_AXI4CocoTbTop(dut):
   print(f'done')
 
   # write registers
+  regs_base = 0x2000_0000
   off = 0x10
   byteCount = cfg['axi4Lite']['dataWidth'] // 8
-  await reg_file.write(2 * off, read_base.to_bytes(byteCount, byteorder='little'))        # loadBaseAddress
-  await reg_file.write(3 * off, load_beat_count.to_bytes(byteCount, byteorder='little'))  # numLdTransfers
-  await reg_file.write(4 * off, write_base.to_bytes(byteCount, byteorder='little'))       # storeBaseAddress
-  await reg_file.write(5 * off, store_beat_count.to_bytes(byteCount, byteorder='little')) # numStTransfers
-  await reg_file.write(0 * off, int(1).to_bytes(byteCount, byteorder='little'))           # status, okay let's go
+  await reg_file.write(2 * off + regs_base, read_base.to_bytes(byteCount, byteorder='little'))        # loadBaseAddress
+  await reg_file.write(3 * off + regs_base, load_beat_count.to_bytes(byteCount, byteorder='little'))  # numLdTransfers
+  await reg_file.write(4 * off + regs_base, write_base.to_bytes(byteCount, byteorder='little'))       # storeBaseAddress
+  await reg_file.write(5 * off + regs_base, store_beat_count.to_bytes(byteCount, byteorder='little')) # numStTransfers
+  await reg_file.write(0 * off + regs_base, int(1).to_bytes(byteCount, byteorder='little'))           # status, okay let's go
 
   await First(
     cocotb.start_soon(poll_interrupt(dut)),
     cocotb.start_soon(wait_timeout(100000))
   )
+
+  # read the status
+  retVal = await reg_file.read(1 * off + regs_base, byteCount)
 
   # we didn't crash => we got an interrupt and can now check the results
   as_floats = list(struct.unpack(f'<{write_size // 4}f', axi_ram.read(write_base, write_size)))
@@ -255,3 +259,5 @@ async def test_AXI4CocoTbTop(dut):
   for got, exp in zip(as_floats, expected):
     print(f'got {got} expected {exp}')
     assert math.isclose(got, exp, rel_tol=1e-5), f'got {got} expected {exp}'
+
+  print(f'retVal={int.from_bytes(retVal)}')
