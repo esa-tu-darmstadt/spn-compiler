@@ -76,9 +76,16 @@ void LoSPNtoFPGAConversion::preProcess(mlir::ModuleOp *inputModule) {
 }
 
 void LoSPNtoFPGAConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
+  mlir::spn::fpga::ConversionOptions conversionOptions{
+    .ufloatConfig = {
+      .exponentWidth = floatExponentWidth,
+      .mantissaWidth = floatMantissaWidth
+    },
+    .use32Bit = use32Bit
+  };
 
   pm->addPass(
-    mlir::spn::fpga::createLoSPNtoFPGAPass2()
+    mlir::spn::fpga::createLoSPNtoFPGAPass2(conversionOptions)
   );
 
   //struct LowerSeqFIRRTLToSVOptions {

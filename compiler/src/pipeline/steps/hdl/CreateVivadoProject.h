@@ -19,13 +19,12 @@ struct VivadoProjectConfig {
   std::string topModule = "spn_body";
   std::string tmpdir = "tmp";
 
-  std::string version = "1.23";
+  std::string version = "1.0";
 
   void addSourceFilePath(const std::filesystem::path& path);
 };
 
 class CreateVivadoProject : public StepSingleInput<CreateVivadoProject, Kernel>, public StepWithResult<Kernel> {
-  static constexpr uint64_t KERNEL_ID = 123;
   VivadoProjectConfig config;
 public:
   explicit CreateVivadoProject(StepWithResult<Kernel>& input, const VivadoProjectConfig& config):

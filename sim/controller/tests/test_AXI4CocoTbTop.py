@@ -206,6 +206,7 @@ async def test_AXI4CocoTbTop(dut):
   # IPECStoreUnit does not adhere to the standard in the sense that it crosses 4k boundaries
   write_base = roundN(read_base + read_size, 4096)
   write_size = COUNT * (4 if cfg['floatType'] == 'float32' else 8)
+  isFloat32 = cfg['floatType'] == 'float32'
 
   # from tapasco
   #size_t loadBeatCount = inSize / (fpgaKernel.memDataWidth / 8);
@@ -255,7 +256,10 @@ async def test_AXI4CocoTbTop(dut):
     retVal = await reg_file.read(1 * off + regs_base, byteCount)
 
     # we didn't crash => we got an interrupt and can now check the results
-    as_floats = list(struct.unpack(f'<{write_size // 4}f', axi_ram.read(write_base, write_size)))
+    if isFloat32:
+      as_floats = list(struct.unpack(f'<{write_size // 4}f', axi_ram.read(write_base, write_size)))
+    else:
+      as_floats = list(struct.unpack(f'<{write_size // 8}d', axi_ram.read(write_base, write_size)))
 
     for got, exp in zip(as_floats, expected):
       print(f'got {got} expected {exp}')

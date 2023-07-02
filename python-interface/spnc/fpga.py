@@ -109,13 +109,16 @@ class FPGACompiler:
         kernel = spncpy.SPNCompiler().compileQuery(str(bin_path), options)
         return kernel
 
-    def compile_testbench(self, spn, wdir, json_config='{"kernelName":"simKernel","kernelId":123,"axi4":{"addrWidth":32,"dataWidth":32},"axi4Lite":{"addrWidth":32,"dataWidth":32},"floatType":"float32"}'):
+    def compile_testbench(self, spn, wdir, json_config, exponent_width=8, mantissa_width=23, float_type='float32'):
         options = dict({"target": "FPGA",
                         "o": str(wdir),
                         "fpga-wrap-axi-stream": "true",
                         "fpga-create-verilog-files": "true",
                         "fpga-coco-tb": "true",
-                        "fpga-config-json": json_config
+                        "fpga-config-json": json_config,
+                        "fpga-exponent-width": str(exponent_width),
+                        "fpga-mantissa-width": str(mantissa_width),
+                        "fpga-float-type": float_type
                         })
 
         return self._compile(spn, wdir, options, json_config)

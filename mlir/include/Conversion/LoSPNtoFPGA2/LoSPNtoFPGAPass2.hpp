@@ -12,13 +12,16 @@
 
 #include "circt/Dialect/Seq/SeqDialect.h"
 
+#include "Conversion.hpp"
+
 
 namespace mlir::spn::fpga {
 
 // OperationPass<ModuleOp> guarantees that getOperation() always returns a ModuleOp!
 struct LoSPNtoFPGAPass2 : public PassWrapper<LoSPNtoFPGAPass2, OperationPass<ModuleOp>> {
+  ConversionOptions options;
 public:
-  LoSPNtoFPGAPass2() = default;
+  LoSPNtoFPGAPass2(const ConversionOptions& options): options(options) {}
   virtual ~LoSPNtoFPGAPass2() = default;
   StringRef getArgument() const override { return "convert-lospn-to-fpga-2"; }
   StringRef getDescription() const override { return "Converts a SPN in LoSPN format to a format that can be exported to verilog using circt-opt."; }
@@ -27,8 +30,8 @@ protected:
   void runOnOperation() override;
 };
 
-inline std::unique_ptr<mlir::Pass> createLoSPNtoFPGAPass2() {
-  return std::make_unique<LoSPNtoFPGAPass2>();
+inline std::unique_ptr<mlir::Pass> createLoSPNtoFPGAPass2(const ConversionOptions& options) {
+  return std::make_unique<LoSPNtoFPGAPass2>(options);
 }
 
 }

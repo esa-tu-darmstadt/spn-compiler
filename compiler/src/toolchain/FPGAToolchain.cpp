@@ -71,7 +71,20 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
 
   // map the SPN operator to HW operators and perform scheduling
   std::string fpgaConfigJson = option::fpgaConfigJson.get(*config);
-  auto& lospn2fpga = pipeline->emplaceStep<LoSPNtoFPGAConversion>(fpgaConfigJson, lospnTransform);
+  uint32_t floatMantissaWidth = option::fpgaMantissaWidth.get(*config);
+  uint32_t floatExponentWidth = option::fpgaExponentWidth.get(*config);
+  bool use32Bit;
+
+  if (option::fpgaFloatType.get(*config) == "float32")
+    use32Bit = true;
+  else if (option::fpgaFloatType.get(*config) == "float64")
+    use32Bit = false;
+  else
+    llvm_unreachable("invalid float type");
+
+  auto& lospn2fpga = pipeline->emplaceStep<LoSPNtoFPGAConversion>(
+    fpgaConfigJson, floatMantissaWidth, floatExponentWidth, use32Bit, lospnTransform
+  );
 
   // TODO: FIX THIS MESS!!!
   if (!option::justGetKernel.get(*config)) {

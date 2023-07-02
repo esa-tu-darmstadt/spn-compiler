@@ -15,6 +15,9 @@
 #include <variant>
 #include <string>
 #include <sstream>
+#include <filesystem>
+
+#include <util/json.hpp>
 
 ///
 /// Namespace for all entities related to the SPN compiler.

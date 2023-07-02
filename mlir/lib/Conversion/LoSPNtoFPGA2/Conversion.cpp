@@ -229,6 +229,8 @@ llvm::Optional<mlir::ModuleOp> convert(mlir::ModuleOp modOp, const ConversionOpt
       assert(succeeded(lowerFirrtlToHw()));
   });
 
+  //newRoot->dump();
+
   return newRoot;
 }
 

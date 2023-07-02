@@ -150,11 +150,6 @@ namespace spnc {
     /// Flag to indicate whether an optimal representation for SPN evaluation shall be determined.
     extern Option<bool> optRepresentation;
 
-
-    ///
-    /// Specifies which type to use for internal computation and output. For example: ufloat-31
-    extern Option<std::string> fpgaFloatType;
-
     ///
     /// Specifies the path of the SPN Controller generator.
     extern Option<std::string> controllerGeneratorPath;
@@ -188,6 +183,10 @@ namespace spnc {
     extern Option<bool> fpgaCocoTb;
 
     extern Option<std::string> projectName;
+
+    extern Option<uint32_t> fpgaMantissaWidth;
+    extern Option<uint32_t> fpgaExponentWidth;
+    extern Option<std::string> fpgaFloatType;
   }
 }
 

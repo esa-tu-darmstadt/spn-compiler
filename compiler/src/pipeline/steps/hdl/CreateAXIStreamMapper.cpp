@@ -57,39 +57,6 @@ FModuleOp CreateAXIStreamMapper::insertFIRFile(const std::filesystem::path& path
 }
 
 ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
-  if (false) {
-    llvm::outs() << "CreateAXIStreamMapper::executeStep(): building RegisterFile...\n";
-
-    createFirpContext(root->getContext(), "RegisterFile");
-
-    const FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
-
-    axi4lite::AXI4LiteConfig liteConfig{
-      .addrBits = uint32_t(kernel.liteAddrWidth),
-      .dataBits = uint32_t(kernel.liteDataWidth)
-    };
-
-    axi4::AXI4Config memConfig{
-      .addrBits = uint32_t(kernel.memAddrWidth),
-      .dataBits = uint32_t(kernel.memDataWidth)
-    };
-
-    RegisterFile registerFile(liteConfig, memConfig, memConfig);
-    registerFile.makeTop();
-
-    if (mlir::failed(firpContext()->finish()))
-      return failure("could not verify generated FIRRTL");
-
-    if (mlir::failed(lowerFirrtlToHw()))
-      return failure("lowering to HW failed");
-
-    firpContext()->dump();
-
-    modOp = std::make_unique<mlir::ModuleOp>(firpContext()->root);
-
-    return success();
-  }
-
   llvm::outs() << "CreateAXIStreamMapper::executeStep()\n";
 
   std::string topName = doPrepareForCocoTb ? "AXI4CocoTbTop" : "AXI4StreamMapper";
@@ -381,7 +348,7 @@ void AXI4CocoTbTop::body() {
 
   io("interrupt") <<= mapper.io("interrupt");
 
-  svCocoTBVerbatim("AXI4CocoTbTop");
+  //svCocoTBVerbatim("AXI4CocoTbTop");
 }
 
 AXI4CocoTbTop AXI4CocoTbTop::make(

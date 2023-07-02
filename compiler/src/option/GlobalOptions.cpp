@@ -75,8 +75,6 @@ Option<bool> spnc::option::dumpIR{"dump-ir", false};
 
 Option<bool> spnc::option::optRepresentation{"opt-repr", false};
 
-Option<std::string> spnc::option::fpgaFloatType{"fpga-float-type", "ufloat-31"};
-
 Option<std::string> spnc::option::controllerGeneratorPath{"controller-generator-path"};
 
 Option<std::string> spnc::option::outputPath{"o", "."};
@@ -104,3 +102,7 @@ Option<std::string> spnc::option::fpgaConfigJson{"fpga-config-json", ""};
 Option<bool> spnc::option::fpgaCocoTb{"fpga-coco-tb", false};
 
 Option<std::string> spnc::option::projectName{"project-name", ""};
+
+Option<uint32_t> spnc::option::fpgaMantissaWidth{"fpga-mantissa-width", 23};
+Option<uint32_t> spnc::option::fpgaExponentWidth{"fpga-exponent-width", 8};
+Option<std::string> spnc::option::fpgaFloatType{"fpga-float-type", "float32"};

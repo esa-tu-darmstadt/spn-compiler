@@ -6,9 +6,12 @@
 namespace spnc {
 
 class LoSPNtoFPGAConversion : public MLIRPassPipeline<LoSPNtoFPGAConversion> {
+  uint32_t floatMantissaWidth;
+  uint32_t floatExponentWidth;
+  bool use32Bit;
 public:
-  LoSPNtoFPGAConversion(const std::string& fpgaConfigJson, StepWithResult<mlir::ModuleOp>& input):
-    MLIRPassPipeline<LoSPNtoFPGAConversion>(input), fpgaConfigJson(fpgaConfigJson) {}
+  LoSPNtoFPGAConversion(const std::string& fpgaConfigJson, uint32_t floatMantissaWidth, uint32_t floatExponentWidth, bool use32Bit, StepWithResult<mlir::ModuleOp>& input):
+    MLIRPassPipeline<LoSPNtoFPGAConversion>(input), fpgaConfigJson(fpgaConfigJson), floatMantissaWidth(floatMantissaWidth), floatExponentWidth(floatExponentWidth), use32Bit(use32Bit) {}
 
   void preProcess(mlir::ModuleOp *inputModule) override;
   void initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx);

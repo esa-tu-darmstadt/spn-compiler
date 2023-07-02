@@ -1,8 +1,5 @@
 #include "LoSPNtoFPGA2/LoSPNtoFPGAPass2.hpp"
 
-//#include "mlir/Dialect/Transform/IR/TransformUtils.h"
-#include "LoSPNtoFPGA2/Conversion.hpp"
-
 
 namespace mlir::spn::fpga {
 
@@ -17,12 +14,6 @@ void LoSPNtoFPGAPass2::getDependentDialects(DialectRegistry& registry) const {
 
 void LoSPNtoFPGAPass2::runOnOperation() {
   ModuleOp modOp = getOperation();
-
-  ConversionOptions options;
-  options.ufloatConfig.exponentWidth = 8;
-  options.ufloatConfig.mantissaWidth = 23;
-  options.use32Bit = true;
-  options.performLowering = false;
 
   Optional<ModuleOp> newModOp = convert(modOp, options);
 
