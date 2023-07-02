@@ -52,7 +52,7 @@ namespace spnc {
   // The fields in this struct are alloweded to contain only partially valid information. This depends on the use case.
   struct FPGAKernel {
     std::string fileName = "N/A";
-    std::string kernelName = "N/A";
+    std::string projectName = "N/A";
     int32_t kernelId = -1;
     std::string deviceName = "N/A";
     int32_t deviceSpeed = -1;
@@ -83,7 +83,7 @@ namespace spnc {
       ss
         << "FPGAKernel{"
         << "fileName=" << fileName
-        << ", kernelName=" << kernelName
+        << ", projectName=" << projectName
         << ", kernelId=" << kernelId
         << ", bodyDelay=" << bodyDelay
         << ", fifoDepth=" << fifoDepth

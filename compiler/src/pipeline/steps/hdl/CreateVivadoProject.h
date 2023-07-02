@@ -15,7 +15,6 @@ struct VivadoProjectConfig {
   std::filesystem::path topModuleFileName;
 
   std::string vendor = "esa.informatik.tu-darmstadt.de";
-  std::string projectName = "spnc";
   std::string directory = ".";
   std::string topModule = "spn_body";
   std::string tmpdir = "tmp";

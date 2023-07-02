@@ -50,7 +50,7 @@ void LoSPNtoFPGAConversion::preProcess(mlir::ModuleOp *inputModule) {
   kernel.liteDataWidth = j.at("axi4Lite").at("dataWidth");
   kernel.liteAddrWidth = j.at("axi4Lite").at("addrWidth");
 
-  kernel.kernelName = j.at("kernelName");
+  kernel.projectName = j.at("projectName");
   kernel.kernelId = j.at("kernelId");
   kernel.deviceName = j.at("device").at("name");
   kernel.deviceSpeed = j.at("device").at("mhz");

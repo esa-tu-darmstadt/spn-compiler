@@ -37,11 +37,18 @@ if __name__ == '__main__':
   print(f'got {spn_to_str_ref_graph(spn)}')
 
   # create HDL source files from SPN (invoke compiler)
-  from spnc.fpga import FPGACompiler
+  from spnc.fpga import FPGACompiler, get_fpga_device_config
   
   wdir = Path('./spn_core_wdir')
   fpga = FPGACompiler()
-  json_config = 'resources/config/vc709-example.json'
+  #json_config = 'resources/config/vc709-example.json'
+  json_config = get_fpga_device_config('vc709', 'project_vcd')
+
+  # copy json config to wdir
+  json_config_path = wdir / 'config.json'
+  with open(json_config_path, 'w') as file:
+    file.write(json_config)
+
   kernel = fpga.compile_testbench(spn, wdir, json_config)
 
   # set environment variables for cocotb that point to the correct location
@@ -54,6 +61,6 @@ if __name__ == '__main__':
     **os.environ.copy(),
     'PYTHONPATH': ':'.join(sys.path),
     'SPN_PATH': str(Path(spn_path).resolve()),
-    'CONFIG_PATH': str(Path(json_config).resolve())
+    'CONFIG_PATH': str(json_config_path.resolve())
   }
   subprocess.run(cmd, shell=True, cwd='.', env=env)

@@ -186,6 +186,8 @@ namespace spnc {
 
     extern Option<std::string> fpgaConfigJson;
     extern Option<bool> fpgaCocoTb;
+
+    extern Option<std::string> projectName;
   }
 }
 

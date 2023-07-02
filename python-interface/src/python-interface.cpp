@@ -33,7 +33,7 @@ PYBIND11_MODULE(spncpy, m) {
               if (kernel.getKernelType() == KernelType::FPGA_KERNEL)
                 return kernel.getClassicalKernel().kernelName;
               else
-                return kernel.getFPGAKernel().kernelName;
+                return kernel.getFPGAKernel().projectName;
             })
       .def("execute",
           [](const Kernel& kernel, int num_elements, py::array& inputs) {

@@ -195,7 +195,7 @@ async def test_AXI4CocoTbTop(dut):
 
   cfg = load_config()
 
-  rename_signals(dut)
+  #rename_signals(dut)
 
   print('=====================INPUTS=====================')
   print(data)
@@ -235,29 +235,30 @@ async def test_AXI4CocoTbTop(dut):
   dut.reset.value = 0
   print(f'done')
 
-  # write registers
-  regs_base = 0x2000_0000
-  off = 0x10
-  byteCount = cfg['axi4Lite']['dataWidth'] // 8
-  await reg_file.write(2 * off + regs_base, read_base.to_bytes(byteCount, byteorder='little'))        # loadBaseAddress
-  await reg_file.write(3 * off + regs_base, load_beat_count.to_bytes(byteCount, byteorder='little'))  # numLdTransfers
-  await reg_file.write(4 * off + regs_base, write_base.to_bytes(byteCount, byteorder='little'))       # storeBaseAddress
-  await reg_file.write(5 * off + regs_base, store_beat_count.to_bytes(byteCount, byteorder='little')) # numStTransfers
-  await reg_file.write(0 * off + regs_base, int(1).to_bytes(byteCount, byteorder='little'))           # status, okay let's go
+  cocotb.start_soon(wait_timeout(1000000))
 
-  await First(
-    cocotb.start_soon(poll_interrupt(dut)),
-    cocotb.start_soon(wait_timeout(100000))
-  )
+  # run the following 3 times
+  for _ in range(3):
+    # write registers
+    regs_base = 0x2000_0000
+    off = 0x10
+    byteCount = cfg['axi4Lite']['dataWidth'] // 8
+    await reg_file.write(2 * off + regs_base, read_base.to_bytes(byteCount, byteorder='little'))        # loadBaseAddress
+    await reg_file.write(3 * off + regs_base, load_beat_count.to_bytes(byteCount, byteorder='little'))  # numLdTransfers
+    await reg_file.write(4 * off + regs_base, write_base.to_bytes(byteCount, byteorder='little'))       # storeBaseAddress
+    await reg_file.write(5 * off + regs_base, store_beat_count.to_bytes(byteCount, byteorder='little')) # numStTransfers
+    await reg_file.write(0 * off + regs_base, int(1).to_bytes(byteCount, byteorder='little'))           # status, okay let's go
 
-  # read the status
-  retVal = await reg_file.read(1 * off + regs_base, byteCount)
+    await cocotb.start_soon(poll_interrupt(dut))
 
-  # we didn't crash => we got an interrupt and can now check the results
-  as_floats = list(struct.unpack(f'<{write_size // 4}f', axi_ram.read(write_base, write_size)))
+    # read the status
+    retVal = await reg_file.read(1 * off + regs_base, byteCount)
 
-  for got, exp in zip(as_floats, expected):
-    print(f'got {got} expected {exp}')
-    assert math.isclose(got, exp, rel_tol=1e-5), f'got {got} expected {exp}'
+    # we didn't crash => we got an interrupt and can now check the results
+    as_floats = list(struct.unpack(f'<{write_size // 4}f', axi_ram.read(write_base, write_size)))
 
-  print(f'retVal={int.from_bytes(retVal)}')
+    for got, exp in zip(as_floats, expected):
+      print(f'got {got} expected {exp}')
+      assert math.isclose(got, exp, rel_tol=1e-5), f'got {got} expected {exp}'
+
+  #print(f'retVal={int.from_bytes(retVal, byteorder='little')}')

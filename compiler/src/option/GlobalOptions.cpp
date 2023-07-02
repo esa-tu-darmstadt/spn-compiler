@@ -102,3 +102,5 @@ Option<bool> spnc::option::fpgaCreateVerilogFiles{"fpga-create-verilog-files", f
 Option<std::string> spnc::option::fpgaConfigJson{"fpga-config-json", ""};
 
 Option<bool> spnc::option::fpgaCocoTb{"fpga-coco-tb", false};
+
+Option<std::string> spnc::option::projectName{"project-name", ""};

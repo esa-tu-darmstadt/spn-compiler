@@ -141,4 +141,56 @@ public:
   );
 };
 
+class DummyWrapper : public firp::Module<DummyWrapper> {
+  axi4lite::AXI4LiteConfig liteConfig;
+  axi4::AXI4Config writeConfig;
+  axi4::AXI4Config readConfig;
+public:
+  DummyWrapper(const axi4lite::AXI4LiteConfig& liteConfig,
+                const axi4::AXI4Config& writeConfig,
+                const axi4::AXI4Config& readConfig)
+    : Module<DummyWrapper>(
+      "DummyWrapper",
+      {
+        firp::Input("S_AXI_LITE", axi4lite::axi4LiteFlattenType(axi4lite::axi4LiteType(liteConfig))),
+        firp::Output("M_AXI", axi4::axi4FlattenType(axi4::axi4Type(writeConfig, readConfig))),
+        firp::Output("interrupt", firp::bitType())
+      },
+      liteConfig, writeConfig, readConfig
+    ),
+      liteConfig(liteConfig),
+      writeConfig(writeConfig),
+      readConfig(readConfig)
+    { build(); }
+
+  void body();
+
+  static DummyWrapper make(
+    const FPGAKernel& kernel
+  );
+};
+
+class RegisterFile : public firp::Module<RegisterFile> {
+  axi4lite::AXI4LiteConfig liteConfig;
+  axi4::AXI4Config writeConfig;
+  axi4::AXI4Config readConfig;
+public:
+  RegisterFile(const axi4lite::AXI4LiteConfig& liteConfig,
+               const axi4::AXI4Config& writeConfig,
+               const axi4::AXI4Config& readConfig)
+    : Module<RegisterFile>(
+      "RegisterFile",
+      {
+        firp::Input("S_AXI_LITE", axi4lite::axi4LiteFlattenType(axi4lite::axi4LiteType(liteConfig))),
+        firp::Output("M_AXI", axi4::axi4FlattenType(axi4::axi4Type(writeConfig, readConfig))),
+        firp::Output("interrupt", firp::bitType())
+      },
+      liteConfig, writeConfig, readConfig
+    ),
+      liteConfig(liteConfig), writeConfig(writeConfig), readConfig(readConfig)
+    { build(); }
+
+  void body();
+};
+
 }

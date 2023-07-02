@@ -50,7 +50,7 @@ Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t&
     SPDLOG_INFO("Generated Kernel in {}, kernel name {}", classical.fileName, classical.kernelName);
   } else if (kernel->getKernelType() == KernelType::FPGA_KERNEL) {
     FPGAKernel fpga = kernel->getFPGAKernel();
-    SPDLOG_INFO("Generated Kernel in {}, kernel name {}", fpga.fileName, fpga.kernelName);
+    SPDLOG_INFO("Generated Kernel in {}, project name {}", fpga.fileName, fpga.projectName);
   } else {
     assert(false);
   }

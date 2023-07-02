@@ -57,6 +57,39 @@ FModuleOp CreateAXIStreamMapper::insertFIRFile(const std::filesystem::path& path
 }
 
 ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
+  if (false) {
+    llvm::outs() << "CreateAXIStreamMapper::executeStep(): building RegisterFile...\n";
+
+    createFirpContext(root->getContext(), "RegisterFile");
+
+    const FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
+
+    axi4lite::AXI4LiteConfig liteConfig{
+      .addrBits = uint32_t(kernel.liteAddrWidth),
+      .dataBits = uint32_t(kernel.liteDataWidth)
+    };
+
+    axi4::AXI4Config memConfig{
+      .addrBits = uint32_t(kernel.memAddrWidth),
+      .dataBits = uint32_t(kernel.memDataWidth)
+    };
+
+    RegisterFile registerFile(liteConfig, memConfig, memConfig);
+    registerFile.makeTop();
+
+    if (mlir::failed(firpContext()->finish()))
+      return failure("could not verify generated FIRRTL");
+
+    if (mlir::failed(lowerFirrtlToHw()))
+      return failure("lowering to HW failed");
+
+    firpContext()->dump();
+
+    modOp = std::make_unique<mlir::ModuleOp>(firpContext()->root);
+
+    return success();
+  }
+
   llvm::outs() << "CreateAXIStreamMapper::executeStep()\n";
 
   std::string topName = doPrepareForCocoTb ? "AXI4CocoTbTop" : "AXI4StreamMapper";
@@ -128,6 +161,11 @@ void AXI4StreamMapper::body() {
   );
 
   auto status = regs[0];
+
+  when (status != uval(0), [&](){
+    status <<= uval(0);
+  });
+
   auto retVal = regs[1];
   auto loadBaseAddress = regs[2];
   auto numLdTransfers = regs[3];
@@ -215,6 +253,10 @@ void AXI4StreamMapper::body() {
   spnController.io("reset") <<= io("reset");
   spnController.io("AXIS_SLAVE") <<= io("S_AXIS_CONTROLLER");
   io("M_AXIS_CONTROLLER") <<= spnController.io("AXIS_MASTER");
+
+  assert(
+    io("M_AXIS_CONTROLLER")("TDATA").bitCount() == spnController.io("AXIS_MASTER")("TDATA").bitCount()
+  );
 
   // FSM
   enum State {
@@ -392,6 +434,233 @@ AXI4CocoTbTop AXI4CocoTbTop::make(
     ipecStoreUnit,
     spnAxisController
   );
+}
+
+void DummyWrapper::body() {
+  auto regs = axi4LiteRegisterFile(
+    liteConfig,
+    {
+      "status",
+      "retVal",
+      "a",
+      "b",
+      "c",
+      "d"
+    },
+    0x10, // Tapasco uses 0x10 address increments
+    io("S_AXI_LITE")
+  );
+
+  /*
+  io("S_AXI_LITE")("ARREADY") <<= uval(0);
+  
+  io("S_AXI_LITE")("RVALID") <<= uval(0);
+  io("S_AXI_LITE")("RRESP") <<= uval(0);
+  io("S_AXI_LITE")("RDATA") <<= uval(0);
+  
+  io("S_AXI_LITE")("AWREADY") <<= uval(0);
+  
+  io("S_AXI_LITE")("WREADY") <<= uval(0);
+
+  io("S_AXI_LITE")("BVALID") <<= uval(0);
+  io("S_AXI_LITE")("BRESP") <<= uval(0);
+   */
+
+  auto status = regs[0];
+
+  when (status != uval(0), [&](){
+    status <<= uval(0);
+  });
+
+  auto retVal = regs[1];
+  auto a = regs[2];
+  auto b = regs[3];
+  auto c = regs[4];
+  auto d = regs[5];
+
+  //{ ar : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, addr : UInt<32>, len : UInt<8>, size : UInt<3>, burst : UInt<2>, lock : UInt<1>, cache : UInt<4>, prot : UInt<3>, qos : UInt<4>, region : UInt<4>}
+  io("M_AXI")("ARVALID") <<= uval(0);
+  io("M_AXI")("ARID") <<= uval(0);
+  io("M_AXI")("ARADDR") <<= uval(0);
+  io("M_AXI")("ARLEN") <<= uval(0);
+  io("M_AXI")("ARSIZE") <<= uval(0);
+  io("M_AXI")("ARBURST") <<= uval(0);
+  io("M_AXI")("ARLOCK") <<= uval(0);
+  io("M_AXI")("ARCACHE") <<= uval(0);
+  io("M_AXI")("ARPROT") <<= uval(0);
+  io("M_AXI")("ARQOS") <<= uval(0);
+  io("M_AXI")("ARREGION") <<= uval(0);
+  io("M_AXI")("ARUSER") <<= uval(0, readConfig.userBits);
+
+  // flip r : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, data : UInt<32>, resp : UInt<2>, last : UInt<1>}}
+  io("M_AXI")("RREADY") <<= uval(0);
+
+  // aw : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, addr : UInt<32>, len : UInt<8>, size : UInt<3>, burst : UInt<2>, lock : UInt<1>, cache : UInt<4>, prot : UInt<3>, qos : UInt<4>, region : UInt<4>}
+  io("M_AXI")("AWVALID") <<= uval(0);
+  io("M_AXI")("AWID") <<= uval(0);
+  io("M_AXI")("AWADDR") <<= uval(0);
+  io("M_AXI")("AWLEN") <<= uval(0);
+  io("M_AXI")("AWSIZE") <<= uval(0);
+  io("M_AXI")("AWBURST") <<= uval(0);
+  io("M_AXI")("AWLOCK") <<= uval(0);
+  io("M_AXI")("AWCACHE") <<= uval(0);
+  io("M_AXI")("AWPROT") <<= uval(0);
+  io("M_AXI")("AWQOS") <<= uval(0);
+  io("M_AXI")("AWREGION") <<= uval(0);
+  io("M_AXI")("AWUSER") <<= uval(0, writeConfig.userBits);
+
+  // w : { valid : UInt<1>, flip ready : UInt<1>, data : UInt<32>, strb : UInt<4>, last : UInt<1>}
+  io("M_AXI")("WVALID") <<= uval(0);
+  io("M_AXI")("WDATA") <<= uval(0);
+  io("M_AXI")("WSTRB") <<= uval(0);
+  io("M_AXI")("WLAST") <<= uval(0);
+
+  // flip b : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, resp : UInt<2>}}
+  io("M_AXI")("BREADY") <<= uval(0);
+
+  // FSM
+  enum State {
+    IDLE = 0,
+    RUNNING,
+    DONE
+  };
+
+  auto state = regInit(uval(0, 2), "state");
+  auto interrupt = regInit(uval(1), "interrupt");
+
+  io("interrupt") <<= interrupt;
+  retVal <<= uval(0);
+
+  when (state.read() == uval(IDLE), [&](){
+    when (status(0), [&](){
+      state <<= uval(RUNNING);
+    });
+  })
+  .elseWhen (state.read() == uval(RUNNING), [&](){
+    interrupt <<= uval(1);
+    state <<= uval(DONE);
+  })
+  .elseWhen (state.read() == uval(DONE), [&](){
+    interrupt <<= uval(0);
+    state <<= uval(IDLE);
+  });
+}
+
+DummyWrapper DummyWrapper::make(const FPGAKernel& kernel) {
+  // I think TaPaSco uses this
+  axi4lite::AXI4LiteConfig liteConfig{
+    .addrBits = uint32_t(kernel.liteAddrWidth),
+    .dataBits = uint32_t(kernel.liteDataWidth)
+  };
+
+  // used for the write and read channels of the memory AXI4 ports
+  axi4::AXI4Config memConfig{
+    .addrBits = uint32_t(kernel.memAddrWidth),
+    .dataBits = uint32_t(kernel.memDataWidth)
+  };
+
+  return DummyWrapper(
+    liteConfig,
+    memConfig,
+    memConfig
+  );
+}
+
+void RegisterFile::body() {
+  auto regs = axi4LiteRegisterFile(
+    liteConfig,
+    { "status", "retVal", "a", "b", "c" },
+    0x10,
+    io("S_AXI_LITE")
+  );
+
+  auto status = regs[0];
+
+  when (status != uval(0), [&](){
+    status <<= uval(0);
+  });
+
+  auto retVal = regs[1];
+  auto a = regs[2];
+  auto b = regs[3];
+  auto c = regs[4];
+
+  //{ ar : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, addr : UInt<32>, len : UInt<8>, size : UInt<3>, burst : UInt<2>, lock : UInt<1>, cache : UInt<4>, prot : UInt<3>, qos : UInt<4>, region : UInt<4>}
+  io("M_AXI")("ARVALID") <<= uval(0);
+  io("M_AXI")("ARID") <<= uval(0);
+  io("M_AXI")("ARADDR") <<= uval(0);
+  io("M_AXI")("ARLEN") <<= uval(0);
+  io("M_AXI")("ARSIZE") <<= uval(0);
+  io("M_AXI")("ARBURST") <<= uval(0);
+  io("M_AXI")("ARLOCK") <<= uval(0);
+  io("M_AXI")("ARCACHE") <<= uval(0);
+  io("M_AXI")("ARPROT") <<= uval(0);
+  io("M_AXI")("ARQOS") <<= uval(0);
+  io("M_AXI")("ARREGION") <<= uval(0);
+  io("M_AXI")("ARUSER") <<= uval(0, readConfig.userBits);
+
+  // flip r : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, data : UInt<32>, resp : UInt<2>, last : UInt<1>}}
+  io("M_AXI")("RREADY") <<= uval(0);
+
+  // aw : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, addr : UInt<32>, len : UInt<8>, size : UInt<3>, burst : UInt<2>, lock : UInt<1>, cache : UInt<4>, prot : UInt<3>, qos : UInt<4>, region : UInt<4>}
+  io("M_AXI")("AWVALID") <<= uval(0);
+  io("M_AXI")("AWID") <<= uval(0);
+  io("M_AXI")("AWADDR") <<= uval(0);
+  io("M_AXI")("AWLEN") <<= uval(0);
+  io("M_AXI")("AWSIZE") <<= uval(0);
+  io("M_AXI")("AWBURST") <<= uval(0);
+  io("M_AXI")("AWLOCK") <<= uval(0);
+  io("M_AXI")("AWCACHE") <<= uval(0);
+  io("M_AXI")("AWPROT") <<= uval(0);
+  io("M_AXI")("AWQOS") <<= uval(0);
+  io("M_AXI")("AWREGION") <<= uval(0);
+  io("M_AXI")("AWUSER") <<= uval(0, writeConfig.userBits);
+
+  // w : { valid : UInt<1>, flip ready : UInt<1>, data : UInt<32>, strb : UInt<4>, last : UInt<1>}
+  io("M_AXI")("WVALID") <<= uval(0);
+  io("M_AXI")("WDATA") <<= uval(0);
+  io("M_AXI")("WSTRB") <<= uval(0);
+  io("M_AXI")("WLAST") <<= uval(0);
+
+  // flip b : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, resp : UInt<2>}}
+  io("M_AXI")("BREADY") <<= uval(0);
+
+  // FSM
+  enum State {
+    IDLE = 0,
+    RUNNING,
+    DONE
+  };
+
+  auto state = regInit(uval(0, 2), "state");
+  auto interrupt = regInit(uval(0), "interrupt");
+  auto counter = regInit(uval(0, 32), "counter");
+
+  io("interrupt") <<= interrupt;
+  retVal <<= uval(0);
+
+  when (state.read() == uval(IDLE), [&](){
+    when (status(0), [&](){
+      state <<= uval(RUNNING);
+      counter <<= a;
+      c <<= uval(0);
+    });
+  })
+  .elseWhen (state.read() == uval(RUNNING), [&](){
+    counter <<= counter.read() - uval(1);
+    c <<= c + b;
+
+    when (counter.read() == uval(0), [&](){
+      interrupt <<= uval(1);
+      state <<= uval(DONE);
+    });
+  })
+  .elseWhen (state.read() == uval(DONE), [&](){
+    interrupt <<= uval(0);
+    state <<= uval(IDLE);
+  });
+
+  svCocoTBVerbatim("RegisterFile");
 }
 
 }

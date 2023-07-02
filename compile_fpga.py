@@ -12,7 +12,7 @@ from spn.io.Text import spn_to_str_ref_graph
 
 
 def print_usage():
-  print('Usage: compile_fpga <compile/load/execute> <path to .spn file> <work directory name>')
+  print('Usage: compile_fpga <compile/load/execute> <path to .spn file> <project name>')
 
 def bin_name(spn_name: str):
   return spn_name.split('.')[0] + '.bin'
@@ -37,16 +37,15 @@ if __name__ == '__main__':
 
   cmd = sys.argv[1]
   spn_path = sys.argv[2]
-  wdir_name = Path(sys.argv[3])
+  project_name = sys.argv[3]
+  wdir_name = Path(project_name)
   spn, variables_to_index, index_to_min, index_to_max = load_spn(str(spn_path))
 
   # create HDL source files from SPN (invoke compiler)
   from spnc.fpga import FPGACompiler, get_fpga_device_config
 
-  spn_name = Path(spn_path).stem.split('.')[0]
-
   fpga = FPGACompiler(verbose=False)
-  json_config = get_fpga_device_config('vc709')
+  json_config = get_fpga_device_config('vc709', project_name)
   
   if cmd == 'compile':
     kernel = fpga.compile_full(spn, wdir_name, json_config)
@@ -59,6 +58,9 @@ if __name__ == '__main__':
 
     kernel = fpga.compile_get_kernel_info(spn, wdir_name, json_config)
     fpga.execute(kernel, input_data)
+  elif cmd == 'test':
+    kernel = fpga.compile_full(spn, wdir_name, json_config)
+    pass
   else:
     print_usage()
     exit(0)

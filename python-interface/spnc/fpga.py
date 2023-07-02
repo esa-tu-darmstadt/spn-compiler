@@ -17,7 +17,7 @@ from xspn.structure.Query import JointProbability, ErrorModel
 import spnc.spncpy as spncpy
 
 
-def get_fpga_device_config(device_name: str) -> str:
+def get_fpga_device_config(device_name: str, project_name: str) -> str:
   d = {}
 
   if device_name == 'vc709':
@@ -34,8 +34,8 @@ def get_fpga_device_config(device_name: str) -> str:
         "addrWidth": 32,
         "dataWidth": 32
       },
-      "kernelName": "MyKernel",
-      "kernelId": 123,
+      "projectName": project_name,
+      "kernelId": 1,
       "floatType": "float32"
     }
   elif device_name == 'ultra96v2':
@@ -53,7 +53,7 @@ def get_fpga_device_config(device_name: str) -> str:
         "addrWidth": 64,
         "dataWidth": 64
       },
-      "kernelName": "MyKernel",
+      "projectName": project_name,
       "kernelId": 123,
       "floatType": "float32"
     }

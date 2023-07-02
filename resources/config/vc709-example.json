@@ -11,7 +11,7 @@
     "addrWidth": 32,
     "dataWidth": 32
   },
-  "kernelName": "MyKernel",
-  "kernelId": 123,
+  "projectName": "MyProject",
+  "kernelId": 1,
   "floatType": "float32"
 }
