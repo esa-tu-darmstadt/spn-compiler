@@ -55,14 +55,10 @@ void LoSPNtoFPGAConversion::preProcess(mlir::ModuleOp *inputModule) {
   kernel.deviceName = j.at("device").at("name");
   kernel.deviceSpeed = j.at("device").at("mhz");
 
-  std::string floatType = j.at("floatType");
-
-  if (floatType == "float32")
+  if (use32Bit)
     kernel.spnResultWidth = 32;
-  else if (floatType == "float64")
-    kernel.spnResultWidth = 64;
   else
-    assert(false && "Invalid floatType in fpga-config-json");
+    kernel.spnResultWidth = 64;
 
   ::mlir::spn::SPNBitWidth bitWidth(inputModule->getOperation());
 

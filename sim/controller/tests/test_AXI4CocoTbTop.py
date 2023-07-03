@@ -255,6 +255,8 @@ async def test_AXI4CocoTbTop(dut):
     # read the status
     retVal = await reg_file.read(1 * off + regs_base, byteCount)
 
+    print(f'read bytes: {axi_ram.read(write_base, 64)}')
+
     # we didn't crash => we got an interrupt and can now check the results
     if isFloat32:
       as_floats = list(struct.unpack(f'<{write_size // 4}f', axi_ram.read(write_base, write_size)))
