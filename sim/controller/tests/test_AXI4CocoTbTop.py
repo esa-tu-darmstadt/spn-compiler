@@ -263,8 +263,8 @@ async def test_AXI4CocoTbTop(dut):
     else:
       as_floats = list(struct.unpack(f'<{write_size // 8}d', axi_ram.read(write_base, write_size)))
 
-    for got, exp in zip(as_floats, expected):
-      print(f'got {got} expected {exp}')
+    for i, (got, exp) in enumerate(zip(as_floats, expected)):
+      print(f'index {i}: got {got} expected {exp}')
       assert math.isclose(got, exp, rel_tol=1e-5), f'got {got} expected {exp}'
 
   #print(f'retVal={int.from_bytes(retVal, byteorder='little')}')

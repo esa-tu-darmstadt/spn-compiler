@@ -348,7 +348,7 @@ void AXI4CocoTbTop::body() {
 
   io("interrupt") <<= mapper.io("interrupt");
 
-  svCocoTBVerbatim("AXI4CocoTbTop");
+  //svCocoTBVerbatim("AXI4CocoTbTop");
 }
 
 AXI4CocoTbTop AXI4CocoTbTop::make(
