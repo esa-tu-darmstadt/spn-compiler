@@ -52,6 +52,7 @@ public:
     j["varCount"] = kernel->getFPGAKernel().spnVarCount;
     j["bitsPerVar"] = kernel->getFPGAKernel().spnBitsPerVar;
     j["bodyDelay"] = kernel->getFPGAKernel().bodyDelay;
+    j["floatType"] = kernel->getFPGAKernel().spnResultWidth == 32 ? "float32" : "float64";
 
     fs::path targetFile = targetPath / "config.json";
     std::ofstream outFile(targetFile);

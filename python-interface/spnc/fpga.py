@@ -35,8 +35,7 @@ def get_fpga_device_config(device_name: str, project_name: str) -> str:
         "dataWidth": 32
       },
       "projectName": project_name,
-      "kernelId": 1,
-      "floatType": "float32"
+      "kernelId": 1
     }
   elif device_name == 'ultra96v2':
     # TODO: check if this is correct
@@ -54,8 +53,7 @@ def get_fpga_device_config(device_name: str, project_name: str) -> str:
         "dataWidth": 64
       },
       "projectName": project_name,
-      "kernelId": 123,
-      "floatType": "float32"
+      "kernelId": 123
     }
   else:
     raise ValueError(f'unknown device {device_name}')
@@ -123,14 +121,18 @@ class FPGACompiler:
 
         return self._compile(spn, wdir, options, json_config)
 
-    def compile_full(self, spn, wdir, json_config):
+    def compile_full(self, spn, wdir, json_config, exponent_width=8, mantissa_width=23, float_type='float32'):
         options = dict({"target": "FPGA",
                         "o": str(wdir),
                         "fpga-wrap-axi-stream": "true",
                         "fpga-create-verilog-files": "true",
+                        "fpga-coco-tb": "false",
+                        "fpga-config-json": json_config,
                         "vivado": "true",
                         "tapasco-compose": "true",
-                        "fpga-config-json": json_config
+                        "fpga-exponent-width": str(exponent_width),
+                        "fpga-mantissa-width": str(mantissa_width),
+                        "fpga-float-type": float_type
                         })
 
         return self._compile(spn, wdir, options, json_config)

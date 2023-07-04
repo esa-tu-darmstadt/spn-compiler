@@ -11,17 +11,10 @@ import argparse
 from spn.io.Text import spn_to_str_ref_graph
 
 
-def print_usage():
-  print('Usage: run_cocotb_mapper <path to .spn file>')
-
 def bin_name(spn_name: str):
     return spn_name.split('.')[0] + '.bin'
 
 if __name__ == '__main__':
-  if len(sys.argv) <= 1:
-    print_usage()
-    exit(0)
-
   parser = argparse.ArgumentParser(description='Run cocotb testbench for the full SPN AXI integration')
   parser.add_argument('--spn', metavar='spn', type=str, help='path to the SPN file')
   parser.add_argument('--wdir', metavar='wdir', type=str, help='name of the working directory')
