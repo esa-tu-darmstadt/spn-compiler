@@ -121,7 +121,7 @@ class FPGACompiler:
 
         return self._compile(spn, wdir, options, json_config)
 
-    def compile_full(self, spn, wdir, json_config, exponent_width=8, mantissa_width=23, float_type='float32'):
+    def compile_full(self, spn, wdir, json_config, project_name, exponent_width=8, mantissa_width=23, float_type='float32'):
         options = dict({"target": "FPGA",
                         "o": str(wdir),
                         "fpga-wrap-axi-stream": "true",
@@ -132,7 +132,8 @@ class FPGACompiler:
                         "tapasco-compose": "true",
                         "fpga-exponent-width": str(exponent_width),
                         "fpga-mantissa-width": str(mantissa_width),
-                        "fpga-float-type": float_type
+                        "fpga-float-type": float_type,
+                        "project-name": project_name
                         })
 
         return self._compile(spn, wdir, options, json_config)

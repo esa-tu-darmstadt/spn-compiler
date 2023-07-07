@@ -49,10 +49,13 @@ public:
     // Don't ask me what happens when an invalid json is passed. Exceptions are disabled Q_Q
     json j = json::parse(jsonText);
 
-    j["varCount"] = kernel->getFPGAKernel().spnVarCount;
-    j["bitsPerVar"] = kernel->getFPGAKernel().spnBitsPerVar;
-    j["bodyDelay"] = kernel->getFPGAKernel().bodyDelay;
-    j["floatType"] = kernel->getFPGAKernel().spnResultWidth == 32 ? "float32" : "float64";
+    auto fpgaKernel = kernel->getFPGAKernel();
+
+    j["varCount"] = fpgaKernel.spnVarCount;
+    j["bitsPerVar"] = fpgaKernel.spnBitsPerVar;
+    j["bodyDelay"] = fpgaKernel.bodyDelay;
+    j["floatType"] = fpgaKernel.spnResultWidth == 32 ? "float32" : "float64";
+    j["projectName"] = fpgaKernel.projectName;
 
     fs::path targetFile = targetPath / "config.json";
     std::ofstream outFile(targetFile);

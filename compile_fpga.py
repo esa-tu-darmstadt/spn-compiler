@@ -55,7 +55,7 @@ if __name__ == '__main__':
   json_config = get_fpga_device_config('vc709', project_name) if args.json_config == '' else args.json_config
 
   if cmd == 'compile':
-    kernel = fpga.compile_full(spn, wdir_name, json_config)
+    kernel = fpga.compile_full(spn, wdir_name, json_config, project_name, args.exponent_width, args.mantissa_width, args.float_type)
   elif cmd == 'load':
     pass
   elif cmd == 'execute':

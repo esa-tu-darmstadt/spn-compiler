@@ -73,6 +73,7 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
   std::string fpgaConfigJson = option::fpgaConfigJson.get(*config);
   uint32_t floatMantissaWidth = option::fpgaMantissaWidth.get(*config);
   uint32_t floatExponentWidth = option::fpgaExponentWidth.get(*config);
+  std::string projectName = option::projectName.get(*config);
   bool use32Bit;
 
   if (option::fpgaFloatType.get(*config) == "float32")
@@ -83,7 +84,7 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
     llvm_unreachable("invalid float type");
 
   auto& lospn2fpga = pipeline->emplaceStep<LoSPNtoFPGAConversion>(
-    fpgaConfigJson, floatMantissaWidth, floatExponentWidth, use32Bit, lospnTransform
+    fpgaConfigJson, floatMantissaWidth, floatExponentWidth, use32Bit, projectName, lospnTransform
   );
 
   // TODO: FIX THIS MESS!!!
