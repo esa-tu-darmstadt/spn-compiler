@@ -59,7 +59,12 @@ FModuleOp CreateAXIStreamMapper::insertFIRFile(const std::filesystem::path& path
 ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
   llvm::outs() << "CreateAXIStreamMapper::executeStep()\n";
 
+#ifdef USE_CUSTOM_MIMO
+  std::string topName = "AXI4StreamMapper";
+#else
   std::string topName = doPrepareForCocoTb ? "AXI4CocoTbTop" : "AXI4StreamMapper";
+#endif
+
   setNewTopName(*root, topName);
   CircuitOp circuitOp = cast<CircuitOp>(root->getBody()->front());
   attachFirpContext(circuitOp);
@@ -82,7 +87,17 @@ ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
   const FPGAKernel& kernel = getContext()->get<Kernel>()->getFPGAKernel();
 
   if (doPrepareForCocoTb) {
-    AXI4CocoTbTop tbTop = AXI4CocoTbTop::make(
+#ifdef USE_CUSTOM_MIMO
+  AXI4StreamMapper_mimo mapper = AXI4StreamMapper_mimo::make(
+      kernel,
+      loadUnit,
+      storeUnit,
+      streamWrapper
+    );
+
+    mapper.makeTop();
+#else
+  AXI4CocoTbTop tbTop = AXI4CocoTbTop::make(
       kernel,
       loadUnit,
       storeUnit,
@@ -90,7 +105,18 @@ ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
     );
 
     tbTop.makeTop();
+#endif
   } else {
+#ifdef USE_CUSTOM_MIMO
+    AXI4StreamMapper_mimo mapper = AXI4StreamMapper_mimo::make(
+      kernel,
+      loadUnit,
+      storeUnit,
+      streamWrapper
+    );
+
+    mapper.makeTop();
+#else
     AXI4StreamMapper mapper = AXI4StreamMapper::make(
       kernel,
       loadUnit,
@@ -99,6 +125,7 @@ ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
     );
 
     mapper.makeTop();
+#endif
   }
 
   if (mlir::failed(firpContext()->finish()))
@@ -214,6 +241,17 @@ void AXI4StreamMapper::body() {
   receiver.io("AXIS") <<= io("S_AXIS");
   storeUnit.io("io")("data") <<= receiver.io("deq");
 
+  // count the words put into storeUnit and read from loadUnit
+  auto storeCount = regInit(uval(0, 32), "storeCount");
+  when (doesFire(storeUnit.io("io")("data")), [&](){
+    storeCount <<= storeCount.read() + uval(1);
+  });
+
+  auto loadCount = regInit(uval(0, 32), "loadCount");
+  when (doesFire(loadUnit.io("io")("data")), [&](){
+    loadCount <<= loadCount.read() + uval(1);
+  });
+
   // connect controller directly to the outside world
   FIRModule spnController(spnAxisController);
   spnController.io("clock") <<= io("clock");
@@ -237,6 +275,7 @@ void AXI4StreamMapper::body() {
   auto maxCycleCount = regInit(uval(100000, 32), "maxCycleCount");
 
   io("interrupt") <<= uval(0);
+  //io("reset") <<= uval(0);
 
   when (state.read() == uval(IDLE), [&](){
     when (status(0), [&](){
@@ -251,18 +290,20 @@ void AXI4StreamMapper::body() {
       state <<= uval(DONE);
       io("interrupt") <<= uval(1);
       retVal <<= cycleCount;
-    })
-    .elseWhen (cycleCount.read() >= maxCycleCount.read(), [&](){
-      state <<= uval(DONE);
-      io("interrupt") <<= uval(1);
-      retVal <<= uval(0);
     });
+    //.elseWhen (cycleCount.read() >= maxCycleCount.read(), [&](){
+    //  state <<= uval(DONE);
+    //  io("interrupt") <<= uval(1);
+    //  retVal <<= uval(0);
+    //});
 
     cycleCount <<= cycleCount.read() + uval(1);
   })
   .elseWhen (state.read() == uval(DONE), [&](){
     io("interrupt") <<= uval(0);
     state <<= uval(IDLE);
+    // extremely dirty hack to hopefully get things working
+    //io("reset") <<= uval(1);
   });
 }
 
@@ -305,6 +346,218 @@ AXI4StreamMapper AXI4StreamMapper::make(
   };
 
   return AXI4StreamMapper(
+    liteConfig,
+    memConfig,
+    memConfig,
+    mAxisConfig,
+    sAxisControllerConfig,
+    sAxisConfig,
+    mAxisControllerConfig,
+    ipecLoadUnit,
+    ipecStoreUnit,
+    spnAxisController
+  );
+}
+
+void AXI4StreamMapper_mimo::body() {
+  auto regs = axi4LiteRegisterFile(
+    liteConfig,
+    {
+      "status",
+      "retVal",
+      "loadBaseAddress",
+      "numLdTransfers",
+      "storeBaseAddress",
+      "numSdTransfers"
+    },
+    0x10, // Tapasco uses 0x10 address increments
+    io("S_AXI_LITE")
+  );
+
+  auto status = regs[0];
+
+  when (status != uval(0), [&](){
+    status <<= uval(0);
+  });
+
+  auto retVal = regs[1];
+  auto loadBaseAddress = regs[2];
+  auto numLdTransfers = regs[3];
+  auto storeBaseAddress = regs[4];
+  auto numSdTransfers = regs[5];
+
+  // instantiate load and store unit
+  
+  FIRModule loadUnit(ipecLoadUnit);
+  loadUnit.io("clock") <<= io("clock");
+  loadUnit.io("reset") <<= io("reset");
+  loadUnit.io("io")("start") <<= uval(0);
+  loadUnit.io("io")("baseAddress") <<= loadBaseAddress;
+  loadUnit.io("io")("numTransfers") <<= numLdTransfers;
+
+  //{ ar : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, addr : UInt<32>, len : UInt<8>, size : UInt<3>, burst : UInt<2>, lock : UInt<1>, cache : UInt<4>, prot : UInt<3>, qos : UInt<4>, region : UInt<4>}
+  io("M_AXI")("ARVALID") <<= loadUnit.io("io")("axi4master")("ar")("valid");
+  io("M_AXI")("ARID") <<= loadUnit.io("io")("axi4master")("ar")("id");
+  io("M_AXI")("ARADDR") <<= loadUnit.io("io")("axi4master")("ar")("addr");
+  io("M_AXI")("ARLEN") <<= loadUnit.io("io")("axi4master")("ar")("len");
+  io("M_AXI")("ARSIZE") <<= loadUnit.io("io")("axi4master")("ar")("size");
+  io("M_AXI")("ARBURST") <<= loadUnit.io("io")("axi4master")("ar")("burst");
+  io("M_AXI")("ARLOCK") <<= loadUnit.io("io")("axi4master")("ar")("lock");
+  io("M_AXI")("ARCACHE") <<= loadUnit.io("io")("axi4master")("ar")("cache");
+  io("M_AXI")("ARPROT") <<= loadUnit.io("io")("axi4master")("ar")("prot");
+  io("M_AXI")("ARQOS") <<= loadUnit.io("io")("axi4master")("ar")("qos");
+  io("M_AXI")("ARREGION") <<= loadUnit.io("io")("axi4master")("ar")("region");
+  io("M_AXI")("ARUSER") <<= uval(0, readConfig.userBits);
+  loadUnit.io("io")("axi4master")("ar")("ready") <<= io("M_AXI")("ARREADY");
+
+  // flip r : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, data : UInt<32>, resp : UInt<2>, last : UInt<1>}}
+  loadUnit.io("io")("axi4master")("r")("valid") <<= io("M_AXI")("RVALID");
+  loadUnit.io("io")("axi4master")("r")("id") <<= io("M_AXI")("RID");
+  loadUnit.io("io")("axi4master")("r")("data") <<= io("M_AXI")("RDATA");
+  loadUnit.io("io")("axi4master")("r")("resp") <<= io("M_AXI")("RRESP");
+  loadUnit.io("io")("axi4master")("r")("last") <<= io("M_AXI")("RLAST");
+  io("M_AXI")("RREADY") <<= loadUnit.io("io")("axi4master")("r")("ready");
+
+  AXIStreamSender sender(mAxisConfig);
+  sender.io("enq") <<= loadUnit.io("io")("data");
+  //io("M_AXIS") <<= sender.io("AXIS");
+  AXIStreamConverter inAXIStreamConverter(mAxisConfig, sAxisControllerConfig);
+  inAXIStreamConverter.io("AXIS_slave") <<= sender.io("AXIS");
+
+  FIRModule storeUnit(ipecStoreUnit);
+  storeUnit.io("clock") <<= io("clock");
+  storeUnit.io("reset") <<= io("reset");
+  storeUnit.io("io")("start") <<= uval(0);
+  storeUnit.io("io")("baseAddress") <<= storeBaseAddress;
+  storeUnit.io("io")("numTransfers") <<= numSdTransfers;
+
+  // aw : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, addr : UInt<32>, len : UInt<8>, size : UInt<3>, burst : UInt<2>, lock : UInt<1>, cache : UInt<4>, prot : UInt<3>, qos : UInt<4>, region : UInt<4>}
+  io("M_AXI")("AWVALID") <<= storeUnit.io("io")("axi4master")("aw")("valid");
+  io("M_AXI")("AWID") <<= storeUnit.io("io")("axi4master")("aw")("id");
+  io("M_AXI")("AWADDR") <<= storeUnit.io("io")("axi4master")("aw")("addr");
+  io("M_AXI")("AWLEN") <<= storeUnit.io("io")("axi4master")("aw")("len");
+  io("M_AXI")("AWSIZE") <<= storeUnit.io("io")("axi4master")("aw")("size");
+  io("M_AXI")("AWBURST") <<= storeUnit.io("io")("axi4master")("aw")("burst");
+  io("M_AXI")("AWLOCK") <<= storeUnit.io("io")("axi4master")("aw")("lock");
+  io("M_AXI")("AWCACHE") <<= storeUnit.io("io")("axi4master")("aw")("cache");
+  io("M_AXI")("AWPROT") <<= storeUnit.io("io")("axi4master")("aw")("prot");
+  io("M_AXI")("AWQOS") <<= storeUnit.io("io")("axi4master")("aw")("qos");
+  io("M_AXI")("AWREGION") <<= storeUnit.io("io")("axi4master")("aw")("region");
+  io("M_AXI")("AWUSER") <<= uval(0, writeConfig.userBits);
+  storeUnit.io("io")("axi4master")("aw")("ready") <<= io("M_AXI")("AWREADY");
+
+  // w : { valid : UInt<1>, flip ready : UInt<1>, data : UInt<32>, strb : UInt<4>, last : UInt<1>}
+  io("M_AXI")("WVALID") <<= storeUnit.io("io")("axi4master")("w")("valid");
+  io("M_AXI")("WDATA") <<= storeUnit.io("io")("axi4master")("w")("data");
+  io("M_AXI")("WSTRB") <<= storeUnit.io("io")("axi4master")("w")("strb");
+  io("M_AXI")("WLAST") <<= storeUnit.io("io")("axi4master")("w")("last");
+  storeUnit.io("io")("axi4master")("w")("ready") <<= io("M_AXI")("WREADY");
+
+  // flip b : { valid : UInt<1>, flip ready : UInt<1>, id : UInt<1>, resp : UInt<2>}}
+  storeUnit.io("io")("axi4master")("b")("valid") <<= io("M_AXI")("BVALID");
+  storeUnit.io("io")("axi4master")("b")("id") <<= io("M_AXI")("BID");
+  storeUnit.io("io")("axi4master")("b")("resp") <<= io("M_AXI")("BRESP");
+  io("M_AXI")("BREADY") <<= storeUnit.io("io")("axi4master")("b")("ready");
+
+  AXIStreamReceiver receiver(sAxisConfig);
+  //receiver.io("AXIS") <<= io("S_AXIS");
+  storeUnit.io("io")("data") <<= receiver.io("deq");
+  AXIStreamConverter outAXIStreamConverter(mAxisControllerConfig, sAxisConfig);
+  receiver.io("AXIS") <<= outAXIStreamConverter.io("AXIS_master");
+
+  // connect controller directly to the outside world
+  FIRModule spnController(spnAxisController);
+  spnController.io("clock") <<= io("clock");
+  spnController.io("reset") <<= io("reset");
+  //spnController.io("AXIS_SLAVE") <<= io("S_AXIS_CONTROLLER");
+  spnController.io("AXIS_SLAVE") <<= inAXIStreamConverter.io("AXIS_master");
+  //io("M_AXIS_CONTROLLER") <<= spnController.io("AXIS_MASTER");
+  outAXIStreamConverter.io("AXIS_slave") <<= spnController.io("AXIS_MASTER");
+
+  //assert(
+  //  io("M_AXIS_CONTROLLER")("TDATA").bitCount() == spnController.io("AXIS_MASTER")("TDATA").bitCount()
+  //);
+
+  // FSM
+  enum State {
+    IDLE,
+    RUNNING,
+    DONE
+  };
+
+  auto state = regInit(uval(0, 2), "state");
+  auto cycleCount = regInit(uval(0, 32), "cycleCount");
+  auto maxCycleCount = regInit(uval(100000, 32), "maxCycleCount");
+
+  io("interrupt") <<= uval(0);
+
+  when (state.read() == uval(IDLE), [&](){
+    when (status(0), [&](){
+      state <<= uval(RUNNING);
+      loadUnit.io("io")("start") <<= uval(1);
+      storeUnit.io("io")("start") <<= uval(1);
+      cycleCount <<= uval(0);
+    });
+  })
+  .elseWhen (state.read() == uval(RUNNING), [&](){
+    when (loadUnit.io("io")("done") & storeUnit.io("io")("done"), [&](){
+      state <<= uval(DONE);
+      io("interrupt") <<= uval(1);
+      retVal <<= cycleCount;
+    })
+    .elseWhen (cycleCount.read() >= maxCycleCount.read(), [&](){
+      state <<= uval(DONE);
+      io("interrupt") <<= uval(1);
+      retVal <<= uval(0);
+    });
+
+    cycleCount <<= cycleCount.read() + uval(1);
+  })
+  .elseWhen (state.read() == uval(DONE), [&](){
+    io("interrupt") <<= uval(0);
+    state <<= uval(IDLE);
+  });
+}
+
+AXI4StreamMapper_mimo AXI4StreamMapper_mimo::make(
+    const FPGAKernel& kernel,
+    circt::firrtl::FModuleOp ipecLoadUnit,
+    circt::firrtl::FModuleOp ipecStoreUnit,
+    circt::firrtl::FModuleOp spnAxisController
+) {
+  // I think TaPaSco uses this
+  axi4lite::AXI4LiteConfig liteConfig{
+    .addrBits = uint32_t(kernel.liteAddrWidth),
+    .dataBits = uint32_t(kernel.liteDataWidth)
+  };
+
+  // used for the write and read channels of the memory AXI4 ports
+  axi4::AXI4Config memConfig{
+    .addrBits = uint32_t(kernel.memAddrWidth),
+    .dataBits = uint32_t(kernel.memDataWidth)
+  };
+
+  // is connected to the memory AXI4 port
+  firp::axis::AXIStreamConfig mAxisConfig{
+    .dataBits = uint32_t(kernel.memDataWidth)
+  };
+
+  // is connected to the memory AXI4 port
+  firp::axis::AXIStreamConfig sAxisConfig{
+    .dataBits = uint32_t(kernel.memDataWidth)
+  };
+
+  // is connected to the controller input
+  firp::axis::AXIStreamConfig sAxisControllerConfig{
+    .dataBits = uint32_t(kernel.sAxisControllerWidth)
+  };
+
+  // is connected to the controller output
+  firp::axis::AXIStreamConfig mAxisControllerConfig{
+    .dataBits = uint32_t(kernel.mAxisControllerWidth)
+  };
+
+  return AXI4StreamMapper_mimo(
     liteConfig,
     memConfig,
     memConfig,

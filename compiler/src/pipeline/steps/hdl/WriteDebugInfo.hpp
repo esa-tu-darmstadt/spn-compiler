@@ -57,7 +57,7 @@ public:
     j["floatType"] = fpgaKernel.spnResultWidth == 32 ? "float32" : "float64";
     j["projectName"] = fpgaKernel.projectName;
 
-    fs::path targetFile = targetPath / "config.json";
+    fs::path targetFile = targetPath / (fpgaKernel.projectName + "_config.json");
     std::ofstream outFile(targetFile);
 
     if (!outFile.is_open())

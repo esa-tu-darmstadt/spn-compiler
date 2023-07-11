@@ -19,6 +19,7 @@ VERILOG_SOURCES := $(call rwildcard,$(INCLUDE_DIR),*.v)
 VERILOG_SOURCES += $(call rwildcard,$(INCLUDE_DIR),*.sv)
 
 TOPLEVEL := AXI4CocoTbTop
+#TOPLEVEL := AXI4StreamMapper
 MODULE   := test_AXI4CocoTbTop
 
 VSIM_ARGS+="-t 1ns"

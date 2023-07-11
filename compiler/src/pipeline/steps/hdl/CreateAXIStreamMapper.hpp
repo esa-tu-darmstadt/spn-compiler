@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Kernel.h"
+#include "config.hpp"
 
 #include "pipeline/steps/mlir/MLIRPassPipeline.h"
 
@@ -81,6 +82,59 @@ public:
   void body();
 
   static AXI4StreamMapper make(
+    const FPGAKernel& kernel,
+    circt::firrtl::FModuleOp ipecLoadUnit,
+    circt::firrtl::FModuleOp ipecStoreUnit,
+    circt::firrtl::FModuleOp spnAxisController
+  );
+};
+
+class AXI4StreamMapper_mimo : public firp::Module<AXI4StreamMapper_mimo> {
+  axi4lite::AXI4LiteConfig liteConfig;
+  axi4::AXI4Config writeConfig, readConfig;
+  firp::axis::AXIStreamConfig mAxisConfig, sAxisControllerConfig, sAxisConfig, mAxisControllerConfig;
+  circt::firrtl::FModuleOp ipecLoadUnit;
+  circt::firrtl::FModuleOp ipecStoreUnit;
+  circt::firrtl::FModuleOp spnAxisController;
+public:
+  AXI4StreamMapper_mimo(const axi4lite::AXI4LiteConfig& liteConfig,
+                   const axi4::AXI4Config& writeConfig,
+                   const axi4::AXI4Config& readConfig,
+                   const firp::axis::AXIStreamConfig& mAxisConfig,
+                   const firp::axis::AXIStreamConfig& sAxisControllerConfig,
+                   const firp::axis::AXIStreamConfig& sAxisConfig,
+                   const firp::axis::AXIStreamConfig& mAxisControllerConfig,
+                   circt::firrtl::FModuleOp ipecLoadUnit,
+                   circt::firrtl::FModuleOp ipecStoreUnit,
+                   circt::firrtl::FModuleOp spnAxisController)
+    : Module<AXI4StreamMapper_mimo>(
+      "AXI4StreamMapper",
+      {
+        firp::Input("S_AXI_LITE", axi4lite::axi4LiteFlattenType(axi4lite::axi4LiteType(liteConfig))),
+        firp::Output("M_AXI", axi4::axi4FlattenType(axi4::axi4Type(writeConfig, readConfig))),
+        //firp::Output("M_AXIS", firp::axis::AXIStreamBundleType(mAxisConfig)),
+        //firp::Input("S_AXIS_CONTROLLER", firp::axis::AXIStreamBundleType(sAxisControllerConfig)),
+        //firp::Input("S_AXIS", firp::axis::AXIStreamBundleType(sAxisConfig)),
+        //firp::Output("M_AXIS_CONTROLLER", firp::axis::AXIStreamBundleType(mAxisControllerConfig)),
+        firp::Output("interrupt", firp::bitType())
+      },
+      liteConfig, writeConfig, readConfig, mAxisConfig, sAxisControllerConfig, sAxisConfig, mAxisControllerConfig
+    ), 
+      liteConfig(liteConfig),
+      writeConfig(writeConfig),
+      readConfig(readConfig),
+      mAxisConfig(mAxisConfig),
+      sAxisControllerConfig(sAxisControllerConfig),
+      sAxisConfig(sAxisConfig),
+      mAxisControllerConfig(mAxisControllerConfig),
+      ipecLoadUnit(ipecLoadUnit),
+      ipecStoreUnit(ipecStoreUnit),
+      spnAxisController(spnAxisController)
+    { build(); }
+
+  void body();
+
+  static AXI4StreamMapper_mimo make(
     const FPGAKernel& kernel,
     circt::firrtl::FModuleOp ipecLoadUnit,
     circt::firrtl::FModuleOp ipecStoreUnit,

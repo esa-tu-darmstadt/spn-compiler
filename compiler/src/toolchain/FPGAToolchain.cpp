@@ -117,7 +117,7 @@ std::unique_ptr<Pipeline<Kernel>> FPGAToolchain::setupPipeline(const std::string
 
         auto& createVerilogFiles = pipeline->emplaceStep<CreateVerilogFiles>(embed, cfg);
         auto& writeDebugInfo = pipeline->emplaceStep<WriteDebugInfo>(
-          spnc::option::outputPath.get(*config) + "/ipxact_core",
+          spnc::option::outputPath.get(*config),
           fpgaConfigJson,
           createVerilogFiles
         );

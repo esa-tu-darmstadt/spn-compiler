@@ -54,18 +54,20 @@ if __name__ == '__main__':
   #with open(json_config_path, 'w') as file:
   #  file.write(json_config)
 
-  kernel = fpga.compile_testbench(spn, wdir, json_config, exponent_width=args.exponent_width, mantissa_width=args.mantissa_width, float_type=args.float_type)
+  project_name = args.wdir
+  kernel = fpga.compile_testbench(spn, wdir, json_config, project_name, exponent_width=args.exponent_width, mantissa_width=args.mantissa_width, float_type=args.float_type)
 
   # set environment variables for cocotb that point to the correct location
   debug_info_path = (wdir / 'ipxact_core' / 'debug_info.json').resolve()
   hdl_sources_path = (wdir / 'ipxact_core' / 'src').resolve()
 
   # call cocotb Makefile
+  config_name = project_name + "_config.json"
   cmd = f'make -C sim/controller/tests/ INCLUDE_DIR={hdl_sources_path}'
   env = {
     **os.environ.copy(),
     'PYTHONPATH': ':'.join(sys.path),
     'SPN_PATH': str(Path(spn_path).resolve()),
-    'CONFIG_PATH': str((wdir / 'ipxact_core' / 'config.json').resolve())
+    'CONFIG_PATH': str((wdir / 'ipxact_core' / config_name).resolve())
   }
   subprocess.run(cmd, shell=True, cwd='.', env=env)

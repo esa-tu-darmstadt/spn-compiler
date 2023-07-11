@@ -3,6 +3,7 @@
 #include "pipeline/PipelineStep.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "Kernel.h"
+#include "config.hpp"
 
 #include <filesystem>
 

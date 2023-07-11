@@ -152,7 +152,7 @@ void ReadyValidWrapper::body() {
   auto canEnqueue = wireInit(itemCountInPipeline.read() + fifo.io("count") + cons(2) <= cons(fifoDepth), "canEnqueue");
   io("enq")("ready") <<= canEnqueue;
 
-  svCocoTBVerbatim(getName());
+  //svCocoTBVerbatim(getName());
 }
 
 void AXIStreamWrapper::body() {
@@ -165,6 +165,16 @@ void AXIStreamWrapper::body() {
 
   AXIStreamSender sender(masterConfig);
   io("AXIS_MASTER") <<= sender.io("AXIS");
+
+  // counters
+  auto recvCount = regInit(uval(0, 32), "recvCount");
+  when (receiverDeqFire, [&]{
+    recvCount <<= recvCount.read() + uval(1);
+  });
+  auto sendCount = regInit(uval(0, 32), "sendCount");
+  when (doesFire(sender.io("enq")), [&]{
+    sendCount <<= sendCount.read() + uval(1);
+  });
 
   FirpQueue fifo(withLast(uintType(resultWidth)), fifoDepth);
   sender.io("enq") <<= fifo.io("deq");
@@ -206,7 +216,7 @@ void AXIStreamWrapper::body() {
   auto canEnqueue = wireInit(itemCountInPipeline.read() + fifo.io("count") + cons(2) <= cons(fifoDepth), "canEnqueue");
   receiver.io("deq")("ready") <<= canEnqueue;
 
-  svCocoTBVerbatim(getName());
+  //svCocoTBVerbatim(getName());
 }
 
 }

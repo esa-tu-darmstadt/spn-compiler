@@ -67,7 +67,8 @@ public:
       ));
 
     auto vec = vector(probabilityBits);
-    io("out") <<= regNext(vec[io("in")]);
+    // 2 cycles delay
+    io("out") <<= regNext(vec[regNext(io("in"))]);
   }
 };
 
@@ -177,8 +178,8 @@ llvm::Optional<mlir::ModuleOp> convert(mlir::ModuleOp modOp, const ConversionOpt
     return TypeSwitch<Operation *, std::tuple<uint32_t, std::string>>(op)
       .Case<SPNAdd>([&](SPNAdd op) { return std::make_tuple(addDelay, "add"); })
       .Case<SPNMul>([&](SPNMul op) { return std::make_tuple(multDelay, "mul"); })
-      .Case<SPNCategoricalLeaf>([&](SPNCategoricalLeaf op) { return std::make_tuple(1, "cat"); })
-      .Case<SPNHistogramLeaf>([&](SPNHistogramLeaf op) { return std::make_tuple(1, "hist"); })
+      .Case<SPNCategoricalLeaf>([&](SPNCategoricalLeaf op) { return std::make_tuple(2, "cat"); })
+      .Case<SPNHistogramLeaf>([&](SPNHistogramLeaf op) { return std::make_tuple(2, "hist"); })
       .Case<SPNConstant>([&](SPNConstant op) { return std::make_tuple(0, "const"); })
       .Case<SPNLog>([&](SPNLog op) { return std::make_tuple(0, "log"); })
       .Case<SPNYield>([&](SPNYield op) { return std::make_tuple(convertDelay, "convert"); })
@@ -186,7 +187,6 @@ llvm::Optional<mlir::ModuleOp> convert(mlir::ModuleOp modOp, const ConversionOpt
         op->dump();
         llvm_unreachable("unhandled op");
       });
-      ;
   };
 
   OpBuilder builder(modOp.getContext());
