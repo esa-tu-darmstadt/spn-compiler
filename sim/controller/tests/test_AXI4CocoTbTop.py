@@ -92,7 +92,7 @@ def generate_data(count, index_2_min, index_2_max):
     for j in range(var_count):  
       low = index_2_min[j]
       high = index_2_max[j]
-      val = 0 if np.random.uniform() < 0.9 else np.random.randint(low, high)
+      val = 0 if np.random.uniform() < 0.99 else np.random.randint(low, high)
       data[i][j] = val
 
   return data
@@ -185,31 +185,70 @@ def roundN(n, m):
   # round n to the next multiple of m
   return n + (m - n) % m
 
+def squash(package: np.ndarray):
+  # package = [0, 1, 0, 0, 1, 1, 1, 0]
+  assert len(package) == 8, 'Can only squash 8 ints together!'
+  s = 0
+
+  for bit in package:
+    s = (s << 1) | bit
+
+  return s
+
 @cocotb.test()
 async def test_AXI4CocoTbTop(dut):
   spn_path = os.environ['SPN_PATH']
   spn, var_2_index, index_2_min, index_2_max = load_spn_2(spn_path)
-  COUNT = 10000
+  #COUNT = 10000
   #COUNT = 2 * 20 * 1000
+  COUNT = 2**5 * 100
   data = generate_data(COUNT, index_2_min, index_2_max)
   var_count = len(index_2_min.items())
-  expected = likelihood(spn, data, dtype=np.float32)
+  expected = likelihood(spn, data, dtype=np.float64)
 
   cfg = load_config()
 
-  assert cfg['bitsPerVar'] == 8, 'Only 8 bits per var are supported'
+  assert cfg['bitsPerVar'] == 8 or cfg['bitsPerVar'] == 1, 'Only 1 and 8 bits per var are supported!'
+
+  is_binary = cfg['bitsPerVar'] == 1
 
   #rename_signals(dut)
 
   print('=====================INPUTS=====================')
   print(data)
 
-  data_bytes = bytearray(data.astype(np.int8).tobytes())
+  # first squash 8 ints together
+  if is_binary:
+    # every sample must be rounded to the next multiple of 8
+    new_data = np.zeros((data.shape[0], roundN(data.shape[1], 8)), dtype=np.int32)
+    new_data[:, 0:data.shape[1]] = data
+    data = new_data
+
+    new_data = []
+
+    for package in np.split(data.flatten(), data.size // 8):
+      s = squash(package)
+      new_data.append(s)
+
+    #print(type(new_data))
+    #print(type(new_data[0]))
+    data_bytes = bytearray(new_data)
+    #print(data_bytes)
+  else:
+    data_bytes = bytearray(data.astype(np.int8).tobytes())
 
   # to completely fill up the frames we need to pad the data
   bus_width = cfg['axi4']['dataWidth'] // 8
-  to_append = roundN(COUNT * var_count, bus_width) - len(data_bytes)
+  #to_append = roundN(COUNT * var_count, bus_width) - len(data_bytes)
+  to_append = roundN(len(data_bytes), bus_width) - len(data_bytes)
   data_bytes.extend(np.zeros(to_append, dtype=np.int8).tobytes())
+
+  if is_binary:
+    bits_per_sample = var_count * cfg['bitsPerVar']
+    padded_sample_count = len(data_bytes) * 8 // bits_per_sample
+  else:
+    bytes_per_sample = var_count * cfg['bitsPerVar'] // 8
+    padded_sample_count = len(data_bytes) // bytes_per_sample
 
   print(f'Input sample count: {COUNT}')
   print(f'Input var count: {var_count}')
@@ -224,7 +263,7 @@ async def test_AXI4CocoTbTop(dut):
   # IPECStoreUnit does not adhere to the standard in the sense that it crosses 4k boundaries
   write_base = roundN(read_base + read_size, 4096)
   float_size = 4 if isFloat32 else 8
-  write_size = len(data_bytes) // var_count * float_size
+  write_size = COUNT * float_size
 
   # from tapasco
   #size_t loadBeatCount = inSize / (fpgaKernel.memDataWidth / 8);
@@ -254,10 +293,10 @@ async def test_AXI4CocoTbTop(dut):
   dut.reset.value = 0
   print(f'done')
 
-  #cocotb.start_soon(wait_timeout(100000))
+  cocotb.start_soon(wait_timeout(100000))
 
   # run the following 3 times
-  for _ in range(20):
+  for _ in range(1):
     # write registers
     regs_base = 0x2000_0000
     off = 0x10

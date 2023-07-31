@@ -61,11 +61,13 @@ void LoSPNtoFPGAConversion::preProcess(mlir::ModuleOp *inputModule) {
     kernel.spnResultWidth = 64;
 
   ::mlir::spn::SPNBitWidth bitWidth(inputModule->getOperation());
+  uint32_t bitsPerVar = bitWidth.getBitsPerVar();
+
+  spdlog::info("Bits per var: {}", bitsPerVar);
 
   auto kernelInfo = getContext()->get<KernelInfo>();
   kernel.spnVarCount = kernelInfo->numFeatures;
-  kernel.spnBitsPerVar =
-    bitWidth.getBitsPerVar() == 2 ? 2 : roundN<uint32_t>(bitWidth.getBitsPerVar(), 8);
+  kernel.spnBitsPerVar = bitsPerVar == 1 ? 1 : roundN<uint32_t>(bitWidth.getBitsPerVar(), 8);
 
   kernel.mAxisControllerWidth = roundN(kernel.spnResultWidth, 8);
   kernel.sAxisControllerWidth = roundN(kernel.spnBitsPerVar * kernel.spnVarCount, 8);

@@ -56,6 +56,8 @@ if __name__ == '__main__':
 
   if cmd == 'compile':
     kernel = fpga.compile_full(spn, wdir_name, json_config, project_name, args.exponent_width, args.mantissa_width, args.float_type)
+  elif cmd == 'package':
+    kernel = fpga.compile_package(spn, wdir_name, json_config, project_name, args.exponent_width, args.mantissa_width, args.float_type)
   elif cmd == 'load':
     pass
   elif cmd == 'execute':

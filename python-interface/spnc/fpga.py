@@ -139,6 +139,24 @@ class FPGACompiler:
 
         return self._compile(spn, wdir, options, json_config)
 
+    def compile_package(self, spn, wdir, json_config, project_name, exponent_width=8, mantissa_width=23, float_type='float32'):
+        options = dict({"target": "FPGA",
+                        "o": str(wdir),
+                        "fpga-wrap-axi-stream": "true",
+                        "fpga-create-verilog-files": "true",
+                        "fpga-coco-tb": "false",
+                        "fpga-config-json": json_config,
+                        "vivado": "true",
+                        "tapasco-compose": "false",
+                        "fpga-exponent-width": str(exponent_width),
+                        "fpga-mantissa-width": str(mantissa_width),
+                        "fpga-float-type": float_type,
+                        "project-name": project_name,
+                        "dump-ir": "true"
+                        })
+
+        return self._compile(spn, wdir, options, json_config)
+
     def compile_get_kernel_info(self, spn, wdir, json_config):
         options = dict({"target": "FPGA",
                         "o": str(wdir),

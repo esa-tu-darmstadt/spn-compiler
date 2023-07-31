@@ -57,7 +57,7 @@ FModuleOp CreateAXIStreamMapper::insertFIRFile(const std::filesystem::path& path
 }
 
 ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
-  llvm::outs() << "CreateAXIStreamMapper::executeStep()\n";
+  //llvm::outs() << "CreateAXIStreamMapper::executeStep()\n";
 
 #ifdef USE_CUSTOM_MIMO
   std::string topName = "AXI4StreamMapper";
@@ -131,8 +131,10 @@ ExecutionResult CreateAXIStreamMapper::executeStep(mlir::ModuleOp *root) {
   if (mlir::failed(firpContext()->finish()))
     return failure("could not verify generated FIRRTL");
 
+  spdlog::info("Lowering FIRRTL to HW...");
   if (mlir::failed(lowerFirrtlToHw()))
     return failure("lowering to HW failed");
+  spdlog::info("Done!");
 
   modOp = std::make_unique<mlir::ModuleOp>(firpContext()->root);
 
@@ -601,7 +603,7 @@ void AXI4CocoTbTop::body() {
 
   io("interrupt") <<= mapper.io("interrupt");
 
-  //svCocoTBVerbatim("AXI4CocoTbTop");
+  svCocoTBVerbatim("AXI4CocoTbTop");
 }
 
 AXI4CocoTbTop AXI4CocoTbTop::make(
