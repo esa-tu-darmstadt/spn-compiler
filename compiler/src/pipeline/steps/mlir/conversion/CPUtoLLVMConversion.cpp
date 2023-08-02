@@ -13,6 +13,7 @@
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 //#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/Transforms/Passes.h"
+#include "mlir/Conversion/Passes.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
@@ -27,6 +28,7 @@ void spnc::CPUtoLLVMConversion::initializePassPipeline(mlir::PassManager* pm, ml
   pm->addPass(mlir::createConvertMathToLLVMPass());
   // TODO: not sure how to fix this
   //pm->addPass(mlir::createMemRefToLLVMConversionPass());
+  pm->addPass(mlir::createConvertIndexToLLVMPass());
   pm->addPass(mlir::createArithToLLVMConversionPass());
   
   pm->nest<mlir::func::FuncOp>().addPass(mlir::createConvertVectorToSCFPass());
@@ -37,5 +39,5 @@ void spnc::CPUtoLLVMConversion::initializePassPipeline(mlir::PassManager* pm, ml
   pm->addPass(mlir::createConvertFuncToLLVMPass());
 
   pm->addPass(mlir::createCanonicalizerPass());
-  pm->addPass(mlir::createReconcileUnrealizedCastsPass());
+    pm->addPass(mlir::createReconcileUnrealizedCastsPass());
 }
