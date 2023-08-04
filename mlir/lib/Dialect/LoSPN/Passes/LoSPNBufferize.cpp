@@ -11,7 +11,6 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Transforms/DialectConversion.h"
-#include "mlir/Transforms/Bufferize.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
 #include "LoSPNPassDetails.h"

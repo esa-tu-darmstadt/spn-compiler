@@ -11,7 +11,6 @@
 
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/AttributeSupport.h"
-#include "mlir/IR/Identifier.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "LoSPN/LoSPNAttributes.h.inc"

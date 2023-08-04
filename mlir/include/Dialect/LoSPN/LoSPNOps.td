@@ -15,8 +15,11 @@ include "LoSPNTraits.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "mlir/IR/RegionKindInterface.td"
+include "mlir/IR/FunctionInterfaces.td"
+include "mlir/Interfaces/InferTypeOpInterface.td"
 
-def SPNKernel : LoSPN_Op<"kernel", [FunctionLike, Symbol, IsolatedFromAbove]> {
+
+def SPNKernel : LoSPN_Op<"kernel", [FunctionOpInterface, Symbol, IsolatedFromAbove]> {
 
     let summary = "The Kernel holds the tasks necessary to process an SPN query.";
 
@@ -349,7 +352,7 @@ def SPNReturn : LoSPN_Op<"return", [Terminator]> {
     let arguments = (ins Variadic<RankedTensorOf<[LoSPNComputeType]>>:$returnValues);
 }
 
-class LoSPNBodyOp<string mnemonic, list<OpTrait> traits = []> : LoSPN_Op<mnemonic,
+class LoSPNBodyOp<string mnemonic, list<Trait> traits = []> : LoSPN_Op<mnemonic,
     !listconcat(traits, [VectorizableOp])>;
 
 def SPNYield : LoSPNBodyOp<"yield", [Terminator, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {

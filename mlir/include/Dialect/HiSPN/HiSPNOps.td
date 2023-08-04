@@ -13,6 +13,7 @@ include "HiSPNDialect.td"
 include "HiSPNInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/RegionKindInterface.td"
+include "mlir/Interfaces/InferTypeOpInterface.td"
 
 ///
 /// Attributes representing different kinds of arithmetic errors:
@@ -81,7 +82,7 @@ def Graph : HiSPN_Op<"graph",
 ///
 /// Abstract base class of all operations that can be part of the SPN DAG.
 ///
-class HiSPNGraphOp<string mnemonic, list<OpTrait> traits = []> : HiSPN_Op<mnemonic,
+class HiSPNGraphOp<string mnemonic, list<Trait> traits = []> : HiSPN_Op<mnemonic,
     !listconcat(traits, [HasParent<"Graph">, DeclareOpInterfaceMethods<GraphNodeInterface>])>;
 
 ///

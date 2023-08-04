@@ -27,7 +27,7 @@ def HiSPN_Dialect : Dialect {
 ///
 /// Base operation for all operations of this dialect.
 ///
-class HiSPN_Op<string mnemonic, list<OpTrait> traits = []> : Op<HiSPN_Dialect, mnemonic, traits>;
+class HiSPN_Op<string mnemonic, list<Trait> traits = []> : Op<HiSPN_Dialect, mnemonic, traits>;
 
 ///
 /// Dialect-specific type representing probability values.

@@ -291,6 +291,7 @@ namespace mlir {
           rewriter.restoreInsertionPoint(restore);
         }
 
+
         void copyOperation(Operation* op, PatternRewriter& rewriter, BlockAndValueMapping& mapper) const {
           for (auto operand : op->getOperands()) {
             if (!mapper.contains(operand)) {
