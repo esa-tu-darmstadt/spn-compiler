@@ -8,6 +8,7 @@
 
 #include <spnc.h>
 #include "toolchain/CPUToolchain.h"
+#include "toolchain/IPUToolchain.h"
 #include <option/Options.h>
 #include <option/GlobalOptions.h>
 #include <util/Logging.h>
@@ -23,12 +24,20 @@ Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t&
   SPDLOG_INFO("Welcome to the SPN compiler!");
   auto config = interface::Options::parse(options);
   std::unique_ptr<Pipeline<Kernel>> pipeline;
-  if (spnc::option::compilationTarget.get(*config) == option::TargetMachine::CUDA) {
+  auto target = spnc::option::compilationTarget.get(*config);
+  if (target == option::TargetMachine::CUDA) {
 #if SPNC_CUDA_SUPPORT
     pipeline = CUDAGPUToolchain::setupPipeline(inputFile, std::move(config));
 #else
     SPNC_FATAL_ERROR("Target was 'CUDA', but the compiler does not support CUDA GPUs. "
                      "Enable with CUDA_GPU_SUPPORT=ON during build")
+#endif
+  } else if(target == option::TargetMachine::IPU) {
+#if SPNC_IPU_SUPPORT
+    pipeline = IPUToolchain::setupPipeline(inputFile, std::move(config));
+#else
+    SPNC_FATAL_ERROR("Target was 'IPU', but the compiler does not support IPU. "
+                     "Enable with IPU_SUPPORT=ON during build")
 #endif
   } else {
     pipeline = CPUToolchain::setupPipeline(inputFile, std::move(config));

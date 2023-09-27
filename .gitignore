@@ -28,10 +28,16 @@ build
 # CMake
 cmake-build-*/
 
+# Poplar
+*.pop
+
 # Python
 **/__pycache__
 **/.eggs
 **/*.egg-info
 .vscode/
+
+# clangd
+.cache/
 
 **/lit.site.cfg.py

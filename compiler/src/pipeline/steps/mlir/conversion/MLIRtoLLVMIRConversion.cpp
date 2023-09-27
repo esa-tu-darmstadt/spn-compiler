@@ -31,7 +31,12 @@ ExecutionResult spnc::MLIRtoLLVMIRConversion::executeStep(mlir::ModuleOp* mlirMo
   auto* config = getContext()->get<Configuration>();
   if (spnc::option::dumpIR.get(*config)) {
     llvm::dbgs() << "\n// *** IR after conversion to LLVM IR ***\n";
+#ifdef LLVM_ENABLE_DUMP
     module->dump();
+#else
+    llvm::dbgs() << "Dumping of LLVM IR is disabled. Please recompile LLVM with LLVM_ENABLE_DUMP=ON, e.g., by using a "
+                    "debug build of LLVM.\n";
+#endif
   }
   if (!module) {
     return failure("Conversion to LLVM IR failed");
@@ -49,7 +54,12 @@ ExecutionResult spnc::MLIRtoLLVMIRConversion::executeStep(mlir::ModuleOp* mlirMo
   optimizeLLVMIR(optLevel);
   if (optLevel > 0 && spnc::option::dumpIR.get(*config)) {
     llvm::dbgs() << "\n// *** IR after optimization of LLVM IR ***\n";
+#ifdef LLVM_ENABLE_DUMP
     module->dump();
+#else
+    llvm::dbgs() << "Dumping of LLVM IR is disabled. Please recompile LLVM with LLVM_ENABLE_DUMP=ON, e.g., by using a "
+                    "debug build of LLVM.\n";
+#endif
   }
   return success();
 }
