@@ -29,7 +29,7 @@ namespace spnc {
     extern Option<std::string> graphStatsFile;
 
     /// Available compilation targets.
-    enum TargetMachine {
+    enum TargetMachine : int {
       CPU,
       CUDA,
       IPU
@@ -39,7 +39,7 @@ namespace spnc {
     /// Interface option to specify the compilation target.
     extern EnumOpt compilationTarget;
 
-    enum IPUTarget {
+    enum IPUTarget : int {
       Model,    // IPU Model running on the CPU
       IPU1,     // Colossus MK1
       IPU2,     // Colossus MK2

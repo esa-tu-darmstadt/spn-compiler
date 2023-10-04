@@ -30,7 +30,7 @@ EnumOpt spnc::option::ipuTarget{"ipu-target",
                                  EnumVal(IPU1, "ipu1"),
                                  EnumVal(IPU2, "ipu2"),
                                  EnumVal(IPU21, "ipu21")},
-                                {depends(spnc::option::compilationTarget, IPU)}};
+                                {depends(spnc::option::compilationTarget, (int)IPU)}};
 
 
 Option<int> spnc::option::optLevel{"optLevel", 3};
