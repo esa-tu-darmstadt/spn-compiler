@@ -13,19 +13,22 @@
 #include "pipeline/Pipeline.h"
 
 namespace spnc {
-  ///
-  /// Toolchain generating code for CPUs using LLVM.
-  class IPUToolchain : MLIRToolchain {
+///
+/// Toolchain generating code for CPUs using LLVM.
+class IPUToolchain : MLIRToolchain {
 
-  public:
-    /// Construct a job reading the SPN from an input file.
-    /// \param inputFile Input file.
-    /// \param config Compilation option configuration.
-    /// \return Job containing all necessary actions.
-    static std::unique_ptr<Pipeline<Kernel>> setupPipeline(const std::string& inputFile,
-                                                           std::unique_ptr<interface::Configuration> config);
+public:
+  /// Construct a job reading the SPN from an input file.
+  /// \param inputFile Input file.
+  /// \param config Compilation option configuration.
+  /// \return Job containing all necessary actions.
+  static std::unique_ptr<Pipeline<Kernel>>
+  setupPipeline(const std::string &inputFile,
+                std::unique_ptr<interface::Configuration> config);
 
-  };
-}
+protected:
+  //static std::unique_ptr<llvm::TargetMachine> createTargetMachine(int optLevel);
+};
+} // namespace spnc
 
 #endif
