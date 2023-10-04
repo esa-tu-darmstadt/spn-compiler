@@ -20,8 +20,18 @@ Option<std::string> spnc::option::graphStatsFile{"graph-stats-file",
 using spnc::option::TargetMachine;
 EnumOpt spnc::option::compilationTarget{"target",
                                         {EnumVal(CPU, "CPU"),
-                                         EnumVal(CUDA, "CUDA")},
+                                         EnumVal(CUDA, "CUDA"),
+                                         EnumVal(IPU, "IPU")},
                                         {required()}};
+
+using spnc::option::IPUTarget;
+EnumOpt spnc::option::ipuTarget{"ipu-target",
+                                {EnumVal(Model, "cpu"),
+                                 EnumVal(IPU1, "ipu1"),
+                                 EnumVal(IPU2, "ipu2"),
+                                 EnumVal(IPU21, "ipu21")},
+                                {depends(spnc::option::compilationTarget, IPU)}};
+
 
 Option<int> spnc::option::optLevel{"optLevel", 3};
 

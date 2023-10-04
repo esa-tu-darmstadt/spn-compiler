@@ -34,8 +34,7 @@ ExecutionResult spnc::MLIRtoLLVMIRConversion::executeStep(mlir::ModuleOp* mlirMo
 #ifdef LLVM_ENABLE_DUMP
     module->dump();
 #else
-    llvm::dbgs() << "Dumping of LLVM IR is disabled. Please recompile LLVM with LLVM_ENABLE_DUMP=ON, e.g., by using a "
-                    "debug build of LLVM.\n";
+    llvm::dbgs() << "Dumping of LLVM IR is disabled. Consider recompiling LLVM with LLVM_ENABLE_DUMP=ON\n";
 #endif
   }
   if (!module) {
@@ -57,8 +56,7 @@ ExecutionResult spnc::MLIRtoLLVMIRConversion::executeStep(mlir::ModuleOp* mlirMo
 #ifdef LLVM_ENABLE_DUMP
     module->dump();
 #else
-    llvm::dbgs() << "Dumping of LLVM IR is disabled. Please recompile LLVM with LLVM_ENABLE_DUMP=ON, e.g., by using a "
-                    "debug build of LLVM.\n";
+    llvm::dbgs() << "Dumping of LLVM IR is disabled. Consider recompiling LLVM with LLVM_ENABLE_DUMP=ON\n";
 #endif
   }
   return success();

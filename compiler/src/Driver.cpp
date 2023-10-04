@@ -36,7 +36,7 @@ Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t&
 #if SPNC_IPU_SUPPORT
     pipeline = IPUToolchain::setupPipeline(inputFile, std::move(config));
 #else
-    SPNC_FATAL_ERROR("Target was 'IPU', but the compiler does not support IPU. "
+    SPNC_FATAL_ERROR("Target was 'IPU', but the compiler does not support IPUs. "
                      "Enable with IPU_SUPPORT=ON during build")
 #endif
   } else {
@@ -59,6 +59,13 @@ bool spn_compiler::isTargetSupported(const std::string& target){
   }
   if(target == "CUDA"){
     #if SPNC_CUDA_SUPPORT
+    return true;
+    #else
+    return false;
+    #endif
+  }
+  if(target == "IPU") {
+    #if SPNC_IPU_SUPPORT
     return true;
     #else
     return false;

@@ -39,6 +39,15 @@ namespace spnc {
     /// Interface option to specify the compilation target.
     extern EnumOpt compilationTarget;
 
+    enum IPUTarget {
+      Model,    // IPU Model running on the CPU
+      IPU1,     // Colossus MK1
+      IPU2,     // Colossus MK2
+      IPU21,    // Colossus MK2.1
+    };
+
+    extern EnumOpt ipuTarget;
+
     ///
     /// Flag to indicate the desired level of optimization.
     /// Possible values range from 0-3
