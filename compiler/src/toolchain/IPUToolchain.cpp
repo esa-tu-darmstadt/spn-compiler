@@ -7,17 +7,25 @@
 //==============================================================================
 
 #include "IPUToolchain.h"
-#include "TargetInformation.h"
+#include "Kernel.h"
+#include "ipu/IPUTargetInfo.h"
+#include "ipu/IPUTargetMachine.h"
+#include "option/GlobalOptions.h"
 #include "pipeline/BasicSteps.h"
 #include "pipeline/Pipeline.h"
 #include "pipeline/steps/codegen/EmitObjectCode.h"
 #include "pipeline/steps/frontend/SPFlowToMLIRDeserializer.h"
 #include "pipeline/steps/linker/ClangKernelLinking.h"
-#include "pipeline/steps/mlir/conversion/CPUtoLLVMConversion.h"
 #include "pipeline/steps/mlir/conversion/HiSPNtoLoSPNConversion.h"
+#include "pipeline/steps/mlir/conversion/IPUtoLLVMConversion.h"
 #include "pipeline/steps/mlir/conversion/LoSPNtoIPUConversion.h"
 #include "pipeline/steps/mlir/conversion/MLIRtoLLVMIRConversion.h"
 #include "pipeline/steps/mlir/transformation/LoSPNTransformations.h"
+#include "llvm/ADT/Triple.h"
+#include "llvm/MC/SubtargetFeature.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/TargetRegistry.h"
 
 using namespace spnc;
 using namespace mlir;
@@ -59,10 +67,14 @@ IPUToolchain::setupPipeline(const std::string &inputFile,
                 optionValue, mcOptLevel);
     mcOptLevel = optionValue;
   }
-  auto targetMachine = createTargetMachine(mcOptLevel);
+
   // Initialize kernel information.
   auto kernelInfo = std::make_unique<KernelInfo>();
   kernelInfo->target = KernelTarget::IPU;
+  kernelInfo->ipuTarget = (IPUTarget)option::ipuTarget.get(*config);
+
+  auto targetMachine = createTargetMachine(mcOptLevel, kernelInfo->ipuTarget);
+
   // Attach the LLVM target machine and the kernel information to the pipeline
   // context
   pipeline->getContext()->add(std::move(targetMachine));
@@ -86,7 +98,7 @@ IPUToolchain::setupPipeline(const std::string &inputFile,
   // vectorization.
   auto &lospn2ipu = pipeline->emplaceStep<LoSPNtoIPUConversion>(lospnTransform);
   // Convert from mixture of upstream dialects to LLVM dialect.
-  auto &ipu2llvm = pipeline->emplaceStep<CPUtoLLVMConversion>(lospn2ipu);
+  auto &ipu2llvm = pipeline->emplaceStep<IPUtoLLVMConversion>(lospn2ipu);
 
   // Convert the MLIR module to a LLVM-IR module.
   auto &llvmConversion =
@@ -144,3 +156,91 @@ IPUToolchain::setupPipeline(const std::string &inputFile,
 //     targetInfo.isAARCH64Target(); default:return false;
 //   }
 // }
+
+std::unique_ptr<llvm::TargetMachine>
+spnc::IPUToolchain::createTargetMachine(int optLevel, IPUTarget ipuTarget) {
+  llvm::Triple targetTriple;
+  llvm::StringRef cpu;
+  llvm::SubtargetFeatures features;
+
+  std::stringstream featureList;
+
+  if (ipuTarget == IPUTarget::Model) {
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmParser();
+    llvm::InitializeNativeTargetAsmPrinter();
+
+    cpu = llvm::sys::getHostCPUName();
+    targetTriple = llvm::Triple{llvm::sys::getDefaultTargetTriple()};
+    bool initial = true;
+    llvm::StringMap<bool> hostFeatures;
+    if (llvm::sys::getHostCPUFeatures(hostFeatures)) {
+      for (auto &f : hostFeatures) {
+        features.AddFeature(f.first(), f.second);
+        if (f.second) {
+          if (!initial) {
+            featureList << ", ";
+          }
+          featureList << f.first().str();
+          initial = false;
+        }
+      }
+    }
+
+  } else {
+    initializeIPUTargetInfo();
+    initializeIPUTarget();
+    targetTriple = llvm::Triple{"colossus-graphcore-unknown-elf"};
+
+    switch (ipuTarget) {
+    case IPU1:
+      cpu = "ipu1";
+      break;
+    case IPU2:
+      cpu = "ipu2";
+      break;
+    case IPU21:
+      cpu = "ipu21";
+      break;
+    case Model:
+      // Handled above
+      break;
+    }
+    features.AddFeature(cpu, true);
+    features.AddFeature("worker", true);
+  }
+
+  std::string errorMessage;
+  auto target = llvm::TargetRegistry::lookupTarget(targetTriple.getTriple(), errorMessage);
+  if (!target) {
+    SPNC_FATAL_ERROR("No target for target triple {}: {}", targetTriple.getTriple(),
+                     errorMessage);
+  }
+
+  SPDLOG_INFO("Target machine triple: {}", targetTriple.getTriple());
+  SPDLOG_INFO("Target machine CPU name: {}", cpu.str());
+  SPDLOG_INFO("Target machine features: {}", featureList.str());
+
+  llvm::CodeGenOpt::Level cgOptLevel = llvm::CodeGenOpt::Default;
+  switch (optLevel) {
+  case 0:
+    cgOptLevel = llvm::CodeGenOpt::None;
+    break;
+  case 1:
+    cgOptLevel = llvm::CodeGenOpt::Less;
+    break;
+  case 2:
+    cgOptLevel = llvm::CodeGenOpt::Default;
+    break;
+  case 3:
+    cgOptLevel = llvm::CodeGenOpt::Aggressive;
+    break;
+  default:
+    SPNC_FATAL_ERROR("Invalid optimization level {}", optLevel);
+  }
+
+  std::unique_ptr<llvm::TargetMachine> machine{
+      target->createTargetMachine(targetTriple.getTriple(), cpu, features.getString(), {},
+                                  llvm::Reloc::PIC_, llvm::None, cgOptLevel)};
+  return machine;
+}

@@ -119,7 +119,11 @@ if (${IPU_SUPPORT})
     target_sources(spnc PRIVATE 
         src/toolchain/IPUToolchain.cpp
         src/pipeline/steps/mlir/conversion/LoSPNtoIPUConversion.cpp
-        src/pipeline/steps/mlir/conversion/IPUtoLLVMConversion.cpp)
+        src/pipeline/steps/mlir/conversion/IPUtoLLVMConversion.cpp
+        src/ipu/IPUTargetInfo.cpp
+        src/ipu/IPUTargetMachine.cpp
+        src/ipu/IPUSubtarget.cpp
+        src/ipu/IPUTargetLowering.cpp)
 else (${IPU_SUPPORT})
     target_compile_definitions(spnc PRIVATE SPNC_IPU_SUPPORT=0)
 endif (${IPU_SUPPORT})

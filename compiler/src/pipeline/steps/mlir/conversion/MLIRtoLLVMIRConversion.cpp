@@ -52,13 +52,11 @@ spnc::MLIRtoLLVMIRConversion::executeStep(mlir::ModuleOp *mlirModule) {
 
   SPDLOG_INFO("Finished conversion to LLVM IR");
 
-  llvm::InitializeNativeTarget();
-  llvm::InitializeNativeTargetAsmPrinter();
-  // NOTE: If we want to support cross-compilation, we need to replace the
-  // following line, as it will always set the modules target triple to the
-  // native CPU target.
-  auto machine = getContext()->get<llvm::TargetMachine>();
-  mlir::ExecutionEngine::setupTargetTripleAndDataLayout(module.get(), machine);
+  // Set target triple and data layout
+  auto targetMachine = getContext()->get<llvm::TargetMachine>();
+  module->setDataLayout(targetMachine->createDataLayout());
+  module->setTargetTriple(targetMachine->getTargetTriple().getTriple());
+
   // Run optimization pipeline to get rid of some clutter introduced during
   // conversion to LLVM dialect in MLIR.
   auto optLevel = retrieveOptLevel();
