@@ -27,7 +27,7 @@ public:
                 std::unique_ptr<interface::Configuration> config);
 
 protected:
-  //static std::unique_ptr<llvm::TargetMachine> createTargetMachine(int optLevel);
+  static std::unique_ptr<llvm::TargetMachine> createTargetMachine(int optLevel, IPUTarget ipuTarget);
 };
 } // namespace spnc
 

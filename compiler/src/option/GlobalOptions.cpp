@@ -8,6 +8,7 @@
 
 #include <option/GlobalOptions.h>
 #include <option/Options.h>
+#include <Kernel.h>
 
 using namespace spnc::interface;
 
@@ -24,9 +25,9 @@ EnumOpt spnc::option::compilationTarget{"target",
                                          EnumVal(IPU, "IPU")},
                                         {required()}};
 
-using spnc::option::IPUTarget;
-EnumOpt spnc::option::ipuTarget{"ipu-target",
-                                {EnumVal(Model, "cpu"),
+using spnc::IPUTarget;
+EnumOpt spnc::option::ipuTarget{"ipu-target", Model,
+                                {EnumVal(Model, "model"),
                                  EnumVal(IPU1, "ipu1"),
                                  EnumVal(IPU2, "ipu2"),
                                  EnumVal(IPU21, "ipu21")},

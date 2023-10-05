@@ -48,6 +48,7 @@ namespace spnc {
   struct KernelInfo {
     spnc::KernelQueryType queryType;
     spnc::KernelTarget target;
+    spnc::IPUTarget ipuTarget;
     unsigned batchSize;
     unsigned numFeatures;
     unsigned bytesPerFeature;

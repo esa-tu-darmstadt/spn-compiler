@@ -39,13 +39,6 @@ namespace spnc {
     /// Interface option to specify the compilation target.
     extern EnumOpt compilationTarget;
 
-    enum IPUTarget : int {
-      Model,    // IPU Model running on the CPU
-      IPU1,     // Colossus MK1
-      IPU2,     // Colossus MK2
-      IPU21,    // Colossus MK2.1
-    };
-
     extern EnumOpt ipuTarget;
 
     ///
