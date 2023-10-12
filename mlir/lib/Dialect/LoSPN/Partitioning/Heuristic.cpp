@@ -8,12 +8,15 @@
 
 #include "Heuristic.h"
 #include "GraphPartitioner.h"
+#include "LoSPN/LoSPNOps.h"
+#include "mlir/IR/OpDefinition.h"
 #include "llvm/ADT/SmallPtrSet.h"
 
 using namespace mlir;
 using namespace mlir::spn::low;
+using namespace mlir::spn::low::partitioning;
 
-Heuristic::Heuristic(llvm::ArrayRef<Operation*> allNodes,
+Heuristic::Heuristic(llvm::ArrayRef<Node> allNodes,
                      llvm::ArrayRef<Value> externalInputs,
                      Partitioning* allPartitions) : nodes(allNodes.begin(), allNodes.end()),
                                                     external(externalInputs.begin(), externalInputs.end()),
@@ -21,19 +24,18 @@ Heuristic::Heuristic(llvm::ArrayRef<Operation*> allNodes,
   for (auto& p : *partitions) {
     auto id = p->ID();
     maxPartition = std::max(maxPartition, id);
-    for (auto* n : *p) {
+    for (auto& n : *p) {
       partitionMap[n] = id;
     }
   }
 }
 
-unsigned int Heuristic::getPartitionIDForNode(Operation* node) {
-  assert(node);
+unsigned int Heuristic::getPartitionIDForNode(Node node) {
   assert(partitionMap.count(node) && "Node must be contained in map");
   return partitionMap[node];
 }
 
-Partition* Heuristic::getPartitionForNode(Operation* node) {
+Partition* Heuristic::getPartitionForNode(Node node) {
   auto partitionID = getPartitionIDForNode(node);
   return partitions->at(partitionID).get();
 }
@@ -43,20 +45,20 @@ Partition* Heuristic::getPartitionByID(unsigned int ID) {
   return partitions->at(ID).get();
 }
 
-void Heuristic::moveNode(Operation* node, Partition* from, Partition* to) {
+void Heuristic::moveNode(Node node, Partition* from, Partition* to) {
   from->removeNode(node);
   to->addNode(node);
   partitionMap[node] = to->ID();
 }
 
-bool Heuristic::isConstant(Operation* op) const {
+bool Heuristic::isConstant(Node op) const {
   return op->hasTrait<OpTrait::ConstantLike>();
 }
 
 void SimpleMoveHeuristic::refinePartitioning() {
   llvm::SmallPtrSet<Value, 10> externalIn(external.begin(), external.end());
 
-  for (auto* node : nodes) {
+  for (auto& node : nodes) {
 
     // Do not move constant operations, they can be internalized by duplication.
     if (node->hasTrait<OpTrait::ConstantLike>()) {
@@ -134,9 +136,9 @@ void SimpleMoveHeuristic::refinePartitioning() {
       // will become external edges. As the result of the operation only needs to be
       // stored/loaded to/from memory once for all users, the gain is only decremented by 1
       // if there's any user.
-      auto usedInSame = llvm::any_of(node->getUsers(), [this, i](Operation* U) {
+      auto usedInSame = llvm::any_of(node->getUsers(), [this, i](Node U) {
         // SPNYield is not part of the partitioning, simply ignore it.
-        return !isa<SPNYield>(U) && getPartitionIDForNode(U) == i;
+        return !isa<SPNYield>(U.getOperation()) && getPartitionIDForNode(U) == i;
       });
       if (usedInSame) {
         --gain;

@@ -106,7 +106,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task,
                      << ", use XOR chains: " << useXorChains << ").";
 
 #ifndef SLP_DEBUG
-  #define SLP_DEBUG false
+  #define SLP_DEBUG true
 #endif
 
 // Print the number of loSPN ops in the entire function

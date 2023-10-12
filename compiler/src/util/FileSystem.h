@@ -49,13 +49,16 @@ namespace spnc {
 
   ///
   /// Enumeration of special file-types.
-  enum class FileType { SPN_JSON, LLVM_BC, OBJECT, SHARED_OBJECT, DOT, STAT_JSON, SPN_BINARY };
+  enum class FileType { SPN_JSON, CPP, LLVM_BC, LLVM_IR, OBJECT, SHARED_OBJECT, DOT, STAT_JSON, SPN_BINARY, GRAPH_PROGRAM };
 
   using LLVMBitcode = File<FileType::LLVM_BC>;
+  using LLVMIR = File<FileType::LLVM_IR>;
+  using CPPSource = File<FileType::CPP>;
   using ObjectFile = File<FileType::OBJECT>;
   using SharedObject = File<FileType::SHARED_OBJECT>;
   using StatsFile = File<FileType::STAT_JSON>;
   using BinarySPN = File<FileType::SPN_BINARY>;
+  using CompiledGraphProgram = File<FileType::GRAPH_PROGRAM>;
 
   /// File on the file-system.
   /// \tparam Type Type of the file.
@@ -115,9 +118,11 @@ namespace spnc {
       case FileType::SPN_JSON:
       case FileType::STAT_JSON: return ".json";
       case FileType::LLVM_BC: return ".bc";
+      case FileType::LLVM_IR: return ".ll";
       case FileType::DOT: return ".dot";
       case FileType::OBJECT: return ".o";
       case FileType::SHARED_OBJECT: return ".so";
+      case FileType::GRAPH_PROGRAM: return ".gp";
       default: return "";
     }
   }

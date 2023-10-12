@@ -40,6 +40,7 @@ namespace spnc {
     extern EnumOpt compilationTarget;
 
     extern EnumOpt ipuTarget;
+    extern Option<std::string> ipuCompilerPath;
 
     ///
     /// Flag to indicate the desired level of optimization.

@@ -9,78 +9,65 @@
 #ifndef SPNC_MLIR_LIB_DIALECT_LOSPN_PARTITIONING_HEURISTIC_H
 #define SPNC_MLIR_LIB_DIALECT_LOSPN_PARTITIONING_HEURISTIC_H
 
-#include <memory>
+#include "GraphPartitioner.h"
 #include "mlir/IR/Operation.h"
 #include "llvm/ADT/ArrayRef.h"
+#include <memory>
 
 namespace mlir {
-  namespace spn {
-    namespace low {
+namespace spn {
+namespace low {
+namespace partitioning {
+// Forward declaration to avoid circular header dependency
+class Partition;
 
-      // Forward declaration to avoid circular header dependency
-      class Partition;
+class Heuristic {
 
-      using PartitionRef = std::unique_ptr<Partition>;
+public:
+  Heuristic(llvm::ArrayRef<Node> allNodes, llvm::ArrayRef<Value> externalInputs, Partitioning *allPartitions);
 
-      using Partitioning = std::vector<PartitionRef>;
+  virtual ~Heuristic() = default;
 
-      class Heuristic {
+  virtual void refinePartitioning() = 0;
 
-      public:
+protected:
+  llvm::SmallVector<Node> nodes;
 
-        Heuristic(llvm::ArrayRef<Operation*> allNodes, llvm::ArrayRef<Value> externalInputs,
-                  Partitioning* allPartitions);
+  llvm::SmallVector<Value> external;
 
-        virtual ~Heuristic() = default;
+  Partitioning *partitions;
 
-        virtual void refinePartitioning() = 0;
+  unsigned maxPartition = 0;
 
-      protected:
+  llvm::DenseMap<Node, unsigned, llvm::DenseMapInfo<mlir::Operation*>> partitionMap;
 
-        llvm::SmallVector<Operation*> nodes;
+  Partition *getPartitionForNode(Node node);
 
-        llvm::SmallVector<Value> external;
+  unsigned getPartitionIDForNode(Node node);
 
-        Partitioning* partitions;
+  Partition *getPartitionByID(unsigned ID);
 
-        unsigned maxPartition = 0;
+  void moveNode(Node node, Partition *from, Partition *to);
 
-        llvm::DenseMap<Operation*, unsigned> partitionMap;
+  bool isConstant(Node op) const;
+};
 
-        Partition* getPartitionForNode(Operation* node);
+class SimpleMoveHeuristic : public Heuristic {
 
-        unsigned getPartitionIDForNode(Operation* node);
+public:
+  using Heuristic::Heuristic;
 
-        Partition* getPartitionByID(unsigned ID);
+  void refinePartitioning() override;
 
-        void moveNode(Operation* node, Partition* from, Partition* to);
-
-        bool isConstant(Operation* op) const;
-
-      };
-
-      using HeuristicFactory =
-      std::function<std::unique_ptr<Heuristic>(llvm::ArrayRef<Operation*>, llvm::ArrayRef<Value>,
-                                               Partitioning*)>;
-
-      class SimpleMoveHeuristic : public Heuristic {
-
-      public:
-
-        using Heuristic::Heuristic;
-
-        void refinePartitioning() override;
-
-        static std::unique_ptr<SimpleMoveHeuristic> create(llvm::ArrayRef<Operation*> allNodes,
-                                                           llvm::ArrayRef<Value> externalInputs,
-                                                           Partitioning* allPartitions) {
-          return std::make_unique<SimpleMoveHeuristic>(allNodes, externalInputs, allPartitions);
-        }
-
-      };
-
-    }
+  static std::unique_ptr<SimpleMoveHeuristic>
+  create(llvm::ArrayRef<Node> allNodes, llvm::ArrayRef<Value> externalInputs, Partitioning *allPartitions) {
+    return std::make_unique<SimpleMoveHeuristic>(allNodes, externalInputs, allPartitions);
   }
-}
+};
 
-#endif //SPNC_MLIR_LIB_DIALECT_LOSPN_PARTITIONING_HEURISTIC_H
+} // namespace partitioning
+} // namespace low
+} // namespace spn
+} // namespace mlir
+
+#endif // SPNC_MLIR_LIB_DIALECT_LOSPN_PARTITIONING_HEURISTIC_H

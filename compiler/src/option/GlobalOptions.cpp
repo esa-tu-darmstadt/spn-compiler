@@ -33,6 +33,8 @@ EnumOpt spnc::option::ipuTarget{"ipu-target", Model,
                                  EnumVal(IPU21, "ipu21")},
                                 {depends(spnc::option::compilationTarget, (int)IPU)}};
 
+Option<std::string> spnc::option::ipuCompilerPath{"ipu-compiler", "popc", {depends(spnc::option::compilationTarget, (int)IPU)}};
+
 
 Option<int> spnc::option::optLevel{"optLevel", 3};
 

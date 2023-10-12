@@ -7,83 +7,33 @@
 //==============================================================================
 
 #include "GraphPartitioner.h"
+#include "mlir/IR/OpDefinition.h"
+#include "mlir/IR/Value.h"
+#include "llvm/Support/GraphWriter.h"
 #include <stack>
 
 using namespace llvm;
 using namespace mlir;
 using namespace mlir::spn::low;
+using namespace mlir::spn::low::partitioning;
 
-void mlir::spn::low::Partition::addNode(Operation* node) {
-  nodes.insert(node);
-  dirty = true;
-  if (!node->hasTrait<OpTrait::ConstantLike>()) {
-    ++numNodes;
+float Node::getWeight() const {
+  if (op->hasTrait<OpTrait::ConstantLike>()) {
+    return 0.0;
   }
+  return 1.0;
 }
 
-void mlir::spn::low::Partition::removeNode(Operation* node) {
-  nodes.erase(node);
-  dirty = true;
-  if (!node->hasTrait<OpTrait::ConstantLike>()) {
-    --numNodes;
-  }
-}
 
-bool mlir::spn::low::Partition::contains(Operation* node) {
-  return nodes.contains(node);
-}
-
-llvm::SmallPtrSetImpl<mlir::Operation*>::iterator mlir::spn::low::Partition::begin() {
-  return nodes.begin();
-}
-
-llvm::SmallPtrSetImpl<mlir::Operation*>::iterator mlir::spn::low::Partition::end() {
-  return nodes.end();
-}
-
-void mlir::spn::low::Partition::computeExternalConnections() {
-  extIn.clear();
-  exOut.clear();
-  for (auto* n : nodes) {
-    auto usesExt = llvm::any_of(n->getOperands(), [this](Value op) {
-      return !this->nodes.contains(op.getDefiningOp());
-    });
-    if (usesExt) {
-      extIn.push_back(n);
-    }
-    auto providesExt = llvm::any_of(n->getUsers(), [this](Operation* u) {
-      return !this->nodes.contains(u);
-    });
-    if (providesExt) {
-      exOut.push_back(n);
-    }
-  }
-  dirty = false;
-}
-
-llvm::ArrayRef<Operation*> mlir::spn::low::Partition::hasExternalInputs() {
-  if (dirty) {
-    computeExternalConnections();
-  }
-  return extIn;
-}
-
-llvm::ArrayRef<Operation*> mlir::spn::low::Partition::hasExternalOutputs() {
-  if (dirty) {
-    computeExternalConnections();
-  }
-  return exOut;
-}
-
-void mlir::spn::low::Partition::dump() const {
+void partitioning::Partition::dump() const {
   llvm::dbgs() << "Partition " << id << "(" << this << "):\n";
-  for (auto* o : nodes) {
+  for (auto &o : nodes_) {
     o->dump();
   }
 }
 
-GraphPartitioner::GraphPartitioner(int maxTaskSize, HeuristicFactory heuristic) :
-    maxPartitionSize{maxTaskSize}, factory{std::move(heuristic)} {}
+GraphPartitioner::GraphPartitioner(int maxTaskSize, HeuristicFactory heuristic)
+    : maxPartitionSize{maxTaskSize}, factory{std::move(heuristic)} {}
 
 unsigned int GraphPartitioner::getMaximumPartitionSize() const {
   // Allow up to 1% or at least one node in slack.
@@ -91,24 +41,26 @@ unsigned int GraphPartitioner::getMaximumPartitionSize() const {
   return maxPartitionSize + slack;
 }
 
-Partitioning mlir::spn::low::GraphPartitioner::partitionGraph(
-    llvm::ArrayRef<Operation*> nodes,
-    llvm::SmallPtrSetImpl<Operation*>& inNodes,
-    llvm::ArrayRef<Value> externalInputs) {
+Partitioning GraphPartitioner::partitionGraph(llvm::ArrayRef<Operation *> nodes,
+                                                              llvm::SmallPtrSetImpl<Operation *> &inNodes,
+                                                              llvm::ArrayRef<Value> externalInputs) {
+  
   auto partitioning = initialPartitioning(nodes, inNodes, externalInputs);
+
+  viewGraph(partitioning);
+
   refinePartitioning(nodes, externalInputs, &partitioning);
   return partitioning;
 }
 
-Partitioning mlir::spn::low::GraphPartitioner::initialPartitioning(
-    llvm::ArrayRef<Operation*> nodes,
-    llvm::SmallPtrSetImpl<Operation*>& inNodes,
-    llvm::ArrayRef<Value> externalInputs) const {
-  llvm::SmallPtrSet<Operation*, 32> partitioned;
-  std::stack<Operation*> S;
-  llvm::SmallVector<Operation*, 0> T;
+Partitioning GraphPartitioner::initialPartitioning(llvm::ArrayRef<Operation *> nodes,
+                                                                   llvm::SmallPtrSetImpl<Operation *> &inNodes,
+                                                                   llvm::ArrayRef<Value> externalInputs) const {
+  llvm::SmallPtrSet<Operation *, 32> partitioned;
+  std::stack<Operation *> S;
+  llvm::SmallVector<Operation *, 0> T;
   llvm::SmallPtrSet<Value, 32> external(externalInputs.begin(), externalInputs.end());
-  llvm::SmallVector<Operation*> inputNodes(inNodes.begin(), inNodes.end());
+  llvm::SmallVector<Operation *> inputNodes(inNodes.begin(), inNodes.end());
   // Initially populate the stack with all operations that potentially have an in-degree of zero.
   for (auto I = inputNodes.rbegin(); I != inputNodes.rend(); ++I) {
     if (hasInDegreeZero(*I, partitioned, external)) {
@@ -128,7 +80,7 @@ Partitioning mlir::spn::low::GraphPartitioner::initialPartitioning(
     // Check if any of the users of this operation have all their operands visited now and
     // push them onto the stack.
     for (auto r : cur->getResults()) {
-      for (auto* U : r.getUsers()) {
+      for (auto *U : r.getUsers()) {
         if (hasInDegreeZero(U, partitioned, external)) {
           S.push(U);
         }
@@ -142,7 +94,7 @@ Partitioning mlir::spn::low::GraphPartitioner::initialPartitioning(
   unsigned nodeIndex = 0;
   for (unsigned i = 0; i < numPartitions; ++i) {
     partitioning.push_back(std::make_unique<Partition>(i, getMaximumPartitionSize()));
-    auto& curPar = partitioning.back();
+    auto &curPar = partitioning.back();
     auto maxIndex = nodeIndex + maxPartitionSize;
     for (; (nodeIndex < maxIndex) && (nodeIndex < T.size()); ++nodeIndex) {
       curPar->addNode(T[nodeIndex]);
@@ -151,21 +103,105 @@ Partitioning mlir::spn::low::GraphPartitioner::initialPartitioning(
   return partitioning;
 }
 
-bool mlir::spn::low::GraphPartitioner::hasInDegreeZero(Operation* node,
-                                                       llvm::SmallPtrSetImpl<Operation*>& partitioned,
-                                                       llvm::SmallPtrSetImpl<Value>& externalInputs) const {
+bool GraphPartitioner::hasInDegreeZero(Operation *node, llvm::SmallPtrSetImpl<Operation *> &partitioned,
+                                                       llvm::SmallPtrSetImpl<Value> &externalInputs) const {
   return llvm::all_of(node->getOperands(), [&](Value operand) {
-    return externalInputs.contains(operand)
-        || (operand.getDefiningOp() && partitioned.contains(operand.getDefiningOp()));
+    return externalInputs.contains(operand) ||
+           (operand.getDefiningOp() && partitioned.contains(operand.getDefiningOp()));
   });
 }
 
-void GraphPartitioner::refinePartitioning(llvm::ArrayRef<Operation*> allNodes,
-                                          llvm::ArrayRef<Value> externalInputs,
-                                          Partitioning* allPartitions) {
+void GraphPartitioner::refinePartitioning(llvm::ArrayRef<Operation *> allNodes, llvm::ArrayRef<Value> externalInputs,
+                                          Partitioning *allPartitions) {
   if (!factory) {
     return;
   }
-  auto heuristic = factory(allNodes, externalInputs, allPartitions);
-  heuristic->refinePartitioning();
+  // auto heuristic = factory(allNodes, externalInputs, allPartitions);
+  // heuristic->refinePartitioning();
+}
+
+void GraphPartitioner::viewGraph(const Partitioning &partitions) const {
+  int FD;
+
+  // Create a temporary file to hold the graph.
+  auto fileName = createGraphFilename("partitioning", FD);
+  if (fileName.empty()) {
+    return;
+  }
+
+  // Open the file for writing.
+  raw_fd_ostream O(FD, /*shouldClose=*/true);
+  if (FD == -1) {
+    errs() << "error opening file '" << fileName << "' for writing!\n";
+    return;
+  }
+
+  // Write the graph to the file.
+  printGraph(O, partitions);
+  O.close();
+
+  // Display the graph.
+  DisplayGraph(fileName, false, GraphProgram::DOT);
+}
+
+void GraphPartitioner::printGraph(raw_ostream &O, const Partitioning &partitions) const {
+  // Write the header
+  O << "digraph \"Partitioning\" {\n";
+
+  // Write each partition into a subgraph.
+  for (auto &partition : partitions) {
+    // Write the header of the subgraph.
+    O << "  subgraph cluster_" << partition->ID() << " {\n";
+    O << "    label = \"Partition " << partition->ID() << "\";\n";
+
+    // Write each operation as a node. Use the address of the operation as its identifier and its name as the label.
+    for (auto &node : *partition) {
+      O << "    \"" << *node << "\" [label=\"" << node->getName() << "\"];\n";
+    }
+
+    // Write the edges between the nodes of this partition.
+    for (auto &node : *partition) {
+      for(auto succ : node.successors()) {
+        if (partition->contains(succ))
+          O << "    \"" << *node << "\" -> \"" << *succ << "\";\n";
+      }
+    }
+
+    // Write the footer of the subgraph.
+    O << "  }\n";
+  }
+
+  // Write the block arguments as nodes.
+  for (auto &partition : partitions) {
+    for (auto &node : partition->incoming_nodes()) {
+      for (const auto &operand : node->getOperands()) {
+        if (auto ba = operand.dyn_cast_or_null<mlir::BlockArgument>())
+          O << "  \"" << operand.getAsOpaquePointer() << "\" [label=\"Block arg #" << ba.getArgNumber() << "\"];\n";
+      }
+    }
+  }
+
+  // Write the edges between block arguments and nodes.
+  for (auto &partition : partitions) {
+    for (auto &node : partition->incoming_nodes()) {
+      for (const auto &operand : node->getOperands()) {
+        if (operand.getDefiningOp() != nullptr)
+          continue;
+        O << "  \"" << operand.getAsOpaquePointer() << "\" -> \"" << *node << "\";\n";
+      }
+    }
+  }
+
+  // Write the edges between nodes of different partitions.
+  for (auto &partition : partitions) {
+    for (auto &node : partition->outgoing_nodes()) {
+      for (auto *user : node->getUsers()) {
+        if (!partition->contains(user))
+          O << "  \"" << *node << "\" -> \"" << user << "\";\n";
+      }
+    }
+  }
+
+  // Write the footer
+  O << "}\n";
 }
