@@ -9,12 +9,14 @@
 #ifndef SPNC_MLIR_LIB_DIALECT_LOSPN_PARTITIONING_GRAPHPARTITIONER_H
 #define SPNC_MLIR_LIB_DIALECT_LOSPN_PARTITIONING_GRAPHPARTITIONER_H
 
+#include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/UseDefLists.h"
 #include "mlir/IR/Value.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/iterator_range.h"
 #include <functional>
 #include <set>
 
@@ -23,41 +25,76 @@ namespace spn {
 namespace low {
 
 namespace partitioning {
+class Node;
+
+class Edge {
+  Operation *from_;
+  Operation *to_;
+  Value value_;
+
+public:
+  Edge(Operation *from, Operation *to, Value value) : from_(from), to_(to), value_(value) {}
+
+  Node from() const;
+  Node to() const;
+  Value getValue() const { return value_; }
+
+  // Allows implicit conversion to Value.
+  operator Value() { return value_; }
+  Value operator->() const { return value_; }
+  Value operator*() const { return value_; }
+
+  // Returns the cost to transmit this edge to another partition.
+  float getCost() const;
+};
 
 /// A node in the SPN graph.
 class Node {
-  Operation *op;
+  Operation *op_;
 
 public:
-  Node(Operation *op) : op(op) {}
+  Node() : op_(nullptr) {}
+  Node(Operation *op) : op_(op) {}
 
-  /// Range of all users of this operation wrapped in Node objects.
-  auto successors() const {
-    return llvm::map_range(op->getUsers(), [](Operation *op) { return Node(op); });
+  /// Range of all outgoing edges
+  auto edges_out() const {
+    assert(op_->getNumResults() == 1 && "Operation must have exactly one result.");
+    return llvm::map_range(op_->getResult(0).getUsers(),
+                           [this](Operation *user) { return Edge(op_, user, op_->getResult(0)); });
   }
 
-  /// Range of all operands of this operation that are results of an operation wrapped in Node objects.
-  auto predecessors() const {
-    return llvm::map_range(llvm::make_filter_range(op->getOperands(), [](Value op) { return op.getDefiningOp(); }),
-                           [](Value op) { return Node(op.getDefiningOp()); });
-  }
-
-  /// Range of all external inputs, i.e., all operands that are block arguments.
-  auto external_inputs() const {
+  /// Range of all incoming edges
+  auto edges_in() const {
     return llvm::map_range(
-        llvm::make_filter_range(op->getOperands(), [](Value op) { return op.isa<mlir::BlockArgument>(); }),
-        [](Value op) { return op.cast<mlir::BlockArgument>(); });
+        llvm::make_filter_range(op_->getOperands(), [](Value operand) { return operand.getDefiningOp(); }),
+        [this](Value operand) { return Edge(operand.getDefiningOp(), op_, operand); });
   }
 
-  Operation *getOperation() const { return op; }
-  Operation *operator->() const { return op; }
-  Operation *operator*() const { return op; }
+  /// Range of all external input edges, i.e., block arguments.
+  auto external_edges_in() const {
+    return llvm::map_range(
+        llvm::make_filter_range(op_->getOperands(), [](Value operand) { return operand.isa<mlir::BlockArgument>(); }),
+        [this](Value operand) { return Edge(nullptr, op_, operand); });
+  }
+
+  /// Returns whether this node is a leaf node.
+  bool isLeaf() const {
+    return op_->hasTrait<OpTrait::ConstantLike>() ||
+           llvm::any_of(op_->getOperands(), [](Value op) { return op.isa<mlir::BlockArgument>(); });
+  }
+
+  bool isRoot() const { return op_-> }
+
+  Operation *getOperation() const { return op_; }
+  Operation *operator->() const { return op_; }
+  Operation *operator*() const { return op_; }
 
   // Allows implicit conversion to Operation *.
   // This allows for an easy use of this class in sets and maps and automatically brings comparison operators with it.
-  operator Operation *() const { return op; }
+  operator Operation *() const { return op_; }
 
-  float getWeight() const;
+  // Returns the cost to compute this node.
+  float getCost() const;
 };
 
 /// A partition of the SPN graph.
@@ -72,25 +109,23 @@ public:
   auto begin() const { return nodes_.begin(); }
   auto end() const { return nodes_.end(); }
 
-  /// Range of nodes with operands connected to nodes in other partitions.
+  /// Range of nodes with edges connected to nodes in other partitions.
   auto incoming_nodes() const {
     return llvm::make_filter_range(nodes(), [this](Node n) {
-      return llvm::any_of(n.predecessors(), [this](Node predecessor) { return !this->contains(predecessor); });
+      return llvm::any_of(n.edges_in(), [this](Edge edge) { return !this->contains(edge.from()); });
     });
   }
 
-  /// Range of nodes with users connected to nodes in other partitions.
+  /// Range of nodes with edges connected to nodes in other partitions.
   auto outgoing_nodes() const {
     return llvm::make_filter_range(nodes(), [this](Node n) {
-      return llvm::any_of(n.successors(), [this](Node successor) { return !this->contains(successor); });
+      return llvm::any_of(n.edges_out(), [this](Edge edge) { return !this->contains(edge.to()); });
     });
   }
 
-  /// Range of nodes with operands connected to block arguments, i.e., input values from the user.
-  auto external_input_nodes() const {
-    return llvm::make_filter_range(nodes(), [](Node node) {
-      return llvm::any_of(node->getOperands(), [](Value op) { return op.isa<mlir::BlockArgument>(); });
-    });
+  /// Range of entry nodes with an indegree of zero. These are either constant nodes or nodes with external inputs.
+  auto leaf_nodes() const {
+    return llvm::make_filter_range(nodes(), [](Node node) { return node.isLeaf(); });
   }
 
   void addNode(Node node) { nodes_.insert(node); }
@@ -116,36 +151,30 @@ private:
 using PartitionRef = std::unique_ptr<Partition>;
 using Partitioning = std::vector<PartitionRef>;
 
-class Heuristic;
-using HeuristicFactory =
-    std::function<std::unique_ptr<Heuristic>(llvm::ArrayRef<Node>, llvm::ArrayRef<Value>, Partitioning *)>;
-
 class GraphPartitioner {
 
 public:
-  explicit GraphPartitioner(int maxTaskSize, HeuristicFactory heuristic = nullptr);
+  explicit GraphPartitioner(llvm::ArrayRef<Node> nodes, int maxTaskSize);
+  virtual ~GraphPartitioner() = default;
 
   void viewGraph(const Partitioning &partitions) const;
   void printGraph(raw_ostream &O, const Partitioning &partitions) const;
 
-  Partitioning partitionGraph(llvm::ArrayRef<Operation *> nodes, llvm::SmallPtrSetImpl<Operation *> &inNodes,
-                              llvm::ArrayRef<Value> externalInputs);
+  virtual Partitioning partitionGraph() = 0;
 
   unsigned getMaximumPartitionSize() const;
 
-private:
-  Partitioning initialPartitioning(llvm::ArrayRef<Operation *> nodes, llvm::SmallPtrSetImpl<Operation *> &inNodes,
-                                   llvm::ArrayRef<Value> externalInputs) const;
+  /// Range of all nodes in the graph.
+  auto nodes() const { return nodes_; }
 
-  void refinePartitioning(llvm::ArrayRef<Operation *> allNodes, llvm::ArrayRef<Value> externalInputs,
-                          Partitioning *allPartitions);
+  /// Range of all leaf nodes in the graph.
+  auto leaf_nodes() const {
+    return llvm::make_filter_range(nodes(), [](Node node) { return node.isLeaf(); });
+  }
 
-  bool hasInDegreeZero(Operation *node, llvm::SmallPtrSetImpl<Operation *> &partitioned,
-                       llvm::SmallPtrSetImpl<Value> &externalInputs) const;
-
-  int maxPartitionSize;
-
-  HeuristicFactory factory;
+protected:
+  int maxPartitionSize_;
+  llvm::ArrayRef<Node> nodes_;
 };
 
 } // namespace partitioning
@@ -153,13 +182,14 @@ private:
 } // namespace spn
 } // namespace mlir
 
-// namespace std {
-// /// Hash function for Node objects that hashes the underlying operation pointer.
-// template <> struct hash<mlir::spn::low::partitioning::Node> {
-//   std::size_t operator()(const mlir::spn::low::partitioning::Node &node) const {
-//     return hash<mlir::Operation *>()(node.getOperation());
-//   }
-// };
-// } // namespace std
+namespace std {
+/// Hash function for Node objects that hashes the underlying operation pointer.
+/// This allows to use Node objects in sets and maps.
+template <> struct hash<mlir::spn::low::partitioning::Node> {
+  std::size_t operator()(const mlir::spn::low::partitioning::Node &node) const {
+    return hash<mlir::Operation *>()(node.getOperation());
+  }
+};
+} // namespace std
 
 #endif // SPNC_MLIR_LIB_DIALECT_LOSPN_PARTITIONING_GRAPHPARTITIONER_H
