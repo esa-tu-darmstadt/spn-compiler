@@ -6,7 +6,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include "../Partitioning/GraphPartitioner.h"
+#include "../Partitioning/Algorithms/TopologicalSort/TopoSortPartitioner.h"
+#include "../Partitioning/Algorithms/DominantSequenceClustering/DSCPartitioner.h"
 #include "../Partitioning/Heuristic.h"
 #include "LoSPN/LoSPNOps.h"
 #include "LoSPN/LoSPNPasses.h"
@@ -32,16 +33,12 @@ namespace low {
 class PartitionTask : public OpRewritePattern<low::SPNTask> {
 
 public:
-  PartitionTask(MLIRContext *ctx, partitioning::GraphPartitioner &part)
-      : OpRewritePattern<low::SPNTask>(ctx, 1), partitioner(part) {}
+  PartitionTask(MLIRContext *ctx, int maxTaskSize)
+      : OpRewritePattern<low::SPNTask>(ctx, 1), maxTaskSize_(maxTaskSize) {}
 
   LogicalResult matchAndRewrite(SPNTask op, PatternRewriter &rewriter) const override {
     // All operations in the Task relevant for partitioning
-    SmallVector<Operation *> nodes;
-    // All operations with potentially no internal operands (in-degree 0)
-    SmallPtrSet<Operation *, 10> inNodes;
-    // All inputs considered external for the partitioning.
-    SmallVector<Value> external;
+    SmallVector<partitioning::Node> nodes;
     // Mapping from Value to a Tensor + index, either from an external
     // input of this task or internally from another partition.
     InputMap inputs;
@@ -63,7 +60,6 @@ public:
       op->walk([&](SPNBody body) {
         unsigned inIndex = 0;
         for (auto blockArg : body.getBody()->getArguments()) {
-          external.push_back(blockArg);
           // Detect the BatchExtract producing this block arg:
           auto bodyOp = body->getOperand(inIndex++);
           assert(isa<SPNBatchExtract>(bodyOp.getDefiningOp()));
@@ -77,11 +73,6 @@ public:
           assert(externalTensors.count(tensorArg.cast<BlockArgument>()));
           auto externalTensor = externalTensors[tensorArg.cast<BlockArgument>()];
           inputs[blockArg] = InputInfo{externalTensor, llvm::None, extract.staticIndex()};
-          llvm::outs() << "Upper: detected " << blockArg << " as external input\n";
-          // All users of the entry block args potentially do not have outside operands.
-          for (auto *U : blockArg.getUsers()) {
-            inNodes.insert(U);
-          }
         }
         body.body().walk([&](Operation *op) {
           if (isa<SPNYield>(op)) {
@@ -95,7 +86,6 @@ public:
             if (op->hasTrait<OpTrait::ConstantLike>()) {
               // Constant operations do not have an operand, so they
               // should be used as seeds for the initial partitioning, too.
-              inNodes.insert(op);
             } else {
               ++numNodes;
             }
@@ -103,12 +93,13 @@ public:
         });
       });
     }
-    if (numNodes <= partitioner.getMaximumPartitionSize()) {
+    if ((int)numNodes <= maxTaskSize_) {
       // Do not partition a task if it is already smaller than the maximum size.
       return mlir::failure();
     }
     // Perform the actual partitioning.
-    auto partition = partitioner.partitionGraph(nodes, inNodes, external);
+    partitioning::DSCPartitioner partitioner{nodes, maxTaskSize_};
+    auto partition = partitioner.partitionGraph();
     SmallVector<PartitionInfo> partitions;
     unsigned index = 0;
     for (auto &p : partition) {
@@ -167,30 +158,40 @@ private:
 
   void createTaskForPartition(PartitionInfo partition, PatternRewriter &rewriter, Location loc, unsigned batchSize,
                               InputMap &inputs, llvm::ArrayRef<PartitionInfo> partitions) const {
-    // First, collect all input values coming from either outside arguments of the original task or
-    // from other partitions.
+    // First, collect all input values coming from either outside arguments of the original task
     InputMap nonPartitionInputs;
     llvm::MapVector<Value, unsigned> inputArgs;
     unsigned inputArgIndex = 1;
-    for (auto &node :
-         llvm::concat<const partitioning::Node>(partition.first->external_input_nodes(), partition.first->incoming_nodes())) {
-      for (auto op : node->getOperands()) {
-        llvm::outs() << "Detected " << op << " as external input\n";
-        if (!inputs.count(op)) {
+    for (auto &node : partition.first->leaf_nodes()) {
+      for (auto extEdge : node.external_edges_in()) {
+        assert(inputs.count(extEdge) && "External input are expected to be present in the input map");
+        auto inputInfo = inputs[extEdge];
+        nonPartitionInputs[extEdge] = inputInfo;
+        // Remember which output from the outside will be provided by which argument to this task.
+        if (!inputArgs.count(inputInfo.tensor)) {
+          inputArgs.insert({inputInfo.tensor, inputArgIndex++});
+        }
+      }
+    }
+        // First, collect all input values coming from other partitions.
+    for (auto &node : partition.first->incoming_nodes()) {
+        for (auto edge : node.edges_in()) {
+        if(partition.first->contains(edge.from())) {
+          // This edge is internal to the partition, skip it.
+          continue;
+        }
+        if (!inputs.count(edge)) {
           // First, check the map for pre-existing entries.
           // If no mapping is present, the input must be produced by another partition.
-          auto otherPartition = findPartition(op, partitions);
-          if(!otherPartition.first) {
-            llvm::outs() << "Could not find partition producing " << op << "\n";
-          }
+          auto otherPartition = findPartition(edge, partitions);
           assert(otherPartition.first && "Did not find partition producing this value");
           // Convert the partition producing the input to a task first.
           createTaskForPartition(otherPartition, rewriter, loc, batchSize, inputs, partitions);
           // Input should be present after conversion.
-          assert(inputs.count(op));
+          assert(inputs.count(edge));
         }
-        auto inputInfo = inputs[op];
-        nonPartitionInputs[op] = inputInfo;
+        auto inputInfo = inputs[edge];
+        nonPartitionInputs[edge] = inputInfo;
         // Remember which output from the outside will be provided by which argument to this task.
         if (!inputArgs.count(inputInfo.tensor)) {
           inputArgs.insert({inputInfo.tensor, inputArgIndex++});
@@ -314,15 +315,12 @@ private:
   /// \return Information about the partition containing the operation/value or a
   ///         nullptr wrapped in the information if no partition could be found.
   PartitionInfo findPartition(Value input, llvm::ArrayRef<PartitionInfo> partitions) const {
-    llvm::outs() << "Looking for partition producing " << *input.getDefiningOp() << "\n";
     for (auto &p : partitions) {
       if (p.second) {
         // This partition has already been converted and all outputs should be present in the map.
-        llvm::outs() << "Skipping partition " << p.first->ID() << "\n ";
         continue;
       }
       for (auto &node : p.first->outgoing_nodes()) {
-        llvm::outs() << "Partition " << p.first->ID() << " produces node " << *node.getOperation() << "\n";
         if (node == input.getDefiningOp()) {
           return p;
         }
@@ -380,7 +378,7 @@ private:
     return PartitionInfo{nullptr, false};
   }
 
-  partitioning::GraphPartitioner &partitioner;
+  int maxTaskSize_;
 };
 
 struct LoSPNTaskPartitioner : public LoSPNTaskPartioningBase<LoSPNTaskPartitioner> {
@@ -393,10 +391,8 @@ public:
 protected:
   void runOnOperation() override {
     if (this->maxTaskSize.getValue() > 0) {
-      partitioning::GraphPartitioner partitioner{this->maxTaskSize.getValue(),
-                                                 partitioning::SimpleMoveHeuristic::create};
       RewritePatternSet patterns(getOperation()->getContext());
-      patterns.insert<PartitionTask>(getOperation()->getContext(), partitioner);
+      patterns.insert<PartitionTask>(getOperation()->getContext(), this->maxTaskSize.getValue());
       mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
       if (failed(applyPatternsAndFoldGreedily(getOperation(), frozenPatterns))) {
         signalPassFailure();
