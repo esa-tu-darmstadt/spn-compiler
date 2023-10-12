@@ -39,9 +39,7 @@ SmallPtrSet<Operation *, 32> computeDeadOps(Block *block) {
     }
 
     // An operation is dead if all of its results are dead.
-    bool isDead = llvm::all_of(op->getResults(), [&](Value result) {
-      return !la.getLiveness(result)->isLive;
-    });
+    bool isDead = llvm::all_of(op->getResults(), [&](Value result) { return !la.getLiveness(result)->isLive; });
 
     if (isDead) {
       deadOps.insert(op);
@@ -57,26 +55,22 @@ namespace {
 typedef std::chrono::high_resolution_clock::time_point TimePoint;
 }
 // =======================================================================================================//
-LogicalResult VectorizeSingleTask::matchAndRewrite(
-    SPNTask task, SPNTask::Adaptor adaptor,
-    ConversionPatternRewriter &rewriter) const {
+LogicalResult VectorizeSingleTask::matchAndRewrite(SPNTask task, SPNTask::Adaptor adaptor,
+                                                   ConversionPatternRewriter &rewriter) const {
 
   if (task.getBatchSize() > 1) {
-    return rewriter.notifyMatchFailure(
-        task, "SLP vectorization does not match for batchSize > 1");
+    return rewriter.notifyMatchFailure(task, "SLP vectorization does not match for batchSize > 1");
   }
 
   if (task.getBody().getBlocks().size() > 1) {
-    return rewriter.notifyMatchFailure(
-        task, "SLP vectorization only applicable to single basic blocks");
+    return rewriter.notifyMatchFailure(task, "SLP vectorization only applicable to single basic blocks");
   }
 
   auto const &callPoint = rewriter.saveInsertionPoint();
   auto operands = adaptor.getOperands();
 
   func::FuncOp taskFunc;
-  if (failed(
-          createFunctionIfVectorizable(task, adaptor, rewriter, &taskFunc))) {
+  if (failed(createFunctionIfVectorizable(task, adaptor, rewriter, &taskFunc))) {
     return failure();
   }
 
@@ -88,14 +82,12 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
   // execution), we can simply set it to constant zero. The other arguments are
   // the arguments of the entry block of this function.
   SmallVector<Value, 5> blockReplacementArgs;
-  blockReplacementArgs.push_back(rewriter.create<arith::ConstantOp>(
-      task.getLoc(), rewriter.getIndexAttr(0)));
+  blockReplacementArgs.push_back(rewriter.create<arith::ConstantOp>(task.getLoc(), rewriter.getIndexAttr(0)));
   for (auto const &bArg : taskBlock->getArguments()) {
     blockReplacementArgs.push_back(bArg);
   }
   // Inline the content of the task into the function.
-  rewriter.mergeBlocks(&task.getBody().front(), taskBlock,
-                       blockReplacementArgs);
+  rewriter.mergeBlocks(&task.getBody().front(), taskBlock, blockReplacementArgs);
   // Replace block arguments *now* because moving operations later on somehow
   // 'resets' their block argument operands and does not remap them in the end,
   // which leads to failures if a block argument should be erased.
@@ -111,15 +103,12 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
   // return success();
 
   // Apply SLP vectorization.
-  task->emitRemark() << "Beginning SLP vectorization (max attempts: "
-                     << maxAttempts << ", max successful iterations: "
-                     << maxSuccessfulIterations
-                     << ", max multinode size: " << maxNodeSize
-                     << ", max look-ahead: " << maxLookAhead
+  task->emitRemark() << "Beginning SLP vectorization (max attempts: " << maxAttempts
+                     << ", max successful iterations: " << maxSuccessfulIterations
+                     << ", max multinode size: " << maxNodeSize << ", max look-ahead: " << maxLookAhead
                      << ", reordering DFS: " << reorderInstructionsDFS
                      << ", duplicates allowed: " << allowDuplicateElements
-                     << ", topological mixing allowed: "
-                     << allowTopologicalMixing
+                     << ", topological mixing allowed: " << allowTopologicalMixing
                      << ", use XOR chains: " << useXorChains << ").";
 
 #ifndef SLP_DEBUG
@@ -146,18 +135,14 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
 #define TOP_DOWN_SEEDING true
 
 #if PRINT_SIZE
-  unsigned liveOps =
-      taskBlock->getOperations().size() - computeDeadOps(taskBlock).size();
-  llvm::outs() << "#ops before vectorization: " << std::to_string(liveOps)
-               << "\n";
+  unsigned liveOps = taskBlock->getOperations().size() - computeDeadOps(taskBlock).size();
+  llvm::outs() << "#ops before vectorization: " << std::to_string(liveOps) << "\n";
 #endif
 #if PRINT_OP_STATS
   llvm::StringMap<unsigned> opCounts;
-  taskBlock->walk(
-      [&](Operation *op) { ++opCounts[op->getName().getStringRef()]; });
+  taskBlock->walk([&](Operation *op) { ++opCounts[op->getName().getStringRef()]; });
   for (auto const &entry : opCounts) {
-    llvm::outs() << "OPCOUNT: " << entry.first() << ", count: " << entry.second
-                 << "\n";
+    llvm::outs() << "OPCOUNT: " << entry.first() << ", count: " << entry.second << "\n";
   }
 #endif
 #if PRINT_SLP_COVER
@@ -177,19 +162,16 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
   CostModelPatternApplicator<UnitCostModel> applicator;
   auto *costModel = applicator.getCostModel();
 
-  ConversionManager conversionManager{graphRewriter, taskBlock, costModel,
-                                      reorderInstructionsDFS};
+  ConversionManager conversionManager{graphRewriter, taskBlock, costModel, reorderInstructionsDFS};
   applicator.setPatterns(allSLPVectorizationPatterns(conversionManager));
 
-  auto elementType =
-      operands.back().getType().dyn_cast<MemRefType>().getElementType();
+  auto elementType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
   std::unique_ptr<SeedAnalysis> seedAnalysis;
   unsigned width = vectorWidth;
   if (width == 0) {
     // If the vector width is not set, use the native vector width of the target
     // architecture.
-    width =
-        TargetInformation::nativeCPUTarget().getHWVectorEntries(elementType);
+    width = TargetInformation::nativeCPUTarget().getHWVectorEntries(elementType);
   }
 
 #if TOP_DOWN_SEEDING
@@ -198,8 +180,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
   seedAnalysis = std::make_unique<FirstRootAnalysis>(taskFunc, width);
 #endif
 
-  auto currentFunctionCost =
-      costModel->getBlockCost(taskBlock, computeDeadOps(taskBlock));
+  auto currentFunctionCost = costModel->getBlockCost(taskBlock, computeDeadOps(taskBlock));
 
 #if PRINT_TIMINGS
   TimePoint totalStart = std::chrono::high_resolution_clock::now();
@@ -208,8 +189,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
   SmallVector<Value, 4> seed;
   unsigned successfulIterations = 0;
   unsigned attempts = 0;
-  while (successfulIterations < maxSuccessfulIterations &&
-         attempts++ < maxAttempts) {
+  while (successfulIterations < maxSuccessfulIterations && attempts++ < maxAttempts) {
 
 #if PRINT_TIMINGS
     TimePoint seedStart = std::chrono::high_resolution_clock::now();
@@ -222,51 +202,36 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
 
 #if PRINT_TIMINGS
     TimePoint seedEnd = std::chrono::high_resolution_clock::now();
-    auto seedDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        seedEnd - seedStart);
+    auto seedDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(seedEnd - seedStart);
 #endif
 #if COST_MODEL_ANALYSIS
-    auto line = Twine("SLP Iteration: ")
-                    .concat(std::to_string(successfulIterations))
-                    .str();
+    auto line = Twine("SLP Iteration: ").concat(std::to_string(successfulIterations)).str();
     appendLineToFile("costAnalysis.log", line);
-    line = Twine("Estimated Cost: ")
-               .concat(std::to_string(currentFunctionCost))
-               .str();
+    line = Twine("Estimated Cost: ").concat(std::to_string(currentFunctionCost)).str();
     appendLineToFile("costAnalysis.log", line);
 #endif
 #if PRINT_TIMINGS
     TimePoint graphStart = std::chrono::high_resolution_clock::now();
 #endif
 
-    SLPGraph graph{seed,
-                   maxNodeSize,
-                   maxLookAhead,
-                   allowDuplicateElements,
-                   allowTopologicalMixing,
-                   useXorChains};
+    SLPGraph graph{seed, maxNodeSize, maxLookAhead, allowDuplicateElements, allowTopologicalMixing, useXorChains};
 
 #if PRINT_TIMINGS
     TimePoint graphEnd = std::chrono::high_resolution_clock::now();
-    auto graphDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        graphEnd - graphStart);
+    auto graphDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(graphEnd - graphStart);
 #endif
 #if PRINT_SLP_GRAPH_NODE_SIZES
     DenseMap<unsigned, unsigned> nodeSizes;
-    graph::walk(graph.getRootNode().get(),
-                [&](SLPNode *node) { ++nodeSizes[node->numSuperwords()]; });
+    graph::walk(graph.getRootNode().get(), [&](SLPNode *node) { ++nodeSizes[node->numSuperwords()]; });
     for (auto const &entry : nodeSizes) {
-      llvm::outs() << "NODE SIZE (" << successfulIterations
-                   << "): " << entry.first << ", count: " << entry.second
+      llvm::outs() << "NODE SIZE (" << successfulIterations << "): " << entry.first << ", count: " << entry.second
                    << "\n";
     }
 #endif
 #if DEPENDENCY_ANALYSIS
     auto dependencyGraph = graph.dependencyGraph();
-    llvm::outs() << "#Nodes in dependency graph: " << dependencyGraph.numNodes()
-                 << "\n";
-    llvm::outs() << "#Edges in dependency graph: " << dependencyGraph.numEdges()
-                 << "\n";
+    llvm::outs() << "#Nodes in dependency graph: " << dependencyGraph.numNodes() << "\n";
+    llvm::outs() << "#Edges in dependency graph: " << dependencyGraph.numEdges() << "\n";
 #endif
 
     auto order = conversionManager.startConversion(graph);
@@ -278,8 +243,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
         ++numSuperwords;
       }
     }
-    llvm::outs() << "#superwords in graph (" << successfulIterations
-                 << "): " << numSuperwords << "\n";
+    llvm::outs() << "#superwords in graph (" << successfulIterations << "): " << numSuperwords << "\n";
     SmallPtrSet<Operation *, 32> uniqueOps;
     for (auto *superword : order) {
       if (superword->constant()) {
@@ -294,8 +258,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
         }
       }
     }
-    llvm::outs() << "#unique arithmetic graph ops (" << successfulIterations
-                 << "): " << uniqueOps.size() << "\n";
+    llvm::outs() << "#unique arithmetic graph ops (" << successfulIterations << "): " << uniqueOps.size() << "\n";
 #endif
 
 #if PRINT_TIMINGS
@@ -309,12 +272,10 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
 
 #if PRINT_TIMINGS
     TimePoint rewriteEnd = std::chrono::high_resolution_clock::now();
-    auto rewriteDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        rewriteEnd - rewriteStart);
+    auto rewriteDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(rewriteEnd - rewriteStart);
 #endif
 
-    auto vectorizedFunctionCost =
-        costModel->getBlockCost(taskBlock, computeDeadOps(taskBlock));
+    auto vectorizedFunctionCost = costModel->getBlockCost(taskBlock, computeDeadOps(taskBlock));
     // Vectorization not profitable.
     if (vectorizedFunctionCost >= currentFunctionCost) {
       conversionManager.cancelConversion();
@@ -334,16 +295,12 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
         }
       }
       double percentage = static_cast<double>(coveredOps * 100) / allOps.size();
-      llvm::outs() << "% function ops dead (" << successfulIterations
-                   << "): " << percentage << "%\n";
+      llvm::outs() << "% function ops dead (" << successfulIterations << "): " << percentage << "%\n";
 #endif
 #if PRINT_TIMINGS
-      llvm::outs() << "SEED TIME (" << successfulIterations
-                   << "): " << seedDuration.count() << " ns\n";
-      llvm::outs() << "GRAPH TIME (" << successfulIterations
-                   << "): " << graphDuration.count() << " ns\n";
-      llvm::outs() << "PATTERN REWRITE TIME (" << successfulIterations
-                   << "): " << rewriteDuration.count() << " ns\n";
+      llvm::outs() << "SEED TIME (" << successfulIterations << "): " << seedDuration.count() << " ns\n";
+      llvm::outs() << "GRAPH TIME (" << successfulIterations << "): " << graphDuration.count() << " ns\n";
+      llvm::outs() << "PATTERN REWRITE TIME (" << successfulIterations << "): " << rewriteDuration.count() << " ns\n";
 #endif
 
       ++successfulIterations;
@@ -353,15 +310,12 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
 
 #if PRINT_TIMINGS
   TimePoint totalEnd = std::chrono::high_resolution_clock::now();
-  auto totalDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(
-      totalEnd - totalStart);
+  auto totalDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(totalEnd - totalStart);
   llvm::outs() << "SLP TOTAL TIME: " << totalDuration.count() << " ns\n";
 #endif
 #if PRINT_SIZE
-  liveOps =
-      taskBlock->getOperations().size() - computeDeadOps(taskBlock).size();
-  llvm::outs() << "#ops after vectorization (total): "
-               << taskBlock->getOperations().size() << "\n";
+  liveOps = taskBlock->getOperations().size() - computeDeadOps(taskBlock).size();
+  llvm::outs() << "#ops after vectorization (total): " << taskBlock->getOperations().size() << "\n";
   llvm::outs() << "#ops after vectorization (not dead): " << liveOps << "\n";
 #endif
 #if PRINT_SUCCESSFUL_ITERATION_COUNT
@@ -380,14 +334,12 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
   return success();
 }
 
-LogicalResult
-VectorizeBatchTask::matchAndRewrite(SPNTask op, SPNTask::Adaptor adaptor,
-                                    ConversionPatternRewriter &rewriter) const {
+LogicalResult VectorizeBatchTask::matchAndRewrite(SPNTask op, SPNTask::Adaptor adaptor,
+                                                  ConversionPatternRewriter &rewriter) const {
 
   if (op.getBatchSize() <= 1) {
-    return rewriter.notifyMatchFailure(op,
-                                       "Specialized for batch vectorization, "
-                                       "does not match for batchSize == 1");
+    return rewriter.notifyMatchFailure(op, "Specialized for batch vectorization, "
+                                           "does not match for batchSize == 1");
   }
 
   auto restore = rewriter.saveInsertionPoint();
@@ -399,28 +351,23 @@ VectorizeBatchTask::matchAndRewrite(SPNTask op, SPNTask::Adaptor adaptor,
   }
 
   assert(operands.back().getType().isa<MemRefType>());
-  auto computationType =
-      operands.back().getType().dyn_cast<MemRefType>().getElementType();
+  auto computationType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
 
   unsigned effectiveVectorWidth = vectorWidth;
   if (effectiveVectorWidth == 0) {
     // If the vector width is not set, use the native vector width of the target
     // architecture.
-    effectiveVectorWidth =
-        TargetInformation::nativeCPUTarget().getHWVectorEntries(
-            computationType);
+    effectiveVectorWidth = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
   }
   // Emit a warning if the target vector width does not divide the requested
   // batch size. This will cause a part of each batch (batchSize % vectorWidth
   // elements) to be processed by the scalar epilog loop instead of the
   // vectorized loop.
   if ((op.getBatchSize() % effectiveVectorWidth) != 0) {
-    op.emitWarning()
-        << "The target vector width " << effectiveVectorWidth
-        << " does not divide the requested batch size " << op.getBatchSize()
-        << "; This can result in degraded performance. "
-        << "Choose the batch size as a multiple of the vector width "
-        << effectiveVectorWidth;
+    op.emitWarning() << "The target vector width " << effectiveVectorWidth
+                     << " does not divide the requested batch size " << op.getBatchSize()
+                     << "; This can result in degraded performance. "
+                     << "Choose the batch size as a multiple of the vector width " << effectiveVectorWidth;
   }
 
   auto taskBlock = taskFunc.addEntryBlock();
@@ -433,23 +380,16 @@ VectorizeBatchTask::matchAndRewrite(SPNTask op, SPNTask::Adaptor adaptor,
   assert(inputMemRefTy.hasRank() && inputMemRefTy.getRank() == 2);
   assert(inputMemRefTy.isDynamicDim(0) ^ inputMemRefTy.isDynamicDim(1));
   auto index = (inputMemRefTy.isDynamicDim(0)) ? 0 : 1;
-  auto numSamples =
-      rewriter.create<memref::DimOp>(op.getLoc(), inputMemRef, index);
-  auto vectorWidthConst = rewriter.create<arith::ConstantOp>(
-      op.getLoc(), rewriter.getIndexAttr(effectiveVectorWidth));
-  auto remainder = rewriter.create<arith::RemUIOp>(op.getLoc(), numSamples,
-                                                   vectorWidthConst);
-  auto ubVectorized =
-      rewriter.create<arith::SubIOp>(op.getLoc(), numSamples, remainder);
+  auto numSamples = rewriter.create<memref::DimOp>(op.getLoc(), inputMemRef, index);
+  auto vectorWidthConst = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(effectiveVectorWidth));
+  auto remainder = rewriter.create<arith::RemUIOp>(op.getLoc(), numSamples, vectorWidthConst);
+  auto ubVectorized = rewriter.create<arith::SubIOp>(op.getLoc(), numSamples, remainder);
 
   // Create the vectorized loop, iterating from 0 to ubVectorized, in steps of
   // hwVectorWidth.
-  auto lbVectorized =
-      rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
-  auto stepVectorized = rewriter.create<arith::ConstantOp>(
-      op.getLoc(), rewriter.getIndexAttr(effectiveVectorWidth));
-  auto vectorizedLoop = rewriter.create<scf::ForOp>(
-      op.getLoc(), lbVectorized, ubVectorized, stepVectorized);
+  auto lbVectorized = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
+  auto stepVectorized = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(effectiveVectorWidth));
+  auto vectorizedLoop = rewriter.create<scf::ForOp>(op.getLoc(), lbVectorized, ubVectorized, stepVectorized);
   auto &vectorLoopBody = *vectorizedLoop.getBody();
 
   auto restoreTask = rewriter.saveInsertionPoint();
@@ -471,18 +411,14 @@ VectorizeBatchTask::matchAndRewrite(SPNTask op, SPNTask::Adaptor adaptor,
   }
 
   // Mark all operations contained in the vectorized loop as vectorized.
-  vectorLoopBody.walk([effectiveVectorWidth](low::LoSPNVectorizable vOp) {
-    vOp.setVectorized(effectiveVectorWidth);
-  });
+  vectorLoopBody.walk([effectiveVectorWidth](low::LoSPNVectorizable vOp) { vOp.setVectorized(effectiveVectorWidth); });
 
   rewriter.restoreInsertionPoint(restoreTask);
 
   // Create the scalar epilog loop, iterating from ubVectorized to numSamples,
   // in steps of 1.
-  auto stepScalar =
-      rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
-  auto scalarLoop = rewriter.create<scf::ForOp>(op.getLoc(), ubVectorized,
-                                                numSamples, stepScalar);
+  auto stepScalar = rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
+  auto scalarLoop = rewriter.create<scf::ForOp>(op.getLoc(), ubVectorized, numSamples, stepScalar);
   auto &scalarLoopBody = *scalarLoop.getBody();
 
   restoreTask = rewriter.saveInsertionPoint();
@@ -492,9 +428,7 @@ VectorizeBatchTask::matchAndRewrite(SPNTask op, SPNTask::Adaptor adaptor,
   for (auto bArg : taskBlock->getArguments()) {
     blockReplacementArgs.push_back(bArg);
   }
-  rewriter.inlineBlockBefore(&op.getBody().front(),
-                             scalarLoopBody.getTerminator(),
-                             blockReplacementArgs);
+  rewriter.inlineBlockBefore(&op.getBody().front(), scalarLoopBody.getTerminator(), blockReplacementArgs);
   scalarLoopBody.walk([&rewriter](SPNReturn ret) {
     assert(ret.getReturnValues().empty() && "Task return should be empty");
     rewriter.eraseOp(ret);
@@ -508,68 +442,57 @@ VectorizeBatchTask::matchAndRewrite(SPNTask op, SPNTask::Adaptor adaptor,
   return success();
 }
 
-LogicalResult VectorizeTask::createFunctionIfVectorizable(
-    SPNTask &task, SPNTask::Adaptor adaptor,
-    ConversionPatternRewriter &rewriter, func::FuncOp *function) const {
+LogicalResult VectorizeTask::createFunctionIfVectorizable(SPNTask &task, SPNTask::Adaptor adaptor,
+                                                          ConversionPatternRewriter &rewriter,
+                                                          func::FuncOp *function) const {
   static int taskCount = 0;
 
   auto operands = adaptor.getOperands();
   assert(operands.back().getType().isa<MemRefType>());
-  auto computationType =
-      operands.back().getType().dyn_cast<MemRefType>().getElementType();
+  auto computationType = operands.back().getType().dyn_cast<MemRefType>().getElementType();
 
   unsigned effectiveVectorWidth = vectorWidth;
   if (effectiveVectorWidth == 0) {
     // If the vector width is not set, use the native vector width of the target
     // architecture.
-    effectiveVectorWidth =
-        TargetInformation::nativeCPUTarget().getHWVectorEntries(
-            computationType);
+    effectiveVectorWidth = TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
   }
 
   if (effectiveVectorWidth <= 1) {
-    return rewriter.notifyMatchFailure(
-        task, llvm::formatv("No vectorization possible for data-type {} on the "
-                            "requested target",
-                            computationType));
+    return rewriter.notifyMatchFailure(task, llvm::formatv("No vectorization possible for data-type {} on the "
+                                                           "requested target",
+                                                           computationType));
   }
 
   if (requireAllOpsVectorizable) {
     // Check if all nodes can be vectorized before trying to do so.
-    auto allVectorizable =
-        task.getBody().walk([effectiveVectorWidth](low::LoSPNVectorizable vOp) {
-          if (!vOp.isVectorizable(effectiveVectorWidth)) {
-            vOp.emitRemark()
-                << "Operation cannot be vectorized with vector width "
-                << effectiveVectorWidth;
-            return WalkResult::interrupt();
-          }
-          return WalkResult::advance();
-        });
+    auto allVectorizable = task.getBody().walk([effectiveVectorWidth](low::LoSPNVectorizable vOp) {
+      if (!vOp.isVectorizable(effectiveVectorWidth)) {
+        vOp.emitRemark() << "Operation cannot be vectorized with vector width " << effectiveVectorWidth;
+        return WalkResult::interrupt();
+      }
+      return WalkResult::advance();
+    });
 
     if (allVectorizable.wasInterrupted()) {
-      return rewriter.notifyMatchFailure(task,
-                                         "Not all nested operations can be "
-                                         "vectorized, aborting vectorization");
+      return rewriter.notifyMatchFailure(task, "Not all nested operations can be "
+                                               "vectorized, aborting vectorization");
     }
   }
 
   // Let the user know which vector width will be used.
-  task->emitRemark() << "Attempting to vectorize with vector width "
-                     << effectiveVectorWidth << " for data-type "
+  task->emitRemark() << "Attempting to vectorize with vector width " << effectiveVectorWidth << " for data-type "
                      << computationType;
 
   auto const &insertionPoint = rewriter.saveInsertionPoint();
-  rewriter.setInsertionPointToStart(
-      task->getParentOfType<ModuleOp>().getBody());
+  rewriter.setInsertionPointToStart(task->getParentOfType<ModuleOp>().getBody());
   SmallVector<Type, 5> inputTypes;
   for (auto operand : operands) {
     inputTypes.push_back(operand.getType());
   }
   auto funcType = FunctionType::get(rewriter.getContext(), inputTypes, {});
-  *function = rewriter.create<func::FuncOp>(
-      task->getLoc(), Twine("vec_task_", std::to_string(taskCount++)).str(),
-      funcType);
+  *function =
+      rewriter.create<func::FuncOp>(task->getLoc(), Twine("vec_task_", std::to_string(taskCount++)).str(), funcType);
   rewriter.restoreInsertionPoint(insertionPoint);
   return success();
 }

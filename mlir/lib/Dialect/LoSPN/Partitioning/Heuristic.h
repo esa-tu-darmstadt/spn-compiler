@@ -27,8 +27,7 @@ using Partitioning = std::vector<PartitionRef>;
 class Heuristic {
 
 public:
-  Heuristic(llvm::ArrayRef<Operation *> allNodes,
-            llvm::ArrayRef<Value> externalInputs, Partitioning *allPartitions);
+  Heuristic(llvm::ArrayRef<Operation *> allNodes, llvm::ArrayRef<Value> externalInputs, Partitioning *allPartitions);
 
   virtual ~Heuristic() = default;
 
@@ -56,8 +55,8 @@ protected:
   bool isConstant(Operation *op) const;
 };
 
-using HeuristicFactory = std::function<std::unique_ptr<Heuristic>(
-    llvm::ArrayRef<Operation *>, llvm::ArrayRef<Value>, Partitioning *)>;
+using HeuristicFactory =
+    std::function<std::unique_ptr<Heuristic>(llvm::ArrayRef<Operation *>, llvm::ArrayRef<Value>, Partitioning *)>;
 
 class SimpleMoveHeuristic : public Heuristic {
 
@@ -67,10 +66,8 @@ public:
   void refinePartitioning() override;
 
   static std::unique_ptr<SimpleMoveHeuristic>
-  create(llvm::ArrayRef<Operation *> allNodes,
-         llvm::ArrayRef<Value> externalInputs, Partitioning *allPartitions) {
-    return std::make_unique<SimpleMoveHeuristic>(allNodes, externalInputs,
-                                                 allPartitions);
+  create(llvm::ArrayRef<Operation *> allNodes, llvm::ArrayRef<Value> externalInputs, Partitioning *allPartitions) {
+    return std::make_unique<SimpleMoveHeuristic>(allNodes, externalInputs, allPartitions);
   }
 };
 

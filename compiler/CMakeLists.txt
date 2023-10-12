@@ -38,6 +38,7 @@ add_library(spnc
         src/Driver.cpp
         src/util/Logging.cpp
         src/pipeline/steps/codegen/EmitObjectCode.cpp
+        src/pipeline/steps/codegen/EmitLLVMIR.cpp
         src/pipeline/steps/linker/ClangKernelLinking.cpp
         src/toolchain/MLIRToolchain.cpp
         src/toolchain/CPUToolchain.cpp
@@ -120,6 +121,7 @@ if (${IPU_SUPPORT})
         src/toolchain/IPUToolchain.cpp
         src/pipeline/steps/mlir/conversion/LoSPNtoIPUConversion.cpp
         src/pipeline/steps/mlir/conversion/IPUtoLLVMConversion.cpp
+        src/pipeline/steps/codegen/EmitObjectCodeForIPU.cpp
         src/ipu/IPUTargetInfo.cpp
         src/ipu/IPUTargetMachine.cpp
         src/ipu/IPUSubtarget.cpp

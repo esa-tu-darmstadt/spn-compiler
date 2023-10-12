@@ -8,16 +8,17 @@
 
 #include "Heuristic.h"
 #include "GraphPartitioner.h"
+#include "LoSPN/LoSPNOps.h"
+#include "mlir/IR/OpDefinition.h"
 #include "llvm/ADT/SmallPtrSet.h"
 
 using namespace mlir;
 using namespace mlir::spn::low;
+using namespace mlir::spn::low::partitioning;
 
-Heuristic::Heuristic(llvm::ArrayRef<Operation *> allNodes,
-                     llvm::ArrayRef<Value> externalInputs,
+Heuristic::Heuristic(llvm::ArrayRef<Operation *> allNodes, llvm::ArrayRef<Value> externalInputs,
                      Partitioning *allPartitions)
-    : nodes(allNodes.begin(), allNodes.end()),
-      external(externalInputs.begin(), externalInputs.end()),
+    : nodes(allNodes.begin(), allNodes.end()), external(externalInputs.begin(), externalInputs.end()),
       partitions(allPartitions) {
   for (auto &p : *partitions) {
     auto id = p->ID();
@@ -50,9 +51,7 @@ void Heuristic::moveNode(Operation *node, Partition *from, Partition *to) {
   partitionMap[node] = to->ID();
 }
 
-bool Heuristic::isConstant(Operation *op) const {
-  return op->hasTrait<OpTrait::ConstantLike>();
-}
+bool Heuristic::isConstant(Operation *op) const { return op->hasTrait<OpTrait::ConstantLike>(); }
 
 void SimpleMoveHeuristic::refinePartitioning() {
   llvm::SmallPtrSet<Value, 10> externalIn(external.begin(), external.end());
@@ -140,7 +139,7 @@ void SimpleMoveHeuristic::refinePartitioning() {
       // gain is only decremented by 1 if there's any user.
       auto usedInSame = llvm::any_of(node->getUsers(), [this, i](Operation *U) {
         // SPNYield is not part of the partitioning, simply ignore it.
-        return !isa<SPNYield>(U) && getPartitionIDForNode(U) == i;
+        return !isa<SPNYield>(U.getOperation()) && getPartitionIDForNode(U) == i;
       });
       if (usedInSame) {
         --gain;
@@ -159,22 +158,18 @@ void SimpleMoveHeuristic::refinePartitioning() {
       // Try to resolve the tie based on size of the partitions.
       auto *upwardPart = getPartitionByID(i + 1);
       auto *downwardPart = getPartitionByID(i - 1);
-      auto upwardDifference = static_cast<int>(partition->size()) -
-                              static_cast<int>(upwardPart->size());
-      auto downwardDifference = static_cast<int>(partition->size()) -
-                                static_cast<int>(downwardPart->size());
-      if (upwardDifference > downwardDifference &&
-          (upwardDifference > 0 || upwardGain > 0) && upwardPart->canAccept()) {
+      auto upwardDifference = static_cast<int>(partition->size()) - static_cast<int>(upwardPart->size());
+      auto downwardDifference = static_cast<int>(partition->size()) - static_cast<int>(downwardPart->size());
+      if (upwardDifference > downwardDifference && (upwardDifference > 0 || upwardGain > 0) &&
+          upwardPart->canAccept()) {
         moveNode(node, partition, upwardPart);
-      } else if ((downwardDifference > 0 || downwardGain > 0) &&
-                 downwardPart->canAccept()) {
+      } else if ((downwardDifference > 0 || downwardGain > 0) && downwardPart->canAccept()) {
         moveNode(node, partition, downwardPart);
       }
     }
     if (upwardGain > downwardGain && upwardGain >= 0) {
       auto *upwardPart = getPartitionByID(i + 1);
-      auto upwardDifference = static_cast<int>(partition->size()) -
-                              static_cast<int>(upwardPart->size());
+      auto upwardDifference = static_cast<int>(partition->size()) - static_cast<int>(upwardPart->size());
       if ((upwardGain > 0 || upwardDifference > 0) && upwardPart->canAccept()) {
         // Operations are moved in two cases:
         // (1) We have a positive gain (i.e. less edges crossing partitions)
@@ -185,10 +180,8 @@ void SimpleMoveHeuristic::refinePartitioning() {
     }
     if (downwardGain > upwardGain && downwardGain >= 0) {
       auto *downwardPart = getPartitionByID(i - 1);
-      auto downwardDifference = static_cast<int>(partition->size()) -
-                                static_cast<int>(downwardPart->size());
-      if ((downwardGain > 0 || downwardDifference > 0) &&
-          downwardPart->canAccept()) {
+      auto downwardDifference = static_cast<int>(partition->size()) - static_cast<int>(downwardPart->size());
+      if ((downwardGain > 0 || downwardDifference > 0) && downwardPart->canAccept()) {
         // Operations are moved in two cases:
         // (1) We have a positive gain (i.e. less edges crossing partitions)
         // (2) We can balance the partitions (i.e., partition i is larger than
