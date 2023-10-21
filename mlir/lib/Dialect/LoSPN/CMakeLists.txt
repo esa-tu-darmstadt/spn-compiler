@@ -18,9 +18,10 @@ add_mlir_dialect_library(MLIRLoSPN
         Analysis/SPNGraphStatistics.cpp
         Analysis/SPNNodeLevel.cpp
         Partitioning/GraphPartitioner.cpp
+        Partitioning/SPNGraph.cpp
         Partitioning/Heuristic.cpp
-        Partitioning/Algorithms/DominantSequenceClustering/DSCPartitioner.cpp
-        Partitioning/Algorithms/TopologicalSort/TopoSortPartitioner.cpp
+        Partitioning/Algorithms/DominantSequenceClustering/DominantSequenceClustering.cpp
+        Partitioning/Algorithms/TopologicalSort/TopoSortClustering.cpp
 
         ADDITIONAL_HEADER_DIRS
         ${PROJECT_SOURCE_DIR}/mlir/include/Dialect

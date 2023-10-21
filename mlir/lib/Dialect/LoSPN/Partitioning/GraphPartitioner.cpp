@@ -7,126 +7,140 @@
 //==============================================================================
 
 #include "GraphPartitioner.h"
+#include "SPNGraph.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/Value.h"
-#include "llvm/Support/GraphWriter.h"
-#include "llvm/Support/raw_ostream.h"
+#include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/detail/adjacency_list.hpp>
+#include <boost/graph/graphviz.hpp>
+#include <boost/graph/subgraph.hpp>
+#include <boost/graph/wavefront.hpp>
+#include <boost/pending/property.hpp>
+#include <boost/range/iterator_range_core.hpp>
+#include <unordered_map>
+
+#include "Algorithms/DominantSequenceClustering/DominantSequenceClustering.h"
+#include "Algorithms/TopologicalSort/TopoSortClustering.h"
+
+#include "BSPSchedule.h"
 
 using namespace llvm;
 using namespace mlir;
 using namespace mlir::spn::low;
 using namespace mlir::spn::low::partitioning;
 
-Node Edge::from() const { return Node(from_); }
-Node Edge::to() const { return Node(to_); }
-
-float Edge::getCost() const { return 10.0; }
-
-float Node::getCost() const {
-  if (op_->hasTrait<OpTrait::ConstantLike>()) {
-    return 0.0;
+SPNGraph::vertex_descriptor
+add_vertex_recursive(SPNGraph &graph, Operation *op,
+                     std::unordered_map<Operation *, SPNGraph::vertex_descriptor> &mapping) {
+  // Check if the operation is already in the graph.
+  auto it = mapping.find(op);
+  if (it != mapping.end()) {
+    return it->second;
   }
-  return 1.0;
+
+  // Create a new vertex.
+  auto v = add_vertex(graph, op);
+  mapping[op] = v;
+
+  // Operands connect to either other operations or block arguments.
+  for (Value operand : op->getOperands()) {
+    if (Operation *definingOp = operand.getDefiningOp()) {
+      auto u = add_vertex_recursive(graph, definingOp, mapping);
+      add_edge(u, v, graph, operand);
+    }
+  }
+
+  return v;
 }
 
-void partitioning::Partition::dump() const {
-  llvm::dbgs() << "Partition " << id << "(" << this << "):\n";
-  for (auto &o : nodes_) {
-    o->dump();
+GraphPartitioner::GraphPartitioner(llvm::ArrayRef<mlir::Operation *> rootNodes, size_t maxTaskSize)
+    : graph_(), maxPartitionSize_{maxTaskSize} {
+  std::unordered_map<Operation *, SPNGraph::vertex_descriptor> mapping;
+
+  for (auto rootNode : rootNodes) {
+    add_vertex_recursive(graph_, rootNode, mapping);
   }
 }
 
-GraphPartitioner::GraphPartitioner(llvm::ArrayRef<Node> nodes, int maxTaskSize)
-    : maxPartitionSize_{maxTaskSize}, nodes_(nodes) {}
-
-unsigned int GraphPartitioner::getMaximumPartitionSize() const {
+unsigned int GraphPartitioner::getMaximumClusterSize() const {
   // Allow up to 1% or at least one node in slack.
   unsigned slack = std::max(1u, static_cast<unsigned>(static_cast<double>(maxPartitionSize_) * 0.01));
   return maxPartitionSize_ + slack;
 }
 
-void GraphPartitioner::printGraph(raw_ostream &O, const Partitioning &partitions) const {
-  // Write the header
-  O << "digraph \"Partitioning\" {\n";
+void GraphPartitioner::clusterGraph() {
+  view_spngraph(graph_, "Before clustering");
 
-  // Write each partition into a subgraph.
-  for (auto &partition : partitions) {
-    // Write the header of the subgraph.
-    O << "  subgraph cluster_" << partition->ID() << " {\n";
-    O << "    label = \"Partition " << partition->ID() << "\";\n";
+  SPNGraph graph_topo(graph_);
+  std::unique_ptr<TopologicalSortClustering> cluster = std::make_unique<TopologicalSortClustering>(maxPartitionSize_);
+  (*cluster)(graph_topo);
+  view_spngraph(graph_topo, "Topological sort clustering");
 
-    // Write each operation as a node. Use the address of the operation as its identifier and its name as the label.
-    for (auto &node : *partition) {
-      O << "    \"" << node << "\" [label=\"" << node->getName() << " (" << node.getOperation() << ")\"];\n";
-    }
+  // SPNGraph graph_dsc(graph_);
+  // std::unique_ptr<DominantSequenceClustering> cluster_dsc =
+  //     std::make_unique<DominantSequenceClustering>(maxPartitionSize_);
+  // (*cluster_dsc)(graph_dsc);
+  // view_spngraph(graph_dsc, "Dominant sequence clustering");
 
-    // Write the edges between the nodes of this partition.
-    for (auto &node : *partition) {
-      for (auto succ : node.edges_out()) {
-        if (partition->contains(succ.to()))
-          O << "    \"" << *node << "\" -> \"" << *succ.to() << "\";\n";
-      }
-    }
-
-    // Write the footer of the subgraph.
-    O << "  }\n";
-  }
-
-  // Write the block arguments as nodes.
-  for (auto &partition : partitions) {
-    for (auto &node : partition->incoming_nodes()) {
-      for (const auto &operand : node->getOperands()) {
-        if (auto ba = operand.dyn_cast_or_null<mlir::BlockArgument>())
-          O << "  \"" << operand.getAsOpaquePointer() << "\" [label=\"Block arg #" << ba.getArgNumber() << "\"];\n";
-      }
-    }
-  }
-
-  // Write the edges between block arguments and nodes.
-  for (auto &partition : partitions) {
-    for (auto &node : partition->incoming_nodes()) {
-      for (const auto &operand : node->getOperands()) {
-        if (operand.getDefiningOp() != nullptr)
-          continue;
-        O << "  \"" << operand.getAsOpaquePointer() << "\" -> \"" << *node << "\";\n";
-      }
-    }
-  }
-
-  // Write the edges between nodes of different partitions.
-  for (auto &partition : partitions) {
-    for (auto &node : partition->outgoing_nodes()) {
-      for (auto *user : node->getUsers()) {
-        if (!partition->contains(user))
-          O << "  \"" << *node << "\" -> \"" << user << "\";\n";
-      }
-    }
-  }
-
-  // Write the footer
-  O << "}\n";
+  graph_ = graph_topo;
 }
 
-void GraphPartitioner::viewGraph(const Partitioning &partitions) const {
-  int FD;
+BSPSchedule GraphPartitioner::scheduleGraphForBSP() {
+  // Create a BSP graph in which subgraphs represent supersteps and vertices represent a tasks.
+  // Tasks are clusters in the SPN graph.
 
-  // Create a temporary file to hold the graph.
-  auto fileName = createGraphFilename("partitioning", FD);
-  if (fileName.empty()) {
-    return;
+  // Create the BSP graph without subgraphs / supersteps first, then assign tasks to supersteps later.
+
+  BSPGraph bspGraph;
+
+  // Add a vertex for each cluster
+  task_index_t taskIndex = 0;
+  std::unordered_map<SPNGraph *, BSPGraph::vertex_descriptor> clusterToTask;
+  for (auto &cluster : clusters()) {
+    auto task = add_vertex(bspGraph);
+    boost::put(BSPVertex_TaskID(), bspGraph, task, taskIndex++);
+
+    clusterToTask[&cluster] = task;
   }
 
-  // Open the file for writing.
-  raw_fd_ostream O(FD, /*shouldClose=*/true);
-  if (FD == -1) {
-    errs() << "error opening file '" << fileName << "' for writing!\n";
-    return;
+  // Add edges between tasks / clusters
+  for (auto &cluster : clusters()) {
+    for (auto inedge : this->edges_in(cluster)) {
+      auto predecessorVertex = source(inedge, graph_);
+      auto predecessorCluster = find_cluster(predecessorVertex, graph_);
+
+      auto predecessorTask = clusterToTask[&predecessorCluster];
+      auto successorTask = clusterToTask[&cluster];
+
+      add_edge(predecessorTask, successorTask, bspGraph);
+    }
   }
 
-  // Write the graph to the file.
-  printGraph(O, partitions);
-  O.close();
+  // Assign tasks to supersteps according to their wavefront
+  std::vector<superstep_index_t> superstepOfTask(boost::num_vertices(bspGraph), 0);
+  size_t numSupersteps = 0;
+  for (auto task : boost::make_iterator_range(boost::vertices(bspGraph))) {
+    auto superStep = boost::ith_wavefront(task, bspGraph);
+    numSupersteps = std::max(numSupersteps, superStep);
+    superstepOfTask[task] = superStep;
+  }
 
-  // Display the graph.
-  DisplayGraph(fileName, false, GraphProgram::DOT);
+  // Cluster the graph into subgraphs (for visualization)
+  // Add a subgraph for each superstep
+  std::vector<BSPGraph *> superstepSubgraphs;
+  superstepSubgraphs.reserve(numSupersteps);
+  for (size_t i = 0; i < numSupersteps; ++i) {
+    BSPGraph &superstep = bspGraph.create_subgraph();
+    superstepSubgraphs.push_back(&superstep);
+    boost::get_property(superstep, BSPGraph_Superstep()) = i;
+  }
+  // Add the vertices to the subgraphs
+  for (auto task : boost::make_iterator_range(boost::vertices(bspGraph))) {
+    auto superStep = superstepOfTask[task];
+    auto &superstep = *superstepSubgraphs[superStep];
+    boost::add_vertex(task, superstep);
+  }
+
+  // View the graph
+  view_bspgraph(bspGraph, "BSP graph");
 }

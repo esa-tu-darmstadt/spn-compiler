@@ -14,6 +14,9 @@ message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 find_package(MLIR REQUIRED CONFIG)
 message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
 
+find_package(Boost REQUIRED)
+message(STATUS "Using Boost in: ${Boost_INCLUDE_DIR}")
+
 if (POLICY CMP0068)
     cmake_policy(SET CMP0068 NEW)
     set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
@@ -26,6 +29,10 @@ endif ()
 if (POLICY CMP0077)
     cmake_policy(SET CMP0077 NEW)
 endif ()
+
+if (POLICY CMP0116)
+    cmake_policy(SET CMP0116 NEW)
+endif()
 
 set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/bin)
 set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/lib)
@@ -44,6 +51,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/Dialect)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/Conversion)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include/Dialect)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include/Conversion)
+include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 link_directories(${LLVM_BUILD_LIBRARY_DIR})
 add_definitions(${LLVM_DEFINITIONS})
 

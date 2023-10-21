@@ -43,6 +43,10 @@ option(SPNC_SLP_DEBUG
         "Enable additional debug output for the SLP vectorizer"
         OFF)
 
+message(STATUS "Enabling LLVM address sanitizer")
+add_compile_options(-fno-omit-frame-pointer -fsanitize=address)
+add_link_options(-fno-omit-frame-pointer -fsanitize=address)
+
 #
 # clang-tidy setup
 #

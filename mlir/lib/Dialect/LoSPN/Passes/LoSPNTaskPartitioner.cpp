@@ -6,9 +6,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include "../Partitioning/Algorithms/DominantSequenceClustering/DSCPartitioner.h"
-#include "../Partitioning/Algorithms/TopologicalSort/TopoSortPartitioner.h"
-#include "../Partitioning/Heuristic.h"
+#include "../Partitioning/GraphPartitioner.h"
+#include "../Partitioning/SPNGraph.h"
 #include "LoSPN/LoSPNOps.h"
 #include "LoSPN/LoSPNPasses.h"
 #include "LoSPN/LoSPNTypes.h"
@@ -20,12 +19,19 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/IR/Use.h"
+#include <boost/graph/properties.hpp>
+#include <boost/graph/subgraph.hpp>
+#include <boost/range/algorithm.hpp>
+#include <boost/range/iterator_range_core.hpp>
 #include <llvm/ADT/IndexedMap.h>
 #include <mlir/Rewrite/FrozenRewritePatternSet.h>
 
 namespace mlir {
 namespace spn {
 namespace low {
+
+using namespace mlir::spn::low::partitioning;
 
 ///
 /// Pattern matching a LoSPN task and splitting the task
@@ -38,11 +44,11 @@ public:
 
   LogicalResult matchAndRewrite(SPNTask op, PatternRewriter &rewriter) const override {
     // All operations in the Task relevant for partitioning
-    SmallVector<partitioning::Node> nodes;
+    SmallVector<Operation *> nodes;
     // Mapping from Value to a Tensor + index, either from an external
     // input of this task or internally from another partition.
     InputMap inputs;
-    SmallVector<Value> taskResults;
+    SmallVector<Operation *> taskTerminators;
     unsigned numNodes = 0;
     {
       // Map arguments of the entry block to external inputs of the task.
@@ -76,11 +82,8 @@ public:
         }
         body.body().walk([&](Operation *op) {
           if (isa<SPNYield>(op)) {
-            // SPNYield is not considered during partitioning, but the we need
-            // store the returned results to identify the new task producing the results.
-            for (auto resVal : op->getOperands()) {
-              taskResults.push_back(resVal);
-            }
+            // Store terminators
+            taskTerminators.push_back(op);
           } else {
             nodes.push_back(op);
             if (op->hasTrait<OpTrait::ConstantLike>()) {
@@ -97,44 +100,39 @@ public:
       // Do not partition a task if it is already smaller than the maximum size.
       return mlir::failure();
     }
-    // Perform the actual partitioning.
-    partitioning::DSCPartitioner partitioner{nodes, maxTaskSize_};
-    auto partition = partitioner.partitionGraph();
-    SmallVector<PartitionInfo> partitions;
-    unsigned index = 0;
-    for (auto &p : partition) {
-      ++index;
-      partitions.push_back(PartitionInfo{p.get(), false});
-    }
+
+    // Perform the actual partitioning
+    GraphPartitioner partitioner(taskTerminators, maxTaskSize_);
+    partitioner.clusterGraph();
+    partitioner.scheduleGraphForBSP();
 
     // Post-processing of constants: If a constant has a use in a different partition,
     // clone the constant to the other partition to avoid unnecessary edges crossing partitions.
-    postprocessConstants(partitions, rewriter);
-    // Handle the special case that a partition only contains constants.
-    for (auto I = partitions.begin(); I != partitions.end();) {
-      auto allConstant =
-          llvm::all_of(*I->first, [](partitioning::Node node) { return node->hasTrait<OpTrait::ConstantLike>(); });
-      if (allConstant) {
-        I = partitions.erase(I);
-      } else {
-        ++I;
-      }
-    }
+    postprocessConstants(partitioner, rewriter);
 
-    // Create a new LoSPN task for each partition.
-    for (auto &p : partitions) {
-      createTaskForPartition(p, rewriter, op.getLoc(), op.batchSize(), inputs, partitions);
+    // Create a new LoSPN task for each cluster.
+    for (auto &cluster : partitioner.clusters()) {
+      // Skip clusters that only contain constants.
+      auto vertices = boost::vertices(cluster);
+      if (std::all_of(vertices.first, vertices.second,
+                      [&cluster](auto vertex) { return boost::get(SPNVertex_IsConstant(), cluster, vertex); }))
+        continue;
+
+      // Create a new task for this cluster.
+      createTaskForPartition(cluster, rewriter, op.getLoc(), op.batchSize(), inputs, partitioner);
     }
 
     // Emit a remark with some information about the number of partitions etc.
-    auto numPartitions = partitions.size();
-    auto maxSize = partitioner.getMaximumPartitionSize();
+    auto numPartitions = partitioner.numClusters();
+    auto maxSize = partitioner.getMaximumClusterSize();
     op->emitRemark() << "Split task into " << numPartitions << " partitions with a maximum size of " << maxSize;
     // Identify the task(s) producing the final result(s) of the original task and replace
     // the original task by the newly created tasks.
     SmallVector<Value> newResults;
-    for (auto res : taskResults) {
-      newResults.push_back(inputs.lookup(res).tensor);
+    for (auto op : taskTerminators) {
+      for (auto resVal : op->getOperands()) {
+        newResults.push_back(inputs.lookup(resVal).tensor);
+      }
     }
     rewriter.replaceOp(op, newResults);
     return mlir::success();
@@ -155,72 +153,65 @@ private:
   using InputMap = llvm::DenseMap<mlir::Value, InputInfo>;
   using InputMap = llvm::DenseMap<mlir::Value, InputInfo>;
 
-  using PartitionInfo = std::pair<partitioning::Partition *, bool>;
-
-  void createTaskForPartition(PartitionInfo partition, PatternRewriter &rewriter, Location loc, unsigned batchSize,
-                              InputMap &inputs, llvm::ArrayRef<PartitionInfo> partitions) const {
-    // First, collect all input values coming from either outside arguments of the original task
+  void createTaskForPartition(SPNGraph &partition, PatternRewriter &rewriter, Location loc, unsigned batchSize,
+                              InputMap &inputs, GraphPartitioner &partitioner) const {
+    // First, collect all input values coming from outside arguments of the original task
     InputMap nonPartitionInputs;
     llvm::MapVector<Value, unsigned> inputArgs;
     unsigned inputArgIndex = 1;
-    for (auto &node : partition.first->leaf_nodes()) {
-      for (auto extEdge : node.external_edges_in()) {
-        assert(inputs.count(extEdge) && "External input are expected to be present in the input map");
-        auto inputInfo = inputs[extEdge];
-        nonPartitionInputs[extEdge] = inputInfo;
-        // Remember which output from the outside will be provided by which argument to this task.
-        if (!inputArgs.count(inputInfo.tensor)) {
-          inputArgs.insert({inputInfo.tensor, inputArgIndex++});
+    for (auto vertex : boost::make_iterator_range(boost::vertices(partition))) {
+      // Check if this vertex uses an input argument of the original task.
+      if (boost::get(SPNVertex_UsesInput(), partition, vertex)) {
+        // Get the underlying operation of the vertex.
+        auto *op = boost::get(SPNVertex_Operation(), partition, vertex);
+        for (auto operands : op->getOperands()) {
+          assert(inputs.count(operands) && "External input are expected to be present in the input map");
+          auto inputInfo = inputs[operands];
+          nonPartitionInputs[operands] = inputInfo;
+          // Remember which output from the outside will be provided by which argument to this task.
+          if (!inputArgs.count(inputInfo.tensor)) {
+            inputArgs.insert({inputInfo.tensor, inputArgIndex++});
+          }
         }
       }
     }
     // First, collect all input values coming from other partitions.
-    for (auto &node : partition.first->incoming_nodes()) {
-      for (auto edge : node.edges_in()) {
-        if (partition.first->contains(edge.from())) {
-          // This edge is internal to the partition, skip it.
-          continue;
-        }
-        if (!inputs.count(edge)) {
-          // First, check the map for pre-existing entries.
-          // If no mapping is present, the input must be produced by another partition.
-          auto otherPartition = findPartition(edge, partitions);
-          assert(otherPartition.first && "Did not find partition producing this value");
-          // Convert the partition producing the input to a task first.
-          createTaskForPartition(otherPartition, rewriter, loc, batchSize, inputs, partitions);
-          // Input should be present after conversion.
-          assert(inputs.count(edge));
-        }
-        auto inputInfo = inputs[edge];
-        nonPartitionInputs[edge] = inputInfo;
-        // Remember which output from the outside will be provided by which argument to this task.
-        if (!inputArgs.count(inputInfo.tensor)) {
-          inputArgs.insert({inputInfo.tensor, inputArgIndex++});
-        }
+    for (auto globalInEdge : partitioner.edges_in(partition)) {
+      Value value = boost::get(SPNEdge_Value(), partitioner.graph(), globalInEdge);
+      // First, check the map for pre-existing entries.
+      if (!inputs.count(value)) {
+        // If no mapping is present, the input must be produced by another partition.
+        auto globalVertexFrom = boost::source(globalInEdge, partitioner.graph());
+        auto otherPartition = find_cluster(globalVertexFrom, partitioner.graph());
+        // Convert the partition producing the input to a task first.
+        createTaskForPartition(otherPartition, rewriter, loc, batchSize, inputs, partitioner);
+        // Input should be present after conversion.
+        assert(inputs.count(value));
+      }
+      auto inputInfo = inputs[value];
+      nonPartitionInputs[value] = inputInfo;
+      // Remember which output from the outside will be provided by which argument to this task.
+      if (!inputArgs.count(inputInfo.tensor)) {
+        inputArgs.insert({inputInfo.tensor, inputArgIndex++});
       }
     }
     // Collect information about which values this task will provide to other partitions.
     SmallVector<Value> nonPartitionOutputs;
     llvm::Optional<Type> resultType;
     SmallVector<Type> bodyResults;
-    for (auto &node : partition.first->outgoing_nodes()) {
-      for (auto result : node->getResults()) {
-        // Only add to nonPartitionOutputs if there's at least one user outside of the partition.
-        auto hasExternalUser =
-            llvm::any_of(result.getUsers(), [&partition](auto *U) { return !partition.first->contains(U); });
-        if (hasExternalUser) {
-          auto rType = performTypeConversion(result.getType());
-          if (!resultType.hasValue()) {
-            resultType = rType;
-          } else {
-            // Currently we assume that all results from one partition have the same type.
-            assert(resultType.getValue() == rType && "Multiple results with different types");
-          }
-          bodyResults.push_back(rType);
-          nonPartitionOutputs.push_back(result);
-        }
+    for (auto globalOutEdge : partitioner.edges_out(partition)) {
+      auto value = boost::get(SPNEdge_Value(), partitioner.graph(), globalOutEdge);
+      auto rType = performTypeConversion(value.getType());
+      if (!resultType.hasValue()) {
+        resultType = rType;
+      } else {
+        // Currently we assume that all results from one partition have the same type.
+        assert(resultType.getValue() == rType && "Multiple results with different types");
       }
+      bodyResults.push_back(rType);
+      nonPartitionOutputs.push_back(value);
     }
+
     assert(resultType.hasValue() && "Expecting at least one output from every partition");
     // All results of a partition are stored into one tensor (later on buffer).
     auto outputType = RankedTensorType::get({static_cast<long>(bodyResults.size()), -1}, resultType.getValue());
@@ -273,8 +264,9 @@ private:
       mapper.map(remapped.getFirst(), bodyBlock->getArgument(remapped.second));
     }
     // Copy the operations in this partition from the original task to the new task.
-    for (auto &node : *partition.first) {
-      copyOperation(node.getOperation(), rewriter, mapper);
+    for (auto vertex : boost::make_iterator_range(boost::vertices(partition))) {
+      auto *op = boost::get(SPNVertex_Operation(), partition, vertex);
+      copyOperation(op, rewriter, mapper);
     }
     SmallVector<Value> bodyYields;
     unsigned resultIndex = 0;
@@ -310,35 +302,6 @@ private:
     }
   }
 
-  /// Find which partition contains the operation producing the given value.
-  /// \param input The produced Value.
-  /// \param partitions List of partitions.
-  /// \return Information about the partition containing the operation/value or a
-  ///         nullptr wrapped in the information if no partition could be found.
-  PartitionInfo findPartition(Value input, llvm::ArrayRef<PartitionInfo> partitions) const {
-    for (auto &p : partitions) {
-      if (p.second) {
-        // This partition has already been converted and all outputs should be present in the map.
-        continue;
-      }
-      for (auto &node : p.first->outgoing_nodes()) {
-        if (node == input.getDefiningOp()) {
-          return p;
-        }
-      }
-    }
-    return PartitionInfo{nullptr, false};
-  }
-
-  /// Strip the LogType.
-  /// \param type Type.
-  /// \return The type or the base-type in case type is a LogType.
-  Type performTypeConversion(Type type) const {
-    if (type.isa<low::LogType>()) {
-      return type.cast<low::LogType>().getBaseType();
-    }
-    return type;
-  }
   /// Strip the LogType.
   /// \param type Type.
   /// \return The type or the base-type in case type is a LogType.
@@ -349,43 +312,41 @@ private:
     return type;
   }
 
-  void postprocessConstants(llvm::ArrayRef<PartitionInfo> partitions, PatternRewriter &rewriter) const {
-    for (auto &p : partitions) {
-      for (auto &node : p.first->outgoing_nodes()) {
-        if (node->hasTrait<OpTrait::ConstantLike>()) {
-          assert(node->getNumResults() == 1);
-          for (auto &use : node->getUses()) {
-            if (!p.first->contains(use.getOwner())) {
-              // This user is located in another partition.
-              // Find the partition of the using operation.
-              auto otherPart = findContainingPartition(use.getOwner(), partitions);
-              assert(otherPart.first);
-              // Clone the constant right before the using operation and add it to the same partition.
-              auto restore = rewriter.saveInsertionPoint();
-              rewriter.setInsertionPoint(use.getOwner());
-              auto clonedOut = rewriter.clone(*node.getOperation());
-              otherPart.first->addNode(clonedOut);
-              use.set(clonedOut->getResult(0));
-              rewriter.restoreInsertionPoint(restore);
-            }
-          }
+  void postprocessConstants(GraphPartitioner &partitioner, PatternRewriter &rewriter) const {
+    for (auto &cluster : partitioner.clusters()) {
+      for (auto globalOutEdge : partitioner.edges_out(cluster)) {
+        auto globalVertexFrom = boost::source(globalOutEdge, partitioner.graph());
+        if (boost::get(SPNVertex_IsConstant(), partitioner.graph(), globalVertexFrom)) {
+          assert(boost::get(SPNVertex_Operation(), partitioner.graph(), globalVertexFrom)->getNumResults() == 1);
+          // This constant is used by another partition.
+          // Find the partition that uses the constant
+          auto globalVertexTo = boost::target(globalOutEdge, partitioner.graph());
+          auto otherPart = find_cluster(globalVertexTo, partitioner.graph());
+
+          // Clone the constant right before the using operation and add it to the same partition.
+          auto restore = rewriter.saveInsertionPoint();
+
+          // Get the constant operation and the operation thats using it
+          Value value = boost::get(SPNEdge_Value(), partitioner.graph(), globalOutEdge);
+          Operation *constOperation = boost::get(SPNVertex_Operation(), partitioner.graph(), globalVertexFrom);
+          Operation *usingOperation = boost::get(SPNVertex_Operation(), partitioner.graph(), globalVertexTo);
+
+          rewriter.setInsertionPoint(usingOperation);
+          auto clonedOut = rewriter.clone(*constOperation);
+
+          // Add the cloned constant to the partition
+          auto globalClonedConstant = add_vertex(otherPart, clonedOut);
+          auto localClonedConstant = boost::add_vertex(globalClonedConstant, otherPart);
+
+          // Add the edge from the cloned constant to the using operation in the other partition
+          auto localVertexTo = otherPart.global_to_local(globalVertexTo);
+          add_edge(localClonedConstant, localVertexTo, otherPart, clonedOut->getResult(0));
+
+          usingOperation->replaceUsesOfWith(value, clonedOut->getResult(0));
+          rewriter.restoreInsertionPoint(restore);
         }
       }
     }
-  }
-
-  /// Find the partition containing the specified operation.
-  /// \param op Operation.
-  /// \param partitions List of partitions.
-  /// \return Information about the partition containing the operation or a
-  //          nullptr wrapped in the information if no partition could be found.
-  PartitionInfo findContainingPartition(Operation *op, llvm::ArrayRef<PartitionInfo> partitions) const {
-    for (auto &p : partitions) {
-      if (p.first->contains(op)) {
-        return p;
-      }
-    }
-    return PartitionInfo{nullptr, false};
   }
 
   int maxTaskSize_;
