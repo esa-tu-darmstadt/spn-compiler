@@ -1,5 +1,6 @@
 #include "SPNGraph.h"
 #include "LoSPN/LoSPNOps.h"
+#include "TargetExecutionModel.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/Value.h"
@@ -10,22 +11,25 @@
 #include <boost/graph/properties.hpp>
 #include <boost/graph/subgraph.hpp>
 #include <boost/range/iterator_range_core.hpp>
+#include <string>
 
 using namespace llvm;
 using namespace mlir;
 using namespace mlir::spn::low;
 using namespace mlir::spn::low::partitioning;
 
-void mlir::spn::low::partitioning::view_spngraph(SPNGraph &graph, std::string title ) {
+void mlir::spn::low::partitioning::view_spngraph(SPNGraph &graph, std::string title) {
   // Set the vertex attributes
   for (auto vertex : boost::make_iterator_range(boost::vertices(graph))) {
     auto op = boost::get(SPNVertex_Operation(), graph, vertex);
     auto isConstant = boost::get(SPNVertex_IsConstant(), graph, vertex);
     auto usesInput = boost::get(SPNVertex_UsesInput(), graph, vertex);
     auto isYield = boost::get(SPNVertex_IsYield(), graph, vertex);
+    auto weight = boost::get(vertex_weight(), graph, vertex);
 
     GraphvizAttributes attributes;
-    attributes["label"] = op->getName().getStringRef().str();
+    attributes["label"] = op->getName().getStringRef().str() + "\nindex: " + std::to_string(vertex) +
+                          "\nweight: " + std::to_string(weight);
     attributes["shape"] = "box";
     attributes["style"] = "filled";
     attributes["fillcolor"] =
@@ -80,15 +84,18 @@ void mlir::spn::low::partitioning::view_spngraph(SPNGraph &graph, std::string ti
 
 SPNGraph::edge_descriptor mlir::spn::low::partitioning::add_edge(SPNGraph::vertex_descriptor u,
                                                                  SPNGraph::vertex_descriptor v, SPNGraph &graph,
-                                                                 Value value) {
+                                                                 Value value,
+                                                                 const spnc::TargetExecutionModel &targetModel) {
   auto edge = boost::add_edge(u, v, graph);
   assert(edge.second && "Cannot add edge");
 
   boost::put(SPNEdge_Value(), graph, edge.first, value);
+  boost::put(edge_weight(), graph, edge.first, targetModel.getCostOfInterProcCommunication(value));
   return edge.first;
 }
 
-SPNGraph::vertex_descriptor mlir::spn::low::partitioning::add_vertex(SPNGraph &graph, Operation *op) {
+SPNGraph::vertex_descriptor mlir::spn::low::partitioning::add_vertex(SPNGraph &graph, Operation *op,
+                                                                     const spnc::TargetExecutionModel &targetModel) {
   auto v = boost::add_vertex(graph);
 
   boost::put(SPNVertex_Operation(), graph, v, op);
@@ -101,6 +108,7 @@ SPNGraph::vertex_descriptor mlir::spn::low::partitioning::add_vertex(SPNGraph &g
   }
 
   boost::put(SPNVertex_UsesInput(), graph, v, usesInput);
+  boost::put(vertex_weight(), graph, v, targetModel.getCostOfComputation(op));
   return v;
 }
 

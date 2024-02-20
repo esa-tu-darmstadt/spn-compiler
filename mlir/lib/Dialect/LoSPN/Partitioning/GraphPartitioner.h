@@ -11,6 +11,7 @@
 
 #include "BSPSchedule.h"
 #include "SPNGraph.h"
+#include "TargetExecutionModel.h"
 
 #include <boost/fusion/algorithm/transformation/flatten.hpp>
 #include <boost/range.hpp>
@@ -19,6 +20,7 @@
 #include <boost/range/algorithm/merge.hpp>
 #include <boost/range/iterator_range_core.hpp>
 #include <boost/range/join.hpp>
+#include <unordered_map>
 
 namespace mlir {
 namespace spn {
@@ -26,15 +28,23 @@ namespace low {
 
 namespace partitioning {
 class BSPSchedule;
+template <class GraphT>
+class Schedule;
 
 class GraphPartitioner {
   SPNGraph graph_;
+  const spnc::TargetExecutionModel &targetModel_;
+
+  /// Creates a BSP graph in which vertices represent a clusters of the SPN graph.
+  void createBSPGraphFromClusteredSPNGraph(SPNGraph &spnGraph, BSPGraph &bspGraph);
 
 public:
-  explicit GraphPartitioner(llvm::ArrayRef<mlir::Operation *> rootNodes, size_t maxTaskSize);
+  explicit GraphPartitioner(llvm::ArrayRef<mlir::Operation *> rootNodes, const spnc::TargetExecutionModel &targetModel, size_t maxTaskSize);
 
+  /// Clusters the SPN graph
   void clusterGraph();
 
+  /// Schedules the clustered SPN graph
   BSPSchedule scheduleGraphForBSP();
 
   /// Returns a range of all clusters
@@ -94,11 +104,21 @@ public:
   class ClusteringAlgorithm {
   protected:
     size_t maxClusterSize_;
+    const spnc::TargetExecutionModel &targetModel_;
 
   public:
-    ClusteringAlgorithm(size_t maxClusterSize) : maxClusterSize_{maxClusterSize} {}
+    ClusteringAlgorithm(const spnc::TargetExecutionModel &targetModel, size_t maxClusterSize) : maxClusterSize_(maxClusterSize), targetModel_(targetModel) {}
     virtual ~ClusteringAlgorithm() = default;
     virtual void operator()(SPNGraph &graph) = 0;
+  };
+
+  template <class GraphT> class SchedulingAlgorithm {
+  protected:
+    const spnc::TargetExecutionModel &targetModel_;
+  public:
+    SchedulingAlgorithm(const spnc::TargetExecutionModel &targetModel) : targetModel_(targetModel) {}
+    virtual ~SchedulingAlgorithm() = default;
+    virtual Schedule<GraphT> operator()(GraphT &graph) = 0;
   };
 
 protected:

@@ -7,8 +7,11 @@
 //==============================================================================
 #pragma once
 
+#include "SPNGraph.h"
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graphviz.hpp>
+#include <boost/graph/properties.hpp>
+#include <boost/pending/property.hpp>
 #include <memory>
 #include <set>
 #include <unordered_map>
@@ -31,7 +34,7 @@ struct BSPGraph_Superstep {
 };
 
 /// A property describing the task index of a BSP vertex
-struct BSPVertex_TaskID {
+struct BSPVertex_ClusterID {
   using kind = boost::vertex_property_tag;
 };
 
@@ -43,11 +46,13 @@ struct BSPVertex_ProcID {
 using GraphvizAttributes = std::unordered_map<std::string, std::string>;
 
 using BSPVertexAttributes = boost::property<boost::vertex_attribute_t, GraphvizAttributes>;
-using BSPVertexProperties = boost::property<BSPVertex_TaskID, task_index_t, boost::property<BSPVertex_ProcID, processor_t,  BSPVertexAttributes>>;
+using BSPVertexProperties = boost::property<
+    BSPVertex_ClusterID, task_index_t,
+    boost::property<BSPVertex_ProcID, processor_t, boost::property<vertex_weight, int, BSPVertexAttributes>>>;
 
 using BSPEdgeAttributes = boost::property<boost::edge_attribute_t, GraphvizAttributes>;
 using BSPEdgeProperties =
-    boost::property<boost::edge_index_t, int, BSPEdgeAttributes>;
+    boost::property<boost::edge_index_t, int, boost::property<edge_weight, int, BSPEdgeAttributes>>;
 
 using BSPGraphAttributes =
     boost::property<boost::graph_graph_attribute_t, GraphvizAttributes,
@@ -62,20 +67,32 @@ typedef boost::subgraph<boost::adjacency_list<boost::vecS, boost::vecS, boost::b
                                               BSPEdgeProperties, BSPGraphProperties>>
     BSPGraph;
 
-inline void view_bspgraph(BSPGraph &graph, std::string title ) {
+inline void view_bspgraph(BSPGraph &graph, std::string title) {
   // Set the vertex attributes
   for (auto vertex : boost::make_iterator_range(boost::vertices(graph))) {
 
     GraphvizAttributes attributes;
     processor_t proc = boost::get(BSPVertex_ProcID(), graph, vertex);
-    task_index_t task = boost::get(BSPVertex_TaskID(), graph, vertex);
-    attributes["label"] = "Task " + std::to_string(task) + "\nProc " + std::to_string(proc);
+    task_index_t cluster = boost::get(BSPVertex_ClusterID(), graph, vertex);
+    auto weight = boost::get(vertex_weight(), graph, vertex);
+    attributes["label"] =
+        "Cluster " + std::to_string(cluster) + "\nProc " + std::to_string(proc) + "\nWeight " + std::to_string(weight);
     attributes["shape"] = "box";
     attributes["style"] = "filled";
     attributes["fillcolor"] = "white";
     attributes["color"] = "black";
 
     boost::put(boost::vertex_attribute_t(), graph, vertex, attributes);
+  }
+
+  // Set edge attributes
+  for (auto edge : boost::make_iterator_range(boost::edges(graph))) {
+    auto weight = boost::get(edge_weight(), graph, edge);
+
+    GraphvizAttributes attributes;
+    attributes["label"] = std::to_string(weight);
+
+    boost::put(boost::edge_attribute_t(), graph, edge, attributes);
   }
 
   // Set cluster attributes
@@ -106,7 +123,6 @@ inline void view_bspgraph(BSPGraph &graph, std::string title ) {
   // Display the graph.
   llvm::DisplayGraph(fileName, false, llvm::GraphProgram::DOT);
 }
-
 
 /// Represents a superstep in the BSP schedule. A superstep is a set of tasks that can be executed in parallel.
 class Superstep {
@@ -146,6 +162,12 @@ public:
 private:
   std::vector<Superstep> supersteps_;
 };
+
+inline std::string get_label(const BSPGraph &g, BSPGraph::vertex_descriptor v) {
+  auto cluster = boost::get(BSPVertex_ClusterID(), g, v);
+  return "Cluster " + std::to_string(cluster);
+}
+
 } // namespace partitioning
 } // namespace low
 } // namespace spn
