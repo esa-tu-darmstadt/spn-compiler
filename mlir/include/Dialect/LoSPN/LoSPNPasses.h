@@ -9,6 +9,7 @@
 #ifndef SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNPASSES_H
 #define SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNPASSES_H
 
+#include "TargetExecutionModel.h"
 #include "mlir/Pass/Pass.h"
 #include "LoSPNOps.h"
 
@@ -20,7 +21,7 @@ namespace mlir {
 
       std::unique_ptr<OperationPass<SPNKernel>> createLoSPNCopyRemovalPass();
 
-      std::unique_ptr<OperationPass<SPNKernel>> createLoSPNPartitionerPass(int maxTaskSize = -1);
+      std::unique_ptr<OperationPass<SPNKernel>> createLoSPNPartitionerPass(const spnc::TargetExecutionModel &targetInfo = spnc::getGenericTargetExecutionModel(), int maxTaskSize = -1);
 
       std::unique_ptr<OperationPass<ModuleOp>> createReplaceARMOptimizedRoutinesPass();
 

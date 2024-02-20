@@ -6,10 +6,10 @@
 #  SPDX-License-Identifier: Apache-2.0
 # ==============================================================================
 
-add_library(spnc-common INTERFACE)
+add_library(spnc-common SHARED TargetExecutionModel.cpp)
 
 target_include_directories(spnc-common
-        INTERFACE
+        PUBLIC
         $<INSTALL_INTERFACE:include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 
