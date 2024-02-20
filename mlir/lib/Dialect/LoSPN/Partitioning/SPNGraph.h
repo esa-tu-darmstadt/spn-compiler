@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "TargetExecutionModel.h"
 #include "mlir/IR/Value.h"
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graphviz.hpp>
@@ -58,6 +59,16 @@ struct SPNGraph_IsTaskPartitioned {
   using kind = boost::graph_property_tag;
 };
 
+/// A property describing the weight of a vertex
+struct vertex_weight {
+  using kind = boost::vertex_property_tag;
+};
+
+/// A property describing the weight of an edge
+struct edge_weight {
+  using kind = boost::edge_property_tag;
+};
+
 using GraphvizAttributes = std::unordered_map<std::string, std::string>;
 
 using VertexAttributes = boost::property<boost::vertex_attribute_t, GraphvizAttributes>;
@@ -65,11 +76,11 @@ using VertexProperties =
     boost::property<SPNVertex_Operation, mlir::Operation *,
                     boost::property<SPNVertex_IsConstant, bool,
                                     boost::property<SPNVertex_UsesInput, bool,
-                                                    boost::property<SPNVertex_IsYield, bool, VertexAttributes>>>>;
+                                                    boost::property<SPNVertex_IsYield, bool, boost::property<vertex_weight, int, VertexAttributes>>>>>;
 
 using EdgeAttributes = boost::property<boost::edge_attribute_t, GraphvizAttributes>;
 using EdgeProperties =
-    boost::property<boost::edge_index_t, int, boost::property<SPNEdge_Value, mlir::Value, EdgeAttributes>>;
+    boost::property<boost::edge_index_t, int, boost::property<SPNEdge_Value, mlir::Value, boost::property<edge_weight, int, EdgeAttributes>>>;
 
 using GraphAttributes =
     boost::property<boost::graph_graph_attribute_t, GraphvizAttributes,
@@ -85,11 +96,11 @@ typedef boost::subgraph<boost::adjacency_list<boost::vecS, boost::vecS, boost::b
     SPNGraph;
 
 /// Add a vertex for the given operation to the graph.
-SPNGraph::vertex_descriptor add_vertex(SPNGraph &graph, Operation *op);
+SPNGraph::vertex_descriptor add_vertex(SPNGraph &graph, Operation *op, const spnc::TargetExecutionModel &targetModel);
 
 /// Add a vertex for the given value to the graph.
 SPNGraph::edge_descriptor add_edge(SPNGraph::vertex_descriptor u, SPNGraph::vertex_descriptor v, SPNGraph &graph,
-                                   Value value);
+                                   Value value, const spnc::TargetExecutionModel &targetModel);
 
 /// Adds a cluster to the graph
 SPNGraph &add_cluster(SPNGraph &graph);
@@ -102,6 +113,8 @@ bool ignore_for_clustering(SPNGraph::vertex_descriptor v, SPNGraph &graph);
 
 /// View the SPN graph in the default graphviz viewer.
 void view_spngraph(SPNGraph &graph, std::string title = "");
+
+std::string get_label(const SPNGraph &g, SPNGraph::vertex_descriptor v);
 
 } // namespace partitioning
 } // namespace low

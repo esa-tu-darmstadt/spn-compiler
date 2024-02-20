@@ -12,6 +12,7 @@
 #include "LoSPN/LoSPNPasses.h"
 #include "LoSPN/LoSPNTypes.h"
 #include "LoSPNPassDetails.h"
+#include "TargetExecutionModel.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/PatternMatch.h"
@@ -37,10 +38,9 @@ using namespace mlir::spn::low::partitioning;
 /// Pattern matching a LoSPN task and splitting the task
 /// into multiple tasks by graph partitioning.
 class PartitionTask : public OpRewritePattern<low::SPNTask> {
-
 public:
-  PartitionTask(MLIRContext *ctx, int maxTaskSize)
-      : OpRewritePattern<low::SPNTask>(ctx, 1), maxTaskSize_(maxTaskSize) {}
+  PartitionTask(MLIRContext *ctx, const spnc::TargetExecutionModel &targetModel, int maxTaskSize)
+      : OpRewritePattern<low::SPNTask>(ctx, 1), targetModel_(targetModel), maxTaskSize_(maxTaskSize) {}
 
   LogicalResult matchAndRewrite(SPNTask op, PatternRewriter &rewriter) const override {
     // All operations in the Task relevant for partitioning
@@ -102,7 +102,7 @@ public:
     }
 
     // Perform the actual partitioning
-    GraphPartitioner partitioner(taskTerminators, maxTaskSize_);
+    GraphPartitioner partitioner(taskTerminators, targetModel_, maxTaskSize_);
     partitioner.clusterGraph();
     partitioner.scheduleGraphForBSP();
 
@@ -335,12 +335,12 @@ private:
           auto clonedOut = rewriter.clone(*constOperation);
 
           // Add the cloned constant to the partition
-          auto globalClonedConstant = add_vertex(otherPart, clonedOut);
+          auto globalClonedConstant = add_vertex(otherPart, clonedOut, targetModel_);
           auto localClonedConstant = boost::add_vertex(globalClonedConstant, otherPart);
 
           // Add the edge from the cloned constant to the using operation in the other partition
           auto localVertexTo = otherPart.global_to_local(globalVertexTo);
-          add_edge(localClonedConstant, localVertexTo, otherPart, clonedOut->getResult(0));
+          add_edge(localClonedConstant, localVertexTo, otherPart, clonedOut->getResult(0), targetModel_);
 
           usingOperation->replaceUsesOfWith(value, clonedOut->getResult(0));
           rewriter.restoreInsertionPoint(restore);
@@ -348,22 +348,20 @@ private:
       }
     }
   }
-
+  const spnc::TargetExecutionModel &targetModel_;
   int maxTaskSize_;
 };
 
 struct LoSPNTaskPartitioner : public LoSPNTaskPartioningBase<LoSPNTaskPartitioner> {
-
+const spnc::TargetExecutionModel &targetModel_;
 public:
-  LoSPNTaskPartitioner() = default;
-
-  explicit LoSPNTaskPartitioner(int maxTaskSize) { this->maxTaskSize = maxTaskSize; }
+  explicit LoSPNTaskPartitioner(const spnc::TargetExecutionModel &targetModel, int maxTaskSize) : targetModel_(targetModel) { this->maxTaskSize = maxTaskSize; }
 
 protected:
   void runOnOperation() override {
     if (this->maxTaskSize.getValue() > 0) {
       RewritePatternSet patterns(getOperation()->getContext());
-      patterns.insert<PartitionTask>(getOperation()->getContext(), this->maxTaskSize.getValue());
+      patterns.insert<PartitionTask>(getOperation()->getContext(), targetModel_, this->maxTaskSize.getValue());
       mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
       if (failed(applyPatternsAndFoldGreedily(getOperation(), frozenPatterns))) {
         signalPassFailure();
@@ -377,6 +375,6 @@ protected:
 } // namespace mlir
 
 std::unique_ptr<mlir::OperationPass<mlir::spn::low::SPNKernel>>
-mlir::spn::low::createLoSPNPartitionerPass(int maxTaskSize) {
-  return std::make_unique<LoSPNTaskPartitioner>(maxTaskSize);
+mlir::spn::low::createLoSPNPartitionerPass(const spnc::TargetExecutionModel &targetModel, int maxTaskSize) {
+  return std::make_unique<LoSPNTaskPartitioner>(targetModel, maxTaskSize);
 }
