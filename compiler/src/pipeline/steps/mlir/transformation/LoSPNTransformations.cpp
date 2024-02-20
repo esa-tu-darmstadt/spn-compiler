@@ -9,20 +9,19 @@
 #include "LoSPNTransformations.h"
 #include "LoSPN/LoSPNOps.h"
 #include "LoSPN/LoSPNPasses.h"
+#include "TargetExecutionModel.h"
 #include "mlir/Transforms/Passes.h"
+#include "option/GlobalOptions.h"
 #include "toolchain/MLIRToolchain.h"
 #include "util/Logging.h"
 
-void spnc::LoSPNTransformations::initializePassPipeline(
-    mlir::PassManager *pm, mlir::MLIRContext *ctx) {
-  mlir::spn::low::LoSPNTaskPartioningOptions taskPartitioningOptions;
-  taskPartitioningOptions.maxTaskSize = option::maxTaskSize.getValue();
-  pm->nest<mlir::spn::low::SPNKernel>().addPass(
-      mlir::spn::low::createLoSPNTaskPartioning(taskPartitioningOptions));
-  pm->addPass(mlir::spn::low::createLoSPNBufferize());
+void spnc::LoSPNTransformations::initializePassPipeline(mlir::PassManager *pm, mlir::MLIRContext *ctx) {
+  auto &targetModel = *getContext()->get<spnc::TargetExecutionModel>();
+  auto maxTaskSize = spnc::option::maxTaskSize.get(*getContext()->get<Configuration>());
+  pm->nest<mlir::spn::low::SPNKernel>().addPass(mlir::spn::low::createLoSPNPartitionerPass(targetModel, maxTaskSize));
+  pm->addPass(mlir::spn::low::createLoSPNBufferizePass());
   pm->addPass(mlir::createCanonicalizerPass());
-  pm->nest<mlir::spn::low::SPNKernel>().addPass(
-      mlir::spn::low::createLoSPNCopyRemoval());
+  pm->nest<mlir::spn::low::SPNKernel>().addPass(mlir::spn::low::createLoSPNCopyRemovalPass());
   pm->addPass(mlir::createCSEPass());
 }
 
@@ -31,12 +30,10 @@ void spnc::LoSPNTransformations::preProcess(mlir::ModuleOp *inputModule) {
   // name in the module and retrieve information about the data-type and shape
   // of the result values from its function-like type.
   auto kernelInfo = getContext()->get<KernelInfo>();
-  for (mlir::spn::low::SPNKernel kernel :
-       inputModule->getOps<mlir::spn::low::SPNKernel>()) {
+  for (mlir::spn::low::SPNKernel kernel : inputModule->getOps<mlir::spn::low::SPNKernel>()) {
     if (kernel.getName() == kernelInfo->kernelName) {
-      assert(kernel.getNumResults() == 1);
-      auto resultType =
-          kernel.getFunctionType().getResult(0).dyn_cast<mlir::TensorType>();
+      assert(kernel.getType().getNumResults() == 1);
+      auto resultType = kernel.getType().getResult(0).dyn_cast<mlir::TensorType>();
       assert(resultType);
       kernelInfo->numResults = 1;
       assert(resultType.getElementType().isIntOrFloat());

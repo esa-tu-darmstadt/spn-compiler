@@ -56,7 +56,7 @@
   * Fujimoto2003 (1): On Approximation of the Bulk Synchronous Task Scheduling Problem
 
 ## Genetic algorithms
-Source: Wang1997
+Source:
 1. **Encoding**: All possible solutions encoded as a set of strings (chromosome). Each chromosome represents one solution to the problem. A set of chromosome are reffered to as a population
 2. **Initial population**: Algorithm starts with an initial population, choosen random or by hand.
 3. **Evaluate** the quality of each chromosome (here: completion time)

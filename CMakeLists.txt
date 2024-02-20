@@ -45,7 +45,9 @@ option(SPNC_SLP_DEBUG
 
 message(STATUS "Enabling LLVM address sanitizer")
 add_compile_options(-fno-omit-frame-pointer -fsanitize=address)
-add_link_options(-fno-omit-frame-pointer -fsanitize=address)
+add_link_options(-fuse-ld=lld -fno-omit-frame-pointer -fsanitize=address)
+# Required so that LLVM doesnt add -Wl,-z,defs to the linker flags
+set(LLVM_USE_SANITIZER Address) 
 
 #
 # clang-tidy setup

@@ -8,6 +8,8 @@
 
 #include "IPUToolchain.h"
 #include "Kernel.h"
+#include "TargetExecutionModel.h"
+#include "ipu/IPUTargetExecutionModel.h"
 #include "ipu/IPUTargetInfo.h"
 #include "ipu/IPUTargetMachine.h"
 #include "option/GlobalOptions.h"
@@ -27,6 +29,7 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
+#include <memory>
 
 using namespace spnc;
 using namespace mlir;
@@ -52,9 +55,11 @@ std::unique_ptr<Pipeline<Kernel>> IPUToolchain::setupPipeline(const std::string 
     ctx->enableMultithreading(false);
   }
   auto diagHandler = setupDiagnosticHandler(ctx.get());
+  std::unique_ptr<TargetExecutionModel> targetModel = std::make_unique<IPUTargetExecutionModel>();
   // Attach MLIR context and diagnostics handler to pipeline context
   pipeline->getContext()->add(std::move(diagHandler));
   pipeline->getContext()->add(std::move(ctx));
+  pipeline->getContext()->add(std::move(targetModel));
 
   // Create an LLVM target machine and set the optimization level.
   int mcOptLevel = spnc::option::optLevel.get(*config);
