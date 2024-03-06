@@ -6,11 +6,10 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Pass/Pass.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/IR/Dominance.h"
@@ -21,6 +20,9 @@
 
 using namespace mlir;
 using namespace mlir::spn::low;
+
+#define GEN_PASS_DEF_LOSPNCOPYREMOVAL
+#include "LoSPN/LoSPNPasses.h.inc"
 
 namespace {
 
@@ -33,14 +35,14 @@ namespace {
 
       // Collect all users of the target memref.
       SmallVector<Operation*> tgtUsers;
-      for (auto* U : op.target().getUsers()) {
+      for (auto* U : op.getTarget().getUsers()) {
         if (U == op.getOperation()) {
           // Skip the copy op.
           continue;
         }
         if (auto memEffect = dyn_cast<MemoryEffectOpInterface>(U)) {
           SmallVector<MemoryEffects::EffectInstance, 1> effects;
-          memEffect.getEffectsOnValue(op.target(), effects);
+          memEffect.getEffectsOnValue(op.getTarget(), effects);
           for (auto e : effects) {
             if (isa<MemoryEffects::Read>(e.getEffect()) || isa<MemoryEffects::Write>(e.getEffect())) {
               tgtUsers.push_back(U);
@@ -51,10 +53,10 @@ namespace {
 
       SmallVector<Operation*> srcReads;
       SmallVector<Operation*> srcWrites;
-      for (auto* U : op.source().getUsers()) {
+      for (auto* U : op.getSource().getUsers()) {
         if (auto memEffect = dyn_cast<MemoryEffectOpInterface>(U)) {
           SmallVector<MemoryEffects::EffectInstance, 1> effects;
-          memEffect.getEffectsOnValue(op.target(), effects);
+          memEffect.getEffectsOnValue(op.getSource(), effects);
           for (auto e : effects) {
             if (isa<MemoryEffects::Read>(e.getEffect()) && U != op.getOperation()) {
               srcReads.push_back(U);
@@ -94,16 +96,16 @@ namespace {
           return rewriter.notifyMatchFailure(op, "Source read not dominated by any source write, abort removal");
         }
       }
-      op.source().replaceAllUsesWith(op.target());
+      op.getSource().replaceAllUsesWith(op.getTarget());
       rewriter.eraseOp(op);
       return mlir::success();
     }
 
   };
 
-  struct LoSPNCopyRemoval : public LoSPNCopyRemovalBase<LoSPNCopyRemoval> {
+  struct LoSPNCopyRemoval : public ::impl::LoSPNCopyRemovalBase<LoSPNCopyRemoval> {
   protected:
-    void runOnOperation() override {
+   void runOnOperation() override {
       RewritePatternSet patterns(getOperation()->getContext());
       patterns.insert<CopyRemovalPattern>(getOperation()->getContext());
       (void) mlir::applyPatternsAndFoldGreedily(getOperation(), FrozenRewritePatternSet(std::move(patterns)));

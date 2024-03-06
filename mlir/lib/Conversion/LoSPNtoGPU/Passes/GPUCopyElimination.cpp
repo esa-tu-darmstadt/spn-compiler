@@ -27,7 +27,7 @@ namespace mlir {
       public:
 
         explicit GPUKernelAnalysis(gpu::LaunchOp launch) {
-          launch.body().walk([this](Operation* op) {
+          launch.getBody().walk([this](Operation* op) {
             for (auto operand : op->getOperands()) {
               if (operand.getType().isa<MemRefType>()) {
                 if (auto memEffect = dyn_cast<MemoryEffectOpInterface>(op)) {
@@ -278,7 +278,7 @@ namespace mlir {
         // Copies to the function arguments (i.e., the block arguments of the entry block)
         // must not be eliminated, as they might be used outside the function.
         llvm::SmallPtrSet<Value, 10> funcArgs;
-        funcArgs.insert(op.body().front().args_begin(), op.body().front().args_end());
+        funcArgs.insert(op.getBody().front().args_begin(), op.getBody().front().args_end());
         for (auto& region : op->getRegions()) {
           // Skip regions for which no dominance info is available.
           if (domInfo.hasSSADominance(&region)) {
@@ -346,7 +346,7 @@ namespace mlir {
         }
         // For a GPU kernel, analyze the body of the kernel to find potential writes.
         if (auto gpuLaunch = dyn_cast<gpu::LaunchOp>(op)) {
-          auto walkResult = gpuLaunch.body().walk([&memRef](Operation* op) {
+          auto walkResult = gpuLaunch.getBody().walk([&memRef](Operation* op) {
             if (!writes(op, memRef)) {
               return WalkResult::interrupt();
             }

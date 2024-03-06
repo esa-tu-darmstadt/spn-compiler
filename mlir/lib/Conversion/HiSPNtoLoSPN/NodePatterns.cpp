@@ -8,7 +8,9 @@
 
 #include "HiSPNtoLoSPN/NodePatterns.h"
 #include "LoSPN/LoSPNOps.h"
-#include "LoSPN/LoSPNTypes.h"
+#include "mlir/IR/ValueRange.h"
+#include "mlir/Support/LLVM.h"
+#include "llvm/ADT/SmallVector.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -40,9 +42,11 @@ Value ProductNodeLowering::splitProduct(high::ProductNode op, ArrayRef<Value> op
 }
 
 LogicalResult ProductNodeLowering::matchAndRewriteChecked(high::ProductNode op,
-                                                          ArrayRef<Value> operands,
+                                                          high::ProductNode::Adaptor adaptor,
                                                           ConversionPatternRewriter& rewriter) const {
-  rewriter.replaceOp(op, {splitProduct(op, operands, rewriter)});
+                                                            mlir::ValueRange  operands = adaptor.getOperands();
+  SmallVector<Value, 10> operandsVec(operands.begin(), operands.end());
+  rewriter.replaceOp(op, {splitProduct(op, operandsVec, rewriter)});
   return success();
 }
 
@@ -88,44 +92,46 @@ Value SumNodeLowering::splitWeightedSum(high::SumNode op,
 }
 
 LogicalResult SumNodeLowering::matchAndRewriteChecked(high::SumNode op,
-                                                      ArrayRef<Value> operands,
+                                                      high::SumNode::Adaptor adaptor,
                                                       ConversionPatternRewriter& rewriter) const {
   SmallVector<double, 10> weights;
-  for (auto w : op.weights().getValue()) {
+  for (auto w : op.getWeights().getValue()) {
     weights.push_back(w.cast<FloatAttr>().getValueAsDouble());
   }
-  rewriter.replaceOp(op, {splitWeightedSum(op, operands, weights, rewriter)});
+  auto operands = adaptor.getOperands();
+  SmallVector<Value, 10> operandsVec(operands.begin(), operands.end());
+  rewriter.replaceOp(op, {splitWeightedSum(op, operandsVec, weights, rewriter)});
   return success();
 }
 
 LogicalResult HistogramNodeLowering::matchAndRewriteChecked(high::HistogramNode op,
-                                                            ArrayRef<Value> operands,
+                                                            high::HistogramNode::Adaptor adaptor,
                                                             ConversionPatternRewriter& rewriter) const {
   // We can safely cast here, as the pattern checks for the correct type of the enclosing query beforehand.
-  auto supportMarginal = cast<JointQuery>(op.getEnclosingQuery()).supportMarginal();
+  auto supportMarginal = cast<JointQuery>(op.getEnclosingQuery()).getSupportMarginal();
   rewriter.replaceOpWithNewOp<low::SPNHistogramLeaf>(op, typeConverter->convertType(op.getType()),
-                                                     op.index(), op.buckets(),
-                                                     op.bucketCount(), supportMarginal);
+                                                     op.getIndex(), op.getBuckets(),
+                                                     op.getBucketCount(), supportMarginal);
   return success();
 }
 
 LogicalResult CategoricalNodeLowering::matchAndRewriteChecked(high::CategoricalNode op,
-                                                              ArrayRef<Value> operands,
+                                                              high::CategoricalNode::Adaptor adaptor,
                                                               ConversionPatternRewriter& rewriter) const {
   // We can safely cast here, as the pattern checks for the correct type of the enclosing query beforehand.
-  auto supportMarginal = cast<JointQuery>(op.getEnclosingQuery()).supportMarginal();
+  auto supportMarginal = cast<JointQuery>(op.getEnclosingQuery()).getSupportMarginal();
   rewriter.replaceOpWithNewOp<low::SPNCategoricalLeaf>(op, typeConverter->convertType(op.getType()),
-                                                       op.index(), op.probabilities(), supportMarginal);
+                                                       op.getIndex(), op.getProbabilities(), supportMarginal);
   return success();
 }
 
 LogicalResult GaussianNodeLowering::matchAndRewriteChecked(high::GaussianNode op,
-                                                           ArrayRef<Value> operands,
+                                                           high::GaussianNode::Adaptor adaptor,
                                                            ConversionPatternRewriter& rewriter) const {
   // We can safely cast here, as the pattern checks for the correct type of the enclosing query beforehand.
-  auto supportMarginal = cast<JointQuery>(op.getEnclosingQuery()).supportMarginal();
+  auto supportMarginal = cast<JointQuery>(op.getEnclosingQuery()).getSupportMarginal();
   rewriter.replaceOpWithNewOp<low::SPNGaussianLeaf>(op, typeConverter->convertType(op.getType()),
-                                                    op.index(), op.mean(), op.stddev(), supportMarginal);
+                                                    op.getIndex(), op.getMean(), op.getStddev(), supportMarginal);
   return success();
 }
 
@@ -138,8 +144,9 @@ namespace {
 }
 
 LogicalResult RootNodeLowering::matchAndRewriteChecked(high::RootNode op,
-                                                       ArrayRef<Value> operands,
+                                                       high::RootNode::Adaptor adaptor,
                                                        ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   assert(operands.size() == 1 && "Expecting only a single result for a JointQuery");
   Value result = operands[0];
   if (!isLogType(result.getType())) {

@@ -27,4 +27,4 @@ spnc::ExecutionResult spnc::success() {
   return ExecutionResult{};
 }
 
-spnc::interface::Option<std::string> spnc::option::stopAfter{"stopAfter"};
+spnc::interface::Option<std::string> spnc::option::stopAfter{"stopAfter", "Stop after the specified pipeline step.", "Compilation"};

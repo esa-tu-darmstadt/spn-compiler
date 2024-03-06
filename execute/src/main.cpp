@@ -11,18 +11,21 @@
 #include <iostream>
 #include <map>
 #include "../../compiler/src/option/Options.h"
+#include "llvm/Support/CommandLine.h"
 
 #ifndef TEST_KERNEL_DIR
 #define TEST_KERNEL_DIR "/tmp"
 #endif
 
 int main(int argc, char* argv[]) {
-  CLI::App app{"SPNC CLI"};
-  spnc::interface::Options::registerCLOptions(app);
-  CLI11_PARSE(app, argc, argv);
+  auto clOptions = spnc::interface::Options::registerCLOptions();
 
-  auto options = spnc::interface::Options::collectCLOptions(app);
-  auto parseResult = spnc::spn_compiler::compileQuery(std::string(argv[1]), options);
+  llvm::cl::ParseCommandLineOptions(argc, argv, "SPN Compiler");
+
+  auto options = spnc::interface::Options::collectCLOptions(clOptions);
+  std::string inputFile = options["input"];
+  options.erase("input");
+  auto parseResult = spnc::spn_compiler::compileQuery(inputFile, options);
   std::cout << "Compiled kernel into file " << parseResult.fileName() << std::endl;
 
   //

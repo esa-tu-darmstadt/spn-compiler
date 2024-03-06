@@ -11,9 +11,10 @@
 
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/AttributeSupport.h"
-#include "mlir/IR/Identifier.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
+
+#define GET_ATTRDEF_CLASSES
 #include "LoSPN/LoSPNAttributes.h.inc"
 
 #endif //SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNATTRIBUTES_H

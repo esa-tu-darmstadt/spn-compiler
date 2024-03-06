@@ -32,7 +32,7 @@ void mlir::spn::LoSPNtoGPUStructureConversionPass::runOnOperation() {
   target.addIllegalOp<mlir::spn::low::SPNKernel>();
   target.addIllegalOp<mlir::spn::low::SPNTask, mlir::spn::low::SPNBody>();
 
-  OwningRewritePatternList patterns(&getContext());
+  RewritePatternSet patterns(&getContext());
   mlir::spn::populateLoSPNtoGPUStructurePatterns(patterns, &getContext(), typeConverter);
 
   auto op = getOperation();
@@ -68,7 +68,7 @@ void mlir::spn::LoSPNtoGPUNodeConversionPass::runOnOperation() {
 
   target.addIllegalDialect<mlir::spn::low::LoSPNDialect>();
 
-  OwningRewritePatternList patterns(&getContext());
+  RewritePatternSet patterns(&getContext());
   mlir::spn::populateLoSPNtoGPUNodePatterns(patterns, &getContext(), typeConverter);
 
   auto op = getOperation();

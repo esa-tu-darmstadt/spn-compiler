@@ -12,45 +12,47 @@
 #include <mlir/Transforms/DialectConversion.h>
 #include "mlir/IR/BuiltinTypes.h"
 #include "LoSPN/LoSPNOps.h"
-#include "LoSPN/LoSPNTypes.h"
 
 namespace mlir {
   namespace spn {
 
     class LoSPNtoCPUTypeConverter : public TypeConverter {
     public:
-      explicit LoSPNtoCPUTypeConverter() {
-        addConversion([](FloatType floatType) -> Optional<Type> {
+      explicit LoSPNtoCPUTypeConverter(bool convertLog = true) {
+        addConversion([](FloatType floatType) -> std::optional<Type> {
           // FloatType is unconditionally legal.
           return floatType;
         });
-        addConversion([](IntegerType intType) -> Optional<Type> {
+        addConversion([](IntegerType intType) -> std::optional<Type> {
           // IntegerType is unconditionally legal.
           return intType;
         });
-        addConversion([](MemRefType memRefType) -> Optional<Type> {
+        addConversion([](MemRefType memRefType) -> std::optional<Type> {
           // MemRefType are unconditionally legal.
           return memRefType;
         });
-        addConversion([](IndexType indexType) -> Optional<Type> {
+        addConversion([](IndexType indexType) -> std::optional<Type> {
           // IndexType is unconditionally legal.
           return indexType;
         });
-        addConversion([](low::LogType logType) -> Optional<Type> {
-          return logType.getBaseType();
+        addConversion([convertLog](low::LogType logType) -> std::optional<Type> {
+          if(convertLog) 
+            return logType.getBaseType();
+          else
+            return logType;
         });
         addTargetMaterialization([](OpBuilder& builder, FloatType type,
-                                    ValueRange inputs, Location loc) -> Optional<Value> {
+                                    ValueRange inputs, Location loc) -> std::optional<Value> {
           if (inputs.size() != 1) {
-            return llvm::None;
+            return std::nullopt;
           }
           if (auto logType = inputs[0].getType().dyn_cast<low::LogType>()) {
             if (logType.getBaseType() != type) {
-              return llvm::None;
+              return std::nullopt;
             }
             return builder.create<low::SPNStripLog>(loc, inputs[0], type).getResult();
           }
-          return llvm::None;
+          return std::nullopt;
         });
       }
     };

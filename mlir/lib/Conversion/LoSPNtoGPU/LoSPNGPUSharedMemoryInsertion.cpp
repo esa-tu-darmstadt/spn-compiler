@@ -38,7 +38,7 @@ public:
     auto loc = op->getLoc();
     auto threadID = rewriter.create<gpu::ThreadIdOp>(loc, rewriter.getIndexType(),
                                                      rewriter.getStringAttr("x"));
-    auto featureIndex = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(op.staticIndex() - minIdx));
+    auto featureIndex = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(op.getStaticIndex() - minIdx));
     rewriter.replaceOpWithNewOp<memref::LoadOp>(op, sharedMem, ValueRange{featureIndex, threadID});
     return success();
   }
@@ -117,14 +117,14 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
 
     // Compute dominance information to determine the block in which pre-load instructions should be inserted.
     DominanceInfo domInfo(gpuFunc);
-    auto rootBlock = domInfo.getRootNode(&gpuFunc.body())->getBlock();
+    auto rootBlock = domInfo.getRootNode(&gpuFunc.getBody())->getBlock();
 
     // For each argument of the function which is a MemRef, check if it is eligible for
     // transformation. To be eligible, it needs to fulfill the following criteria:
     // 1. All uses inside the function must be SPNBatchReads
     // 2. There must be at least two SPNBatchRead with differing feature index.
     SmallVector<Value, 5> inputMemories;
-    for (auto& arg : gpuFunc.body().getArguments()) {
+    for (auto& arg : gpuFunc.getBody().getArguments()) {
       if (arg.getType().isa<MemRefType>()) {
         auto eligible = true;
         auto useCount = 0;
@@ -133,11 +133,11 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
           // Only MemRefs that are only used by non-transposed
           // SPNBatchReads are considered eligible for this transformation.
           if (auto batchRead = dyn_cast<low::SPNBatchRead>(U)) {
-            eligible &= !batchRead.transposed().getValueOr(false);
-            if (!indices.count(batchRead.staticIndex())) {
+            eligible &= !batchRead.getTransposed().value_or(false);
+            if (!indices.count(batchRead.getStaticIndex())) {
               // Check that we have not encountered the same index before.
               ++useCount;
-              indices.insert(batchRead.staticIndex());
+              indices.insert(batchRead.getStaticIndex());
             }
           } else {
             eligible &= false;
@@ -173,8 +173,8 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
       unsigned minIndex = std::numeric_limits<unsigned>::max();
       unsigned maxIndex = std::numeric_limits<unsigned>::min();
       for (auto& read : reads) {
-        minIndex = std::min(minIndex, read.staticIndex());
-        maxIndex = std::max(maxIndex, read.staticIndex());
+        minIndex = std::min(minIndex, read.getStaticIndex());
+        maxIndex = std::max(maxIndex, read.getStaticIndex());
       }
       auto numFeatures = (maxIndex - minIndex) + 1;
 
@@ -243,7 +243,7 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
 
       //
       // Process all SPNBatchRead that used the original global MemRef to instead load from the transposed shared mem.
-      OwningRewritePatternList patterns(gpuFunc.getContext());
+      RewritePatternSet patterns(gpuFunc.getContext());
       patterns.insert<RewriteBatchReadtoSharedMem>(gpuFunc.getContext(), sharedMem, minIndex);
       mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
       for (auto& read : reads) {
@@ -262,7 +262,7 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
 void mlir::spn::LoSPNGPUSharedMemoryInsertionPass::runOnOperation() {
   auto module = getOperation();
   auto* context = &getContext();
-  OwningRewritePatternList patterns(context);
+  RewritePatternSet patterns(context);
   patterns.insert<FuncSharedMemoryInsertion>(context);
   mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
   // Apply the pattern to all GPUFuncs in the module.

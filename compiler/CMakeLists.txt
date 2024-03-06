@@ -117,10 +117,10 @@ set(mlir_libs
         MLIRIR
         MLIRParser
         MLIRPass
-        MLIRTranslation
+        MLIRTranslateLib
         MLIRSupport
         MLIRExecutionEngine
-        MLIRNVVMIR
+        MLIRNVVMDialect
         )
 
 llvm_map_components_to_libnames(llvm_libs bitwriter native passes)

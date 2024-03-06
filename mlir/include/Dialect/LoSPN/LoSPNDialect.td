@@ -10,6 +10,7 @@
 #define LoSPN_DIALECT
 
 include "mlir/IR/OpBase.td"
+include "mlir/IR/AttrTypeBase.td"
 
 ///
 /// Dialect for low-level abstractions representing computations used to
@@ -23,12 +24,13 @@ def LoSPN_Dialect : Dialect {
         low level of abstraction.
     }];
     let cppNamespace = "::mlir::spn::low";
+    let useDefaultTypePrinterParser = 1;
 }
 
 ///
 /// Base operation for all operations of this dialect.
 ///
-class LoSPN_Op<string mnemonic, list<OpTrait> traits = []> : Op<LoSPN_Dialect, mnemonic, traits>;
+class LoSPN_Op<string mnemonic, list<Trait> traits = []> : Op<LoSPN_Dialect, mnemonic, traits>;
 
 ///
 /// Type representing possible input types to the SPN.
@@ -41,7 +43,14 @@ def LoSPNInputType : AnyTypeOf<[AnyFloat, AnySignlessInteger]>;
 /// Type wrapping an base-type to indicate computation in log-space
 ///
 def LoSPN_IsLogType : CPred<"$_self.isa<::mlir::spn::low::LogType>()">;
-def LoSPN_LogType : DialectType<LoSPN_Dialect, LoSPN_IsLogType, "log", "::mlir::spn::low::LogType">;
+def LoSPN_LogType : TypeDef<LoSPN_Dialect, "Log"> {
+    // TODO: We currently only support float types in log-space
+    // Constraints should be added to the type system to ensure this.
+
+    let parameters = (ins "Type":$baseType);
+    let mnemonic = "log";
+    let assemblyFormat = "`<` $baseType `>`";
+}
 
 ///
 /// Type representing types that can be used internally for computation

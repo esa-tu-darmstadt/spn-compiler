@@ -9,6 +9,8 @@
 #include <llvm/Support/Debug.h>
 #include <LoSPN/LoSPNAttributes.h>
 #include "HiSPNtoLoSPN/ArithmeticPrecisionAnalysis.h"
+#include "HiSPN/HiSPNOps.h"
+#include "LoSPN/LoSPNDialect.h"
 
 using namespace mlir::spn;
 using namespace mlir::spn::detail;
@@ -46,10 +48,10 @@ ArithmeticPrecisionAnalysis::ArithmeticPrecisionAnalysis(Operation* rootNode) {
   // FIXME: Static data representation should be replaced by extracting this info from somewhere (e.g. the query?).
   est_data_representation = data_representation::EM_FLOATING_POINT;
   est_error_model = query.getErrorModel();
-  error_margin = query.getMaxError();
+  error_margin = query.getMaxError().convertToDouble();
 
   // The RootNode acts like an interface, the "desired root" can be obtained by calling root() + getDefiningOp().
-  root = dyn_cast<spn::high::RootNode>(roots.front()).root().getDefiningOp();
+  root = dyn_cast<spn::high::RootNode>(roots.front()).getRoot().getDefiningOp();
 
   iterationCount = 0;
   while (!satisfiedRequirements && !abortAnalysis) {
@@ -264,7 +266,7 @@ llvm::SmallVector<ErrorEstimationValue>
       max = operands[0].max * operands[1].max;
       min = operands[0].min * operands[1].min;
     }
-    operands.set_size(1);
+    operands.resize(1);
     operands[0] = ErrorEstimationValue{accurate, defective, max, min, depth};
     return operands;
   } else {
@@ -297,9 +299,9 @@ llvm::SmallVector<ErrorEstimationValue>
 
 void ArithmeticPrecisionAnalysis::estimateErrorSum(mlir::spn::high::SumNode op) {
   // Assumption: There are at least two operands.
-  auto operands = op.operands();
+  auto operands = op->getOperands();
   assert(operands.size() > 1);
-  auto weights = op.weights();
+  auto weights = op.getWeights();
 
   int numOperands = operands.size();
   SmallVector<ErrorEstimationValue> weightedAddends;
@@ -334,7 +336,7 @@ void ArithmeticPrecisionAnalysis::estimateErrorSum(mlir::spn::high::SumNode op) 
 
 void ArithmeticPrecisionAnalysis::estimateErrorProduct(mlir::spn::high::ProductNode op) {
   // Assumption: There are at least two operands.
-  auto operands = op.operands();
+  auto operands = op->getOperands();
   assert(operands.size() > 1);
 
   // Assumption: Operands were encountered beforehand -- i.e. their values are known.
@@ -367,7 +369,7 @@ void ArithmeticPrecisionAnalysis::estimateErrorCategorical(mlir::spn::high::Cate
   double min = std::numeric_limits<double>::max();
   double defect = 0.0;
 
-  for (auto& p : op.probabilitiesAttr().getValue()) {
+  for (auto& p : op.getProbabilities().getValue()) {
     double val = p.dyn_cast<FloatAttr>().getValueAsDouble();
     max = std::max(max, val);
     min = std::min(min, val);
@@ -383,7 +385,7 @@ void ArithmeticPrecisionAnalysis::estimateErrorCategorical(mlir::spn::high::Cate
 void ArithmeticPrecisionAnalysis::estimateErrorGaussian(mlir::spn::high::GaussianNode op) {
   // Use probability density function (PDF) of the normal distribution
   //   PDF(x) := ( 1 / (stddev * SQRT[2 * Pi] ) ) * EXP( -0.5 * ( [x - mean] / stddev )^2 )
-  double stddev = op.stddev().convertToDouble();
+  double stddev = op.getStddev().convertToDouble();
   // Define c := ( 1 / (stddev * SQRT[2 * Pi] ) )
   double c = std::pow((stddev * std::sqrt(2 * M_PI)), -1.0);
 
@@ -408,8 +410,8 @@ void ArithmeticPrecisionAnalysis::estimateErrorHistogram(mlir::spn::high::Histog
   double min = std::numeric_limits<double>::max();
   double defect = 0.0;
 
-  for (auto& b : op.bucketsAttr()) {
-    auto val = b.cast<mlir::spn::high::Bucket>().val().getValueAsDouble();
+  for (auto bucket : op.getBuckets().getAsRange<high::HistBucketAttr>()) {
+    auto val = bucket.getHistValue().convertToDouble();
     max = std::max(max, val);
     min = std::min(min, val);
   }
@@ -443,7 +445,7 @@ void ArithmeticPrecisionAnalysis::selectOptimalType() {
 mlir::Type ArithmeticPrecisionAnalysis::getComputationType(bool useLogSpace) {
   // TODO Implement to actually use the analysis results.
   if (useLogSpace) {
-    return mlir::spn::low::LogType::get(mlir::FloatType::getF32(root->getContext()));
+    return mlir::spn::low::LogType::get(root->getContext(), mlir::FloatType::getF32(root->getContext()));
   }
   return selectedType;
 }

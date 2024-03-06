@@ -149,6 +149,11 @@ namespace spnc {
     /// Flag to indicate whether an optimal representation for SPN evaluation shall be determined.
     extern Option<bool> optRepresentation;
 
+
+    ///
+    /// Flag to indicate for which passes debug information should be printed.
+    extern Option<std::string> debugOnly;
+
   }
 }
 

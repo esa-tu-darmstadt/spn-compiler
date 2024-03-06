@@ -30,8 +30,8 @@ void spnc::LoSPNTransformations::preProcess(mlir::ModuleOp* inputModule) {
   auto kernelInfo = getContext()->get<KernelInfo>();
   for (mlir::spn::low::SPNKernel kernel : inputModule->getOps<mlir::spn::low::SPNKernel>()) {
     if (kernel.getName() == kernelInfo->kernelName) {
-      assert(kernel.getType().getNumResults() == 1);
-      auto resultType = kernel.getType().getResult(0).dyn_cast<mlir::TensorType>();
+      assert(kernel.getNumResults() == 1);
+      auto resultType = kernel.getFunctionType().getResult(0).dyn_cast<mlir::TensorType>();
       assert(resultType);
       kernelInfo->numResults = 1;
       assert(resultType.getElementType().isIntOrFloat());

@@ -22,7 +22,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNKernel>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNKernel op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNKernel::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -31,7 +31,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNTask>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNTask op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNTask::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -40,11 +40,11 @@ namespace mlir {
       using OpConversionPattern<low::SPNBody>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNBody op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNBody::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
-    static inline void populateLoSPNtoGPUStructurePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
+    static inline void populateLoSPNtoGPUStructurePatterns(RewritePatternSet& patterns, MLIRContext* context,
                                                     TypeConverter& typeConverter) {
       patterns.insert<KernelGPULowering, BatchTaskGPULowering>(typeConverter, context);
       patterns.insert<BodyGPULowering>(typeConverter, context);

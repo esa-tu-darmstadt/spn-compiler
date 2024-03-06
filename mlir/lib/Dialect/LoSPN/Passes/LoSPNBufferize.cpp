@@ -6,18 +6,21 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Func/Transforms/Passes.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Transforms/DialectConversion.h"
-#include "mlir/Transforms/Bufferize.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
 #include "LoSPNPassDetails.h"
 #include "LoSPN/LoSPNPasses.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
+#include "mlir/Dialect/Bufferization/Transforms/Bufferize.h"
 #include "../Bufferize/LoSPNBufferizationPatterns.h"
 
 using namespace mlir;
@@ -25,23 +28,28 @@ using namespace mlir::spn::low;
 
 namespace {
 
-  struct LoSPNBufferize : public LoSPNBufferizeBase<LoSPNBufferize> {
+  #define GEN_PASS_DECL_LOSPNBUFFERIZE
+  #define GEN_PASS_DEF_LOSPNBUFFERIZE
+  #include "LoSPN/LoSPNPasses.h.inc"
+
+  struct LoSPNBufferize : public impl::LoSPNBufferizeBase<LoSPNBufferize> {
   protected:
     void runOnOperation() override {
       ConversionTarget target(getContext());
 
       target.addLegalDialect<LoSPNDialect>();
-      target.addLegalDialect<StandardOpsDialect>();
+      target.addLegalDialect<mlir::arith::ArithDialect>();
+      target.addLegalDialect<mlir::bufferization::BufferizationDialect>(); // CHECK ME
       target.addLegalDialect<mlir::memref::MemRefDialect>();
-      target.addLegalOp<ModuleOp, FuncOp>();
+      target.addLegalOp<ModuleOp, func::FuncOp>();
 
       target.addIllegalOp<SPNBatchExtract, SPNBatchCollect>();
-      BufferizeTypeConverter typeConverter;
+      bufferization::BufferizeTypeConverter typeConverter;
       target.addDynamicallyLegalOp<SPNTask>([&](SPNTask op) {
-        if (!op.results().empty()) {
+        if (!op.getResults().empty()) {
           return false;
         }
-        for (auto in : op.inputs()) {
+        for (auto in : op.getInputs()) {
           if (!typeConverter.isLegal(in.getType())) {
             return false;
           }
@@ -49,7 +57,12 @@ namespace {
         return true;
       });
       target.addDynamicallyLegalOp<SPNKernel>([&](SPNKernel op) {
-        return typeConverter.isSignatureLegal(op.getType());
+        FunctionOpInterface functionInterface = cast<FunctionOpInterface>(op.getOperation()); 
+        auto funcType = functionInterface.getFunctionType();
+        // llvm::outs() << "Checking legality of SPNKernel: " << funcType << "\n";
+        // llvm::outs() << "Is its signature legal? " << typeConverter.isSignatureLegal(funcType.cast<FunctionType>()) << "\n";
+        assert(funcType.isa<FunctionType>() && "SPNKernel must have a FunctionType");
+        return typeConverter.isSignatureLegal(funcType.cast<FunctionType>());
       });
       target.addDynamicallyLegalOp<SPNReturn>([&](SPNReturn op) {
         return std::all_of(op->result_begin(), op->result_end(), [&](OpResult res) {

@@ -22,7 +22,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNKernel>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNKernel op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNKernel::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -31,7 +31,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNTask>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNTask op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNTask::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -40,7 +40,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNTask>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNTask op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNTask::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -49,17 +49,17 @@ namespace mlir {
       using OpConversionPattern<low::SPNBody>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNBody op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNBody::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
-    static inline void populateLoSPNtoCPUStructurePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
+    static inline void populateLoSPNtoCPUStructurePatterns(RewritePatternSet& patterns, MLIRContext* context,
                                                            TypeConverter& typeConverter) {
       patterns.insert<KernelLowering>(typeConverter, context);
       patterns.insert<BodyLowering>(typeConverter, context);
     }
 
-    static inline void populateLoSPNtoCPUTaskPatterns(OwningRewritePatternList& patterns,
+    static inline void populateLoSPNtoCPUTaskPatterns(RewritePatternSet& patterns,
                                                       MLIRContext* context,
                                                       TypeConverter& typeConverter) {
       patterns.insert<BatchTaskLowering, SingleTaskLowering>(typeConverter, context, 1);

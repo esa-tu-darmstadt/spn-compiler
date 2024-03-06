@@ -9,9 +9,10 @@
 #include "HiSPNtoLoSPN/QueryPatterns.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
+#include "mlir/IR/BuiltinTypes.h"
 
 mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::high::JointQuery op,
-                                                                   llvm::ArrayRef<mlir::Value> operands,
+                                                                  mlir::spn::high::JointQuery::Adaptor adaptor,
                                                                    mlir::ConversionPatternRewriter& rewriter) const {
   //
   // Translate the JointQuery into a SPNKernel. The Kernel takes a 2D tensor as input,
@@ -29,15 +30,15 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
     // but no actual conversion is required.
     compType = logType.getBaseType();
   }
-  auto dynamicBatchSize = -1;
+  auto dynamicBatchSize = ShapedType::kDynamic;
   // 1 x numFeatures x inputType for batchSize == 1, ? x numFeatures x inputType else.
   auto inputType = RankedTensorType::get({dynamicBatchSize, op.getNumFeatures()}, op.getFeatureDataType());
   // 1 x compType for batchSize == 1, ? x compType else.
   auto resultType = RankedTensorType::get({1, dynamicBatchSize}, compType);
   // Create the function type of the kernel.
   auto kernelType = FunctionType::get(rewriter.getContext(), TypeRange{inputType}, TypeRange{resultType});
-  auto kernel = rewriter.create<low::SPNKernel>(op.getLoc(), op.kernelName(), kernelType);
-  auto kernelBlock = kernel.addEntryBlock();
+  auto kernel = rewriter.create<low::SPNKernel>(op.getLoc(), op.getQueryName(), kernelType);
+  auto kernelBlock = &kernel.getBlocks().front();
   rewriter.setInsertionPointToStart(kernelBlock);
   // Create a single task inside the kernel, taking the same arguments and producing the same
   // result as the kernel.
@@ -54,7 +55,7 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
   auto inputArg = taskBlock->getArgument(1);
   SmallVector<Value> inputValues;
   SmallVector<Type> inputTypes;
-  for (unsigned i = 0; i < op.numFeatures(); ++i) {
+  for (unsigned i = 0; i < op.getNumFeatures(); ++i) {
     auto arg = rewriter.create<low::SPNBatchExtract>(op.getLoc(), op.getFeatureDataType(),
                                                      inputArg, batchIndex, i,
                                                      rewriter.getBoolAttr(false));
@@ -70,9 +71,9 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(mlir::spn::hi
   //
   // Merge the content of the DAG (which has been lowered to LoSPN in a previous step) to
   // the body of the task.
-  auto spnDAG = dyn_cast<high::Graph>(op.graph().front().front());
+  auto spnDAG = dyn_cast<high::Graph>(op.getGraph().front().front());
   assert(spnDAG && "Expecting the first operation to be the SPN DAG");
-  rewriter.mergeBlocks(&spnDAG.graph().front(), bodyBlock, bodyBlock->getArguments());
+  rewriter.mergeBlocks(&spnDAG.getGraph().front(), bodyBlock, bodyBlock->getArguments());
   rewriter.restoreInsertionPoint(restoreTask);
   // Create a SPNBatchCollect for the result produced by the body, terminating the task.
   auto output = rewriter.create<low::SPNBatchCollect>(op.getLoc(), resultType, batchIndex,

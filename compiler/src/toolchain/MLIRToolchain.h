@@ -10,7 +10,6 @@
 #define SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_MLIRTOOLCHAIN_H
 
 #include "mlir/IR/BuiltinOps.h"
-#include "option/Options.h"
 #include "Kernel.h"
 #include "llvm/Target/TargetMachine.h"
 

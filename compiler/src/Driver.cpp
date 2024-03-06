@@ -22,6 +22,8 @@ using namespace spnc;
 Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t& options) {
   SPDLOG_INFO("Welcome to the SPN compiler!");
   auto config = interface::Options::parse(options);
+  // set LLVM CLI options from config (eg --debug-only)
+  interface::Options::setCLOptions(options);
   std::unique_ptr<Pipeline<Kernel>> pipeline;
   if (spnc::option::compilationTarget.get(*config) == option::TargetMachine::CUDA) {
 #if SPNC_CUDA_SUPPORT

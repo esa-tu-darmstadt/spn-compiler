@@ -7,4 +7,6 @@
 //==============================================================================
 
 #include "LoSPN/LoSPNAttributes.h"
+
+#define GET_ATTRDEF_CLASSES
 #include "LoSPN/LoSPNAttributes.cpp.inc"

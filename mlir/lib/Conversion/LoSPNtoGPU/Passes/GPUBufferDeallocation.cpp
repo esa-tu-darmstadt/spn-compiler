@@ -149,7 +149,7 @@ namespace mlir {
         }
         auto save = insertLoc.setInsertionPoint(rewriter);
         // Insert the actual de-allocation.
-        rewriter.create<gpu::DeallocOp>(alloc->getLoc(), llvm::None, ValueRange{}, alloc.memref());
+        rewriter.create<gpu::DeallocOp>(alloc->getLoc(), std::nullopt, ValueRange{}, alloc.memref());
         rewriter.restoreInsertionPoint(save);
         rewriter.finalizeRootUpdate(alloc);
         return success();
@@ -168,7 +168,7 @@ namespace mlir {
       void runOnOperation() override {
         auto func = getOperation();
         PostDominanceInfo domInfo{func};
-        if (!domInfo.hasSSADominance(&func.body())) {
+        if (!domInfo.hasSSADominance(&func.getBody())) {
           signalPassFailure();
         }
         RewritePatternSet patterns(func.getContext());

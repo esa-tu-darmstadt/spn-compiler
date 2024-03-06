@@ -13,8 +13,8 @@
 #include "util/Logging.h"
 #include <regex>
 #include "mlir/IR/Verifier.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "HiSPN/HiSPNEnums.h"
+#include "llvm/ADT/APFloat.h"
 #include "llvm/Support/Debug.h"
 #include "Kernel.h"
 #include "option/GlobalOptions.h"
@@ -126,7 +126,7 @@ void spnc::SPFlowToMLIRDeserializer::deserializeModel(Model::Reader&& model) {
   auto featureType = translateTypeString(model.getFeatureType());
   for (auto s: scope) {
     // Add mapping from input (scope) to block argument.
-    inputs[s] = graph.getRegion().addArgument(featureType);
+    inputs[s] = graph.getRegion().addArgument(featureType, graph->getLoc());
   }
   builder->setInsertionPointToEnd(block);
 
@@ -188,7 +188,7 @@ mlir::spn::high::HistogramNode spnc::SPFlowToMLIRDeserializer::deserializeHistog
   for (unsigned i = 0; i < breaks.size() - 1; ++i) {
     auto lb = breaks[i];
     auto ub = breaks[i + 1];
-    auto d = densities[i];
+    auto d = llvm::APFloat(densities[i]);
     buckets.push_back(std::tie(lb, ub, d));
   }
   return builder->create<mlir::spn::high::HistogramNode>(builder->getUnknownLoc(), indexVar, buckets);

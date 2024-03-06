@@ -15,7 +15,6 @@
 #include "mlir/IR/Operation.h"
 #include "HiSPN/HiSPNOps.h"
 #include "HiSPN/HiSPNAttributes.h"
-#include "LoSPN/LoSPNTypes.h"
 
 namespace mlir {
   namespace spn {

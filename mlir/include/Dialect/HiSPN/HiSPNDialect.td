@@ -10,6 +10,7 @@
 #define HiSPN_DIALECT
 
 include "mlir/IR/OpBase.td"
+include "mlir/IR/AttrTypeBase.td"
 
 ///
 /// Dialect for high-level abstractions representing SPNs and queries.
@@ -22,26 +23,28 @@ def HiSPN_Dialect : Dialect {
         high level of abstraction.
     }];
     let cppNamespace = "::mlir::spn::high";
+    let useDefaultTypePrinterParser = 1;
+    let useDefaultAttributePrinterParser = 1;
 }
 
 ///
 /// Base operation for all operations of this dialect.
 ///
-class HiSPN_Op<string mnemonic, list<OpTrait> traits = []> : Op<HiSPN_Dialect, mnemonic, traits>;
+class HiSPN_Op<string mnemonic, list<Trait> traits = []> : Op<HiSPN_Dialect, mnemonic, traits>;
 
 ///
 /// Dialect-specific type representing probability values.
 ///
-def HiSPNProbabilityType : DialectType<HiSPN_Dialect,
-        CPred<"$_self.isa<::mlir::spn::high::ProbabilityType>()">,
-        "`hi_spn.probability_type` abstractly represents a probability type.">,
-        BuildableType<"$_builder.getType<::mlir:spn::high::ProbabilityType>()">;
+def HiSPNProbabilityType : TypeDef<HiSPN_Dialect, "Probability"> {
+    let mnemonic = "probability";
+}
 
 ///
 /// Type representing possible input types to the SPN.
 /// Currently allows any float or signless integer type.
 /// Type conversion are implicit in the leaf nodes, if necessary.
 ///
-def HiSPNInputType : AnyTypeOf<[AnyFloat, AnySignlessInteger]>;
+def HiSPNInputType : AnyTypeOf<[AnyFloat, AnySignlessInteger]> {
+}
 
 #endif // HiSPN_DIALECT

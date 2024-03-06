@@ -51,12 +51,12 @@ namespace mlir {
 
       using OpConversionPattern<SourceOp>::OpConversionPattern;
 
-      LogicalResult matchAndRewrite(SourceOp op, ArrayRef<Value> operands,
+      LogicalResult matchAndRewrite(SourceOp op, typename SourceOp::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override {
         if (!checkQuery<Queries...>(op.getEnclosingQuery())) {
           return rewriter.notifyMatchFailure(op, "Enclosing query did not match");
         }
-        return static_cast<const NodePattern*>(this)->matchAndRewriteChecked(op, operands, rewriter);
+        return static_cast<const NodePattern*>(this)->matchAndRewriteChecked(op, adaptor, rewriter);
       }
 
     };
@@ -65,7 +65,7 @@ namespace mlir {
 
       using NodeLowering<high::ProductNode, ProductNodeLowering, high::JointQuery>::NodeLowering;
 
-      LogicalResult matchAndRewriteChecked(high::ProductNode op, ArrayRef<Value> operands,
+      LogicalResult matchAndRewriteChecked(high::ProductNode op, high::ProductNode::Adaptor adaptor,
                                            ConversionPatternRewriter& rewriter) const;
 
       Value splitProduct(high::ProductNode op, ArrayRef<Value> operands, ConversionPatternRewriter& rewriter) const;
@@ -76,7 +76,7 @@ namespace mlir {
 
       using NodeLowering<high::SumNode, SumNodeLowering, high::JointQuery>::NodeLowering;
 
-      LogicalResult matchAndRewriteChecked(high::SumNode op, ArrayRef<Value> operands,
+      LogicalResult matchAndRewriteChecked(high::SumNode op, high::SumNode::Adaptor adaptor,
                                            ConversionPatternRewriter& rewriter) const;
 
       Value splitWeightedSum(high::SumNode op, ArrayRef<Value> operands, ArrayRef<double> weights,
@@ -88,7 +88,7 @@ namespace mlir {
 
       using NodeLowering<high::HistogramNode, HistogramNodeLowering, high::JointQuery>::NodeLowering;
 
-      LogicalResult matchAndRewriteChecked(high::HistogramNode op, ArrayRef<Value> operands,
+      LogicalResult matchAndRewriteChecked(high::HistogramNode op, high::HistogramNode::Adaptor adaptor,
                                            ConversionPatternRewriter& rewriter) const;
 
     };
@@ -98,7 +98,7 @@ namespace mlir {
 
       using NodeLowering<high::CategoricalNode, CategoricalNodeLowering, high::JointQuery>::NodeLowering;
 
-      LogicalResult matchAndRewriteChecked(high::CategoricalNode op, ArrayRef<Value> operands,
+      LogicalResult matchAndRewriteChecked(high::CategoricalNode op, high::CategoricalNode::Adaptor adaptor,
                                            ConversionPatternRewriter& rewriter) const;
     };
 
@@ -106,7 +106,7 @@ namespace mlir {
 
       using NodeLowering<high::GaussianNode, GaussianNodeLowering, high::JointQuery>::NodeLowering;
 
-      LogicalResult matchAndRewriteChecked(high::GaussianNode op, ArrayRef<Value> operands,
+      LogicalResult matchAndRewriteChecked(high::GaussianNode op, high::GaussianNode::Adaptor adaptor,
                                            ConversionPatternRewriter& rewriter) const;
     };
 
@@ -114,11 +114,11 @@ namespace mlir {
 
       using NodeLowering<high::RootNode, RootNodeLowering, high::JointQuery>::NodeLowering;
 
-      LogicalResult matchAndRewriteChecked(high::RootNode op, ArrayRef<Value> operands,
+      LogicalResult matchAndRewriteChecked(high::RootNode op, high::RootNode::Adaptor adaptor,
                                            ConversionPatternRewriter& rewriter) const;
     };
 
-    static inline void populateHiSPNtoLoSPNNodePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
+    static inline void populateHiSPNtoLoSPNNodePatterns(RewritePatternSet& patterns, MLIRContext* context,
                                                         TypeConverter& typeConverter) {
       patterns.insert<ProductNodeLowering, SumNodeLowering>(typeConverter, context);
       patterns.insert<HistogramNodeLowering, CategoricalNodeLowering, GaussianNodeLowering>(typeConverter, context);

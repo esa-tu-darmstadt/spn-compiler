@@ -8,6 +8,7 @@
 
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraph.h"
 #include "LoSPNtoCPU/Vectorization/SLP/SLPGraphBuilder.h"
+#include "mlir/IR/Value.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -19,6 +20,10 @@ using namespace mlir::spn::low::slp;
 Superword::Superword(ArrayRef<Value> values) : semanticsAltered{static_cast<unsigned>(values.size())} {
   assert(!values.empty());
   for (auto value : values) {
+    if(!value.isa<BlockArgument>() && !value.getDefiningOp()->hasTrait<OpTrait::OneResult>()) {
+      llvm::outs() << "Value: " << value << "\n";
+      value.getParentBlock()->dump();
+    }
     assert(value.isa<BlockArgument>() || value.getDefiningOp()->hasTrait<OpTrait::OneResult>());
     this->values.emplace_back(value);
   }

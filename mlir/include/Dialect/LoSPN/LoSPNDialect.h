@@ -10,7 +10,9 @@
 #define SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNDIALECT_H
 
 #include "mlir/IR/Dialect.h"
-#include "LoSPNTypes.h"
+
+#define GET_TYPEDEF_CLASSES
+#include "LoSPN/LoSPNOpsTypes.h.inc"
 
 #include "LoSPN/LoSPNOpsDialect.h.inc"
 

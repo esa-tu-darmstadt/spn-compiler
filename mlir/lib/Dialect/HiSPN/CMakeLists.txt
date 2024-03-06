@@ -9,7 +9,6 @@
 add_mlir_dialect_library(MLIRHiSPN
         HiSPNDialect.cpp
         HiSPNOps.cpp
-        HiSPNAttributes.cpp
         HiSPNEnums.cpp
 
         ADDITIONAL_HEADER_DIRS

@@ -26,7 +26,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNBatchRead>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNBatchRead op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNBatchRead::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -35,7 +35,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNBatchWrite>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNBatchWrite op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNBatchWrite::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -44,7 +44,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNCopy>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNCopy op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNCopy::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -53,7 +53,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNConstant>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNConstant op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNConstant::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -62,7 +62,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNReturn>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNReturn op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNReturn::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -71,7 +71,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNLog>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNLog op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNLog::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -80,7 +80,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNMul>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNMul op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNMul::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -89,7 +89,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNMul>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNMul op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNMul::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -98,7 +98,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNAdd>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNAdd op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNAdd::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -107,7 +107,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNAdd>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNAdd op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNAdd::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -116,7 +116,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNGaussianLeaf>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNGaussianLeaf op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNGaussianLeaf::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -125,7 +125,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNGaussianLeaf>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNGaussianLeaf op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNGaussianLeaf::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -134,7 +134,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNCategoricalLeaf>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNCategoricalLeaf op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNCategoricalLeaf::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -143,7 +143,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNHistogramLeaf>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNHistogramLeaf op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNHistogramLeaf::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
 
     private:
@@ -157,7 +157,7 @@ namespace mlir {
       using OpConversionPattern<low::SPNStripLog>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNStripLog op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNStripLog::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
@@ -166,11 +166,11 @@ namespace mlir {
       using OpConversionPattern<low::SPNConvertLog>::OpConversionPattern;
 
       LogicalResult matchAndRewrite(low::SPNConvertLog op,
-                                    ArrayRef<Value> operands,
+                                    low::SPNConvertLog::Adaptor adaptor,
                                     ConversionPatternRewriter& rewriter) const override;
     };
 
-    static inline void populateLoSPNtoGPUNodePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
+    static inline void populateLoSPNtoGPUNodePatterns(RewritePatternSet& patterns, MLIRContext* context,
                                                       TypeConverter& typeConverter) {
       patterns.insert<BatchReadGPULowering, BatchWriteGPULowering, CopyGPULowering>(typeConverter, context);
       patterns.insert<LogGPULowering, ReturnGPULowering, ConstantGPULowering>(typeConverter, context);

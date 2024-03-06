@@ -11,14 +11,18 @@
 
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
+#include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
+#include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/IR/RegionKindInterface.h"
+#include "mlir/IR/FunctionInterfaces.h"
 #include "LoSPN/LoSPNInterfaces.h"
 #include "LoSPN/LoSPNTraits.h"
-#include "LoSPN/LoSPNTypes.h"
-#include "mlir/IR/FunctionSupport.h"
+#include "LoSPN/LoSPNDialect.h"
+#include "LoSPN/LoSPNAttributes.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/IR/BuiltinOps.h"
+
 
 #define GET_OP_CLASSES
 #include "LoSPN/LoSPNOps.h.inc"

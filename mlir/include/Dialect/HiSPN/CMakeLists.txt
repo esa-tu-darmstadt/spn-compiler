@@ -10,9 +10,9 @@ add_mlir_dialect(HiSPNOps hi_spn)
 add_mlir_doc(HiSPNDialect HiSPNDialect HiSPN/ -gen-dialect-doc)
 add_mlir_doc(HiSPNOps HiSPNOps HiSPN/ -gen-op-doc)
 
-set(LLVM_TARGET_DEFINITIONS HiSPNOps.td)
-mlir_tablegen(HiSPNAttributes.h.inc -gen-struct-attr-decls)
-mlir_tablegen(HiSPNAttributes.cpp.inc -gen-struct-attr-defs)
+set(LLVM_TARGET_DEFINITIONS HiSPNAttributes.td)
+mlir_tablegen(HiSPNAttributes.h.inc -gen-attrdef-decls)
+mlir_tablegen(HiSPNAttributes.cpp.inc -gen-attrdef-defs)
 add_public_tablegen_target(MLIRHiSPNAttributesIncGen)
 
 set(LLVM_TARGET_DEFINITIONS HiSPNOps.td)

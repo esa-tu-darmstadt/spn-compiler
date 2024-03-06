@@ -25,21 +25,21 @@ namespace mlir {
       ///
       /// Constructor populating the TypeConverter.
       explicit HiSPNTypeConverter(mlir::Type spnComputeType) {
-        addConversion([](TensorType tensorType) -> Optional<Type> {
+        addConversion([](TensorType tensorType) -> std::optional<Type> {
           if (!tensorType.hasRank()) {
-            return llvm::None;
+            return std::nullopt;
           }
           return tensorType;
         });
-        addConversion([](FloatType floatType) -> Optional<Type> {
+        addConversion([](FloatType floatType) -> std::optional<Type> {
           // Allow all floating-point bit-widths.
           return floatType;
         });
-        addConversion([](IntegerType intType) -> Optional<Type> {
+        addConversion([](IntegerType intType) -> std::optional<Type> {
           // Allow all integer bit-widths.
           return intType;
         });
-        addConversion([spnComputeType](mlir::spn::high::ProbabilityType probType) -> Optional<Type> {
+        addConversion([spnComputeType](mlir::spn::high::ProbabilityType probType) -> std::optional<Type> {
           return spnComputeType;
         });
       }

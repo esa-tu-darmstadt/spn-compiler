@@ -10,7 +10,6 @@
 #include "HiSPNtoLoSPN/HiSPNtoLoSPNConversionPasses.h"
 #include "LoSPN/LoSPNOps.h"
 #include "LoSPN/LoSPNPasses.h"
-#include "mlir/Dialect/StandardOps/Transforms/Passes.h"
 #include "option/GlobalOptions.h"
 
 void spnc::HiSPNtoLoSPNConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {

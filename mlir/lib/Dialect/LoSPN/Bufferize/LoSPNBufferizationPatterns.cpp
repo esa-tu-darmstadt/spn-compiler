@@ -7,13 +7,12 @@
 //==============================================================================
 
 #include "LoSPNBufferizationPatterns.h"
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 
 mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::low::SPNTask op,
-                                                                   llvm::ArrayRef<mlir::Value> operands,
+                                                                   OpAdaptor adaptor,
                                                                    mlir::ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   assert(!operands.empty() && "Expecting at least one input to a task");
   auto inputMemRefTy = operands[0].getType().dyn_cast<MemRefType>();
   assert(inputMemRefTy);
@@ -45,7 +44,7 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
     allocations.push_back(alloc);
   }
   // Create a new SPNTask, with the original inputs + the allocated memories as input.
-  auto newTask = rewriter.create<mlir::spn::low::SPNTask>(op->getLoc(), TypeRange{}, inputs, op.batchSize());
+  auto newTask = rewriter.create<mlir::spn::low::SPNTask>(op->getLoc(), TypeRange{}, inputs, op.getBatchSize());
   // Create a block with block arguments.
   auto newTaskBlock = newTask.addEntryBlock();
   rewriter.setInsertionPointToStart(newTaskBlock);
@@ -62,7 +61,7 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
     }
   }
   // Merge the body of the original SPNTask into the new Task.
-  rewriter.mergeBlocks(&op.body().front(), newTaskBlock, inArgs);
+  rewriter.mergeBlocks(&op.getBody().front(), newTaskBlock, inArgs);
   // A Task before bufferization should return Tensors and should be terminated
   // by a SPNBatchCollect. Create a SPNBatchWrite for each result in the SPNBatchCollect
   // (assumes a 1:1 mapping between scalar operand of SPNBatchCollect and Tensor result).
@@ -70,12 +69,12 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
   rewriter.setInsertionPoint(newTaskBlock->getTerminator());
   auto ret = dyn_cast<SPNReturn>(newTaskBlock->getTerminator());
   assert(ret);
-  for (auto collectArg : llvm::zip(ret.returnValues(), outArgs)) {
+  for (auto collectArg : llvm::zip(ret.getReturnValues(), outArgs)) {
     auto collect = dyn_cast<SPNBatchCollect>(std::get<0>(collectArg).getDefiningOp());
     assert(collect);
     auto outArg = std::get<1>(collectArg);
-    rewriter.create<low::SPNBatchWrite>(collect.getLoc(), outArg, batchIndex, collect.resultValues(),
-                                        collect.transposedAttr());
+    rewriter.create<low::SPNBatchWrite>(collect.getLoc(), outArg, batchIndex, collect.getResultValues(),
+                                        collect.getTransposedAttr());
     rewriter.eraseOp(collect);
   }
   // Erase the old return and replace it with an empty return,
@@ -89,39 +88,41 @@ mlir::LogicalResult mlir::spn::low::TaskBufferize::matchAndRewrite(mlir::spn::lo
 }
 
 mlir::LogicalResult mlir::spn::low::BatchExtractBufferize::matchAndRewrite(mlir::spn::low::SPNBatchExtract op,
-                                                                           llvm::ArrayRef<mlir::Value> operands,
-                                                                           mlir::ConversionPatternRewriter& rewriter) const {
+                                                                          OpAdaptor adaptor,
+                                                                          mlir::ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   assert(operands[0].getType().isa<MemRefType>());
   assert(operands[1].getType().isa<IndexType>());
   rewriter.replaceOpWithNewOp<low::SPNBatchRead>(op, operands[0], operands[1],
-                                                 op.staticIndex(), op.transposed());
+                                                 op.getStaticIndex(), op.getTransposed());
   return success();
 }
 
 mlir::LogicalResult mlir::spn::low::KernelBufferize::matchAndRewrite(mlir::spn::low::SPNKernel op,
-                                                                     llvm::ArrayRef<mlir::Value> operands,
+                                                                     OpAdaptor adaptor,
                                                                      mlir::ConversionPatternRewriter& rewriter) const {
   //
   // Bufferize an SPNKernel. The bufferization does not only convert the
   // types of the inputs & outputs, but also transforms all outputs into
   // out-args, i.e., the caller needs to pass in a buffer and the SPNKernel
   // and its respective sub-tasks store the result into these buffers.
+  auto operands = adaptor.getOperands();
   assert(operands.empty() && "SPNKernel should not receive any operands");
   SmallVector<Type> newInputTypes;
   unsigned numInputs = 0;
   // Convert the input and output types.
-  for (auto inTy : op.getType().getInputs()) {
+  for (auto inTy : op.getFunctionType().getInputs()) {
     newInputTypes.push_back(typeConverter->convertType(inTy));
     ++numInputs;
   }
-  for (auto outTy : op.getType().getResults()) {
+  for (auto outTy : op.getFunctionType().getResults()) {
     newInputTypes.push_back(typeConverter->convertType(outTy));
   }
   // Construct a new kernel with a fucntion type that does produce any results, but
   // has the same inputs and additional out-args for all results.
   auto newKernelType = FunctionType::get(rewriter.getContext(), newInputTypes, TypeRange{});
   auto newKernel = rewriter.create<low::SPNKernel>(op->getLoc(), op.getName(), newKernelType);
-  auto newKernelBlock = newKernel.addEntryBlock();
+  auto newKernelBlock = &newKernel.getBlocks().front();
   rewriter.setInsertionPointToStart(newKernelBlock);
   SmallVector<Value, 5> inArgs;
   SmallVector<Value, 5> outArgs;
@@ -137,7 +138,7 @@ mlir::LogicalResult mlir::spn::low::KernelBufferize::matchAndRewrite(mlir::spn::
     ++count;
   }
   // Merge the block of the original Kernel into the new one's body.
-  rewriter.mergeBlocks(&op.body().front(), newKernelBlock, inArgs);
+  rewriter.mergeBlocks(&op.getBody().front(), newKernelBlock, inArgs);
   // Walk the returns of the new body and insert copy from the result value
   // to the newly created out-args.
   auto ret = dyn_cast<SPNReturn>(newKernelBlock->getTerminator());

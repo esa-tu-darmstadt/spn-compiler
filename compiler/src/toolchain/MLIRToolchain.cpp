@@ -11,12 +11,16 @@
 #include <HiSPN/HiSPNDialect.h>
 #include <LoSPN/LoSPNDialect.h>
 #include "MLIRToolchain.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/InitAllDialects.h"
 #include <llvm/ADT/StringMap.h>
-#include <llvm/MC/SubtargetFeature.h>
+#include <llvm/TargetParser/SubtargetFeature.h>
 #include <llvm/Support/TargetSelect.h>
-#include "llvm/Support/Host.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/Threading.h"
+#include "llvm/MC/TargetRegistry.h"
+#include "llvm/TargetParser/Host.h"
 #include "mlir/Target/LLVMIR/Dialect/All.h"
 
 using namespace spnc;
@@ -30,7 +34,9 @@ void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext& ctx) {
   registry.insert<mlir::spn::low::LoSPNDialect>();
   ctx.loadDialect<mlir::spn::high::HiSPNDialect>();
   ctx.loadDialect<mlir::spn::low::LoSPNDialect>();
-  ctx.loadDialect<mlir::StandardOpsDialect>();
+  ctx.loadDialect<mlir::arith::ArithDialect>();
+  ctx.loadDialect<mlir::func::FuncDialect>();
+  ctx.loadDialect<mlir::bufferization::BufferizationDialect>();
   ctx.loadDialect<mlir::scf::SCFDialect>();
   ctx.loadDialect<mlir::memref::MemRefDialect>();
   ctx.loadDialect<mlir::LLVM::LLVMDialect>();
@@ -39,6 +45,7 @@ void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext& ctx) {
   ctx.loadDialect<mlir::gpu::GPUDialect>();
   ctx.loadDialect<mlir::NVVM::NVVMDialect>();
   ctx.appendDialectRegistry(registry);
+  mlir::registerBuiltinDialectTranslation(ctx);
   mlir::registerLLVMDialectTranslation(ctx);
   for (auto* D : ctx.getLoadedDialects()) {
     SPDLOG_INFO("Loaded dialect: {}", D->getNamespace().str());
@@ -109,7 +116,6 @@ std::unique_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(in
   SPDLOG_INFO("Target machine default triple: {}", targetTriple);
   SPDLOG_INFO("Target machine CPU name: {}", cpu);
   SPDLOG_INFO("Target machine features: {}", featureList.str());
-  SPDLOG_INFO("Target machine CPU physical core count: {}", llvm::sys::getHostNumPhysicalCores());
 
   llvm::CodeGenOpt::Level cgOptLevel = llvm::CodeGenOpt::Default;
   switch (optLevel) {
@@ -126,7 +132,7 @@ std::unique_ptr<llvm::TargetMachine> spnc::MLIRToolchain::createTargetMachine(in
 
   std::unique_ptr<llvm::TargetMachine> machine{target->createTargetMachine(targetTriple,
                                                                            cpu, features.getString(), {},
-                                                                           llvm::Reloc::PIC_, llvm::None,
+                                                                           llvm::Reloc::PIC_, std::nullopt,
                                                                            cgOptLevel)};
   return machine;
 }

@@ -6,5 +6,9 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include "HiSPN/HiSPNAttributes.h"
-#include "HiSPN/HiSPNAttributes.cpp.inc"
+#ifndef LoSPN_ATTRIBUTES
+#define LoSPN_ATTRIBUTES
+
+include "mlir/IR/AttrTypeBase.td"
+
+#endif // LoSPN_ATTRIBUTES

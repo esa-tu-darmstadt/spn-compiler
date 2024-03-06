@@ -11,7 +11,11 @@
 
 include "HiSPNDialect.td"
 include "HiSPNInterfaces.td"
+include "HiSPNAttributes.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/Interfaces/InferTypeOpInterface.td"
+include "mlir/IR/AttrTypeBase.td"
+include "mlir/IR/EnumAttr.td"
 include "mlir/IR/RegionKindInterface.td"
 
 ///
@@ -41,8 +45,8 @@ def JointQuery : HiSPN_Op<"joint_query",
     }];
 
     let arguments = (ins UI32Attr:$numFeatures,
-                    TypeAttr:$inputType,
-                    SymbolNameAttr:$kernelName,
+                    TypeAttr:$featureDataType,
+                    SymbolNameAttr:$queryName,
                     UI32Attr:$batchSize,
                     ErrorModelAttr:$errorModel,
                     F64Attr:$maxError,
@@ -51,8 +55,7 @@ def JointQuery : HiSPN_Op<"joint_query",
 
     let regions = (region SizedRegion<1>:$graph);
 
-    let verifier = [{return ::mlir::spn::high::verify(*this); }];
-
+    let hasVerifier = true;
 }
 
 ///
@@ -81,7 +84,7 @@ def Graph : HiSPN_Op<"graph",
 ///
 /// Abstract base class of all operations that can be part of the SPN DAG.
 ///
-class HiSPNGraphOp<string mnemonic, list<OpTrait> traits = []> : HiSPN_Op<mnemonic,
+class HiSPNGraphOp<string mnemonic, list<Trait> traits = []> : HiSPN_Op<mnemonic,
     !listconcat(traits, [HasParent<"Graph">, DeclareOpInterfaceMethods<GraphNodeInterface>])>;
 
 ///
@@ -102,21 +105,20 @@ def RootNode : HiSPNGraphOp<"root", [Terminator]> {
 ///
 /// N-ary Product node inside the SPN DAG.
 ///
-def ProductNode : HiSPNGraphOp<"product", [NoSideEffect, SameOperandsAndResultType]> {
+def ProductNode : HiSPNGraphOp<"product", [NoMemoryEffect, SameOperandsAndResultType]> {
     let summary = "N-Ary SPN Product node";
 
     let arguments = (ins Variadic<HiSPNProbabilityType>:$operands);
 
     let results = (outs HiSPNProbabilityType);
 
-    let verifier = [{return ::mlir::spn::high::verify(*this); }];
-
+    let hasVerifier = true;
 }
 
 ///
 /// N-ary Sum node inside the SPN DAG.
 ///
-def SumNode : HiSPNGraphOp<"sum", [NoSideEffect, SameOperandsAndResultType]> {
+def SumNode : HiSPNGraphOp<"sum", [NoMemoryEffect, SameOperandsAndResultType]> {
     let summary = "Weighted N-ary SPN Sum node";
 
     let description = [{
@@ -129,7 +131,7 @@ def SumNode : HiSPNGraphOp<"sum", [NoSideEffect, SameOperandsAndResultType]> {
 
     let results = (outs HiSPNProbabilityType);
 
-    let verifier = [{return ::mlir::spn::high::verify(*this); }];
+    let hasVerifier = true;
 
     let builders = [
         OpBuilder<(ins "llvm::ArrayRef<Value>":$operands, "llvm::ArrayRef<double>":$weights)>
@@ -137,26 +139,11 @@ def SumNode : HiSPNGraphOp<"sum", [NoSideEffect, SameOperandsAndResultType]> {
 
 }
 
-/// Named attribute for the inclusive lower bound of a histogram bucket.
-def LowerBoundAttr : StructFieldAttr<"lb", I32Attr>;
-
-/// Named attribute for the exclusive upper bound of a histogram bucket.
-def UpperBoundAttr : StructFieldAttr<"ub", I32Attr>;
-
-/// Named attribute for the probability value of a histogram bucket.
-def HistValueAttr  : StructFieldAttr<"val", F64Attr>;
-
-/// Struct-attribute for a histogram bucket.
-def HistBucketAttr : StructAttr<"Bucket", HiSPN_Dialect, [LowerBoundAttr, UpperBoundAttr, HistValueAttr]>;
-
-/// List of histogram buckets as array-attribute.
-def BucketListAttr : TypedArrayAttrBase<HistBucketAttr, "histogram bucket list">;
-
 ///
 /// Histogram as SPN leaf node.
 ///
 def HistogramNode : HiSPNGraphOp<"histogram",
-  [NoSideEffect, DeclareOpInterfaceMethods<LeafNodeInterface>]> {
+  [NoMemoryEffect, DeclareOpInterfaceMethods<LeafNodeInterface>]> {
     let summary = "histogram";
 
     let description =  [{
@@ -164,14 +151,14 @@ def HistogramNode : HiSPNGraphOp<"histogram",
         represented by a histogram.
     }];
 
-    let arguments = (ins HiSPNInputType:$index, BucketListAttr:$buckets, UI32Attr:$bucketCount);
+    let arguments = (ins HiSPNInputType:$index, HistBucketList:$buckets, UI32Attr:$bucketCount);
 
     let results = (outs HiSPNProbabilityType);
 
-    let verifier = [{ return ::mlir::spn::high::verify(*this); }];
+    let hasVerifier = true;
 
     let builders = [
-        OpBuilder<(ins "Value":$indexVal, "llvm::ArrayRef<std::tuple<int, int, double>>":$buckets)>
+        OpBuilder<(ins "Value":$indexVal, "llvm::ArrayRef<std::tuple<int, int, APFloat>>":$buckets)>
     ];
 }
 
@@ -179,7 +166,7 @@ def HistogramNode : HiSPNGraphOp<"histogram",
 /// Categorical distribution as SPN leaf node.
 ///
 def CategoricalNode : HiSPNGraphOp<"categorical",
-    [NoSideEffect, DeclareOpInterfaceMethods<LeafNodeInterface>]> {
+    [NoMemoryEffect, DeclareOpInterfaceMethods<LeafNodeInterface>]> {
 
     let summary = "categorical leaf distribution";
 
@@ -191,7 +178,7 @@ def CategoricalNode : HiSPNGraphOp<"categorical",
 
     let results = (outs HiSPNProbabilityType);
 
-    let verifier = [{ return ::mlir::spn::high::verify(*this); }];
+    let hasVerifier = true;
 
     let builders = [
         OpBuilder<(ins "Value":$indexVal, "llvm::ArrayRef<double>":$probabilities)>
@@ -202,7 +189,7 @@ def CategoricalNode : HiSPNGraphOp<"categorical",
 /// Gaussian distribution as SPN leaf node.
 ///
 def GaussianNode : HiSPNGraphOp<"gaussian",
-    [NoSideEffect, DeclareOpInterfaceMethods<LeafNodeInterface>]> {
+    [NoMemoryEffect, DeclareOpInterfaceMethods<LeafNodeInterface>]> {
 
     let summary = "Gaussian leaf distribution";
 

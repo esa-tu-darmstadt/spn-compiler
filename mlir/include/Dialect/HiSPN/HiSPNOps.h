@@ -12,9 +12,14 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
+#include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/IR/RegionKindInterface.h"
 #include "HiSPN/HiSPNInterfaces.h"
 #include "HiSPN/HiSPNEnums.h"
+#include "HiSPN/HiSPNAttributes.h"
+
+#define GET_TYPEDEF_CLASSES
+#include "HiSPN/HiSPNOpsTypes.h.inc"
 
 #define GET_OP_CLASSES
 #include "HiSPN/HiSPNOps.h.inc"

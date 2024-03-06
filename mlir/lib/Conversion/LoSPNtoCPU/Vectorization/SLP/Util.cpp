@@ -7,7 +7,8 @@
 //==============================================================================
 
 #include "LoSPNtoCPU/Vectorization/SLP/Util.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include <optional>
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -48,20 +49,20 @@ bool slp::consecutiveLoads(Value lhs, Value rhs) {
   if (!lhsLoad || !rhsLoad) {
     return false;
   }
-  if (lhsLoad.batchMem() != rhsLoad.batchMem()) {
+  if (lhsLoad.getBatchMem() != rhsLoad.getBatchMem()) {
     return false;
   }
-  if (lhsLoad.dynamicIndex() != rhsLoad.dynamicIndex()) {
+  if (lhsLoad.getDynamicIndex() != rhsLoad.getDynamicIndex()) {
     return false;
   }
-  return lhsLoad.staticIndex() + 1 == rhsLoad.staticIndex();
+  return lhsLoad.getStaticIndex() + 1 == rhsLoad.getStaticIndex();
 }
 
 bool slp::anyGaussianMarginalized(Superword const& superword) {
   for (auto value : superword) {
     auto gaussianOp = value.getDefiningOp<SPNGaussianLeaf>();
     assert(gaussianOp && "only applicable to gaussian leaf vectors");
-    if (gaussianOp.supportMarginal()) {
+    if (gaussianOp.getSupportMarginal()) {
       return true;
     }
   }
@@ -78,7 +79,7 @@ SmallVector<Value, 2> slp::getOperands(Value value) {
   return operands;
 }
 
-void slp::sortByOpcode(SmallVectorImpl<Value>& values, Optional<OperationName> smallestOpcode) {
+void slp::sortByOpcode(SmallVectorImpl<Value>& values, std::optional<OperationName> smallestOpcode) {
   llvm::sort(std::begin(values), std::end(values), [&](Value lhs, Value rhs) {
     auto* lhsOp = lhs.getDefiningOp();
     auto* rhsOp = rhs.getDefiningOp();
@@ -89,10 +90,10 @@ void slp::sortByOpcode(SmallVectorImpl<Value>& values, Optional<OperationName> s
     } else if (!lhsOp && rhsOp) {
       return false;
     }
-    if (smallestOpcode.hasValue()) {
-      if (lhsOp->getName() == smallestOpcode.getValue()) {
-        return rhsOp->getName() != smallestOpcode.getValue();
-      } else if (rhsOp->getName() == smallestOpcode.getValue()) {
+    if (smallestOpcode) {
+      if (lhsOp->getName() == smallestOpcode.value()) {
+        return rhsOp->getName() != smallestOpcode.value();
+      } else if (rhsOp->getName() == smallestOpcode.value()) {
         return false;
       }
     }
@@ -176,16 +177,16 @@ void slp::dumpOpGraph(ArrayRef<Value> values) {
     llvm::dbgs() << "\tnode_" << id << "[label=\"";
     if (auto* definingOp = value.getDefiningOp()) {
       llvm::dbgs() << definingOp->getName().getStringRef() << "\\n" << definingOp;
-      if (auto constantOp = dyn_cast<ConstantOp>(definingOp)) {
-        if (constantOp.value().getType().isIntOrIndex()) {
-          llvm::dbgs() << "\\nvalue: " << std::to_string(constantOp.value().dyn_cast<IntegerAttr>().getInt());
-        } else if (constantOp.value().getType().isIntOrFloat()) {
-          llvm::dbgs() << "\\nvalue: " << std::to_string(constantOp.value().dyn_cast<FloatAttr>().getValueAsDouble());
+      if (auto constantOp = dyn_cast<arith::ConstantOp>(definingOp)) {
+        if (constantOp.getValue().getType().isIntOrIndex()) {
+          llvm::dbgs() << "\\nvalue: " << std::to_string(constantOp.getValue().dyn_cast<IntegerAttr>().getInt());
+        } else if (constantOp.getValue().getType().isIntOrFloat()) {
+          llvm::dbgs() << "\\nvalue: " << std::to_string(constantOp.getValue().dyn_cast<FloatAttr>().getValueAsDouble());
         }
       } else if (auto batchReadOp = dyn_cast<SPNBatchRead>(definingOp)) {
-        llvm::dbgs() << "\\nbatch mem: " << batchReadOp.batchMem().dyn_cast<BlockArgument>().getArgNumber();
-        llvm::dbgs() << "\\dynamic index: " << batchReadOp.dynamicIndex();
-        llvm::dbgs() << "\\nstatic index: " << batchReadOp.staticIndex();
+        llvm::dbgs() << "\\nbatch mem: " << batchReadOp.getBatchMem().dyn_cast<BlockArgument>().getArgNumber();
+        llvm::dbgs() << "\\dynamic index: " << batchReadOp.getDynamicIndex();
+        llvm::dbgs() << "\\nstatic index: " << batchReadOp.getStaticIndex();
       }
     } else {
       dumpBlockArgOrDefiningAddress(value);
@@ -205,26 +206,26 @@ namespace {
     if (auto* definingOp = value.getDefiningOp()) {
       llvm::dbgs() << "<BR/><FONT COLOR=\"#bbbbbb\">";
       llvm::dbgs() << "(" << definingOp << ")";
-      if (auto constOp = dyn_cast<ConstantOp>(definingOp)) {
+      if (auto constOp = dyn_cast<arith::ConstantOp>(definingOp)) {
         llvm::dbgs() << "<BR/>value: " << constOp.getValue();
       } else if (auto lowConstOp = dyn_cast<SPNConstant>(definingOp)) {
-        llvm::dbgs() << "<BR/>value: " << lowConstOp.value().convertToDouble();
+        llvm::dbgs() << "<BR/>value: " << lowConstOp.getValue().convertToDouble();
       } else if (auto readOp = dyn_cast<SPNBatchRead>(definingOp)) {
         llvm::dbgs() << "<BR/>mem: ";
-        dumpBlockArgOrDefiningAddress(readOp.batchMem());
+        dumpBlockArgOrDefiningAddress(readOp.getBatchMem());
         llvm::dbgs() << "<BR/>batch: ";
-        dumpBlockArgOrDefiningAddress(readOp.dynamicIndex());
-        llvm::dbgs() << "<BR/>sample: " << readOp.staticIndex();
+        dumpBlockArgOrDefiningAddress(readOp.getDynamicIndex());
+        llvm::dbgs() << "<BR/>sample: " << readOp.getStaticIndex();
       } else if (auto gaussianOp = dyn_cast<SPNGaussianLeaf>(definingOp)) {
         llvm::dbgs() << "<BR/>index: ";
-        dumpBlockArgOrDefiningAddress(gaussianOp.index());
-        llvm::dbgs() << "<BR/>mean: " << gaussianOp.mean().convertToDouble();
-        llvm::dbgs() << "<BR/>stddev: " << gaussianOp.stddev().convertToDouble();
+        dumpBlockArgOrDefiningAddress(gaussianOp.getIndex());
+        llvm::dbgs() << "<BR/>mean: " << gaussianOp.getMean().convertToDouble();
+        llvm::dbgs() << "<BR/>stddev: " << gaussianOp.getStddev().convertToDouble();
       } else if (auto categoricalOp = dyn_cast<SPNCategoricalLeaf>(definingOp)) {
         llvm::dbgs() << "<BR/>index: ";
-        dumpBlockArgOrDefiningAddress(categoricalOp.index());
+        dumpBlockArgOrDefiningAddress(categoricalOp.getIndex());
         llvm::dbgs() << "<BR/>probabilities: [ ";
-        for (auto const& probability : categoricalOp.probabilities()) {
+        for (auto const& probability : categoricalOp.getProbabilities()) {
           llvm::dbgs() << probability << " ";
         }
         llvm::dbgs() << "]";

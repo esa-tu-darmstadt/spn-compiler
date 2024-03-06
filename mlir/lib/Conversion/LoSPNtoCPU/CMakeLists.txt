@@ -32,12 +32,12 @@ add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
 
         LINK_LIBS PUBLIC
         MLIRLoSPN
+        MLIRHiSPN # For the HiSPN attributes
         MLIRIR
         MLIRPass
-        MLIRStandard
         MLIRSupport
         MLIRTransforms
-        MLIRMath
+        MLIRVectorDialect
 
         DEPENDS
         cpu_targetinfo

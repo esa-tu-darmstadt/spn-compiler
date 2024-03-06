@@ -12,6 +12,7 @@
 #include "SLPGraph.h"
 #include "LoSPN/LoSPNOps.h"
 #include "mlir/IR/Operation.h"
+#include <optional>
 
 namespace mlir {
   namespace spn {
@@ -113,7 +114,7 @@ namespace mlir {
 
         /// Sort all provided values in place by their opcode (i.e. in lexicographical order). An optional smallest
         /// opcode can be provided to force certain values to the front.
-        void sortByOpcode(SmallVectorImpl<Value>& values, Optional<OperationName> smallestOpcode = llvm::None);
+        void sortByOpcode(SmallVectorImpl<Value>& values, std::optional<OperationName> smallestOpcode = std::nullopt);
 
         /// Print a textual representation of the superword to the console.
         void dumpSuperword(Superword const& superword);

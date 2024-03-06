@@ -10,6 +10,8 @@
 #include "LoSPNtoCPU/LoSPNtoCPUConversionPasses.h"
 #include "LoSPNtoCPU/Vectorization/VectorOptimizationPasses.h"
 #include "LoSPN/LoSPNPasses.h"
+#include "mlir/Dialect/Bufferization/Transforms/Passes.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/Dialect/Tensor/Transforms/Passes.h"
 #include <option/GlobalOptions.h>
@@ -57,7 +59,7 @@ void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, m
   // conversion to FuncOp. This could be avoided at least for Kernels by
   // converting them to FuncOp earlier in the pipeline, e.g., during
   // bufferization of Kernels.
-  pm->nest<mlir::FuncOp>().addPass(mlir::createTensorBufferizePass());
-  pm->nest<mlir::FuncOp>().addPass(mlir::createFinalizingBufferizePass());
-  pm->nest<mlir::FuncOp>().addPass(mlir::createBufferDeallocationPass());
+  pm->addNestedPass<mlir::func::FuncOp>(mlir::tensor::createTensorBufferizePass());
+  pm->addNestedPass<mlir::func::FuncOp>(mlir::bufferization::createFinalizingBufferizePass());
+  pm->addNestedPass<mlir::func::FuncOp>(mlir::bufferization::createBufferDeallocationPass());
 }

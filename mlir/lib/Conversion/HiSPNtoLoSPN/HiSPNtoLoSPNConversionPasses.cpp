@@ -13,6 +13,7 @@
 #include "LoSPN/LoSPNDialect.h"
 #include "HiSPN/HiSPNOps.h"
 #include "HiSPNtoLoSPN/HiSPNTypeConverter.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 
 using namespace mlir::spn;
 
@@ -36,12 +37,12 @@ void HiSPNtoLoSPNNodeConversionPass::runOnOperation() {
     typeConverter = std::make_unique<HiSPNTypeConverter>(arithmeticAnalysis.getComputationType(computeLogSpace));
   } else if (computeLogSpace) {
     typeConverter =
-        std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(mlir::FloatType::getF32(&getContext())));
+        std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(&getContext(), mlir::FloatType::getF32(&getContext())));
   } else {
     typeConverter = std::make_unique<HiSPNTypeConverter>(mlir::Float64Type::get(&getContext()));
   }
 
-  OwningRewritePatternList patterns(&getContext());
+  RewritePatternSet patterns(&getContext());
   mlir::spn::populateHiSPNtoLoSPNNodePatterns(patterns, &getContext(), *typeConverter);
 
   auto op = getOperation();
@@ -69,7 +70,7 @@ void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
 
   target.addLegalDialect<low::LoSPNDialect>();
   target.addLegalOp<ModuleOp>();
-  target.addLegalOp<FuncOp>();
+  target.addLegalOp<func::FuncOp>();
 
   target.addIllegalDialect<high::HiSPNDialect>();
 
@@ -83,12 +84,12 @@ void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
     typeConverter = std::make_unique<HiSPNTypeConverter>(arithmeticAnalysis->get().getComputationType(computeLogSpace));
   } else if (computeLogSpace) {
     typeConverter =
-        std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(mlir::FloatType::getF32(&getContext())));
+        std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(&getContext(), mlir::FloatType::getF32(&getContext())));
   } else {
     typeConverter = std::make_unique<HiSPNTypeConverter>(mlir::Float64Type::get(&getContext()));
   }
 
-  OwningRewritePatternList patterns(&getContext());
+  RewritePatternSet patterns(&getContext());
   mlir::spn::populateHiSPNtoLoSPNQueryPatterns(patterns, &getContext(), *typeConverter);
 
   auto op = getOperation();

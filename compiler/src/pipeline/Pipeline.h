@@ -14,6 +14,7 @@
 #include <vector>
 #include <type_traits>
 #include <iostream>
+#include <sstream>
 
 namespace spnc {
 
@@ -43,7 +44,7 @@ namespace spnc {
     ///         failure otherwise.
     ExecutionResult execute() {
       auto* config = context->template get<interface::Configuration>();
-      llvm::Optional<std::string> stop;
+      std::optional<std::string> stop;
       if (option::stopAfter.isPresent(*config)) {
         stop = option::stopAfter.get(*config);
       }
@@ -52,13 +53,13 @@ namespace spnc {
         if (failed(result)) {
           return result;
         }
-        if (stop.hasValue() && step->name() == stop.getValue()) {
+        if (stop.has_value() && step->name() == stop.value()) {
           // Stop after the step, if the user requested to do so via the 'stopAfter' option.
-          return failure("STOPPED PIPELINE after {}", stop.getValue());
+          return failure("STOPPED PIPELINE after {}", stop.value());
         }
       }
-      if (stop.hasValue()) {
-        SPDLOG_WARN("Did not stop after {}, because no such step was present in the pipeline", stop.getValue());
+      if (stop.has_value()) {
+        SPDLOG_WARN("Did not stop after {}, because no such step was present in the pipeline", stop.value());
       }
       if (!valid) {
         return failure("INVALID PIPELINE");
