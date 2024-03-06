@@ -36,7 +36,8 @@ public:
 
 /// Represents the value of an Option in the current Configuration.
 /// \tparam Value Type of the value stored in this Option.
-template <typename Value> class OptionValue : public OptValue {
+template <typename Value>
+class OptionValue : public OptValue {
 
 public:
   /// Constructor.
@@ -73,7 +74,8 @@ public:
   /// \tparam Value Type of the value to parse.
   /// \param value String containing the value.
   /// \return Parse result.
-  template <typename Value> static Value parse(const std::string &value);
+  template <typename Value>
+  static Value parse(const std::string &value);
 };
 
 } // namespace detail
@@ -274,7 +276,8 @@ public:
 
 /// Configuration interface option.
 /// \tparam Value Type of the value for this option.
-template <typename Value> class Option : public Opt {
+template <typename Value>
+class Option : public Opt {
 
 public:
   /// Constructor.
@@ -457,7 +460,8 @@ static inline RequiredOpt *required() {
 /// Modifier to declare a dependency of an Option on a particular value of
 /// another Option. \tparam OptVal Value type of the Option that this depends
 /// on. \tparam Value Type of the value this option depends on.
-template <typename OptVal, typename Value> class Depends : public OptModifier {
+template <typename OptVal, typename Value>
+class Depends : public OptModifier {
 
 public:
   /// Constructor.

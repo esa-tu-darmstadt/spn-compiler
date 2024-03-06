@@ -6,49 +6,52 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include "mlir/Rewrite/FrozenRewritePatternSet.h"
-#include "LoSPNtoGPU/LoSPNtoGPUConversionPasses.h"
 #include "LoSPN/LoSPNOps.h"
-#include "mlir/IR/SymbolTable.h"
+#include "LoSPNtoGPU/LoSPNtoGPUConversionPasses.h"
+#include "Target/CUDATargetInformation.h"
+#include "mlir/Dialect/GPU/GPUDialect.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/SymbolTable.h"
+#include "mlir/Rewrite/FrozenRewritePatternSet.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/GPU/GPUDialect.h"
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "Target/CUDATargetInformation.h"
 
 using namespace mlir;
 using namespace mlir::spn;
 
-class RewriteBatchReadtoSharedMem : public mlir::OpRewritePattern<low::SPNBatchRead> {
+class RewriteBatchReadtoSharedMem
+    : public mlir::OpRewritePattern<low::SPNBatchRead> {
 
 public:
+  RewriteBatchReadtoSharedMem(mlir::MLIRContext *ctx, Value sharedMemory,
+                              unsigned minIndex)
+      : OpRewritePattern{ctx, 1}, sharedMem{sharedMemory}, minIdx{minIndex} {}
 
-  RewriteBatchReadtoSharedMem(mlir::MLIRContext* ctx, Value sharedMemory, unsigned minIndex) :
-      OpRewritePattern{ctx, 1}, sharedMem{sharedMemory}, minIdx{minIndex} {}
-
-  LogicalResult matchAndRewrite(low::SPNBatchRead op, PatternRewriter& rewriter) const override {
+  LogicalResult matchAndRewrite(low::SPNBatchRead op,
+                                PatternRewriter &rewriter) const override {
     //
-    // Replace a BatchRead, whose input memory has been preloaded to shared memory with an ordinary load.
-    // As the input is transposed during pre-loading, the indices need to be flipped, with the
-    // featureIndex indexing the row and the batchIndex (threadID.x) the column.
+    // Replace a BatchRead, whose input memory has been preloaded to shared
+    // memory with an ordinary load. As the input is transposed during
+    // pre-loading, the indices need to be flipped, with the featureIndex
+    // indexing the row and the batchIndex (threadID.x) the column.
     auto loc = op->getLoc();
-    auto threadID = rewriter.create<gpu::ThreadIdOp>(loc, rewriter.getIndexType(),
-                                                     rewriter.getStringAttr("x"));
-    auto featureIndex = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(op.getStaticIndex() - minIdx));
-    rewriter.replaceOpWithNewOp<memref::LoadOp>(op, sharedMem, ValueRange{featureIndex, threadID});
+    auto threadID = rewriter.create<gpu::ThreadIdOp>(
+        loc, rewriter.getIndexType(), rewriter.getStringAttr("x"));
+    auto featureIndex = rewriter.create<ConstantOp>(
+        loc, rewriter.getIndexAttr(op.getStaticIndex() - minIdx));
+    rewriter.replaceOpWithNewOp<memref::LoadOp>(
+        op, sharedMem, ValueRange{featureIndex, threadID});
     return success();
   }
 
 private:
-
   Value sharedMem;
 
   unsigned minIdx;
-
 };
 
 int getConstantBlockSize(gpu::LaunchFuncOp launch) {
@@ -74,18 +77,20 @@ int getConstantBlockSize(gpu::LaunchFuncOp launch) {
 
 int hasConstantBlockSize(gpu::GPUFuncOp gpuFunc) {
   //
-  // Check that all symbol-users of a GPUFunc are LaunchFunc operations from the GPU dialect
-  // and all have the identical constant block-size.
-  // Return the constant block-size if both criteria are met and -1 otherwise.
-  auto callers = SymbolTable::getSymbolUses(gpuFunc, gpuFunc->getParentOfType<mlir::ModuleOp>());
+  // Check that all symbol-users of a GPUFunc are LaunchFunc operations from the
+  // GPU dialect and all have the identical constant block-size. Return the
+  // constant block-size if both criteria are met and -1 otherwise.
+  auto callers = SymbolTable::getSymbolUses(
+      gpuFunc, gpuFunc->getParentOfType<mlir::ModuleOp>());
   int blockSizeX = 0;
-  for (auto& call : *callers) {
+  for (auto &call : *callers) {
     if (auto launch = dyn_cast<gpu::LaunchFuncOp>(call.getUser())) {
       auto constantBlockSize = getConstantBlockSize(launch);
       if (!blockSizeX || blockSizeX == constantBlockSize) {
         blockSizeX = constantBlockSize;
       } else {
-        // The constant block size for this launch differs from previously encountered launches.
+        // The constant block size for this launch differs from previously
+        // encountered launches.
         blockSizeX = -1;
       }
     } else {
@@ -96,35 +101,41 @@ int hasConstantBlockSize(gpu::GPUFuncOp gpuFunc) {
   return blockSizeX;
 }
 
-struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp> {
+struct FuncSharedMemoryInsertion
+    : public mlir::OpRewritePattern<gpu::GPUFuncOp> {
 
   using mlir::OpRewritePattern<gpu::GPUFuncOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(gpu::GPUFuncOp gpuFunc, PatternRewriter& rewriter) const override {
+  LogicalResult matchAndRewrite(gpu::GPUFuncOp gpuFunc,
+                                PatternRewriter &rewriter) const override {
     //
-    // Try to pre-load input memories to enable coalesced access. If multiple indices per sample
-    // are accessed for an input memory, this will lead to non-coalesced accesses to global memory,
-    // as the same index for different samples is #numFeatures elements apart. To avoid that,
-    // pre-load the part of the input for this block into shared/work-group memory.
+    // Try to pre-load input memories to enable coalesced access. If multiple
+    // indices per sample are accessed for an input memory, this will lead to
+    // non-coalesced accesses to global memory, as the same index for different
+    // samples is #numFeatures elements apart. To avoid that, pre-load the part
+    // of the input for this block into shared/work-group memory.
 
     //
-    // Currently, this transformation is only performed if the block-sizes at all invocation sites have
-    // the same constant value. Check hat.
+    // Currently, this transformation is only performed if the block-sizes at
+    // all invocation sites have the same constant value. Check hat.
     auto constantBlockSize = hasConstantBlockSize(gpuFunc);
     if (constantBlockSize < 1) {
-      return rewriter.notifyMatchFailure(gpuFunc, "Block size not constant, cannot insert shared memory");
+      return rewriter.notifyMatchFailure(
+          gpuFunc, "Block size not constant, cannot insert shared memory");
     }
 
-    // Compute dominance information to determine the block in which pre-load instructions should be inserted.
+    // Compute dominance information to determine the block in which pre-load
+    // instructions should be inserted.
     DominanceInfo domInfo(gpuFunc);
     auto rootBlock = domInfo.getRootNode(&gpuFunc.getBody())->getBlock();
 
-    // For each argument of the function which is a MemRef, check if it is eligible for
-    // transformation. To be eligible, it needs to fulfill the following criteria:
+    // For each argument of the function which is a MemRef, check if it is
+    // eligible for transformation. To be eligible, it needs to fulfill the
+    // following criteria:
     // 1. All uses inside the function must be SPNBatchReads
     // 2. There must be at least two SPNBatchRead with differing feature index.
     SmallVector<Value, 5> inputMemories;
-    for (auto& arg : gpuFunc.getBody().getArguments()) {
+    for (auto &arg : gpuFunc.getBody().getArguments()) {
       if (arg.getType().isa<MemRefType>()) {
         auto eligible = true;
         auto useCount = 0;
@@ -151,7 +162,8 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
 
     // Skip this kernel if no argument is eligible for transformation.
     if (inputMemories.empty()) {
-      return rewriter.notifyMatchFailure(gpuFunc, "No memories eligible for transformation found");
+      return rewriter.notifyMatchFailure(
+          gpuFunc, "No memories eligible for transformation found");
     }
 
     rewriter.startRootUpdate(gpuFunc);
@@ -159,8 +171,8 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
     auto maxSharedMem = CUDATargetInformation::maxSharedMemoryPerBlock(loc);
     for (auto inputMem : inputMemories) {
 
-      // Collect all the SPNBatchRead using this MemRef. From the previous check above
-      // we know that all users must be SPNBatchRead.
+      // Collect all the SPNBatchRead using this MemRef. From the previous check
+      // above we know that all users must be SPNBatchRead.
       SmallVector<low::SPNBatchRead, 10> reads;
       for (auto U : inputMem.getUsers()) {
         auto read = cast<low::SPNBatchRead>(U);
@@ -172,86 +184,103 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
       // maximum feature index and the number of features.
       unsigned minIndex = std::numeric_limits<unsigned>::max();
       unsigned maxIndex = std::numeric_limits<unsigned>::min();
-      for (auto& read : reads) {
+      for (auto &read : reads) {
         minIndex = std::min(minIndex, read.getStaticIndex());
         maxIndex = std::max(maxIndex, read.getStaticIndex());
       }
       auto numFeatures = (maxIndex - minIndex) + 1;
 
-      // Check that all input elements for all threads in the block fit into shared memory.
+      // Check that all input elements for all threads in the block fit into
+      // shared memory.
       auto elementType = inputMem.getType().cast<MemRefType>().getElementType();
-      auto memRefType = MemRefType::get({numFeatures, constantBlockSize},
-                                        elementType,
-                                        {}, 3);
+      auto memRefType =
+          MemRefType::get({numFeatures, constantBlockSize}, elementType, {}, 3);
       auto memRefBytes = memRefType.getSizeInBits() / 8;
       if (memRefBytes > maxSharedMem) {
-        gpuFunc.emitWarning() << "Cannot preload input, remaing shared memory of "
-                              << maxSharedMem << " bytes is insufficient, "
-                              << memRefBytes << " bytes required";
+        gpuFunc.emitWarning()
+            << "Cannot preload input, remaing shared memory of " << maxSharedMem
+            << " bytes is insufficient, " << memRefBytes << " bytes required";
         continue;
       }
       maxSharedMem -= memRefBytes;
 
-      // Create a shared memory (address space 3) with workgroup attribution, attached to this function.
+      // Create a shared memory (address space 3) with workgroup attribution,
+      // attached to this function.
       auto sharedMem = gpuFunc.addWorkgroupAttribution(memRefType);
 
       //
       // Preload from global memory into shared/workgroup memory.
-      // To make the accesses to global memory coalesced, neighbouring threads will load neighbouring
-      // features.
-      // In each iteration of the created for-loop, the threads team up to load the inputs for **one**
-      // input sample. By looping over multiple samples, we will load all inputs for all threads in the block.
+      // To make the accesses to global memory coalesced, neighbouring threads
+      // will load neighbouring features. In each iteration of the created
+      // for-loop, the threads team up to load the inputs for **one** input
+      // sample. By looping over multiple samples, we will load all inputs for
+      // all threads in the block.
       rewriter.setInsertionPoint(rootBlock->getTerminator());
-      // Calculate the base-index in global memory from the block-ID and block-size.
-      auto blockDim = rewriter.create<gpu::BlockDimOp>(loc, rewriter.getIndexType(),
-                                                       rewriter.getStringAttr("x"));
-      auto blockID = rewriter.create<gpu::BlockIdOp>(loc, rewriter.getIndexType(),
-                                                     rewriter.getStringAttr("x"));
+      // Calculate the base-index in global memory from the block-ID and
+      // block-size.
+      auto blockDim = rewriter.create<gpu::BlockDimOp>(
+          loc, rewriter.getIndexType(), rewriter.getStringAttr("x"));
+      auto blockID = rewriter.create<gpu::BlockIdOp>(
+          loc, rewriter.getIndexType(), rewriter.getStringAttr("x"));
       auto baseIndex = rewriter.create<MulIOp>(loc, blockDim, blockID);
-      auto threadID = rewriter.create<gpu::ThreadIdOp>(loc, rewriter.getIndexType(),
-                                                       rewriter.getStringAttr("x"));
-      auto maxFeature = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(maxIndex));
+      auto threadID = rewriter.create<gpu::ThreadIdOp>(
+          loc, rewriter.getIndexType(), rewriter.getStringAttr("x"));
+      auto maxFeature =
+          rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(maxIndex));
       // Insert a for-loop iterating from 0 to blockSize in steps of 1.
-      auto constZero = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(0));
-      auto constBlockSize = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(constantBlockSize));
+      auto constZero =
+          rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(0));
+      auto constBlockSize = rewriter.create<ConstantOp>(
+          loc, rewriter.getIndexAttr(constantBlockSize));
       auto step = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(1));
-      auto loop = rewriter.create<scf::ForOp>(loc, constZero, constBlockSize, step);
+      auto loop =
+          rewriter.create<scf::ForOp>(loc, constZero, constBlockSize, step);
       rewriter.setInsertionPointToStart(&loop.getLoopBody().front());
-      auto sampleIndex = rewriter.create<AddIOp>(loc, baseIndex, loop.getInductionVar());
-      // If the number of features exceeds the number of threads in the block, threads might need to
-      // load multiple inputs.
+      auto sampleIndex =
+          rewriter.create<AddIOp>(loc, baseIndex, loop.getInductionVar());
+      // If the number of features exceeds the number of threads in the block,
+      // threads might need to load multiple inputs.
       auto numRounds = llvm::divideCeil(numFeatures, constantBlockSize);
       for (unsigned i = 0; i < numRounds; ++i) {
-        auto featureOffset = rewriter.create<ConstantOp>(loc,
-                                                         rewriter.getIndexAttr(i * constantBlockSize + minIndex));
-        auto featureIndex = rewriter.create<AddIOp>(loc, threadID, featureOffset);
+        auto featureOffset = rewriter.create<ConstantOp>(
+            loc, rewriter.getIndexAttr(i * constantBlockSize + minIndex));
+        auto featureIndex =
+            rewriter.create<AddIOp>(loc, threadID, featureOffset);
         if (i == (numRounds - 1)) {
-          // In the last round, we need to be careful to only load data in-bounds for the currently loaded,
-          // single sample. Insert an if, so that only threads that load a valid feature index will participate
+          // In the last round, we need to be careful to only load data
+          // in-bounds for the currently loaded, single sample. Insert an if, so
+          // that only threads that load a valid feature index will participate
           // in the load.
-          auto inBounds = rewriter.create<CmpIOp>(loc, CmpIPredicate::ule, featureIndex, maxFeature);
+          auto inBounds = rewriter.create<CmpIOp>(loc, CmpIPredicate::ule,
+                                                  featureIndex, maxFeature);
           auto ifCheck = rewriter.create<scf::IfOp>(loc, inBounds, false);
           rewriter.setInsertionPointToStart(&ifCheck.thenRegion().front());
         }
         // Load from global memory, transpose and store into shared memory.
-        auto readGlobal = rewriter.create<memref::LoadOp>(loc, inputMem, ValueRange{sampleIndex, featureIndex});
-        auto sharedMemOffset = rewriter.create<ConstantOp>(loc, rewriter.getIndexAttr(i * constantBlockSize));
-        auto sharedMemIndex = rewriter.create<AddIOp>(loc, threadID, sharedMemOffset);
-        (void) rewriter.create<memref::StoreOp>(loc, readGlobal, sharedMem,
-                                                ValueRange{sharedMemIndex, loop.getInductionVar()});
+        auto readGlobal = rewriter.create<memref::LoadOp>(
+            loc, inputMem, ValueRange{sampleIndex, featureIndex});
+        auto sharedMemOffset = rewriter.create<ConstantOp>(
+            loc, rewriter.getIndexAttr(i * constantBlockSize));
+        auto sharedMemIndex =
+            rewriter.create<AddIOp>(loc, threadID, sharedMemOffset);
+        (void)rewriter.create<memref::StoreOp>(
+            loc, readGlobal, sharedMem,
+            ValueRange{sharedMemIndex, loop.getInductionVar()});
       }
 
       //
-      // Process all SPNBatchRead that used the original global MemRef to instead load from the transposed shared mem.
+      // Process all SPNBatchRead that used the original global MemRef to
+      // instead load from the transposed shared mem.
       RewritePatternSet patterns(gpuFunc.getContext());
-      patterns.insert<RewriteBatchReadtoSharedMem>(gpuFunc.getContext(), sharedMem, minIndex);
+      patterns.insert<RewriteBatchReadtoSharedMem>(gpuFunc.getContext(),
+                                                   sharedMem, minIndex);
       mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
-      for (auto& read : reads) {
-        (void) applyOpPatternsAndFold(read, frozenPatterns);
+      for (auto &read : reads) {
+        (void)applyOpPatternsAndFold(read, frozenPatterns);
       }
     }
-    // Insert a barrier (__syncthreads()) to make sure all memory loading is finished before the
-    // threads resume computation.
+    // Insert a barrier (__syncthreads()) to make sure all memory loading is
+    // finished before the threads resume computation.
     rewriter.setInsertionPoint(rootBlock->getTerminator());
     rewriter.create<gpu::BarrierOp>(loc);
     rewriter.finalizeRootUpdate(gpuFunc);
@@ -261,16 +290,17 @@ struct FuncSharedMemoryInsertion : public mlir::OpRewritePattern<gpu::GPUFuncOp>
 
 void mlir::spn::LoSPNGPUSharedMemoryInsertionPass::runOnOperation() {
   auto module = getOperation();
-  auto* context = &getContext();
+  auto *context = &getContext();
   RewritePatternSet patterns(context);
   patterns.insert<FuncSharedMemoryInsertion>(context);
   mlir::FrozenRewritePatternSet frozenPatterns(std::move(patterns));
   // Apply the pattern to all GPUFuncs in the module.
   module->walk([&frozenPatterns](gpu::GPUFuncOp gpuFunc) {
-    (void) applyOpPatternsAndFold(gpuFunc, frozenPatterns);
+    (void)applyOpPatternsAndFold(gpuFunc, frozenPatterns);
   });
 }
 
-std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNGPUSharedMemoryInsertionPass() {
+std::unique_ptr<mlir::Pass>
+mlir::spn::createLoSPNGPUSharedMemoryInsertionPass() {
   return std::make_unique<LoSPNGPUSharedMemoryInsertionPass>();
 }

@@ -9,35 +9,33 @@
 #ifndef SPNC_COMPILER_SRC_DRIVER_ACTION_EMITOBJECTCODE_H
 #define SPNC_COMPILER_SRC_DRIVER_ACTION_EMITOBJECTCODE_H
 
-#include <util/FileSystem.h>
 #include "pipeline/PipelineStep.h"
 #include <llvm/IR/Module.h>
 #include <llvm/Target/TargetMachine.h>
+#include <util/FileSystem.h>
 
 namespace spnc {
 
-  ///
-  /// Step to translate LLVM IR module into object code for the native CPU target.
-  /// The object code is written to the specified object file (*.o)
-  class EmitObjectCode : public StepDualInput<EmitObjectCode, llvm::Module, ObjectFile>,
-                         public StepWithResult<ObjectFile> {
+///
+/// Step to translate LLVM IR module into object code for the native CPU target.
+/// The object code is written to the specified object file (*.o)
+class EmitObjectCode
+    : public StepDualInput<EmitObjectCode, llvm::Module, ObjectFile>,
+      public StepWithResult<ObjectFile> {
 
-  public:
+public:
+  using StepDualInput<EmitObjectCode, llvm::Module, ObjectFile>::StepDualInput;
 
-    using StepDualInput<EmitObjectCode, llvm::Module, ObjectFile>::StepDualInput;
+  ExecutionResult executeStep(llvm::Module *module, ObjectFile *file);
 
-    ExecutionResult executeStep(llvm::Module* module, ObjectFile* file);
+  ObjectFile *result() override;
 
-    ObjectFile* result() override;
+  STEP_NAME("emit-object-code")
 
-    STEP_NAME("emit-object-code")
+private:
+  ObjectFile *outFile;
+};
 
-  private:
+} // namespace spnc
 
-    ObjectFile* outFile;
-
-  };
-
-}
-
-#endif //SPNC_COMPILER_SRC_DRIVER_ACTION_EMITOBJECTCODE_H
+#endif // SPNC_COMPILER_SRC_DRIVER_ACTION_EMITOBJECTCODE_H

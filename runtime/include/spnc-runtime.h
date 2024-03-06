@@ -9,51 +9,49 @@
 #ifndef SPNC_RUNTIME_H
 #define SPNC_RUNTIME_H
 
-#include <string>
-#include <Kernel.h>
-#include <unordered_map>
-#include <memory>
 #include "../src/Executable.h"
+#include <Kernel.h>
+#include <memory>
+#include <string>
+#include <unordered_map>
 
 using namespace spnc;
 
 namespace spnc_rt {
 
-  ///
-  /// Entry point of the runtime.
-  class spn_runtime {
+///
+/// Entry point of the runtime.
+class spn_runtime {
 
-  public:
+public:
+  /// Get the currently active instance of the runtime (Singleton pattern).
+  /// \return Reference to the currently active runtime instance.
+  static spn_runtime &instance();
 
-    /// Get the currently active instance of the runtime (Singleton pattern).
-    /// \return Reference to the currently active runtime instance.
-    static spn_runtime& instance();
+  /// Launch the kernel with the given inputs.
+  /// \param kernel Kernel to launch.
+  /// \param num_elements Number of queries in the batch.
+  /// \param inputs Input SPN evidence.
+  /// \param outputs Results computed by the kernel.
+  void execute(const Kernel &kernel, size_t num_elements, void *inputs,
+               void *outputs);
 
-    /// Launch the kernel with the given inputs.
-    /// \param kernel Kernel to launch.
-    /// \param num_elements Number of queries in the batch.
-    /// \param inputs Input SPN evidence.
-    /// \param outputs Results computed by the kernel.
-    void execute(const Kernel& kernel, size_t num_elements, void* inputs, void* outputs);
+  spn_runtime(const spn_runtime &) = delete;
 
-    spn_runtime(const spn_runtime&) = delete;
+  spn_runtime(spn_runtime &&) = delete;
 
-    spn_runtime(spn_runtime&&) = delete;
+  spn_runtime &operator=(const spn_runtime &) = delete;
 
-    spn_runtime& operator=(const spn_runtime&) = delete;
+  spn_runtime &operator=(spn_runtime &&) = delete;
 
-    spn_runtime& operator=(spn_runtime&&) = delete;
+private:
+  explicit spn_runtime() = default;
 
-  private:
+  static spn_runtime *_instance;
 
-    explicit spn_runtime() = default;
+  std::unordered_map<size_t, std::unique_ptr<Executable>> cached_executables;
+};
 
-    static spn_runtime* _instance;
+} // namespace spnc_rt
 
-    std::unordered_map<size_t, std::unique_ptr<Executable>> cached_executables;
-
-  };
-
-}
-
-#endif //SPNC_RUNTIME_H
+#endif // SPNC_RUNTIME_H

@@ -45,7 +45,8 @@ Value detail::OptionParsers::parse(const std::string &value) {
 /// Specialization to parse integer options, using standard library facilities
 /// to parse the int from the string. \param value String. \return Integer
 /// value.
-template <> int detail::OptionParsers::parse(const std::string &value) {
+template <>
+int detail::OptionParsers::parse(const std::string &value) {
   return std::stoi(value);
 }
 
@@ -53,7 +54,8 @@ template <> int detail::OptionParsers::parse(const std::string &value) {
 /// using standard library facilities to parse the unsigned int from the string.
 /// \param value String.
 /// \return Unsigned integer value.
-template <> unsigned detail::OptionParsers::parse(const std::string &value) {
+template <>
+unsigned detail::OptionParsers::parse(const std::string &value) {
   return std::stol(value);
 }
 
@@ -61,14 +63,16 @@ template <> unsigned detail::OptionParsers::parse(const std::string &value) {
 /// using standard library facilities to parse the double from the string.
 /// \param value String.
 /// \return Double-precision floating-point value.
-template <> double detail::OptionParsers::parse(const std::string &value) {
+template <>
+double detail::OptionParsers::parse(const std::string &value) {
   return std::stod(value);
 }
 
 /// Specialization to parse string options.
 /// \param value String.
 /// \return The same string.
-template <> std::string detail::OptionParsers::parse(const std::string &value) {
+template <>
+std::string detail::OptionParsers::parse(const std::string &value) {
   return value;
 }
 
@@ -147,7 +151,7 @@ Options::collectCLOptions(const std::vector<llvm::cl::Option *> &clOptions) {
 
   for (auto &clOption : clOptions) {
     auto *clOpt = dynamic_cast<llvm::cl::opt<std::string> *>(clOption);
-    if(!clOpt) {
+    if (!clOpt) {
       SPDLOG_WARN("Skipping option {}", clOption->ArgStr);
       continue;
     }

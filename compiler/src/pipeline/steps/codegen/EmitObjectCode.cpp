@@ -7,36 +7,47 @@
 //==============================================================================
 
 #include "EmitObjectCode.h"
+#include "util/Logging.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
-#include "util/Logging.h"
-#include "llvm/IR/LegacyPassManager.h"
 #include <option/GlobalOptions.h>
-#include "llvm/Analysis/TargetLibraryInfo.h"
 
-spnc::ExecutionResult spnc::EmitObjectCode::executeStep(llvm::Module* module, ObjectFile* file) {
+spnc::ExecutionResult spnc::EmitObjectCode::executeStep(llvm::Module *module,
+                                                        ObjectFile *file) {
   std::error_code EC;
-  llvm::raw_fd_ostream dest(file->fileName(), EC, llvm::sys::fs::OpenFlags::OF_None);
+  llvm::raw_fd_ostream dest(file->fileName(), EC,
+                            llvm::sys::fs::OpenFlags::OF_None);
   if (EC) {
     return spnc::failure("Could not open output file: {}", EC.message());
   }
   llvm::legacy::PassManager pass;
-  // If a vector library was specified via the CLI option, add the functions from the vector
-  // library to the TargetLibraryInfo and add a TargetLibraryInfoWrapperPass to the pass manager
-  // to automatically replace vectorized calls to functions such as exp or log with optimized
-  // functions from the vector library.
-  auto veclib = spnc::option::vectorLibrary.get(*getContext()->get<Configuration>());
-  auto* machine = getContext()->get<llvm::TargetMachine>();
+  // If a vector library was specified via the CLI option, add the functions
+  // from the vector library to the TargetLibraryInfo and add a
+  // TargetLibraryInfoWrapperPass to the pass manager to automatically replace
+  // vectorized calls to functions such as exp or log with optimized functions
+  // from the vector library.
+  auto veclib =
+      spnc::option::vectorLibrary.get(*getContext()->get<Configuration>());
+  auto *machine = getContext()->get<llvm::TargetMachine>();
   if (veclib != spnc::option::VectorLibrary::NONE) {
     auto targetTriple = machine->getTargetTriple();
     llvm::TargetLibraryInfoImpl TLII(targetTriple);
     switch (veclib) {
-      case spnc::option::VectorLibrary::SVML:TLII.addVectorizableFunctionsFromVecLib(llvm::TargetLibraryInfoImpl::SVML, targetTriple);
-        break;
-      case spnc::option::VectorLibrary::LIBMVEC:TLII.addVectorizableFunctionsFromVecLib(llvm::TargetLibraryInfoImpl::LIBMVEC_X86, targetTriple);
-        break;
-      case spnc::option::VectorLibrary::ARM: /* ARM Optimized Routines are not available through the TLII.*/ break;
-      default: return spnc::failure("Unknown vector library");
+    case spnc::option::VectorLibrary::SVML:
+      TLII.addVectorizableFunctionsFromVecLib(llvm::TargetLibraryInfoImpl::SVML,
+                                              targetTriple);
+      break;
+    case spnc::option::VectorLibrary::LIBMVEC:
+      TLII.addVectorizableFunctionsFromVecLib(
+          llvm::TargetLibraryInfoImpl::LIBMVEC_X86, targetTriple);
+      break;
+    case spnc::option::VectorLibrary::ARM: /* ARM Optimized Routines are not
+                                              available through the TLII.*/
+      break;
+    default:
+      return spnc::failure("Unknown vector library");
     }
     pass.add(new llvm::TargetLibraryInfoWrapperPass(TLII));
   }
@@ -52,6 +63,4 @@ spnc::ExecutionResult spnc::EmitObjectCode::executeStep(llvm::Module* module, Ob
   return success();
 }
 
-spnc::ObjectFile* spnc::EmitObjectCode::result() {
-  return outFile;
-}
+spnc::ObjectFile *spnc::EmitObjectCode::result() { return outFile; }

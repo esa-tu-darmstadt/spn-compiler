@@ -13,17 +13,18 @@
 #include "mlir/Pass/Pass.h"
 
 namespace mlir {
-  namespace spn {
+namespace spn {
 
-    struct ReplaceGatherWithShufflePass : public PassWrapper<ReplaceGatherWithShufflePass, OperationPass<ModuleOp>> {
-    protected:
-      void runOnOperation() override;
+struct ReplaceGatherWithShufflePass
+    : public PassWrapper<ReplaceGatherWithShufflePass,
+                         OperationPass<ModuleOp>> {
+protected:
+  void runOnOperation() override;
+};
 
-    };
+std::unique_ptr<mlir::Pass> createReplaceGatherWithShufflePass();
 
-    std::unique_ptr<mlir::Pass> createReplaceGatherWithShufflePass();
+} // namespace spn
+} // namespace mlir
 
-  }
-}
-
-#endif //SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_VECTOROPTIMIZATIONPASSES_H
+#endif // SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_VECTORIZATION_VECTOROPTIMIZATIONPASSES_H

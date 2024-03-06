@@ -7,30 +7,29 @@
 //==============================================================================
 
 #include "LoSPNtoCPUConversion.h"
+#include "LoSPN/LoSPNPasses.h"
 #include "LoSPNtoCPU/LoSPNtoCPUConversionPasses.h"
 #include "LoSPNtoCPU/Vectorization/VectorOptimizationPasses.h"
-#include "LoSPN/LoSPNPasses.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Transforms/Passes.h"
 #include "mlir/Dialect/Tensor/Transforms/Passes.h"
-#include <option/GlobalOptions.h>
+#include "mlir/Transforms/Passes.h"
 #include <TargetInformation.h>
+#include <option/GlobalOptions.h>
 
-void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
-  auto* config = getContext()->get<Configuration>();
+void spnc::LoSPNtoCPUConversion::initializePassPipeline(
+    mlir::PassManager *pm, mlir::MLIRContext *ctx) {
+  auto *config = getContext()->get<Configuration>();
   bool vectorize = spnc::option::cpuVectorize.get(*config);
   pm->addPass(std::make_unique<mlir::spn::LoSPNtoCPUStructureConversionPass>(
-      vectorize,
-      spnc::option::slpMaxAttempts.get(*config),
+      vectorize, spnc::option::slpMaxAttempts.get(*config),
       spnc::option::slpMaxSuccessfulIterations.get(*config),
       spnc::option::slpMaxNodeSize.get(*config),
       spnc::option::slpMaxLookAhead.get(*config),
       spnc::option::slpReorderInstructionsDFS.get(*config),
       spnc::option::slpAllowDuplicateElements.get(*config),
       spnc::option::slpAllowTopologicalMixing.get(*config),
-      spnc::option::slpUseXorChains.get(*config)
-  ));
+      spnc::option::slpUseXorChains.get(*config)));
   if (vectorize) {
     auto useShuffle = spnc::option::replaceGatherWithShuffle.get(*config);
     if (useShuffle) {
@@ -38,19 +37,21 @@ void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, m
     }
     pm->addPass(mlir::spn::createLoSPNNodeVectorizationPass());
     if (useShuffle) {
-      // We need another run of the canonicalizer here to remove lo_spn.to_scalar
-      // operations introduced by the replacement of gathers and that should
-      // be obsolete after the node vectorization.
+      // We need another run of the canonicalizer here to remove
+      // lo_spn.to_scalar operations introduced by the replacement of gathers
+      // and that should be obsolete after the node vectorization.
       pm->addPass(mlir::createCanonicalizerPass());
     }
   }
   pm->addPass(mlir::spn::createLoSPNtoCPUNodeConversionPass());
   if (mlir::spn::TargetInformation::nativeCPUTarget().isAARCH64Target() &&
-      spnc::option::vectorLibrary.get(*config) == spnc::option::VectorLibrary::ARM) {
-    // The ARM Optimized Routines are currently not available through the regular TargetLibraryInfo
-    // interface of opt/llc, so replacement with optimized implementations of elementary
-    // functions (e.g., exp, log), cannot happen in the backend. Instead, we add our own pass
-    // performing the replacement in explicitly defined cases here.
+      spnc::option::vectorLibrary.get(*config) ==
+          spnc::option::VectorLibrary::ARM) {
+    // The ARM Optimized Routines are currently not available through the
+    // regular TargetLibraryInfo interface of opt/llc, so replacement with
+    // optimized implementations of elementary functions (e.g., exp, log),
+    // cannot happen in the backend. Instead, we add our own pass performing the
+    // replacement in explicitly defined cases here.
     pm->addPass(mlir::spn::low::createReplaceARMOptimizedRoutinesPass());
   }
   // The remaining bufferization, buffer deallocation and copy removal passes
@@ -59,7 +60,10 @@ void spnc::LoSPNtoCPUConversion::initializePassPipeline(mlir::PassManager* pm, m
   // conversion to FuncOp. This could be avoided at least for Kernels by
   // converting them to FuncOp earlier in the pipeline, e.g., during
   // bufferization of Kernels.
-  pm->addNestedPass<mlir::func::FuncOp>(mlir::tensor::createTensorBufferizePass());
-  pm->addNestedPass<mlir::func::FuncOp>(mlir::bufferization::createFinalizingBufferizePass());
-  pm->addNestedPass<mlir::func::FuncOp>(mlir::bufferization::createBufferDeallocationPass());
+  pm->addNestedPass<mlir::func::FuncOp>(
+      mlir::tensor::createTensorBufferizePass());
+  pm->addNestedPass<mlir::func::FuncOp>(
+      mlir::bufferization::createFinalizingBufferizePass());
+  pm->addNestedPass<mlir::func::FuncOp>(
+      mlir::bufferization::createBufferDeallocationPass());
 }

@@ -7,6 +7,8 @@
 //==============================================================================
 
 #include "MLIRtoLLVMIRConversion.h"
+#include "mlir/ExecutionEngine/ExecutionEngine.h"
+#include "mlir/ExecutionEngine/OptUtils.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PassTimingInfo.h"
@@ -14,8 +16,6 @@
 #include "llvm/Support/Error.h"
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Transforms/IPO.h>
-#include <mlir/ExecutionEngine/ExecutionEngine.h>
-#include <mlir/ExecutionEngine/OptUtils.h>
 #include <option/GlobalOptions.h>
 #include <util/Logging.h>
 

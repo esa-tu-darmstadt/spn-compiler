@@ -9,30 +9,31 @@
 #ifndef SPNC_MLIR_INCLUDE_CONVERSION_HISPNTOLOSPN_QUERYPATTERNS_H
 #define SPNC_MLIR_INCLUDE_CONVERSION_HISPNTOLOSPN_QUERYPATTERNS_H
 
-#include "mlir/Transforms/DialectConversion.h"
 #include "HiSPN/HiSPNDialect.h"
 #include "HiSPN/HiSPNOps.h"
+#include "mlir/Transforms/DialectConversion.h"
 #include "llvm/Support/Debug.h"
 
 namespace mlir {
-  namespace spn {
+namespace spn {
 
-    struct JointQueryLowering : OpConversionPattern<high::JointQuery> {
+struct JointQueryLowering : OpConversionPattern<high::JointQuery> {
 
-      using OpConversionPattern<high::JointQuery>::OpConversionPattern;
+  using OpConversionPattern<high::JointQuery>::OpConversionPattern;
 
-      LogicalResult matchAndRewrite(high::JointQuery op,
-                                    high::JointQuery::Adaptor adaptor,
-                                    ConversionPatternRewriter& rewriter) const override;
+  LogicalResult
+  matchAndRewrite(high::JointQuery op, high::JointQuery::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override;
+};
 
-    };
-
-    static inline void populateHiSPNtoLoSPNQueryPatterns(RewritePatternSet& patterns, MLIRContext* context,
-                                                         TypeConverter& typeConverter) {
-      patterns.insert<JointQueryLowering>(typeConverter, context);
-    }
-
-  }
+static inline void
+populateHiSPNtoLoSPNQueryPatterns(RewritePatternSet &patterns,
+                                  MLIRContext *context,
+                                  TypeConverter &typeConverter) {
+  patterns.insert<JointQueryLowering>(typeConverter, context);
 }
 
-#endif //SPNC_MLIR_INCLUDE_CONVERSION_HISPNTOLOSPN_QUERYPATTERNS_H
+} // namespace spn
+} // namespace mlir
+
+#endif // SPNC_MLIR_INCLUDE_CONVERSION_HISPNTOLOSPN_QUERYPATTERNS_H

@@ -7,15 +7,16 @@
 //==============================================================================
 
 #include "TargetInformation.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/raw_os_ostream.h"
-#include "mlir/IR/BuiltinTypes.h"
 
-mlir::spn::TargetInformation::TargetInformation() : hostDefaultTriple(llvm::sys::getDefaultTargetTriple()) {
+mlir::spn::TargetInformation::TargetInformation()
+    : hostDefaultTriple(llvm::sys::getDefaultTargetTriple()) {
   llvm::sys::getHostCPUFeatures(featureMap);
 }
 
-mlir::spn::TargetInformation& mlir::spn::TargetInformation::nativeCPUTarget() {
+mlir::spn::TargetInformation &mlir::spn::TargetInformation::nativeCPUTarget() {
   static TargetInformation ti;
   return ti;
 }
@@ -64,69 +65,85 @@ unsigned int mlir::spn::TargetInformation::getHWVectorEntries(mlir::Type type) {
   return 1;
 }
 
-unsigned int mlir::spn::TargetInformation::getHWVectorEntriesAVX2(mlir::Type type) {
+unsigned int
+mlir::spn::TargetInformation::getHWVectorEntriesAVX2(mlir::Type type) {
   if (auto intType = type.dyn_cast<IntegerType>()) {
     // AVX2 extends most integer instructions to 256 bit.
     return 256 / intType.getWidth();
   }
   if (auto floatType = type.dyn_cast<FloatType>()) {
     switch (floatType.getWidth()) {
-      case 64: return 4;
-      case 32:
-        // Float16 can only be used for store/load but not for arithmetic on most AVX2 implementations.
-      default: return 8;
+    case 64:
+      return 4;
+    case 32:
+      // Float16 can only be used for store/load but not for arithmetic on most
+      // AVX2 implementations.
+    default:
+      return 8;
     }
   }
   return 1;
 }
 
-unsigned int mlir::spn::TargetInformation::getHWVectorEntriesAVX(mlir::Type type) {
+unsigned int
+mlir::spn::TargetInformation::getHWVectorEntriesAVX(mlir::Type type) {
   if (auto intType = type.dyn_cast<IntegerType>()) {
     // With AVX, integer instructions are only defined for 128 bit.
     return 128 / intType.getWidth();
   }
   if (auto floatType = type.dyn_cast<FloatType>()) {
     switch (floatType.getWidth()) {
-      case 64: return 4;
-      case 32:
-        // Float16 can only be used for store/load but not for arithmetic on most AVX2 implementations.
-      default: return 8;
+    case 64:
+      return 4;
+    case 32:
+      // Float16 can only be used for store/load but not for arithmetic on most
+      // AVX2 implementations.
+    default:
+      return 8;
     }
   }
   return 1;
 }
 
-unsigned int mlir::spn::TargetInformation::getHWVectorEntriesAVX512(mlir::Type type) {
+unsigned int
+mlir::spn::TargetInformation::getHWVectorEntriesAVX512(mlir::Type type) {
   if (auto intType = type.dyn_cast<IntegerType>()) {
     // AVX-512 extends most integer instructions to 512 bit.
     return 512 / intType.getWidth();
   }
   if (auto floatType = type.dyn_cast<FloatType>()) {
     switch (floatType.getWidth()) {
-      case 64: return 8;
-      case 32:
-        // Float16 can only be used for store/load but not for arithmetic on most AVX-512 implementations.
-      default: return 16;
+    case 64:
+      return 8;
+    case 32:
+      // Float16 can only be used for store/load but not for arithmetic on most
+      // AVX-512 implementations.
+    default:
+      return 16;
     }
   }
   return 1;
 }
 
-unsigned int mlir::spn::TargetInformation::getHWVectorEntriesNeon(mlir::Type type) {
+unsigned int
+mlir::spn::TargetInformation::getHWVectorEntriesNeon(mlir::Type type) {
   if (auto intType = type.dyn_cast<IntegerType>()) {
     if (intType.getWidth() % 8 == 0 && intType.getWidth() <= 64) {
-      // Arm Neon supports vector operations on all integer types up to 64 bit, using 128 bit registers.
+      // Arm Neon supports vector operations on all integer types up to 64 bit,
+      // using 128 bit registers.
       return 128 / intType.getWidth();
     }
   }
   if (auto floatType = type.dyn_cast<FloatType>()) {
     switch (floatType.getWidth()) {
-      case 64: return 2;
-      case 32:
-        // Float16 can only be used for store/load but not for arithmetic without the asimdhp feature.
-      default: return 4;
+    case 64:
+      return 2;
+    case 32:
+      // Float16 can only be used for store/load but not for arithmetic without
+      // the asimdhp feature.
+    default:
+      return 4;
     }
   }
   return 1;
 }
-

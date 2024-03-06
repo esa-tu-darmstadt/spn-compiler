@@ -17,42 +17,47 @@
 #include "llvm/Support/TargetSelect.h"
 
 namespace mlir {
-  namespace spn {
+namespace spn {
 
-    ///
-    /// MLIR pass to translate the GPUModule inside a MLIR module to CUBIN.
-    /// The GPUModule is first translated to NVVM IR, then to PTX assembly via the LLVM PTX backend,
-    /// before eventually being translated to CUBIN through calls to the CUDA runtime library.
-    class CUDASerializeToCubinPass : public PassWrapper<CUDASerializeToCubinPass, mlir::gpu::SerializeToBlobPass> {
+///
+/// MLIR pass to translate the GPUModule inside a MLIR module to CUBIN.
+/// The GPUModule is first translated to NVVM IR, then to PTX assembly via the
+/// LLVM PTX backend, before eventually being translated to CUBIN through calls
+/// to the CUDA runtime library.
+class CUDASerializeToCubinPass
+    : public PassWrapper<CUDASerializeToCubinPass,
+                         mlir::gpu::SerializeToBlobPass> {
 
-    public:
+public:
+  explicit CUDASerializeToCubinPass(ArrayRef<llvm::StringRef> kernelFunctions,
+                                    bool shouldPrintIR = false,
+                                    unsigned _optLevel = 2);
 
-      explicit CUDASerializeToCubinPass(ArrayRef<llvm::StringRef> kernelFunctions, bool shouldPrintIR = false,
-                                        unsigned _optLevel = 2);
+protected:
+  void getDependentDialects(DialectRegistry &registry) const override;
 
-    protected:
-      void getDependentDialects(DialectRegistry& registry) const override;
-    private:
-      std::unique_ptr<llvm::Module> translateToLLVMIR(llvm::LLVMContext& llvmContext) override;
-      std::unique_ptr<std::vector<char>> serializeISA(const std::string& isa) override;
+private:
+  std::unique_ptr<llvm::Module>
+  translateToLLVMIR(llvm::LLVMContext &llvmContext) override;
+  std::unique_ptr<std::vector<char>>
+  serializeISA(const std::string &isa) override;
 
-      std::string getGPUArchitecture();
-      void optimizeNVVMIR(llvm::Module* module);
-      void linkWithLibdevice(llvm::Module* module);
+  std::string getGPUArchitecture();
+  void optimizeNVVMIR(llvm::Module *module);
+  void linkWithLibdevice(llvm::Module *module);
 
-      bool printIR;
+  bool printIR;
 
-      llvm::SmallVector<llvm::StringRef> kernelFuncs;
+  llvm::SmallVector<llvm::StringRef> kernelFuncs;
 
-      unsigned optLevel;
+  unsigned optLevel;
+};
 
-    };
+std::unique_ptr<OperationPass<gpu::GPUModuleOp>>
+createSerializeToCubinPass(ArrayRef<StringRef> kernelFunctions,
+                           bool shouldPrintIR = false, unsigned optLevel = 2);
 
-    std::unique_ptr<OperationPass<gpu::GPUModuleOp>> createSerializeToCubinPass(ArrayRef<StringRef> kernelFunctions,
-                                                                                bool shouldPrintIR = false,
-                                                                                unsigned optLevel = 2);
+} // namespace spn
+} // namespace mlir
 
-  }
-}
-
-#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_CUDA_CUDASERIALIZETOCUBIN_H
+#endif // SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_CUDA_CUDASERIALIZETOCUBIN_H

@@ -12,44 +12,45 @@
 #include "mlir/Pass/Pass.h"
 
 namespace mlir {
-  namespace spn {
+namespace spn {
 
-    struct LoSPNtoGPUStructureConversionPass :
-        public PassWrapper<LoSPNtoGPUStructureConversionPass, OperationPass<ModuleOp>> {
+struct LoSPNtoGPUStructureConversionPass
+    : public PassWrapper<LoSPNtoGPUStructureConversionPass,
+                         OperationPass<ModuleOp>> {
 
-    protected:
-      void runOnOperation() override;
+protected:
+  void runOnOperation() override;
 
-    public:
-      void getDependentDialects(DialectRegistry& registry) const override;
-    };
+public:
+  void getDependentDialects(DialectRegistry &registry) const override;
+};
 
-    std::unique_ptr<Pass> createLoSPNtoGPUStructureConversionPass();
+std::unique_ptr<Pass> createLoSPNtoGPUStructureConversionPass();
 
-    struct LoSPNtoGPUNodeConversionPass :
-        public PassWrapper<LoSPNtoGPUNodeConversionPass, OperationPass<ModuleOp>> {
+struct LoSPNtoGPUNodeConversionPass
+    : public PassWrapper<LoSPNtoGPUNodeConversionPass,
+                         OperationPass<ModuleOp>> {
 
-    protected:
-      void runOnOperation() override;
+protected:
+  void runOnOperation() override;
 
-    public:
-      void getDependentDialects(DialectRegistry& registry) const override;
+public:
+  void getDependentDialects(DialectRegistry &registry) const override;
+};
 
-    };
+std::unique_ptr<Pass> createLoSPNtoGPUNodeConversionPass();
 
-    std::unique_ptr<Pass> createLoSPNtoGPUNodeConversionPass();
+struct LoSPNGPUSharedMemoryInsertionPass
+    : public PassWrapper<LoSPNGPUSharedMemoryInsertionPass,
+                         OperationPass<ModuleOp>> {
 
-    struct LoSPNGPUSharedMemoryInsertionPass :
-        public PassWrapper<LoSPNGPUSharedMemoryInsertionPass, OperationPass<ModuleOp>> {
+protected:
+  void runOnOperation() override;
+};
 
-    protected:
-      void runOnOperation() override;
+std::unique_ptr<Pass> createLoSPNGPUSharedMemoryInsertionPass();
 
-    };
+} // namespace spn
+} // namespace mlir
 
-    std::unique_ptr<Pass> createLoSPNGPUSharedMemoryInsertionPass();
-
-  }
-}
-
-#endif //SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOGPU_LOSPNTOGPUCONVERSIONPASSES_H
+#endif // SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOGPU_LOSPNTOGPUCONVERSIONPASSES_H

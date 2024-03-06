@@ -9,76 +9,66 @@
 #ifndef SPNC_EXECUTABLE_H
 #define SPNC_EXECUTABLE_H
 
-#include <cstdlib>
 #include <Kernel.h>
+#include <cstdlib>
 
 using namespace spnc;
 
 namespace spnc_rt {
 
-  typedef void (* kernel_function)(void* input_ptr,
-                                   void* aligned_input_ptr,
-                                   int64_t input_offset,
-                                   int64_t input_size_dim1,
-                                   int64_t input_size_dim2,
-                                   int64_t input_stride_dim1,
-                                   int64_t input_stride_dim2,
-                                   void* output_ptr,
-                                   void* output_aligned_ptr,
-                                   int64_t output_offset,
-                                   int64_t output_size_dim1,
-                                   int64_t output_size_dim2,
-                                   int64_t output_stride_dim1,
-                                   int64_t output_stride_dim2);
+typedef void (*kernel_function)(
+    void *input_ptr, void *aligned_input_ptr, int64_t input_offset,
+    int64_t input_size_dim1, int64_t input_size_dim2, int64_t input_stride_dim1,
+    int64_t input_stride_dim2, void *output_ptr, void *output_aligned_ptr,
+    int64_t output_offset, int64_t output_size_dim1, int64_t output_size_dim2,
+    int64_t output_stride_dim1, int64_t output_stride_dim2);
 
-  ///
-  /// Manages a Kernel by loading it from the shared object using libelf.
-  class Executable {
+///
+/// Manages a Kernel by loading it from the shared object using libelf.
+class Executable {
 
-  public:
+public:
+  /// Constructor.
+  /// \param kernel Kernel to load and eventually execute.
+  explicit Executable(const Kernel &kernel);
 
-    /// Constructor.
-    /// \param kernel Kernel to load and eventually execute.
-    explicit Executable(const Kernel& kernel);
+  Executable(const Executable &) = delete;
 
-    Executable(const Executable&) = delete;
+  Executable &operator=(const Executable &) = delete;
 
-    Executable& operator=(const Executable&) = delete;
+  /// Move constructor.
+  /// \param other Move source.
+  Executable(Executable &&other) noexcept;
 
-    /// Move constructor.
-    /// \param other Move source.
-    Executable(Executable&& other) noexcept;
+  /// Move assignment operator.
+  /// \param other Move source.
+  /// \return Reference to move target.
+  Executable &operator=(Executable &&other) noexcept;
 
-    /// Move assignment operator.
-    /// \param other Move source.
-    /// \return Reference to move target.
-    Executable& operator=(Executable&& other) noexcept;
+  ~Executable();
 
-    ~Executable();
+  /// Execute the Kernel.
+  /// \param num_elements Number of queries in the batch.
+  /// \param inputs Input SPN evidence.
+  /// \param outputs SPN output probabilities.
+  void execute(size_t num_elements, void *inputs, void *outputs);
 
-    /// Execute the Kernel.
-    /// \param num_elements Number of queries in the batch.
-    /// \param inputs Input SPN evidence.
-    /// \param outputs SPN output probabilities.
-    void execute(size_t num_elements, void* inputs, void* outputs);
+private:
+  const Kernel *kernel;
 
-  private:
-    const Kernel* kernel;
+  void *handle;
 
-    void* handle;
+  kernel_function kernel_func;
 
-    kernel_function kernel_func;
+  void initialize();
 
-    void initialize();
+  void executeSingle(size_t num_samples, void *inputs, void *outputs);
 
-    void executeSingle(size_t num_samples, void* inputs, void* outputs);
+  void executeBatch(size_t num_samples, void *inputs, void *outputs);
 
-    void executeBatch(size_t num_samples, void* inputs, void* outputs);
+  void executeGPU(size_t num_samples, void *inputs, void *outputs);
+};
 
-    void executeGPU(size_t num_samples, void* inputs, void* outputs);
+} // namespace spnc_rt
 
-  };
-
-}
-
-#endif //SPNC_EXECUTABLE_H
+#endif // SPNC_EXECUTABLE_H

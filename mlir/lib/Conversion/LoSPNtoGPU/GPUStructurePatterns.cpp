@@ -7,33 +7,37 @@
 //==============================================================================
 
 #include "LoSPNtoGPU/GPUStructurePatterns.h"
-#include <mlir/IR/BlockAndValueMapping.h>
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
-#include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/BuiltinOps.h"
 
-mlir::LogicalResult mlir::spn::KernelGPULowering::matchAndRewrite(mlir::spn::low::SPNKernel op,
-                                                                  llvm::ArrayRef <mlir::Value> operands,
-                                                                  mlir::ConversionPatternRewriter& rewriter) const {
+mlir::LogicalResult mlir::spn::KernelGPULowering::matchAndRewrite(
+    mlir::spn::low::SPNKernel op, llvm::ArrayRef<mlir::Value> operands,
+    mlir::ConversionPatternRewriter &rewriter) const {
   assert(operands.empty() && "Kernel should not take any operands");
-  auto replaceFunc = rewriter.create<mlir::FuncOp>(op.getLoc(), op.getName(), op.getType());
+  auto replaceFunc =
+      rewriter.create<mlir::FuncOp>(op.getLoc(), op.getName(), op.getType());
   auto funcBlock = replaceFunc.addEntryBlock();
-  rewriter.mergeBlocks(&op.getBody().front(), funcBlock, funcBlock->getArguments());
+  rewriter.mergeBlocks(&op.getBody().front(), funcBlock,
+                       funcBlock->getArguments());
   rewriter.eraseOp(op);
   return success();
 }
 
-mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::low::SPNTask op,
-                                                                     mlir::spn::low::SPNTask::Adaptor adaptor,
-                                                                     mlir::ConversionPatternRewriter& rewriter) const {
+mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(
+    mlir::spn::low::SPNTask op, mlir::spn::low::SPNTask::Adaptor adaptor,
+    mlir::ConversionPatternRewriter &rewriter) const {
   //
-  // Lower a task with batchSize > 1. The task is lowered to a function, containing a scalar loop iterating over the
-  // samples in the batch. The content of the Task is merged into the newly created loop's body, the loop induction
-  // variable replaces the batchIndex argument of the Task.
+  // Lower a task with batchSize > 1. The task is lowered to a function,
+  // containing a scalar loop iterating over the samples in the batch. The
+  // content of the Task is merged into the newly created loop's body, the loop
+  // induction variable replaces the batchIndex argument of the Task.
   if (op.getBatchSize() == 1) {
-    return rewriter.notifyMatchFailure(op, "Match only batched (batchSize > 1) execution");
+    return rewriter.notifyMatchFailure(
+        op, "Match only batched (batchSize > 1) execution");
   }
   //
   // Allocate device memory for the inputs and out-args of the task.
@@ -41,7 +45,7 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
   SmallVector<std::pair<Value, Value>, 2> copyTo;
   SmallVector<std::pair<Value, Value>, 2> copyFrom;
   SmallVector<Value> deviceMemories;
-  auto& bodyBlock = op.getBody().front();
+  auto &bodyBlock = op.getBody().front();
   assert(operands.size() + 1 == bodyBlock.getNumArguments());
   for (unsigned i = 0; i < operands.size(); ++i) {
     auto taskInput = operands[i];
@@ -73,12 +77,15 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
     SmallVector<Value, 1> dynamicSizes;
     for (int k = 0; k < inputType.getRank(); ++k) {
       if (inputType.isDynamicDim(k)) {
-        auto dymSize = rewriter.create<memref::DimOp>(op.getLoc(), taskInput, k);
+        auto dymSize =
+            rewriter.create<memref::DimOp>(op.getLoc(), taskInput, k);
         dynamicSizes.push_back(dymSize);
       }
     }
-    auto memref = MemRefType::get(inputType.getShape(), inputType.getElementType());
-    auto deviceMem = rewriter.create<gpu::AllocOp>(op->getLoc(), memref, ValueRange{}, dynamicSizes, ValueRange{});
+    auto memref =
+        MemRefType::get(inputType.getShape(), inputType.getElementType());
+    auto deviceMem = rewriter.create<gpu::AllocOp>(
+        op->getLoc(), memref, ValueRange{}, dynamicSizes, ValueRange{});
     deviceMemories.push_back(deviceMem.memref());
     if (isRead) {
       copyTo.emplace_back(taskInput, deviceMem.memref());
@@ -86,51 +93,63 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
     if (isWritten) {
       copyFrom.emplace_back(deviceMem.memref(), taskInput);
     }
-
   }
 
-
   //
-  // Copy all memrefs that are read from in the GPU task from host memory to device memory.
+  // Copy all memrefs that are read from in the GPU task from host memory to
+  // device memory.
   //
-  for (auto& hostDevice : copyTo) {
+  for (auto &hostDevice : copyTo) {
     auto hostMem = hostDevice.first;
     auto deviceMem = hostDevice.second;
-    rewriter.create<gpu::MemcpyOp>(op->getLoc(), std::nullopt, ValueRange{}, deviceMem, hostMem);
+    rewriter.create<gpu::MemcpyOp>(op->getLoc(), std::nullopt, ValueRange{},
+                                   deviceMem, hostMem);
   }
 
-  // Determine the total number of samples to compute from the size of the memref passed as the
-  // first argument to the Task.
+  // Determine the total number of samples to compute from the size of the
+  // memref passed as the first argument to the Task.
   auto inputMemRefTy = operands[0].getType().dyn_cast<MemRefType>();
   assert(inputMemRefTy);
   assert(inputMemRefTy.hasRank() && inputMemRefTy.getRank() == 2);
   assert(inputMemRefTy.isDynamicDim(0) ^ inputMemRefTy.isDynamicDim(1));
   auto index = (inputMemRefTy.isDynamicDim(0)) ? 0 : 1;
-  auto numSamples = rewriter.create<memref::DimOp>(op.getLoc(), operands[0], index);
-  // We assume 1D layout of threads and blocks and use the user-specified batchSize as blockSize.
+  auto numSamples =
+      rewriter.create<memref::DimOp>(op.getLoc(), operands[0], index);
+  // We assume 1D layout of threads and blocks and use the user-specified
+  // batchSize as blockSize.
   if ((op.getBatchSize() % 32) != 0) {
     op.emitWarning() << "Batch size should be a multiple of the warp-size (32)";
   }
-  auto blockSize = rewriter.create<ConstantOp>(op.getLoc(), rewriter.getIndexAttr(op.getBatchSize()));
-  auto numBlocks = rewriter.create<SignedCeilDivIOp>(op.getLoc(), numSamples, blockSize);
-  auto constantOne = rewriter.create<ConstantOp>(op->getLoc(), rewriter.getIndexAttr(1));
-  auto gpuLaunch = rewriter.create<gpu::LaunchOp>(op->getLoc(), numBlocks, constantOne, constantOne,
-                                                  blockSize, constantOne, constantOne);
+  auto blockSize = rewriter.create<ConstantOp>(
+      op.getLoc(), rewriter.getIndexAttr(op.getBatchSize()));
+  auto numBlocks =
+      rewriter.create<SignedCeilDivIOp>(op.getLoc(), numSamples, blockSize);
+  auto constantOne =
+      rewriter.create<ConstantOp>(op->getLoc(), rewriter.getIndexAttr(1));
+  auto gpuLaunch = rewriter.create<gpu::LaunchOp>(
+      op->getLoc(), numBlocks, constantOne, constantOne, blockSize, constantOne,
+      constantOne);
   auto restore = rewriter.saveInsertionPoint();
   rewriter.setInsertionPointToStart(&gpuLaunch.getBody().front());
-  auto blockOffset = rewriter.create<MulIOp>(op->getLoc(), gpuLaunch.blockSizeX(), gpuLaunch.getBlockIds().x);
-  auto batchIndex = rewriter.create<AddIOp>(op.getLoc(), blockOffset, gpuLaunch.getThreadIds().x);
+  auto blockOffset = rewriter.create<MulIOp>(
+      op->getLoc(), gpuLaunch.blockSizeX(), gpuLaunch.getBlockIds().x);
+  auto batchIndex = rewriter.create<AddIOp>(op.getLoc(), blockOffset,
+                                            gpuLaunch.getThreadIds().x);
   SmallVector<Value, 5> blockReplacementArgs;
   blockReplacementArgs.push_back(batchIndex);
   for (auto mem : deviceMemories) {
     // Use the previously allocated GPU device memory.
     blockReplacementArgs.push_back(mem);
   }
-  auto checkInBounds = rewriter.create<mlir::CmpIOp>(op->getLoc(), CmpIPredicate::ult, batchIndex, numSamples);
-  auto ifOp = rewriter.create<mlir::scf::IfOp>(op.getLoc(), checkInBounds, false);
-  (void) rewriter.create<gpu::TerminatorOp>(op.getLoc());
+  auto checkInBounds = rewriter.create<mlir::CmpIOp>(
+      op->getLoc(), CmpIPredicate::ult, batchIndex, numSamples);
+  auto ifOp =
+      rewriter.create<mlir::scf::IfOp>(op.getLoc(), checkInBounds, false);
+  (void)rewriter.create<gpu::TerminatorOp>(op.getLoc());
   rewriter.setInsertionPointToStart(&ifOp.thenRegion().front());
-  rewriter.mergeBlockBefore(&op.getBody().front(), ifOp.thenRegion().front().getTerminator(), blockReplacementArgs);
+  rewriter.mergeBlockBefore(&op.getBody().front(),
+                            ifOp.thenRegion().front().getTerminator(),
+                            blockReplacementArgs);
   gpuLaunch.getBody().front().walk([&rewriter](low::SPNReturn ret) {
     assert(ret.getReturnValues().empty() && "Task return should be empty");
     rewriter.eraseOp(ret);
@@ -139,30 +158,33 @@ mlir::LogicalResult mlir::spn::BatchTaskGPULowering::matchAndRewrite(mlir::spn::
   //
   // Copy back all device memories that the GPU task writes to
   //
-  for (auto& deviceHost : copyFrom) {
+  for (auto &deviceHost : copyFrom) {
     auto deviceMem = deviceHost.first;
     auto hostMem = deviceHost.second;
-    rewriter.create<gpu::MemcpyOp>(op->getLoc(), std::nullopt, ValueRange{}, hostMem, deviceMem);
+    rewriter.create<gpu::MemcpyOp>(op->getLoc(), std::nullopt, ValueRange{},
+                                   hostMem, deviceMem);
   }
-  // Deallocation is not performed here, because the buffer might be re-used by other tasks on the GPU to
-  // eliminate unnecessary copies between host and device for intermediate results.
-  // Therefore, deallocations are later on inserted by a dedicated pass.
+  // Deallocation is not performed here, because the buffer might be re-used by
+  // other tasks on the GPU to eliminate unnecessary copies between host and
+  // device for intermediate results. Therefore, deallocations are later on
+  // inserted by a dedicated pass.
   rewriter.eraseOp(op);
   return success();
 }
 
-mlir::LogicalResult mlir::spn::BodyGPULowering::matchAndRewrite(mlir::spn::low::SPNBody op,
-                                                                mlir::spn::low::SPNBody::Adaptor adaptor,
-                                                                mlir::ConversionPatternRewriter& rewriter) const {
+mlir::LogicalResult mlir::spn::BodyGPULowering::matchAndRewrite(
+    mlir::spn::low::SPNBody op, mlir::spn::low::SPNBody::Adaptor adaptor,
+    mlir::ConversionPatternRewriter &rewriter) const {
   assert(operands.size() == op.getBody().front().getNumArguments() &&
-      "Expecting the number of operands to match the block arguments");
+         "Expecting the number of operands to match the block arguments");
 
   SmallVector<Value> argValues;
   for (auto opArg : llvm::zip(operands, op.getBody().front().getArguments())) {
     auto operand = std::get<0>(opArg);
     auto arg = std::get<1>(opArg);
     if (arg.getType().isa<low::LogType>()) {
-      auto convertLog = rewriter.create<low::SPNConvertLog>(op->getLoc(), operand);
+      auto convertLog =
+          rewriter.create<low::SPNConvertLog>(op->getLoc(), operand);
       argValues.push_back(convertLog);
     } else {
       argValues.push_back(operand);
@@ -174,9 +196,11 @@ mlir::LogicalResult mlir::spn::BodyGPULowering::matchAndRewrite(mlir::spn::low::
     for (auto res : yield.getResultValues()) {
       if (auto logType = res.getType().dyn_cast<low::LogType>()) {
         // If the body internally computes in log-space, we need to
-        // strip the log-semantic for the operations using the result of the body.
+        // strip the log-semantic for the operations using the result of the
+        // body.
         rewriter.setInsertionPoint(yield);
-        auto stripLog = rewriter.create<low::SPNStripLog>(yield->getLoc(), res, logType.getBaseType());
+        auto stripLog = rewriter.create<low::SPNStripLog>(
+            yield->getLoc(), res, logType.getBaseType());
         resultValues.push_back(stripLog);
       } else {
         resultValues.push_back(res);

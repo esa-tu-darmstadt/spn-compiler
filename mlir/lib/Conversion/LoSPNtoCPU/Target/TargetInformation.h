@@ -9,59 +9,54 @@
 #ifndef SPNC_COMPILER_SRC_DRIVER_TARGET_TARGETINFORMATION_H
 #define SPNC_COMPILER_SRC_DRIVER_TARGET_TARGETINFORMATION_H
 
-#include <llvm/ADT/StringMap.h>
 #include "mlir/IR/Types.h"
 #include "llvm/TargetParser/Triple.h"
+#include <llvm/ADT/StringMap.h>
 
 namespace mlir {
-  namespace spn {
-    class TargetInformation {
+namespace spn {
+class TargetInformation {
 
-    private:
+private:
+  explicit TargetInformation();
 
-      explicit TargetInformation();
+public:
+  TargetInformation(const TargetInformation &) = delete;
 
-    public:
+  TargetInformation &operator=(const TargetInformation &) = delete;
 
-      TargetInformation(const TargetInformation&) = delete;
+public:
+  static TargetInformation &nativeCPUTarget();
 
-      TargetInformation& operator=(const TargetInformation&) = delete;
+  std::string getHostArchitecture();
 
-    public:
+  bool isX8664Target();
 
-      static TargetInformation& nativeCPUTarget();
+  bool isAARCH64Target();
 
-      std::string getHostArchitecture();
+  bool hasAVX2Support();
 
-      bool isX8664Target();
+  bool hasAVX512Support();
 
-      bool isAARCH64Target();
+  bool hasAVXSupport();
 
-      bool hasAVX2Support();
+  bool hasNeonSupport();
 
-      bool hasAVX512Support();
+  unsigned getHWVectorEntries(mlir::Type type);
 
-      bool hasAVXSupport();
+private:
+  unsigned getHWVectorEntriesAVX512(mlir::Type type);
 
-      bool hasNeonSupport();
+  unsigned getHWVectorEntriesAVX2(mlir::Type type);
 
-      unsigned getHWVectorEntries(mlir::Type type);
+  unsigned getHWVectorEntriesAVX(mlir::Type type);
 
-    private:
+  unsigned getHWVectorEntriesNeon(mlir::Type type);
 
-      unsigned getHWVectorEntriesAVX512(mlir::Type type);
+  llvm::StringMap<bool, llvm::MallocAllocator> featureMap;
 
-      unsigned getHWVectorEntriesAVX2(mlir::Type type);
-
-      unsigned getHWVectorEntriesAVX(mlir::Type type);
-
-      unsigned getHWVectorEntriesNeon(mlir::Type type);
-
-      llvm::StringMap<bool, llvm::MallocAllocator> featureMap;
-
-      llvm::Triple hostDefaultTriple;
-
-    };
-  }
-}
-#endif //SPNC_COMPILER_SRC_DRIVER_TARGET_TARGETINFORMATION_H
+  llvm::Triple hostDefaultTriple;
+};
+} // namespace spn
+} // namespace mlir
+#endif // SPNC_COMPILER_SRC_DRIVER_TARGET_TARGETINFORMATION_H

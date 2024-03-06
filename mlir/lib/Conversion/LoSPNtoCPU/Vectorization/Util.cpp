@@ -13,30 +13,42 @@
 using namespace mlir;
 using namespace mlir::spn;
 
-Value util::extendTruncateOrGetVector(Value input, VectorType targetVectorType, RewriterBase& rewriter) {
+Value util::extendTruncateOrGetVector(Value input, VectorType targetVectorType,
+                                      RewriterBase &rewriter) {
   auto inputVectorType = input.getType().dyn_cast<VectorType>();
-  assert(inputVectorType && "cannot extend or truncate scalar type to vector type");
-  assert(targetVectorType.getElementType().isa<FloatType>() && "target element type must be float type");
-  if (inputVectorType.getElementTypeBitWidth() < targetVectorType.getElementTypeBitWidth()) {
-    return rewriter.create<arith::ExtFOp>(input.getLoc(), targetVectorType, input);
-  } else if (inputVectorType.getElementTypeBitWidth() > targetVectorType.getElementTypeBitWidth()) {
-    return rewriter.create<arith::TruncFOp>(input.getLoc(), targetVectorType, input);
+  assert(inputVectorType &&
+         "cannot extend or truncate scalar type to vector type");
+  assert(targetVectorType.getElementType().isa<FloatType>() &&
+         "target element type must be float type");
+  if (inputVectorType.getElementTypeBitWidth() <
+      targetVectorType.getElementTypeBitWidth()) {
+    return rewriter.create<arith::ExtFOp>(input.getLoc(), targetVectorType,
+                                          input);
+  } else if (inputVectorType.getElementTypeBitWidth() >
+             targetVectorType.getElementTypeBitWidth()) {
+    return rewriter.create<arith::TruncFOp>(input.getLoc(), targetVectorType,
+                                            input);
   }
   return input;
 }
 
-Value util::castToFloatOrGetVector(Value input, VectorType targetFloatVectorType, RewriterBase& rewriter) {
+Value util::castToFloatOrGetVector(Value input,
+                                   VectorType targetFloatVectorType,
+                                   RewriterBase &rewriter) {
   auto inputVectorType = input.getType().dyn_cast<VectorType>();
   assert(inputVectorType && "cannot cast scalar type to float vector type");
-  assert(targetFloatVectorType.getElementType().isa<FloatType>() && "target element type must be float type");
+  assert(targetFloatVectorType.getElementType().isa<FloatType>() &&
+         "target element type must be float type");
   auto inputElementType = inputVectorType.getElementType();
   if (inputElementType.dyn_cast<FloatType>()) {
     return input;
   } else if (auto intElementType = inputElementType.dyn_cast<IntegerType>()) {
     if (intElementType.isSigned()) {
-      return rewriter.create<arith::SIToFPOp>(input.getLoc(), targetFloatVectorType, input);
+      return rewriter.create<arith::SIToFPOp>(input.getLoc(),
+                                              targetFloatVectorType, input);
     }
-    return rewriter.create<arith::UIToFPOp>(input.getLoc(), targetFloatVectorType, input);
+    return rewriter.create<arith::UIToFPOp>(input.getLoc(),
+                                            targetFloatVectorType, input);
   }
   llvm_unreachable("value cannot be cast to float vector");
 }

@@ -11,20 +11,23 @@
 using namespace mlir::spn;
 using namespace mlir::spn::low;
 
-SPNNodeLevel::SPNNodeLevel(Operation* root, int rootLevel) : rootNode{root}, rootNodeLevel{rootLevel} {
+SPNNodeLevel::SPNNodeLevel(Operation *root, int rootLevel)
+    : rootNode{root}, rootNodeLevel{rootLevel} {
   assert(root);
   analyzeGraph(root);
 }
 
-void SPNNodeLevel::analyzeGraph(Operation* graphRoot) {
+void SPNNodeLevel::analyzeGraph(Operation *graphRoot) {
   assert(graphRoot);
-  llvm::SmallVector<Operation*, 5> spn_yields;
+  llvm::SmallVector<Operation *, 5> spn_yields;
 
   if (auto module = dyn_cast<ModuleOp>(graphRoot)) {
-    // If this is a ModuleOp, traverse all spn yields (SPN result / return values) stored in the module.
-    module.walk([&spn_yields](Operation* op) {
+    // If this is a ModuleOp, traverse all spn yields (SPN result / return
+    // values) stored in the module.
+    module.walk([&spn_yields](Operation *op) {
       if (auto spnYield = dyn_cast<SPNYield>(op)) {
-        // SPNYield should only return one operand, which represents the SPN root.
+        // SPNYield should only return one operand, which represents the SPN
+        // root.
         spn_yields.push_back(spnYield.getOperand(0).getDefiningOp());
       }
     });
@@ -39,7 +42,7 @@ void SPNNodeLevel::analyzeGraph(Operation* graphRoot) {
     auto minmax = std::minmax_element(leafLevels.begin(), leafLevels.end());
     minDepth = *(minmax.first);
     maxDepth = *(minmax.second);
-    double pivot = ((double) numLeafNodes) / 2.0;
+    double pivot = ((double)numLeafNodes) / 2.0;
     double avg_acc = 0;
     int index = 0;
     for (auto it = leafLevels.begin(); it != leafLevels.end(); it++) {
@@ -48,22 +51,24 @@ void SPNNodeLevel::analyzeGraph(Operation* graphRoot) {
       index += leafLevelHistogram[*it];
       if ((pivot < index) && (pivot > (index - leafLevelHistogram[*it]))) {
         // The median element is located in this bucket.
-        if ((numLeafNodes % 2) == 0 && ((int) (pivot + 1)) == index) {
+        if ((numLeafNodes % 2) == 0 && ((int)(pivot + 1)) == index) {
           // Even number of leaf nodes, we need consider two leaves to
           // compute the median depth.
-          // Corner case: the second median element is located in the next bucket.
+          // Corner case: the second median element is located in the next
+          // bucket.
           auto nextBucket = std::next(it);
-          medianDepth = ((double) *it + *nextBucket) / 2.0;
+          medianDepth = ((double)*it + *nextBucket) / 2.0;
         } else {
           medianDepth = *it;
         }
       }
     }
-    averageDepth = avg_acc / ((double) numLeafNodes);
+    averageDepth = avg_acc / ((double)numLeafNodes);
   }
 }
 
-void SPNNodeLevel::traverseSubgraph(Operation* subgraphRoot, GraphLevelInfo info) {
+void SPNNodeLevel::traverseSubgraph(Operation *subgraphRoot,
+                                    GraphLevelInfo info) {
   assert(subgraphRoot);
   int level = info.level;
   if (opLevels.count(subgraphRoot) && opLevels[subgraphRoot] != info.level) {
@@ -93,7 +98,7 @@ void SPNNodeLevel::traverseSubgraph(Operation* subgraphRoot, GraphLevelInfo info
   }
 }
 
-int SPNNodeLevel::getOperationDepth(Operation* op) const {
+int SPNNodeLevel::getOperationDepth(Operation *op) const {
   if (opLevels.count(op)) {
     return opLevels.lookup(op);
   }
@@ -108,6 +113,9 @@ double SPNNodeLevel::getMedianDepth() const { return medianDepth; }
 
 double SPNNodeLevel::getAverageDepth() const { return averageDepth; }
 
-const llvm::DenseMap<mlir::Operation*, int>& SPNNodeLevel::getFullResult() const { return opLevels; }
+const llvm::DenseMap<mlir::Operation *, int> &
+SPNNodeLevel::getFullResult() const {
+  return opLevels;
+}
 
-const mlir::Operation* SPNNodeLevel::getRootNode() const { return rootNode; }
+const mlir::Operation *SPNNodeLevel::getRootNode() const { return rootNode; }

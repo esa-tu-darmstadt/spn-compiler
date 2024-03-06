@@ -16,14 +16,17 @@ using namespace mlir::spn::low::slp;
 
 // === SLPPatternApplicator === //
 
-void SLPPatternApplicator::matchAndRewrite(Superword* superword, RewriterBase& rewriter) const {
-  auto* pattern = bestMatch(superword);
+void SLPPatternApplicator::matchAndRewrite(Superword *superword,
+                                           RewriterBase &rewriter) const {
+  auto *pattern = bestMatch(superword);
   if (!pattern) {
     llvm_unreachable("could not apply any pattern to superword");
   }
   pattern->rewriteSuperword(superword, rewriter);
 }
 
-void SLPPatternApplicator::setPatterns(SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>&& slpVectorizationPatterns) {
+void SLPPatternApplicator::setPatterns(
+    SmallVectorImpl<std::unique_ptr<SLPVectorizationPattern>>
+        &&slpVectorizationPatterns) {
   this->patterns = std::move(slpVectorizationPatterns);
 }

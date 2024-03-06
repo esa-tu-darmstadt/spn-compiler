@@ -12,57 +12,59 @@
 #include "mlir/Pass/Pass.h"
 
 namespace mlir {
-  namespace spn {
+namespace spn {
 
-    struct HiSPNtoLoSPNNodeConversionPass :
-        public PassWrapper<HiSPNtoLoSPNNodeConversionPass, OperationPass<ModuleOp>> {
+struct HiSPNtoLoSPNNodeConversionPass
+    : public PassWrapper<HiSPNtoLoSPNNodeConversionPass,
+                         OperationPass<ModuleOp>> {
 
-    public:
-      HiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation, bool useOptimalRepresentation) :
-          computeLogSpace{useLogSpaceComputation}, optimizeRepresentation{useOptimalRepresentation} {}
+public:
+  HiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation,
+                                 bool useOptimalRepresentation)
+      : computeLogSpace{useLogSpaceComputation},
+        optimizeRepresentation{useOptimalRepresentation} {}
 
-    protected:
+protected:
+  void runOnOperation() override;
 
-      void runOnOperation() override;
+public:
+  void getDependentDialects(DialectRegistry &registry) const override;
 
-    public:
-      void getDependentDialects(DialectRegistry& registry) const override;
+private:
+  bool computeLogSpace;
+  bool optimizeRepresentation;
+};
 
-    private:
+std::unique_ptr<Pass>
+createHiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation,
+                                     bool useOptimalRepresentation);
 
-      bool computeLogSpace;
-      bool optimizeRepresentation;
+struct HiSPNtoLoSPNQueryConversionPass
+    : public PassWrapper<HiSPNtoLoSPNQueryConversionPass,
+                         OperationPass<ModuleOp>> {
 
-    };
+public:
+  HiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation,
+                                  bool useOptimalRepresentation)
+      : computeLogSpace{useLogSpaceComputation},
+        optimizeRepresentation{useOptimalRepresentation} {}
 
-    std::unique_ptr<Pass> createHiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation,
-                                                               bool useOptimalRepresentation);
+protected:
+  void runOnOperation() override;
 
-    struct HiSPNtoLoSPNQueryConversionPass :
-        public PassWrapper<HiSPNtoLoSPNQueryConversionPass, OperationPass<ModuleOp>> {
+public:
+  void getDependentDialects(DialectRegistry &registry) const override;
 
-    public:
-      HiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation, bool useOptimalRepresentation) :
-          computeLogSpace{useLogSpaceComputation}, optimizeRepresentation{useOptimalRepresentation} {}
+private:
+  bool computeLogSpace;
+  bool optimizeRepresentation;
+};
 
-    protected:
+std::unique_ptr<Pass>
+createHiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation,
+                                      bool useOptimalRepresentation);
 
-      void runOnOperation() override;
+} // namespace spn
+} // namespace mlir
 
-    public:
-      void getDependentDialects(DialectRegistry& registry) const override;
-
-    private:
-
-      bool computeLogSpace;
-      bool optimizeRepresentation;
-
-    };
-
-    std::unique_ptr<Pass> createHiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation,
-                                                                bool useOptimalRepresentation);
-
-  }
-}
-
-#endif //SPNC_MLIR_INCLUDE_CONVERSION_HISPNTOLOSPN_HISPNTOLOSPNCONVERSIONPASSES_H
+#endif // SPNC_MLIR_INCLUDE_CONVERSION_HISPNTOLOSPN_HISPNTOLOSPNCONVERSIONPASSES_H

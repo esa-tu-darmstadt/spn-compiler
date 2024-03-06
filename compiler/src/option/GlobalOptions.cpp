@@ -150,5 +150,5 @@ Option<bool> spnc::option::optRepresentation{
     "Debug", false};
 
 Option<std::string> spnc::option::debugOnly{
-    "debug-only", "Specifies for which passes debug information should be printed",
-    "Debug"};
+    "debug-only",
+    "Specifies for which passes debug information should be printed", "Debug"};

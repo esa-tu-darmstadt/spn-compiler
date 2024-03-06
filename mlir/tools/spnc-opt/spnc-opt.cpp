@@ -12,9 +12,9 @@
 #include "mlir/Support/MlirOptMain.h"
 
 #include "HiSPN/HiSPNDialect.h"
+#include "HiSPNtoLoSPN/HiSPNtoLoSPNConversionPasses.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNPasses.h"
-#include "HiSPNtoLoSPN/HiSPNtoLoSPNConversionPasses.h"
 #include "LoSPNtoCPU/LoSPNtoCPUConversionPasses.h"
 #if SPNC_CUDA_SUPPORT
 #include "LoSPNtoGPU/LoSPNtoGPUPasses.h"
@@ -24,18 +24,19 @@ static llvm::cl::opt<bool> logSpace("use-log-space",
                                     llvm::cl::desc("Use log-space computation"),
                                     llvm::cl::init(false));
 
-static llvm::cl::opt<bool> optRepresentation("opt-repr",
-                                             llvm::cl::desc("Determine and use optimal number representation"),
-                                             llvm::cl::init(false));
+static llvm::cl::opt<bool> optRepresentation(
+    "opt-repr",
+    llvm::cl::desc("Determine and use optimal number representation"),
+    llvm::cl::init(false));
 
-static llvm::cl::opt<std::string> graphStatsFile{"graph-stats-file",
-                                                 llvm::cl::desc("Graph statistics output file"),
-                                                 llvm::cl::value_desc("filename"),
-                                                 llvm::cl::init("/tmp/stats.json")};
+static llvm::cl::opt<std::string> graphStatsFile{
+    "graph-stats-file", llvm::cl::desc("Graph statistics output file"),
+    llvm::cl::value_desc("filename"), llvm::cl::init("/tmp/stats.json")};
 
 ///
-/// spnc-opt: Custom tool to run SPN-dialect specific and generic passes on MLIR files.
-int main(int argc, char** argv) {
+/// spnc-opt: Custom tool to run SPN-dialect specific and generic passes on MLIR
+/// files.
+int main(int argc, char **argv) {
 
   mlir::registerAllPasses();
   mlir::spn::low::registerLoSPNPasses();
@@ -43,41 +44,48 @@ int main(int argc, char** argv) {
   mlir::spn::registerLoSPNtoGPUPasses();
 #endif
 
-  mlir::registerPass("convert-hispn-query-to-lospn", "Convert queries from HiSPN to LoSPN dialect",
+  mlir::registerPass("convert-hispn-query-to-lospn",
+                     "Convert queries from HiSPN to LoSPN dialect",
                      []() -> std::unique_ptr<mlir::Pass> {
-                       return mlir::spn::createHiSPNtoLoSPNQueryConversionPass(logSpace, optRepresentation);
+                       return mlir::spn::createHiSPNtoLoSPNQueryConversionPass(
+                           logSpace, optRepresentation);
                      });
 
-  mlir::registerPass("convert-hispn-node-to-lospn", "Convert nodes from HiSPN to LoSPN dialect",
+  mlir::registerPass("convert-hispn-node-to-lospn",
+                     "Convert nodes from HiSPN to LoSPN dialect",
                      []() -> std::unique_ptr<mlir::Pass> {
-                       return mlir::spn::createHiSPNtoLoSPNNodeConversionPass(logSpace, optRepresentation);
+                       return mlir::spn::createHiSPNtoLoSPNNodeConversionPass(
+                           logSpace, optRepresentation);
                      });
 
   mlir::PassRegistration<mlir::spn::LoSPNtoCPUStructureConversionPass>(
       "convert-lospn-structure-to-cpu",
-      "Convert structure from LoSPN to CPU target"
-  );
+      "Convert structure from LoSPN to CPU target");
 
-  mlir::registerPass("convert-lospn-nodes-to-cpu", "Convert nodes from LoSPN to CPU target",
+  mlir::registerPass("convert-lospn-nodes-to-cpu",
+                     "Convert nodes from LoSPN to CPU target",
                      []() -> std::unique_ptr<mlir::Pass> {
                        return mlir::spn::createLoSPNtoCPUNodeConversionPass();
                      });
 
-  mlir::registerPass("vectorize-lospn-nodes", "Vectorize LoSPN nodes for CPU target",
+  mlir::registerPass("vectorize-lospn-nodes",
+                     "Vectorize LoSPN nodes for CPU target",
                      []() -> std::unique_ptr<mlir::Pass> {
                        return mlir::spn::createLoSPNNodeVectorizationPass();
                      });
 
-  mlir::registerPass("collect-graph-stats", "Collect graph statistics",
-                     []() -> std::unique_ptr<mlir::Pass> {
-                       return mlir::spn::low::createLoSPNGraphStatsCollectionPass(graphStatsFile);
-                     });
+  mlir::registerPass(
+      "collect-graph-stats", "Collect graph statistics",
+      []() -> std::unique_ptr<mlir::Pass> {
+        return mlir::spn::low::createLoSPNGraphStatsCollectionPass(
+            graphStatsFile);
+      });
 
   mlir::DialectRegistry registry;
   mlir::registerAllDialects(registry);
   registry.insert<mlir::spn::high::HiSPNDialect>();
   registry.insert<mlir::spn::low::LoSPNDialect>();
 
-  return failed(
-      mlir::MlirOptMain(argc, argv, "SPNC optimizer driver\n", registry, false));
+  return failed(mlir::MlirOptMain(argc, argv, "SPNC optimizer driver\n",
+                                  registry, false));
 }

@@ -13,18 +13,18 @@
 
 namespace spnc {
 
-  ///
-  /// MLIR pass pipeline to lower from the LoSPN dialect to a combination of
-  /// upstream dialects when targeting GPUS.
-  struct LoSPNtoGPUConversion : public MLIRPassPipeline<LoSPNtoGPUConversion> {
+///
+/// MLIR pass pipeline to lower from the LoSPN dialect to a combination of
+/// upstream dialects when targeting GPUS.
+struct LoSPNtoGPUConversion : public MLIRPassPipeline<LoSPNtoGPUConversion> {
 
-    using MLIRPassPipeline<LoSPNtoGPUConversion>::MLIRPassPipeline;
+  using MLIRPassPipeline<LoSPNtoGPUConversion>::MLIRPassPipeline;
 
-    void initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx);
+  void initializePassPipeline(mlir::PassManager *pm, mlir::MLIRContext *ctx);
 
-    STEP_NAME("lospn-to-gpu")
-  };
+  STEP_NAME("lospn-to-gpu")
+};
 
-}
+} // namespace spnc
 
-#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_LOSPNTOGPUCONVERSION_H
+#endif // SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_LOSPNTOGPUCONVERSION_H

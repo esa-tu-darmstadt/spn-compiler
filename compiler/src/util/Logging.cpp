@@ -6,25 +6,23 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include <util/Logging.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/cfg/env.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <util/Logging.h>
 
 namespace spnc {
 
-  static bool initLogger() {
-    /// Statically initialize the logger to log to the terminal output.
-    if (!spdlog::get("console")) {
-      auto console = spdlog::stdout_color_mt("console");
-      spdlog::set_default_logger(console);
-      spdlog::cfg::load_env_levels();
-      spdlog::set_pattern("[%c] [%s:%#] -- [%l] %v");
-    }
-    return true;
+static bool initLogger() {
+  /// Statically initialize the logger to log to the terminal output.
+  if (!spdlog::get("console")) {
+    auto console = spdlog::stdout_color_mt("console");
+    spdlog::set_default_logger(console);
+    spdlog::cfg::load_env_levels();
+    spdlog::set_pattern("[%c] [%s:%#] -- [%l] %v");
   }
-
-  static bool initOnce = initLogger();
-
+  return true;
 }
 
+static bool initOnce = initLogger();
 
+} // namespace spnc

@@ -13,18 +13,18 @@
 
 namespace spnc {
 
-  ///
-  /// MLIR pass pipeline to lower from the HiSPN dialect to the LoSPN dialect.
-  struct HiSPNtoLoSPNConversion : public MLIRPassPipeline<HiSPNtoLoSPNConversion> {
+///
+/// MLIR pass pipeline to lower from the HiSPN dialect to the LoSPN dialect.
+struct HiSPNtoLoSPNConversion
+    : public MLIRPassPipeline<HiSPNtoLoSPNConversion> {
 
-    using MLIRPassPipeline<HiSPNtoLoSPNConversion>::MLIRPassPipeline;
+  using MLIRPassPipeline<HiSPNtoLoSPNConversion>::MLIRPassPipeline;
 
-    void initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx);
+  void initializePassPipeline(mlir::PassManager *pm, mlir::MLIRContext *ctx);
 
-    STEP_NAME("hispn-to-lospn")
+  STEP_NAME("hispn-to-lospn")
+};
 
-  };
+} // namespace spnc
 
-}
-
-#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_HISPNTOLOSPNCONVERSION_H
+#endif // SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_HISPNTOLOSPNCONVERSION_H

@@ -9,10 +9,10 @@
 #ifndef SPNC_MLIR_INCLUDE_DIALECT_HISPN_HISPNENUMS_H
 #define SPNC_MLIR_INCLUDE_DIALECT_HISPN_HISPNENUMS_H
 
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "mlir/IR/BuiltinAttributes.h"
 #include "HiSPN/HiSPNEnums.h.inc"
+#include "mlir/IR/BuiltinAttributes.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringSwitch.h"
 
-#endif //SPNC_MLIR_INCLUDE_DIALECT_HISPN_HISPNENUMS_H
+#endif // SPNC_MLIR_INCLUDE_DIALECT_HISPN_HISPNENUMS_H

@@ -9,44 +9,44 @@
 #ifndef SPNC_SPNC_H
 #define SPNC_SPNC_H
 
-#include <string>
 #include <Kernel.h>
 #include <map>
+#include <string>
 
 namespace spnc {
 
-  using options_t = std::map<std::string, std::string>;
+using options_t = std::map<std::string, std::string>;
+
+///
+/// Entry-point of the compiler.
+class spn_compiler {
+public:
+  /// Read & parse query from binary input file and execute the compiler.
+  /// \param inputFile Path of the input file.
+  /// \param options Configuration of the compiler execution.
+  /// \return Generated Kernel.
+  static Kernel compileQuery(const std::string &inputFile,
+                             const options_t &options);
 
   ///
-  /// Entry-point of the compiler.
-  class spn_compiler {
-  public:
-    /// Read & parse query from binary input file and execute the compiler.
-    /// \param inputFile Path of the input file.
-    /// \param options Configuration of the compiler execution.
-    /// \return Generated Kernel.
-    static Kernel compileQuery(const std::string& inputFile, const options_t& options);
+  /// Query the compiler for information about supported targets.
+  /// \param target Name of the target.
+  /// \return true if the compilation for the target is supported,
+  ///         false otherwise.
+  static bool isTargetSupported(const std::string &target);
 
-    ///
-    /// Query the compiler for information about supported targets.
-    /// \param target Name of the target.
-    /// \return true if the compilation for the target is supported,
-    ///         false otherwise.
-    static bool isTargetSupported(const std::string& target);
+  ///
+  /// Query the compiler for information about supported feature.
+  /// \param feature Name of the feature.
+  /// \return true if the compilation with the feature is supported,
+  ///         false otherwise.
+  static bool isFeatureSupported(const std::string &feature);
 
-    ///
-    /// Query the compiler for information about supported feature.
-    /// \param feature Name of the feature.
-    /// \return true if the compilation with the feature is supported,
-    ///         false otherwise.
-    static bool isFeatureSupported(const std::string& feature);
+  ///
+  /// Query the compiler for information about the host default architecture.
+  /// \return The name of the host default CPU architecture.
+  static std::string getHostArchitecture();
+};
+} // namespace spnc
 
-    ///
-    /// Query the compiler for information about the host default architecture.
-    /// \return The name of the host default CPU architecture.
-    static std::string getHostArchitecture();
-
-  };
-}
-
-#endif //SPNC_SPNC_H
+#endif // SPNC_SPNC_H

@@ -9,104 +9,94 @@
 #ifndef SPNC_MLIR_LIB_DIALECT_LOSPN_PARTITIONING_GRAPHPARTITIONER_H
 #define SPNC_MLIR_LIB_DIALECT_LOSPN_PARTITIONING_GRAPHPARTITIONER_H
 
+#include "Heuristic.h"
 #include "LoSPN/LoSPNOps.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "Heuristic.h"
 
 namespace mlir {
-  namespace spn {
-    namespace low {
+namespace spn {
+namespace low {
 
-      class Partition {
+class Partition {
 
-      public:
+public:
+  Partition(unsigned ID, unsigned maximumSize)
+      : id{ID}, numNodes{0}, sizeBoundary{maximumSize} {};
 
-        Partition(unsigned ID, unsigned maximumSize) : id{ID}, numNodes{0}, sizeBoundary{maximumSize} {};
+  void addNode(Operation *node);
 
-        void addNode(Operation* node);
+  void removeNode(Operation *node);
 
-        void removeNode(Operation* node);
+  bool contains(Operation *node);
 
-        bool contains(Operation* node);
+  SmallPtrSetImpl<Operation *>::iterator begin();
 
-        SmallPtrSetImpl<Operation*>::iterator begin();
+  SmallPtrSetImpl<Operation *>::iterator end();
 
-        SmallPtrSetImpl<Operation*>::iterator end();
+  llvm::ArrayRef<Operation *> hasExternalInputs();
 
-        llvm::ArrayRef<Operation*> hasExternalInputs();
+  llvm::ArrayRef<Operation *> hasExternalOutputs();
 
-        llvm::ArrayRef<Operation*> hasExternalOutputs();
+  unsigned ID() const { return id; }
 
-        unsigned ID() const {
-          return id;
-        }
+  unsigned size() const { return numNodes; }
 
-        unsigned size() const {
-          return numNodes;
-        }
+  bool canAccept() const { return numNodes < sizeBoundary; }
 
-        bool canAccept() const {
-          return numNodes < sizeBoundary;
-        }
+  void invalidateExternal() { dirty = true; }
 
-        void invalidateExternal() {
-          dirty = true;
-        }
+  void dump() const;
 
-        void dump() const;
+private:
+  llvm::SmallPtrSet<Operation *, 32> nodes;
 
-      private:
+  bool dirty = false;
 
-        llvm::SmallPtrSet<Operation*, 32> nodes;
+  llvm::SmallVector<Operation *> extIn;
 
-        bool dirty = false;
+  llvm::SmallVector<Operation *> exOut;
 
-        llvm::SmallVector<Operation*> extIn;
+  void computeExternalConnections();
 
-        llvm::SmallVector<Operation*> exOut;
+  unsigned id;
 
-        void computeExternalConnections();
+  unsigned numNodes;
 
-        unsigned id;
+  unsigned sizeBoundary;
+};
 
-        unsigned numNodes;
+class GraphPartitioner {
 
-        unsigned sizeBoundary;
+public:
+  explicit GraphPartitioner(int maxTaskSize,
+                            HeuristicFactory heuristic = nullptr);
 
-      };
+  Partitioning partitionGraph(llvm::ArrayRef<Operation *> nodes,
+                              llvm::SmallPtrSetImpl<Operation *> &inNodes,
+                              llvm::ArrayRef<Value> externalInputs);
 
-      class GraphPartitioner {
+  unsigned getMaximumPartitionSize() const;
 
-      public:
+private:
+  Partitioning initialPartitioning(llvm::ArrayRef<Operation *> nodes,
+                                   llvm::SmallPtrSetImpl<Operation *> &inNodes,
+                                   llvm::ArrayRef<Value> externalInputs) const;
 
-        explicit GraphPartitioner(int maxTaskSize, HeuristicFactory heuristic = nullptr);
+  void refinePartitioning(llvm::ArrayRef<Operation *> allNodes,
+                          llvm::ArrayRef<Value> externalInputs,
+                          Partitioning *allPartitions);
 
-        Partitioning partitionGraph(llvm::ArrayRef<Operation*> nodes,
-                                    llvm::SmallPtrSetImpl<Operation*>& inNodes,
-                                    llvm::ArrayRef<Value> externalInputs);
+  bool hasInDegreeZero(Operation *node,
+                       llvm::SmallPtrSetImpl<Operation *> &partitioned,
+                       llvm::SmallPtrSetImpl<Value> &externalInputs) const;
 
-        unsigned getMaximumPartitionSize() const;
+  int maxPartitionSize;
 
-      private:
+  HeuristicFactory factory;
+};
 
-        Partitioning initialPartitioning(llvm::ArrayRef<Operation*> nodes,
-                                         llvm::SmallPtrSetImpl<Operation*>& inNodes,
-                                         llvm::ArrayRef<Value> externalInputs) const;
+} // namespace low
+} // namespace spn
+} // namespace mlir
 
-        void refinePartitioning(llvm::ArrayRef<Operation*> allNodes, llvm::ArrayRef<Value> externalInputs,
-                                Partitioning* allPartitions);
-
-        bool hasInDegreeZero(Operation* node, llvm::SmallPtrSetImpl<Operation*>& partitioned,
-                             llvm::SmallPtrSetImpl<Value>& externalInputs) const;
-
-        int maxPartitionSize;
-
-        HeuristicFactory factory;
-
-      };
-
-    }
-  }
-}
-
-#endif //SPNC_MLIR_LIB_DIALECT_LOSPN_PARTITIONING_GRAPHPARTITIONER_H
+#endif // SPNC_MLIR_LIB_DIALECT_LOSPN_PARTITIONING_GRAPHPARTITIONER_H

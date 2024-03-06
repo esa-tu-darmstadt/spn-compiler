@@ -9,27 +9,30 @@
 #ifndef SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNPASSES_H
 #define SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNPASSES_H
 
-#include "mlir/Pass/Pass.h"
 #include "LoSPNOps.h"
+#include "mlir/Pass/Pass.h"
 
 namespace mlir {
-  namespace spn {
-    namespace low {
+namespace spn {
+namespace low {
 
-      std::unique_ptr<OperationPass<ModuleOp>> createLoSPNBufferizePass();
+std::unique_ptr<OperationPass<ModuleOp>> createLoSPNBufferizePass();
 
-      std::unique_ptr<OperationPass<SPNKernel>> createLoSPNCopyRemovalPass();
+std::unique_ptr<OperationPass<SPNKernel>> createLoSPNCopyRemovalPass();
 
-      std::unique_ptr<OperationPass<SPNKernel>> createLoSPNPartitionerPass(int maxTaskSize = -1);
+std::unique_ptr<OperationPass<SPNKernel>>
+createLoSPNPartitionerPass(int maxTaskSize = -1);
 
-      std::unique_ptr<OperationPass<ModuleOp>> createReplaceARMOptimizedRoutinesPass();
+std::unique_ptr<OperationPass<ModuleOp>>
+createReplaceARMOptimizedRoutinesPass();
 
-      /// Instantiate the graph stats collection pass determining SPN statistics like
-      /// the number of inner and leaf nodes or min/max/average node level.
-      /// \return Pass instance.
-      std::unique_ptr<OperationPass<ModuleOp>> createLoSPNGraphStatsCollectionPass(const std::string& graphStatsFile);
-    }
-  }
-}
+/// Instantiate the graph stats collection pass determining SPN statistics like
+/// the number of inner and leaf nodes or min/max/average node level.
+/// \return Pass instance.
+std::unique_ptr<OperationPass<ModuleOp>>
+createLoSPNGraphStatsCollectionPass(const std::string &graphStatsFile);
+} // namespace low
+} // namespace spn
+} // namespace mlir
 
-#endif //SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNPASSES_H
+#endif // SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNPASSES_H

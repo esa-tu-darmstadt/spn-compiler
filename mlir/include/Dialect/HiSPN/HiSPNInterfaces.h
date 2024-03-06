@@ -10,15 +10,15 @@
 #define SPNC_MLIR_INCLUDE_DIALECT_HISPN_HISPNINTERFACES_H
 
 #include "HiSPNEnums.h"
-#include "mlir/IR/Operation.h"
 #include "mlir/IR/OpDefinition.h"
+#include "mlir/IR/Operation.h"
 
 namespace mlir {
-  namespace spn {
-    namespace high {
+namespace spn {
+namespace high {
 #include "HiSPN/HiSPNInterfaces.h.inc"
 }
-}
-}
+} // namespace spn
+} // namespace mlir
 
-#endif //SPNC_MLIR_INCLUDE_DIALECT_HISPN_HISPNINTERFACES_H
+#endif // SPNC_MLIR_INCLUDE_DIALECT_HISPN_HISPNINTERFACES_H

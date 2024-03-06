@@ -7,52 +7,55 @@
 //==============================================================================
 
 #include "HiSPN/HiSPNOps.h"
-#include "HiSPN/HiSPNDialect.h"
 #include "HiSPN/HiSPNAttributes.h"
-#include "mlir/IR/OpImplementation.h"
+#include "HiSPN/HiSPNDialect.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/DialectImplementation.h"
+#include "mlir/IR/OpImplementation.h"
+#include "mlir/IR/PatternMatch.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 namespace mlir {
-  namespace spn {
-    namespace high {
+namespace spn {
+namespace high {
 
-      namespace {
+namespace {
 
-        template<typename HiSPNOp>
-        unsigned numOperands(HiSPNOp op) {
-          return std::distance(op.operands().begin(), op.operands().end());
-        }
+template <typename HiSPNOp>
+unsigned numOperands(HiSPNOp op) {
+  return std::distance(op.operands().begin(), op.operands().end());
+}
 
-      }
+} // namespace
 
-      RegionKind mlir::spn::high::Graph::getRegionKind(unsigned int index) {
-        return RegionKind::Graph;
-      }
+RegionKind mlir::spn::high::Graph::getRegionKind(unsigned int index) {
+  return RegionKind::Graph;
+}
 
-    } // end of namespace high
-  } // end of namespace spn
+} // end of namespace high
+} // end of namespace spn
 } // end of namespace mlir
 
 namespace {
-  template<typename SourceOp>
-  mlir::Operation* getParentQuery(SourceOp op) {
-    // Parent should always be a Graph and the Graph's parent should always be
-    // a Query, due to the HasParent-relationships defined in the operations.
-    assert(op.getOperation()->template getParentOfType<mlir::spn::high::Graph>()
-               && "Expecting the parent to be a Graph");
-    return op.getOperation()->template getParentOfType<mlir::spn::high::Graph>()->getParentOp();
-  }
+template <typename SourceOp>
+mlir::Operation *getParentQuery(SourceOp op) {
+  // Parent should always be a Graph and the Graph's parent should always be
+  // a Query, due to the HasParent-relationships defined in the operations.
+  assert(
+      op.getOperation()->template getParentOfType<mlir::spn::high::Graph>() &&
+      "Expecting the parent to be a Graph");
+  return op.getOperation()
+      ->template getParentOfType<mlir::spn::high::Graph>()
+      ->getParentOp();
 }
+} // namespace
 
 //===----------------------------------------------------------------------===//
 // ProductOp
 //===----------------------------------------------------------------------===//
 
-mlir::Operation* mlir::spn::high::ProductNode::getEnclosingQuery() {
+mlir::Operation *mlir::spn::high::ProductNode::getEnclosingQuery() {
   return getParentQuery(*this);
 }
 
@@ -68,20 +71,22 @@ mlir::LogicalResult mlir::spn::high::ProductNode::verify() {
 // SumOp
 //===----------------------------------------------------------------------===//
 
-void mlir::spn::high::SumNode::build(::mlir::OpBuilder& odsBuilder,
-                                     ::mlir::OperationState& odsState,
+void mlir::spn::high::SumNode::build(::mlir::OpBuilder &odsBuilder,
+                                     ::mlir::OperationState &odsState,
                                      llvm::ArrayRef<Value> operands,
                                      llvm::ArrayRef<double> weights) {
   SmallVector<mlir::Attribute, 10> weightAttrs;
-  for (auto& w : weights) {
+  for (auto &w : weights) {
     weightAttrs.push_back(odsBuilder.getF64FloatAttr(w));
   }
-  assert(weightAttrs.size() == operands.size() && "Number of weights must match number of operands!");
-  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), ValueRange(operands),
+  assert(weightAttrs.size() == operands.size() &&
+         "Number of weights must match number of operands!");
+  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()),
+        ValueRange(operands),
         ArrayAttr::get(odsBuilder.getContext(), weightAttrs));
 }
 
-mlir::Operation* mlir::spn::high::SumNode::getEnclosingQuery() {
+mlir::Operation *mlir::spn::high::SumNode::getEnclosingQuery() {
   return getParentQuery(*this);
 }
 
@@ -104,28 +109,26 @@ mlir::LogicalResult mlir::spn::high::SumNode::verify() {
   return mlir::success();
 }
 
-
-
 //===----------------------------------------------------------------------===//
 // HistogramOp
 //===----------------------------------------------------------------------===//
 
-void mlir::spn::high::HistogramNode::build(::mlir::OpBuilder& odsBuilder,
-                                           ::mlir::OperationState& odsState,
-                                           Value indexVal,
-                                           llvm::ArrayRef<std::tuple<int, int, APFloat>> buckets) {
+void mlir::spn::high::HistogramNode::build(
+    ::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState,
+    Value indexVal, llvm::ArrayRef<std::tuple<int, int, APFloat>> buckets) {
   SmallVector<mlir::Attribute, 256> bucketList;
   // Create StructAttr for each bucket, comprising the inclusive lower bound,
   // the exclusive lower bound and the probability value.
-  for (auto& bucket : buckets) {
-    auto bucketAttr = high::HistBucketAttr::get(odsBuilder.getContext(), std::get<0>(bucket), 
-                                                                        std::get<1>(bucket), 
-                                                                        std::get<2>(bucket));
+  for (auto &bucket : buckets) {
+    auto bucketAttr =
+        high::HistBucketAttr::get(odsBuilder.getContext(), std::get<0>(bucket),
+                                  std::get<1>(bucket), std::get<2>(bucket));
     bucketList.push_back(bucketAttr);
   }
   auto bucketListAttr = ArrayAttr::get(odsBuilder.getContext(), bucketList);
-  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), indexVal,
-        bucketListAttr, odsBuilder.getUI32IntegerAttr(bucketList.size()));
+  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()),
+        indexVal, bucketListAttr,
+        odsBuilder.getUI32IntegerAttr(bucketList.size()));
 }
 
 unsigned int mlir::spn::high::HistogramNode::getFeatureIndex() {
@@ -136,7 +139,7 @@ unsigned int mlir::spn::high::HistogramNode::getFeatureIndex() {
   assert(false);
 }
 
-mlir::Operation* mlir::spn::high::HistogramNode::getEnclosingQuery() {
+mlir::Operation *mlir::spn::high::HistogramNode::getEnclosingQuery() {
   return getParentQuery(*this);
 }
 
@@ -169,17 +172,16 @@ mlir::LogicalResult mlir::spn::high::HistogramNode::verify() {
   return mlir::success();
 }
 
-
 //===----------------------------------------------------------------------===//
 // CategoricalOp
 //===----------------------------------------------------------------------===//
 
-void mlir::spn::high::CategoricalNode::build(::mlir::OpBuilder& odsBuilder,
-                                             ::mlir::OperationState& odsState,
-                                             Value indexVal,
-                                             llvm::ArrayRef<double> probabilities) {
+void mlir::spn::high::CategoricalNode::build(
+    ::mlir::OpBuilder &odsBuilder, ::mlir::OperationState &odsState,
+    Value indexVal, llvm::ArrayRef<double> probabilities) {
   auto floatArrayAttr = odsBuilder.getF64ArrayAttr(probabilities);
-  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), indexVal, floatArrayAttr);
+  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()),
+        indexVal, floatArrayAttr);
 }
 
 unsigned int mlir::spn::high::CategoricalNode::getFeatureIndex() {
@@ -190,7 +192,7 @@ unsigned int mlir::spn::high::CategoricalNode::getFeatureIndex() {
   assert(false);
 }
 
-mlir::Operation* mlir::spn::high::CategoricalNode::getEnclosingQuery() {
+mlir::Operation *mlir::spn::high::CategoricalNode::getEnclosingQuery() {
   return getParentQuery(*this);
 }
 
@@ -209,13 +211,13 @@ mlir::LogicalResult mlir::spn::high::CategoricalNode::verify() {
 // GaussianOp
 //===----------------------------------------------------------------------===//
 
-void mlir::spn::high::GaussianNode::build(::mlir::OpBuilder& odsBuilder,
-                                          ::mlir::OperationState& odsState,
-                                          Value indexVal,
-                                          double mean,
+void mlir::spn::high::GaussianNode::build(::mlir::OpBuilder &odsBuilder,
+                                          ::mlir::OperationState &odsState,
+                                          Value indexVal, double mean,
                                           double stddev) {
-  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()), indexVal,
-        odsBuilder.getF64FloatAttr(mean), odsBuilder.getF64FloatAttr(stddev));
+  build(odsBuilder, odsState, ProbabilityType::get(odsBuilder.getContext()),
+        indexVal, odsBuilder.getF64FloatAttr(mean),
+        odsBuilder.getF64FloatAttr(stddev));
 }
 
 unsigned int mlir::spn::high::GaussianNode::getFeatureIndex() {
@@ -226,7 +228,7 @@ unsigned int mlir::spn::high::GaussianNode::getFeatureIndex() {
   assert(false);
 }
 
-mlir::Operation* mlir::spn::high::GaussianNode::getEnclosingQuery() {
+mlir::Operation *mlir::spn::high::GaussianNode::getEnclosingQuery() {
   return getParentQuery(*this);
 }
 
@@ -234,7 +236,7 @@ mlir::Operation* mlir::spn::high::GaussianNode::getEnclosingQuery() {
 // RootNode
 //===----------------------------------------------------------------------===//
 
-mlir::Operation* mlir::spn::high::RootNode::getEnclosingQuery() {
+mlir::Operation *mlir::spn::high::RootNode::getEnclosingQuery() {
   return getParentQuery(*this);
 }
 
@@ -246,11 +248,11 @@ mlir::LogicalResult mlir::spn::high::JointQuery::verify() {
     // Marginalization is triggered by feature values set to NaN,
     // so the input must be a float type to represent that.
     if (!getFeatureDataType().isa<FloatType>()) {
-      return emitOpError("Feature data type must be floating-point to support marginal");
+      return emitOpError(
+          "Feature data type must be floating-point to support marginal");
     }
   }
   return mlir::success();
-
 }
 
 #define GET_TYPEDEF_CLASSES

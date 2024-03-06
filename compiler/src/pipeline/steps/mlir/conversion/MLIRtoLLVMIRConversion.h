@@ -9,71 +9,70 @@
 #ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_MLIRTOLLVMIRCONVERSION_H
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_MLIRTOLLVMIRCONVERSION_H
 
-#include "pipeline/PipelineStep.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "pipeline/PipelineStep.h"
 #include <llvm/IR/Module.h>
 #include <llvm/Target/TargetMachine.h>
 
 namespace spnc {
 
-  ///
-  /// Step to translate MLIR LLVM dialect to actual LLVM IR.
-  class MLIRtoLLVMIRConversion : public StepSingleInput<MLIRtoLLVMIRConversion, mlir::ModuleOp>,
-                                 public StepWithResult<llvm::Module> {
+///
+/// Step to translate MLIR LLVM dialect to actual LLVM IR.
+class MLIRtoLLVMIRConversion
+    : public StepSingleInput<MLIRtoLLVMIRConversion, mlir::ModuleOp>,
+      public StepWithResult<llvm::Module> {
 
-  public:
+public:
+  /// Constructor.
+  /// \param _input Action providing the input MLIR module.
+  /// \param context Surrounding MLIR context.
+  /// \param optimizeOutput Flag indicating whether the generated LLVM IR module
+  /// should be optimized after conversion.
+  explicit MLIRtoLLVMIRConversion(StepWithResult<mlir::ModuleOp> &input);
 
-    /// Constructor.
-    /// \param _input Action providing the input MLIR module.
-    /// \param context Surrounding MLIR context.
-    /// \param optimizeOutput Flag indicating whether the generated LLVM IR module should be optimized
-    /// after conversion.
-    explicit MLIRtoLLVMIRConversion(StepWithResult<mlir::ModuleOp>& input);
+  ExecutionResult executeStep(mlir::ModuleOp *mlirModule);
 
-    ExecutionResult executeStep(mlir::ModuleOp* mlirModule);
+  llvm::Module *result() override;
 
-    llvm::Module* result() override;
+  STEP_NAME("mlir-to-llvm")
 
-    STEP_NAME("mlir-to-llvm")
+  MLIRtoLLVMIRConversion(const MLIRtoLLVMIRConversion &) = delete;
 
-    MLIRtoLLVMIRConversion(const MLIRtoLLVMIRConversion&) = delete;
+  MLIRtoLLVMIRConversion &operator=(const MLIRtoLLVMIRConversion &) = delete;
 
-    MLIRtoLLVMIRConversion& operator=(const MLIRtoLLVMIRConversion&) = delete;
-
-    /// Move constructor.
-    /// \param conv Move source.
-    MLIRtoLLVMIRConversion(MLIRtoLLVMIRConversion&& conv) noexcept:
-        StepSingleInput<MLIRtoLLVMIRConversion, mlir::ModuleOp>{conv.in},
+  /// Move constructor.
+  /// \param conv Move source.
+  MLIRtoLLVMIRConversion(MLIRtoLLVMIRConversion &&conv) noexcept
+      : StepSingleInput<MLIRtoLLVMIRConversion, mlir::ModuleOp>{conv.in},
         module{std::move(conv.module)} {}
 
-    /// Move assignment.
-    /// \param conv Move source.
-    /// \return Reference to the move target.
-    MLIRtoLLVMIRConversion& operator=(MLIRtoLLVMIRConversion&& conv) noexcept {
-      this->in = conv.in;
-      this->module = std::move(conv.module);
-      return *this;
-    }
+  /// Move assignment.
+  /// \param conv Move source.
+  /// \return Reference to the move target.
+  MLIRtoLLVMIRConversion &operator=(MLIRtoLLVMIRConversion &&conv) noexcept {
+    this->in = conv.in;
+    this->module = std::move(conv.module);
+    return *this;
+  }
 
-    ~MLIRtoLLVMIRConversion() override {
-      // We have to release the LLVM module first,
-      // as the LLVMContext is deleted together with the MLIRContext
-      // (because the LLVMContext's lifetime is bound to the lifetime of the LLVMDialect).
-      module = nullptr;
-    }
+  ~MLIRtoLLVMIRConversion() override {
+    // We have to release the LLVM module first,
+    // as the LLVMContext is deleted together with the MLIRContext
+    // (because the LLVMContext's lifetime is bound to the lifetime of the
+    // LLVMDialect).
+    module = nullptr;
+  }
 
-  private:
+private:
+  int retrieveOptLevel();
 
-    int retrieveOptLevel();
+  void optimizeLLVMIR(int optLevel);
 
-    void optimizeLLVMIR(int optLevel);
+  std::unique_ptr<llvm::Module> module;
 
-    std::unique_ptr<llvm::Module> module;
+  llvm::LLVMContext llvmCtx;
+};
 
-    llvm::LLVMContext llvmCtx;
+} // namespace spnc
 
-  };
-
-}
-
-#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_MLIRTOLLVMIRCONVERSION_H
+#endif // SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_MLIRTOLLVMIRCONVERSION_H

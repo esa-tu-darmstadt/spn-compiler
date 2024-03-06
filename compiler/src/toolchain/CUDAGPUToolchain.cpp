@@ -9,9 +9,9 @@
 #include "CUDAGPUToolchain.h"
 #include "pipeline/BasicSteps.h"
 #include "pipeline/steps/frontend/SPFlowToMLIRDeserializer.h"
+#include "pipeline/steps/mlir/conversion/GPUtoLLVMConversion.h"
 #include "pipeline/steps/mlir/conversion/HiSPNtoLoSPNConversion.h"
 #include "pipeline/steps/mlir/conversion/LoSPNtoGPUConversion.h"
-#include "pipeline/steps/mlir/conversion/GPUtoLLVMConversion.h"
 #include "pipeline/steps/mlir/conversion/MLIRtoLLVMIRConversion.h"
 #include "pipeline/steps/mlir/transformation/LoSPNTransformations.h"
 #include <pipeline/steps/codegen/EmitObjectCode.h>
@@ -26,14 +26,17 @@
 using namespace spnc;
 using namespace mlir;
 
-std::unique_ptr<Pipeline<Kernel>> CUDAGPUToolchain::setupPipeline(const std::string& inputFile,
-                                                                  std::unique_ptr<interface::Configuration> config) {
-  // Uncomment the following two lines to get detailed output during MLIR dialect conversion;
-  //llvm::DebugFlag = true;
-  //llvm::setCurrentDebugType("dialect-conversion");
+std::unique_ptr<Pipeline<Kernel>> CUDAGPUToolchain::setupPipeline(
+    const std::string &inputFile,
+    std::unique_ptr<interface::Configuration> config) {
+  // Uncomment the following two lines to get detailed output during MLIR
+  // dialect conversion;
+  // llvm::DebugFlag = true;
+  // llvm::setCurrentDebugType("dialect-conversion");
 
   // Initialize the compilation pipeline.
-  std::unique_ptr<Pipeline<Kernel>> pipeline = std::make_unique<Pipeline<Kernel>>();
+  std::unique_ptr<Pipeline<Kernel>> pipeline =
+      std::make_unique<Pipeline<Kernel>>();
 
   // Initialize the MLIR context.
   auto ctx = std::make_unique<MLIRContext>();
@@ -50,9 +53,11 @@ std::unique_ptr<Pipeline<Kernel>> CUDAGPUToolchain::setupPipeline(const std::str
 
   // Create an LLVM target machine and set the optimization level.
   int mcOptLevel = spnc::option::optLevel.get(*config);
-  if (spnc::option::mcOptLevel.isPresent(*config) && spnc::option::mcOptLevel.get(*config) != mcOptLevel) {
+  if (spnc::option::mcOptLevel.isPresent(*config) &&
+      spnc::option::mcOptLevel.get(*config) != mcOptLevel) {
     auto optionValue = spnc::option::mcOptLevel.get(*config);
-    SPDLOG_INFO("Option mc-opt-level (value: {}) takes precedence over option opt-level (value: {})",
+    SPDLOG_INFO("Option mc-opt-level (value: {}) takes precedence over option "
+                "opt-level (value: {})",
                 optionValue, mcOptLevel);
     mcOptLevel = optionValue;
   }
@@ -60,45 +65,55 @@ std::unique_ptr<Pipeline<Kernel>> CUDAGPUToolchain::setupPipeline(const std::str
   // Initialize the kernel information.
   auto kernelInfo = std::make_unique<KernelInfo>();
   kernelInfo->target = KernelTarget::CUDA;
-  // Attach the LLVM target machine and the kernel information to the pipeline context
+  // Attach the LLVM target machine and the kernel information to the pipeline
+  // context
   pipeline->getContext()->add(std::move(targetMachine));
   pipeline->getContext()->add(std::move(kernelInfo));
 
-
   // First step of the pipeline: Locate the input file.
-  auto& locateInput = pipeline->emplaceStep<LocateFile<FileType::SPN_BINARY >>(inputFile);
+  auto &locateInput =
+      pipeline->emplaceStep<LocateFile<FileType::SPN_BINARY>>(inputFile);
 
   // Deserialize the SPFlow graph serialized via Cap'n Proto to MLIR.
-  auto& deserialized = pipeline->emplaceStep<SPFlowToMLIRDeserializer>(locateInput);
+  auto &deserialized =
+      pipeline->emplaceStep<SPFlowToMLIRDeserializer>(locateInput);
 
   // Convert from HiSPN dialect to LoSPN.
-  auto& hispn2lospn = pipeline->emplaceStep<HiSPNtoLoSPNConversion>(deserialized);
+  auto &hispn2lospn =
+      pipeline->emplaceStep<HiSPNtoLoSPNConversion>(deserialized);
   // Perform transformations on the LoSPN dialect module.
-  auto& lospnTransform = pipeline->emplaceStep<LoSPNTransformations>(hispn2lospn);
+  auto &lospnTransform =
+      pipeline->emplaceStep<LoSPNTransformations>(hispn2lospn);
   // Lower from LoSPN to upstream dialects to target GPU.
-  auto& lospn2gpu = pipeline->emplaceStep<LoSPNtoGPUConversion>(lospnTransform);
+  auto &lospn2gpu = pipeline->emplaceStep<LoSPNtoGPUConversion>(lospnTransform);
 
   // Convert the GPU portion of the code to CUBIN.
-  auto& gpu2llvm = pipeline->emplaceStep<GPUtoLLVMConversion>(lospn2gpu);
+  auto &gpu2llvm = pipeline->emplaceStep<GPUtoLLVMConversion>(lospn2gpu);
 
   // Convert the remaining MLIR module to a LLVM-IR module.
-  auto& llvmConversion = pipeline->emplaceStep<MLIRtoLLVMIRConversion>(gpu2llvm);
+  auto &llvmConversion =
+      pipeline->emplaceStep<MLIRtoLLVMIRConversion>(gpu2llvm);
 
-  // Translate the generated LLVM IR module to object code and write it to an object file.
-  auto& objectFile = pipeline->emplaceStep<CreateTmpFile<FileType::OBJECT >>(true);
-  auto& emitObjectCode = pipeline->emplaceStep<EmitObjectCode>(llvmConversion, objectFile);
+  // Translate the generated LLVM IR module to object code and write it to an
+  // object file.
+  auto &objectFile =
+      pipeline->emplaceStep<CreateTmpFile<FileType::OBJECT>>(true);
+  auto &emitObjectCode =
+      pipeline->emplaceStep<EmitObjectCode>(llvmConversion, objectFile);
 
   // Link generated object file into shared object.
-  auto& sharedObject = pipeline->emplaceStep<CreateTmpFile<FileType::SHARED_OBJECT >>(false);
+  auto &sharedObject =
+      pipeline->emplaceStep<CreateTmpFile<FileType::SHARED_OBJECT>>(false);
   // The generated kernel must be linked against the MLIR CUDA runtime wrappers.
   llvm::SmallVector<std::string, 3> additionalLibs;
   additionalLibs.push_back("spnc-cuda-wrappers");
-  auto searchPaths = parseLibrarySearchPaths(spnc::option::searchPaths.get(*config));
+  auto searchPaths =
+      parseLibrarySearchPaths(spnc::option::searchPaths.get(*config));
   searchPaths.push_back(SPNC_CUDA_RUNTIME_WRAPPERS_DIR);
   auto libraryInfo = std::make_unique<LibraryInfo>(additionalLibs, searchPaths);
   pipeline->getContext()->add(std::move(libraryInfo));
   // Link the kernel with the libraries to produce executable (shared object).
-  (void) pipeline->emplaceStep<ClangKernelLinking>(emitObjectCode, sharedObject);
+  (void)pipeline->emplaceStep<ClangKernelLinking>(emitObjectCode, sharedObject);
   // Add the CLI configuration to the pipeline context.
   pipeline->getContext()->add(std::move(config));
 
