@@ -9,10 +9,10 @@
 #ifndef SPNC_MLIR_INCLUDE_CONVERSION_HISPNTOLOSPN_HISPNTOLOSPNCONVERSIONPASSES_H
 #define SPNC_MLIR_INCLUDE_CONVERSION_HISPNTOLOSPN_HISPNTOLOSPNCONVERSIONPASSES_H
 
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/Pass.h"
 
-namespace mlir {
-namespace spn {
+namespace mlir::spn {
 
 struct HiSPNtoLoSPNNodeConversionPass
     : public PassWrapper<HiSPNtoLoSPNNodeConversionPass,
@@ -64,7 +64,6 @@ std::unique_ptr<Pass>
 createHiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation,
                                       bool useOptimalRepresentation);
 
-} // namespace spn
-} // namespace mlir
+} // namespace mlir::spn
 
 #endif // SPNC_MLIR_INCLUDE_CONVERSION_HISPNTOLOSPN_HISPNTOLOSPNCONVERSIONPASSES_H

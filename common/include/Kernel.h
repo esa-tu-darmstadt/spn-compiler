@@ -10,7 +10,7 @@
 #define SPNC_KERNEL_H
 
 #include <cstdlib>
-#include <optional>
+#include <string>
 
 ///
 /// Namespace for all entities related to the SPN compiler.

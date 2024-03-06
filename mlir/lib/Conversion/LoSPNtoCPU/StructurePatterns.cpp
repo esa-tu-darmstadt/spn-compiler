@@ -21,7 +21,7 @@ mlir::LogicalResult mlir::spn::KernelLowering::matchAndRewrite(
   assert(operands.empty() && "Kernel should not take any operands");
   auto replaceFunc = rewriter.create<func::FuncOp>(op.getLoc(), op.getName(),
                                                    op.getFunctionType());
-  auto funcBlock = replaceFunc.addEntryBlock();
+  auto *funcBlock = replaceFunc.addEntryBlock();
   rewriter.mergeBlocks(&op.getBody().front(), funcBlock,
                        funcBlock->getArguments());
   rewriter.eraseOp(op);
@@ -53,7 +53,7 @@ mlir::LogicalResult mlir::spn::BatchTaskLowering::matchAndRewrite(
   auto taskFunc = rewriter.create<func::FuncOp>(
       op->getLoc(), Twine("task_", std::to_string(taskCount++)).str(),
       funcType);
-  auto taskBlock = taskFunc.addEntryBlock();
+  auto *taskBlock = taskFunc.addEntryBlock();
   rewriter.setInsertionPointToStart(taskBlock);
   auto const0 = rewriter.create<arith::ConstantOp>(op->getLoc(),
                                                    rewriter.getIndexAttr(0));
@@ -119,7 +119,7 @@ mlir::LogicalResult mlir::spn::SingleTaskLowering::matchAndRewrite(
   auto taskFunc = rewriter.create<func::FuncOp>(
       op->getLoc(), Twine("task_", std::to_string(taskCount++)).str(),
       funcType);
-  auto taskBlock = taskFunc.addEntryBlock();
+  auto *taskBlock = taskFunc.addEntryBlock();
   rewriter.setInsertionPointToStart(taskBlock);
 
   // Collect the values replacing the block values of old block inside the task.
