@@ -43,6 +43,15 @@ void spnc::MLIRToolchain::initializeMLIRContext(mlir::MLIRContext &ctx) {
   ctx.loadDialect<mlir::math::MathDialect>();
   ctx.loadDialect<mlir::gpu::GPUDialect>();
   ctx.loadDialect<mlir::NVVM::NVVMDialect>();
+
+  // CIRCT stuff
+  ctx.loadDialect<circt::hw::HWDialect>();
+  ctx.loadDialect<circt::seq::SeqDialect>();
+  ctx.loadDialect<circt::sv::SVDialect>();
+  ctx.loadDialect<circt::comb::CombDialect>();
+  ctx.loadDialect<circt::firrtl::FIRRTLDialect>();
+  ctx.loadDialect<circt::esi::ESIDialect>();
+
   ctx.appendDialectRegistry(registry);
   mlir::registerBuiltinDialectTranslation(ctx);
   mlir::registerLLVMDialectTranslation(ctx);

@@ -49,8 +49,8 @@ public:
         maxNodeSize{maxNodeSize}, maxLookAhead{maxLookAhead},
         reorderInstructionsDFS{reorderInstructionsDFS},
         allowDuplicateElements{allowDuplicateElements},
-        allowTopologicalMixing{allowTopologicalMixing}, useXorChains{
-                                                            useXorChains} {}
+        allowTopologicalMixing{allowTopologicalMixing},
+        useXorChains{useXorChains} {}
 
 protected:
   LogicalResult

@@ -52,7 +52,9 @@ enum class FileType {
   SHARED_OBJECT,
   DOT,
   STAT_JSON,
-  SPN_BINARY
+  SPN_BINARY,
+  ZIP,
+  BITSTREAM
 };
 
 using LLVMBitcode = File<FileType::LLVM_BC>;

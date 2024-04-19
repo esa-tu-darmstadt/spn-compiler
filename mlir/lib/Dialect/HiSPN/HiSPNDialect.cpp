@@ -31,17 +31,6 @@ void HiSPNDialect::initialize() {
       >();
 }
 
-// ::mlir::Type HiSPNDialect::parseType(::mlir::DialectAsmParser& parser) const
-// {
-//   return ProbabilityType::get(getContext());
-// }
-
-// void HiSPNDialect::printType(::mlir::Type type, ::mlir::DialectAsmPrinter&
-// os) const {
-//   // Currently the only SPN type is the probability type.
-//   os << "probability";
-// }
-
 // Table-gen output for dialect implementation
 #include "HiSPN/HiSPNOpsDialect.cpp.inc"
 

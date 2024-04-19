@@ -11,6 +11,10 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <util/Logging.h>
 
+#ifdef TAPASCO_FPGA_SUPPORT
+#include "../wrappers/tapasco/TapascoWrapper.hpp"
+#endif
+
 namespace spnc_rt {
 
 static bool initLogger() {
@@ -41,12 +45,24 @@ spn_runtime &spn_runtime::instance() {
 
 void spn_runtime::execute(const Kernel &kernel, size_t num_elements,
                           void *inputs, void *outputs) {
-  // Caching executables wrapping around kernels to avoid repeated loading via
-  // libelf.
-  if (!cached_executables.count(kernel.unique_id())) {
-    cached_executables.emplace(std::pair<size_t, std::unique_ptr<Executable>>{
-        kernel.unique_id(), std::make_unique<Executable>(kernel)});
+  if (kernel.getKernelType() == KernelType::CLASSICAL_KERNEL) {
+    ClassicalKernel classicalKernel = kernel.getClassicalKernel();
+
+    // Caching executables wrapping around kernels to avoid repeated loading via
+    // libelf.
+    if (!cached_executables.count(classicalKernel.uniqueId())) {
+      cached_executables.emplace(std::pair<size_t, std::unique_ptr<Executable>>{
+          classicalKernel.uniqueId(),
+          std::make_unique<Executable>(classicalKernel)});
+    }
+    cached_executables[classicalKernel.uniqueId()]->execute(num_elements,
+                                                            inputs, outputs);
+  } else if (kernel.getKernelType() == KernelType::FPGA_KERNEL) {
+#ifdef TAPASCO_FPGA_SUPPORT
+    initTapasco(kernel)->executeQuery(num_elements, inputs, outputs);
+#else
+    throw std::runtime_error(
+        "TAPASCO_FPGA_SUPPORT is not defined and therefore not implemented");
+#endif
   }
-  cached_executables[kernel.unique_id()]->execute(num_elements, inputs,
-                                                  outputs);
 }

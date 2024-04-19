@@ -334,6 +334,7 @@ void ArithmeticPrecisionAnalysis::estimateErrorSum(
   auto operands = op->getOperands();
   assert(operands.size() > 1);
   auto weights = op.getWeights();
+  auto weights = op.getWeights();
 
   int numOperands = operands.size();
   SmallVector<ErrorEstimationValue> weightedAddends;

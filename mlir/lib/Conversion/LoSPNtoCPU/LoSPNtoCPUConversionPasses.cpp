@@ -28,6 +28,7 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::getDependentDialects(
   registry.insert<mlir::vector::VectorDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
   registry.insert<mlir::math::MathDialect>();
+  registry.insert<mlir::func::FuncDialect>();
 }
 
 // Helper functions in anonymous namespace.
@@ -228,6 +229,7 @@ void mlir::spn::LoSPNNodeVectorizationPass::getDependentDialects(
   registry.insert<mlir::math::MathDialect>();
   registry.insert<mlir::vector::VectorDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
+  registry.insert<mlir::LLVM::LLVMDialect>();
 }
 
 void mlir::spn::LoSPNNodeVectorizationPass::runOnOperation() {
@@ -238,7 +240,9 @@ void mlir::spn::LoSPNNodeVectorizationPass::runOnOperation() {
   target.addLegalDialect<mlir::math::MathDialect>();
   target.addLegalDialect<mlir::vector::VectorDialect>();
   target.addLegalDialect<mlir::memref::MemRefDialect>();
+  target.addLegalDialect<mlir::LLVM::LLVMDialect>();
   target.addLegalOp<ModuleOp>();
+  target.addLegalOp<func::FuncOp>();
   target.addLegalOp<func::FuncOp>();
 
   // Walk the operation to find out which vector width to use for the

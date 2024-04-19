@@ -28,7 +28,7 @@ EnumOpt spnc::option::compilationTarget{
     "target",
     "Specify the compilation target (CPU or CUDA)",
     "Compilation",
-    {EnumVal(CPU, "CPU"), EnumVal(CUDA, "CUDA")},
+    {EnumVal(CPU, "CPU"), EnumVal(CUDA, "CUDA"), EnumVal(FPGA, "FPGA")},
     {required()}};
 
 Option<int> spnc::option::optLevel{
@@ -152,3 +152,40 @@ Option<bool> spnc::option::optRepresentation{
 Option<std::string> spnc::option::debugOnly{
     "debug-only",
     "Specifies for which passes debug information should be printed", "Debug"};
+
+Option<std::string> spnc::option::controllerGeneratorPath{
+    "controller-generator-path"};
+
+Option<std::string> spnc::option::outputPath{"o", "."};
+
+Option<bool> spnc::option::launchVivado{"vivado", false};
+
+Option<bool> spnc::option::tapascoCompose{
+    "tapasco-compose", false, {depends(spnc::option::launchVivado, true)}};
+
+Option<bool> spnc::option::justGetKernel{"just-get-kernel", false};
+
+Option<int> spnc::option::fpgaFrequency{"fpga-frequency", 200};
+
+Option<bool> spnc::option::fpgaWrapReadyValid{"fpga-wrap-ready-valid", false};
+
+Option<bool> spnc::option::fpgaWrapESI{
+    "fpga-wrap-esi", false, {depends(spnc::option::fpgaWrapReadyValid, true)}};
+
+Option<bool> spnc::option::fpgaWrapESICosim{
+    "fpga-wrap-esi-cosim", false, {depends(spnc::option::fpgaWrapESI, true)}};
+
+Option<bool> spnc::option::fpgaWrapAXIStream{"fpga-wrap-axi-stream", false};
+
+Option<bool> spnc::option::fpgaCreateVerilogFiles{"fpga-create-verilog-files",
+                                                  false};
+
+Option<std::string> spnc::option::fpgaConfigJson{"fpga-config-json", ""};
+
+Option<bool> spnc::option::fpgaCocoTb{"fpga-coco-tb", false};
+
+Option<std::string> spnc::option::projectName{"project-name", ""};
+
+Option<uint32_t> spnc::option::fpgaMantissaWidth{"fpga-mantissa-width", 23};
+Option<uint32_t> spnc::option::fpgaExponentWidth{"fpga-exponent-width", 8};
+Option<std::string> spnc::option::fpgaFloatType{"fpga-float-type", "float32"};

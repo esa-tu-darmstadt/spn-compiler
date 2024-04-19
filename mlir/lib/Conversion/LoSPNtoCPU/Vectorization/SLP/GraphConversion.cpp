@@ -235,8 +235,8 @@ ConversionManager::ConversionManager(RewriterBase &rewriter, Block *block,
                                      bool reorderInstructionsDFS)
     : block{block}, costModel{costModel},
       conversionState{std::make_shared<ConversionState>()}, rewriter{rewriter},
-      folder{rewriter.getContext()}, reorderInstructionsDFS{
-                                         reorderInstructionsDFS} {
+      folder{rewriter.getContext()},
+      reorderInstructionsDFS{reorderInstructionsDFS} {
   this->costModel->setConversionState(conversionState);
 }
 

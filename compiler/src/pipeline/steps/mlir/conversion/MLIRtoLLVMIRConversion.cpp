@@ -43,6 +43,8 @@ spnc::MLIRtoLLVMIRConversion::executeStep(mlir::ModuleOp *mlirModule) {
 
   SPDLOG_INFO("Finished conversion to LLVM IR");
 
+  llvm::TargetMachine *machine = getContext()->get<llvm::TargetMachine>();
+
   llvm::InitializeNativeTarget();
   llvm::InitializeNativeTargetAsmPrinter();
   // NOTE: If we want to support cross-compilation, we need to replace the

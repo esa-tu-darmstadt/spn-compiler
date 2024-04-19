@@ -6,9 +6,24 @@
 #  SPDX-License-Identifier: Apache-2.0
 # ==============================================================================
 
+find_package(spdlog REQUIRED)
+
+if(${TAPASCO_FPGA_SUPPORT})
+  #message(FATAL_ERROR "blabla")
+  add_compile_definitions(TAPASCO_FPGA_SUPPORT)
+  include($ENV{TAPASCO_HOME_RUNTIME}/cmake/Tapasco.cmake NO_POLICY_SCOPE)
+
+  # TaPaSCo Setup
+  if(NOT TARGET tapasco)
+    find_package(Tapasco REQUIRED)
+  endif(NOT TARGET tapasco)
+endif(${TAPASCO_FPGA_SUPPORT})
+
 add_library(spnc-rt
         src/runtime.cpp
         src/Executable.cpp)
+
+set_property(TARGET spnc-rt PROPERTY CXX_STANDARD 20)
 
 target_include_directories(spnc-rt
         PUBLIC
@@ -16,9 +31,14 @@ target_include_directories(spnc-rt
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 
         PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src)
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/../common/include/)
 
-target_link_libraries(spnc-rt PRIVATE elf spnc-common spdlog::spdlog)
+if(${TAPASCO_FPGA_SUPPORT})
+  target_link_libraries(spnc-rt PRIVATE elf spnc-common tapasco tapasco-wrapper spdlog::spdlog)
+else(${TAPASCO_FPGA_SUPPORT})
+  target_link_libraries(spnc-rt PRIVATE elf spnc-common spdlog::spdlog)
+endif(${TAPASCO_FPGA_SUPPORT})
 
 option(CPU_PARALLEL_RUNTIME
         "Enable/disable thread-parallel execution of multiple batches on CPU in the runtime"
@@ -37,11 +57,13 @@ if (${SPNC_SLP_DEBUG})
     target_compile_definitions(spnc-rt PRIVATE SLP_DEBUG=true)
 endif (${SPNC_SLP_DEBUG})
 
-doxygen_doc(TARGET_NAME spnc-rt
-        SRC_DIRECTORIES
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-        DEPENDS
-        spnc-common)
+#doxygen_doc(TARGET_NAME spnc-rt
+#        SRC_DIRECTORIES
+#        ${CMAKE_CURRENT_SOURCE_DIR}/include
+#        ${CMAKE_CURRENT_SOURCE_DIR}/src
+#        DEPENDS
+#        spnc-common)
+
+
 
 add_subdirectory(wrappers)

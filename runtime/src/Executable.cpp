@@ -16,13 +16,12 @@
 using namespace spnc_rt;
 
 Executable::Executable(const Kernel &_kernel)
-    : kernel{&_kernel}, handle{nullptr}, kernel_func{nullptr} {}
+    : kernel{_kernel}, handle{nullptr}, kernel_func{nullptr} {}
 
 Executable::Executable(spnc_rt::Executable &&other) noexcept
-    : kernel{other.kernel}, handle{other.handle}, kernel_func{
-                                                      other.kernel_func} {
+    : kernel{other.kernel}, handle{other.handle},
+      kernel_func{other.kernel_func} {
   other.handle = nullptr;
-  other.kernel = nullptr;
 }
 
 Executable &Executable::operator=(Executable &&other) noexcept {
@@ -30,7 +29,6 @@ Executable &Executable::operator=(Executable &&other) noexcept {
   handle = other.handle;
   other.handle = nullptr;
   kernel = other.kernel;
-  other.kernel = nullptr;
   return *this;
 }
 
@@ -44,16 +42,15 @@ void Executable::execute(size_t num_elements, void *inputs, void *outputs) {
   if (!handle) {
     initialize();
   }
-  if (kernel->target() == KernelTarget::CUDA) {
+
+  assert(kernel.getKernelType() == KernelType::CLASSICAL_KERNEL);
+
+  ClassicalKernel classical = kernel.getClassicalKernel();
+
+  if (classical.targetArch == KernelTarget::CUDA)
     executeGPU(num_elements, inputs, outputs);
-  } else {
-    assert(kernel->target() == KernelTarget::CPU);
-    if (kernel->batchSize() == 1) {
-      executeSingle(num_elements, inputs, outputs);
-    } else {
-      executeBatch(num_elements, inputs, outputs);
-    }
-  }
+  else if (classical.targetArch == KernelTarget::CPU)
+    executeBatch(num_elements, inputs, outputs);
 }
 // =======================================================================================================//
 #ifndef SLP_DEBUG
@@ -75,8 +72,9 @@ void Executable::executeSingle(size_t num_samples, void *inputs,
 #if SLP_DEBUG
   TimePoint start = std::chrono::high_resolution_clock::now();
 #endif
-  kernel_func(inputs, inputs, 0, 1, kernel->numFeatures(), 1, 1, outputs,
-              outputs, 0, 1, 1, 1, 1);
+  ClassicalKernel kernel = this->kernel.getClassicalKernel();
+  kernel_func(inputs, inputs, 0, 1, kernel.numFeatures, 1, 1, outputs, outputs,
+              0, 1, 1, 1, 1);
 #if SLP_DEBUG
   TimePoint end = std::chrono::high_resolution_clock::now();
   auto duration =
@@ -87,12 +85,13 @@ void Executable::executeSingle(size_t num_samples, void *inputs,
 
 void Executable::executeBatch(size_t num_samples, void *inputs, void *outputs) {
   assert(kernel_func);
+  ClassicalKernel kernel = this->kernel.getClassicalKernel();
   // Cast to char (i.e. byte) pointer to perform pointer arithmetic.
   char *input_ptr = reinterpret_cast<char *>(inputs);
   char *output_ptr = reinterpret_cast<char *>(outputs);
-  size_t batchSize = kernel->batchSize();
+  size_t batchSize = kernel.batchSize;
 #pragma omp parallel for firstprivate(input_ptr, output_ptr, batchSize,        \
-                                      num_samples) default(none)
+                                          num_samples, kernel) default(none)
   for (size_t i = 0; i < num_samples; i += batchSize) {
     // Calculate the number of remaining samples, can be < batchSize for the
     // last batch.
@@ -101,46 +100,55 @@ void Executable::executeBatch(size_t num_samples, void *inputs, void *outputs) {
     // Calculate pointer to first input of this batch, using information about
     // the number of features and number of bytes used to encode the feature.
     char *input_offset =
-        &(input_ptr[i * kernel->numFeatures() * kernel->bytesPerFeature()]);
+        &(input_ptr[i * kernel.numFeatures * kernel.bytesPerFeature]);
     // Calculate pointer to first output for this batch, using information about
     // the number or results and number of bytes used to encode each result.
     char *output_offset =
-        &(output_ptr[i * kernel->numResults() * kernel->bytesPerResult()]);
-    kernel_func(input_offset, input_offset, 0, samples, kernel->numFeatures(),
-                1, 1, output_offset, output_offset, 0, 1, samples, 1, 1);
+        &(output_ptr[i * kernel.numResults * kernel.bytesPerResult]);
+    kernel_func(input_offset, input_offset, 0, samples, kernel.numFeatures, 1,
+                1, output_offset, output_offset, 0, 1, samples, 1, 1);
   }
 }
 
 void Executable::executeGPU(size_t num_samples, void *inputs, void *outputs) {
   assert(kernel_func);
+  ClassicalKernel kernel = this->kernel.getClassicalKernel();
   // For GPUs, we launch all inputs at once. The host-part of the compiled
   // kernel will split the samples into multiple blocks, which in turn are
   // processed by multiple GPU threads at once.
   // TODO: We need to specify the number of features as stride in the first
   // dimension here, as the inserted runtime calls otherwise calculate the
   // amount of data to be tranfered wrong. Investigate this further.
-  kernel_func(inputs, inputs, 0, num_samples, kernel->numFeatures(),
-              kernel->numFeatures(), 1, outputs, outputs, 0, 1, num_samples, 1,
-              1);
+  kernel_func(inputs, inputs, 0, num_samples, kernel.numFeatures,
+              kernel.numFeatures, 1, outputs, outputs, 0, 1, num_samples, 1, 1);
 }
 
 void Executable::initialize() {
+  if (this->kernel.getKernelType() != KernelType::CLASSICAL_KERNEL)
+    throw std::runtime_error("wrong kernel type");
+
   char *error = nullptr;
-  // Try to open the shared object file.
-  handle = dlopen(kernel->fileName().c_str(), RTLD_LAZY);
-  if (!handle) {
-    SPN_RT_FATAL_ERROR("Error opening Kernel file {}: {}", kernel->fileName(),
-                       dlerror());
-  }
+  ClassicalKernel kernel = this->kernel.getClassicalKernel();
+  bool isSharedObject = kernel.targetArch == KernelTarget::CPU ||
+                        kernel.targetArch == KernelTarget::CUDA;
 
-  // Clear existing errors.
-  dlerror();
+  if (isSharedObject) {
+    // Try to open the shared object file.
+    handle = dlopen(kernel.fileName.c_str(), RTLD_LAZY);
+    if (!handle) {
+      SPN_RT_FATAL_ERROR("Error opening Kernel file {}: {}", kernel.fileName,
+                         dlerror());
+    }
 
-  // Try to locate a function with the given name in the shared object.
-  *(void **)(&kernel_func) = dlsym(handle, kernel->kernelName().c_str());
+    // Clear existing errors.
+    dlerror();
 
-  if ((error = dlerror()) != nullptr) {
-    SPNC_FATAL_ERROR("Could not locate Kernel function {} in {}: {}",
-                     kernel->kernelName(), kernel->fileName(), error);
+    // Try to locate a function with the given name in the shared object.
+    *(void **)(&kernel_func) = dlsym(handle, kernel.kernelName.c_str());
+
+    if ((error = dlerror()) != nullptr) {
+      SPNC_FATAL_ERROR("Could not locate Kernel function {} in {}: {}",
+                       kernel.kernelName, kernel.fileName, error);
+    }
   }
 }

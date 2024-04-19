@@ -103,49 +103,128 @@ spn = [...]
 model = SPNModel(spn)
 ```
 
-A model can further be wrapped in a query:
+### Build PyBind11 from source
 
-```python
-from xspn.structure.Query import JointProbability
-query = JointProbability(model)
+```
+cd $BASE_DIR
+git clone https://github.com/pybind/pybind11.git
+cd pybind11
+mkdir build
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=$BASE_DIR/pybind11/install \
+     -DPYTHON_EXECUTABLE:FILEPATH=/usr/bin/python3 ..
+make
+make install
 ```
 
-Finally, the query can be serialized into binary format:
+### Build spdlog from source
 
-```python
-from xspn.serialization.binary.BinarySerialization import BinarySerializer
-
-BinarySerializer("test.bin").serialize_to_file(query)
+```
+cd $BASE_DIR
+git clone https://github.com/gabime/spdlog.git
+cd spdlog
+mkdir build
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=$BASE_DIR/spdlog/install -DSPDLOG_BUILD_SHARED=ON ..
+make
+make install
 ```
 
-Serialized models can also be de-serialized to Python again:
+### Build Cap'n'Proto from source
 
-```python
-from xspn.serialization.binary.BinarySerialization import BinaryDeserializer
-
-deserialized_query = BinaryDeserializer("test.bin").deserialize_from_file()
+```
+cd $BASE_DIR
+git clone https://github.com/sandstorm-io/capnproto.git
+cd capnproto/c++
+autoreconf -i
+./configure --prefix=$BASE_DIR/capnproto/install
+# Make sure to adapt the number of parallel jobs to your machine.
+make -j 16
+make install
 ```
 
-### Contributing ###
+### Build MLIR and CIRCT from source
 
-We welcome contributions through issues and pull requests. New contributors should have a look at
-the [Coding Guidelines](https://github.com/esa-tu-darmstadt/spn-compiler/wiki/Coding-Guidelines) and
-the [Developer's Manual](https://github.com/esa-tu-darmstadt/spn-compiler/wiki/Developer's-Manual).
+```
+cd $BASE_DIR
+git clone https://github.com/jschj/circt.git
+cd circt
+git checkout lower-esi-to-axi-stream
+git submodule update --recursive
+cd llvm
+git checkout 660b3c85c8ea74909de0116bd1dae1b83342cffa     # just in case the
 
-The Installation Manual also contains a section on a
-[setup tailored for developers](https://github.com/esa-tu-darmstadt/spn-compiler/wiki/Installation-Manual#for-developers)
-.
+# build MLIR
+cd $BASE_DIR/circt/llvm
+mkdir build
+cd build
+cmake -G Ninja ../llvm \
+  -DLLVM_ENABLE_PROJECTS="mlir;clang;compiler-rt" \
+  -DLLVM_TARGETS_TO_BUILD="host" \
+  -DBUILD_SHARED_LIBS=ON \
+  -DLLVM_ENABLE_ASSERTIONS=ON \
+  -DCMAKE_BUILD_TYPE=DEBUG \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+  -DLLVM_OPTIMIZED_TABLEGEN=ON \
+  -DLLVM_ENABLE_RTTI=ON 
+ninja
+ninja check-mlir
 
-### License ###
+# build CIRCT
+cd $BASE_DIR/circt
+mkdir build
+cd build
 
-SPNC is licensed under the **Apache License v2.0**, see the *LICENSE* file that was distributed with this source code
-for more information.
+# we need capnproto for ESI
+PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/capnproto/install;"
+cmake -G Ninja .. \
+  -DCMAKE_PREFIX_PATH=$PREFIX_PATH \
+  -DMLIR_DIR=$PWD/../llvm/build/lib/cmake/mlir \
+  -DLLVM_DIR=$PWD/../llvm/build/lib/cmake/llvm \
+  -DLLVM_ENABLE_ASSERTIONS=ON \
+  -DCMAKE_BUILD_TYPE=DEBUG \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+  -DLLVM_ENABLE_RTTI=ON -DESI_COSIM=ON \
+  -DLLVM_ENABLE_LLD=ON \
+  -DCMAKE_C_COMPILER=/usr/bin/clang \
+  -DCMAKE_CXX_COMPILER=/usr/bin/clang++
+ninja
+ninja check-circt
+ninja check-circt-integration
+```
 
-### Citation ###
+### Build TaPaSCo from source
 
-If you use SPNC for your research, please cite the following publication:
 
-Lukas Sommer, Cristian Axenie, Andreas Koch (2022).
-**SPNC: An Open-Source MLIR-Based Compiler for Fast Sum-Product Network Inference on CPUs and GPUs**. In *2022 IEEE/ACM
-International Symposium on Code Generation and Optimization (CGO).*
-[Preprint](https://www.esa.informatik.tu-darmstadt.de/assets/publications/materials/2022/2022_CGO_LS.pdf).
+
+### Build SPNC from source
+
+```
+cd $BASE_DIR
+git clone https://github.com/jschj/spn-compiler.git
+cd spn-compiler
+git checkout feature/circt-ufloat-ops
+git submodule update --recursive
+mkdir build
+cd build
+
+PREFIX_PATH="$BASE_DIR/circt/llvm/build/lib/cmake/llvm;"
+PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/circt/llvm/build/lib/cmake/mlir;"
+
+PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/circt/build/lib/cmake/circt;"
+
+PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/pybind11/install/share/cmake/pybind11;"
+PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/spdlog/install/lib64/cmake/spdlog;"
+PREFIX_PATH=$PREFIX_PATH"$BASE_DIR/capnproto/install"
+
+cmake -DCMAKE_PREFIX_PATH=$PREFIX_PATH\
+  -DLLVM_ENABLE_ASSERTIONS=ON\
+  -DSPNC_BUILD_DOC=ON\
+  -DCMAKE_POSITION_INDEPENDENT_CODE=ON\
+  -DBUILD_SHARED_LIBS=ON\
+  -DCMAKE_BUILD_TYPE=Debug\
+  -DTAPASCO_FPGA_SUPPORT=1\ # omit if TaPaSCo is not required
+  ..
+
+make -jN
+```

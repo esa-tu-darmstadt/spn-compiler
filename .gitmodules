@@ -1,0 +1,6 @@
+[submodule "runtime/wrappers/tapasco/bitpacker"]
+	path = runtime/wrappers/tapasco/bitpacker
+	url = https://github.com/CrustyAuklet/bitpacker
+[submodule "mlir/FIRRTLPP"]
+	path = mlir/FIRRTLPP
+	url = git@github.com:jschj/FIRRTLPP.git

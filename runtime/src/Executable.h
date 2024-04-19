@@ -54,7 +54,7 @@ public:
   void execute(size_t num_elements, void *inputs, void *outputs);
 
 private:
-  const Kernel *kernel;
+  Kernel kernel;
 
   void *handle;
 
@@ -69,6 +69,7 @@ private:
   void executeGPU(size_t num_samples, void *inputs, void *outputs);
 };
 
+kernel_function tapasco_get_kernel_func(const Kernel &kernel);
 } // namespace spnc_rt
 
 #endif // SPNC_EXECUTABLE_H

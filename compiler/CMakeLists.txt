@@ -9,6 +9,9 @@
 find_package(MLIR REQUIRED CONFIG)
 message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
 
+find_package(CIRCT REQUIRED CONFIG)
+message(STATUS "Using CIRCTConfig.cmake in: ${CIRCT_DIR}")
+
 if (${CUDA_GPU_SUPPORT})
     include(DetectCUDALibs.cmake)
     detect_cuda_libs()
@@ -38,6 +41,15 @@ add_library(spnc
         src/pipeline/steps/mlir/conversion/MLIRtoLLVMIRConversion.cpp
         src/pipeline/steps/mlir/transformation/LoSPNTransformations.cpp
         src/pipeline/steps/frontend/SPFlowToMLIRDeserializer.cpp
+        src/pipeline/steps/hdl/CreateVivadoProject.cpp
+        src/pipeline/steps/hdl/EmitVerilogCode.cpp
+        src/pipeline/steps/hdl/EmbedController.cpp
+        src/pipeline/steps/hdl/EmbedAXIStream.cpp
+        src/pipeline/steps/hdl/WrapESI.cpp
+        src/pipeline/steps/hdl/CreateVerilogFiles.cpp
+        src/pipeline/steps/hdl/CreateAXIStreamMapper.cpp
+        src/pipeline/steps/mlir/conversion/LoSPNtoFPGAConversion.cpp
+        src/toolchain/FPGAToolchain.cpp
         ${CAPNP_SRCS}
         )
 
@@ -61,9 +73,12 @@ target_include_directories(spnc
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${LLVM_INCLUDE_DIRS}
         ${MLIR_INCLUDE_DIRS}
+        ${CIRCT_INCLUDE_DIRS}
         ${SPN_DIALECT_INCLUDE_DIRS}
         ${CAPNP_HDR_DIRS}
-        ${CAPNPC_OUTPUT_DIR})
+        ${CAPNPC_OUTPUT_DIR}
+        ${FIRRTLPP_INCLUDE_DIRS}
+)
 
 if (${CUDA_GPU_SUPPORT})
     #
@@ -125,7 +140,7 @@ set(mlir_libs
 
 llvm_map_components_to_libnames(llvm_libs bitwriter native passes)
 target_link_libraries(spnc PRIVATE spnc-common ${llvm_libs} ${mlir_libs} spdlog::spdlog
-        CapnProto::capnp cpu_targetinfo stdc++fs)
+        CapnProto::capnp cpu_targetinfo stdc++fs firp)
 
 target_compile_options(spnc PRIVATE ${SPNC_CXX_WARNING_LEVEL})
 

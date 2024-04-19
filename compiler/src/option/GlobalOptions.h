@@ -29,7 +29,7 @@ extern Option<bool> collectGraphStats;
 extern Option<std::string> graphStatsFile;
 
 /// Available compilation targets.
-enum TargetMachine { CPU, CUDA };
+enum TargetMachine { CPU, CUDA, FPGA };
 
 ///
 /// Interface option to specify the compilation target.
@@ -150,6 +150,43 @@ extern Option<bool> dumpIR;
 /// be determined.
 extern Option<bool> optRepresentation;
 
+///
+/// Specifies the path of the SPN Controller generator.
+extern Option<std::string> controllerGeneratorPath;
+
+///
+/// Specifies the output path.
+extern Option<std::string> outputPath;
+
+///
+/// Specify wether the user wants to launch vivado.
+extern Option<bool> launchVivado;
+
+///
+/// Specify wether the user wants to call tapasco to synthesize a bitstream.
+extern Option<bool> tapascoCompose;
+///
+/// Specify whether the user just wants to get the kernel information.
+extern Option<bool> justGetKernel;
+
+///
+/// Specify the target frequency of the accelerator.
+extern Option<int> fpgaFrequency;
+
+extern Option<bool> fpgaWrapReadyValid;
+extern Option<bool> fpgaWrapESI;
+extern Option<bool> fpgaWrapESICosim;
+extern Option<bool> fpgaWrapAXIStream;
+extern Option<bool> fpgaCreateVerilogFiles;
+
+extern Option<std::string> fpgaConfigJson;
+extern Option<bool> fpgaCocoTb;
+
+extern Option<std::string> projectName;
+
+extern Option<uint32_t> fpgaMantissaWidth;
+extern Option<uint32_t> fpgaExponentWidth;
+extern Option<std::string> fpgaFloatType;
 ///
 /// Flag to indicate for which passes debug information should be printed.
 extern Option<std::string> debugOnly;
