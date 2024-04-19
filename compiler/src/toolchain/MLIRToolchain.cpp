@@ -126,19 +126,19 @@ spnc::MLIRToolchain::createTargetMachine(int optLevel) {
   SPDLOG_INFO("Target machine CPU name: {}", cpu);
   SPDLOG_INFO("Target machine features: {}", featureList.str());
 
-  llvm::CodeGenOpt::Level cgOptLevel = llvm::CodeGenOpt::Default;
+  llvm::CodeGenOptLevel cgOptLevel = llvm::CodeGenOptLevel::Default;
   switch (optLevel) {
   case 0:
-    cgOptLevel = llvm::CodeGenOpt::None;
+    cgOptLevel = llvm::CodeGenOptLevel::None;
     break;
   case 1:
-    cgOptLevel = llvm::CodeGenOpt::Less;
+    cgOptLevel = llvm::CodeGenOptLevel::Less;
     break;
   case 2:
-    cgOptLevel = llvm::CodeGenOpt::Default;
+    cgOptLevel = llvm::CodeGenOptLevel::Default;
     break;
   case 3:
-    cgOptLevel = llvm::CodeGenOpt::Aggressive;
+    cgOptLevel = llvm::CodeGenOptLevel::Aggressive;
     break;
   default:
     SPNC_FATAL_ERROR("Invalid optimization level {}", optLevel);

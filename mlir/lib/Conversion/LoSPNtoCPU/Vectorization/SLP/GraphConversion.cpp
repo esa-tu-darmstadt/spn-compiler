@@ -235,8 +235,8 @@ ConversionManager::ConversionManager(RewriterBase &rewriter, Block *block,
                                      bool reorderInstructionsDFS)
     : block{block}, costModel{costModel},
       conversionState{std::make_shared<ConversionState>()}, rewriter{rewriter},
-      folder{rewriter.getContext()}, reorderInstructionsDFS{
-                                         reorderInstructionsDFS} {
+      folder{rewriter.getContext()},
+      reorderInstructionsDFS{reorderInstructionsDFS} {
   this->costModel->setConversionState(conversionState);
 }
 
@@ -407,7 +407,7 @@ Value ConversionManager::getOrCreateConstant(Location const &loc,
       rewriter.getContext()->getLoadedDialect<arith::ArithDialect>();
   auto constant =
       folder.getOrCreateConstant(rewriter.getInsertionBlock(), arithDialect,
-                                 attribute, typedAttribute.getType(), loc);
+                                 attribute, typedAttribute.getType());
   assert(constant && "constant creation failed");
   return constant;
 }

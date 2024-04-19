@@ -8,8 +8,8 @@
 
 #include "TargetInformation.h"
 #include "mlir/IR/BuiltinTypes.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/raw_os_ostream.h"
+#include "llvm/TargetParser/Host.h"
 
 mlir::spn::TargetInformation::TargetInformation()
     : hostDefaultTriple(llvm::sys::getDefaultTargetTriple()) {
