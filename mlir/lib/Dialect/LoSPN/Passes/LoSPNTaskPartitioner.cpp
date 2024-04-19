@@ -10,11 +10,9 @@
 #include "../Partitioning/SPNGraph.h"
 #include "LoSPN/LoSPNOps.h"
 #include "LoSPN/LoSPNPasses.h"
-#include "LoSPN/LoSPNTypes.h"
 #include "LoSPNPassDetails.h"
 #include "TargetExecutionModel.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -27,10 +25,14 @@
 #include <boost/range/iterator_range_core.hpp>
 #include <llvm/ADT/IndexedMap.h>
 #include <mlir/Rewrite/FrozenRewritePatternSet.h>
+#include <optional>
 
 namespace mlir {
 namespace spn {
 namespace low {
+
+#define GEN_PASS_DEF_LOSPNTASKPARTIONING
+#include "LoSPN/LoSPNPasses.h.inc"
 
 using namespace mlir::spn::low::partitioning;
 
@@ -55,7 +57,7 @@ public:
       llvm::DenseMap<mlir::BlockArgument, mlir::Value> externalTensors;
       unsigned tensorIndex = 0;
       bool initial = true;
-      for (auto &blockArg : op.getBody()->getArguments()) {
+      for (auto &blockArg : op.getBody().getArguments()) {
         if (initial) {
           // The first block argument is the batch index, skip it.
           initial = false;
@@ -65,22 +67,22 @@ public:
       }
       op->walk([&](SPNBody body) {
         unsigned inIndex = 0;
-        for (auto blockArg : body.getBody()->getArguments()) {
+        for (auto blockArg : body.getBody().getArguments()) {
           // Detect the BatchExtract producing this block arg:
           auto bodyOp = body->getOperand(inIndex++);
           assert(isa<SPNBatchExtract>(bodyOp.getDefiningOp()));
           auto extract = cast<SPNBatchExtract>(bodyOp.getDefiningOp());
-          assert(extract.input().isa<BlockArgument>());
+          assert(extract.getInput().isa<BlockArgument>());
           // Get the input tensor of the BatchExtract
-          auto tensorArg = extract.input();
+          auto tensorArg = extract.getInput();
           // Match the input tensor of the BatchExtract
           // (which should be a block argument of the Task's entry block)
           // to the external operand of the task.
           assert(externalTensors.count(tensorArg.cast<BlockArgument>()));
           auto externalTensor = externalTensors[tensorArg.cast<BlockArgument>()];
-          inputs[blockArg] = InputInfo{externalTensor, llvm::None, extract.staticIndex()};
+          inputs[blockArg] = InputInfo{externalTensor, std::nullopt, extract.getStaticIndex()};
         }
-        body.body().walk([&](Operation *op) {
+        body.getBody().walk([&](Operation *op) {
           if (isa<SPNYield>(op)) {
             // Store terminators
             taskTerminators.push_back(op);
@@ -106,8 +108,9 @@ public:
     partitioner.clusterGraph();
     partitioner.scheduleGraphForBSP();
 
-    // Post-processing of constants: If a constant has a use in a different partition,
-    // clone the constant to the other partition to avoid unnecessary edges crossing partitions.
+    // Post-processing of constants: If a constant has a use in a different
+    // partition, clone the constant to the other partition to avoid unnecessary
+    // edges crossing partitions.
     postprocessConstants(partitioner, rewriter);
 
     // Create a new LoSPN task for each cluster.
@@ -119,15 +122,15 @@ public:
         continue;
 
       // Create a new task for this cluster.
-      createTaskForPartition(cluster, rewriter, op.getLoc(), op.batchSize(), inputs, partitioner);
+      createTaskForPartition(cluster, rewriter, op.getLoc(), op.getBatchSize(), inputs, partitioner);
     }
 
     // Emit a remark with some information about the number of partitions etc.
     auto numPartitions = partitioner.numClusters();
     auto maxSize = partitioner.getMaximumClusterSize();
     op->emitRemark() << "Split task into " << numPartitions << " partitions with a maximum size of " << maxSize;
-    // Identify the task(s) producing the final result(s) of the original task and replace
-    // the original task by the newly created tasks.
+    // Identify the task(s) producing the final result(s) of the original task
+    // and replace the original task by the newly created tasks.
     SmallVector<Value> newResults;
     for (auto op : taskTerminators) {
       for (auto resVal : op->getOperands()) {
@@ -141,21 +144,21 @@ public:
 private:
   struct InputInfo {
     Value tensor;
-    llvm::Optional<unsigned> rowIndex;
-    llvm::Optional<unsigned> colIndex;
+    std::optional<unsigned> rowIndex;
+    std::optional<unsigned> colIndex;
 
     bool transposed() const {
-      assert(rowIndex.hasValue() ^ colIndex.hasValue());
-      return rowIndex.hasValue();
+      assert(rowIndex.has_value() ^ colIndex.has_value());
+      return rowIndex.has_value();
     }
   };
 
   using InputMap = llvm::DenseMap<mlir::Value, InputInfo>;
-  using InputMap = llvm::DenseMap<mlir::Value, InputInfo>;
 
   void createTaskForPartition(SPNGraph &partition, PatternRewriter &rewriter, Location loc, unsigned batchSize,
                               InputMap &inputs, GraphPartitioner &partitioner) const {
-    // First, collect all input values coming from outside arguments of the original task
+    // First, collect all input values coming from outside arguments of the
+    // original task
     InputMap nonPartitionInputs;
     llvm::MapVector<Value, unsigned> inputArgs;
     unsigned inputArgIndex = 1;
@@ -168,7 +171,8 @@ private:
           assert(inputs.count(operands) && "External input are expected to be present in the input map");
           auto inputInfo = inputs[operands];
           nonPartitionInputs[operands] = inputInfo;
-          // Remember which output from the outside will be provided by which argument to this task.
+          // Remember which output from the outside will be provided by which
+          // argument to this task.
           if (!inputArgs.count(inputInfo.tensor)) {
             inputArgs.insert({inputInfo.tensor, inputArgIndex++});
           }
@@ -180,7 +184,8 @@ private:
       Value value = boost::get(SPNEdge_Value(), partitioner.graph(), globalInEdge);
       // First, check the map for pre-existing entries.
       if (!inputs.count(value)) {
-        // If no mapping is present, the input must be produced by another partition.
+        // If no mapping is present, the input must be produced by another
+        // partition.
         auto globalVertexFrom = boost::source(globalInEdge, partitioner.graph());
         auto otherPartition = find_cluster(globalVertexFrom, partitioner.graph());
         // Convert the partition producing the input to a task first.
@@ -190,31 +195,34 @@ private:
       }
       auto inputInfo = inputs[value];
       nonPartitionInputs[value] = inputInfo;
-      // Remember which output from the outside will be provided by which argument to this task.
+      // Remember which output from the outside will be provided by which
+      // argument to this task.
       if (!inputArgs.count(inputInfo.tensor)) {
         inputArgs.insert({inputInfo.tensor, inputArgIndex++});
       }
     }
-    // Collect information about which values this task will provide to other partitions.
+    // Collect information about which values this task will provide to other
+    // partitions.
     SmallVector<Value> nonPartitionOutputs;
-    llvm::Optional<Type> resultType;
+    std::optional<Type> resultType;
     SmallVector<Type> bodyResults;
     for (auto globalOutEdge : partitioner.edges_out(partition)) {
       auto value = boost::get(SPNEdge_Value(), partitioner.graph(), globalOutEdge);
       auto rType = performTypeConversion(value.getType());
-      if (!resultType.hasValue()) {
+      if (!resultType.has_value()) {
         resultType = rType;
       } else {
-        // Currently we assume that all results from one partition have the same type.
-        assert(resultType.getValue() == rType && "Multiple results with different types");
+        // Currently we assume that all results from one partition have the same
+        // type.
+        assert(resultType.value() == rType && "Multiple results with different types");
       }
       bodyResults.push_back(rType);
       nonPartitionOutputs.push_back(value);
     }
 
-    assert(resultType.hasValue() && "Expecting at least one output from every partition");
+    assert(resultType.has_value() && "Expecting at least one output from every partition");
     // All results of a partition are stored into one tensor (later on buffer).
-    auto outputType = RankedTensorType::get({static_cast<long>(bodyResults.size()), -1}, resultType.getValue());
+    auto outputType = RankedTensorType::get({static_cast<long>(bodyResults.size()), -1}, resultType.value());
     // Add all input tensors as operands of the new task.
     SmallVector<Value> taskInputs;
     for (auto &in : inputArgs) {
@@ -236,10 +244,11 @@ private:
       auto inputInfo = in.getSecond();
       auto index = inputArgs[inputInfo.tensor];
       hasLogType[bodyArgIndex] = value.getType().isa<low::LogType>();
-      // Remember which input value is associated with which input index for the body.
+      // Remember which input value is associated with which input index for the
+      // body.
       inputIndices[value] = bodyArgIndex++;
       bool transposed = inputInfo.transposed();
-      unsigned staticIndex = (transposed) ? inputInfo.rowIndex.getValue() : inputInfo.colIndex.getValue();
+      unsigned staticIndex = (transposed) ? inputInfo.rowIndex.value() : inputInfo.colIndex.value();
       auto extract =
           rewriter.create<SPNBatchExtract>(loc, performTypeConversion(value.getType()), taskBlock->getArgument(index),
                                            task.getBatchIndex(), staticIndex, rewriter.getBoolAttr(transposed));
@@ -247,23 +256,24 @@ private:
     }
     auto body = rewriter.create<SPNBody>(loc, bodyResults, bodyInputs);
     auto restoreBody = rewriter.saveInsertionPoint();
-    auto bodyBlock = rewriter.createBlock(&body.body());
+    auto bodyBlock = rewriter.createBlock(&body.getBody());
     auto index = 0;
-    // Add an block argument for each external input. The block arg corresponds to the
-    // batch extract extracing the value from the input tensor.
+    // Add an block argument for each external input. The block arg corresponds
+    // to the batch extract extracing the value from the input tensor.
     for (auto &bodyIn : bodyInputs) {
       if (hasLogType[index++]) {
-        bodyBlock->addArgument(low::LogType::get(bodyIn.getType()));
+        bodyBlock->addArgument(low::LogType::get(getContext(), bodyIn.getType()), body.getBody().getLoc());
       } else {
-        bodyBlock->addArgument(bodyIn.getType());
+        bodyBlock->addArgument(bodyIn.getType(), body.getBody().getLoc());
       }
     }
     // Populate a mapping from external Value to block argument.
-    BlockAndValueMapping mapper;
+    IRMapping mapper;
     for (auto remapped : inputIndices) {
       mapper.map(remapped.getFirst(), bodyBlock->getArgument(remapped.second));
     }
-    // Copy the operations in this partition from the original task to the new task.
+    // Copy the operations in this partition from the original task to the new
+    // task.
     for (auto vertex : boost::make_iterator_range(boost::vertices(partition))) {
       auto *op = boost::get(SPNVertex_Operation(), partition, vertex);
       copyOperation(op, rewriter, mapper);
@@ -273,25 +283,28 @@ private:
     // Create a SPNYield with all results at the end of the body.
     for (auto retVal : nonPartitionOutputs) {
       bodyYields.push_back(mapper.lookupOrNull(retVal));
-      inputs[retVal] = InputInfo{task->getResult(0), resultIndex++, llvm::None};
+      inputs[retVal] = InputInfo{task->getResult(0), resultIndex++, std::nullopt};
     }
     rewriter.create<SPNYield>(loc, bodyYields);
     rewriter.restoreInsertionPoint(restoreBody);
-    // Create a SPNBatchCollect collecting all scalar results into a single tensor.
+    // Create a SPNBatchCollect collecting all scalar results into a single
+    // tensor.
     auto collect = rewriter.create<SPNBatchCollect>(loc, body->getResults(), task.getBatchIndex(), true);
     // Create a Return at the end of the task, returning all results as tensors.
     rewriter.create<SPNReturn>(loc, collect.getResult());
     rewriter.restoreInsertionPoint(restore);
   }
 
-  void copyOperation(Operation *op, PatternRewriter &rewriter, BlockAndValueMapping &mapper) const {
+  void copyOperation(Operation *op, PatternRewriter &rewriter, IRMapping &mapper) const {
     for (auto operand : op->getOperands()) {
       if (!mapper.contains(operand)) {
         // Copy definition first to ensure legality of def-use-chains
 
-        // We expect the operand to be mapped if it not the result of an operation. Especially, all block arguments,
-        // i.e., external inputs, should be already mapped.
-        assert(operand.getDefiningOp() && "This operand is not the result of an operation but it is not mapped yet");
+        // We expect the operand to be mapped if it not the result of an
+        // operation. Especially, all block arguments, i.e., external inputs,
+        // should be already mapped.
+        assert(operand.getDefiningOp() && "This operand is not the result of an operation but it is not "
+                                          "mapped yet");
         copyOperation(operand.getDefiningOp(), rewriter, mapper);
       }
     }
@@ -323,7 +336,8 @@ private:
           auto globalVertexTo = boost::target(globalOutEdge, partitioner.graph());
           auto otherPart = find_cluster(globalVertexTo, partitioner.graph());
 
-          // Clone the constant right before the using operation and add it to the same partition.
+          // Clone the constant right before the using operation and add it to
+          // the same partition.
           auto restore = rewriter.saveInsertionPoint();
 
           // Get the constant operation and the operation thats using it
@@ -338,7 +352,8 @@ private:
           auto globalClonedConstant = add_vertex(otherPart, clonedOut, targetModel_);
           auto localClonedConstant = boost::add_vertex(globalClonedConstant, otherPart);
 
-          // Add the edge from the cloned constant to the using operation in the other partition
+          // Add the edge from the cloned constant to the using operation in the
+          // other partition
           auto localVertexTo = otherPart.global_to_local(globalVertexTo);
           add_edge(localClonedConstant, localVertexTo, otherPart, clonedOut->getResult(0), targetModel_);
 
@@ -352,10 +367,14 @@ private:
   int maxTaskSize_;
 };
 
-struct LoSPNTaskPartitioner : public LoSPNTaskPartioningBase<LoSPNTaskPartitioner> {
-const spnc::TargetExecutionModel &targetModel_;
+struct LoSPNTaskPartitioner : public impl::LoSPNTaskPartioningBase<LoSPNTaskPartitioner> {
+  const spnc::TargetExecutionModel &targetModel_;
+
 public:
-  explicit LoSPNTaskPartitioner(const spnc::TargetExecutionModel &targetModel, int maxTaskSize) : targetModel_(targetModel) { this->maxTaskSize = maxTaskSize; }
+  explicit LoSPNTaskPartitioner(const spnc::TargetExecutionModel &targetModel, int maxTaskSize)
+      : targetModel_(targetModel) {
+    this->maxTaskSize = maxTaskSize;
+  }
 
 protected:
   void runOnOperation() override {
