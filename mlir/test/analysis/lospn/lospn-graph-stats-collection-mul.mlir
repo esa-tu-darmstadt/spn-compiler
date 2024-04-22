@@ -15,8 +15,8 @@ module  {
       %5 = "lo_spn.batch_read"(%arg3, %arg2) {staticIndex = 1 : ui32} : (memref<?x2xi32>, index) -> i32
       %6 = "lo_spn.body"(%4, %5) ( {
       ^bb0(%arg5: i32, %arg6: i32):  // no predecessors
-        %7 = "lo_spn.histogram"(%arg5) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}], supportMarginal = false} : (i32) -> f64
-        %8 = "lo_spn.histogram"(%arg6) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 4.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 5.500000e-01 : f64}], supportMarginal = false} : (i32) -> f64
+        %7 = "lo_spn.histogram"(%arg5) {bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 2.500000e-01>, #hi_spn.bucket<1 to 2 = 7.500000e-01>], supportMarginal = false} : (i32) -> f64
+        %8 = "lo_spn.histogram"(%arg6) {bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 4.500000e-01>, #hi_spn.bucket<1 to 2 = 5.500000e-01>], supportMarginal = false} : (i32) -> f64
         %9 = "lo_spn.mul"(%7, %8) : (f64, f64) -> f64
         %18 = "lo_spn.log"(%9) : (f64) -> f64
         "lo_spn.yield"(%18) : (f64) -> ()

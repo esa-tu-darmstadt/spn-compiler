@@ -18,8 +18,8 @@ module  {
       %8 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 5 : ui32, vector_width = 4 : i32} : (memref<?x6xf64>, index) -> f64
       %9 = "lo_spn.categorical"(%3) {probabilities = [3.500000e-01, 5.500000e-01, 1.000000e-01], supportMarginal = false, vector_width = 4 : i32} : (f64) -> f64
       %10 = "lo_spn.categorical"(%4) {probabilities = [2.500000e-01, 6.250000e-01, 1.250000e-01], supportMarginal = false, vector_width = 4 : i32} : (f64) -> f64
-      %11 = "lo_spn.histogram"(%5) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}], supportMarginal = false, vector_width = 4 : i32} : (f64) -> f64
-      %12 = "lo_spn.histogram"(%6) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 4.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 5.500000e-01 : f64}], supportMarginal = false, vector_width = 4 : i32} : (f64) -> f64
+      %11 = "lo_spn.histogram"(%5) {bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 2.500000e-01>, #hi_spn.bucket<1 to 2 = 7.500000e-01>], supportMarginal = false, vector_width = 4 : i32} : (f64) -> f64
+      %12 = "lo_spn.histogram"(%6) {bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 4.500000e-01>, #hi_spn.bucket<1 to 2 = 5.500000e-01>], supportMarginal = false, vector_width = 4 : i32} : (f64) -> f64
       %13 = "lo_spn.gaussian"(%7) {mean = 5.000000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false, vector_width = 4 : i32} : (f64) -> f64
       %14 = "lo_spn.gaussian"(%8) {mean = 2.500000e-01 : f64, stddev = 1.000000e-01 : f64, supportMarginal = false, vector_width = 4 : i32} : (f64) -> f64
       %15 = "lo_spn.mul"(%9, %10) {vector_width = 4 : i32} : (f64, f64) -> f64
@@ -44,8 +44,8 @@ module  {
       %8 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 5 : ui32} : (memref<?x6xf64>, index) -> f64
       %9 = "lo_spn.categorical"(%3) {probabilities = [3.500000e-01, 5.500000e-01, 1.000000e-01], supportMarginal = false} : (f64) -> f64
       %10 = "lo_spn.categorical"(%4) {probabilities = [2.500000e-01, 6.250000e-01, 1.250000e-01], supportMarginal = false} : (f64) -> f64
-      %11 = "lo_spn.histogram"(%5) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}], supportMarginal = false} : (f64) -> f64
-      %12 = "lo_spn.histogram"(%6) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 4.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 5.500000e-01 : f64}], supportMarginal = false} : (f64) -> f64
+      %11 = "lo_spn.histogram"(%5) {bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 2.500000e-01>, #hi_spn.bucket<1 to 2 = 7.500000e-01>], supportMarginal = false} : (f64) -> f64
+      %12 = "lo_spn.histogram"(%6) {bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 4.500000e-01>, #hi_spn.bucket<1 to 2 = 5.500000e-01>], supportMarginal = false} : (f64) -> f64
       %13 = "lo_spn.gaussian"(%7) {mean = 5.000000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false} : (f64) -> f64
       %14 = "lo_spn.gaussian"(%8) {mean = 2.500000e-01 : f64, stddev = 1.000000e-01 : f64, supportMarginal = false} : (f64) -> f64
       %15 = "lo_spn.mul"(%9, %10) : (f64, f64) -> f64
@@ -245,8 +245,8 @@ module  {
 // CHECK:             %[[VAL_158:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_152]]) {staticIndex = 5 : ui32} : (memref<?x6xf64>, index) -> f64
 // CHECK:             %[[VAL_159:.*]] = "lo_spn.categorical"(%[[VAL_153]]) {probabilities = [3.500000e-01, 5.500000e-01, 1.000000e-01], supportMarginal = false} : (f64) -> f64
 // CHECK:             %[[VAL_160:.*]] = "lo_spn.categorical"(%[[VAL_154]]) {probabilities = [2.500000e-01, 6.250000e-01, 1.250000e-01], supportMarginal = false} : (f64) -> f64
-// CHECK:             %[[VAL_161:.*]] = "lo_spn.histogram"(%[[VAL_155]]) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 2.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 7.500000e-01 : f64}], supportMarginal = false} : (f64) -> f64
-// CHECK:             %[[VAL_162:.*]] = "lo_spn.histogram"(%[[VAL_156]]) {bucketCount = 2 : ui32, buckets = [{lb = 0 : i32, ub = 1 : i32, val = 4.500000e-01 : f64}, {lb = 1 : i32, ub = 2 : i32, val = 5.500000e-01 : f64}], supportMarginal = false} : (f64) -> f64
+// CHECK:             %[[VAL_161:.*]] = "lo_spn.histogram"(%[[VAL_155]]) {bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 2.500000e-01>, #hi_spn.bucket<1 to 2 = 7.500000e-01>], supportMarginal = false} : (f64) -> f64
+// CHECK:             %[[VAL_162:.*]] = "lo_spn.histogram"(%[[VAL_156]]) {bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 4.500000e-01>, #hi_spn.bucket<1 to 2 = 5.500000e-01>], supportMarginal = false} : (f64) -> f64
 // CHECK:             %[[VAL_163:.*]] = "lo_spn.gaussian"(%[[VAL_157]]) {mean = 5.000000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false} : (f64) -> f64
 // CHECK:             %[[VAL_164:.*]] = "lo_spn.gaussian"(%[[VAL_158]]) {mean = 2.500000e-01 : f64, stddev = 1.000000e-01 : f64, supportMarginal = false} : (f64) -> f64
 // CHECK:             %[[VAL_165:.*]] = "lo_spn.mul"(%[[VAL_159]], %[[VAL_160]]) : (f64, f64) -> f64
