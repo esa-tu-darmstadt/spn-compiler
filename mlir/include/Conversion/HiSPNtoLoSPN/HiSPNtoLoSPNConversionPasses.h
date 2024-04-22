@@ -29,6 +29,12 @@ protected:
 
 public:
   void getDependentDialects(DialectRegistry &registry) const override;
+  StringRef getArgument() const override {
+    return "convert-hispn-node-to-lospn";
+  }
+  StringRef getDescription() const override {
+    return "Convert nodes from HiSPN to LoSPN dialect";
+  }
 
 private:
   bool computeLogSpace;
@@ -54,6 +60,12 @@ protected:
 
 public:
   void getDependentDialects(DialectRegistry &registry) const override;
+  StringRef getArgument() const override {
+    return "convert-hispn-query-to-lospn";
+  }
+  StringRef getDescription() const override {
+    return "Convert queries from HiSPN to LoSPN dialect";
+  }
 
 private:
   bool computeLogSpace;
