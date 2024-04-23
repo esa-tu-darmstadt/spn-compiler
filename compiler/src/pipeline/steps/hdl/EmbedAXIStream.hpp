@@ -4,13 +4,13 @@
 
 #include "pipeline/steps/mlir/MLIRPassPipeline.h"
 
+#include "mlir/IR/BuiltinOps.h"
 #include "pipeline/PipelineStep.h"
 #include "toolchain/MLIRToolchain.h"
-#include "mlir/IR/BuiltinOps.h"
 
 #include "circt/Dialect/HW/HWDialect.h"
-#include "circt/Dialect/HW/HWOps.h"
 #include "circt/Dialect/HW/HWOpInterfaces.h"
+#include "circt/Dialect/HW/HWOps.h"
 
 #include "circt/Dialect/FIRRTL/FIRParser.h"
 
@@ -26,36 +26,39 @@
 
 #include <filesystem>
 
-
 namespace spnc {
 
 using namespace firp;
 using namespace firp::axis;
 
-class EmbedReadyValid : public StepSingleInput<EmbedReadyValid, mlir::ModuleOp>, public StepWithResult<mlir::ModuleOp> {
+class EmbedReadyValid : public StepSingleInput<EmbedReadyValid, mlir::ModuleOp>,
+                        public StepWithResult<mlir::ModuleOp> {
 public:
-  explicit EmbedReadyValid(StepWithResult<mlir::ModuleOp>& circuit):
-    StepSingleInput<EmbedReadyValid, mlir::ModuleOp>(circuit) {}
+  explicit EmbedReadyValid(StepWithResult<mlir::ModuleOp> &circuit)
+      : StepSingleInput<EmbedReadyValid, mlir::ModuleOp>(circuit) {}
 
   ExecutionResult executeStep(mlir::ModuleOp *circuit);
 
   mlir::ModuleOp *result() override { return topModule.get(); }
 
   STEP_NAME("embed-axistream");
+
 private:
   std::unique_ptr<mlir::ModuleOp> topModule;
 };
 
-class EmbedAXIStream : public StepSingleInput<EmbedAXIStream, mlir::ModuleOp>, public StepWithResult<mlir::ModuleOp> {
+class EmbedAXIStream : public StepSingleInput<EmbedAXIStream, mlir::ModuleOp>,
+                       public StepWithResult<mlir::ModuleOp> {
 public:
-  explicit EmbedAXIStream(StepWithResult<mlir::ModuleOp>& circuit):
-    StepSingleInput<EmbedAXIStream, mlir::ModuleOp>(circuit) {}
+  explicit EmbedAXIStream(StepWithResult<mlir::ModuleOp> &circuit)
+      : StepSingleInput<EmbedAXIStream, mlir::ModuleOp>(circuit) {}
 
   ExecutionResult executeStep(mlir::ModuleOp *circuit);
 
   mlir::ModuleOp *result() override { return topModule.get(); }
 
   STEP_NAME("embed-axistream");
+
 private:
   std::unique_ptr<mlir::ModuleOp> topModule;
 };
@@ -63,20 +66,23 @@ private:
 class ReadyValidWrapper : public Module<ReadyValidWrapper> {
   circt::firrtl::FModuleOp spnBody;
   uint32_t spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay;
+
 public:
-  ReadyValidWrapper(circt::firrtl::FModuleOp spnBody,
-    uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay):
-    Module<ReadyValidWrapper>(
-      "ReadyValidWrapper",
-      {
-        Port("enq", true, readyValidType(withLast(vectorType(uintType(bitsPerVar), spnVarCount)))),
-        Port("deq", false, readyValidType(withLast(uintType(resultWidth))))
-      },
-      spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay
-    ),
-    spnBody(spnBody),
-    spnVarCount(spnVarCount), bitsPerVar(bitsPerVar), resultWidth(resultWidth), fifoDepth(fifoDepth), bodyDelay(bodyDelay)
-    {build();}
+  ReadyValidWrapper(circt::firrtl::FModuleOp spnBody, uint32_t spnVarCount,
+                    uint32_t bitsPerVar, uint32_t resultWidth,
+                    uint32_t fifoDepth, uint32_t bodyDelay)
+      : Module<ReadyValidWrapper>(
+            "ReadyValidWrapper",
+            {Port("enq", true,
+                  readyValidType(
+                      withLast(vectorType(uintType(bitsPerVar), spnVarCount)))),
+             Port("deq", false,
+                  readyValidType(withLast(uintType(resultWidth))))},
+            spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay),
+        spnBody(spnBody), spnVarCount(spnVarCount), bitsPerVar(bitsPerVar),
+        resultWidth(resultWidth), fifoDepth(fifoDepth), bodyDelay(bodyDelay) {
+    build();
+  }
 
   void body();
 };
@@ -86,26 +92,28 @@ class AXIStreamWrapper : public Module<AXIStreamWrapper> {
   uint32_t spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay;
   AXIStreamConfig slaveConfig;
   AXIStreamConfig masterConfig;
+
 public:
   AXIStreamWrapper(circt::firrtl::FModuleOp spnBody,
-    const AXIStreamConfig& slaveConfig, const AXIStreamConfig& masterConfig,
-    uint32_t spnVarCount, uint32_t bitsPerVar, uint32_t resultWidth, uint32_t fifoDepth, uint32_t bodyDelay):
-    Module<AXIStreamWrapper>(
-      "AXIStreamWrapper",
-      {
-        Port("AXIS_SLAVE", true, AXIStreamBundleType(slaveConfig)),
-        Port("AXIS_MASTER", false, AXIStreamBundleType(masterConfig))
-      },
-      slaveConfig.dataBits, slaveConfig.userBits, slaveConfig.destBits, slaveConfig.idBits,
-      masterConfig.dataBits, masterConfig.userBits, masterConfig.destBits, masterConfig.idBits,
-      spnVarCount, bitsPerVar, resultWidth, fifoDepth, bodyDelay
-    ),
-    spnBody(spnBody),
-    slaveConfig(slaveConfig), masterConfig(masterConfig),
-    spnVarCount(spnVarCount), bitsPerVar(bitsPerVar), resultWidth(resultWidth), fifoDepth(fifoDepth), bodyDelay(bodyDelay)
-    {build();}
+                   const AXIStreamConfig &slaveConfig,
+                   const AXIStreamConfig &masterConfig, uint32_t spnVarCount,
+                   uint32_t bitsPerVar, uint32_t resultWidth,
+                   uint32_t fifoDepth, uint32_t bodyDelay)
+      : Module<AXIStreamWrapper>(
+            "AXIStreamWrapper",
+            {Port("AXIS_SLAVE", true, AXIStreamBundleType(slaveConfig)),
+             Port("AXIS_MASTER", false, AXIStreamBundleType(masterConfig))},
+            slaveConfig.dataBits, slaveConfig.userBits, slaveConfig.destBits,
+            slaveConfig.idBits, masterConfig.dataBits, masterConfig.userBits,
+            masterConfig.destBits, masterConfig.idBits, spnVarCount, bitsPerVar,
+            resultWidth, fifoDepth, bodyDelay),
+        spnBody(spnBody), slaveConfig(slaveConfig), masterConfig(masterConfig),
+        spnVarCount(spnVarCount), bitsPerVar(bitsPerVar),
+        resultWidth(resultWidth), fifoDepth(fifoDepth), bodyDelay(bodyDelay) {
+    build();
+  }
 
   void body();
 };
 
-}
+} // namespace spnc

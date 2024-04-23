@@ -12,9 +12,9 @@
 #include "circt/Dialect/Seq/SeqDialect.h"
 #include "circt/Dialect/Seq/SeqOps.h"
 
+#include "HiSPN/HiSPNDialect.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
-#include "HiSPN/HiSPNDialect.h"
 
 #include "circt/Scheduling/Algorithms.h"
 #include "circt/Scheduling/Problems.h"
@@ -24,7 +24,6 @@
 
 #include "operators.hpp"
 
-
 using namespace ::mlir;
 using namespace ::circt::hw;
 using namespace ::mlir::spn::low;
@@ -32,13 +31,13 @@ using namespace ::mlir::spn::high;
 using namespace ::circt::seq;
 using namespace ::mlir::spn::fpga::operators;
 
-
 namespace mlir::spn::fpga::scheduling {
 
 class DelayLibrary {
-  const OperatorTypeMapping& opMapping;
+  const OperatorTypeMapping &opMapping;
+
 public:
-  DelayLibrary(const OperatorTypeMapping& opMapping): opMapping(opMapping) {}
+  DelayLibrary(const OperatorTypeMapping &opMapping) : opMapping(opMapping) {}
 
   std::optional<std::string> determineOperatorType(Operation *op) const {
     if (!opMapping.isMapped(op))
@@ -47,9 +46,12 @@ public:
     return opMapping.getTypeBaseName(opMapping.getType(op));
   }
 
-  void insertDelays(::circt::scheduling::Problem& problem) {
-    for (OperatorType opType : {TYPE_ADD, TYPE_MUL, TYPE_LOG, TYPE_CONVERT, TYPE_CATEGORICAL, TYPE_HISTOGRAM, TYPE_CONSTANT}) {
-      auto type = problem.getOrInsertOperatorType(opMapping.getTypeBaseName(opType));
+  void insertDelays(::circt::scheduling::Problem &problem) {
+    for (OperatorType opType :
+         {TYPE_ADD, TYPE_MUL, TYPE_LOG, TYPE_CONVERT, TYPE_CATEGORICAL,
+          TYPE_HISTOGRAM, TYPE_CONSTANT}) {
+      auto type =
+          problem.getOrInsertOperatorType(opMapping.getTypeBaseName(opType));
       problem.setLatency(type, opMapping.getDelay(opType));
     }
   }
@@ -63,11 +65,11 @@ public:
 };
 
 struct SchedulingResult {
-  std::vector<std::tuple<
-      Operation *,  // from
-      Operation *,  // to
-      uint32_t      // delay
-    >> delays;
+  std::vector<std::tuple<Operation *, // from
+                         Operation *, // to
+                         uint32_t     // delay
+                         >>
+      delays;
   int32_t totalDelay;
 };
 
@@ -75,8 +77,11 @@ class SchedulingProblem : public virtual ::circt::scheduling::Problem {
   Operation *root;
   DelayLibrary delayLibrary;
   SchedulingResult result;
+
 public:
-  SchedulingProblem(Operation *containingOp, const OperatorTypeMapping& opMapping): root(containingOp), delayLibrary(opMapping) {
+  SchedulingProblem(Operation *containingOp,
+                    const OperatorTypeMapping &opMapping)
+      : root(containingOp), delayLibrary(opMapping) {
     setContainingOp(containingOp);
   }
 
@@ -86,7 +91,8 @@ public:
     delayLibrary.insertDelays(*this);
 
     root->walk([&](Operation *op) {
-      std::optional<std::string> optOpType = delayLibrary.determineOperatorType(op);
+      std::optional<std::string> optOpType =
+          delayLibrary.determineOperatorType(op);
 
       if (!optOpType)
         return;
@@ -100,10 +106,9 @@ public:
       for (Value operand : op->getOperands()) {
         if (!operand.getDefiningOp())
           continue;
-        
+
         assert(succeeded(
-          insertDependence(std::make_pair(operand.getDefiningOp(), op))
-        ));
+            insertDependence(std::make_pair(operand.getDefiningOp(), op))));
       }
     });
   }
@@ -111,11 +116,11 @@ public:
   void insertDelays() {
     OpBuilder builder(root->getContext());
 
-    std::vector<std::tuple<
-      Operation *,  // from
-      Operation *,  // to
-      uint32_t      // delay
-    >> jobs;
+    std::vector<std::tuple<Operation *, // from
+                           Operation *, // to
+                           uint32_t     // delay
+                           >>
+        jobs;
 
     int32_t maxEndTime = 0;
 
@@ -135,7 +140,8 @@ public:
         assert(getStartTime(defOp).has_value());
 
         int32_t meStartTime = getStartTime(op).value();
-        int32_t defOpLatency = getLatency(getLinkedOperatorType(defOp).value()).value();
+        int32_t defOpLatency =
+            getLatency(getLinkedOperatorType(defOp).value()).value();
         int32_t defOpStartTime = getStartTime(defOp).value();
 
         assert(defOpStartTime + defOpLatency <= meStartTime);
@@ -148,11 +154,7 @@ public:
         if (delay == 0)
           continue;
 
-        jobs.emplace_back(
-          defOp,
-          op.getOperation(),
-          delay
-        );
+        jobs.emplace_back(defOp, op.getOperation(), delay);
       }
     });
 
@@ -181,24 +183,23 @@ public:
       return WalkResult::interrupt();
     });
 
-    auto delaySignal = [&](Value input, uint32_t delay) -> std::tuple<Value, Operation *> {
+    auto delaySignal = [&](Value input,
+                           uint32_t delay) -> std::tuple<Value, Operation *> {
       assert(delay >= 1);
-      
+
       builder.setInsertionPointAfter(input.getDefiningOp());
       Value prev = input;
       Operation *ignoreOp = nullptr;
 
       for (uint32_t i = 0; i < delay; ++i) {
-        Value rstValue = builder.create<ConstantOp>(
-          builder.getUnknownLoc(),
-          input.getType(),
-          0
-        ).getResult();
+        Value rstValue =
+            builder
+                .create<ConstantOp>(builder.getUnknownLoc(), input.getType(), 0)
+                .getResult();
 
         FirRegOp reg = builder.create<FirRegOp>(
-          builder.getUnknownLoc(), std::move(prev), clk, builder.getStringAttr("shiftReg"),
-          rst, rstValue
-        );
+            builder.getUnknownLoc(), std::move(prev), clk,
+            builder.getStringAttr("shiftReg"), rst, rstValue);
         prev = reg.getResult();
 
         if (!ignoreOp)
@@ -219,7 +220,7 @@ public:
 
   SchedulingResult getResult() const { return result; }
 
-  void writeSchedule(llvm::raw_fd_ostream& os) {
+  void writeSchedule(llvm::raw_fd_ostream &os) {
     using json = nlohmann::json;
 
     json js;
@@ -230,8 +231,9 @@ public:
 
   void insertScheduleAsAttribute() {
     OpBuilder builder(root->getContext());
-    root->setAttr("fpga.body_delay", builder.getI32IntegerAttr(getResult().totalDelay));
+    root->setAttr("fpga.body_delay",
+                  builder.getI32IntegerAttr(getResult().totalDelay));
   }
 };
 
-}
+} // namespace mlir::spn::fpga::scheduling

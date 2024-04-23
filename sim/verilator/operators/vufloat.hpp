@@ -1,12 +1,11 @@
 #pragma once
 
 // TODO: Include top modules
-#include "verilated.h"
 #include "VFPAdd.h"
 #include "VFPMult.h"
+#include "verilated.h"
 
 #include <iostream>
-
 
 template <uint32_t ExpWidth, uint32_t ManWidth>
 class TypeConverter {
@@ -28,6 +27,7 @@ template <class Top, uint32_t ExpWidth, uint32_t ManWidth>
 class USim {
   std::unique_ptr<VerilatedContext> context;
   std::unique_ptr<Top> top;
+
 public:
   using TC = TypeConverter<ExpWidth, ManWidth>;
 
@@ -35,7 +35,6 @@ public:
     context = std::make_unique<VerilatedContext>();
     context->commandArgs(argc, argv);
     top = std::make_unique<Top>(context.get());
-
 
     top->clock = 0;
     top->reset = 0;
@@ -54,11 +53,7 @@ public:
     return high;
   }
 
-  double getOutput() {
-    return TC::toDouble(uint64_t(top->io_r));
-  }
+  double getOutput() { return TC::toDouble(uint64_t(top->io_r)); }
 
-  void final() {
-    top->final();
-  }
+  void final() { top->final(); }
 };

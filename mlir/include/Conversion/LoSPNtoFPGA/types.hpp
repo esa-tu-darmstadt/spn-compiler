@@ -3,14 +3,14 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/DialectConversion.h"
 
-
 namespace mlir::spn::fpga::types {
 
 class TargetTypes {
-  OpBuilder& builder;
+  OpBuilder &builder;
   Type indexType, probType, signalType, float64Type;
+
 public:
-  TargetTypes(OpBuilder& builder): builder(builder) {
+  TargetTypes(OpBuilder &builder) : builder(builder) {
     indexType = builder.getI8Type();
     probType = builder.getIntegerType(31);
     signalType = builder.getI1Type();
@@ -29,4 +29,4 @@ public:
   }
 };
 
-}
+} // namespace mlir::spn::fpga::types

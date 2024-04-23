@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include <unordered_map>
 
 #include "mlir/IR/PatternMatch.h"
@@ -17,10 +16,10 @@
 #include "circt/Dialect/Comb/CombDialect.h"
 #include "circt/Dialect/Comb/CombOps.h"
 
+#include "HiSPN/HiSPNDialect.h"
+#include "LoSPN/LoSPNAttributes.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
-#include "LoSPN/LoSPNAttributes.h"
-#include "HiSPN/HiSPNDialect.h"
 
 #include "circt/Scheduling/Algorithms.h"
 #include "circt/Scheduling/Problems.h"
@@ -32,10 +31,9 @@
 #include "circt/Dialect/SV/SVDialect.h"
 #include "circt/Dialect/SV/SVOps.h"
 
-//#include "scheduling.hpp"
-//#include "types.hpp"
+// #include "scheduling.hpp"
+// #include "types.hpp"
 #include <firp/ufloat.hpp>
-
 
 namespace mlir::spn::fpga {
 
@@ -45,7 +43,7 @@ struct ConversionOptions {
   bool performLowering = false;
 };
 
-llvm::Optional<mlir::ModuleOp> convert(mlir::ModuleOp modOp, const ConversionOptions& options);
+llvm::Optional<mlir::ModuleOp> convert(mlir::ModuleOp modOp,
+                                       const ConversionOptions &options);
 
-
-}
+} // namespace mlir::spn::fpga
