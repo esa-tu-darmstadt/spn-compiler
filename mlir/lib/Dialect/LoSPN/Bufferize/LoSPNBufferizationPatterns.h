@@ -9,51 +9,55 @@
 #ifndef SPNC_MLIR_LIB_DIALECT_LOSPN_BUFFERIZE_LOSPNBUFFERIZATIONPATTERNS_H
 #define SPNC_MLIR_LIB_DIALECT_LOSPN_BUFFERIZE_LOSPNBUFFERIZATIONPATTERNS_H
 
-#include "mlir/Transforms/DialectConversion.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
+#include "mlir/Transforms/DialectConversion.h"
 #include "llvm/Support/Debug.h"
 
 namespace mlir {
-  namespace spn {
-    namespace low {
+namespace spn {
+namespace low {
 
-      struct KernelBufferize : OpConversionPattern<SPNKernel> {
+struct KernelBufferize : OpConversionPattern<SPNKernel> {
 
-        using OpConversionPattern<SPNKernel>::OpConversionPattern;
+  using OpConversionPattern<SPNKernel>::OpConversionPattern;
+  using OpConversionPattern<SPNKernel>::OpAdaptor;
 
-        LogicalResult matchAndRewrite(SPNKernel op,
-                                      ArrayRef<Value> operands,
-                                      ConversionPatternRewriter& rewriter) const override;
-      };
+  LogicalResult
+  matchAndRewrite(SPNKernel op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override;
+};
 
-      struct TaskBufferize : OpConversionPattern<SPNTask> {
+struct TaskBufferize : OpConversionPattern<SPNTask> {
 
-        using OpConversionPattern<SPNTask>::OpConversionPattern;
+  using OpConversionPattern<SPNTask>::OpConversionPattern;
+  using OpConversionPattern<SPNTask>::OpAdaptor;
 
-        LogicalResult matchAndRewrite(SPNTask op,
-                                      ArrayRef<Value> operands,
-                                      ConversionPatternRewriter& rewriter) const override;
+  LogicalResult
+  matchAndRewrite(SPNTask op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override;
+};
 
-      };
+struct BatchExtractBufferize : OpConversionPattern<SPNBatchExtract> {
 
-      struct BatchExtractBufferize : OpConversionPattern<SPNBatchExtract> {
+  using OpConversionPattern<SPNBatchExtract>::OpConversionPattern;
+  using OpConversionPattern<SPNBatchExtract>::OpAdaptor;
 
-        using OpConversionPattern<SPNBatchExtract>::OpConversionPattern;
+  LogicalResult
+  matchAndRewrite(SPNBatchExtract op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override;
+};
 
-        LogicalResult matchAndRewrite(SPNBatchExtract op,
-                                      ArrayRef<Value> operands,
-                                      ConversionPatternRewriter& rewriter) const override;
-      };
-
-      static inline void populateLoSPNBufferizationPatterns(OwningRewritePatternList& patterns, MLIRContext* context,
-                                                            TypeConverter& typeConverter) {
-        patterns.insert<KernelBufferize, TaskBufferize>(typeConverter, context);
-        patterns.insert<BatchExtractBufferize>(typeConverter, context);
-      }
-
-    }
-  }
+static inline void
+populateLoSPNBufferizationPatterns(RewritePatternSet &patterns,
+                                   MLIRContext *context,
+                                   TypeConverter &typeConverter) {
+  patterns.insert<KernelBufferize, TaskBufferize>(typeConverter, context);
+  patterns.insert<BatchExtractBufferize>(typeConverter, context);
 }
 
-#endif //SPNC_MLIR_LIB_DIALECT_LOSPN_BUFFERIZE_LOSPNBUFFERIZATIONPATTERNS_H
+} // namespace low
+} // namespace spn
+} // namespace mlir
+
+#endif // SPNC_MLIR_LIB_DIALECT_LOSPN_BUFFERIZE_LOSPNBUFFERIZATIONPATTERNS_H

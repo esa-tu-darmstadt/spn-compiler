@@ -123,7 +123,7 @@ class CPUCompiler:
         # Compile the query into a Kernel.
         options = dict({"target": "CPU",
                         "cpu-vectorize": convertToFlag(self.vectorize),
-                        "vector-library": self.vectorLibrary,
+                        "spn-vector-library": self.vectorLibrary,
                         "use-shuffle": convertToFlag(self.useVectorShuffle),
                         "use-log-space": convertToFlag(self.computeInLogSpace),
                         "dump-ir": convertToFlag(self.verbose)

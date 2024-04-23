@@ -6,12 +6,12 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include <spnc.h>
 #include "toolchain/CPUToolchain.h"
-#include <option/Options.h>
-#include <option/GlobalOptions.h>
-#include <util/Logging.h>
 #include <TargetInformation.h>
+#include <option/GlobalOptions.h>
+#include <option/Options.h>
+#include <spnc.h>
+#include <util/Logging.h>
 #if SPNC_CUDA_SUPPORT
 // Only include if CUDA GPU support was enabled.
 #include "toolchain/CUDAGPUToolchain.h"
@@ -19,16 +19,21 @@
 
 using namespace spnc;
 
-Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t& options) {
+Kernel spn_compiler::compileQuery(const std::string &inputFile,
+                                  const options_t &options) {
   SPDLOG_INFO("Welcome to the SPN compiler!");
   auto config = interface::Options::parse(options);
+  // set LLVM CLI options from config (eg --debug-only)
+  interface::Options::setCLOptions(options);
   std::unique_ptr<Pipeline<Kernel>> pipeline;
-  if (spnc::option::compilationTarget.get(*config) == option::TargetMachine::CUDA) {
+  if (spnc::option::compilationTarget.get(*config) ==
+      option::TargetMachine::CUDA) {
 #if SPNC_CUDA_SUPPORT
     pipeline = CUDAGPUToolchain::setupPipeline(inputFile, std::move(config));
 #else
-    SPNC_FATAL_ERROR("Target was 'CUDA', but the compiler does not support CUDA GPUs. "
-                     "Enable with CUDA_GPU_SUPPORT=ON during build")
+    SPNC_FATAL_ERROR(
+        "Target was 'CUDA', but the compiler does not support CUDA GPUs. "
+        "Enable with CUDA_GPU_SUPPORT=ON during build")
 #endif
   } else {
     pipeline = CPUToolchain::setupPipeline(inputFile, std::move(config));
@@ -36,34 +41,35 @@ Kernel spn_compiler::compileQuery(const std::string& inputFile, const options_t&
   SPDLOG_INFO("Executing compilation pipeline: {}", pipeline->toText());
   auto result = pipeline->execute();
   if (failed(result)) {
-    SPNC_FATAL_ERROR("Execution of the compilation pipeline stopped with message: {}", result.message());
+    SPNC_FATAL_ERROR(
+        "Execution of the compilation pipeline stopped with message: {}",
+        result.message());
   }
   auto kernel = pipeline->result();
-  SPDLOG_INFO("Generated Kernel in {}, kernel name {}", kernel->fileName(), kernel->kernelName());
+  SPDLOG_INFO("Generated Kernel in {}, kernel name {}", kernel->fileName(),
+              kernel->kernelName());
   return *kernel;
 }
 
-
-bool spn_compiler::isTargetSupported(const std::string& target){
-  if(target == "CPU"){
+bool spn_compiler::isTargetSupported(const std::string &target) {
+  if (target == "CPU") {
     return true;
   }
-  if(target == "CUDA"){
-    #if SPNC_CUDA_SUPPORT
+  if (target == "CUDA") {
+#if SPNC_CUDA_SUPPORT
     return true;
-    #else
+#else
     return false;
-    #endif
+#endif
   }
   return false;
 }
 
-bool spn_compiler::isFeatureSupported(const std::string& feature){
-  if(feature == "vectorize"){
-      auto& targetInfo = mlir::spn::TargetInformation::nativeCPUTarget();
-      return targetInfo.hasAVXSupport() ||
-          targetInfo.hasAVX2Support() || targetInfo.hasAVX512Support() ||
-          targetInfo.hasNeonSupport();
+bool spn_compiler::isFeatureSupported(const std::string &feature) {
+  if (feature == "vectorize") {
+    auto &targetInfo = mlir::spn::TargetInformation::nativeCPUTarget();
+    return targetInfo.hasAVXSupport() || targetInfo.hasAVX2Support() ||
+           targetInfo.hasAVX512Support() || targetInfo.hasNeonSupport();
   }
   if (feature == "AVX") {
     return mlir::spn::TargetInformation::nativeCPUTarget().hasAVXSupport();

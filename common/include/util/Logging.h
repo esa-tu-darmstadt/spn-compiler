@@ -14,12 +14,12 @@
 
 #include <spdlog/spdlog.h>
 
-#define SPNC_FATAL_ERROR(...) \
-  SPDLOG_ERROR(__VA_ARGS__); \
+#define SPNC_FATAL_ERROR(...)                                                  \
+  SPDLOG_ERROR(__VA_ARGS__);                                                   \
   throw std::runtime_error("COMPILATION ERROR");
 
-#define SPN_RT_FATAL_ERROR(...) \
-  SPDLOG_ERROR(__VA_ARGS__); \
+#define SPN_RT_FATAL_ERROR(...)                                                \
+  SPDLOG_ERROR(__VA_ARGS__);                                                   \
   throw std::runtime_error("RUNTIME ERROR");
 
-#endif //SPNC_COMPILER_INCLUDE_UTIL_LOGGING_H
+#endif // SPNC_COMPILER_INCLUDE_UTIL_LOGGING_H

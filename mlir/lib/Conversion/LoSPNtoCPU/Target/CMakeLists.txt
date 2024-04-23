@@ -13,7 +13,7 @@ add_library(cpu_targetinfo
 
 target_include_directories(cpu_targetinfo PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(cpu_targetinfo MLIRIR)
+target_link_libraries(cpu_targetinfo MLIRIR LLVMTargetParser)
 
 set_target_properties(cpu_targetinfo PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY ${LLVM_LIBRARY_OUTPUT_INTDIR})

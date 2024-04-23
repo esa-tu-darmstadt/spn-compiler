@@ -31,12 +31,13 @@ add_mlir_dialect_library(MLIRLoSPN
         MLIRLoSPNPassesIncGen
 
         LINK_LIBS PUBLIC
+        MLIRBufferizationTransforms
         MLIRIR
         MLIRPass
         MLIRTransforms
         MLIRTransformUtils
-        MLIRMath
-        MLIRGPUOps
+        MLIRMathDialect
+        MLIRGPUTransforms
         )
 
 include_directories(${PROJECT_SOURCE_DIR}/common/include)

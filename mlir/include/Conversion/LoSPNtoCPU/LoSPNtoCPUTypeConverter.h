@@ -9,53 +9,57 @@
 #ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_LOSPNTOCPUTYPECONVERTER_H
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_LOSPNTOCPUTYPECONVERTER_H
 
-#include <mlir/Transforms/DialectConversion.h>
-#include "mlir/IR/BuiltinTypes.h"
 #include "LoSPN/LoSPNOps.h"
-#include "LoSPN/LoSPNTypes.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/Transforms/DialectConversion.h"
 
 namespace mlir {
-  namespace spn {
+namespace spn {
 
-    class LoSPNtoCPUTypeConverter : public TypeConverter {
-    public:
-      explicit LoSPNtoCPUTypeConverter() {
-        addConversion([](FloatType floatType) -> Optional<Type> {
-          // FloatType is unconditionally legal.
-          return floatType;
-        });
-        addConversion([](IntegerType intType) -> Optional<Type> {
-          // IntegerType is unconditionally legal.
-          return intType;
-        });
-        addConversion([](MemRefType memRefType) -> Optional<Type> {
-          // MemRefType are unconditionally legal.
-          return memRefType;
-        });
-        addConversion([](IndexType indexType) -> Optional<Type> {
-          // IndexType is unconditionally legal.
-          return indexType;
-        });
-        addConversion([](low::LogType logType) -> Optional<Type> {
-          return logType.getBaseType();
-        });
-        addTargetMaterialization([](OpBuilder& builder, FloatType type,
-                                    ValueRange inputs, Location loc) -> Optional<Value> {
-          if (inputs.size() != 1) {
-            return llvm::None;
-          }
-          if (auto logType = inputs[0].getType().dyn_cast<low::LogType>()) {
-            if (logType.getBaseType() != type) {
-              return llvm::None;
-            }
-            return builder.create<low::SPNStripLog>(loc, inputs[0], type).getResult();
-          }
-          return llvm::None;
-        });
+class LoSPNtoCPUTypeConverter : public TypeConverter {
+public:
+  explicit LoSPNtoCPUTypeConverter(bool convertLog = true) {
+    addConversion([](FloatType floatType) -> std::optional<Type> {
+      // FloatType is unconditionally legal.
+      return floatType;
+    });
+    addConversion([](IntegerType intType) -> std::optional<Type> {
+      // IntegerType is unconditionally legal.
+      return intType;
+    });
+    addConversion([](MemRefType memRefType) -> std::optional<Type> {
+      // MemRefType are unconditionally legal.
+      return memRefType;
+    });
+    addConversion([](IndexType indexType) -> std::optional<Type> {
+      // IndexType is unconditionally legal.
+      return indexType;
+    });
+    addConversion([convertLog](low::LogType logType) -> std::optional<Type> {
+      if (convertLog)
+        return logType.getBaseType();
+      else
+        return logType;
+    });
+    addTargetMaterialization([](OpBuilder &builder, FloatType type,
+                                ValueRange inputs,
+                                Location loc) -> std::optional<Value> {
+      if (inputs.size() != 1) {
+        return std::nullopt;
       }
-    };
-
+      if (auto logType = inputs[0].getType().dyn_cast<low::LogType>()) {
+        if (logType.getBaseType() != type) {
+          return std::nullopt;
+        }
+        return builder.create<low::SPNStripLog>(loc, inputs[0], type)
+            .getResult();
+      }
+      return std::nullopt;
+    });
   }
-}
+};
 
-#endif //SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_LOSPNTOCPUTYPECONVERTER_H
+} // namespace spn
+} // namespace mlir
+
+#endif // SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_LOSPNTOCPUTYPECONVERTER_H

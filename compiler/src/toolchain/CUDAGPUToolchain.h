@@ -14,20 +14,20 @@
 
 namespace spnc {
 
-  ///
-  /// Toolchain generating code for CUDA GPUs.
-  class CUDAGPUToolchain : public MLIRToolchain {
+///
+/// Toolchain generating code for CUDA GPUs.
+class CUDAGPUToolchain : public MLIRToolchain {
 
-  public:
-    /// Construct a job reading the SPN from an input file.
-    /// \param inputFile Input file.
-    /// \param config Compilation option configuration.
-    /// \return Job containing all necessary actions.
-    static std::unique_ptr<Pipeline<Kernel>> setupPipeline(const std::string& inputFile,
-                                                           std::unique_ptr<interface::Configuration> config);
+public:
+  /// Construct a job reading the SPN from an input file.
+  /// \param inputFile Input file.
+  /// \param config Compilation option configuration.
+  /// \return Job containing all necessary actions.
+  static std::unique_ptr<Pipeline<Kernel>>
+  setupPipeline(const std::string &inputFile,
+                std::unique_ptr<interface::Configuration> config);
+};
 
-  };
+} // namespace spnc
 
-}
-
-#endif //SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_GPUTOOLCHAIN_H
+#endif // SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_GPUTOOLCHAIN_H

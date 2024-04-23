@@ -9,19 +9,18 @@
 #ifndef SPNC_MLIR_LIB_DIALECT_LOSPN_PASSES_LOSPNPASSDETAILS_H
 #define SPNC_MLIR_LIB_DIALECT_LOSPN_PASSES_LOSPNPASSDETAILS_H
 
-#include "mlir/Pass/Pass.h"
 #include "LoSPN/LoSPNOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Pass/Pass.h"
+// #include "mlir/Dialect/SCF/SCF.h"
 
-namespace mlir {
-  namespace spn {
-    namespace low {
-#define GEN_PASS_CLASSES
-#include "LoSPN/LoSPNPasses.h.inc"
-    }
-  }
-}
+// namespace mlir {
+//   namespace spn {
+//     namespace low {
+// #define GEN_PASS_CLASSES
+// #include "LoSPN/LoSPNPasses.h.inc"
+//     }
+//   }
+// }
 
-#endif //SPNC_MLIR_LIB_DIALECT_LOSPN_PASSES_LOSPNPASSDETAILS_H
+#endif // SPNC_MLIR_LIB_DIALECT_LOSPN_PASSES_LOSPNPASSDETAILS_H

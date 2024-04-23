@@ -10,9 +10,9 @@ add_mlir_dialect(LoSPNOps lo_spn)
 add_mlir_doc(LoSPNDialect LoSPNDialect LoSPN/ -gen-dialect-doc)
 add_mlir_doc(LoSPNOps LoSPNOps LoSPN/ -gen-op-doc)
 
-set(LLVM_TARGET_DEFINITIONS LoSPNOps.td)
-mlir_tablegen(LoSPNAttributes.h.inc -gen-struct-attr-decls)
-mlir_tablegen(LoSPNAttributes.cpp.inc -gen-struct-attr-defs)
+set(LLVM_TARGET_DEFINITIONS LoSPNAttributes.td)
+mlir_tablegen(LoSPNAttributes.h.inc -gen-attrdef-decls)
+mlir_tablegen(LoSPNAttributes.cpp.inc -gen-attrdef-defs)
 add_public_tablegen_target(MLIRLoSPNAttributesIncGen)
 
 set(LLVM_TARGET_DEFINITIONS LoSPNInterfaces.td)

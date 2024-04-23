@@ -13,18 +13,17 @@
 
 namespace spnc {
 
-  ///
-  /// MLIR pass pipeline performing a conversion from various upstream dialects,
-  /// including the Standard, MemRef, Vector and SCF dialects, to LLVM dialect.
-  struct CPUtoLLVMConversion : public MLIRPassPipeline<CPUtoLLVMConversion> {
-    using MLIRPassPipeline<CPUtoLLVMConversion>::MLIRPassPipeline;
+///
+/// MLIR pass pipeline performing a conversion from various upstream dialects,
+/// including the Standard, MemRef, Vector and SCF dialects, to LLVM dialect.
+struct CPUtoLLVMConversion : public MLIRPassPipeline<CPUtoLLVMConversion> {
+  using MLIRPassPipeline<CPUtoLLVMConversion>::MLIRPassPipeline;
 
-    void initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx);
+  void initializePassPipeline(mlir::PassManager *pm, mlir::MLIRContext *ctx);
 
-    STEP_NAME("cpu-to-llvm")
+  STEP_NAME("cpu-to-llvm")
+};
 
-  };
+} // namespace spnc
 
-}
-
-#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_CPUTOLLVMCONVERSION_H
+#endif // SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_CPUTOLLVMCONVERSION_H

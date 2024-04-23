@@ -9,62 +9,66 @@
 #ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_STRUCTUREPATTERNS_H
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_STRUCTUREPATTERNS_H
 
-#include "mlir/Transforms/DialectConversion.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
+#include "mlir/Transforms/DialectConversion.h"
 #include "llvm/Support/Debug.h"
 
 namespace mlir {
-  namespace spn {
+namespace spn {
 
-    struct KernelLowering : OpConversionPattern<low::SPNKernel> {
+struct KernelLowering : OpConversionPattern<low::SPNKernel> {
 
-      using OpConversionPattern<low::SPNKernel>::OpConversionPattern;
+  using OpConversionPattern<low::SPNKernel>::OpConversionPattern;
 
-      LogicalResult matchAndRewrite(low::SPNKernel op,
-                                    ArrayRef<Value> operands,
-                                    ConversionPatternRewriter& rewriter) const override;
-    };
+  LogicalResult
+  matchAndRewrite(low::SPNKernel op, low::SPNKernel::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override;
+};
 
-    struct BatchTaskLowering : OpConversionPattern<low::SPNTask> {
+struct BatchTaskLowering : OpConversionPattern<low::SPNTask> {
 
-      using OpConversionPattern<low::SPNTask>::OpConversionPattern;
+  using OpConversionPattern<low::SPNTask>::OpConversionPattern;
 
-      LogicalResult matchAndRewrite(low::SPNTask op,
-                                    ArrayRef<Value> operands,
-                                    ConversionPatternRewriter& rewriter) const override;
-    };
+  LogicalResult
+  matchAndRewrite(low::SPNTask op, low::SPNTask::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override;
+};
 
-    struct SingleTaskLowering : OpConversionPattern<low::SPNTask> {
+struct SingleTaskLowering : OpConversionPattern<low::SPNTask> {
 
-      using OpConversionPattern<low::SPNTask>::OpConversionPattern;
+  using OpConversionPattern<low::SPNTask>::OpConversionPattern;
 
-      LogicalResult matchAndRewrite(low::SPNTask op,
-                                    ArrayRef<Value> operands,
-                                    ConversionPatternRewriter& rewriter) const override;
-    };
+  LogicalResult
+  matchAndRewrite(low::SPNTask op, low::SPNTask::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override;
+};
 
-    struct BodyLowering : OpConversionPattern<low::SPNBody> {
+struct BodyLowering : OpConversionPattern<low::SPNBody> {
 
-      using OpConversionPattern<low::SPNBody>::OpConversionPattern;
+  using OpConversionPattern<low::SPNBody>::OpConversionPattern;
 
-      LogicalResult matchAndRewrite(low::SPNBody op,
-                                    ArrayRef<Value> operands,
-                                    ConversionPatternRewriter& rewriter) const override;
-    };
+  LogicalResult
+  matchAndRewrite(low::SPNBody op, low::SPNBody::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override;
+};
 
-    static inline void populateLoSPNtoCPUStructurePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
-                                                           TypeConverter& typeConverter) {
-      patterns.insert<KernelLowering>(typeConverter, context);
-      patterns.insert<BodyLowering>(typeConverter, context);
-    }
-
-    static inline void populateLoSPNtoCPUTaskPatterns(OwningRewritePatternList& patterns,
-                                                      MLIRContext* context,
-                                                      TypeConverter& typeConverter) {
-      patterns.insert<BatchTaskLowering, SingleTaskLowering>(typeConverter, context, 1);
-    }
-  }
+static inline void
+populateLoSPNtoCPUStructurePatterns(RewritePatternSet &patterns,
+                                    MLIRContext *context,
+                                    TypeConverter &typeConverter) {
+  patterns.insert<KernelLowering>(typeConverter, context);
+  patterns.insert<BodyLowering>(typeConverter, context);
 }
 
-#endif //SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_STRUCTUREPATTERNS_H
+static inline void
+populateLoSPNtoCPUTaskPatterns(RewritePatternSet &patterns,
+                               MLIRContext *context,
+                               TypeConverter &typeConverter) {
+  patterns.insert<BatchTaskLowering, SingleTaskLowering>(typeConverter, context,
+                                                         1);
+}
+} // namespace spn
+} // namespace mlir
+
+#endif // SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOCPU_STRUCTUREPATTERNS_H

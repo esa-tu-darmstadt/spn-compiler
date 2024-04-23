@@ -9,47 +9,50 @@
 #ifndef SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOGPU_STRUCTUREPATTERNS_H
 #define SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOGPU_STRUCTUREPATTERNS_H
 
-#include "mlir/Transforms/DialectConversion.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
+#include "mlir/Transforms/DialectConversion.h"
 #include "llvm/Support/Debug.h"
 
 namespace mlir {
-  namespace spn {
+namespace spn {
 
-    struct KernelGPULowering : OpConversionPattern<low::SPNKernel> {
+struct KernelGPULowering : OpConversionPattern<low::SPNKernel> {
 
-      using OpConversionPattern<low::SPNKernel>::OpConversionPattern;
+  using OpConversionPattern<low::SPNKernel>::OpConversionPattern;
 
-      LogicalResult matchAndRewrite(low::SPNKernel op,
-                                    ArrayRef<Value> operands,
-                                    ConversionPatternRewriter& rewriter) const override;
-    };
+  LogicalResult
+  matchAndRewrite(low::SPNKernel op, low::SPNKernel::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override;
+};
 
-    struct BatchTaskGPULowering : OpConversionPattern<low::SPNTask> {
+struct BatchTaskGPULowering : OpConversionPattern<low::SPNTask> {
 
-      using OpConversionPattern<low::SPNTask>::OpConversionPattern;
+  using OpConversionPattern<low::SPNTask>::OpConversionPattern;
 
-      LogicalResult matchAndRewrite(low::SPNTask op,
-                                    ArrayRef<Value> operands,
-                                    ConversionPatternRewriter& rewriter) const override;
-    };
+  LogicalResult
+  matchAndRewrite(low::SPNTask op, low::SPNTask::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override;
+};
 
-    struct BodyGPULowering : OpConversionPattern<low::SPNBody> {
+struct BodyGPULowering : OpConversionPattern<low::SPNBody> {
 
-      using OpConversionPattern<low::SPNBody>::OpConversionPattern;
+  using OpConversionPattern<low::SPNBody>::OpConversionPattern;
 
-      LogicalResult matchAndRewrite(low::SPNBody op,
-                                    ArrayRef<Value> operands,
-                                    ConversionPatternRewriter& rewriter) const override;
-    };
+  LogicalResult
+  matchAndRewrite(low::SPNBody op, low::SPNBody::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override;
+};
 
-    static inline void populateLoSPNtoGPUStructurePatterns(OwningRewritePatternList& patterns, MLIRContext* context,
-                                                    TypeConverter& typeConverter) {
-      patterns.insert<KernelGPULowering, BatchTaskGPULowering>(typeConverter, context);
-      patterns.insert<BodyGPULowering>(typeConverter, context);
-    }
-  }
+static inline void
+populateLoSPNtoGPUStructurePatterns(RewritePatternSet &patterns,
+                                    MLIRContext *context,
+                                    TypeConverter &typeConverter) {
+  patterns.insert<KernelGPULowering, BatchTaskGPULowering>(typeConverter,
+                                                           context);
+  patterns.insert<BodyGPULowering>(typeConverter, context);
 }
+} // namespace spn
+} // namespace mlir
 
-#endif //SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOGPU_STRUCTUREPATTERNS_H
+#endif // SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOGPU_STRUCTUREPATTERNS_H

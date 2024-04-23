@@ -25,11 +25,8 @@ add_mlir_conversion_library(MLIRLoSPNtoGPUTransforms
         MLIRLoSPN
         MLIRIR
         MLIRPass
-        MLIRStandard
         MLIRSupport
         MLIRTransforms
-        MLIRMath
-        MLIRGPUOps
 
         DEPENDS
         MLIRLoSPNtoGPUPassesIncGen

@@ -9,14 +9,20 @@
 #ifndef SPNC_MLIR_INCLUDE_DIALECT_HISPN_HISPNOPS_H
 #define SPNC_MLIR_INCLUDE_DIALECT_HISPN_HISPNOPS_H
 
+#include "HiSPN/HiSPNAttributes.h"
+#include "HiSPN/HiSPNEnums.h"
+#include "HiSPN/HiSPNInterfaces.h"
+#include "mlir/Bytecode/BytecodeOpInterface.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
-#include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/IR/RegionKindInterface.h"
-#include "HiSPN/HiSPNInterfaces.h"
-#include "HiSPN/HiSPNEnums.h"
+#include "mlir/Interfaces/InferTypeOpInterface.h"
+#include "mlir/Interfaces/SideEffectInterfaces.h"
+
+#define GET_TYPEDEF_CLASSES
+#include "HiSPN/HiSPNOpsTypes.h.inc"
 
 #define GET_OP_CLASSES
 #include "HiSPN/HiSPNOps.h.inc"
 
-#endif //SPNC_MLIR_INCLUDE_DIALECT_HISPN_HISPNOPS_H
+#endif // SPNC_MLIR_INCLUDE_DIALECT_HISPN_HISPNOPS_H

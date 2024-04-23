@@ -7,31 +7,34 @@
 //==============================================================================
 
 #include "SPFlowToMLIRDeserializer.h"
-#include "xspn/xspn/serialization/binary/capnproto/spflow.capnp.h"
-#include "capnp/serialize.h"
-#include <fcntl.h>
-#include "util/Logging.h"
-#include <regex>
-#include "mlir/IR/Verifier.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "HiSPN/HiSPNEnums.h"
-#include "llvm/Support/Debug.h"
 #include "Kernel.h"
+#include "capnp/serialize.h"
+#include "mlir/IR/Verifier.h"
 #include "option/GlobalOptions.h"
 #include "toolchain/MLIRToolchain.h"
+#include "util/Logging.h"
+#include "xspn/xspn/serialization/binary/capnproto/spflow.capnp.h"
+#include "llvm/ADT/APFloat.h"
+#include "llvm/Support/Debug.h"
+#include <fcntl.h>
+#include <regex>
 
 using namespace capnp;
 using namespace mlir;
 
-spnc::SPFlowToMLIRDeserializer::BinaryFileHandler::BinaryFileHandler(const std::string& fileName) {
+spnc::SPFlowToMLIRDeserializer::BinaryFileHandler::BinaryFileHandler(
+    const std::string &fileName) {
   fd = open(fileName.c_str(), O_RDONLY);
 }
 
-spnc::SPFlowToMLIRDeserializer::BinaryFileHandler::~BinaryFileHandler() noexcept {
+spnc::SPFlowToMLIRDeserializer::BinaryFileHandler::
+    ~BinaryFileHandler() noexcept {
   close(fd);
 }
 
-spnc::ExecutionResult spnc::SPFlowToMLIRDeserializer::executeStep(BinarySPN* inputFile) {
+spnc::ExecutionResult
+spnc::SPFlowToMLIRDeserializer::executeStep(BinarySPN *inputFile) {
   ctx = getContext()->get<mlir::MLIRContext>();
   builder = std::make_unique<mlir::OpBuilder>(ctx);
   module = mlir::ModuleOp::create(builder->getUnknownLoc());
@@ -56,23 +59,25 @@ spnc::ExecutionResult spnc::SPFlowToMLIRDeserializer::executeStep(BinarySPN* inp
   return success();
 }
 
-mlir::ModuleOp* spnc::SPFlowToMLIRDeserializer::result() {
+mlir::ModuleOp *spnc::SPFlowToMLIRDeserializer::result() {
   return module.operator->();
 }
 
-void spnc::SPFlowToMLIRDeserializer::deserializeQuery(Query::Reader&& query) {
+void spnc::SPFlowToMLIRDeserializer::deserializeQuery(Query::Reader &&query) {
   int batchSize = query.getBatchSize();
   if (!query.hasJoint()) {
     SPNC_FATAL_ERROR("Can only deserialize joint queries");
   }
-  auto errorKind =
-      (query.getErrorKind() == ErrorKind::ABSOLUTE) ? mlir::spn::high::error_model::absolute_error
-                                                    : mlir::spn::high::error_model::relative_error;
-  deserializeJointQuery(query.getJoint(), batchSize, errorKind, query.getMaxError());
+  auto errorKind = (query.getErrorKind() == ErrorKind::ABSOLUTE)
+                       ? mlir::spn::high::error_model::absolute_error
+                       : mlir::spn::high::error_model::relative_error;
+  deserializeJointQuery(query.getJoint(), batchSize, errorKind,
+                        query.getMaxError());
 }
 
-void spnc::SPFlowToMLIRDeserializer::deserializeJointQuery(JointProbability::Reader&& query, int batchSize,
-                                                           mlir::spn::high::error_model errorKind, double maxError) {
+void spnc::SPFlowToMLIRDeserializer::deserializeJointQuery(
+    JointProbability::Reader &&query, int batchSize,
+    mlir::spn::high::error_model errorKind, double maxError) {
   if (!query.hasModel()) {
     SPNC_FATAL_ERROR("No model attached to query");
   }
@@ -88,7 +93,8 @@ void spnc::SPFlowToMLIRDeserializer::deserializeJointQuery(JointProbability::Rea
   auto kernelNameAttr = builder->getStringAttr(modelName);
   auto batchSizeAttr = builder->getUI32IntegerAttr(batchSize);
 
-  // Store information about the kernel for use in later stages of the toolchain.
+  // Store information about the kernel for use in later stages of the
+  // toolchain.
   auto kernelInfo = getContext()->get<KernelInfo>();
   kernelInfo->kernelName = modelName;
   kernelInfo->batchSize = batchSize;
@@ -96,90 +102,104 @@ void spnc::SPFlowToMLIRDeserializer::deserializeJointQuery(JointProbability::Rea
   kernelInfo->numFeatures = numFeatures;
   kernelInfo->bytesPerFeature = sizeInByte(featureType);
 
-  auto queryOp =
-      builder->create<mlir::spn::high::JointQuery>(builder->getUnknownLoc(), numFeaturesAttr,
-                                                   featureTypeAttr, kernelNameAttr, batchSizeAttr,
-                                                   mlir::spn::high::error_modelAttr::get(
-                                                       module->getContext(),
-                                                       errorKind),
-                                                   builder->getF64FloatAttr(maxError),
-                                                   builder->getBoolAttr(query.getSupportMarginal()));
+  auto queryOp = builder->create<mlir::spn::high::JointQuery>(
+      builder->getUnknownLoc(), numFeaturesAttr, featureTypeAttr,
+      kernelNameAttr, batchSizeAttr,
+      mlir::spn::high::error_modelAttr::get(module->getContext(), errorKind),
+      builder->getF64FloatAttr(maxError),
+      builder->getBoolAttr(query.getSupportMarginal()));
   // Insertion is automatically set to beginning of new block.
-  (void) builder->createBlock(&queryOp.getRegion());
+  (void)builder->createBlock(&queryOp.getRegion());
 
   deserializeModel(query.getModel());
 }
 
-void spnc::SPFlowToMLIRDeserializer::deserializeModel(Model::Reader&& model) {
+void spnc::SPFlowToMLIRDeserializer::deserializeModel(Model::Reader &&model) {
   // Construct the graph holding the actual operations of the DAG.
-  auto graph = builder->create<mlir::spn::high::Graph>(builder->getUnknownLoc(),
-                                                       builder->getUI32IntegerAttr(model.getNumFeatures()));
+  auto graph = builder->create<mlir::spn::high::Graph>(
+      builder->getUnknownLoc(),
+      builder->getUI32IntegerAttr(model.getNumFeatures()));
   // Create the single block inside that graph.
   auto block = builder->createBlock(&graph.getRegion());
 
-  // Sort scope in ascending order and construct a block argument for each variable (element of the scope).
+  // Sort scope in ascending order and construct a block argument for each
+  // variable (element of the scope).
   SmallVector<int, 10> scope;
-  for (auto s: model.getScope()) {
+  for (auto s : model.getScope()) {
     scope.push_back(s);
   }
   std::sort(scope.begin(), scope.end());
   auto featureType = translateTypeString(model.getFeatureType());
-  for (auto s: scope) {
+  for (auto s : scope) {
     // Add mapping from input (scope) to block argument.
-    inputs[s] = graph.getRegion().addArgument(featureType);
+    inputs[s] = graph.getRegion().addArgument(featureType, graph->getLoc());
   }
   builder->setInsertionPointToEnd(block);
 
-  for (auto node: model.getNodes()) {
+  for (auto node : model.getNodes()) {
     deserializeNode(node);
   }
 
   // Insert the RootNode to mark the root of the DAG.
   auto resultValue = getValueForNode(model.getRootNode());
-  builder->create<mlir::spn::high::RootNode>(builder->getUnknownLoc(), resultValue);
+  builder->create<mlir::spn::high::RootNode>(builder->getUnknownLoc(),
+                                             resultValue);
 }
 
-void spnc::SPFlowToMLIRDeserializer::deserializeNode(Node::Reader& node) {
+void spnc::SPFlowToMLIRDeserializer::deserializeNode(Node::Reader &node) {
   Value op;
   switch (node.which()) {
-    case Node::SUM: op = deserializeSum(node.getSum());
-      break;
-    case Node::PRODUCT: op = deserializeProduct(node.getProduct());
-      break;
-    case Node::HIST: op = deserializeHistogram(node.getHist());
-      break;
-    case Node::GAUSSIAN: op = deserializeGaussian(node.getGaussian());
-      break;
-    case Node::CATEGORICAL: op = deserializeCaterogical(node.getCategorical());
-      break;
-    default: SPNC_FATAL_ERROR("Unsupported node type ", node.toString().flatten().cStr());
+  case Node::SUM:
+    op = deserializeSum(node.getSum());
+    break;
+  case Node::PRODUCT:
+    op = deserializeProduct(node.getProduct());
+    break;
+  case Node::HIST:
+    op = deserializeHistogram(node.getHist());
+    break;
+  case Node::GAUSSIAN:
+    op = deserializeGaussian(node.getGaussian());
+    break;
+  case Node::CATEGORICAL:
+    op = deserializeCaterogical(node.getCategorical());
+    break;
+  default:
+    SPNC_FATAL_ERROR("Unsupported node type ",
+                     node.toString().flatten().cStr());
   }
   // Add mapping from unique node ID to operation/value.
   assert(op);
   node2value[node.getId()] = op;
 }
 
-mlir::spn::high::SumNode spnc::SPFlowToMLIRDeserializer::deserializeSum(SumNode::Reader&& sum) {
+mlir::spn::high::SumNode
+spnc::SPFlowToMLIRDeserializer::deserializeSum(SumNode::Reader &&sum) {
   llvm::SmallVector<Value, 10> ops;
-  for (auto a: sum.getChildren()) {
+  for (auto a : sum.getChildren()) {
     ops.push_back(getValueForNode(a));
   }
   llvm::SmallVector<double, 10> weights;
-  for (auto w: sum.getWeights()) {
+  for (auto w : sum.getWeights()) {
     weights.push_back(w);
   }
-  return builder->create<mlir::spn::high::SumNode>(builder->getUnknownLoc(), ops, weights);
+  return builder->create<mlir::spn::high::SumNode>(builder->getUnknownLoc(),
+                                                   ops, weights);
 }
 
-mlir::spn::high::ProductNode spnc::SPFlowToMLIRDeserializer::deserializeProduct(ProductNode::Reader&& product) {
+mlir::spn::high::ProductNode spnc::SPFlowToMLIRDeserializer::deserializeProduct(
+    ProductNode::Reader &&product) {
   llvm::SmallVector<Value, 10> ops;
-  for (auto p: product.getChildren()) {
+  for (auto p : product.getChildren()) {
     ops.push_back(getValueForNode(p));
   }
-  return builder->create<mlir::spn::high::ProductNode>(builder->getUnknownLoc(), ops);
+  return builder->create<mlir::spn::high::ProductNode>(builder->getUnknownLoc(),
+                                                       ops);
 }
 
-mlir::spn::high::HistogramNode spnc::SPFlowToMLIRDeserializer::deserializeHistogram(HistogramLeaf::Reader&& histogram) {
+mlir::spn::high::HistogramNode
+spnc::SPFlowToMLIRDeserializer::deserializeHistogram(
+    HistogramLeaf::Reader &&histogram) {
   Value indexVar = getInputValueByIndex(histogram.getScope());
   auto breaks = histogram.getBreaks();
   auto densities = histogram.getDensities();
@@ -188,25 +208,32 @@ mlir::spn::high::HistogramNode spnc::SPFlowToMLIRDeserializer::deserializeHistog
   for (unsigned i = 0; i < breaks.size() - 1; ++i) {
     auto lb = breaks[i];
     auto ub = breaks[i + 1];
-    auto d = densities[i];
+    auto d = llvm::APFloat(densities[i]);
     buckets.push_back(std::tie(lb, ub, d));
   }
-  return builder->create<mlir::spn::high::HistogramNode>(builder->getUnknownLoc(), indexVar, buckets);
+  return builder->create<mlir::spn::high::HistogramNode>(
+      builder->getUnknownLoc(), indexVar, buckets);
 }
 
-mlir::spn::high::CategoricalNode spnc::SPFlowToMLIRDeserializer::deserializeCaterogical(CategoricalLeaf::Reader&& categorical) {
+mlir::spn::high::CategoricalNode
+spnc::SPFlowToMLIRDeserializer::deserializeCaterogical(
+    CategoricalLeaf::Reader &&categorical) {
   auto indexVar = getInputValueByIndex(categorical.getScope());
   SmallVector<double, 10> probabilities;
-  for (auto p: categorical.getProbabilities()) {
+  for (auto p : categorical.getProbabilities()) {
     probabilities.push_back(p);
   }
-  return builder->create<mlir::spn::high::CategoricalNode>(builder->getUnknownLoc(), indexVar, probabilities);
+  return builder->create<mlir::spn::high::CategoricalNode>(
+      builder->getUnknownLoc(), indexVar, probabilities);
 }
 
-mlir::spn::high::GaussianNode spnc::SPFlowToMLIRDeserializer::deserializeGaussian(GaussianLeaf::Reader&& gaussian) {
+mlir::spn::high::GaussianNode
+spnc::SPFlowToMLIRDeserializer::deserializeGaussian(
+    GaussianLeaf::Reader &&gaussian) {
   auto indexVar = getInputValueByIndex(gaussian.getScope());
-  return builder->create<mlir::spn::high::GaussianNode>(builder->getUnknownLoc(), indexVar,
-                                                        gaussian.getMean(), gaussian.getStddev());
+  return builder->create<mlir::spn::high::GaussianNode>(
+      builder->getUnknownLoc(), indexVar, gaussian.getMean(),
+      gaussian.getStddev());
 }
 
 mlir::Value spnc::SPFlowToMLIRDeserializer::getInputValueByIndex(int index) {
@@ -223,7 +250,8 @@ mlir::Value spnc::SPFlowToMLIRDeserializer::getValueForNode(int id) {
   return node2value[id];
 }
 
-mlir::Type spnc::SPFlowToMLIRDeserializer::translateTypeString(const std::string& text) {
+mlir::Type
+spnc::SPFlowToMLIRDeserializer::translateTypeString(const std::string &text) {
   std::smatch match;
   // Test for an integer type, given as [u]int(WIDTH).
   std::regex intRegex{R"(([u]?)int([1-9]+))"};
@@ -238,10 +266,14 @@ mlir::Type spnc::SPFlowToMLIRDeserializer::translateTypeString(const std::string
     // match[1] captures the width of the type.
     auto width = std::stoi(match[1]);
     switch (width) {
-      case 16: return builder->getF16Type();
-      case 32: return builder->getF32Type();
-      case 64: return builder->getF64Type();
-      default: SPNC_FATAL_ERROR("Unsupported floating-point type ", text);
+    case 16:
+      return builder->getF16Type();
+    case 32:
+      return builder->getF32Type();
+    case 64:
+      return builder->getF64Type();
+    default:
+      SPNC_FATAL_ERROR("Unsupported floating-point type ", text);
     }
   }
   SPNC_FATAL_ERROR("Unsupported feature data type ", text);

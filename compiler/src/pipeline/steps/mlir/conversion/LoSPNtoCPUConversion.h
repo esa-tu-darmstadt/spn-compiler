@@ -13,19 +13,18 @@
 
 namespace spnc {
 
-  ///
-  /// MLIR pass pipeline to lower from the LoSPN dialect to a combination of
-  /// upstream dialects when targeting CPUs. Also performs vectorization if
-  /// requested and possible.
-  struct LoSPNtoCPUConversion : public MLIRPassPipeline<LoSPNtoCPUConversion> {
+///
+/// MLIR pass pipeline to lower from the LoSPN dialect to a combination of
+/// upstream dialects when targeting CPUs. Also performs vectorization if
+/// requested and possible.
+struct LoSPNtoCPUConversion : public MLIRPassPipeline<LoSPNtoCPUConversion> {
 
-    using MLIRPassPipeline<LoSPNtoCPUConversion>::MLIRPassPipeline;
+  using MLIRPassPipeline<LoSPNtoCPUConversion>::MLIRPassPipeline;
 
-    void initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx);
+  void initializePassPipeline(mlir::PassManager *pm, mlir::MLIRContext *ctx);
 
-    STEP_NAME("lospn-to-cpu")
+  STEP_NAME("lospn-to-cpu")
+};
+} // namespace spnc
 
-  };
-}
-
-#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_LOSPNTOCPUCONVERSION_H
+#endif // SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_LOSPNTOCPUCONVERSION_H

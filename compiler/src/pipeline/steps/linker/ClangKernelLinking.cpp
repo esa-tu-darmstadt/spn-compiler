@@ -6,13 +6,15 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include <util/Command.h>
 #include "ClangKernelLinking.h"
 #include "toolchain/MLIRToolchain.h"
+#include <util/Command.h>
 
 using namespace spnc;
 
-spnc::ExecutionResult ClangKernelLinking::executeStep(ObjectFile* objectFile, SharedObject* sharedObject) {
+spnc::ExecutionResult
+ClangKernelLinking::executeStep(ObjectFile *objectFile,
+                                SharedObject *sharedObject) {
   // Invoke clang as external command.
   std::vector<std::string> command;
   command.emplace_back("clang");
@@ -22,24 +24,22 @@ spnc::ExecutionResult ClangKernelLinking::executeStep(ObjectFile* objectFile, Sh
   command.emplace_back("-o");
   command.push_back(sharedObject->fileName());
   command.push_back(objectFile->fileName());
-  auto* libraryInfo = getContext()->get<LibraryInfo>();
-  for (auto& lib: libraryInfo->libraries()) {
+  auto *libraryInfo = getContext()->get<LibraryInfo>();
+  for (auto &lib : libraryInfo->libraries()) {
     command.push_back("-l" + lib);
   }
-  for (auto& path: libraryInfo->searchPaths()) {
+  for (auto &path : libraryInfo->searchPaths()) {
     command.push_back("-L " + path);
   }
   Command::executeExternalCommand(command);
-  auto* kernelInfo = getContext()->get<KernelInfo>();
-  kernel = std::make_unique<Kernel>(sharedObject->fileName(), kernelInfo->kernelName,
-                                    kernelInfo->queryType, kernelInfo->target, kernelInfo->batchSize,
-                                    kernelInfo->numFeatures, kernelInfo->bytesPerFeature,
-                                    kernelInfo->numResults, kernelInfo->bytesPerResult,
-                                    kernelInfo->dtype);
+  auto *kernelInfo = getContext()->get<KernelInfo>();
+  kernel = std::make_unique<Kernel>(
+      sharedObject->fileName(), kernelInfo->kernelName, kernelInfo->queryType,
+      kernelInfo->target, kernelInfo->batchSize, kernelInfo->numFeatures,
+      kernelInfo->bytesPerFeature, kernelInfo->numResults,
+      kernelInfo->bytesPerResult, kernelInfo->dtype);
   outFile = sharedObject;
   return success();
 }
 
-Kernel* ClangKernelLinking::result() {
-  return kernel.get();
-}
+Kernel *ClangKernelLinking::result() { return kernel.get(); }

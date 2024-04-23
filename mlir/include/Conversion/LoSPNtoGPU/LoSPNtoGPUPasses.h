@@ -12,16 +12,16 @@
 #include "mlir/Pass/Pass.h"
 
 namespace mlir {
-  namespace spn {
+namespace spn {
 
-    std::unique_ptr<OperationPass<ModuleOp>> createGPUCopyEliminationPass();
+std::unique_ptr<OperationPass<ModuleOp>> createGPUCopyEliminationPass();
 
-    std::unique_ptr<OperationPass<FuncOp>> createGPUBufferDeallocationPass();
+std::unique_ptr<OperationPass<FuncOp>> createGPUBufferDeallocationPass();
 
 #define GEN_PASS_REGISTRATION
 #include "LoSPNtoGPU/LoSPNtoGPUPasses.h.inc"
 
-  }
-}
+} // namespace spn
+} // namespace mlir
 
-#endif //SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOGPU_LOSPNTOGPUPASSES_H
+#endif // SPNC_MLIR_INCLUDE_CONVERSION_LOSPNTOGPU_LOSPNTOGPUPASSES_H

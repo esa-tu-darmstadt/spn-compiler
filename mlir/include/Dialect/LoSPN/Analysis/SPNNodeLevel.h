@@ -9,84 +9,81 @@
 #ifndef SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_LOSPN_ANALYSIS_SPNNODELEVEL_H
 #define SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_LOSPN_ANALYSIS_SPNNODELEVEL_H
 
-#include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/IndexedMap.h"
 #include "LoSPN/LoSPNOps.h"
+#include "llvm/ADT/IndexedMap.h"
+#include "llvm/ADT/SmallSet.h"
 
 namespace mlir {
-  namespace spn {
+namespace spn {
 
-    ///
-    /// Analysis to compute the distance of nodes to the root node in an SPN graph.
-    class SPNNodeLevel {
+///
+/// Analysis to compute the distance of nodes to the root node in an SPN graph.
+class SPNNodeLevel {
 
-    public:
+public:
+  /// Constructor, initialize analysis.
+  /// \param root Root node of a (sub-)graph or query operation.
+  /// \param rootLevel Level to assign to root node, defaults to 0.
+  explicit SPNNodeLevel(Operation *root, int rootLevel = 0);
 
-      /// Constructor, initialize analysis.
-      /// \param root Root node of a (sub-)graph or query operation.
-      /// \param rootLevel Level to assign to root node, defaults to 0.
-      explicit SPNNodeLevel(Operation* root, int rootLevel = 0);
+  /// Get distance of operation to (sub-)graph root.
+  /// \param op Operation.
+  /// \return Depth, i.e. distance from the root node.
+  int getOperationDepth(Operation *op) const;
 
-      /// Get distance of operation to (sub-)graph root.
-      /// \param op Operation.
-      /// \return Depth, i.e. distance from the root node.
-      int getOperationDepth(Operation* op) const;
+  ///
+  /// \return Maximum depth of a leaf node.
+  int getMaxDepth() const;
 
-      ///
-      /// \return Maximum depth of a leaf node.
-      int getMaxDepth() const;
+  ///
+  /// \return Minimum depth of a leaf node.
+  int getMinDepth() const;
 
-      ///
-      /// \return Minimum depth of a leaf node.
-      int getMinDepth() const;
+  ///
+  /// \return Median depth of the leaf nodes.
+  double getMedianDepth() const;
 
-      ///
-      /// \return Median depth of the leaf nodes.
-      double getMedianDepth() const;
+  ///
+  /// \return Average depth of the leaf nodes.
+  double getAverageDepth() const;
 
-      ///
-      /// \return Average depth of the leaf nodes.
-      double getAverageDepth() const;
+  /// Get the complete result computed for this (sub-)graph.
+  /// \return Mapping from operation to depth.
+  const DenseMap<Operation *, int> &getFullResult() const;
 
-      /// Get the complete result computed for this (sub-)graph.
-      /// \return Mapping from operation to depth.
-      const DenseMap<Operation*, int>& getFullResult() const;
+  /// Root node used for this analysis.
+  /// \return Root node of the analyzed (sub-)graph.
+  const Operation *getRootNode() const;
 
-      /// Root node used for this analysis.
-      /// \return Root node of the analyzed (sub-)graph.
-      const Operation* getRootNode() const;
+private:
+  struct GraphLevelInfo {
+    int level;
+  };
 
-    private:
+  void analyzeGraph(Operation *graphRoot);
 
-      struct GraphLevelInfo {
-        int level;
-      };
+  void traverseSubgraph(Operation *subgraphRoot, GraphLevelInfo info);
 
-      void analyzeGraph(Operation* graphRoot);
+  Operation *rootNode;
 
-      void traverseSubgraph(Operation* subgraphRoot, GraphLevelInfo info);
+  int rootNodeLevel;
 
-      Operation* rootNode;
+  int maxDepth = 0;
+  int minDepth = std::numeric_limits<int>::max();
 
-      int rootNodeLevel;
+  double averageDepth = 0;
+  double medianDepth = 0;
 
-      int maxDepth = 0;
-      int minDepth = std::numeric_limits<int>::max();
+  DenseMap<Operation *, int> opLevels;
 
-      double averageDepth = 0;
-      double medianDepth = 0;
+  std::set<int> leafLevels;
 
-      DenseMap<Operation*, int> opLevels;
+  llvm::IndexedMap<int> leafLevelHistogram;
 
-      std::set<int> leafLevels;
+  unsigned numLeafNodes = 0;
+};
 
-      llvm::IndexedMap<int> leafLevelHistogram;
+} // namespace spn
+} // namespace mlir
 
-      unsigned numLeafNodes = 0;
-
-    };
-
-  }
-}
-
-#endif //SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_LOSPN_ANALYSIS_SPNNODELEVEL_H
+#endif // SPNC_MLIR_DIALECTS_INCLUDE_DIALECT_LOSPN_ANALYSIS_SPNNODELEVEL_H

@@ -12,17 +12,15 @@
 #include "mlir/IR/Diagnostics.h"
 
 namespace mlir {
-  namespace spn {
+namespace spn {
 
-    class CUDATargetInformation {
+class CUDATargetInformation {
 
-    public:
+public:
+  static unsigned maxSharedMemoryPerBlock(mlir::Location loc);
+};
 
-      static unsigned maxSharedMemoryPerBlock(mlir::Location loc);
+} // namespace spn
+} // namespace mlir
 
-    };
-
-  }
-}
-
-#endif //SPNC_MLIR_LIB_CONVERSION_LOSPNTOGPU_TARGET_CUDATARGETINFORMATION_H
+#endif // SPNC_MLIR_LIB_CONVERSION_LOSPNTOGPU_TARGET_CUDATARGETINFORMATION_H

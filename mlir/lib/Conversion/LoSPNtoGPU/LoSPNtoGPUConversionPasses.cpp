@@ -7,14 +7,14 @@
 //==============================================================================
 
 #include "LoSPNtoGPU/LoSPNtoGPUConversionPasses.h"
-#include "LoSPNtoGPU/LoSPNtoGPUTypeConverter.h"
-#include "LoSPNtoGPU/GPUStructurePatterns.h"
 #include "LoSPNtoGPU/GPUNodePatterns.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/Math/IR/Math.h"
+#include "LoSPNtoGPU/GPUStructurePatterns.h"
+#include "LoSPNtoGPU/LoSPNtoGPUTypeConverter.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
+#include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 void mlir::spn::LoSPNtoGPUStructureConversionPass::runOnOperation() {
   ConversionTarget target(getContext());
@@ -32,8 +32,9 @@ void mlir::spn::LoSPNtoGPUStructureConversionPass::runOnOperation() {
   target.addIllegalOp<mlir::spn::low::SPNKernel>();
   target.addIllegalOp<mlir::spn::low::SPNTask, mlir::spn::low::SPNBody>();
 
-  OwningRewritePatternList patterns(&getContext());
-  mlir::spn::populateLoSPNtoGPUStructurePatterns(patterns, &getContext(), typeConverter);
+  RewritePatternSet patterns(&getContext());
+  mlir::spn::populateLoSPNtoGPUStructurePatterns(patterns, &getContext(),
+                                                 typeConverter);
 
   auto op = getOperation();
   FrozenRewritePatternSet frozenPatterns(std::move(patterns));
@@ -42,14 +43,16 @@ void mlir::spn::LoSPNtoGPUStructureConversionPass::runOnOperation() {
   }
 }
 
-void mlir::spn::LoSPNtoGPUStructureConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
+void mlir::spn::LoSPNtoGPUStructureConversionPass::getDependentDialects(
+    mlir::DialectRegistry &registry) const {
   registry.insert<StandardOpsDialect>();
   registry.insert<mlir::scf::SCFDialect>();
   registry.insert<mlir::gpu::GPUDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
 }
 
-std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoGPUStructureConversionPass() {
+std::unique_ptr<mlir::Pass>
+mlir::spn::createLoSPNtoGPUStructureConversionPass() {
   return std::make_unique<LoSPNtoGPUStructureConversionPass>();
 }
 
@@ -68,8 +71,9 @@ void mlir::spn::LoSPNtoGPUNodeConversionPass::runOnOperation() {
 
   target.addIllegalDialect<mlir::spn::low::LoSPNDialect>();
 
-  OwningRewritePatternList patterns(&getContext());
-  mlir::spn::populateLoSPNtoGPUNodePatterns(patterns, &getContext(), typeConverter);
+  RewritePatternSet patterns(&getContext());
+  mlir::spn::populateLoSPNtoGPUNodePatterns(patterns, &getContext(),
+                                            typeConverter);
 
   auto op = getOperation();
   FrozenRewritePatternSet frozenPatterns(std::move(patterns));
@@ -78,7 +82,8 @@ void mlir::spn::LoSPNtoGPUNodeConversionPass::runOnOperation() {
   }
 }
 
-void mlir::spn::LoSPNtoGPUNodeConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
+void mlir::spn::LoSPNtoGPUNodeConversionPass::getDependentDialects(
+    mlir::DialectRegistry &registry) const {
   registry.insert<StandardOpsDialect>();
   registry.insert<mlir::scf::SCFDialect>();
   registry.insert<mlir::math::MathDialect>();

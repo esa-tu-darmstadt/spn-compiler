@@ -6,16 +6,14 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include <pipeline/PipelineStep.h>
 #include <pipeline/Pipeline.h>
+#include <pipeline/PipelineStep.h>
 
 unsigned spnc::PipelineContext::lastTypeID = 0;
 
-void spnc::PipelineBase::setPipeline(StepBase& sb) {
-  sb.pipeline = this;
-}
+void spnc::PipelineBase::setPipeline(StepBase &sb) { sb.pipeline = this; }
 
-spnc::PipelineContext* spnc::PipelineBase::getContext() {
+spnc::PipelineContext *spnc::PipelineBase::getContext() {
   return context.get();
 }
 
@@ -23,8 +21,8 @@ spnc::ExecutionResult spnc::failure(std::string message) {
   return ExecutionResult(std::move(message));
 }
 
-spnc::ExecutionResult spnc::success() {
-  return ExecutionResult{};
-}
+spnc::ExecutionResult spnc::success() { return ExecutionResult{}; }
 
-spnc::interface::Option<std::string> spnc::option::stopAfter{"stopAfter"};
+spnc::interface::Option<std::string> spnc::option::stopAfter {
+  "stopAfter", "Stop after the specified pipeline step.", "Compilation"
+};

@@ -9,70 +9,64 @@
 #ifndef SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_MLIRTOOLCHAIN_H
 #define SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_MLIRTOOLCHAIN_H
 
-#include "mlir/IR/BuiltinOps.h"
-#include "option/Options.h"
 #include "Kernel.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "llvm/Target/TargetMachine.h"
 
 namespace spnc {
 
-  ///
-  /// Information about libraries that should be linked to the executable.
-  // Comprises names of the libraries and potential search paths.
-  class LibraryInfo {
+///
+/// Information about libraries that should be linked to the executable.
+// Comprises names of the libraries and potential search paths.
+class LibraryInfo {
 
-  public:
+public:
+  LibraryInfo(llvm::ArrayRef<std::string> libraries,
+              llvm::ArrayRef<std::string> searchPaths)
+      : libs(libraries.begin(), libraries.end()),
+        paths(searchPaths.begin(), searchPaths.end()) {}
 
-    LibraryInfo(llvm::ArrayRef<std::string> libraries, llvm::ArrayRef<std::string> searchPaths) :
-        libs(libraries.begin(), libraries.end()), paths(searchPaths.begin(), searchPaths.end()) {}
+  llvm::ArrayRef<std::string> libraries() { return libs; }
 
-    llvm::ArrayRef<std::string> libraries() {
-      return libs;
-    }
+  llvm::ArrayRef<std::string> searchPaths() { return paths; }
 
-    llvm::ArrayRef<std::string> searchPaths() {
-      return paths;
-    }
+private:
+  llvm::SmallVector<std::string> libs;
 
-  private:
+  llvm::SmallVector<std::string> paths;
+};
 
-    llvm::SmallVector<std::string> libs;
+///
+/// Simple struct to carry information about the generated kernel between
+/// different steps of the tool-chain.
+struct KernelInfo {
+  spnc::KernelQueryType queryType;
+  spnc::KernelTarget target;
+  unsigned batchSize;
+  unsigned numFeatures;
+  unsigned bytesPerFeature;
+  unsigned numResults;
+  unsigned bytesPerResult;
+  std::string dtype;
+  std::string kernelName;
+};
 
-    llvm::SmallVector<std::string> paths;
+///
+/// Common functionality for all tool-chains.
+class MLIRToolchain {
 
-  };
+protected:
+  static void initializeMLIRContext(mlir::MLIRContext &ctx);
 
-  ///
-  /// Simple struct to carry information about the generated kernel between different
-  /// steps of the tool-chain.
-  struct KernelInfo {
-    spnc::KernelQueryType queryType;
-    spnc::KernelTarget target;
-    unsigned batchSize;
-    unsigned numFeatures;
-    unsigned bytesPerFeature;
-    unsigned numResults;
-    unsigned bytesPerResult;
-    std::string dtype;
-    std::string kernelName;
-  };
+  static std::unique_ptr<mlir::ScopedDiagnosticHandler>
+  setupDiagnosticHandler(mlir::MLIRContext *ctx);
 
-  ///
-  /// Common functionality for all tool-chains.
-  class MLIRToolchain {
+  static std::unique_ptr<llvm::TargetMachine> createTargetMachine(int optLevel);
 
-  protected:
+  static llvm::SmallVector<std::string>
+  parseLibrarySearchPaths(const std::string &paths);
+};
 
-    static void initializeMLIRContext(mlir::MLIRContext& ctx);
+} // namespace spnc
 
-    static std::unique_ptr<mlir::ScopedDiagnosticHandler> setupDiagnosticHandler(mlir::MLIRContext* ctx);
-
-    static std::unique_ptr<llvm::TargetMachine> createTargetMachine(int optLevel);
-
-    static llvm::SmallVector<std::string> parseLibrarySearchPaths(const std::string& paths);
-
-  };
-
-}
-
-#endif //SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_MLIRTOOLCHAIN_H
+#endif // SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_MLIRTOOLCHAIN_H

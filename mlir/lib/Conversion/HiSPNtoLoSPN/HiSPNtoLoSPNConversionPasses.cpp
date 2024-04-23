@@ -6,13 +6,14 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include <HiSPNtoLoSPN/QueryPatterns.h>
-#include "HiSPNtoLoSPN/ArithmeticPrecisionAnalysis.h"
 #include "HiSPNtoLoSPN/HiSPNtoLoSPNConversionPasses.h"
+#include "HiSPN/HiSPNOps.h"
+#include "HiSPNtoLoSPN/ArithmeticPrecisionAnalysis.h"
+#include "HiSPNtoLoSPN/HiSPNTypeConverter.h"
 #include "HiSPNtoLoSPN/NodePatterns.h"
 #include "LoSPN/LoSPNDialect.h"
-#include "HiSPN/HiSPNOps.h"
-#include "HiSPNtoLoSPN/HiSPNTypeConverter.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include <HiSPNtoLoSPN/QueryPatterns.h>
 
 using namespace mlir::spn;
 
@@ -32,17 +33,22 @@ void HiSPNtoLoSPNNodeConversionPass::runOnOperation() {
   // probability type used by the HiSPN dialect.
   std::unique_ptr<HiSPNTypeConverter> typeConverter;
   if (optimizeRepresentation) {
-    auto& arithmeticAnalysis = getAnalysis<mlir::spn::ArithmeticPrecisionAnalysis>();
-    typeConverter = std::make_unique<HiSPNTypeConverter>(arithmeticAnalysis.getComputationType(computeLogSpace));
+    auto &arithmeticAnalysis =
+        getAnalysis<mlir::spn::ArithmeticPrecisionAnalysis>();
+    typeConverter = std::make_unique<HiSPNTypeConverter>(
+        arithmeticAnalysis.getComputationType(computeLogSpace));
   } else if (computeLogSpace) {
     typeConverter =
-        std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(mlir::FloatType::getF32(&getContext())));
+        std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(
+            &getContext(), mlir::FloatType::getF32(&getContext())));
   } else {
-    typeConverter = std::make_unique<HiSPNTypeConverter>(mlir::Float64Type::get(&getContext()));
+    typeConverter = std::make_unique<HiSPNTypeConverter>(
+        mlir::Float64Type::get(&getContext()));
   }
 
-  OwningRewritePatternList patterns(&getContext());
-  mlir::spn::populateHiSPNtoLoSPNNodePatterns(patterns, &getContext(), *typeConverter);
+  RewritePatternSet patterns(&getContext());
+  mlir::spn::populateHiSPNtoLoSPNNodePatterns(patterns, &getContext(),
+                                              *typeConverter);
 
   auto op = getOperation();
   FrozenRewritePatternSet frozenPatterns(std::move(patterns));
@@ -55,13 +61,16 @@ void HiSPNtoLoSPNNodeConversionPass::runOnOperation() {
   markAnalysesPreserved<ArithmeticPrecisionAnalysis>();
 }
 
-void HiSPNtoLoSPNNodeConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
+void HiSPNtoLoSPNNodeConversionPass::getDependentDialects(
+    mlir::DialectRegistry &registry) const {
   registry.insert<mlir::spn::low::LoSPNDialect>();
 }
 
-std::unique_ptr<mlir::Pass> mlir::spn::createHiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation,
-                                                                            bool useOptimalRepresentation) {
-  return std::make_unique<HiSPNtoLoSPNNodeConversionPass>(useLogSpaceComputation, useOptimalRepresentation);
+std::unique_ptr<mlir::Pass>
+mlir::spn::createHiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation,
+                                                bool useOptimalRepresentation) {
+  return std::make_unique<HiSPNtoLoSPNNodeConversionPass>(
+      useLogSpaceComputation, useOptimalRepresentation);
 }
 
 void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
@@ -69,7 +78,7 @@ void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
 
   target.addLegalDialect<low::LoSPNDialect>();
   target.addLegalOp<ModuleOp>();
-  target.addLegalOp<FuncOp>();
+  target.addLegalOp<func::FuncOp>();
 
   target.addIllegalDialect<high::HiSPNDialect>();
 
@@ -79,17 +88,23 @@ void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
   std::unique_ptr<HiSPNTypeConverter> typeConverter;
   if (optimizeRepresentation) {
     auto arithmeticAnalysis = getCachedAnalysis<ArithmeticPrecisionAnalysis>();
-    assert(arithmeticAnalysis && "The arithmetic analysis needs to be preserved after node conversion");
-    typeConverter = std::make_unique<HiSPNTypeConverter>(arithmeticAnalysis->get().getComputationType(computeLogSpace));
+    assert(
+        arithmeticAnalysis &&
+        "The arithmetic analysis needs to be preserved after node conversion");
+    typeConverter = std::make_unique<HiSPNTypeConverter>(
+        arithmeticAnalysis->get().getComputationType(computeLogSpace));
   } else if (computeLogSpace) {
     typeConverter =
-        std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(mlir::FloatType::getF32(&getContext())));
+        std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(
+            &getContext(), mlir::FloatType::getF32(&getContext())));
   } else {
-    typeConverter = std::make_unique<HiSPNTypeConverter>(mlir::Float64Type::get(&getContext()));
+    typeConverter = std::make_unique<HiSPNTypeConverter>(
+        mlir::Float64Type::get(&getContext()));
   }
 
-  OwningRewritePatternList patterns(&getContext());
-  mlir::spn::populateHiSPNtoLoSPNQueryPatterns(patterns, &getContext(), *typeConverter);
+  RewritePatternSet patterns(&getContext());
+  mlir::spn::populateHiSPNtoLoSPNQueryPatterns(patterns, &getContext(),
+                                               *typeConverter);
 
   auto op = getOperation();
   FrozenRewritePatternSet frozenPatterns(std::move(patterns));
@@ -98,11 +113,13 @@ void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
   }
 }
 
-void HiSPNtoLoSPNQueryConversionPass::getDependentDialects(mlir::DialectRegistry& registry) const {
+void HiSPNtoLoSPNQueryConversionPass::getDependentDialects(
+    mlir::DialectRegistry &registry) const {
   registry.insert<mlir::spn::low::LoSPNDialect>();
 }
 
-std::unique_ptr<mlir::Pass> mlir::spn::createHiSPNtoLoSPNQueryConversionPass(bool useLogSpaceComputation,
-                                                                             bool useOptimalRepresentation) {
-  return std::make_unique<HiSPNtoLoSPNQueryConversionPass>(useLogSpaceComputation, useOptimalRepresentation);
+std::unique_ptr<mlir::Pass> mlir::spn::createHiSPNtoLoSPNQueryConversionPass(
+    bool useLogSpaceComputation, bool useOptimalRepresentation) {
+  return std::make_unique<HiSPNtoLoSPNQueryConversionPass>(
+      useLogSpaceComputation, useOptimalRepresentation);
 }

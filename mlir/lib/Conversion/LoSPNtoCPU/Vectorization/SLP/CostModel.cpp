@@ -14,7 +14,8 @@ using namespace mlir::spn::low::slp;
 
 // === CostModel === //
 
-CostModel::CostModel(SLPPatternApplicator const& applicator) : cost{0}, patternApplicator{applicator} {}
+CostModel::CostModel(SLPPatternApplicator const &applicator)
+    : cost{0}, patternApplicator{applicator} {}
 
 double CostModel::getScalarCost(Value value) {
   if (conversionState->alreadyComputed(value)) {
@@ -22,7 +23,7 @@ double CostModel::getScalarCost(Value value) {
   }
   auto it = cachedScalarCost.try_emplace(value, computeScalarCost(value));
   if (it.second) {
-    if (auto* definingOp = value.getDefiningOp()) {
+    if (auto *definingOp = value.getDefiningOp()) {
       for (auto operand : definingOp->getOperands()) {
         if (isExtractionProfitable(operand)) {
           cachedScalarCost[value] += getExtractionCost(operand);
@@ -36,15 +37,16 @@ double CostModel::getScalarCost(Value value) {
   return it.first->second;
 }
 
-double CostModel::getSuperwordCost(Superword* superword, SLPVectorizationPattern* pattern) {
+double CostModel::getSuperwordCost(Superword *superword,
+                                   SLPVectorizationPattern *pattern) {
   if (conversionState->alreadyComputed(superword)) {
     return 0;
   }
   pattern->accept(*this, superword);
   double vectorCost = cost;
-  for (auto* operand: superword->getOperands()) {
+  for (auto *operand : superword->getOperands()) {
     if (!conversionState->alreadyComputed(operand)) {
-      auto* operandPattern = patternApplicator.bestMatch(operand);
+      auto *operandPattern = patternApplicator.bestMatch(operand);
       operandPattern->accept(*this, operand);
       vectorCost += cost;
     }
@@ -61,31 +63,26 @@ bool CostModel::isExtractionProfitable(Value value) {
   return extractionCost < scalarCost;
 }
 
-void CostModel::setConversionState(std::shared_ptr<ConversionState> newConversionState) {
+void CostModel::setConversionState(
+    std::shared_ptr<ConversionState> newConversionState) {
   conversionState = std::move(newConversionState);
   conversionState->addScalarCallbacks(
-      [&](Value value) {
-        updateCost(value, 0, false);
-      }, [&](Value value) {
-        cachedScalarCost.erase(value);
-      }
-  );
+      [&](Value value) { updateCost(value, 0, false); },
+      [&](Value value) { cachedScalarCost.erase(value); });
   conversionState->addExtractionCallbacks(
-      [&](Value value) {
-        updateCost(value, 0, true);
-      }, [&](Value value) {
-        cachedScalarCost.erase(value);
-      }
-  );
+      [&](Value value) { updateCost(value, 0, true); },
+      [&](Value value) { cachedScalarCost.erase(value); });
 }
 
-double CostModel::getBlockCost(Block* block, SmallPtrSetImpl<Operation*> const& deadOps) const {
+double
+CostModel::getBlockCost(Block *block,
+                        SmallPtrSetImpl<Operation *> const &deadOps) const {
   double blockCost = 0;
-  block->walk([&](Operation* op) {
+  block->walk([&](Operation *op) {
     if (deadOps.contains(op)) {
       return WalkResult::skip();
     }
-    for (auto const& result : op->getResults()) {
+    for (auto const &result : op->getResults()) {
       blockCost += computeScalarCost(result);
       // Assume that all results are computed at the same time.
       break;
@@ -101,8 +98,8 @@ void CostModel::updateCost(Value value, double newCost, bool updateUses) {
     return;
   }
   if (updateUses) {
-    for (auto* user : value.getUsers()) {
-      for (auto const& result : user->getResults()) {
+    for (auto *user : value.getUsers()) {
+      for (auto const &result : user->getResults()) {
         if (cachedScalarCost.count(result)) {
           updateCost(result, getScalarCost(result), true);
         }
@@ -123,27 +120,28 @@ double CostModel::getExtractionCost(Value value) const {
 
 double UnitCostModel::computeScalarCost(Value value) const {
   // Individual costs taken from NodePatterns.cpp
-  auto* definingOp = value.getDefiningOp();
+  auto *definingOp = value.getDefiningOp();
   if (!definingOp) {
     return 0;
   }
-  if (dyn_cast<ConstantOp>(definingOp) || dyn_cast<SPNConstant>(definingOp)) {
+  if (dyn_cast<arith::ConstantOp>(definingOp) ||
+      dyn_cast<SPNConstant>(definingOp)) {
     return 0;
   } else if (auto histogramOp = dyn_cast<SPNHistogramLeaf>(definingOp)) {
-    if (histogramOp.supportMarginal()) {
+    if (histogramOp.getSupportMarginal()) {
       return 3;
     }
   } else if (auto categoricalOp = dyn_cast<SPNCategoricalLeaf>(definingOp)) {
-    if (categoricalOp.supportMarginal()) {
+    if (categoricalOp.getSupportMarginal()) {
       return 3;
     }
   } else if (auto gaussianOp = dyn_cast<SPNGaussianLeaf>(definingOp)) {
     if (gaussianOp.getResult().getType().isa<LogType>()) {
-      if (gaussianOp.supportMarginal()) {
+      if (gaussianOp.getSupportMarginal()) {
         return 6;
       }
       return 4;
-    } else if (gaussianOp.supportMarginal()) {
+    } else if (gaussianOp.getSupportMarginal()) {
       return 7;
     }
     return 5;
@@ -152,48 +150,57 @@ double UnitCostModel::computeScalarCost(Value value) const {
       return 9;
     }
   }
-  // Assume a default cost of 1, i.e. that there roughly is a 1:1 mapping of operations to actual assembly instructions.
+  // Assume a default cost of 1, i.e. that there roughly is a 1:1 mapping of
+  // operations to actual assembly instructions.
   return 1;
 }
 
-double UnitCostModel::computeExtractionCost(Superword* superword, size_t index) const {
+double UnitCostModel::computeExtractionCost(Superword *superword,
+                                            size_t index) const {
   return 1;
 }
 
-void UnitCostModel::visitDefault(SLPVectorizationPattern const* pattern, Superword const* superword) {
+void UnitCostModel::visitDefault(SLPVectorizationPattern const *pattern,
+                                 Superword const *superword) {
   this->cost = 1;
 }
 
-void UnitCostModel::visit(BroadcastSuperword const* pattern, Superword const* superword) {
+void UnitCostModel::visit(BroadcastSuperword const *pattern,
+                          Superword const *superword) {
   this->cost = 1;
   for (auto element : leafVisitor.getRequiredScalarValues(pattern, superword)) {
     this->cost += getScalarCost(element);
   }
 }
 
-void UnitCostModel::visit(BroadcastInsertSuperword const* pattern, Superword const* superword) {
+void UnitCostModel::visit(BroadcastInsertSuperword const *pattern,
+                          Superword const *superword) {
   this->cost = 0;
   for (auto element : leafVisitor.getRequiredScalarValues(pattern, superword)) {
     this->cost += getScalarCost(element) + 1;
   }
 }
 
-void UnitCostModel::visit(VectorizeConstant const* pattern, Superword const* superword) {
+void UnitCostModel::visit(VectorizeConstant const *pattern,
+                          Superword const *superword) {
   this->cost = 0;
 }
 
-void UnitCostModel::visit(VectorizeGaussian const* pattern, Superword const* superword) {
+void UnitCostModel::visit(VectorizeGaussian const *pattern,
+                          Superword const *superword) {
   if (anyGaussianMarginalized(*superword)) {
     this->cost = 7;
   }
   this->cost = 5;
 }
 
-void UnitCostModel::visit(VectorizeLogAdd const* pattern, Superword const* superword) {
+void UnitCostModel::visit(VectorizeLogAdd const *pattern,
+                          Superword const *superword) {
   this->cost = 4;
 }
 
-void UnitCostModel::visit(VectorizeLogGaussian const* pattern, Superword const* superword) {
+void UnitCostModel::visit(VectorizeLogGaussian const *pattern,
+                          Superword const *superword) {
   if (anyGaussianMarginalized(*superword)) {
     this->cost = 6;
   }

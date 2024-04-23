@@ -1,0 +1,17 @@
+{
+  "device": {
+    "name": "vc709",
+    "mhz": 200
+  },
+  "axi4": {
+    "addrWidth": 32,
+    "dataWidth": 512
+  },
+  "axi4Lite": {
+    "addrWidth": 32,
+    "dataWidth": 32
+  },
+  "projectName": "MyProject",
+  "kernelId": 1,
+  "floatType": "float32"
+}

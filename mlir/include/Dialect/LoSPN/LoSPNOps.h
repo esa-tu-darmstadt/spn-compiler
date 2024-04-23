@@ -9,18 +9,22 @@
 #ifndef SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNOPS_H
 #define SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNOPS_H
 
-#include "mlir/IR/Dialect.h"
-#include "mlir/IR/OpDefinition.h"
-#include "mlir/Interfaces/SideEffectInterfaces.h"
-#include "mlir/IR/RegionKindInterface.h"
+#include "LoSPN/LoSPNAttributes.h"
+#include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNInterfaces.h"
 #include "LoSPN/LoSPNTraits.h"
-#include "LoSPN/LoSPNTypes.h"
-#include "mlir/IR/FunctionSupport.h"
-#include "mlir/IR/SymbolTable.h"
+#include "mlir/Bytecode/BytecodeOpInterface.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/Dialect.h"
+#include "mlir/IR/OpDefinition.h"
+#include "mlir/IR/RegionKindInterface.h"
+#include "mlir/IR/SymbolTable.h"
+#include "mlir/Interfaces/CallInterfaces.h"
+#include "mlir/Interfaces/FunctionInterfaces.h"
+#include "mlir/Interfaces/InferTypeOpInterface.h"
+#include "mlir/Interfaces/SideEffectInterfaces.h"
 
 #define GET_OP_CLASSES
 #include "LoSPN/LoSPNOps.h.inc"
 
-#endif //SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNOPS_H
+#endif // SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNOPS_H

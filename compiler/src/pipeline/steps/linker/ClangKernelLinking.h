@@ -9,38 +9,39 @@
 #ifndef SPNC_CLANGKERNELLINKING_H
 #define SPNC_CLANGKERNELLINKING_H
 
+#include "Kernel.h"
 #include "pipeline/PipelineStep.h"
 #include "util/FileSystem.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
-#include "Kernel.h"
 
 namespace spnc {
 
-  ///
-  /// Step to turn an object (*.o) into a Kernel (shared object, *.so) using clang,
-  // and running the linking to external libraries.
-  class ClangKernelLinking : public StepDualInput<ClangKernelLinking, ObjectFile, SharedObject>,
-                             public StepWithResult<Kernel> {
+///
+/// Step to turn an object (*.o) into a Kernel (shared object, *.so) using
+/// clang,
+// and running the linking to external libraries.
+class ClangKernelLinking
+    : public StepDualInput<ClangKernelLinking, ObjectFile, SharedObject>,
+      public StepWithResult<Kernel> {
 
-  public:
+public:
+  using StepDualInput<ClangKernelLinking, ObjectFile,
+                      SharedObject>::StepDualInput;
 
-    using StepDualInput<ClangKernelLinking, ObjectFile, SharedObject>::StepDualInput;
+  ExecutionResult executeStep(ObjectFile *objectFile,
+                              SharedObject *sharedObject);
 
-    ExecutionResult executeStep(ObjectFile* objectFile, SharedObject* sharedObject);
+  Kernel *result() override;
 
-    Kernel* result() override;
+  STEP_NAME("kernel-linking")
 
-    STEP_NAME("kernel-linking")
+private:
+  SharedObject *outFile = nullptr;
 
-  private:
+  std::unique_ptr<Kernel> kernel;
+};
 
-    SharedObject* outFile = nullptr;
+} // namespace spnc
 
-    std::unique_ptr<Kernel> kernel;
-
-  };
-
-}
-
-#endif //SPNC_CLANGKERNELLINKING_H
+#endif // SPNC_CLANGKERNELLINKING_H

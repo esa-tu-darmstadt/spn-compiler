@@ -6,11 +6,12 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-// This file is a modified copy of CudaRuntimeWrappers.cpp in mlir/lib/ExecutionEngine in the LLVM repository.
+// This file is a modified copy of CudaRuntimeWrappers.cpp in
+// mlir/lib/ExecutionEngine in the LLVM repository.
 
 #include <cassert>
-#include <numeric>
 #include <iostream>
+#include <numeric>
 
 #include "cuda.h"
 
@@ -53,7 +54,7 @@ public:
   ~ScopedContext() { CUDA_REPORT_IF_ERROR(cuCtxPopCurrent(nullptr)); }
 };
 
-extern "C" MLIR_CUDA_WRAPPERS_EXPORT CUmodule mgpuModuleLoad(void* data) {
+extern "C" MLIR_CUDA_WRAPPERS_EXPORT CUmodule mgpuModuleLoad(void *data) {
   ScopedContext scopedContext;
   CUmodule module = nullptr;
   CUDA_REPORT_IF_ERROR(cuModuleLoadData(&module, data));
@@ -65,7 +66,7 @@ extern "C" MLIR_CUDA_WRAPPERS_EXPORT void mgpuModuleUnload(CUmodule module) {
 }
 
 extern "C" MLIR_CUDA_WRAPPERS_EXPORT CUfunction
-mgpuModuleGetFunction(CUmodule module, const char* name) {
+mgpuModuleGetFunction(CUmodule module, const char *name) {
   CUfunction function = nullptr;
   CUDA_REPORT_IF_ERROR(cuModuleGetFunction(&function, module, name));
   return function;
@@ -77,8 +78,8 @@ mgpuModuleGetFunction(CUmodule module, const char* name) {
 extern "C" MLIR_CUDA_WRAPPERS_EXPORT void
 mgpuLaunchKernel(CUfunction function, intptr_t gridX, intptr_t gridY,
                  intptr_t gridZ, intptr_t blockX, intptr_t blockY,
-                 intptr_t blockZ, int32_t smem, CUstream stream, void** params,
-                 void** extra) {
+                 intptr_t blockZ, int32_t smem, CUstream stream, void **params,
+                 void **extra) {
   ScopedContext scopedContext;
   CUDA_REPORT_IF_ERROR(cuLaunchKernel(function, gridX, gridY, gridZ, blockX,
                                       blockY, blockZ, smem, stream, params,
@@ -126,22 +127,23 @@ extern MLIR_CUDA_WRAPPERS_EXPORT "C" void mgpuEventRecord(CUevent event,
   CUDA_REPORT_IF_ERROR(cuEventRecord(event, stream));
 }
 
-extern "C" void* mgpuMemAlloc(uint64_t sizeBytes, CUstream /*stream*/) {
+extern "C" void *mgpuMemAlloc(uint64_t sizeBytes, CUstream /*stream*/) {
   ScopedContext scopedContext;
   CUdeviceptr ptr;
 #if SPNC_CUDA_UNIFIED_MEMORY
-  CUDA_REPORT_IF_ERROR(cuMemAllocManaged(&ptr, sizeBytes, CU_MEM_ATTACH_GLOBAL));
+  CUDA_REPORT_IF_ERROR(
+      cuMemAllocManaged(&ptr, sizeBytes, CU_MEM_ATTACH_GLOBAL));
 #else
   CUDA_REPORT_IF_ERROR(cuMemAlloc(&ptr, sizeBytes));
 #endif
-  return reinterpret_cast<void*>(ptr);
+  return reinterpret_cast<void *>(ptr);
 }
 
-extern "C" void mgpuMemFree(void* ptr, CUstream /*stream*/) {
+extern "C" void mgpuMemFree(void *ptr, CUstream /*stream*/) {
   CUDA_REPORT_IF_ERROR(cuMemFree(reinterpret_cast<CUdeviceptr>(ptr)));
 }
 
-extern "C" void mgpuMemcpy(void* dst, void* src, uint64_t sizeBytes,
+extern "C" void mgpuMemcpy(void *dst, void *src, uint64_t sizeBytes,
                            CUstream stream) {
 #if SPNC_CUDA_UNIFIED_MEMORY
   // Assumes physically shared memory between host CPU and GPU.

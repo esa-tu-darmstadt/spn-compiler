@@ -12,11 +12,11 @@
 #include "LoSPN/LoSPNTraits.h"
 
 namespace mlir {
-  namespace spn {
-    namespace low {
+namespace spn {
+namespace low {
 #include "LoSPN/LoSPNInterfaces.h.inc"
 }
-}
-}
+} // namespace spn
+} // namespace mlir
 
-#endif //SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNINTERFACES_H
+#endif // SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNINTERFACES_H

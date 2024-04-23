@@ -9,40 +9,38 @@
 #ifndef SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_GPUTOLLVMCONVERSION_H
 #define SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_GPUTOLLVMCONVERSION_H
 
-#include "pipeline/PipelineStep.h"
+#include "mlir/Conversion/GPUCommon/GPUCommonPass.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
+#include "pipeline/PipelineStep.h"
 #include "util/Logging.h"
 #include <option/GlobalOptions.h>
-#include "mlir/Conversion/GPUCommon/GPUCommonPass.h"
 
 namespace spnc {
 
-  ///
-  /// MLIR pass pipeline performing a series of transformations on an MLIR module
-  /// to lower from GPU (and other dialects) to LLVM dialect.
-  class GPUtoLLVMConversion : public StepSingleInput<GPUtoLLVMConversion, mlir::ModuleOp>,
-                              public StepWithResult<mlir::ModuleOp> {
+///
+/// MLIR pass pipeline performing a series of transformations on an MLIR module
+/// to lower from GPU (and other dialects) to LLVM dialect.
+class GPUtoLLVMConversion
+    : public StepSingleInput<GPUtoLLVMConversion, mlir::ModuleOp>,
+      public StepWithResult<mlir::ModuleOp> {
 
-  public:
+public:
+  using StepSingleInput<GPUtoLLVMConversion, mlir::ModuleOp>::StepSingleInput;
 
-    using StepSingleInput<GPUtoLLVMConversion, mlir::ModuleOp>::StepSingleInput;
+  ExecutionResult executeStep(mlir::ModuleOp *mlirModule);
 
-    ExecutionResult executeStep(mlir::ModuleOp* mlirModule);
+  mlir::ModuleOp *result() override;
 
-    mlir::ModuleOp* result() override;
+  STEP_NAME("gpu-to-llvm")
 
-    STEP_NAME("gpu-to-llvm")
+private:
+  int retrieveOptLevel();
 
-  private:
+  mlir::ModuleOp *module;
+};
 
-    int retrieveOptLevel();
+} // namespace spnc
 
-    mlir::ModuleOp* module;
-
-  };
-
-}
-
-#endif //SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_GPUTOLLVMCONVERSION_H
+#endif // SPNC_COMPILER_SRC_CODEGEN_MLIR_CONVERSION_GPUTOLLVMCONVERSION_H
