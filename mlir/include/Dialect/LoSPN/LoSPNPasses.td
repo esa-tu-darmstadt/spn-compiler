@@ -14,7 +14,7 @@ include "mlir/Pass/PassBase.td"
 def LoSPNBufferize : Pass<"lospn-bufferize", "ModuleOp"> {
   let summary = "Bufferize LoSPN operations";
   let constructor = "mlir::spn::low::createLoSPNBufferizePass()";
-  let dependentDialects = ["memref::MemRefDialect"];
+  let dependentDialects = ["memref::MemRefDialect", "bufferization::BufferizationDialect"];
 }
 
 def LoSPNCopyRemoval : Pass<"lospn-copy-removal", "SPNKernel"> {
