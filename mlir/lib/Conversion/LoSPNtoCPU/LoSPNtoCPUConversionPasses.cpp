@@ -28,6 +28,7 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::getDependentDialects(
   registry.insert<mlir::vector::VectorDialect>();
   registry.insert<mlir::memref::MemRefDialect>();
   registry.insert<mlir::math::MathDialect>();
+  registry.insert<mlir::func::FuncDialect>();
 }
 
 // Helper functions in anonymous namespace.
