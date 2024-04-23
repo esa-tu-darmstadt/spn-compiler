@@ -46,6 +46,13 @@ public:
 
   void getDependentDialects(DialectRegistry &registry) const override;
 
+  StringRef getArgument() const override {
+    return "convert-lospn-structure-to-cpu";
+  }
+  StringRef getDescription() const override {
+    return "Convert structure from LoSPN to CPU target";
+  }
+
   Option<bool> vectorize{
       *this, "cpu-vectorize",
       llvm::cl::desc("Vectorize code generated for CPU targets"),
@@ -107,6 +114,12 @@ struct LoSPNtoCPUNodeConversionPass
 
 public:
   void getDependentDialects(DialectRegistry &registry) const override;
+  StringRef getArgument() const override {
+    return "convert-lospn-nodes-to-cpu";
+  }
+  StringRef getDescription() const override {
+    return "Convert nodes from LoSPN to CPU target";
+  }
 
   StringRef getArgument() const override {
     return "convert-lospn-nodes-to-cpu";
@@ -134,6 +147,10 @@ public:
 
 protected:
   void runOnOperation() override;
+  StringRef getArgument() const override { return "vectorize-lospn-nodes"; }
+  StringRef getDescription() const override {
+    return "Vectorize LoSPN nodes for CPU target";
+  }
 };
 
 std::unique_ptr<Pass> createLoSPNNodeVectorizationPass();

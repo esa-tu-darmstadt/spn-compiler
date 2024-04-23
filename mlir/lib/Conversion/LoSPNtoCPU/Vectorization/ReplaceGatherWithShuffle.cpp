@@ -185,7 +185,7 @@ struct FuncReplaceGatherWithShuffle : public OpRewritePattern<func::FuncOp> {
           func, "No memories eligible for transformation found");
     }
 
-    rewriter.startRootUpdate(func);
+    rewriter.startOpModification(func);
     auto loc = func->getLoc();
     bool changed = false;
     for (auto inputMem : inputMemories) {
@@ -278,7 +278,7 @@ struct FuncReplaceGatherWithShuffle : public OpRewritePattern<func::FuncOp> {
         (void)applyOpPatternsAndFold(read.getOperation(), frozenPatterns);
       }
     }
-    rewriter.finalizeRootUpdate(func);
+    rewriter.finalizeOpModification(func);
     return mlir::success(changed);
   }
 };

@@ -19,7 +19,7 @@ def HistBucketAttr : AttrDef<HiSPN_Dialect, "HistBucket"> {
     "APFloat":$histValue
   );
   let mnemonic = "bucket";
-  let assemblyFormat = "`from` $lowerBound `to` $upperBound `:` $histValue";
+  let assemblyFormat = "`<` $lowerBound `to` $upperBound `=` $histValue `>`";
 }
 
 def HistBucketList : TypedArrayAttrBase<HistBucketAttr, "histogram bucket list">;

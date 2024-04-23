@@ -31,6 +31,10 @@ createReplaceARMOptimizedRoutinesPass();
 /// \return Pass instance.
 std::unique_ptr<OperationPass<ModuleOp>>
 createLoSPNGraphStatsCollectionPass(const std::string &graphStatsFile);
+
+#define GEN_PASS_REGISTRATION
+#include "LoSPN/LoSPNPasses.h.inc"
+
 } // namespace low
 } // namespace spn
 } // namespace mlir

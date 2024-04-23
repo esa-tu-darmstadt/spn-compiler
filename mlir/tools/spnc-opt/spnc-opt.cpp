@@ -6,16 +6,15 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include "mlir/IR/Dialect.h"
-#include "mlir/InitAllDialects.h"
-#include "mlir/InitAllPasses.h"
-#include "mlir/Support/MlirOptMain.h"
-
 #include "HiSPN/HiSPNDialect.h"
 #include "HiSPNtoLoSPN/HiSPNtoLoSPNConversionPasses.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNPasses.h"
 #include "LoSPNtoCPU/LoSPNtoCPUConversionPasses.h"
+#include "mlir/IR/Dialect.h"
+#include "mlir/InitAllDialects.h"
+#include "mlir/InitAllPasses.h"
+#include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #if SPNC_CUDA_SUPPORT
 #include "LoSPNtoGPU/LoSPNtoGPUPasses.h"
 #endif
@@ -44,48 +43,35 @@ int main(int argc, char **argv) {
   mlir::spn::registerLoSPNtoGPUPasses();
 #endif
 
-  mlir::registerPass("convert-hispn-query-to-lospn",
-                     "Convert queries from HiSPN to LoSPN dialect",
-                     []() -> std::unique_ptr<mlir::Pass> {
-                       return mlir::spn::createHiSPNtoLoSPNQueryConversionPass(
-                           logSpace, optRepresentation);
-                     });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::spn::createHiSPNtoLoSPNQueryConversionPass(logSpace,
+                                                            optRepresentation);
+  });
 
-  mlir::registerPass("convert-hispn-node-to-lospn",
-                     "Convert nodes from HiSPN to LoSPN dialect",
-                     []() -> std::unique_ptr<mlir::Pass> {
-                       return mlir::spn::createHiSPNtoLoSPNNodeConversionPass(
-                           logSpace, optRepresentation);
-                     });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::spn::createHiSPNtoLoSPNNodeConversionPass(logSpace,
+                                                           optRepresentation);
+  });
 
-  mlir::PassRegistration<mlir::spn::LoSPNtoCPUStructureConversionPass>(
-      "convert-lospn-structure-to-cpu",
-      "Convert structure from LoSPN to CPU target");
+  mlir::PassRegistration<mlir::spn::LoSPNtoCPUStructureConversionPass>();
 
-  mlir::registerPass("convert-lospn-nodes-to-cpu",
-                     "Convert nodes from LoSPN to CPU target",
-                     []() -> std::unique_ptr<mlir::Pass> {
-                       return mlir::spn::createLoSPNtoCPUNodeConversionPass();
-                     });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::spn::createLoSPNtoCPUNodeConversionPass();
+  });
 
-  mlir::registerPass("vectorize-lospn-nodes",
-                     "Vectorize LoSPN nodes for CPU target",
-                     []() -> std::unique_ptr<mlir::Pass> {
-                       return mlir::spn::createLoSPNNodeVectorizationPass();
-                     });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::spn::createLoSPNNodeVectorizationPass();
+  });
 
-  mlir::registerPass(
-      "collect-graph-stats", "Collect graph statistics",
-      []() -> std::unique_ptr<mlir::Pass> {
-        return mlir::spn::low::createLoSPNGraphStatsCollectionPass(
-            graphStatsFile);
-      });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return mlir::spn::low::createLoSPNGraphStatsCollectionPass(graphStatsFile);
+  });
 
   mlir::DialectRegistry registry;
   mlir::registerAllDialects(registry);
   registry.insert<mlir::spn::high::HiSPNDialect>();
   registry.insert<mlir::spn::low::LoSPNDialect>();
 
-  return failed(mlir::MlirOptMain(argc, argv, "SPNC optimizer driver\n",
-                                  registry, false));
+  return failed(
+      mlir::MlirOptMain(argc, argv, "SPNC optimizer driver\n", registry));
 }

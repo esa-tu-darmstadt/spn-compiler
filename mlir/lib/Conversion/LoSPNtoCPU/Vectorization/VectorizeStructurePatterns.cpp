@@ -433,7 +433,7 @@ VectorizeBatchTask::matchAndRewrite(SPNTask op, SPNTask::Adaptor adaptor,
       op.getLoc(), rewriter.getIndexAttr(hwVectorWidth));
   auto vectorizedLoop = rewriter.create<scf::ForOp>(
       op.getLoc(), lbVectorized, ubVectorized, stepVectorized);
-  auto &vectorLoopBody = vectorizedLoop.getLoopBody().front();
+  auto &vectorLoopBody = *vectorizedLoop.getBody();
 
   auto restoreTask = rewriter.saveInsertionPoint();
   rewriter.setInsertionPointToStart(&vectorLoopBody);
@@ -466,7 +466,7 @@ VectorizeBatchTask::matchAndRewrite(SPNTask op, SPNTask::Adaptor adaptor,
       rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
   auto scalarLoop = rewriter.create<scf::ForOp>(op.getLoc(), ubVectorized,
                                                 numSamples, stepScalar);
-  auto &scalarLoopBody = scalarLoop.getLoopBody().front();
+  auto &scalarLoopBody = *scalarLoop.getBody();
 
   restoreTask = rewriter.saveInsertionPoint();
   rewriter.setInsertionPointToStart(&scalarLoopBody);

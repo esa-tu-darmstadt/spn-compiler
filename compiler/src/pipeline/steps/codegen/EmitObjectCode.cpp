@@ -51,7 +51,7 @@ spnc::ExecutionResult spnc::EmitObjectCode::executeStep(llvm::Module *module,
     }
     pass.add(new llvm::TargetLibraryInfoWrapperPass(TLII));
   }
-  auto fileType = llvm::CGFT_ObjectFile;
+  auto fileType = llvm::CodeGenFileType::ObjectFile;
 
   if (machine->addPassesToEmitFile(pass, dest, nullptr, fileType)) {
     return spnc::failure("Cannot emit object file");

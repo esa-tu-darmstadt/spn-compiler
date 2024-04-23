@@ -407,7 +407,7 @@ Value ConversionManager::getOrCreateConstant(Location const &loc,
       rewriter.getContext()->getLoadedDialect<arith::ArithDialect>();
   auto constant =
       folder.getOrCreateConstant(rewriter.getInsertionBlock(), arithDialect,
-                                 attribute, typedAttribute.getType(), loc);
+                                 attribute, typedAttribute.getType());
   assert(constant && "constant creation failed");
   return constant;
 }

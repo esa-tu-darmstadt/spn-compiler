@@ -12,6 +12,7 @@
 #include "HiSPN/HiSPNAttributes.h"
 #include "HiSPN/HiSPNEnums.h"
 #include "HiSPN/HiSPNInterfaces.h"
+#include "mlir/Bytecode/BytecodeOpInterface.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/RegionKindInterface.h"

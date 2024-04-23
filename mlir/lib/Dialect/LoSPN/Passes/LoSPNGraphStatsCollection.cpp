@@ -18,7 +18,7 @@ using namespace mlir::spn;
 using namespace mlir::spn::low;
 using json = nlohmann::json;
 
-namespace {
+namespace mlir::spn::low {
 
 struct LoSPNGraphStatsCollection
     : public PassWrapper<LoSPNGraphStatsCollection, OperationPass<ModuleOp>> {
@@ -108,14 +108,20 @@ protected:
     fileStream.close();
   }
 
+  StringRef getArgument() const override { return "collect-graph-stats"; }
+  StringRef getDescription() const override {
+    return "Collect LoSPN graph statistics";
+  }
+
 private:
   std::string graphStatsFile;
 };
 
-} // namespace
+} // namespace mlir::spn::low
 
 std::unique_ptr<OperationPass<ModuleOp>>
 mlir::spn::low::createLoSPNGraphStatsCollectionPass(
     const std::string &graphStatsFile) {
-  return std::make_unique<LoSPNGraphStatsCollection>(graphStatsFile);
+  return std::make_unique<mlir::spn::low::LoSPNGraphStatsCollection>(
+      graphStatsFile);
 }

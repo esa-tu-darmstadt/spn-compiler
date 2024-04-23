@@ -118,7 +118,7 @@ mlir::LogicalResult mlir::spn::CopyLowering::matchAndRewrite(
   auto step =
       rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(1));
   auto outer = rewriter.create<scf::ForOp>(op.getLoc(), lb, dim1, step);
-  rewriter.setInsertionPointToStart(&outer.getLoopBody().front());
+  rewriter.setInsertionPointToStart(outer.getBody());
   for (int i = 0; i < staticDim; ++i) {
     SmallVector<Value, 2> indices;
     auto constIdx = rewriter.create<arith::ConstantOp>(

@@ -1,79 +1,5 @@
 // RUN: %optcall --vectorize-lospn-nodes %s | FileCheck %s
-
-module  {
-  func.func @vec_task_0(%arg0: memref<?x6xf32>, %arg1: memref<1x?xf32>) {
-    %c0 = arith.constant 0 : index
-    %0 = memref.dim %arg0, %c0 : memref<?x6xf32>
-    %c4 = arith.constant 4 : index
-    %1 = arith.remui %0, %c4 : index
-    %2 = arith.subi %0, %1 : index
-    %c0_0 = arith.constant 0 : index
-    %c4_1 = arith.constant 4 : index
-    scf.for %arg2 = %c0_0 to %2 step %c4_1 {
-      %3 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 0 : ui32, vector_width = 8 : i32} : (memref<?x6xf32>, index) -> f32
-      %4 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 1 : ui32, vector_width = 8 : i32} : (memref<?x6xf32>, index) -> f32
-      %5 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 2 : ui32, vector_width = 8 : i32} : (memref<?x6xf32>, index) -> f32
-      %6 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 3 : ui32, vector_width = 8 : i32} : (memref<?x6xf32>, index) -> f32
-      %7 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 4 : ui32, vector_width = 8 : i32} : (memref<?x6xf32>, index) -> f32
-      %8 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 5 : ui32, vector_width = 8 : i32} : (memref<?x6xf32>, index) -> f32
-      %9 = "lo_spn.categorical"(%3) {probabilities = [3.500000e-01, 5.500000e-01, 1.000000e-01], supportMarginal = false, vector_width = 8 : i32} : (f32) -> !lo_spn.log<f32>
-      %10 = "lo_spn.categorical"(%4) {probabilities = [2.500000e-01, 6.250000e-01, 1.250000e-01], supportMarginal = false, vector_width = 8 : i32} : (f32) -> !lo_spn.log<f32>
-      %11 = "lo_spn.histogram"(%5) {bucketCount = 2 : ui32, buckets = [#lo_spn.bucket<0, 1, 2.500000e-01>, #lo_spn.bucket<1, 2, 7.500000e-01>], supportMarginal = false, vector_width = 8 : i32} : (f32) -> !lo_spn.log<f32>
-      %12 = "lo_spn.histogram"(%6) {bucketCount = 2 : ui32, buckets = [#lo_spn.bucket<0, 1, 4.500000e-01>, #lo_spn.bucket<1, 2, 5.500000e-01>], supportMarginal = false, vector_width = 8 : i32} : (f32) -> !lo_spn.log<f32>
-      %13 = "lo_spn.gaussian"(%7) {mean = 5.000000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false, vector_width = 8 : i32} : (f32) -> !lo_spn.log<f32>
-      %14 = "lo_spn.gaussian"(%8) {mean = 2.500000e-01 : f64, stddev = 1.000000e-01 : f64, supportMarginal = false, vector_width = 8 : i32} : (f32) -> !lo_spn.log<f32>
-      %15 = "lo_spn.mul"(%9, %10) {vector_width = 8 : i32} : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %16 = "lo_spn.mul"(%15, %11) {vector_width = 8 : i32} : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %17 = "lo_spn.constant"() {type = !lo_spn.log<f32>, value = 1.000000e-01 : f64, vector_width = 8 : i32} : () -> !lo_spn.log<f32>
-      %18 = "lo_spn.mul"(%16, %17) {vector_width = 8 : i32} : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %19 = "lo_spn.mul"(%12, %13) {vector_width = 8 : i32} : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %20 = "lo_spn.mul"(%19, %14) {vector_width = 8 : i32} : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %21 = "lo_spn.constant"() {type = !lo_spn.log<f32>, value = 1.000000e-01 : f64, vector_width = 8 : i32} : () -> !lo_spn.log<f32>
-      %22 = "lo_spn.mul"(%20, %21) {vector_width = 8 : i32} : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %23 = "lo_spn.add"(%18, %22) {vector_width = 8 : i32} : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %24 = "lo_spn.strip_log"(%23) {target = f32, vector_width = 8 : i32} : (!lo_spn.log<f32>) -> f32
-      "lo_spn.batch_write"(%arg1, %arg2, %24) {vector_width = 8 : i32, transposed = true} : ( memref<1x?xf32>, index, f32) -> ()
-    }
-    %c1 = arith.constant 1 : index
-    scf.for %arg2 = %2 to %0 step %c1 {
-      %3 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 0 : ui32} : (memref<?x6xf32>, index) -> f32
-      %4 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 1 : ui32} : (memref<?x6xf32>, index) -> f32
-      %5 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 2 : ui32} : (memref<?x6xf32>, index) -> f32
-      %6 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 3 : ui32} : (memref<?x6xf32>, index) -> f32
-      %7 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 4 : ui32} : (memref<?x6xf32>, index) -> f32
-      %8 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 5 : ui32} : (memref<?x6xf32>, index) -> f32
-      %9 = "lo_spn.categorical"(%3) {probabilities = [3.500000e-01, 5.500000e-01, 1.000000e-01], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-      %10 = "lo_spn.categorical"(%4) {probabilities = [2.500000e-01, 6.250000e-01, 1.250000e-01], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-      %11 = "lo_spn.histogram"(%5) {bucketCount = 2 : ui32, buckets = [#lo_spn.bucket<0, 1, 2.500000e-01>, #lo_spn.bucket<1, 2, 7.500000e-01>], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-      %12 = "lo_spn.histogram"(%6) {bucketCount = 2 : ui32, buckets = [#lo_spn.bucket<0, 1, 4.500000e-01>, #lo_spn.bucket<1, 2, 5.500000e-01>], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-      %13 = "lo_spn.gaussian"(%7) {mean = 5.000000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-      %14 = "lo_spn.gaussian"(%8) {mean = 2.500000e-01 : f64, stddev = 1.000000e-01 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-      %15 = "lo_spn.mul"(%9, %10) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %16 = "lo_spn.mul"(%15, %11) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %17 = "lo_spn.constant"() {type = !lo_spn.log<f32>, value = 1.000000e-01 : f64} : () -> !lo_spn.log<f32>
-      %18 = "lo_spn.mul"(%16, %17) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %19 = "lo_spn.mul"(%12, %13) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %20 = "lo_spn.mul"(%19, %14) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %21 = "lo_spn.constant"() {type = !lo_spn.log<f32>, value = 1.000000e-01 : f64} : () -> !lo_spn.log<f32>
-      %22 = "lo_spn.mul"(%20, %21) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %23 = "lo_spn.add"(%18, %22) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %24 = "lo_spn.strip_log"(%23) {target = f32} : (!lo_spn.log<f32>) -> f32
-      "lo_spn.batch_write"(%arg1, %arg2, %24) {transposed = true} : (memref<1x?xf32>, index, f32) -> ()
-    }
-    return
-  }
-  func.func @spn_vector(%arg0: memref<?x6xf32>, %arg1: memref<1x?xf32>) {
-    %c0 = arith.constant 0 : index
-    %0 = memref.dim %arg0, %c0 : memref<?x6xf32>
-    %1 = memref.alloc(%0) : memref<1x?xf32>
-    call @vec_task_0(%arg0, %1) : (memref<?x6xf32>, memref<1x?xf32>) -> ()
-    %2 = bufferization.to_tensor %1 : memref<1x?xf32>
-    %3 = bufferization.to_memref %2 : memref<1x?xf32>
-    "lo_spn.copy"(%3, %arg1) : (memref<1x?xf32>, memref<1x?xf32>) -> ()
-    "lo_spn.return"() : () -> ()
-  }
-}
-
+// Test (re)generated by regenerate_tests.py.
 // NOTE: Assertions have been autogenerated by utils/generate-test-checks.py
 
 // The script is designed to make adding checks to
@@ -81,12 +7,12 @@ module  {
 // about what constitutes a good test! The CHECK should be
 // minimized and named to reflect the test intent.
 
-
 // CHECK-LABEL:   memref.global "private" constant @histogram_vec_1 : memref<2xf32> = dense<[-0.79850769, -0.597836971]>
 // CHECK:         memref.global "private" constant @histogram_vec_0 : memref<2xf32> = dense<[-1.38629436, -0.287682086]>
 // CHECK:         memref.global "private" constant @categorical_vec_1 : memref<3xf32> = dense<[-1.38629436, -0.470003635, -2.07944155]>
 // CHECK:         memref.global "private" constant @categorical_vec_0 : memref<3xf32> = dense<[-1.04982209, -0.597836971, -2.30258512]>
-
+// RUN: %optcall --vectorize-lospn-nodes %s | FileCheck %s
+module {
 // CHECK-LABEL:   func.func @vec_task_0(
 // CHECK-SAME:                          %[[VAL_0:.*]]: memref<?x6xf32>,
 // CHECK-SAME:                          %[[VAL_1:.*]]: memref<1x?xf32>) {
@@ -246,33 +172,93 @@ module  {
 // CHECK:           }
 // CHECK:           %[[VAL_154:.*]] = arith.constant 1 : index
 // CHECK:           scf.for %[[VAL_155:.*]] = %[[VAL_6]] to %[[VAL_3]] step %[[VAL_154]] {
-// CHECK:             %[[VAL_156:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_155]]) {staticIndex = 0 : ui32} : (memref<?x6xf32>, index) -> f32
-// CHECK:             %[[VAL_157:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_155]]) {staticIndex = 1 : ui32} : (memref<?x6xf32>, index) -> f32
-// CHECK:             %[[VAL_158:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_155]]) {staticIndex = 2 : ui32} : (memref<?x6xf32>, index) -> f32
-// CHECK:             %[[VAL_159:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_155]]) {staticIndex = 3 : ui32} : (memref<?x6xf32>, index) -> f32
-// CHECK:             %[[VAL_160:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_155]]) {staticIndex = 4 : ui32} : (memref<?x6xf32>, index) -> f32
-// CHECK:             %[[VAL_161:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_155]]) {staticIndex = 5 : ui32} : (memref<?x6xf32>, index) -> f32
-// CHECK:             %[[VAL_162:.*]] = "lo_spn.categorical"(%[[VAL_156]]) {probabilities = [3.500000e-01, 5.500000e-01, 1.000000e-01], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_163:.*]] = "lo_spn.categorical"(%[[VAL_157]]) {probabilities = [2.500000e-01, 6.250000e-01, 1.250000e-01], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_164:.*]] = "lo_spn.histogram"(%[[VAL_158]]) {bucketCount = 2 : ui32, buckets = [#lo_spn.bucket<0, 1, 2.500000e-01>, #lo_spn.bucket<1, 2, 7.500000e-01>], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_165:.*]] = "lo_spn.histogram"(%[[VAL_159]]) {bucketCount = 2 : ui32, buckets = [#lo_spn.bucket<0, 1, 4.500000e-01>, #lo_spn.bucket<1, 2, 5.500000e-01>], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_166:.*]] = "lo_spn.gaussian"(%[[VAL_160]]) {mean = 5.000000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_167:.*]] = "lo_spn.gaussian"(%[[VAL_161]]) {mean = 2.500000e-01 : f64, stddev = 1.000000e-01 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_156:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_155]]) <{staticIndex = 0 : ui32}> : (memref<?x6xf32>, index) -> f32
+// CHECK:             %[[VAL_157:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_155]]) <{staticIndex = 1 : ui32}> : (memref<?x6xf32>, index) -> f32
+// CHECK:             %[[VAL_158:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_155]]) <{staticIndex = 2 : ui32}> : (memref<?x6xf32>, index) -> f32
+// CHECK:             %[[VAL_159:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_155]]) <{staticIndex = 3 : ui32}> : (memref<?x6xf32>, index) -> f32
+// CHECK:             %[[VAL_160:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_155]]) <{staticIndex = 4 : ui32}> : (memref<?x6xf32>, index) -> f32
+// CHECK:             %[[VAL_161:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_155]]) <{staticIndex = 5 : ui32}> : (memref<?x6xf32>, index) -> f32
+// CHECK:             %[[VAL_162:.*]] = "lo_spn.categorical"(%[[VAL_156]]) <{probabilities = [3.500000e-01, 5.500000e-01, 1.000000e-01], supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_163:.*]] = "lo_spn.categorical"(%[[VAL_157]]) <{probabilities = [2.500000e-01, 6.250000e-01, 1.250000e-01], supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_164:.*]] = "lo_spn.histogram"(%[[VAL_158]]) <{bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 2.500000e-01>, #hi_spn.bucket<1 to 2 = 7.500000e-01>], supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_165:.*]] = "lo_spn.histogram"(%[[VAL_159]]) <{bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 4.500000e-01>, #hi_spn.bucket<1 to 2 = 5.500000e-01>], supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_166:.*]] = "lo_spn.gaussian"(%[[VAL_160]]) <{mean = 5.000000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_167:.*]] = "lo_spn.gaussian"(%[[VAL_161]]) <{mean = 2.500000e-01 : f64, stddev = 1.000000e-01 : f64, supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
 // CHECK:             %[[VAL_168:.*]] = "lo_spn.mul"(%[[VAL_162]], %[[VAL_163]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
 // CHECK:             %[[VAL_169:.*]] = "lo_spn.mul"(%[[VAL_168]], %[[VAL_164]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_170:.*]] = "lo_spn.constant"() {type = !lo_spn.log<f32>, value = 1.000000e-01 : f64} : () -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_170:.*]] = "lo_spn.constant"() <{type = !lo_spn.log<f32>, value = 1.000000e-01 : f64}> : () -> !lo_spn.log<f32>
 // CHECK:             %[[VAL_171:.*]] = "lo_spn.mul"(%[[VAL_169]], %[[VAL_170]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
 // CHECK:             %[[VAL_172:.*]] = "lo_spn.mul"(%[[VAL_165]], %[[VAL_166]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
 // CHECK:             %[[VAL_173:.*]] = "lo_spn.mul"(%[[VAL_172]], %[[VAL_167]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_174:.*]] = "lo_spn.constant"() {type = !lo_spn.log<f32>, value = 1.000000e-01 : f64} : () -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_174:.*]] = "lo_spn.constant"() <{type = !lo_spn.log<f32>, value = 1.000000e-01 : f64}> : () -> !lo_spn.log<f32>
 // CHECK:             %[[VAL_175:.*]] = "lo_spn.mul"(%[[VAL_173]], %[[VAL_174]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
 // CHECK:             %[[VAL_176:.*]] = "lo_spn.add"(%[[VAL_171]], %[[VAL_175]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_177:.*]] = "lo_spn.strip_log"(%[[VAL_176]]) {target = f32} : (!lo_spn.log<f32>) -> f32
-// CHECK:             "lo_spn.batch_write"(%[[VAL_1]], %[[VAL_155]], %[[VAL_177]]) {transposed = true} : (memref<1x?xf32>, index, f32) -> ()
+// CHECK:             %[[VAL_177:.*]] = "lo_spn.strip_log"(%[[VAL_176]]) <{target = f32}> : (!lo_spn.log<f32>) -> f32
+// CHECK:             "lo_spn.batch_write"(%[[VAL_1]], %[[VAL_155]], %[[VAL_177]]) <{transposed = true}> : (memref<1x?xf32>, index, f32) -> ()
 // CHECK:           }
 // CHECK:           return
 // CHECK:         }
-
+  func.func @vec_task_0(%arg0: memref<?x6xf32>, %arg1: memref<1x?xf32>) {
+    %c0 = arith.constant 0 : index
+    %dim = memref.dim %arg0, %c0 : memref<?x6xf32>
+    %c4 = arith.constant 4 : index
+    %0 = arith.remui %dim, %c4 : index
+    %1 = arith.subi %dim, %0 : index
+    %c0_0 = arith.constant 0 : index
+    %c4_1 = arith.constant 4 : index
+    scf.for %arg2 = %c0_0 to %1 step %c4_1 {
+      %2 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 0 : ui32}> {vector_width = 8 : i32} : (memref<?x6xf32>, index) -> f32
+      %3 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 1 : ui32}> {vector_width = 8 : i32} : (memref<?x6xf32>, index) -> f32
+      %4 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 2 : ui32}> {vector_width = 8 : i32} : (memref<?x6xf32>, index) -> f32
+      %5 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 3 : ui32}> {vector_width = 8 : i32} : (memref<?x6xf32>, index) -> f32
+      %6 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 4 : ui32}> {vector_width = 8 : i32} : (memref<?x6xf32>, index) -> f32
+      %7 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 5 : ui32}> {vector_width = 8 : i32} : (memref<?x6xf32>, index) -> f32
+      %8 = "lo_spn.categorical"(%2) <{probabilities = [3.500000e-01, 5.500000e-01, 1.000000e-01], supportMarginal = false}> {vector_width = 8 : i32} : (f32) -> !lo_spn.log<f32>
+      %9 = "lo_spn.categorical"(%3) <{probabilities = [2.500000e-01, 6.250000e-01, 1.250000e-01], supportMarginal = false}> {vector_width = 8 : i32} : (f32) -> !lo_spn.log<f32>
+      %10 = "lo_spn.histogram"(%4) <{bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 2.500000e-01>, #hi_spn.bucket<1 to 2 = 7.500000e-01>], supportMarginal = false}> {vector_width = 8 : i32} : (f32) -> !lo_spn.log<f32>
+      %11 = "lo_spn.histogram"(%5) <{bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 4.500000e-01>, #hi_spn.bucket<1 to 2 = 5.500000e-01>], supportMarginal = false}> {vector_width = 8 : i32} : (f32) -> !lo_spn.log<f32>
+      %12 = "lo_spn.gaussian"(%6) <{mean = 5.000000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false}> {vector_width = 8 : i32} : (f32) -> !lo_spn.log<f32>
+      %13 = "lo_spn.gaussian"(%7) <{mean = 2.500000e-01 : f64, stddev = 1.000000e-01 : f64, supportMarginal = false}> {vector_width = 8 : i32} : (f32) -> !lo_spn.log<f32>
+      %14 = "lo_spn.mul"(%8, %9) {vector_width = 8 : i32} : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %15 = "lo_spn.mul"(%14, %10) {vector_width = 8 : i32} : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %16 = "lo_spn.constant"() <{type = !lo_spn.log<f32>, value = 1.000000e-01 : f64}> {vector_width = 8 : i32} : () -> !lo_spn.log<f32>
+      %17 = "lo_spn.mul"(%15, %16) {vector_width = 8 : i32} : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %18 = "lo_spn.mul"(%11, %12) {vector_width = 8 : i32} : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %19 = "lo_spn.mul"(%18, %13) {vector_width = 8 : i32} : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %20 = "lo_spn.constant"() <{type = !lo_spn.log<f32>, value = 1.000000e-01 : f64}> {vector_width = 8 : i32} : () -> !lo_spn.log<f32>
+      %21 = "lo_spn.mul"(%19, %20) {vector_width = 8 : i32} : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %22 = "lo_spn.add"(%17, %21) {vector_width = 8 : i32} : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %23 = "lo_spn.strip_log"(%22) <{target = f32}> {vector_width = 8 : i32} : (!lo_spn.log<f32>) -> f32
+      "lo_spn.batch_write"(%arg1, %arg2, %23) <{transposed = true}> {vector_width = 8 : i32} : (memref<1x?xf32>, index, f32) -> ()
+    }
+    %c1 = arith.constant 1 : index
+    scf.for %arg2 = %1 to %dim step %c1 {
+      %2 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 0 : ui32}> : (memref<?x6xf32>, index) -> f32
+      %3 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 1 : ui32}> : (memref<?x6xf32>, index) -> f32
+      %4 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 2 : ui32}> : (memref<?x6xf32>, index) -> f32
+      %5 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 3 : ui32}> : (memref<?x6xf32>, index) -> f32
+      %6 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 4 : ui32}> : (memref<?x6xf32>, index) -> f32
+      %7 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 5 : ui32}> : (memref<?x6xf32>, index) -> f32
+      %8 = "lo_spn.categorical"(%2) <{probabilities = [3.500000e-01, 5.500000e-01, 1.000000e-01], supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
+      %9 = "lo_spn.categorical"(%3) <{probabilities = [2.500000e-01, 6.250000e-01, 1.250000e-01], supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
+      %10 = "lo_spn.histogram"(%4) <{bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 2.500000e-01>, #hi_spn.bucket<1 to 2 = 7.500000e-01>], supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
+      %11 = "lo_spn.histogram"(%5) <{bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 4.500000e-01>, #hi_spn.bucket<1 to 2 = 5.500000e-01>], supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
+      %12 = "lo_spn.gaussian"(%6) <{mean = 5.000000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
+      %13 = "lo_spn.gaussian"(%7) <{mean = 2.500000e-01 : f64, stddev = 1.000000e-01 : f64, supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
+      %14 = "lo_spn.mul"(%8, %9) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %15 = "lo_spn.mul"(%14, %10) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %16 = "lo_spn.constant"() <{type = !lo_spn.log<f32>, value = 1.000000e-01 : f64}> : () -> !lo_spn.log<f32>
+      %17 = "lo_spn.mul"(%15, %16) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %18 = "lo_spn.mul"(%11, %12) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %19 = "lo_spn.mul"(%18, %13) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %20 = "lo_spn.constant"() <{type = !lo_spn.log<f32>, value = 1.000000e-01 : f64}> : () -> !lo_spn.log<f32>
+      %21 = "lo_spn.mul"(%19, %20) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %22 = "lo_spn.add"(%17, %21) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %23 = "lo_spn.strip_log"(%22) <{target = f32}> : (!lo_spn.log<f32>) -> f32
+      "lo_spn.batch_write"(%arg1, %arg2, %23) <{transposed = true}> : (memref<1x?xf32>, index, f32) -> ()
+    }
+    return
+  }
 // CHECK-LABEL:   func.func @spn_vector(
 // CHECK-SAME:                          %[[VAL_0:.*]]: memref<?x6xf32>,
 // CHECK-SAME:                          %[[VAL_1:.*]]: memref<1x?xf32>) {
@@ -280,7 +266,16 @@ module  {
 // CHECK:           %[[VAL_3:.*]] = memref.dim %[[VAL_0]], %[[VAL_2]] : memref<?x6xf32>
 // CHECK:           %[[VAL_4:.*]] = memref.alloc(%[[VAL_3]]) : memref<1x?xf32>
 // CHECK:           call @vec_task_0(%[[VAL_0]], %[[VAL_4]]) : (memref<?x6xf32>, memref<1x?xf32>) -> ()
-// CHECK:           %[[VAL_5:.*]] = bufferization.to_tensor %[[VAL_4]] : memref<1x?xf32>
 // CHECK:           "lo_spn.copy"(%[[VAL_4]], %[[VAL_1]]) : (memref<1x?xf32>, memref<1x?xf32>) -> ()
 // CHECK:           "lo_spn.return"() : () -> ()
 // CHECK:         }
+  func.func @spn_vector(%arg0: memref<?x6xf32>, %arg1: memref<1x?xf32>) {
+    %c0 = arith.constant 0 : index
+    %dim = memref.dim %arg0, %c0 : memref<?x6xf32>
+    %alloc = memref.alloc(%dim) : memref<1x?xf32>
+    call @vec_task_0(%arg0, %alloc) : (memref<?x6xf32>, memref<1x?xf32>) -> ()
+    "lo_spn.copy"(%alloc, %arg1) : (memref<1x?xf32>, memref<1x?xf32>) -> ()
+    "lo_spn.return"() : () -> ()
+  }
+}
+

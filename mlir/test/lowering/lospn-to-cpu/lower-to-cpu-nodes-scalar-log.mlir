@@ -1,207 +1,11 @@
 // RUN: %optcall --convert-lospn-nodes-to-cpu %s | FileCheck %s
-
-module  {
-  memref.global "private" constant @histogram_vec_1 : memref<2xf32> = dense<[-0.79850769, -0.597836971]>
-  memref.global "private" constant @histogram_vec_0 : memref<2xf32> = dense<[-1.38629436, -0.287682086]>
-  memref.global "private" constant @categorical_vec_1 : memref<3xf32> = dense<[-1.38629436, -0.470003635, -2.07944155]>
-  memref.global "private" constant @categorical_vec_0 : memref<3xf32> = dense<[-1.04982209, -0.597836971, -2.30258512]>
-  func.func @vec_task_0(%arg0: memref<?x6xf32>, %arg1: memref<1x?xf32>) {
-    %c0 = arith.constant 0 : index
-    %0 = memref.dim %arg0, %c0 : memref<?x6xf32>
-    %c4 = arith.constant 4 : index
-    %1 = arith.remui %0, %c4 : index
-    %2 = arith.subi %0, %1 : index
-    %c0_0 = arith.constant 0 : index
-    %c4_1 = arith.constant 4 : index
-    scf.for %arg2 = %c0_0 to %2 step %c4_1 {
-      %3 = arith.index_cast %arg2 : index to i64
-      %4 = vector.broadcast %3 : i64 to vector<8xi64>
-      %cst = arith.constant dense<[0, 6, 12, 18, 24, 30, 36, 42]> : vector<8xi64>
-      %cst_2 = arith.constant dense<6> : vector<8xi64>
-      %5 = arith.muli %4, %cst_2 : vector<8xi64>
-      %6 = arith.addi %5, %cst : vector<8xi64>
-      %cst_3 = arith.constant dense<0.000000e+00> : vector<8xf32>
-      %cst_4 = arith.constant dense<true> : vector<8xi1>
-      %c0_5 = arith.constant 0 : index
-      %7 = memref.dim %arg0, %c0_5 : memref<?x6xf32>
-      %c6 = arith.constant 6 : index
-      %8 = arith.muli %7, %c6 : index
-      %9 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%8], strides: [1] : memref<?x6xf32> to memref<?xf32>
-      %c0_6 = arith.constant 0 : index
-      %10 = vector.gather %9[%c0_6] [%6], %cst_4, %cst_3 : memref<?xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
-      %11 = arith.index_cast %arg2 : index to i64
-      %12 = vector.broadcast %11 : i64 to vector<8xi64>
-      %cst_7 = arith.constant dense<[1, 7, 13, 19, 25, 31, 37, 43]> : vector<8xi64>
-      %cst_8 = arith.constant dense<6> : vector<8xi64>
-      %13 = arith.muli %12, %cst_8 : vector<8xi64>
-      %14 = arith.addi %13, %cst_7 : vector<8xi64>
-      %cst_9 = arith.constant dense<0.000000e+00> : vector<8xf32>
-      %cst_10 = arith.constant dense<true> : vector<8xi1>
-      %c0_11 = arith.constant 0 : index
-      %15 = memref.dim %arg0, %c0_11 : memref<?x6xf32>
-      %c6_12 = arith.constant 6 : index
-      %16 = arith.muli %15, %c6_12 : index
-      %17 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%16], strides: [1] : memref<?x6xf32> to memref<?xf32>
-      %c0_13 = arith.constant 0 : index
-      %18 = vector.gather %17[%c0_13] [%14], %cst_10, %cst_9 : memref<?xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
-      %19 = arith.index_cast %arg2 : index to i64
-      %20 = vector.broadcast %19 : i64 to vector<8xi64>
-      %cst_14 = arith.constant dense<[2, 8, 14, 20, 26, 32, 38, 44]> : vector<8xi64>
-      %cst_15 = arith.constant dense<6> : vector<8xi64>
-      %21 = arith.muli %20, %cst_15 : vector<8xi64>
-      %22 = arith.addi %21, %cst_14 : vector<8xi64>
-      %cst_16 = arith.constant dense<0.000000e+00> : vector<8xf32>
-      %cst_17 = arith.constant dense<true> : vector<8xi1>
-      %c0_18 = arith.constant 0 : index
-      %23 = memref.dim %arg0, %c0_18 : memref<?x6xf32>
-      %c6_19 = arith.constant 6 : index
-      %24 = arith.muli %23, %c6_19 : index
-      %25 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%24], strides: [1] : memref<?x6xf32> to memref<?xf32>
-      %c0_20 = arith.constant 0 : index
-      %26 = vector.gather %25[%c0_20] [%22], %cst_17, %cst_16 : memref<?xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
-      %27 = arith.index_cast %arg2 : index to i64
-      %28 = vector.broadcast %27 : i64 to vector<8xi64>
-      %cst_21 = arith.constant dense<[3, 9, 15, 21, 27, 33, 39, 45]> : vector<8xi64>
-      %cst_22 = arith.constant dense<6> : vector<8xi64>
-      %29 = arith.muli %28, %cst_22 : vector<8xi64>
-      %30 = arith.addi %29, %cst_21 : vector<8xi64>
-      %cst_23 = arith.constant dense<0.000000e+00> : vector<8xf32>
-      %cst_24 = arith.constant dense<true> : vector<8xi1>
-      %c0_25 = arith.constant 0 : index
-      %31 = memref.dim %arg0, %c0_25 : memref<?x6xf32>
-      %c6_26 = arith.constant 6 : index
-      %32 = arith.muli %31, %c6_26 : index
-      %33 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%32], strides: [1] : memref<?x6xf32> to memref<?xf32>
-      %c0_27 = arith.constant 0 : index
-      %34 = vector.gather %33[%c0_27] [%30], %cst_24, %cst_23 : memref<?xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
-      %35 = arith.index_cast %arg2 : index to i64
-      %36 = vector.broadcast %35 : i64 to vector<8xi64>
-      %cst_28 = arith.constant dense<[4, 10, 16, 22, 28, 34, 40, 46]> : vector<8xi64>
-      %cst_29 = arith.constant dense<6> : vector<8xi64>
-      %37 = arith.muli %36, %cst_29 : vector<8xi64>
-      %38 = arith.addi %37, %cst_28 : vector<8xi64>
-      %cst_30 = arith.constant dense<0.000000e+00> : vector<8xf32>
-      %cst_31 = arith.constant dense<true> : vector<8xi1>
-      %c0_32 = arith.constant 0 : index
-      %39 = memref.dim %arg0, %c0_32 : memref<?x6xf32>
-      %c6_33 = arith.constant 6 : index
-      %40 = arith.muli %39, %c6_33 : index
-      %41 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%40], strides: [1] : memref<?x6xf32> to memref<?xf32>
-      %c0_34 = arith.constant 0 : index
-      %42 = vector.gather %41[%c0_34] [%38], %cst_31, %cst_30 : memref<?xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
-      %43 = arith.index_cast %arg2 : index to i64
-      %44 = vector.broadcast %43 : i64 to vector<8xi64>
-      %cst_35 = arith.constant dense<[5, 11, 17, 23, 29, 35, 41, 47]> : vector<8xi64>
-      %cst_36 = arith.constant dense<6> : vector<8xi64>
-      %45 = arith.muli %44, %cst_36 : vector<8xi64>
-      %46 = arith.addi %45, %cst_35 : vector<8xi64>
-      %cst_37 = arith.constant dense<0.000000e+00> : vector<8xf32>
-      %cst_38 = arith.constant dense<true> : vector<8xi1>
-      %c0_39 = arith.constant 0 : index
-      %47 = memref.dim %arg0, %c0_39 : memref<?x6xf32>
-      %c6_40 = arith.constant 6 : index
-      %48 = arith.muli %47, %c6_40 : index
-      %49 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%48], strides: [1] : memref<?x6xf32> to memref<?xf32>
-      %c0_41 = arith.constant 0 : index
-      %50 = vector.gather %49[%c0_41] [%46], %cst_38, %cst_37 : memref<?xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
-      %51 = memref.get_global @categorical_vec_0 : memref<3xf32>
-      %52 = arith.fptoui %10 : vector<8xf32> to vector<8xi64>
-      %cst_42 = arith.constant dense<0.000000e+00> : vector<8xf32>
-      %cst_43 = arith.constant dense<true> : vector<8xi1>
-      %c0_44 = arith.constant 0 : index
-      %53 = vector.gather %51[%c0_44] [%52], %cst_43, %cst_42 : memref<3xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
-      %54 = memref.get_global @categorical_vec_1 : memref<3xf32>
-      %55 = arith.fptoui %18 : vector<8xf32> to vector<8xi64>
-      %cst_45 = arith.constant dense<0.000000e+00> : vector<8xf32>
-      %cst_46 = arith.constant dense<true> : vector<8xi1>
-      %c0_47 = arith.constant 0 : index
-      %56 = vector.gather %54[%c0_47] [%55], %cst_46, %cst_45 : memref<3xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
-      %57 = memref.get_global @histogram_vec_0 : memref<2xf32>
-      %58 = arith.fptoui %26 : vector<8xf32> to vector<8xi64>
-      %cst_48 = arith.constant dense<0.000000e+00> : vector<8xf32>
-      %cst_49 = arith.constant dense<true> : vector<8xi1>
-      %c0_50 = arith.constant 0 : index
-      %59 = vector.gather %57[%c0_50] [%58], %cst_49, %cst_48 : memref<2xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
-      %60 = memref.get_global @histogram_vec_1 : memref<2xf32>
-      %61 = arith.fptoui %34 : vector<8xf32> to vector<8xi64>
-      %cst_51 = arith.constant dense<0.000000e+00> : vector<8xf32>
-      %cst_52 = arith.constant dense<true> : vector<8xi1>
-      %c0_53 = arith.constant 0 : index
-      %62 = vector.gather %60[%c0_53] [%61], %cst_52, %cst_51 : memref<2xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
-      %cst_54 = arith.constant dense<-5.000000e-01> : vector<8xf32>
-      %cst_55 = arith.constant dense<-0.918938517> : vector<8xf32>
-      %cst_56 = arith.constant dense<5.000000e-01> : vector<8xf32>
-      %63 = arith.subf %42, %cst_56 : vector<8xf32>
-      %64 = arith.mulf %63, %63 : vector<8xf32>
-      %65 = arith.mulf %64, %cst_54 : vector<8xf32>
-      %66 = arith.addf %cst_55, %65 : vector<8xf32>
-      %cst_57 = arith.constant dense<-5.000000e+01> : vector<8xf32>
-      %cst_58 = arith.constant dense<1.38364661> : vector<8xf32>
-      %cst_59 = arith.constant dense<2.500000e-01> : vector<8xf32>
-      %67 = arith.subf %50, %cst_59 : vector<8xf32>
-      %68 = arith.mulf %67, %67 : vector<8xf32>
-      %69 = arith.mulf %68, %cst_57 : vector<8xf32>
-      %70 = arith.addf %cst_58, %69 : vector<8xf32>
-      %71 = arith.addf %53, %56 : vector<8xf32>
-      %72 = arith.addf %71, %59 : vector<8xf32>
-      %cst_60 = arith.constant dense<1.000000e-01> : vector<8xf32>
-      %73 = arith.addf %72, %cst_60 : vector<8xf32>
-      %74 = arith.addf %62, %66 : vector<8xf32>
-      %75 = arith.addf %74, %70 : vector<8xf32>
-      %cst_61 = arith.constant dense<1.000000e-01> : vector<8xf32>
-      %76 = arith.addf %75, %cst_61 : vector<8xf32>
-      %77 = arith.cmpf ogt, %73, %76 : vector<8xf32>
-      %78 = arith.select %77, %73, %76 : vector<8xi1>, vector<8xf32>
-      %79 = arith.select %77, %76, %73 : vector<8xi1>, vector<8xf32>
-      %80 = arith.subf %79, %78 : vector<8xf32>
-      %81 = math.exp %80 : vector<8xf32>
-      %82 = math.log1p %81 : vector<8xf32>
-      %83 = arith.addf %78, %82 : vector<8xf32>
-      %c0_62 = arith.constant 0 : index
-      vector.transfer_write %83, %arg1[%c0_62, %arg2] : vector<8xf32>, memref<1x?xf32>
-    }
-    %c1 = arith.constant 1 : index
-    scf.for %arg2 = %2 to %0 step %c1 {
-      %3 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 0 : ui32} : (memref<?x6xf32>, index) -> f32
-      %4 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 1 : ui32} : (memref<?x6xf32>, index) -> f32
-      %5 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 2 : ui32} : (memref<?x6xf32>, index) -> f32
-      %6 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 3 : ui32} : (memref<?x6xf32>, index) -> f32
-      %7 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 4 : ui32} : (memref<?x6xf32>, index) -> f32
-      %8 = "lo_spn.batch_read"(%arg0, %arg2) {staticIndex = 5 : ui32} : (memref<?x6xf32>, index) -> f32
-      %9 = "lo_spn.categorical"(%3) {probabilities = [3.500000e-01, 5.500000e-01, 1.000000e-01], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-      %10 = "lo_spn.categorical"(%4) {probabilities = [2.500000e-01, 6.250000e-01, 1.250000e-01], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-      %11 = "lo_spn.histogram"(%5) {bucketCount = 2 : ui32, buckets = [#lo_spn.bucket<0, 1, 2.500000e-01>, #lo_spn.bucket<1, 2, 7.500000e-01>], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-      %12 = "lo_spn.histogram"(%6) {bucketCount = 2 : ui32, buckets = [#lo_spn.bucket<0, 1, 4.500000e-01>, #lo_spn.bucket<1, 2, 5.500000e-01>], supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-      %13 = "lo_spn.gaussian"(%7) {mean = 5.000000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-      %14 = "lo_spn.gaussian"(%8) {mean = 2.500000e-01 : f64, stddev = 1.000000e-01 : f64, supportMarginal = false} : (f32) -> !lo_spn.log<f32>
-      %15 = "lo_spn.mul"(%9, %10) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %16 = "lo_spn.mul"(%15, %11) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %17 = "lo_spn.constant"() {type = !lo_spn.log<f32>, value = 1.000000e-01 : f64} : () -> !lo_spn.log<f32>
-      %18 = "lo_spn.mul"(%16, %17) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %19 = "lo_spn.mul"(%12, %13) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %20 = "lo_spn.mul"(%19, %14) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %21 = "lo_spn.constant"() {type = !lo_spn.log<f32>, value = 1.000000e-01 : f64} : () -> !lo_spn.log<f32>
-      %22 = "lo_spn.mul"(%20, %21) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %23 = "lo_spn.add"(%18, %22) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %24 = "lo_spn.strip_log"(%23) {target = f32} : (!lo_spn.log<f32>) -> f32
-      "lo_spn.batch_write"(%arg1, %arg2, %24) {transposed = true} : (memref<1x?xf32>, index, f32) -> ()
-    }
-    return
-  }
-  func.func @spn_vector(%arg0: memref<?x6xf32>, %arg1: memref<1x?xf32>) {
-    %c0 = arith.constant 0 : index
-    %0 = memref.dim %arg0, %c0 : memref<?x6xf32>
-    %1 = memref.alloc(%0) : memref<1x?xf32>
-    call @vec_task_0(%arg0, %1) : (memref<?x6xf32>, memref<1x?xf32>) -> ()
-    %2 = bufferization.to_tensor %1 : memref<1x?xf32>
-    %3 = bufferization.to_memref %2 : memref<1x?xf32>
-    "lo_spn.copy"(%3, %arg1) : (memref<1x?xf32>, memref<1x?xf32>) -> ()
-    "lo_spn.return"() : () -> ()
-  }
-}
-
-
+// Test (re)generated by regenerate_tests.py.
 // NOTE: Assertions have been autogenerated by utils/generate-test-checks.py
+
+// The script is designed to make adding checks to
+// a test case fast, it is *not* designed to be authoritative
+// about what constitutes a good test! The CHECK should be
+// minimized and named to reflect the test intent.
 
 // CHECK-LABEL:   memref.global "private" constant @histogram_1 : memref<2xf32> = dense<[-0.79850769, -0.597836971]>
 // CHECK:         memref.global "private" constant @histogram_0 : memref<2xf32> = dense<[-1.38629436, -0.287682086]>
@@ -211,10 +15,15 @@ module  {
 // CHECK:         memref.global "private" constant @histogram_vec_0 : memref<2xf32> = dense<[-1.38629436, -0.287682086]>
 // CHECK:         memref.global "private" constant @categorical_vec_1 : memref<3xf32> = dense<[-1.38629436, -0.470003635, -2.07944155]>
 // CHECK:         memref.global "private" constant @categorical_vec_0 : memref<3xf32> = dense<[-1.04982209, -0.597836971, -2.30258512]>
-
+// RUN: %optcall --convert-lospn-nodes-to-cpu %s | FileCheck %s
+module {
+  memref.global "private" constant @histogram_vec_1 : memref<2xf32> = dense<[-0.79850769, -0.597836971]>
+  memref.global "private" constant @histogram_vec_0 : memref<2xf32> = dense<[-1.38629436, -0.287682086]>
+  memref.global "private" constant @categorical_vec_1 : memref<3xf32> = dense<[-1.38629436, -0.470003635, -2.07944155]>
+  memref.global "private" constant @categorical_vec_0 : memref<3xf32> = dense<[-1.04982209, -0.597836971, -2.30258512]>
 // CHECK-LABEL:   func.func @vec_task_0(
-// CHECK-SAME:                     %[[VAL_0:.*]]: memref<?x6xf32>,
-// CHECK-SAME:                     %[[VAL_1:.*]]: memref<1x?xf32>) {
+// CHECK-SAME:                          %[[VAL_0:.*]]: memref<?x6xf32>,
+// CHECK-SAME:                          %[[VAL_1:.*]]: memref<1x?xf32>) {
 // CHECK:           %[[VAL_2:.*]] = arith.constant 0 : index
 // CHECK:           %[[VAL_3:.*]] = memref.dim %[[VAL_0]], %[[VAL_2]] : memref<?x6xf32>
 // CHECK:           %[[VAL_4:.*]] = arith.constant 4 : index
@@ -433,24 +242,214 @@ module  {
 // CHECK:           }
 // CHECK:           return
 // CHECK:         }
-
+  func.func @vec_task_0(%arg0: memref<?x6xf32>, %arg1: memref<1x?xf32>) {
+    %c0 = arith.constant 0 : index
+    %dim = memref.dim %arg0, %c0 : memref<?x6xf32>
+    %c4 = arith.constant 4 : index
+    %0 = arith.remui %dim, %c4 : index
+    %1 = arith.subi %dim, %0 : index
+    %c0_0 = arith.constant 0 : index
+    %c4_1 = arith.constant 4 : index
+    scf.for %arg2 = %c0_0 to %1 step %c4_1 {
+      %2 = arith.index_cast %arg2 : index to i64
+      %3 = vector.broadcast %2 : i64 to vector<8xi64>
+      %cst = arith.constant dense<[0, 6, 12, 18, 24, 30, 36, 42]> : vector<8xi64>
+      %cst_2 = arith.constant dense<6> : vector<8xi64>
+      %4 = arith.muli %3, %cst_2 : vector<8xi64>
+      %5 = arith.addi %4, %cst : vector<8xi64>
+      %cst_3 = arith.constant dense<0.000000e+00> : vector<8xf32>
+      %cst_4 = arith.constant dense<true> : vector<8xi1>
+      %c0_5 = arith.constant 0 : index
+      %dim_6 = memref.dim %arg0, %c0_5 : memref<?x6xf32>
+      %c6 = arith.constant 6 : index
+      %6 = arith.muli %dim_6, %c6 : index
+      %reinterpret_cast = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%6], strides: [1] : memref<?x6xf32> to memref<?xf32>
+      %c0_7 = arith.constant 0 : index
+      %7 = vector.gather %reinterpret_cast[%c0_7] [%5], %cst_4, %cst_3 : memref<?xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
+      %8 = arith.index_cast %arg2 : index to i64
+      %9 = vector.broadcast %8 : i64 to vector<8xi64>
+      %cst_8 = arith.constant dense<[1, 7, 13, 19, 25, 31, 37, 43]> : vector<8xi64>
+      %cst_9 = arith.constant dense<6> : vector<8xi64>
+      %10 = arith.muli %9, %cst_9 : vector<8xi64>
+      %11 = arith.addi %10, %cst_8 : vector<8xi64>
+      %cst_10 = arith.constant dense<0.000000e+00> : vector<8xf32>
+      %cst_11 = arith.constant dense<true> : vector<8xi1>
+      %c0_12 = arith.constant 0 : index
+      %dim_13 = memref.dim %arg0, %c0_12 : memref<?x6xf32>
+      %c6_14 = arith.constant 6 : index
+      %12 = arith.muli %dim_13, %c6_14 : index
+      %reinterpret_cast_15 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%12], strides: [1] : memref<?x6xf32> to memref<?xf32>
+      %c0_16 = arith.constant 0 : index
+      %13 = vector.gather %reinterpret_cast_15[%c0_16] [%11], %cst_11, %cst_10 : memref<?xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
+      %14 = arith.index_cast %arg2 : index to i64
+      %15 = vector.broadcast %14 : i64 to vector<8xi64>
+      %cst_17 = arith.constant dense<[2, 8, 14, 20, 26, 32, 38, 44]> : vector<8xi64>
+      %cst_18 = arith.constant dense<6> : vector<8xi64>
+      %16 = arith.muli %15, %cst_18 : vector<8xi64>
+      %17 = arith.addi %16, %cst_17 : vector<8xi64>
+      %cst_19 = arith.constant dense<0.000000e+00> : vector<8xf32>
+      %cst_20 = arith.constant dense<true> : vector<8xi1>
+      %c0_21 = arith.constant 0 : index
+      %dim_22 = memref.dim %arg0, %c0_21 : memref<?x6xf32>
+      %c6_23 = arith.constant 6 : index
+      %18 = arith.muli %dim_22, %c6_23 : index
+      %reinterpret_cast_24 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%18], strides: [1] : memref<?x6xf32> to memref<?xf32>
+      %c0_25 = arith.constant 0 : index
+      %19 = vector.gather %reinterpret_cast_24[%c0_25] [%17], %cst_20, %cst_19 : memref<?xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
+      %20 = arith.index_cast %arg2 : index to i64
+      %21 = vector.broadcast %20 : i64 to vector<8xi64>
+      %cst_26 = arith.constant dense<[3, 9, 15, 21, 27, 33, 39, 45]> : vector<8xi64>
+      %cst_27 = arith.constant dense<6> : vector<8xi64>
+      %22 = arith.muli %21, %cst_27 : vector<8xi64>
+      %23 = arith.addi %22, %cst_26 : vector<8xi64>
+      %cst_28 = arith.constant dense<0.000000e+00> : vector<8xf32>
+      %cst_29 = arith.constant dense<true> : vector<8xi1>
+      %c0_30 = arith.constant 0 : index
+      %dim_31 = memref.dim %arg0, %c0_30 : memref<?x6xf32>
+      %c6_32 = arith.constant 6 : index
+      %24 = arith.muli %dim_31, %c6_32 : index
+      %reinterpret_cast_33 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%24], strides: [1] : memref<?x6xf32> to memref<?xf32>
+      %c0_34 = arith.constant 0 : index
+      %25 = vector.gather %reinterpret_cast_33[%c0_34] [%23], %cst_29, %cst_28 : memref<?xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
+      %26 = arith.index_cast %arg2 : index to i64
+      %27 = vector.broadcast %26 : i64 to vector<8xi64>
+      %cst_35 = arith.constant dense<[4, 10, 16, 22, 28, 34, 40, 46]> : vector<8xi64>
+      %cst_36 = arith.constant dense<6> : vector<8xi64>
+      %28 = arith.muli %27, %cst_36 : vector<8xi64>
+      %29 = arith.addi %28, %cst_35 : vector<8xi64>
+      %cst_37 = arith.constant dense<0.000000e+00> : vector<8xf32>
+      %cst_38 = arith.constant dense<true> : vector<8xi1>
+      %c0_39 = arith.constant 0 : index
+      %dim_40 = memref.dim %arg0, %c0_39 : memref<?x6xf32>
+      %c6_41 = arith.constant 6 : index
+      %30 = arith.muli %dim_40, %c6_41 : index
+      %reinterpret_cast_42 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%30], strides: [1] : memref<?x6xf32> to memref<?xf32>
+      %c0_43 = arith.constant 0 : index
+      %31 = vector.gather %reinterpret_cast_42[%c0_43] [%29], %cst_38, %cst_37 : memref<?xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
+      %32 = arith.index_cast %arg2 : index to i64
+      %33 = vector.broadcast %32 : i64 to vector<8xi64>
+      %cst_44 = arith.constant dense<[5, 11, 17, 23, 29, 35, 41, 47]> : vector<8xi64>
+      %cst_45 = arith.constant dense<6> : vector<8xi64>
+      %34 = arith.muli %33, %cst_45 : vector<8xi64>
+      %35 = arith.addi %34, %cst_44 : vector<8xi64>
+      %cst_46 = arith.constant dense<0.000000e+00> : vector<8xf32>
+      %cst_47 = arith.constant dense<true> : vector<8xi1>
+      %c0_48 = arith.constant 0 : index
+      %dim_49 = memref.dim %arg0, %c0_48 : memref<?x6xf32>
+      %c6_50 = arith.constant 6 : index
+      %36 = arith.muli %dim_49, %c6_50 : index
+      %reinterpret_cast_51 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%36], strides: [1] : memref<?x6xf32> to memref<?xf32>
+      %c0_52 = arith.constant 0 : index
+      %37 = vector.gather %reinterpret_cast_51[%c0_52] [%35], %cst_47, %cst_46 : memref<?xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
+      %38 = memref.get_global @categorical_vec_0 : memref<3xf32>
+      %39 = arith.fptoui %7 : vector<8xf32> to vector<8xi64>
+      %cst_53 = arith.constant dense<0.000000e+00> : vector<8xf32>
+      %cst_54 = arith.constant dense<true> : vector<8xi1>
+      %c0_55 = arith.constant 0 : index
+      %40 = vector.gather %38[%c0_55] [%39], %cst_54, %cst_53 : memref<3xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
+      %41 = memref.get_global @categorical_vec_1 : memref<3xf32>
+      %42 = arith.fptoui %13 : vector<8xf32> to vector<8xi64>
+      %cst_56 = arith.constant dense<0.000000e+00> : vector<8xf32>
+      %cst_57 = arith.constant dense<true> : vector<8xi1>
+      %c0_58 = arith.constant 0 : index
+      %43 = vector.gather %41[%c0_58] [%42], %cst_57, %cst_56 : memref<3xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
+      %44 = memref.get_global @histogram_vec_0 : memref<2xf32>
+      %45 = arith.fptoui %19 : vector<8xf32> to vector<8xi64>
+      %cst_59 = arith.constant dense<0.000000e+00> : vector<8xf32>
+      %cst_60 = arith.constant dense<true> : vector<8xi1>
+      %c0_61 = arith.constant 0 : index
+      %46 = vector.gather %44[%c0_61] [%45], %cst_60, %cst_59 : memref<2xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
+      %47 = memref.get_global @histogram_vec_1 : memref<2xf32>
+      %48 = arith.fptoui %25 : vector<8xf32> to vector<8xi64>
+      %cst_62 = arith.constant dense<0.000000e+00> : vector<8xf32>
+      %cst_63 = arith.constant dense<true> : vector<8xi1>
+      %c0_64 = arith.constant 0 : index
+      %49 = vector.gather %47[%c0_64] [%48], %cst_63, %cst_62 : memref<2xf32>, vector<8xi64>, vector<8xi1>, vector<8xf32> into vector<8xf32>
+      %cst_65 = arith.constant dense<-5.000000e-01> : vector<8xf32>
+      %cst_66 = arith.constant dense<-0.918938517> : vector<8xf32>
+      %cst_67 = arith.constant dense<5.000000e-01> : vector<8xf32>
+      %50 = arith.subf %31, %cst_67 : vector<8xf32>
+      %51 = arith.mulf %50, %50 : vector<8xf32>
+      %52 = arith.mulf %51, %cst_65 : vector<8xf32>
+      %53 = arith.addf %cst_66, %52 : vector<8xf32>
+      %cst_68 = arith.constant dense<-5.000000e+01> : vector<8xf32>
+      %cst_69 = arith.constant dense<1.38364661> : vector<8xf32>
+      %cst_70 = arith.constant dense<2.500000e-01> : vector<8xf32>
+      %54 = arith.subf %37, %cst_70 : vector<8xf32>
+      %55 = arith.mulf %54, %54 : vector<8xf32>
+      %56 = arith.mulf %55, %cst_68 : vector<8xf32>
+      %57 = arith.addf %cst_69, %56 : vector<8xf32>
+      %58 = arith.addf %40, %43 : vector<8xf32>
+      %59 = arith.addf %58, %46 : vector<8xf32>
+      %cst_71 = arith.constant dense<1.000000e-01> : vector<8xf32>
+      %60 = arith.addf %59, %cst_71 : vector<8xf32>
+      %61 = arith.addf %49, %53 : vector<8xf32>
+      %62 = arith.addf %61, %57 : vector<8xf32>
+      %cst_72 = arith.constant dense<1.000000e-01> : vector<8xf32>
+      %63 = arith.addf %62, %cst_72 : vector<8xf32>
+      %64 = arith.cmpf ogt, %60, %63 : vector<8xf32>
+      %65 = arith.select %64, %60, %63 : vector<8xi1>, vector<8xf32>
+      %66 = arith.select %64, %63, %60 : vector<8xi1>, vector<8xf32>
+      %67 = arith.subf %66, %65 : vector<8xf32>
+      %68 = math.exp %67 : vector<8xf32>
+      %69 = math.log1p %68 : vector<8xf32>
+      %70 = arith.addf %65, %69 : vector<8xf32>
+      %c0_73 = arith.constant 0 : index
+      vector.transfer_write %70, %arg1[%c0_73, %arg2] : vector<8xf32>, memref<1x?xf32>
+    }
+    %c1 = arith.constant 1 : index
+    scf.for %arg2 = %1 to %dim step %c1 {
+      %2 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 0 : ui32}> : (memref<?x6xf32>, index) -> f32
+      %3 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 1 : ui32}> : (memref<?x6xf32>, index) -> f32
+      %4 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 2 : ui32}> : (memref<?x6xf32>, index) -> f32
+      %5 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 3 : ui32}> : (memref<?x6xf32>, index) -> f32
+      %6 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 4 : ui32}> : (memref<?x6xf32>, index) -> f32
+      %7 = "lo_spn.batch_read"(%arg0, %arg2) <{staticIndex = 5 : ui32}> : (memref<?x6xf32>, index) -> f32
+      %8 = "lo_spn.categorical"(%2) <{probabilities = [3.500000e-01, 5.500000e-01, 1.000000e-01], supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
+      %9 = "lo_spn.categorical"(%3) <{probabilities = [2.500000e-01, 6.250000e-01, 1.250000e-01], supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
+      %10 = "lo_spn.histogram"(%4) <{bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 2.500000e-01>, #hi_spn.bucket<1 to 2 = 7.500000e-01>], supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
+      %11 = "lo_spn.histogram"(%5) <{bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 4.500000e-01>, #hi_spn.bucket<1 to 2 = 5.500000e-01>], supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
+      %12 = "lo_spn.gaussian"(%6) <{mean = 5.000000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
+      %13 = "lo_spn.gaussian"(%7) <{mean = 2.500000e-01 : f64, stddev = 1.000000e-01 : f64, supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
+      %14 = "lo_spn.mul"(%8, %9) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %15 = "lo_spn.mul"(%14, %10) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %16 = "lo_spn.constant"() <{type = !lo_spn.log<f32>, value = 1.000000e-01 : f64}> : () -> !lo_spn.log<f32>
+      %17 = "lo_spn.mul"(%15, %16) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %18 = "lo_spn.mul"(%11, %12) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %19 = "lo_spn.mul"(%18, %13) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %20 = "lo_spn.constant"() <{type = !lo_spn.log<f32>, value = 1.000000e-01 : f64}> : () -> !lo_spn.log<f32>
+      %21 = "lo_spn.mul"(%19, %20) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %22 = "lo_spn.add"(%17, %21) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+      %23 = "lo_spn.strip_log"(%22) <{target = f32}> : (!lo_spn.log<f32>) -> f32
+      "lo_spn.batch_write"(%arg1, %arg2, %23) <{transposed = true}> : (memref<1x?xf32>, index, f32) -> ()
+    }
+    return
+  }
 // CHECK-LABEL:   func.func @spn_vector(
-// CHECK-SAME:                     %[[VAL_0:.*]]: memref<?x6xf32>,
-// CHECK-SAME:                     %[[VAL_1:.*]]: memref<1x?xf32>) {
+// CHECK-SAME:                          %[[VAL_0:.*]]: memref<?x6xf32>,
+// CHECK-SAME:                          %[[VAL_1:.*]]: memref<1x?xf32>) {
 // CHECK:           %[[VAL_2:.*]] = arith.constant 0 : index
 // CHECK:           %[[VAL_3:.*]] = memref.dim %[[VAL_0]], %[[VAL_2]] : memref<?x6xf32>
 // CHECK:           %[[VAL_4:.*]] = memref.alloc(%[[VAL_3]]) : memref<1x?xf32>
 // CHECK:           call @vec_task_0(%[[VAL_0]], %[[VAL_4]]) : (memref<?x6xf32>, memref<1x?xf32>) -> ()
-// CHECK:           %[[VAL_5:.*]] = bufferization.to_tensor %[[VAL_4]] : memref<1x?xf32>
-// CHECK:           %[[VAL_6:.*]] = bufferization.to_memref %[[VAL_5]] : memref<1x?xf32>
-// CHECK:           %[[VAL_7:.*]] = arith.constant 1 : index
-// CHECK:           %[[VAL_8:.*]] = memref.dim %[[VAL_6]], %[[VAL_7]] : memref<1x?xf32>
-// CHECK:           %[[VAL_9:.*]] = arith.constant 0 : index
-// CHECK:           %[[VAL_10:.*]] = arith.constant 1 : index
-// CHECK:           scf.for %[[VAL_11:.*]] = %[[VAL_9]] to %[[VAL_8]] step %[[VAL_10]] {
-// CHECK:             %[[VAL_12:.*]] = arith.constant 0 : index
-// CHECK:             %[[VAL_13:.*]] = memref.load %[[VAL_6]]{{\[}}%[[VAL_12]], %[[VAL_11]]] : memref<1x?xf32>
-// CHECK:             memref.store %[[VAL_13]], %[[VAL_1]]{{\[}}%[[VAL_12]], %[[VAL_11]]] : memref<1x?xf32>
+// CHECK:           %[[VAL_5:.*]] = arith.constant 1 : index
+// CHECK:           %[[VAL_6:.*]] = memref.dim %[[VAL_4]], %[[VAL_5]] : memref<1x?xf32>
+// CHECK:           %[[VAL_7:.*]] = arith.constant 0 : index
+// CHECK:           %[[VAL_8:.*]] = arith.constant 1 : index
+// CHECK:           scf.for %[[VAL_9:.*]] = %[[VAL_7]] to %[[VAL_6]] step %[[VAL_8]] {
+// CHECK:             %[[VAL_10:.*]] = arith.constant 0 : index
+// CHECK:             %[[VAL_11:.*]] = memref.load %[[VAL_4]]{{\[}}%[[VAL_10]], %[[VAL_9]]] : memref<1x?xf32>
+// CHECK:             memref.store %[[VAL_11]], %[[VAL_1]]{{\[}}%[[VAL_10]], %[[VAL_9]]] : memref<1x?xf32>
 // CHECK:           }
 // CHECK:           return
 // CHECK:         }
+  func.func @spn_vector(%arg0: memref<?x6xf32>, %arg1: memref<1x?xf32>) {
+    %c0 = arith.constant 0 : index
+    %dim = memref.dim %arg0, %c0 : memref<?x6xf32>
+    %alloc = memref.alloc(%dim) : memref<1x?xf32>
+    call @vec_task_0(%arg0, %alloc) : (memref<?x6xf32>, memref<1x?xf32>) -> ()
+    "lo_spn.copy"(%alloc, %arg1) : (memref<1x?xf32>, memref<1x?xf32>) -> ()
+    "lo_spn.return"() : () -> ()
+  }
+}
+

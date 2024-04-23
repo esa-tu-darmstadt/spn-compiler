@@ -71,7 +71,7 @@ mlir::LogicalResult mlir::spn::BatchTaskLowering::matchAndRewrite(
   auto loop = rewriter.create<scf::ForOp>(op.getLoc(), const0, ub, step);
   rewriter.create<func::ReturnOp>(op->getLoc());
   // Fill the loop
-  auto &loopBlock = loop.getLoopBody().front();
+  auto &loopBlock = *loop.getBody();
   rewriter.setInsertionPointToStart(&loopBlock);
   // Collect the values replacing the block values of old block inside the task.
   // The first argument is the batch index, i.e., the loop induction var.
