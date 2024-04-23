@@ -1,0 +1,5 @@
+{
+  "name": "vc709",
+  "mem.axi4.addrwidth": 64,
+  "mem.axi4.datawidth": 128
+}

@@ -1,0 +1,218 @@
+digraph G {
+  rankdir = TB     // top to bottom
+  splines = spline // draw edges and route around nodes
+  nodesep = 0.2    // horizontal compression
+  ranksep = 0.5    // vertical compression
+  node [shape=box] // default node style
+  compound = true  // allow edges between subgraphs
+
+  // Operations
+  subgraph dependence_graph {
+    op0 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#0 lo_spn.constant</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">const</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">0</TD></TR>
+    </TABLE>>]
+    op1 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#1 lo_spn.constant</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">const</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">0</TD></TR>
+    </TABLE>>]
+    op2 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#2 lo_spn.histogram</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">hist</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">0</TD></TR>
+    </TABLE>>]
+    op3 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#3 lo_spn.histogram</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">hist</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">0</TD></TR>
+    </TABLE>>]
+    op4 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#4 lo_spn.histogram</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">hist</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">0</TD></TR>
+    </TABLE>>]
+    op5 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#5 lo_spn.histogram</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">hist</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">0</TD></TR>
+    </TABLE>>]
+    op6 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#6 lo_spn.histogram</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">hist</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">0</TD></TR>
+    </TABLE>>]
+    op7 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#7 lo_spn.mul</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">mul</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">1</TD></TR>
+    </TABLE>>]
+    op8 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#8 lo_spn.mul</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">mul</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">5</TD></TR>
+    </TABLE>>]
+    op9 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#9 lo_spn.mul</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">mul</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">1</TD></TR>
+    </TABLE>>]
+    op10 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#10 lo_spn.mul</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">mul</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">9</TD></TR>
+    </TABLE>>]
+    op11 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#11 lo_spn.histogram</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">hist</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">0</TD></TR>
+    </TABLE>>]
+    op12 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#12 lo_spn.histogram</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">hist</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">0</TD></TR>
+    </TABLE>>]
+    op13 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#13 lo_spn.histogram</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">hist</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">0</TD></TR>
+    </TABLE>>]
+    op14 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#14 lo_spn.histogram</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">hist</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">0</TD></TR>
+    </TABLE>>]
+    op15 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#15 lo_spn.histogram</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">hist</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">0</TD></TR>
+    </TABLE>>]
+    op16 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#16 lo_spn.mul</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">mul</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">1</TD></TR>
+    </TABLE>>]
+    op17 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#17 lo_spn.mul</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">mul</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">5</TD></TR>
+    </TABLE>>]
+    op18 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#18 lo_spn.mul</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">mul</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">1</TD></TR>
+    </TABLE>>]
+    op19 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#19 lo_spn.mul</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">mul</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">9</TD></TR>
+    </TABLE>>]
+    op20 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#20 lo_spn.mul</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">mul</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">13</TD></TR>
+    </TABLE>>]
+    op21 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#21 lo_spn.mul</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">mul</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">13</TD></TR>
+    </TABLE>>]
+    op22 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#22 lo_spn.add</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">add</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">17</TD></TR>
+    </TABLE>>]
+    op23 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#23 lo_spn.log</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">log</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">21</TD></TR>
+    </TABLE>>]
+    op24 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>#24 lo_spn.yield</B></TD></TR>
+      <TR><TD ALIGN="LEFT">linkedOpr:</TD><TD ALIGN="RIGHT">convert</TD></TR>
+      <TR><TD ALIGN="LEFT">startTime:</TD><TD ALIGN="RIGHT">21</TD></TR>
+    </TABLE>>]
+
+    // Dependences
+    op2 -> op7 []
+    op3 -> op7 []
+    op2 -> op7 [style = dashed ]
+    op3 -> op7 [style = dashed ]
+    op7 -> op8 []
+    op4 -> op8 []
+    op7 -> op8 [style = dashed ]
+    op4 -> op8 [style = dashed ]
+    op5 -> op9 []
+    op6 -> op9 []
+    op5 -> op9 [style = dashed ]
+    op6 -> op9 [style = dashed ]
+    op8 -> op10 []
+    op9 -> op10 []
+    op8 -> op10 [style = dashed ]
+    op9 -> op10 [style = dashed ]
+    op11 -> op16 []
+    op12 -> op16 []
+    op11 -> op16 [style = dashed ]
+    op12 -> op16 [style = dashed ]
+    op16 -> op17 []
+    op13 -> op17 []
+    op16 -> op17 [style = dashed ]
+    op13 -> op17 [style = dashed ]
+    op14 -> op18 []
+    op15 -> op18 []
+    op14 -> op18 [style = dashed ]
+    op15 -> op18 [style = dashed ]
+    op17 -> op19 []
+    op18 -> op19 []
+    op17 -> op19 [style = dashed ]
+    op18 -> op19 [style = dashed ]
+    op10 -> op20 []
+    op1 -> op20 []
+    op10 -> op20 [style = dashed ]
+    op1 -> op20 [style = dashed ]
+    op19 -> op21 []
+    op0 -> op21 []
+    op19 -> op21 [style = dashed ]
+    op0 -> op21 [style = dashed ]
+    op20 -> op22 []
+    op21 -> op22 []
+    op20 -> op22 [style = dashed ]
+    op21 -> op22 [style = dashed ]
+    op22 -> op23 []
+    op22 -> op23 [style = dashed ]
+    op23 -> op24 []
+    op23 -> op24 [style = dashed ]
+  }
+
+  // Operator types
+  subgraph cluster_operator_types {
+    label = "Operator types"
+    style = filled fillcolor = lightgray
+    node [style = "rounded,filled" fillcolor = white]
+    opr0 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>const</B></TD></TR>
+      <TR><TD ALIGN="LEFT">latency:</TD><TD ALIGN="RIGHT">0</TD></TR>
+    </TABLE>>]
+    opr1 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>hist</B></TD></TR>
+      <TR><TD ALIGN="LEFT">latency:</TD><TD ALIGN="RIGHT">1</TD></TR>
+    </TABLE>>]
+    opr2 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>mul</B></TD></TR>
+      <TR><TD ALIGN="LEFT">latency:</TD><TD ALIGN="RIGHT">4</TD></TR>
+    </TABLE>>]
+    opr3 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>add</B></TD></TR>
+      <TR><TD ALIGN="LEFT">latency:</TD><TD ALIGN="RIGHT">4</TD></TR>
+    </TABLE>>]
+    opr4 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>log</B></TD></TR>
+      <TR><TD ALIGN="LEFT">latency:</TD><TD ALIGN="RIGHT">0</TD></TR>
+    </TABLE>>]
+    opr5 [label = <<TABLE BORDER="0">
+      <TR><TD COLSPAN="2"><B>convert</B></TD></TR>
+      <TR><TD ALIGN="LEFT">latency:</TD><TD ALIGN="RIGHT">2</TD></TR>
+    </TABLE>>]
+  }
+}
