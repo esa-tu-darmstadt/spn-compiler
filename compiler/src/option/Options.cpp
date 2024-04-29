@@ -9,7 +9,7 @@ namespace spnc::option {
 /// -----------------------------------------------------------------------
 /// SPNC target options
 /// -----------------------------------------------------------------------
-llvm::cl::OptionCategory targetGroup{"SPNC compilation options"};
+llvm::cl::OptionCategory targetGroup{"SPNC target options"};
 
 llvm::cl::opt<TargetMachine> compilationTarget{
     "spnc-target",
@@ -51,7 +51,7 @@ llvm::cl::opt<std::string> stopAfter{
 /// -----------------------------------------------------------------------
 /// SPNC optimization options
 /// -----------------------------------------------------------------------
-llvm::cl::OptionCategory optimizationGroup{"SPNC compilation options"};
+llvm::cl::OptionCategory optimizationGroup{"SPNC optimization options"};
 
 llvm::cl::opt<int> optLevel{
     "spnc-opt-level",
@@ -100,7 +100,7 @@ llvm::cl::opt<std::string> graphStatsFile{
 /// -----------------------------------------------------------------------
 /// Vectorization options
 /// -----------------------------------------------------------------------
-llvm::cl::OptionCategory vectorizationCategory{"SPNC Vectorization options"};
+llvm::cl::OptionCategory vectorizationCategory{"SPNC vectorization options"};
 
 using llvm::driver::VectorLibrary;
 llvm::cl::opt<VectorLibrary> vectorLibrary{
