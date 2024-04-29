@@ -5,6 +5,7 @@
 import argparse
 import os
 import subprocess
+import shlex
 
 
 def get_testfiles(path):
@@ -68,7 +69,7 @@ def regenerate_testfile(filename, optcall, filecheck, gentestchecks):
     replacedRunCommand = replacedRunCommand.replace("%optcall", optcall)
     print(replacedRunCommand)
     optProc = subprocess.run(
-        replacedRunCommand.split(" "), stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        shlex.split(replacedRunCommand), stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     if optProc.returncode != 0:
         print(f"Failed to run {runCommand} to get converted IR:")
