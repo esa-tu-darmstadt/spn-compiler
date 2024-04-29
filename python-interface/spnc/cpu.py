@@ -253,7 +253,7 @@ class CPUCompiler:
     def isVectorizationSupported():
         """Query the compiler for vectorization support on the host CPU"""
 
-        return spncpy.SPNCompiler.isFeatureAvailable("spnc_cpu_vectorize")
+        return spncpy.SPNCompiler.isFeatureAvailable("vectorize")
 
     @staticmethod
     def getDefaultVectorLibrary():
