@@ -28,7 +28,7 @@ requirements.
 
 In case you want to use **SPNC** on a different platform or want to build **SPNC** from source, follow
 the [installation instructions](https://github.com/esa-tu-darmstadt/spn-compiler/wiki/Installation-Manual) to build
-**SPNC** and all its dependencies from source. Currently, `spnc` is based on LLVM release 17.0.6 (tag `llvmorg-17.0.6`).
+**SPNC** and all its dependencies from source. Currently, `spnc` is based on LLVM commit #20d653f
 
 ### Usage ###
 
