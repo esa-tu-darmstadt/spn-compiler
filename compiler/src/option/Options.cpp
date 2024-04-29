@@ -41,7 +41,7 @@ llvm::cl::opt<bool> optRepresentation{
     llvm::cl::desc(
         "Enable whether an optimal representation for SPN evaluation should be "
         "determined."),
-    llvm::cl::cat(compilationGroup)};
+    llvm::cl::init(false), llvm::cl::cat(compilationGroup)};
 
 llvm::cl::opt<std::string> stopAfter{
     "spnc-stop-after",
