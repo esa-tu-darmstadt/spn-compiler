@@ -17,7 +17,10 @@ LogicalResult
 buildLoSPNtoCPUPipeline(mlir::OpPassManager &pm,
                         const LoSPNtoCPUPipelineOptions &options) {
   LoSPNtoCPUStructureConversionPassOptions structConvOptions;
-  pm.addPass(mlir::spn::createLoSPNtoCPUStructureConversionPass());
+  structConvOptions.vectorize = options.vectorize;
+
+  pm.addPass(
+      mlir::spn::createLoSPNtoCPUStructureConversionPass(structConvOptions));
   if (options.vectorize) {
     if (options.replaceGatherWithShuffle) {
       pm.addPass(mlir::spn::createReplaceGatherWithShufflePass());
