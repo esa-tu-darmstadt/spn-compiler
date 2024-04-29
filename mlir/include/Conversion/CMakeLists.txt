@@ -1,2 +1,3 @@
+add_subdirectory(HiSPNtoLoSPN)
 add_subdirectory(LoSPNtoGPU)
 add_subdirectory(LoSPNtoCPU)

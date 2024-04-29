@@ -21,7 +21,7 @@ def LoSPNtoCPUStructureConversionPass : Pass<"convert-lospn-structure-to-cpu", "
   let dependentDialects = ["arith::ArithDialect", "scf::SCFDialect", "math::MathDialect", "vector::VectorDialect", "memref::MemRefDialect", "func::FuncDialect"];
 
   let options = [
-    Option<"vectorize", "cpu-vectorize", "bool", "false", "Vectorize code generated for CPU targets">,
+    Option<"vectorize", "vectorize", "bool", "false", "Vectorize code generated for CPU targets">,
     Option<"maxAttempts", "slp-max-attempts", "unsigned", "1", "Maximum number of SLP vectorization attempts">,
     Option<"maxSuccessfulIterations", "slp-max-successful-iterations", "unsigned", "1", "Maximum number of successful SLP vectorization runs to be applied to a function">,
     Option<"maxNodeSize", "slp-max-node-size", "unsigned", "10", "Maximum multinode size during SLP vectorization in terms of the number of vectors they may contain">,

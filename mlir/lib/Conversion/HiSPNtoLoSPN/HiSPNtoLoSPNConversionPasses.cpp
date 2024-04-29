@@ -15,111 +15,104 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include <HiSPNtoLoSPN/QueryPatterns.h>
 
-using namespace mlir::spn;
+namespace mlir::spn {
 
-void HiSPNtoLoSPNNodeConversionPass::runOnOperation() {
-  ConversionTarget target(getContext());
+#define GEN_PASS_DEF_HISPNTOLOSPNNODECONVERSIONPASS
+#include "HiSPNtoLoSPN/HiSPNtoLoSPNConversionPasses.h.inc"
+struct HiSPNtoLoSPNNodeConversionPass
+    : public mlir::spn::impl::HiSPNtoLoSPNNodeConversionPassBase<
+          HiSPNtoLoSPNNodeConversionPass> {
+  using Base::Base;
 
-  target.addLegalDialect<high::HiSPNDialect>();
-  target.addLegalDialect<low::LoSPNDialect>();
-  target.addLegalOp<ModuleOp>();
+  void runOnOperation() override {
+    ConversionTarget target(getContext());
 
-  target.addIllegalOp<high::ProductNode, high::SumNode, high::HistogramNode,
-                      high::CategoricalNode, high::GaussianNode,
-                      high::RootNode>();
+    target.addLegalDialect<high::HiSPNDialect>();
+    target.addLegalDialect<low::LoSPNDialect>();
+    target.addLegalOp<ModuleOp>();
 
-  // Use type analysis to determine data type for actual computation.
-  // The concrete type determined by the analysis replaces the abstract
-  // probability type used by the HiSPN dialect.
-  std::unique_ptr<HiSPNTypeConverter> typeConverter;
-  if (optimizeRepresentation) {
-    auto &arithmeticAnalysis =
-        getAnalysis<mlir::spn::ArithmeticPrecisionAnalysis>();
-    typeConverter = std::make_unique<HiSPNTypeConverter>(
-        arithmeticAnalysis.getComputationType(computeLogSpace));
-  } else if (computeLogSpace) {
-    typeConverter =
-        std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(
-            &getContext(), mlir::FloatType::getF32(&getContext())));
-  } else {
-    typeConverter = std::make_unique<HiSPNTypeConverter>(
-        mlir::Float64Type::get(&getContext()));
+    target.addIllegalOp<high::ProductNode, high::SumNode, high::HistogramNode,
+                        high::CategoricalNode, high::GaussianNode,
+                        high::RootNode>();
+
+    // Use type analysis to determine data type for actual computation.
+    // The concrete type determined by the analysis replaces the abstract
+    // probability type used by the HiSPN dialect.
+    std::unique_ptr<HiSPNTypeConverter> typeConverter;
+    if (optimizeRepresentation) {
+      auto &arithmeticAnalysis =
+          getAnalysis<mlir::spn::ArithmeticPrecisionAnalysis>();
+      typeConverter = std::make_unique<HiSPNTypeConverter>(
+          arithmeticAnalysis.getComputationType(computeLogSpace));
+    } else if (computeLogSpace) {
+      typeConverter =
+          std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(
+              &getContext(), mlir::FloatType::getF32(&getContext())));
+    } else {
+      typeConverter = std::make_unique<HiSPNTypeConverter>(
+          mlir::Float64Type::get(&getContext()));
+    }
+
+    RewritePatternSet patterns(&getContext());
+    mlir::spn::populateHiSPNtoLoSPNNodePatterns(patterns, &getContext(),
+                                                *typeConverter);
+
+    auto op = getOperation();
+    FrozenRewritePatternSet frozenPatterns(std::move(patterns));
+    if (failed(applyPartialConversion(op, target, frozenPatterns))) {
+      signalPassFailure();
+    }
+    // Explicitly mark the ArithmeticPrecisionAnalysis as preserved, so the
+    // QueryConversionPass can use the information, even though the Graph's
+    // nodes have already been converted.
+    markAnalysesPreserved<ArithmeticPrecisionAnalysis>();
   }
+};
 
-  RewritePatternSet patterns(&getContext());
-  mlir::spn::populateHiSPNtoLoSPNNodePatterns(patterns, &getContext(),
-                                              *typeConverter);
+#define GEN_PASS_DEF_HISPNTOLOSPNQUERYCONVERSIONPASS
+#include "HiSPNtoLoSPN/HiSPNtoLoSPNConversionPasses.h.inc"
+struct HiSPNtoLoSPNQueryConversionPass
+    : public mlir::spn::impl::HiSPNtoLoSPNQueryConversionPassBase<
+          HiSPNtoLoSPNQueryConversionPass> {
+  using Base::Base;
+  void runOnOperation() override {
+    ConversionTarget target(getContext());
 
-  auto op = getOperation();
-  FrozenRewritePatternSet frozenPatterns(std::move(patterns));
-  if (failed(applyPartialConversion(op, target, frozenPatterns))) {
-    signalPassFailure();
+    target.addLegalDialect<low::LoSPNDialect>();
+    target.addLegalOp<ModuleOp>();
+    target.addLegalOp<func::FuncOp>();
+
+    target.addIllegalDialect<high::HiSPNDialect>();
+
+    // Use type analysis to determine data type for actual computation.
+    // The concrete type determined by the analysis replaces the abstract
+    // probability type used by the HiSPN dialect.
+    std::unique_ptr<HiSPNTypeConverter> typeConverter;
+    if (optimizeRepresentation) {
+      auto arithmeticAnalysis =
+          getCachedAnalysis<ArithmeticPrecisionAnalysis>();
+      assert(arithmeticAnalysis && "The arithmetic analysis needs to be "
+                                   "preserved after node conversion");
+      typeConverter = std::make_unique<HiSPNTypeConverter>(
+          arithmeticAnalysis->get().getComputationType(computeLogSpace));
+    } else if (computeLogSpace) {
+      typeConverter =
+          std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(
+              &getContext(), mlir::FloatType::getF32(&getContext())));
+    } else {
+      typeConverter = std::make_unique<HiSPNTypeConverter>(
+          mlir::Float64Type::get(&getContext()));
+    }
+
+    RewritePatternSet patterns(&getContext());
+    mlir::spn::populateHiSPNtoLoSPNQueryPatterns(patterns, &getContext(),
+                                                 *typeConverter);
+
+    auto op = getOperation();
+    FrozenRewritePatternSet frozenPatterns(std::move(patterns));
+    if (failed(applyFullConversion(op, target, frozenPatterns))) {
+      signalPassFailure();
+    }
   }
-  // Explicitly mark the ArithmeticPrecisionAnalysis as preserved, so the
-  // QueryConversionPass can use the information, even though the Graph's
-  // nodes have already been converted.
-  markAnalysesPreserved<ArithmeticPrecisionAnalysis>();
-}
-
-void HiSPNtoLoSPNNodeConversionPass::getDependentDialects(
-    mlir::DialectRegistry &registry) const {
-  registry.insert<mlir::spn::low::LoSPNDialect>();
-}
-
-std::unique_ptr<mlir::Pass>
-mlir::spn::createHiSPNtoLoSPNNodeConversionPass(bool useLogSpaceComputation,
-                                                bool useOptimalRepresentation) {
-  return std::make_unique<HiSPNtoLoSPNNodeConversionPass>(
-      useLogSpaceComputation, useOptimalRepresentation);
-}
-
-void HiSPNtoLoSPNQueryConversionPass::runOnOperation() {
-  ConversionTarget target(getContext());
-
-  target.addLegalDialect<low::LoSPNDialect>();
-  target.addLegalOp<ModuleOp>();
-  target.addLegalOp<func::FuncOp>();
-
-  target.addIllegalDialect<high::HiSPNDialect>();
-
-  // Use type analysis to determine data type for actual computation.
-  // The concrete type determined by the analysis replaces the abstract
-  // probability type used by the HiSPN dialect.
-  std::unique_ptr<HiSPNTypeConverter> typeConverter;
-  if (optimizeRepresentation) {
-    auto arithmeticAnalysis = getCachedAnalysis<ArithmeticPrecisionAnalysis>();
-    assert(
-        arithmeticAnalysis &&
-        "The arithmetic analysis needs to be preserved after node conversion");
-    typeConverter = std::make_unique<HiSPNTypeConverter>(
-        arithmeticAnalysis->get().getComputationType(computeLogSpace));
-  } else if (computeLogSpace) {
-    typeConverter =
-        std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(
-            &getContext(), mlir::FloatType::getF32(&getContext())));
-  } else {
-    typeConverter = std::make_unique<HiSPNTypeConverter>(
-        mlir::Float64Type::get(&getContext()));
-  }
-
-  RewritePatternSet patterns(&getContext());
-  mlir::spn::populateHiSPNtoLoSPNQueryPatterns(patterns, &getContext(),
-                                               *typeConverter);
-
-  auto op = getOperation();
-  FrozenRewritePatternSet frozenPatterns(std::move(patterns));
-  if (failed(applyFullConversion(op, target, frozenPatterns))) {
-    signalPassFailure();
-  }
-}
-
-void HiSPNtoLoSPNQueryConversionPass::getDependentDialects(
-    mlir::DialectRegistry &registry) const {
-  registry.insert<mlir::spn::low::LoSPNDialect>();
-}
-
-std::unique_ptr<mlir::Pass> mlir::spn::createHiSPNtoLoSPNQueryConversionPass(
-    bool useLogSpaceComputation, bool useOptimalRepresentation) {
-  return std::make_unique<HiSPNtoLoSPNQueryConversionPass>(
-      useLogSpaceComputation, useOptimalRepresentation);
-}
+};
+} // namespace mlir::spn

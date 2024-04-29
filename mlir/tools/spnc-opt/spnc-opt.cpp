@@ -20,15 +20,6 @@
 #include "LoSPNtoGPU/LoSPNtoGPUPasses.h"
 #endif
 
-static llvm::cl::opt<bool> logSpace("use-log-space",
-                                    llvm::cl::desc("Use log-space computation"),
-                                    llvm::cl::init(false));
-
-static llvm::cl::opt<bool> optRepresentation(
-    "opt-repr",
-    llvm::cl::desc("Determine and use optimal number representation"),
-    llvm::cl::init(false));
-
 static llvm::cl::opt<std::string> graphStatsFile{
     "graph-stats-file", llvm::cl::desc("Graph statistics output file"),
     llvm::cl::value_desc("filename"), llvm::cl::init("/tmp/stats.json")};
@@ -41,20 +32,11 @@ int main(int argc, char **argv) {
   mlir::registerAllPasses();
   mlir::spn::low::registerLoSPNPasses();
   mlir::spn::registerLoSPNtoCPUPasses();
+  mlir::spn::registerHiSPNtoLoSPNPasses();
 #if SPNC_CUDA_SUPPORT
   mlir::spn::registerLoSPNtoGPUPasses();
 #endif
   mlir::spn::registerLoSPNtoCPUPipeline();
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::spn::createHiSPNtoLoSPNQueryConversionPass(logSpace,
-                                                            optRepresentation);
-  });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::spn::createHiSPNtoLoSPNNodeConversionPass(logSpace,
-                                                           optRepresentation);
-  });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::spn::low::createLoSPNGraphStatsCollectionPass(graphStatsFile);

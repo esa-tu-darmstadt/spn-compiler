@@ -1,0 +1,3 @@
+set(LLVM_TARGET_DEFINITIONS HiSPNtoLoSPNConversionPasses.td)
+mlir_tablegen(HiSPNtoLoSPNConversionPasses.h.inc -gen-pass-decls -name HiSPNtoLoSPN)
+add_public_tablegen_target(MLIRHiSPNtoLoSPNPassesIncGen)

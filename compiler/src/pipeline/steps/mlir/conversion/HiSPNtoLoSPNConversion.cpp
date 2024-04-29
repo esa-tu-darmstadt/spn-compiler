@@ -7,22 +7,18 @@
 //==============================================================================
 
 #include "HiSPNtoLoSPNConversion.h"
-#include "HiSPNtoLoSPN/HiSPNtoLoSPNConversionPasses.h"
-#include "LoSPN/LoSPNOps.h"
-#include "LoSPN/LoSPNPasses.h"
+#include "HiSPNtoLoSPN/HiSPNtoLoSPNPipeline.h"
+#include "option/Options.h"
 
 void spnc::HiSPNtoLoSPNConversion::initializePassPipeline(
     mlir::PassManager *pm, mlir::MLIRContext *ctx) {
-  bool useLogSpace = spnc::option::logSpace;
-  bool useOptimalRepresentation = spnc::option::optRepresentation;
-  // TODO: Refactor these passes into a pipeline. Make the options
-  // pipeline-specific.
-  pm->addPass(mlir::spn::createHiSPNtoLoSPNNodeConversionPass(
-      useLogSpace, useOptimalRepresentation));
-  pm->addPass(mlir::spn::createHiSPNtoLoSPNQueryConversionPass(
-      useLogSpace, useOptimalRepresentation));
-  if (spnc::option::collectGraphStats) {
-    pm->addPass(mlir::spn::low::createLoSPNGraphStatsCollectionPass(
-        spnc::option::graphStatsFile));
+
+  mlir::spn::HiSPNtoLoSPNPipelineOptions options;
+  options.computeLogSpace = spnc::option::logSpace.getValue();
+  options.optimizeRepresentation = spnc::option::optRepresentation.getValue();
+  options.collectGraphStats = spnc::option::collectGraphStats.getValue();
+
+  if (mlir::spn::buildHiSPNtoLoSPNPipeline(*pm, options).failed()) {
+    llvm::errs() << "Failed to build HiSPN to LoSPN pipeline\n";
   }
 }
