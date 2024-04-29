@@ -24,8 +24,8 @@ buildHiSPNtoLoSPNPipeline(mlir::OpPassManager &pm,
   pm.addPass(mlir::spn::createHiSPNtoLoSPNNodeConversionPass(nodeOptions));
 
   HiSPNtoLoSPNQueryConversionPassOptions queryOptions;
-  nodeOptions.computeLogSpace = options.computeLogSpace;
-  nodeOptions.optimizeRepresentation = options.optimizeRepresentation;
+  queryOptions.computeLogSpace = options.computeLogSpace;
+  queryOptions.optimizeRepresentation = options.optimizeRepresentation;
   pm.addPass(mlir::spn::createHiSPNtoLoSPNQueryConversionPass(queryOptions));
 
   if (options.collectGraphStats) {
