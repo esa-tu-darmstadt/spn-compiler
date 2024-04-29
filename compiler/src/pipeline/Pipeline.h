@@ -11,21 +11,13 @@
 
 #include "PipelineStep.h"
 #include "option/Options.h"
+#include "llvm/Support/CommandLine.h"
 #include <iostream>
 #include <sstream>
 #include <type_traits>
 #include <vector>
 
 namespace spnc {
-
-namespace option {
-
-///
-/// Option to specify a step after which the
-/// compilation pipeline should be terminated prematurely.
-extern interface::Option<std::string> stopAfter;
-
-} // namespace option
 
 /// Representation of a compilation pipeline composed from individual steps.
 /// If valid, i.e., if the last step produces a result of the correct type,
@@ -34,7 +26,6 @@ extern interface::Option<std::string> stopAfter;
 /// steps. \tparam Result Type of the final result.
 template <typename Result>
 class Pipeline : public PipelineBase {
-
 public:
   using PipelineBase::PipelineBase;
 
@@ -43,26 +34,22 @@ public:
   /// valid,
   ///         failure otherwise.
   ExecutionResult execute() {
-    auto *config = context->template get<interface::Configuration>();
-    std::optional<std::string> stop;
-    if (option::stopAfter.isPresent(*config)) {
-      stop = option::stopAfter.get(*config);
-    }
     for (auto &step : steps) {
       auto result = step->execute();
       if (failed(result)) {
         return result;
       }
-      if (stop.has_value() && step->name() == stop.value()) {
+      if (option::stopAfter.getNumOccurrences() > 0 &&
+          step->name() == option::stopAfter) {
         // Stop after the step, if the user requested to do so via the
         // 'stopAfter' option.
-        return failure("STOPPED PIPELINE after {}", stop.value());
+        return failure("STOPPED PIPELINE after {}", option::stopAfter);
       }
     }
-    if (stop.has_value()) {
+    if (option::stopAfter.getNumOccurrences() > 0) {
       SPDLOG_WARN("Did not stop after {}, because no such step was present in "
                   "the pipeline",
-                  stop.value());
+                  option::stopAfter);
     }
     if (!valid) {
       return failure("INVALID PIPELINE");

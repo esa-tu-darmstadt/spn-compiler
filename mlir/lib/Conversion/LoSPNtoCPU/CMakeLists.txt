@@ -26,6 +26,7 @@ add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
         Vectorization/SLP/SLPVectorizationPatterns.cpp
         Vectorization/SLP/Util.cpp
         LoSPNtoCPUConversionPasses.cpp
+        LoSPNtoCPUPipeline.cpp
 
         ADDITIONAL_HEADER_DIRS
         ${PROJECT_SOURCE_DIR}/mlir/include/Conversion
@@ -38,6 +39,7 @@ add_mlir_conversion_library(MLIRLoSPNtoCPUTransforms
         MLIRSupport
         MLIRTransforms
         MLIRVectorDialect
+        MLIRTensorTransforms
 
         DEPENDS
         cpu_targetinfo

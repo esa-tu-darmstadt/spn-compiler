@@ -12,9 +12,9 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
+#include "option/Options.h"
 #include "pipeline/PipelineStep.h"
 #include "util/Logging.h"
-#include <option/GlobalOptions.h>
 
 namespace spnc {
 
@@ -36,8 +36,7 @@ public:
     mlir::PassManager pm{ctx};
     static_cast<PassPipeline *>(this)->initializePassPipeline(&pm, ctx);
     // Enable IR printing if requested via CLI
-    if (spnc::option::dumpIR.get(
-            *this->getContext()->template get<Configuration>())) {
+    if (spnc::option::dumpIR) {
       pm.enableIRPrinting(
           /* Print before every pass*/ [](mlir::Pass *,
                                           mlir::Operation *) { return false; },

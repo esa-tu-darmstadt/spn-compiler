@@ -18,10 +18,7 @@
 #include "mlir/Transforms/Passes.h"
 #include <llvm/ADT/IndexedMap.h>
 
-namespace mlir {
-namespace spn {
-namespace low {
-#define GEN_PASS_DECL_LOSPNTASKPARTIONING
+namespace mlir::spn::low {
 #define GEN_PASS_DEF_LOSPNTASKPARTIONING
 #include "LoSPN/LoSPNPasses.h.inc"
 
@@ -417,17 +414,12 @@ private:
 struct LoSPNTaskPartitioner
     : public impl::LoSPNTaskPartioningBase<LoSPNTaskPartitioner> {
 
-public:
-  LoSPNTaskPartitioner() = default;
-
-  explicit LoSPNTaskPartitioner(int maxTaskSize) {
-    this->maxTaskSize = maxTaskSize;
-  }
+  using Base::Base;
 
 protected:
   void runOnOperation() override {
-    if (this->maxTaskSize.getValue() > 0) {
-      GraphPartitioner partitioner{this->maxTaskSize.getValue(),
+    if (this->maxTaskSize > 0) {
+      GraphPartitioner partitioner{this->maxTaskSize,
                                    SimpleMoveHeuristic::create};
       RewritePatternSet patterns(getOperation()->getContext());
       patterns.insert<PartitionTask>(getOperation()->getContext(), partitioner);
@@ -440,11 +432,4 @@ protected:
   }
 };
 
-} // namespace low
-} // namespace spn
-} // namespace mlir
-
-std::unique_ptr<mlir::OperationPass<mlir::spn::low::SPNKernel>>
-mlir::spn::low::createLoSPNPartitionerPass(int maxTaskSize) {
-  return std::make_unique<LoSPNTaskPartitioner>(maxTaskSize);
-}
+} // namespace mlir::spn::low

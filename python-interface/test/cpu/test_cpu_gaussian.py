@@ -30,19 +30,25 @@ def test_cpu_gaussian():
     p = Product(children=[g1, g2, g3, g4, g5, g6, g7, g8, g9, g10])
 
     # Randomly sample input values from the two Gaussian (normal) distributions.
-    inputs = np.column_stack((np.random.normal(0.5, 1, 30),
-                            np.random.normal(0.125, 0.25, 30),
-                            np.random.normal(0.345, 0.24, 30),
-                            np.random.normal(0.456, 0.1, 30),
-                            np.random.normal(0.94, 0.48, 30),
-                            np.random.normal(0.56, 0.42, 30),
-                            np.random.normal(0.76, 0.14, 30),
-                            np.random.normal(0.32, 0.8, 30),
-                            np.random.normal(0.58, 0.9, 30),
-                            np.random.normal(0.14, 0.2, 30))).astype("float64")
+    inputs = np.column_stack(
+        (
+            np.random.normal(0.5, 1, 30),
+            np.random.normal(0.125, 0.25, 30),
+            np.random.normal(0.345, 0.24, 30),
+            np.random.normal(0.456, 0.1, 30),
+            np.random.normal(0.94, 0.48, 30),
+            np.random.normal(0.56, 0.42, 30),
+            np.random.normal(0.76, 0.14, 30),
+            np.random.normal(0.32, 0.8, 30),
+            np.random.normal(0.58, 0.9, 30),
+            np.random.normal(0.14, 0.2, 30),
+        )
+    ).astype("float64")
 
     # Execute the compiled Kernel.
-    results = CPUCompiler(computeInLogSpace=False, vectorize=False).log_likelihood(p, inputs, supportMarginal=False, batchSize=10)
+    results = CPUCompiler(
+        spnc_use_log_space=False, spnc_cpu_vectorize=False
+    ).log_likelihood(p, inputs, supportMarginal=False, batchSize=10)
 
     # Compute the reference results using the inference from SPFlow.
     reference = log_likelihood(p, inputs)
@@ -50,8 +56,10 @@ def test_cpu_gaussian():
 
     # Check the computation results against the reference
     # Check in normal space if log-results are not very close to each other.
-    assert np.all(np.isclose(results, reference)) or np.all(np.isclose(np.exp(results), np.exp(reference)))
-    
+    assert np.all(np.isclose(results, reference)) or np.all(
+        np.isclose(np.exp(results), np.exp(reference))
+    )
+
 
 if __name__ == "__main__":
     test_cpu_gaussian()

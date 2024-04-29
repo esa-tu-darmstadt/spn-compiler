@@ -10,20 +10,17 @@
 #include "LoSPN/LoSPNOps.h"
 #include "LoSPN/LoSPNPasses.h"
 #include "mlir/Transforms/Passes.h"
-#include "option/GlobalOptions.h"
 #include "toolchain/MLIRToolchain.h"
 #include "util/Logging.h"
 
 void spnc::LoSPNTransformations::initializePassPipeline(
     mlir::PassManager *pm, mlir::MLIRContext *ctx) {
-  auto maxTaskSize =
-      spnc::option::maxTaskSize.get(*getContext()->get<Configuration>());
   pm->nest<mlir::spn::low::SPNKernel>().addPass(
-      mlir::spn::low::createLoSPNPartitionerPass(maxTaskSize));
-  pm->addPass(mlir::spn::low::createLoSPNBufferizePass());
+      mlir::spn::low::createLoSPNTaskPartioning());
+  pm->addPass(mlir::spn::low::createLoSPNBufferize());
   pm->addPass(mlir::createCanonicalizerPass());
   pm->nest<mlir::spn::low::SPNKernel>().addPass(
-      mlir::spn::low::createLoSPNCopyRemovalPass());
+      mlir::spn::low::createLoSPNCopyRemoval());
   pm->addPass(mlir::createCSEPass());
 }
 

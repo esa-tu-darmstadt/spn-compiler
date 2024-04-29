@@ -8,6 +8,7 @@
 
 #include "CPUToolchain.h"
 #include "TargetInformation.h"
+#include "option/Options.h"
 #include "pipeline/BasicSteps.h"
 #include "pipeline/Pipeline.h"
 #include "pipeline/steps/codegen/EmitObjectCode.h"
@@ -18,13 +19,14 @@
 #include "pipeline/steps/mlir/conversion/LoSPNtoCPUConversion.h"
 #include "pipeline/steps/mlir/conversion/MLIRtoLLVMIRConversion.h"
 #include "pipeline/steps/mlir/transformation/LoSPNTransformations.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Frontend/Driver/CodeGenOptions.h"
 
 using namespace spnc;
 using namespace mlir;
 
 std::unique_ptr<Pipeline<Kernel>>
-CPUToolchain::setupPipeline(const std::string &inputFile,
-                            std::unique_ptr<interface::Configuration> config) {
+CPUToolchain::setupPipeline(const std::string &inputFile) {
   // Uncomment the following two lines to get detailed output during MLIR
   // dialect conversion;
   // llvm::DebugFlag = true;
@@ -39,7 +41,7 @@ CPUToolchain::setupPipeline(const std::string &inputFile,
   initializeMLIRContext(*ctx);
   // If IR should be dumped between steps/passes, we need to disable
   // multi-threading in MLIR
-  if (spnc::option::dumpIR.get(*config)) {
+  if (option::dumpIR) {
     ctx->enableMultithreading(false);
   }
   auto diagHandler = setupDiagnosticHandler(ctx.get());
@@ -47,24 +49,24 @@ CPUToolchain::setupPipeline(const std::string &inputFile,
   pipeline->getContext()->add(std::move(diagHandler));
   pipeline->getContext()->add(std::move(ctx));
 
-  // Create an LLVM target machine and set the optimization level.
-  int mcOptLevel = spnc::option::optLevel.get(*config);
-  if (spnc::option::mcOptLevel.isPresent(*config) &&
-      spnc::option::mcOptLevel.get(*config) != mcOptLevel) {
-    auto optionValue = spnc::option::mcOptLevel.get(*config);
+  // Determine the mc and ir optimization levels
+  int mcOptLevel = option::mcOptLevel.getNumOccurrences() > 0
+                       ? option::mcOptLevel
+                       : option::optLevel;
+
+  // Warn if both options are set.
+  if (option::mcOptLevel.getNumOccurrences() > 0 &&
+      option::optLevel.getNumOccurrences() > 0) {
     SPDLOG_INFO("Option mc-opt-level (value: {}) takes precedence over option "
                 "opt-level (value: {})",
-                optionValue, mcOptLevel);
-    mcOptLevel = optionValue;
+                option::mcOptLevel, option::optLevel);
   }
+
+  // Create an LLVM target machine
   auto targetMachine = createTargetMachine(mcOptLevel);
   // Initialize kernel information.
   auto kernelInfo = std::make_unique<KernelInfo>();
   kernelInfo->target = KernelTarget::CPU;
-  // Attach the LLVM target machine and the kernel information to the pipeline
-  // context
-  pipeline->getContext()->add(std::move(targetMachine));
-  pipeline->getContext()->add(std::move(kernelInfo));
 
   // First step of the pipeline: Locate the input file.
   auto &locateInput =
@@ -102,48 +104,61 @@ CPUToolchain::setupPipeline(const std::string &inputFile,
       pipeline->emplaceStep<CreateTmpFile<FileType::SHARED_OBJECT>>(false);
   // Add additional libraries to the link command if necessary.
   llvm::SmallVector<std::string, 3> additionalLibs;
+
+  // Validate the vector library
+  // if (!validateVectorLibrary(option::vectorLibrary)) {
+  //   SPDLOG_WARN("Vector library selection is invalid on this platform, "
+  //               "overriding with 'None'");
+  //   option::vectorLibrary = llvm::driver::VectorLibrary::NoLibrary;
+  // }
+
+  // Create a target library info implemenation for the vector library and add
+  // it to the pipeline context.
+  llvm::Triple TargetTriple = targetMachine->getTargetTriple();
+
+  // The target library info uses the --vector-library option to determine
+  // which vector library to link against.
+  std::unique_ptr<llvm::TargetLibraryInfoImpl> TLII(
+      createTLII(TargetTriple, option::vectorLibrary));
+
   // Link vector libraries if specified by option.
-  auto veclib = spnc::option::vectorLibrary.get(*config);
-  if (!validateVectorLibrary(*config)) {
-    SPDLOG_WARN("Vector library selection is invalid on this platform, "
-                "overriding with 'None'");
-    veclib = spnc::option::VectorLibrary::NONE;
+  switch (option::vectorLibrary) {
+  case llvm::driver::VectorLibrary::SVML:
+    additionalLibs.push_back("svml");
+    break;
+  case llvm::driver::VectorLibrary::LIBMVEC:
+    additionalLibs.push_back("m");
+    break;
+  case llvm::driver::VectorLibrary::NoLibrary:
+    break;
+  default:
+    SPNC_FATAL_ERROR("We dont yet know how to link the specified vector "
+                     "library. Please consider implementing this or open an "
+                     "issue on GitHub.");
   }
-  if (veclib != spnc::option::VectorLibrary::NONE) {
-    switch (veclib) {
-    case spnc::option::VectorLibrary::SVML:
-      additionalLibs.push_back("svml");
-      break;
-    case spnc::option::VectorLibrary::LIBMVEC:
-      additionalLibs.push_back("m");
-      break;
-    case spnc::option::VectorLibrary::ARM:
-      additionalLibs.push_back("mathlib");
-      break;
-    default:
-      SPNC_FATAL_ERROR("Unknown vector library");
-    }
-  }
-  auto searchPaths =
-      parseLibrarySearchPaths(spnc::option::searchPaths.get(*config));
+
+  auto searchPaths = parseLibrarySearchPaths(option::searchPaths);
   auto libraryInfo = std::make_unique<LibraryInfo>(additionalLibs, searchPaths);
   pipeline->getContext()->add(std::move(libraryInfo));
   // Link the kernel with the libraries to produce executable (shared object).
   (void)pipeline->emplaceStep<ClangKernelLinking>(emitObjectCode, sharedObject);
-  // Add the CLI configuration to the pipeline context.
-  pipeline->getContext()->add(std::move(config));
+
+  // Move to the pipeline context.
+  pipeline->getContext()->add(std::move(TLII));
+  pipeline->getContext()->add(std::move(targetMachine));
+  pipeline->getContext()->add(std::move(kernelInfo));
 
   return pipeline;
 }
 
-bool CPUToolchain::validateVectorLibrary(interface::Configuration &config) {
-  auto veclib = spnc::option::vectorLibrary.get(config);
+bool CPUToolchain::validateVectorLibrary(
+    llvm::driver::VectorLibrary vectorLibrary) {
   auto &targetInfo = mlir::spn::TargetInformation::nativeCPUTarget();
-  switch (veclib) {
-  case spnc::option::VectorLibrary::SVML:
-  case spnc::option::VectorLibrary::LIBMVEC:
+  switch (vectorLibrary) {
+  case llvm::driver::VectorLibrary::SVML:
+  case llvm::driver::VectorLibrary::LIBMVEC:
     return targetInfo.isX8664Target();
-  case spnc::option::VectorLibrary::ARM:
+  case llvm::driver::VectorLibrary::ArmPL:
     return targetInfo.isAARCH64Target();
   default:
     return false;

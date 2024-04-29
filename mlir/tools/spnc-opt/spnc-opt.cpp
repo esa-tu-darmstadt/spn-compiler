@@ -11,6 +11,7 @@
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNPasses.h"
 #include "LoSPNtoCPU/LoSPNtoCPUConversionPasses.h"
+#include "LoSPNtoCPU/LoSPNtoCPUPipeline.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
@@ -39,9 +40,11 @@ int main(int argc, char **argv) {
 
   mlir::registerAllPasses();
   mlir::spn::low::registerLoSPNPasses();
+  mlir::spn::registerLoSPNtoCPUPasses();
 #if SPNC_CUDA_SUPPORT
   mlir::spn::registerLoSPNtoGPUPasses();
 #endif
+  mlir::spn::registerLoSPNtoCPUPipeline();
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::spn::createHiSPNtoLoSPNQueryConversionPass(logSpace,
@@ -51,16 +54,6 @@ int main(int argc, char **argv) {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return mlir::spn::createHiSPNtoLoSPNNodeConversionPass(logSpace,
                                                            optRepresentation);
-  });
-
-  mlir::PassRegistration<mlir::spn::LoSPNtoCPUStructureConversionPass>();
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::spn::createLoSPNtoCPUNodeConversionPass();
-  });
-
-  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
-    return mlir::spn::createLoSPNNodeVectorizationPass();
   });
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {

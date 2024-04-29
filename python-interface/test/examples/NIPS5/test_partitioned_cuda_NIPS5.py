@@ -26,20 +26,30 @@ def test_partitioned_cuda_NIPS5():
     scriptPath = os.path.realpath(os.path.dirname(__file__))
 
     # Deserialize model
-    query = BinaryDeserializer(os.path.join(scriptPath, "NIPS5.bin")).deserialize_from_file()
+    query = BinaryDeserializer(
+        os.path.join(scriptPath, "NIPS5.bin")
+    ).deserialize_from_file()
     spn = query.graph.root
 
-    inputs = np.genfromtxt(os.path.join(scriptPath, "inputdata.txt"), delimiter=";", dtype="int32")
+    inputs = np.genfromtxt(
+        os.path.join(scriptPath, "inputdata.txt"), delimiter=";", dtype="int32"
+    )
     # Execute the compiled Kernel.
-    results = CUDACompiler(computeInLogSpace=False, maxTaskSize=10).log_likelihood(spn, inputs, supportMarginal=False)
+    results = CUDACompiler(spnc_use_log_space=False, maxTaskSize=10).log_likelihood(
+        spn, inputs, supportMarginal=False
+    )
 
     # Compute the reference results using the inference from SPFlow.
-    reference = np.genfromtxt(os.path.join(scriptPath, "outputdata.txt"), delimiter=";", dtype="float64")
+    reference = np.genfromtxt(
+        os.path.join(scriptPath, "outputdata.txt"), delimiter=";", dtype="float64"
+    )
     reference = reference.reshape(10000)
 
     # Check the computation results against the reference
     # Check in normal space if log-results are not very close to each other.
-    assert np.all(np.isclose(results, reference)) or np.all(np.isclose(np.exp(results), np.exp(reference)))
+    assert np.all(np.isclose(results, reference)) or np.all(
+        np.isclose(np.exp(results), np.exp(reference))
+    )
 
 
 if __name__ == "__main__":

@@ -7,12 +7,13 @@
 //==============================================================================
 
 #include "EmitObjectCode.h"
+#include "option/Options.h"
 #include "util/Logging.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Frontend/Driver/CodeGenOptions.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
-#include <option/GlobalOptions.h>
 
 spnc::ExecutionResult spnc::EmitObjectCode::executeStep(llvm::Module *module,
                                                         ObjectFile *file) {
@@ -23,34 +24,15 @@ spnc::ExecutionResult spnc::EmitObjectCode::executeStep(llvm::Module *module,
     return spnc::failure("Could not open output file: {}", EC.message());
   }
   llvm::legacy::PassManager pass;
-  // If a vector library was specified via the CLI option, add the functions
-  // from the vector library to the TargetLibraryInfo and add a
-  // TargetLibraryInfoWrapperPass to the pass manager to automatically replace
-  // vectorized calls to functions such as exp or log with optimized functions
-  // from the vector library.
-  auto veclib =
-      spnc::option::vectorLibrary.get(*getContext()->get<Configuration>());
-  auto *machine = getContext()->get<llvm::TargetMachine>();
-  if (veclib != spnc::option::VectorLibrary::NONE) {
-    auto targetTriple = machine->getTargetTriple();
-    llvm::TargetLibraryInfoImpl TLII(targetTriple);
-    switch (veclib) {
-    case spnc::option::VectorLibrary::SVML:
-      TLII.addVectorizableFunctionsFromVecLib(llvm::TargetLibraryInfoImpl::SVML,
-                                              targetTriple);
-      break;
-    case spnc::option::VectorLibrary::LIBMVEC:
-      TLII.addVectorizableFunctionsFromVecLib(
-          llvm::TargetLibraryInfoImpl::LIBMVEC_X86, targetTriple);
-      break;
-    case spnc::option::VectorLibrary::ARM: /* ARM Optimized Routines are not
-                                              available through the TLII.*/
-      break;
-    default:
-      return spnc::failure("Unknown vector library");
-    }
-    pass.add(new llvm::TargetLibraryInfoWrapperPass(TLII));
+
+  // Add the target library info wrapper pass to the pass manager if available
+  // This pass supplies information about the vector library to the codegen
+  if (getContext()->has<llvm::TargetLibraryInfoImpl>()) {
+    auto *TLII = getContext()->get<llvm::TargetLibraryInfoImpl>();
+    pass.add(new llvm::TargetLibraryInfoWrapperPass(*TLII));
   }
+
+  auto *machine = getContext()->get<llvm::TargetMachine>();
   auto fileType = llvm::CodeGenFileType::ObjectFile;
 
   if (machine->addPassesToEmitFile(pass, dest, nullptr, fileType)) {

@@ -20,8 +20,12 @@ find_package(LLVM REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-include(Doxygen.cmake)
-doxygen_setup()
+option(GENERATE_DOCS "Generate documentation using Doxygen" OFF)
+
+if (${GENERATE_DOCS})
+    find_package(Doxygen REQUIRED)
+    doxygen_setup()
+endif (${GENERATE_DOCS})
 
 option(CUDA_GPU_SUPPORT
         "Enable/disable support for CUDA GPUs. Requires a working installation of the CUDA driver and toolkit"
@@ -107,4 +111,6 @@ add_subdirectory(runtime)
 add_subdirectory(execute)
 add_subdirectory(python-interface)
 
-doxygen_toplevel()
+if (${GENERATE_DOCS})
+    doxygen_toplevel()
+endif (${GENERATE_DOCS})

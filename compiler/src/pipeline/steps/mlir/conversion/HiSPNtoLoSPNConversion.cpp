@@ -10,21 +10,19 @@
 #include "HiSPNtoLoSPN/HiSPNtoLoSPNConversionPasses.h"
 #include "LoSPN/LoSPNOps.h"
 #include "LoSPN/LoSPNPasses.h"
-#include "option/GlobalOptions.h"
 
 void spnc::HiSPNtoLoSPNConversion::initializePassPipeline(
     mlir::PassManager *pm, mlir::MLIRContext *ctx) {
-  auto config = getContext()->get<Configuration>();
-  auto useLogSpace = spnc::option::logSpace.get(*config);
-  auto useOptimalRepresentation = spnc::option::optRepresentation.get(*config);
+  bool useLogSpace = spnc::option::logSpace;
+  bool useOptimalRepresentation = spnc::option::optRepresentation;
+  // TODO: Refactor these passes into a pipeline. Make the options
+  // pipeline-specific.
   pm->addPass(mlir::spn::createHiSPNtoLoSPNNodeConversionPass(
       useLogSpace, useOptimalRepresentation));
   pm->addPass(mlir::spn::createHiSPNtoLoSPNQueryConversionPass(
       useLogSpace, useOptimalRepresentation));
-  auto collectGraphStats = spnc::option::collectGraphStats.get(*config);
-  if (collectGraphStats) {
-    auto graphStatsFile = spnc::option::graphStatsFile.get(*config);
-    pm->addPass(
-        mlir::spn::low::createLoSPNGraphStatsCollectionPass(graphStatsFile));
+  if (spnc::option::collectGraphStats) {
+    pm->addPass(mlir::spn::low::createLoSPNGraphStatsCollectionPass(
+        spnc::option::graphStatsFile));
   }
 }

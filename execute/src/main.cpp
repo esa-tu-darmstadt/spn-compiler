@@ -6,7 +6,6 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include "../../compiler/src/option/Options.h"
 #include "llvm/Support/CommandLine.h"
 #include <iostream>
 #include <map>
@@ -17,15 +16,15 @@
 #define TEST_KERNEL_DIR "/tmp"
 #endif
 
-int main(int argc, char *argv[]) {
-  auto clOptions = spnc::interface::Options::registerCLOptions();
+llvm::cl::opt<std::string> input("input", llvm::cl::Positional,
+                                 llvm::cl::desc("<input file>"),
+                                 llvm::cl::Required);
 
+int main(int argc, char *argv[]) {
   llvm::cl::ParseCommandLineOptions(argc, argv, "SPN Compiler");
 
-  auto options = spnc::interface::Options::collectCLOptions(clOptions);
-  std::string inputFile = options["input"];
-  options.erase("input");
-  auto parseResult = spnc::spn_compiler::compileQuery(inputFile, options);
+  // Options are already parsed above, so we dont pass any (additional) options
+  auto parseResult = spnc::spn_compiler::compileQuery(input, {});
   std::cout << "Compiled kernel into file " << parseResult.fileName()
             << std::endl;
 

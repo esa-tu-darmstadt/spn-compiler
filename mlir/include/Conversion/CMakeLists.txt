@@ -1,1 +1,2 @@
 add_subdirectory(LoSPNtoGPU)
+add_subdirectory(LoSPNtoCPU)

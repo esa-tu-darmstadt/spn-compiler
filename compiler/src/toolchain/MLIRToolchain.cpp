@@ -20,7 +20,6 @@
 #include <llvm/ADT/StringMap.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/TargetParser/SubtargetFeature.h>
-#include <option/GlobalOptions.h>
 #include <util/FileSystem.h>
 
 using namespace spnc;

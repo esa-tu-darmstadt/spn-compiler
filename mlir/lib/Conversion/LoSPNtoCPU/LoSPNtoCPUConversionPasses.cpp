@@ -8,6 +8,7 @@
 
 #include "LoSPNtoCPU/LoSPNtoCPUConversionPasses.h"
 #include "LoSPN/LoSPNInterfaces.h"
+#include "LoSPN/LoSPNPasses.h"
 #include "LoSPNtoCPU/LoSPNtoCPUTypeConverter.h"
 #include "LoSPNtoCPU/NodePatterns.h"
 #include "LoSPNtoCPU/StructurePatterns.h"
@@ -20,16 +21,9 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
+#include "mlir/Pass/PassManager.h"
 
-void mlir::spn::LoSPNtoCPUStructureConversionPass::getDependentDialects(
-    mlir::DialectRegistry &registry) const {
-  registry.insert<mlir::arith::ArithDialect>();
-  registry.insert<mlir::scf::SCFDialect>();
-  registry.insert<mlir::vector::VectorDialect>();
-  registry.insert<mlir::memref::MemRefDialect>();
-  registry.insert<mlir::math::MathDialect>();
-  registry.insert<mlir::func::FuncDialect>();
-}
+using namespace mlir;
 
 // Helper functions in anonymous namespace.
 namespace {
@@ -85,27 +79,37 @@ namespace {
 }
 } // namespace
 
-void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
-  ConversionTarget target(getContext());
+namespace mlir {
+namespace spn {
 
-  target.addLegalDialect<scf::SCFDialect>();
-  target.addLegalDialect<mlir::math::MathDialect>();
-  target.addLegalDialect<mlir::vector::VectorDialect>();
-  target.addLegalDialect<mlir::bufferization::BufferizationDialect>();
-  target.addLegalDialect<mlir::memref::MemRefDialect>();
-  target.addLegalDialect<func::FuncDialect>();
-  target.addLegalDialect<mlir::arith::ArithDialect>();
-  target.addLegalOp<ModuleOp>();
+#define GEN_PASS_DEF_LOSPNTOCPUSTRUCTURECONVERSIONPASS
+#include "LoSPNtoCPU/LoSPNtoCPUConversionPasses.h.inc"
+struct LoSPNtoCPUStructureConversionPass
+    : public mlir::spn::impl::LoSPNtoCPUStructureConversionPassBase<
+          LoSPNtoCPUStructureConversionPass> {
+  using Base::Base;
 
-  LoSPNtoCPUTypeConverter typeConverter;
+  void runOnOperation() override {
+    ConversionTarget target(getContext());
 
-  target.addLegalDialect<spn::low::LoSPNDialect>();
-  target.addIllegalOp<spn::low::SPNKernel>();
-  target.addIllegalOp<spn::low::SPNBody>();
-  RewritePatternSet patterns(&getContext());
-  spn::populateLoSPNtoCPUStructurePatterns(patterns, &getContext(),
-                                           typeConverter);
-  FrozenRewritePatternSet frozenPatterns(std::move(patterns));
+    target.addLegalDialect<scf::SCFDialect>();
+    target.addLegalDialect<mlir::math::MathDialect>();
+    target.addLegalDialect<mlir::vector::VectorDialect>();
+    target.addLegalDialect<mlir::bufferization::BufferizationDialect>();
+    target.addLegalDialect<mlir::memref::MemRefDialect>();
+    target.addLegalDialect<func::FuncDialect>();
+    target.addLegalDialect<mlir::arith::ArithDialect>();
+    target.addLegalOp<ModuleOp>();
+
+    LoSPNtoCPUTypeConverter typeConverter;
+
+    target.addLegalDialect<spn::low::LoSPNDialect>();
+    target.addIllegalOp<spn::low::SPNKernel>();
+    target.addIllegalOp<spn::low::SPNBody>();
+    RewritePatternSet patterns(&getContext());
+    spn::populateLoSPNtoCPUStructurePatterns(patterns, &getContext(),
+                                             typeConverter);
+    FrozenRewritePatternSet frozenPatterns(std::move(patterns));
 
 #ifndef SLP_DEBUG
 #define SLP_DEBUG false
@@ -113,179 +117,174 @@ void mlir::spn::LoSPNtoCPUStructureConversionPass::runOnOperation() {
 
 #define PRINT_OP_COUNTS SLP_DEBUG
 #if PRINT_OP_COUNTS
-  llvm::StringMap<unsigned> opCounts;
-  getOperation()->walk(
-      [&](Operation *op) { ++opCounts[op->getName().getStringRef()]; });
-  for (auto const &entry : opCounts) {
-    llvm::outs() << "op count pre conversion: \"" << entry.first()
-                 << "\": " << entry.second << "\n";
-  }
+    llvm::StringMap<unsigned> opCounts;
+    getOperation()->walk(
+        [&](Operation *op) { ++opCounts[op->getName().getStringRef()]; });
+    for (auto const &entry : opCounts) {
+      llvm::outs() << "op count pre conversion: \"" << entry.first()
+                   << "\": " << entry.second << "\n";
+    }
 #endif
 
-  // We split this pass into two conversion pattern applications because the
-  // single task vectorization relies on the structure being converted
-  // beforehand. Otherwise, the SPNBatchReads wouldn't be converted into vector
-  // loads since they aren't contained in the SPNBody region like the other
-  // operations.
-  if (failed(applyPartialConversion(getOperation(), target, frozenPatterns))) {
-    signalPassFailure();
-  }
+    // We split this pass into two conversion pattern applications because the
+    // single task vectorization relies on the structure being converted
+    // beforehand. Otherwise, the SPNBatchReads wouldn't be converted into
+    // vector loads since they aren't contained in the SPNBody region like the
+    // other operations.
+    if (failed(
+            applyPartialConversion(getOperation(), target, frozenPatterns))) {
+      signalPassFailure();
+    }
 
-  target.addIllegalOp<spn::low::SPNTask>();
+    target.addIllegalOp<spn::low::SPNTask>();
 
-  RewritePatternSet taskPatterns(&getContext());
-  LoSPNtoCPUTypeConverter vectorizerTypeConverter(false);
-  if (vectorize) {
-    spn::populateLoSPNtoCPUVectorizationTaskPatterns(
-        taskPatterns, &getContext(), vectorizerTypeConverter, maxAttempts,
-        maxSuccessfulIterations, maxNodeSize, maxLookAhead,
-        reorderInstructionsDFS, allowDuplicateElements, allowTopologicalMixing,
-        useXorChains);
-  }
-  spn::populateLoSPNtoCPUTaskPatterns(taskPatterns, &getContext(),
-                                      typeConverter);
+    RewritePatternSet taskPatterns(&getContext());
+    LoSPNtoCPUTypeConverter vectorizerTypeConverter(false);
+    if (vectorize) {
+      spn::populateLoSPNtoCPUVectorizationTaskPatterns(
+          taskPatterns, &getContext(), vectorizerTypeConverter, maxAttempts,
+          maxSuccessfulIterations, maxNodeSize, maxLookAhead,
+          reorderInstructionsDFS, allowDuplicateElements,
+          allowTopologicalMixing, useXorChains);
+    }
+    spn::populateLoSPNtoCPUTaskPatterns(taskPatterns, &getContext(),
+                                        typeConverter);
 
-  frozenPatterns = FrozenRewritePatternSet(std::move(taskPatterns));
+    frozenPatterns = FrozenRewritePatternSet(std::move(taskPatterns));
 
-  if (failed(applyPartialConversion(getOperation(), target, frozenPatterns))) {
-    signalPassFailure();
-  }
+    if (failed(
+            applyPartialConversion(getOperation(), target, frozenPatterns))) {
+      signalPassFailure();
+    }
 
 #if PRINT_OP_COUNTS
-  opCounts.clear();
-  getOperation()->walk(
-      [&](Operation *op) { ++opCounts[op->getName().getStringRef()]; });
-  for (auto const &entry : opCounts) {
-    llvm::outs() << "op count post conversion: \"" << entry.first()
-                 << "\": " << entry.second << "\n";
-  }
+    opCounts.clear();
+    getOperation()->walk(
+        [&](Operation *op) { ++opCounts[op->getName().getStringRef()]; });
+    for (auto const &entry : opCounts) {
+      llvm::outs() << "op count post conversion: \"" << entry.first()
+                   << "\": " << entry.second << "\n";
+    }
 #endif
 #define DO_LIVENESS_ANALYSIS SLP_DEBUG
 #if DO_LIVENESS_ANALYSIS
-  printFunctionLiveness(getOperation());
+    printFunctionLiveness(getOperation());
 #endif
 
-  // Useful for when we are only interested in some intermediate stats and not
-  // the compiled kernel. This reduces time spent in subsequent passes
-  // practically to zero.
+    // Useful for when we are only interested in some intermediate stats and
+    // not the compiled kernel. This reduces time spent in subsequent passes
+    // practically to zero.
 #define DELETE_OPS SLP_DEBUG && false
 #if DELETE_OPS
-  getOperation().walk([&](FuncOp function) {
-    function.back().getTerminator()->moveBefore(&function.front().front());
-    while (&function.back() != &function.front()) {
-      function.getBlocks().pop_back();
-    }
-    while (&function.front().front() != &function.front().back()) {
-      function.front().getOperations().pop_back();
-    }
-  });
-#endif
-}
-
-void mlir::spn::LoSPNtoCPUNodeConversionPass::getDependentDialects(
-    mlir::DialectRegistry &registry) const {
-  registry.insert<mlir::arith::ArithDialect>();
-  registry.insert<mlir::scf::SCFDialect>();
-  registry.insert<mlir::math::MathDialect>();
-  registry.insert<mlir::vector::VectorDialect>();
-  registry.insert<mlir::memref::MemRefDialect>();
-  registry.insert<mlir::func::FuncDialect>();
-}
-
-void mlir::spn::LoSPNtoCPUNodeConversionPass::runOnOperation() {
-  ConversionTarget target(getContext());
-
-  target.addLegalDialect<mlir::arith::ArithDialect>();
-  target.addLegalDialect<mlir::scf::SCFDialect>();
-  target.addLegalDialect<mlir::math::MathDialect>();
-  target.addLegalDialect<mlir::vector::VectorDialect>();
-  target.addLegalDialect<mlir::memref::MemRefDialect>();
-  target.addLegalDialect<mlir::func::FuncDialect>();
-  target.addLegalOp<ModuleOp>();
-
-  LoSPNtoCPUTypeConverter typeConverter;
-
-  target.addIllegalDialect<mlir::spn::low::LoSPNDialect>();
-
-  RewritePatternSet patterns(&getContext());
-  mlir::spn::populateLoSPNtoCPUNodePatterns(patterns, &getContext(),
-                                            typeConverter);
-
-  auto op = getOperation();
-  FrozenRewritePatternSet frozenPatterns(std::move(patterns));
-  if (failed(applyFullConversion(op, target, frozenPatterns))) {
-    signalPassFailure();
-  }
-}
-
-std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNtoCPUNodeConversionPass() {
-  return std::make_unique<LoSPNtoCPUNodeConversionPass>();
-}
-
-void mlir::spn::LoSPNNodeVectorizationPass::getDependentDialects(
-    mlir::DialectRegistry &registry) const {
-  registry.insert<mlir::arith::ArithDialect>();
-  registry.insert<mlir::scf::SCFDialect>();
-  registry.insert<mlir::math::MathDialect>();
-  registry.insert<mlir::vector::VectorDialect>();
-  registry.insert<mlir::memref::MemRefDialect>();
-}
-
-void mlir::spn::LoSPNNodeVectorizationPass::runOnOperation() {
-  ConversionTarget target(getContext());
-
-  target.addLegalDialect<mlir::arith::ArithDialect>();
-  target.addLegalDialect<mlir::scf::SCFDialect>();
-  target.addLegalDialect<mlir::math::MathDialect>();
-  target.addLegalDialect<mlir::vector::VectorDialect>();
-  target.addLegalDialect<mlir::memref::MemRefDialect>();
-  target.addLegalOp<ModuleOp>();
-  target.addLegalOp<func::FuncOp>();
-
-  // Walk the operation to find out which vector width to use for the
-  // type-converter.
-  unsigned VF = 0;
-  getOperation()->walk([&VF](low::LoSPNVectorizable vOp) {
-    auto opVF = vOp.getVectorWidth();
-    if (!VF && opVF) {
-      VF = opVF;
-    } else {
-      if (opVF && VF != opVF) {
-        vOp.getOperation()->emitOpError(
-            "Multiple vectorizations with differing vector width found");
+    getOperation().walk([&](FuncOp function) {
+      function.back().getTerminator()->moveBefore(&function.front().front());
+      while (&function.back() != &function.front()) {
+        function.getBlocks().pop_back();
       }
-    }
-  });
-  // Use a special type converter converting all integer and floating-point
-  // types to vectors of the type.
-  LoSPNVectorizationTypeConverter typeConverter(VF);
-
-  target.addDynamicallyLegalDialect<mlir::spn::low::LoSPNDialect>(
-      [](Operation *op) {
-        if (auto vOp = dyn_cast<mlir::spn::low::LoSPNVectorizable>(op)) {
-          if (vOp.checkVectorized()) {
-            return false;
-          }
-        }
-        return true;
-      });
-  // Mark ConvertToVector as legal. We will try to replace them during the
-  // conversion of the remaining (scalar) nodes, as we need the scalar type to
-  // be legal, otherwise the operand of ConvertToVector is converted to a vector
-  // before invoking the pattern.
-  target.addLegalOp<mlir::spn::low::SPNConvertToVector>();
-
-  RewritePatternSet patterns(&getContext());
-  mlir::spn::populateLoSPNCPUVectorizationNodePatterns(patterns, &getContext(),
-                                                       typeConverter);
-
-  auto op = getOperation();
-  FrozenRewritePatternSet frozenPatterns(std::move(patterns));
-  if (failed(applyPartialConversion(op, target, frozenPatterns))) {
-    signalPassFailure();
+      while (&function.front().front() != &function.front().back()) {
+        function.front().getOperations().pop_back();
+      }
+    });
+#endif
   }
-}
+};
 
-std::unique_ptr<mlir::Pass> mlir::spn::createLoSPNNodeVectorizationPass() {
-  return std::make_unique<LoSPNNodeVectorizationPass>();
-}
+#define GEN_PASS_DEF_LOSPNTOCPUNODECONVERSIONPASS
+#include "LoSPNtoCPU/LoSPNtoCPUConversionPasses.h.inc"
+struct LoSPNtoCPUNodeConversionPass
+    : public mlir::spn::impl::LoSPNtoCPUNodeConversionPassBase<
+          LoSPNtoCPUNodeConversionPass> {
+  using Base::Base;
+
+  void runOnOperation() override {
+    ConversionTarget target(getContext());
+
+    target.addLegalDialect<mlir::arith::ArithDialect>();
+    target.addLegalDialect<mlir::scf::SCFDialect>();
+    target.addLegalDialect<mlir::math::MathDialect>();
+    target.addLegalDialect<mlir::vector::VectorDialect>();
+    target.addLegalDialect<mlir::memref::MemRefDialect>();
+    target.addLegalDialect<mlir::func::FuncDialect>();
+    target.addLegalOp<ModuleOp>();
+
+    LoSPNtoCPUTypeConverter typeConverter;
+
+    target.addIllegalDialect<mlir::spn::low::LoSPNDialect>();
+
+    RewritePatternSet patterns(&getContext());
+    mlir::spn::populateLoSPNtoCPUNodePatterns(patterns, &getContext(),
+                                              typeConverter);
+
+    auto op = getOperation();
+    FrozenRewritePatternSet frozenPatterns(std::move(patterns));
+    if (failed(applyFullConversion(op, target, frozenPatterns))) {
+      signalPassFailure();
+    }
+  }
+};
+
+#define GEN_PASS_DEF_LOSPNNODEVECTORIZATIONPASS
+#include "LoSPNtoCPU/LoSPNtoCPUConversionPasses.h.inc"
+struct LoSPNNodeVectorizationPass
+    : public mlir::spn::impl::LoSPNNodeVectorizationPassBase<
+          LoSPNNodeVectorizationPass> {
+  using Base::Base;
+
+  void runOnOperation() override {
+    ConversionTarget target(getContext());
+
+    target.addLegalDialect<mlir::arith::ArithDialect>();
+    target.addLegalDialect<mlir::scf::SCFDialect>();
+    target.addLegalDialect<mlir::math::MathDialect>();
+    target.addLegalDialect<mlir::vector::VectorDialect>();
+    target.addLegalDialect<mlir::memref::MemRefDialect>();
+    target.addLegalOp<ModuleOp>();
+    target.addLegalOp<func::FuncOp>();
+
+    // Walk the operation to find out which vector width to use for the
+    // type-converter.
+    unsigned VF = 0;
+    getOperation()->walk([&VF](low::LoSPNVectorizable vOp) {
+      auto opVF = vOp.getVectorWidth();
+      if (!VF && opVF) {
+        VF = opVF;
+      } else {
+        if (opVF && VF != opVF) {
+          vOp.getOperation()->emitOpError(
+              "Multiple vectorizations with differing vector width found");
+        }
+      }
+    });
+    // Use a special type converter converting all integer and
+    // floating-point types to vectors of the type.
+    LoSPNVectorizationTypeConverter typeConverter(VF);
+
+    target.addDynamicallyLegalDialect<mlir::spn::low::LoSPNDialect>(
+        [](Operation *op) {
+          if (auto vOp = dyn_cast<mlir::spn::low::LoSPNVectorizable>(op)) {
+            if (vOp.checkVectorized()) {
+              return false;
+            }
+          }
+          return true;
+        });
+    // Mark ConvertToVector as legal. We will try to replace them during the
+    // conversion of the remaining (scalar) nodes, as we need the scalar
+    // type to be legal, otherwise the operand of ConvertToVector is
+    // converted to a vector before invoking the pattern.
+    target.addLegalOp<mlir::spn::low::SPNConvertToVector>();
+
+    RewritePatternSet patterns(&getContext());
+    mlir::spn::populateLoSPNCPUVectorizationNodePatterns(
+        patterns, &getContext(), typeConverter);
+
+    auto op = getOperation();
+    FrozenRewritePatternSet frozenPatterns(std::move(patterns));
+    if (failed(applyPartialConversion(op, target, frozenPatterns))) {
+      signalPassFailure();
+    }
+  }
+};
+
+} // namespace spn
+} // namespace mlir

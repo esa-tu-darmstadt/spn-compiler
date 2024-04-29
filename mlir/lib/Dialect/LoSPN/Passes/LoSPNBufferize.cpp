@@ -23,16 +23,14 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/Passes.h"
 
-using namespace mlir;
-using namespace mlir::spn::low;
+namespace mlir::spn::low {
 
-namespace {
-
-#define GEN_PASS_DECL_LOSPNBUFFERIZE
 #define GEN_PASS_DEF_LOSPNBUFFERIZE
 #include "LoSPN/LoSPNPasses.h.inc"
 
 struct LoSPNBufferize : public impl::LoSPNBufferizeBase<LoSPNBufferize> {
+  using Base::Base;
+
 protected:
   void runOnOperation() override {
     ConversionTarget target(getContext());
@@ -89,9 +87,4 @@ protected:
   }
 };
 
-} // namespace
-
-std::unique_ptr<OperationPass<ModuleOp>>
-mlir::spn::low::createLoSPNBufferizePass() {
-  return std::make_unique<LoSPNBufferize>();
-}
+} // namespace mlir::spn::low

@@ -59,8 +59,10 @@ add_subdirectory(lib)
 add_subdirectory(tools)
 add_subdirectory(test)
 
-doxygen_doc(TARGET_NAME mlir-doc
+if (${GENERATE_DOCS})
+    doxygen_doc(TARGET_NAME mlir-doc
         SRC_DIRECTORIES
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_BINARY_DIR}/include/Dialect)
+endif (${GENERATE_DOCS})

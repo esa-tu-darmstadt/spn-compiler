@@ -6,6 +6,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 # ==============================================================================
 
+import enum
 import numpy as np
 import tempfile
 import os
@@ -15,31 +16,46 @@ from xspn.structure.Model import SPNModel
 from xspn.structure.Query import JointProbability, ErrorModel
 import spnc.spncpy as spncpy
 
+
 def convertToFlag(value):
     return "true" if value else "false"
+
+
+class VectorLibrary(enum.Enum):
+    Accelerate = "Accelerate"
+    Darwin_libsystem_m = "Darwin_libsystem_m"
+    LIBMVEC = "LIBMVEC"
+    MASSV = "MASSV"
+    SVML = "SVML"
+    sleefgnuabi = "SLEEF"
+    ArmPL = "ArmPL"
+    AMDLIBM = "AMDLIBM"
+    NoLibrary = "None"
+    Default = "Default"
+
 
 class CPUCompiler:
     """Convenience interface to SPNC, targeting execution on the CPU.
 
     Attributes
     ----------
-    vectorize: bool
+    spnc_cpu_vectorize: bool
         Perform vectorization if possible.
-    vectorLibrary : str
-        Use vector library for optimized math functions, possible values "ARM", "LIBMVEC", "SVML", "Default" and "None".
-    computeInLogSpace : bool
+    spnc_vector_library : VectorLibrary
+        The vector library to use for optimized math functions.
+    spnc_use_log_space : bool
         Perform computations in log-space.
-    useVectorShuffle : bool
+    spnc_use_vector_shuffle : bool
         Use vector shuffles instead of gather loads when vectorizing.
-    verbose : bool
-        Verbose output.
+    spnc_dump_ir : bool
+        spnc_dump_ir output.
     otherOptions : dict
         Additional options to pass to the compiler.
 
     Methods
     -------
 
-    compile_ll(spn, inputDataType = "float64", errorModel = ErrorModel(), 
+    compile_ll(spn, inputDataType = "float64", errorModel = ErrorModel(),
                     batchSize = 4096, supportMarginal = True, name = "spn_cpu")
         Compile SPN and return the compiled kernel.
 
@@ -52,43 +68,55 @@ class CPUCompiler:
     isVectorizationSupported()
         Check whether the compiler supports vectorization.
 
-    
+
     """
 
-    def __init__(self, vectorize=True, vectorLibrary="Default", computeInLogSpace=True,
-                 useVectorShuffle=True, verbose=False, **kwargs):
+    def __init__(
+        self,
+        spnc_cpu_vectorize=True,
+        spnc_vector_library=VectorLibrary.Default,
+        spnc_use_log_space=True,
+        spnc_use_vector_shuffle=True,
+        spnc_dump_ir=False,
+        **kwargs,
+    ):
         """
         Parameters
         ----------
-        vectorize: bool, optional
+        spnc_cpu_vectorize: bool, optional
             Perform vectorization if possible.
-        vectorLibrary : str, optional
-            Use vector library for optimized math functions, possible values "ARM",
-            "LIBMVEC", "SVML", "Default" and "None".
-        computeInLogSpace : bool, optional
+        spnc_vector_library : VectorLibrary, optional
+            The vector library to use for optimized math functions, possible values "ArmPL",
+        spnc_use_log_space : bool, optional
             Perform computations in log-space.
-        useVectorShuffle : bool, optional
+        spnc_use_vector_shuffle : bool, optional
             Use vector shuffles instead of gather loads when vectorizing.
-        verbose : bool, optional
-            Verbose output.
+        spnc_dump_ir : bool, optional
+            spnc_dump_ir output.
         kwargs :
             Additional options to pass to the compiler.
         """
 
-        self.verbose = verbose
-        self.vectorize = vectorize
-        if vectorLibrary == "Default":
-            self.vectorLibrary = CPUCompiler.getDefaultVectorLibrary()
+        self.spnc_dump_ir = spnc_dump_ir
+        self.spnc_cpu_vectorize = spnc_cpu_vectorize
+        if spnc_vector_library == VectorLibrary.Default:
+            self.spnc_vector_library = CPUCompiler.getDefaultVectorLibrary()
         else:
-            self.vectorLibrary = vectorLibrary
-        self.computeInLogSpace = computeInLogSpace
-        self.useVectorShuffle = useVectorShuffle
+            self.spnc_vector_library = spnc_vector_library
+        self.spnc_use_log_space = spnc_use_log_space
+        self.spnc_use_vector_shuffle = spnc_use_vector_shuffle
         self.otherOptions = kwargs
 
-
-    def compile_ll(self, spn, inputDataType = "float64", errorModel = ErrorModel(), 
-                    batchSize = 4096, supportMarginal = True, name = "spn_cpu"):
-        """ Compile the SPN for the CPU target and return the compiled kernel.
+    def compile_ll(
+        self,
+        spn,
+        inputDataType="float64",
+        errorModel=ErrorModel(),
+        batchSize=4096,
+        supportMarginal=True,
+        name="spn_cpu",
+    ):
+        """Compile the SPN for the CPU target and return the compiled kernel.
 
         Parameters
         ----------
@@ -108,12 +136,16 @@ class CPUCompiler:
         """
 
         model = SPNModel(spn, inputDataType, name)
-        query = JointProbability(model, batchSize = batchSize, supportMarginal = supportMarginal,
-                                 rootError = errorModel)
+        query = JointProbability(
+            model,
+            batchSize=batchSize,
+            supportMarginal=supportMarginal,
+            rootError=errorModel,
+        )
 
         # Serialize the SPN to binary format as input to the compiler.
         tmpfile = tempfile.NamedTemporaryFile()
-        if self.verbose:
+        if self.spnc_dump_ir:
             print(f"Serializing SPN to {tmpfile}")
         BinarySerializer(tmpfile.name).serialize_to_file(query)
         # Check that the serialization worked.
@@ -121,24 +153,34 @@ class CPUCompiler:
             raise RuntimeError("Serialization of the SPN failed")
 
         # Compile the query into a Kernel.
-        options = dict({"target": "CPU",
-                        "cpu-vectorize": convertToFlag(self.vectorize),
-                        "spn-vector-library": self.vectorLibrary,
-                        "use-shuffle": convertToFlag(self.useVectorShuffle),
-                        "use-log-space": convertToFlag(self.computeInLogSpace),
-                        "dump-ir": convertToFlag(self.verbose)
-                        })
+        options = dict(
+            {
+                "spnc-target": "CPU",
+                "spnc-cpu-vectorize": convertToFlag(self.spnc_cpu_vectorize),
+                "spnc-vector-library": self.spnc_vector_library.value,
+                "spnc-use-shuffle": convertToFlag(self.spnc_use_vector_shuffle),
+                "spnc-use-log-space": convertToFlag(self.spnc_use_log_space),
+                "spnc-dump-ir": convertToFlag(self.spnc_dump_ir),
+            }
+        )
 
         # Add the extra options, if they do not clash with an existing option.
         if self.otherOptions is not None:
             extraOptions = [(str(k), str(v)) for k, v in self.otherOptions.items()]
             for k, v in extraOptions:
+                # Replace "_" with "-" in the option name because "-" is not allowed in Python variable names,
+                # but is typically used in the compiler options.
+                k = k.replace("_", "-")
                 if k in options and options[k] != v:
-                    print(f"WARNING: Option {k} specified twice, ignoring option value {v}")
+                    print(
+                        f"WARNING: Option {k} specified twice, ignoring option value {v}"
+                    )
                 else:
                     options[k] = v
 
-        if self.verbose:
+        # Append
+
+        if self.spnc_dump_ir:
             print(f"Invoking compiler with options: {options}")
 
         kernel = spncpy.SPNCompiler().compileQuery(tmpfile.name, options)
@@ -168,9 +210,10 @@ class CPUCompiler:
         results = kernel.execute(numSamples, inputs)
         return results
 
-    def log_likelihood(self, spn, inputs, errorModel = ErrorModel(),
-                        batchSize = 4096, supportMarginal = True):
-        """ Compile the SPN and immediately execute the compiled kernel on the given inputs.
+    def log_likelihood(
+        self, spn, inputs, errorModel=ErrorModel(), batchSize=4096, supportMarginal=True
+    ):
+        """Compile the SPN and immediately execute the compiled kernel on the given inputs.
 
         Parameters
         ----------
@@ -194,9 +237,14 @@ class CPUCompiler:
 
         dataType = inputs.dtype
 
-        kernel = self.compile_ll(spn, str(dataType), errorModel = errorModel,
-                                 batchSize = batchSize, supportMarginal = supportMarginal,
-                                 name="spn_cpu")
+        kernel = self.compile_ll(
+            spn,
+            str(dataType),
+            errorModel=errorModel,
+            batchSize=batchSize,
+            supportMarginal=supportMarginal,
+            name="spn_cpu",
+        )
         results = self.execute(kernel, inputs)
         os.remove(kernel.fileName())
         return results
@@ -205,14 +253,14 @@ class CPUCompiler:
     def isVectorizationSupported():
         """Query the compiler for vectorization support on the host CPU"""
 
-        return spncpy.SPNCompiler.isFeatureAvailable("vectorize")
+        return spncpy.SPNCompiler.isFeatureAvailable("spnc_cpu_vectorize")
 
     @staticmethod
     def getDefaultVectorLibrary():
         hostArch = spncpy.SPNCompiler.getHostArchitecture()
         if hostArch == "aarch64":
-            return "ARM"
+            return VectorLibrary.ArmPL
         elif hostArch == "x86_64":
-            return "LIBMVEC"
+            return VectorLibrary.LIBMVEC
         else:
-            return "None"
+            return VectorLibrary.NoLibrary

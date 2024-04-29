@@ -18,13 +18,9 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 
-using namespace mlir;
-using namespace mlir::spn::low;
-
+namespace mlir::spn::low {
 #define GEN_PASS_DEF_LOSPNCOPYREMOVAL
 #include "LoSPN/LoSPNPasses.h.inc"
-
-namespace {
 
 struct CopyRemovalPattern : public OpRewritePattern<SPNCopy> {
 
@@ -111,8 +107,9 @@ struct CopyRemovalPattern : public OpRewritePattern<SPNCopy> {
   }
 };
 
-struct LoSPNCopyRemoval
-    : public ::impl::LoSPNCopyRemovalBase<LoSPNCopyRemoval> {
+struct LoSPNCopyRemoval : public impl::LoSPNCopyRemovalBase<LoSPNCopyRemoval> {
+  using Base::Base;
+
 protected:
   void runOnOperation() override {
     RewritePatternSet patterns(getOperation()->getContext());
@@ -122,9 +119,4 @@ protected:
   }
 };
 
-} // namespace
-
-std::unique_ptr<OperationPass<SPNKernel>>
-mlir::spn::low::createLoSPNCopyRemovalPass() {
-  return std::make_unique<LoSPNCopyRemoval>();
-}
+} // namespace mlir::spn::low

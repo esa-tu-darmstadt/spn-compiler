@@ -6,9 +6,10 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
+#include "LoSPN/LoSPNPasses.h"
+#include "LoSPNtoCPU/LoSPNtoCPUPipeline.h"
 #include "toolchain/CPUToolchain.h"
 #include <TargetInformation.h>
-#include <option/GlobalOptions.h>
 #include <option/Options.h>
 #include <spnc.h>
 #include <util/Logging.h>
@@ -19,24 +20,54 @@
 
 using namespace spnc;
 
+namespace {
+/// Processes the options, setting all registered CL options.
+void parseOptions(const options_t &options) {
+  std::vector<std::string> args;
+
+  // The first argument is the program name.
+  args.push_back("spnc");
+  for (const auto &option : options) {
+    if (option.second.empty())
+      args.push_back("--" + option.first);
+    else
+      args.push_back("--" + option.first + "=" + option.second);
+
+    SPDLOG_INFO("Option: {}={}", option.first, option.second);
+  }
+
+  // ParseCommandLineOptions expects a vector of C-strings.
+  std::vector<const char *> argv;
+  for (const auto &arg : args) {
+    argv.push_back(arg.c_str());
+  }
+
+  llvm::cl::ParseCommandLineOptions((int)argv.size(), argv.data(),
+                                    "SPN Compiler");
+}
+} // namespace
+
 Kernel spn_compiler::compileQuery(const std::string &inputFile,
                                   const options_t &options) {
   SPDLOG_INFO("Welcome to the SPN compiler!");
-  auto config = interface::Options::parse(options);
-  // set LLVM CLI options from config (eg --debug-only)
-  interface::Options::setCLOptions(options);
+
+  mlir::spn::registerLoSPNtoCPUPipeline();
+  mlir::spn::low::registerLoSPNPasses();
+
+  // Parse the options.
+  parseOptions(options);
+
   std::unique_ptr<Pipeline<Kernel>> pipeline;
-  if (spnc::option::compilationTarget.get(*config) ==
-      option::TargetMachine::CUDA) {
+  if (spnc::option::compilationTarget == option::TargetMachine::CUDA) {
 #if SPNC_CUDA_SUPPORT
-    pipeline = CUDAGPUToolchain::setupPipeline(inputFile, std::move(config));
+    pipeline = CUDAGPUToolchain::setupPipeline(inputFile);
 #else
     SPNC_FATAL_ERROR(
         "Target was 'CUDA', but the compiler does not support CUDA GPUs. "
         "Enable with CUDA_GPU_SUPPORT=ON during build")
 #endif
   } else {
-    pipeline = CPUToolchain::setupPipeline(inputFile, std::move(config));
+    pipeline = CPUToolchain::setupPipeline(inputFile);
   }
   SPDLOG_INFO("Executing compilation pipeline: {}", pipeline->toText());
   auto result = pipeline->execute();

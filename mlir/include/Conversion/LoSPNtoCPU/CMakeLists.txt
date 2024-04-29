@@ -1,0 +1,3 @@
+set(LLVM_TARGET_DEFINITIONS LoSPNtoCPUConversionPasses.td)
+mlir_tablegen(LoSPNtoCPUConversionPasses.h.inc -gen-pass-decls -name LoSPNtoCPU)
+add_public_tablegen_target(MLIRLoSPNtoCPUPassesIncGen)

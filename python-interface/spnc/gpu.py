@@ -18,8 +18,10 @@ import spnc.spncpy as spncpy
 
 from ctypes import CDLL
 
+
 def convertToFlag(value):
     return "true" if value else "false"
+
 
 class CUDACompiler:
     """Convenience interface to SPNC, targeting execution on CUDA/Nvidia GPUs.
@@ -29,17 +31,17 @@ class CUDACompiler:
 
     preloadToSharedMem : bool
         Pre-load input values to GPU shared memory before computation.
-    computeInLogSpace : bool
+    spnc_use_log_space : bool
         Perform computations in log-space.
-    verbose : bool
-        Verbose output.
+    spnc_dump_ir : bool
+        spnc_dump_ir output.
     otherOptions : dict
         Additional options to pass to the compiler.
 
     Methods
     -------
 
-    compile_ll(spn, inputDataType = "float64", errorModel = ErrorModel(), 
+    compile_ll(spn, inputDataType = "float64", errorModel = ErrorModel(),
                     batchSize = 4096, supportMarginal = True, name = "spn_cpu")
         Compile SPN and return the compiled kernel.
 
@@ -51,34 +53,47 @@ class CUDACompiler:
 
     isAvailable()
         Check whether the compiler supports CUDA GPUs.
-    
+
     """
 
     __cudaWrappers = None
 
-    def __init__(self, preloadToSharedMem=False, computeInLogSpace=True, verbose=False, **kwargs):
+    def __init__(
+        self,
+        preloadToSharedMem=False,
+        spnc_use_log_space=True,
+        spnc_dump_ir=False,
+        **kwargs,
+    ):
         """
         Parameters
         ----------
 
         preloadToSharedMem : bool
             Pre-load input values to GPU shared memory before computation.
-        computeInLogSpace : bool
+        spnc_use_log_space : bool
             Perform computations in log-space.
-        verbose : bool
-            Verbose output.
+        spnc_dump_ir : bool
+            spnc_dump_ir output.
         kwargs:
             Additional options to pass to the compiler.
         """
 
-        self.verbose = verbose
+        self.spnc_dump_ir = spnc_dump_ir
         self.preloadToSharedMem = preloadToSharedMem
-        self.computeInLogSpace = computeInLogSpace
+        self.spnc_use_log_space = spnc_use_log_space
         self.otherOptions = kwargs
 
-    def compile_ll(self, spn, inputDataType = "float64", errorModel = ErrorModel(), 
-                    batchSize = 64, supportMarginal = True, name = "spn_gpu"):
-        """ Compile the SPN for the CUDA GPU target and return the compiled kernel.
+    def compile_ll(
+        self,
+        spn,
+        inputDataType="float64",
+        errorModel=ErrorModel(),
+        batchSize=64,
+        supportMarginal=True,
+        name="spn_gpu",
+    ):
+        """Compile the SPN for the CUDA GPU target and return the compiled kernel.
 
         Parameters
         ----------
@@ -98,40 +113,49 @@ class CUDACompiler:
         """
 
         model = SPNModel(spn, inputDataType, name)
-        query = JointProbability(model, batchSize = batchSize, supportMarginal = supportMarginal,
-                                 rootError = errorModel)
+        query = JointProbability(
+            model,
+            batchSize=batchSize,
+            supportMarginal=supportMarginal,
+            rootError=errorModel,
+        )
 
         # Serialize the SPN to binary format as input to the compiler.
         tmpfile = tempfile.NamedTemporaryFile()
-        if self.verbose:
+        if self.spnc_dump_ir:
             print(f"Serializing SPN to {tmpfile}")
         BinarySerializer(tmpfile.name).serialize_to_file(query)
         # Check that the serialization worked.
         if not os.path.isfile(tmpfile.name):
             raise RuntimeError("Serialization of the SPN failed")
 
-        # The MLIR CUDA runtime wrappers are copied to the same location as 
+        # The MLIR CUDA runtime wrappers are copied to the same location as
         # the spncpy module, so we supply this directory as an additional library search path.
         libraryDir = os.path.realpath(os.path.dirname(spncpy.__file__))
 
         # Compile the query into a Kernel.
-        options = dict({"target": "CUDA",
-                        "gpu-shared-mem": convertToFlag(self.preloadToSharedMem),
-                        "use-log-space": convertToFlag(self.computeInLogSpace),
-                        "dump-ir": convertToFlag(self.verbose),
-                        "search-paths": str(libraryDir)
-                        })
+        options = dict(
+            {
+                "target": "CUDA",
+                "gpu-shared-mem": convertToFlag(self.preloadToSharedMem),
+                "use-log-space": convertToFlag(self.spnc_use_log_space),
+                "dump-ir": convertToFlag(self.spnc_dump_ir),
+                "search-paths": str(libraryDir),
+            }
+        )
 
         # Add the extra options, if they do not clash with an existing option.
         if self.otherOptions is not None:
             extraOptions = [(str(k), str(v)) for k, v in self.otherOptions.items()]
             for k, v in extraOptions:
                 if k in options and options[k] != v:
-                    print(f"WARNING: Option {k} specified twice, ignoring option value {v}")
+                    print(
+                        f"WARNING: Option {k} specified twice, ignoring option value {v}"
+                    )
                 else:
                     options[k] = v
 
-        if self.verbose:
+        if self.spnc_dump_ir:
             print(f"Invoking compiler with options: {options}")
 
         kernel = spncpy.SPNCompiler().compileQuery(tmpfile.name, options)
@@ -143,10 +167,10 @@ class CUDACompiler:
 
     def _initializeCUDAWrappers():
         # As the MLIR CUDA runtime wrappers library is typically not available on
-        # a default library search path and to avoid requiring the user to explicitly 
+        # a default library search path and to avoid requiring the user to explicitly
         # specify LD_LIBRARY_PATH each time anew, we try to load.
         # The packaging process usually adds the library to the spnc package, into
-        # the same location as the spncpy compiled module. 
+        # the same location as the spncpy compiled module.
         # We try to locate the library in this directory and load it.
         libraryDir = os.path.realpath(os.path.dirname(spncpy.__file__))
         pattern = os.path.join(libraryDir, "libspnc-cuda-wrappers.so*")
@@ -180,9 +204,10 @@ class CUDACompiler:
         results = kernel.execute(numSamples, inputs)
         return results
 
-    def log_likelihood(self, spn, inputs, errorModel = ErrorModel(),
-                        batchSize = 64, supportMarginal = True):
-        """ Compile the SPN and immediately execute the compiled kernel on the given inputs.
+    def log_likelihood(
+        self, spn, inputs, errorModel=ErrorModel(), batchSize=64, supportMarginal=True
+    ):
+        """Compile the SPN and immediately execute the compiled kernel on the given inputs.
 
         Parameters
         ----------
@@ -205,9 +230,14 @@ class CUDACompiler:
             raise RuntimeError("Input must be a two-dimensional array")
 
         dataType = inputs.dtype
-        kernel = self.compile_ll(spn, str(dataType), errorModel = errorModel, 
-                            batchSize = batchSize, supportMarginal = supportMarginal, 
-                            name = "spn_gpu")
+        kernel = self.compile_ll(
+            spn,
+            str(dataType),
+            errorModel=errorModel,
+            batchSize=batchSize,
+            supportMarginal=supportMarginal,
+            name="spn_gpu",
+        )
         results = self.execute(kernel, inputs)
         os.remove(kernel.fileName())
         return results

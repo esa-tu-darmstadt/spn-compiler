@@ -11,7 +11,7 @@
 #include "Kernel.h"
 #include "capnp/serialize.h"
 #include "mlir/IR/Verifier.h"
-#include "option/GlobalOptions.h"
+#include "option/Options.h"
 #include "toolchain/MLIRToolchain.h"
 #include "util/Logging.h"
 #include "xspn/xspn/serialization/binary/capnproto/spflow.capnp.h"
@@ -49,7 +49,7 @@ spnc::SPFlowToMLIRDeserializer::executeStep(BinarySPN *inputFile) {
 
   deserializeQuery(header.getQuery());
 
-  if (spnc::option::dumpIR.get(*getContext()->get<Configuration>())) {
+  if (spnc::option::dumpIR) {
     llvm::dbgs() << "\n// *** IR after deserialization ***\n";
     module->dump();
   }

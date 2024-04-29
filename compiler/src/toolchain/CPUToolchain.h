@@ -11,6 +11,7 @@
 
 #include "MLIRToolchain.h"
 #include "pipeline/Pipeline.h"
+#include "llvm/Frontend/Driver/CodeGenOptions.h"
 
 namespace spnc {
 
@@ -24,11 +25,10 @@ public:
   /// \param config Compilation option configuration.
   /// \return Job containing all necessary actions.
   static std::unique_ptr<Pipeline<Kernel>>
-  setupPipeline(const std::string &inputFile,
-                std::unique_ptr<interface::Configuration> config);
+  setupPipeline(const std::string &inputFile);
 
 private:
-  static bool validateVectorLibrary(interface::Configuration &config);
+  static bool validateVectorLibrary(llvm::driver::VectorLibrary vectorLibrary);
 };
 
 } // namespace spnc

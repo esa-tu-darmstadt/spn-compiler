@@ -12,7 +12,7 @@ from spn.structure.Base import Product, Sum
 from spn.structure.leaves.parametric.Parametric import Categorical
 from spn.algorithms.Inference import log_likelihood
 
-from spnc.cpu import CPUCompiler
+from spnc.cpu import CPUCompiler, VectorLibrary
 
 
 def test_cpu_categorical():
@@ -26,17 +26,21 @@ def test_cpu_categorical():
     p = Product(children=[c1, c2, c3, c4, c5, c6])
 
     # Randomly sample input values.
-    inputs = np.column_stack((
-        np.random.randint(3, size=30),
-        np.random.randint(3, size=30),
-        np.random.randint(3, size=30),
-        np.random.randint(3, size=30),
-        np.random.randint(3, size=30),
-        np.random.randint(3, size=30),
-    )).astype("int32")
+    inputs = np.column_stack(
+        (
+            np.random.randint(3, size=30),
+            np.random.randint(3, size=30),
+            np.random.randint(3, size=30),
+            np.random.randint(3, size=30),
+            np.random.randint(3, size=30),
+            np.random.randint(3, size=30),
+        )
+    ).astype("int32")
 
     # Execute the compiled Kernel.
-    results = CPUCompiler(computeInLogSpace=False, vectorize=False).log_likelihood(p, inputs, supportMarginal=False, batchSize=10)
+    results = CPUCompiler(
+        spnc_use_log_space=False, spnc_cpu_vectorize=False
+    ).log_likelihood(p, inputs, supportMarginal=False, batchSize=10)
 
     # Compute the reference results using the inference from SPFlow.
     reference = log_likelihood(p, inputs)
@@ -44,8 +48,10 @@ def test_cpu_categorical():
 
     # Check the computation results against the reference
     # Check in normal space if log-results are not very close to each other.
-    assert np.all(np.isclose(results, reference)) or np.all(np.isclose(np.exp(results), np.exp(reference)))
-    
+    assert np.all(np.isclose(results, reference)) or np.all(
+        np.isclose(np.exp(results), np.exp(reference))
+    )
+
 
 if __name__ == "__main__":
     test_cpu_categorical()

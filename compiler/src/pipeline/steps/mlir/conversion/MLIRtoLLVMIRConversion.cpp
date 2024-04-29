@@ -10,13 +10,13 @@
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/ExecutionEngine/OptUtils.h"
 #include "mlir/Target/LLVMIR/ModuleTranslation.h"
+#include "option/Options.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PassTimingInfo.h"
 #include "llvm/Passes/OptimizationLevel.h"
 #include "llvm/Support/Error.h"
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Transforms/IPO.h>
-#include <option/GlobalOptions.h>
 #include <util/Logging.h>
 
 #include "llvm/Passes/PassBuilder.h"
@@ -31,12 +31,11 @@ spnc::MLIRtoLLVMIRConversion::MLIRtoLLVMIRConversion(
 ExecutionResult
 spnc::MLIRtoLLVMIRConversion::executeStep(mlir::ModuleOp *mlirModule) {
   module = mlir::translateModuleToLLVMIR(mlirModule->getOperation(), llvmCtx);
-  auto *config = getContext()->get<Configuration>();
   if (!module) {
     return failure("Conversion to LLVM IR failed");
   }
 
-  if (spnc::option::dumpIR.get(*config)) {
+  if (spnc::option::dumpIR) {
     llvm::dbgs() << "\n// *** IR after conversion to LLVM IR ***\n";
     module->dump();
   }
@@ -54,7 +53,7 @@ spnc::MLIRtoLLVMIRConversion::executeStep(mlir::ModuleOp *mlirModule) {
   // conversion to LLVM dialect in MLIR.
   auto optLevel = retrieveOptLevel();
   optimizeLLVMIR(optLevel);
-  if (optLevel > 0 && spnc::option::dumpIR.get(*config)) {
+  if (optLevel > 0 && option::dumpIR) {
     llvm::dbgs() << "\n// *** IR after optimization of LLVM IR ***\n";
     module->dump();
   }
@@ -62,15 +61,14 @@ spnc::MLIRtoLLVMIRConversion::executeStep(mlir::ModuleOp *mlirModule) {
 }
 
 int spnc::MLIRtoLLVMIRConversion::retrieveOptLevel() {
-  auto *config = getContext()->get<Configuration>();
-  int irOptLevel = spnc::option::optLevel.get(*config);
-  if (spnc::option::irOptLevel.isPresent(*config) &&
-      spnc::option::irOptLevel.get(*config) != irOptLevel) {
-    auto optionValue = spnc::option::irOptLevel.get(*config);
+  int irOptLevel = option::irOptLevel.getNumOccurrences() > 0
+                       ? option::irOptLevel
+                       : option::optLevel;
+  if (option::irOptLevel.getNumOccurrences() > 0 &&
+      option::irOptLevel != option::optLevel) {
     SPDLOG_INFO("Option ir-opt-level (value: {}) takes precedence over option "
                 "opt-level (value: {})",
-                optionValue, irOptLevel);
-    irOptLevel = optionValue;
+                option::irOptLevel, option::optLevel);
   }
   return irOptLevel;
 }

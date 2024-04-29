@@ -9,6 +9,16 @@
 find_package(MLIR REQUIRED CONFIG)
 message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
 
+include_directories(${LLVM_INCLUDE_DIRS})
+include_directories(${MLIR_INCLUDE_DIRS})
+include_directories(BEFORE
+  ${CMAKE_CURRENT_BINARY_DIR}/src
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+find_program(LLVM_TABLEGEN_EXE "llvm-tblgen" ${LLVM_TOOLS_BINARY_DIR} NO_DEFAULT_PATH)
+add_subdirectory(src/option)
+
 if (${CUDA_GPU_SUPPORT})
     include(DetectCUDALibs.cmake)
     detect_cuda_libs()
@@ -27,7 +37,6 @@ add_library(spnc
         src/option/Options.cpp
         src/Driver.cpp
         src/util/Logging.cpp
-        src/option/GlobalOptions.cpp
         src/pipeline/steps/codegen/EmitObjectCode.cpp
         src/pipeline/steps/linker/ClangKernelLinking.cpp
         src/toolchain/MLIRToolchain.cpp
@@ -58,9 +67,6 @@ target_include_directories(spnc
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 
         PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${LLVM_INCLUDE_DIRS}
-        ${MLIR_INCLUDE_DIRS}
         ${SPN_DIALECT_INCLUDE_DIRS}
         ${CAPNP_HDR_DIRS}
         ${CAPNPC_OUTPUT_DIR})
@@ -123,15 +129,17 @@ set(mlir_libs
         MLIRNVVMDialect
         )
 
-llvm_map_components_to_libnames(llvm_libs bitwriter native passes)
+llvm_map_components_to_libnames(llvm_libs bitwriter native passes FrontendDriver)
 target_link_libraries(spnc PRIVATE spnc-common ${llvm_libs} ${mlir_libs} spdlog::spdlog
         CapnProto::capnp cpu_targetinfo stdc++fs)
+add_dependencies(spnc SPNCDriverOptions)
 
 target_compile_options(spnc PRIVATE ${SPNC_CXX_WARNING_LEVEL})
 
 mlir_check_link_libraries(spnc)
 
-doxygen_doc(TARGET_NAME spnc
+if (${GENERATE_DOCS})
+    doxygen_doc(TARGET_NAME spnc
         SRC_DIRECTORIES
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -139,4 +147,5 @@ doxygen_doc(TARGET_NAME spnc
         spnc-common mlir-doc
         EXCLUDES
         ../common/include/util/json.hpp)
+endif (${GENERATE_DOCS})
 
