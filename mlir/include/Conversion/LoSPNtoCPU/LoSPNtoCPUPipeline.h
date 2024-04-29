@@ -17,7 +17,7 @@ namespace spn {
 struct LoSPNtoCPUPipelineOptions
     : public mlir::PassPipelineOptions<LoSPNtoCPUPipelineOptions> {
   PassOptions::Option<bool> vectorize{
-      *this, "cpu-vectorize",
+      *this, "vectorize",
       llvm::cl::desc("Vectorize code generated for CPU targets."),
       llvm::cl::init(false)};
 
