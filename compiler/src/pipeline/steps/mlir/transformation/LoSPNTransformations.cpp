@@ -15,8 +15,10 @@
 
 void spnc::LoSPNTransformations::initializePassPipeline(
     mlir::PassManager *pm, mlir::MLIRContext *ctx) {
+  mlir::spn::low::LoSPNTaskPartioningOptions taskPartitioningOptions;
+  taskPartitioningOptions.maxTaskSize = option::maxTaskSize.getValue();
   pm->nest<mlir::spn::low::SPNKernel>().addPass(
-      mlir::spn::low::createLoSPNTaskPartioning());
+      mlir::spn::low::createLoSPNTaskPartioning(taskPartitioningOptions));
   pm->addPass(mlir::spn::low::createLoSPNBufferize());
   pm->addPass(mlir::createCanonicalizerPass());
   pm->nest<mlir::spn::low::SPNKernel>().addPass(

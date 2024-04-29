@@ -131,4 +131,61 @@ llvm::cl::opt<bool> replaceGatherWithShuffle{
     llvm::cl::desc("Optimize gather loads into vector loads and shuffles"),
     llvm::cl::init(false), llvm::cl::cat(vectorizationCategory)};
 
+/// -----------------------------------------------------------------------
+/// SLP vectorization options
+/// -----------------------------------------------------------------------
+llvm::cl::OptionCategory slpCategory{"SPNC SLP vectorization options"};
+
+llvm::cl::opt<unsigned> slpMaxAttempts{
+    "spnc-slp-max-attempts",
+    llvm::cl::desc("Maximum number of SLP vectorization attempts"),
+    llvm::cl::init(1), llvm::cl::cat(slpCategory)};
+llvm::cl::opt<unsigned> slpMaxSuccessfulIterations{
+    "spnc-slp-max-successful-iterations",
+    llvm::cl::desc("Maximum number of successful SLP vectorization runs to "
+                   "be applied to a function"),
+    llvm::cl::init(1), llvm::cl::cat(slpCategory)};
+llvm::cl::opt<unsigned> slpMaxNodeSize{
+    "spnc-slp-max-node-size",
+    llvm::cl::desc("Maximum multinode size during SLP vectorization in terms "
+                   "of the number of vectors they may contain"),
+    llvm::cl::init(10), llvm::cl::cat(slpCategory)};
+llvm::cl::opt<unsigned> slpMaxLookAhead{
+    "spnc-slp-max-look-ahead",
+    llvm::cl::desc("Maximum look-ahead depth when reordering multinode "
+                   "operands during SLP vectorization"),
+    llvm::cl::init(3), llvm::cl::cat(slpCategory)};
+llvm::cl::opt<bool> slpReorderInstructionsDFS{
+    "spnc-slp-reorder-dfs",
+    llvm::cl::desc("Flag to indicate if SLP-vectorized instructions should "
+                   "be arranged in DFS order (true) or in BFS order "
+                   "(false)"),
+    llvm::cl::init(true), llvm::cl::cat(slpCategory)};
+llvm::cl::opt<bool> slpAllowDuplicateElements{
+    "spnc-slp-allow-duplicate-elements",
+    llvm::cl::desc("Flag to indicate whether duplicate elements are allowed "
+                   "in vectors during SLP graph building"),
+    llvm::cl::init(false), llvm::cl::cat(slpCategory)};
+llvm::cl::opt<bool> slpAllowTopologicalMixing{
+    "spnc-slp-allow-topological-mixing",
+    llvm::cl::desc("Flag to indicate if elements with different topological "
+                   "depths are allowed in vectors during SLP graph "
+                   "building"),
+    llvm::cl::init(false), llvm::cl::cat(slpCategory)};
+llvm::cl::opt<bool> slpUseXorChains{
+    "spnc-slp-use-xor-chains",
+    llvm::cl::desc("Flag to indicate if XOR chains should be used to "
+                   "compute look-ahead scores instead of Porpodas's "
+                   "algorithm"),
+    llvm::cl::init(true), llvm::cl::cat(slpCategory)};
+
+/// -----------------------------------------------------------------------
+/// Task partitioning
+/// -----------------------------------------------------------------------
+llvm::cl::OptionCategory partitionCategory{"SPNC task partitioning options"};
+
+llvm::cl::opt<int> maxTaskSize{
+    "spnc-max-task-size",
+    llvm::cl::desc("Maximum number of operations per task"), llvm::cl::init(-1),
+    llvm::cl::cat(partitionCategory)};
 } // namespace spnc::option

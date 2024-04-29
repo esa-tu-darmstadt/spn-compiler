@@ -24,6 +24,15 @@ buildLoSPNtoCPUPipeline(mlir::OpPassManager &pm,
                         const LoSPNtoCPUPipelineOptions &options) {
   LoSPNtoCPUStructureConversionPassOptions structConvOptions;
   structConvOptions.vectorize = options.vectorize;
+  structConvOptions.maxAttempts = options.slpMaxAttempts;
+  structConvOptions.maxSuccessfulIterations =
+      options.slpMaxSuccessfulIterations;
+  structConvOptions.maxNodeSize = options.slpMaxNodeSize;
+  structConvOptions.maxLookAhead = options.slpMaxLookAhead;
+  structConvOptions.reorderInstructionsDFS = options.slpReorderInstructionsDFS;
+  structConvOptions.allowDuplicateElements = options.slpAllowDuplicateElements;
+  structConvOptions.allowTopologicalMixing = options.slpAllowTopologicalMixing;
+  structConvOptions.useXorChains = options.slpUseXorChains;
 
   pm.addPass(
       mlir::spn::createLoSPNtoCPUStructureConversionPass(structConvOptions));

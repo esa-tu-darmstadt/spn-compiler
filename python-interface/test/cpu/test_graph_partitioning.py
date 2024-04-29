@@ -35,7 +35,9 @@ def test_cpu_histogram():
 
     # Execute the compiled Kernel.
     results = CPUCompiler(
-        spnc_use_log_space=False, spnc_cpu_vectorize=False, maxTaskSize=5
+        spnc_use_log_space=False,
+        spnc_cpu_vectorize=False,
+        spnc_max_task_size=5,
     ).log_likelihood(spn, inputs, supportMarginal=False, batchSize=10)
 
     # Compute the reference results using the inference from SPFlow.

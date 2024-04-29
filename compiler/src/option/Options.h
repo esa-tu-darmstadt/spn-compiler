@@ -92,4 +92,46 @@ extern llvm::cl::opt<bool> vectorize;
 /// Optimize gather loads into vector loads and shuffles
 extern llvm::cl::opt<bool> replaceGatherWithShuffle;
 
+/// -----------------------------------------------------------------------
+/// SLP vectorization options
+/// -----------------------------------------------------------------------
+
+/// Maximum number of SLP vectorization attempts
+extern llvm::cl::opt<unsigned> slpMaxAttempts;
+
+/// Maximum number of successful SLP vectorization runs to be applied to a
+/// function
+extern llvm::cl::opt<unsigned> slpMaxSuccessfulIterations;
+
+/// Maximum multinode size during SLP vectorization in terms of the number of
+/// vectors they may contain
+extern llvm::cl::opt<unsigned> slpMaxNodeSize;
+
+/// Maximum look-ahead depth when reordering multinode operands during SLP
+/// vectorization
+extern llvm::cl::opt<unsigned> slpMaxLookAhead;
+
+/// Flag to indicate if SLP-vectorized instructions should be arranged in DFS
+/// order (true) or in BFS order (false)
+extern llvm::cl::opt<bool> slpReorderInstructionsDFS;
+
+/// Flag to indicate whether duplicate elements are allowed in vectors during
+/// SLP graph building
+extern llvm::cl::opt<bool> slpAllowDuplicateElements;
+
+/// Flag to indicate if elements with different topological depths are allowed
+/// in vectors during SLP graph building
+extern llvm::cl::opt<bool> slpAllowTopologicalMixing;
+
+/// Flag to indicate if XOR chains should be used to compute look-ahead scores
+/// instead of Porpodas's algorithm
+extern llvm::cl::opt<bool> slpUseXorChains;
+
+/// -----------------------------------------------------------------------
+/// Task partitioning options
+/// -----------------------------------------------------------------------
+
+/// Maximum number of operations per task
+extern llvm::cl::opt<int> maxTaskSize;
+
 } // namespace spnc::option
