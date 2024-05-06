@@ -19,6 +19,7 @@ include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "mlir/Interfaces/FunctionInterfaces.td"
 include "mlir/IR/RegionKindInterface.td"
+include "mlir/IR/BuiltinAttributeInterfaces.td"
 
 
 def SPNKernel : LoSPN_Op<"kernel", [CallableOpInterface, FunctionOpInterface, Symbol, IsolatedFromAbove]> {
@@ -403,11 +404,11 @@ def SPNYield : LoSPNBodyOp<"yield", [Terminator, DeclareOpInterfaceMethods<LoSPN
 
 }
 
-def SPNConstant : LoSPNBodyOp<"constant", [ConstantLike, NoMemoryEffect, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
+def SPNConstant : LoSPNBodyOp<"constant", [ConstantLike, Pure, AllTypesMatch<["value", "result"]>, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "Represents a simple constant value";
 
-    let arguments = (ins TypeAttr:$type, F64Attr:$value);
+    let arguments = (ins TypedAttrInterface:$value);
 
     let results = (outs LoSPNComputeType:$result);
 

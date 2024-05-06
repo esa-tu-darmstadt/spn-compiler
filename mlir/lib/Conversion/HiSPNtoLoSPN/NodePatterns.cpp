@@ -7,6 +7,7 @@
 //==============================================================================
 
 #include "HiSPNtoLoSPN/NodePatterns.h"
+#include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
 #include "mlir/IR/ValueRange.h"
 #include "mlir/Support/LLVM.h"
@@ -63,8 +64,7 @@ Value SumNodeLowering::splitWeightedSum(
       weight = log(weight);
     }
     auto constant = rewriter.create<low::SPNConstant>(
-        op.getLoc(), type, TypeAttr::get(type),
-        rewriter.getF64FloatAttr(weight));
+        op.getLoc(), type, rewriter.getF64FloatAttr(weight));
 
     return rewriter.create<low::SPNMul>(op.getLoc(), operands[0], constant);
   } else {

@@ -10,6 +10,7 @@
 #include "LoSPN/LoSPNAttributes.h"
 #include "LoSPN/LoSPNInterfaces.h"
 #include "LoSPN/LoSPNOps.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "llvm/ADT/TypeSwitch.h"
 
@@ -26,6 +27,14 @@ void LoSPNDialect::initialize() {
 #define GET_ATTRDEF_LIST
 #include "LoSPN/LoSPNAttributes.cpp.inc"
       >();
+}
+
+/// Materialize an integer or floating point constant.
+Operation *LoSPNDialect::materializeConstant(OpBuilder &builder,
+                                             Attribute value, Type type,
+                                             Location loc) {
+  return builder.create<SPNConstant>(loc, type, cast<TypedAttr>(value));
+  // return mlir::arith::ConstantOp::materialize(builder, value, type, loc);
 }
 
 #define GET_TYPEDEF_CLASSES

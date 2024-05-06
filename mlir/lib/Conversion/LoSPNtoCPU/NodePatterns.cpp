@@ -13,6 +13,7 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/IR/BuiltinAttributeInterfaces.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include <cmath>
 
@@ -154,11 +155,7 @@ mlir::LogicalResult mlir::spn::ConstantLowering::matchAndRewrite(
   if (auto logType = resultType.dyn_cast<low::LogType>()) {
     resultType = logType.getBaseType();
   }
-  FloatAttr value = op.getValueAttr();
-  if (resultType != rewriter.getF64Type()) {
-    assert(resultType.isa<FloatType>());
-    value = rewriter.getFloatAttr(resultType, value.getValueAsDouble());
-  }
+  TypedAttr value = op.getValue();
   rewriter.replaceOpWithNewOp<arith::ConstantOp>(op, resultType, value);
   return success();
 }

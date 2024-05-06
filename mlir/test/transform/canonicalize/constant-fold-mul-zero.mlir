@@ -13,7 +13,7 @@ module {
       %2 = "lo_spn.body"(%0, %1) ({
       ^bb0(%arg5: f64, %arg6: f64):
         %3 = "lo_spn.mul"(%arg5, %arg6) : (f64, f64) -> f64
-        %4 = "lo_spn.constant"() <{type = f64, value = 0.000000e+00 : f64}> : () -> f64
+        %4 = "lo_spn.constant"() <{value = 0.000000e+00 : f64}> : () -> f64
         %5 = "lo_spn.mul"(%3, %4) : (f64, f64) -> f64
         "lo_spn.yield"(%5) : (f64) -> ()
       }) : (f64, f64) -> f64
@@ -45,10 +45,8 @@ module {
 // CHECK:             %[[VAL_9:.*]] = "lo_spn.batch_read"(%[[VAL_6]], %[[VAL_5]]) <{staticIndex = 1 : ui32}> : (memref<?x2xf64>, index) -> f64
 // CHECK:             %[[VAL_10:.*]] = "lo_spn.body"(%[[VAL_8]], %[[VAL_9]]) ({
 // CHECK:             ^bb0(%[[VAL_11:.*]]: f64, %[[VAL_12:.*]]: f64):
-// CHECK:               %[[VAL_13:.*]] = "lo_spn.constant"() <{type = f64, value = 0.000000e+00 : f64}> : () -> f64
-// CHECK:               %[[VAL_14:.*]] = "lo_spn.mul"(%[[VAL_11]], %[[VAL_12]]) : (f64, f64) -> f64
-// CHECK:               %[[VAL_15:.*]] = "lo_spn.mul"(%[[VAL_14]], %[[VAL_13]]) : (f64, f64) -> f64
-// CHECK:               "lo_spn.yield"(%[[VAL_15]]) : (f64) -> ()
+// CHECK:               %[[VAL_13:.*]] = "lo_spn.constant"() <{value = 0.000000e+00 : f64}> : () -> f64
+// CHECK:               "lo_spn.yield"(%[[VAL_13]]) : (f64) -> ()
 // CHECK:             }) : (f64, f64) -> f64
 // CHECK:             "lo_spn.batch_write"(%[[VAL_7]], %[[VAL_5]], %[[VAL_10]]) <{transposed = true}> : (memref<1x?xf64>, index, f64) -> ()
 // CHECK:             "lo_spn.return"() : () -> ()

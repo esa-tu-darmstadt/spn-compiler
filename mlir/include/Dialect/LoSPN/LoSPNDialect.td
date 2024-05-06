@@ -25,6 +25,7 @@ def LoSPN_Dialect : Dialect {
     }];
     let cppNamespace = "::mlir::spn::low";
     let useDefaultTypePrinterParser = 1;
+    let hasConstantMaterializer = 1;
 }
 
 ///

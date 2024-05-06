@@ -29,11 +29,7 @@ broadcastVectorConstant(mlir::VectorType type, T value,
                         mlir::ConversionPatternRewriter &rewriter,
                         mlir::Location loc) {
   assert(type.hasStaticShape());
-  llvm::SmallVector<T, 8> array;
-  for (int i = 0; i < type.getNumElements(); ++i) {
-    array.push_back(value);
-  }
-  auto constAttr = mlir::DenseElementsAttr::get(type, (llvm::ArrayRef<T>)array);
+  auto constAttr = mlir::DenseElementsAttr::get(type, value);
   auto constValue = rewriter.create<mlir::arith::ConstantOp>(loc, constAttr);
   return constValue;
 }
@@ -44,28 +40,31 @@ broadcastVectorConstant(mlir::VectorType type, double value,
                         mlir::ConversionPatternRewriter &rewriter,
                         mlir::Location loc) {
   assert(type.hasStaticShape());
-  assert(type.getElementType().isa<mlir::FloatType>());
-  auto floatType = type.getElementType().cast<mlir::FloatType>();
-  assert(floatType.getWidth() == 32 || floatType.getWidth() == 64);
-  if (floatType.getWidth() == 32) {
-    llvm::SmallVector<float, 8> array;
-    for (int i = 0; i < type.getNumElements(); ++i) {
-      array.push_back((float)value);
-    }
-    auto constAttr =
-        mlir::DenseElementsAttr::get(type, (llvm::ArrayRef<float>)array);
-    auto constValue = rewriter.create<mlir::arith::ConstantOp>(loc, constAttr);
-    return constValue;
-  } else {
-    llvm::SmallVector<double, 8> array;
-    for (int i = 0; i < type.getNumElements(); ++i) {
-      array.push_back(value);
-    }
-    auto constAttr =
-        mlir::DenseElementsAttr::get(type, (llvm::ArrayRef<double>)array);
-    auto constValue = rewriter.create<mlir::arith::ConstantOp>(loc, constAttr);
-    return constValue;
-  }
+  auto constAttr = mlir::DenseElementsAttr::get(type, value);
+  auto constValue = rewriter.create<mlir::arith::ConstantOp>(loc, constAttr);
+  return constValue;
+  // assert(type.getElementType().isa<mlir::FloatType>());
+  // auto floatType = type.getElementType().cast<mlir::FloatType>();
+  // assert(floatType.getWidth() == 32 || floatType.getWidth() == 64);
+  // if (floatType.getWidth() == 32) {
+  //   llvm::SmallVector<float, 8> array;
+  //   for (int i = 0; i < type.getNumElements(); ++i) {
+  //     array.push_back((float)value);
+  //   }
+  //   auto constAttr =
+  //       mlir::DenseElementsAttr::get(type, (llvm::ArrayRef<float>)array);
+  //   auto constValue = rewriter.create<mlir::arith::ConstantOp>(loc,
+  //   constAttr); return constValue;
+  // } else {
+  //   llvm::SmallVector<double, 8> array;
+  //   for (int i = 0; i < type.getNumElements(); ++i) {
+  //     array.push_back(value);
+  //   }
+  //   auto constAttr =
+  //       mlir::DenseElementsAttr::get(type, (llvm::ArrayRef<double>)array);
+  //   auto constValue = rewriter.create<mlir::arith::ConstantOp>(loc,
+  //   constAttr); return constValue;
+  // }
 }
 
 } // namespace
@@ -362,9 +361,11 @@ mlir::LogicalResult mlir::spn::VectorizeConstant::matchAndRewrite(
     resultType = logType.getBaseType();
   }
   assert(resultType.isa<FloatType>());
+  auto scalarConst = rewriter.create<arith::ConstantOp>(
+      op->getLoc(), resultType, op.getValue());
   auto vectorConstantTy = VectorType::get(op.vectorFactor(), resultType);
-  auto vectorConstant = broadcastVectorConstant(
-      vectorConstantTy, op.getValue().convertToDouble(), rewriter, op.getLoc());
+  auto vectorConstant = rewriter.create<vector::BroadcastOp>(
+      op->getLoc(), vectorConstantTy, scalarConst.getResult());
   rewriter.replaceOp(op, ValueRange{vectorConstant});
   return success();
 }

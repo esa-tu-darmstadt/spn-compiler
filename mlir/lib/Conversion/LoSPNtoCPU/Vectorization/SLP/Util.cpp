@@ -227,7 +227,8 @@ void dumpAdditionalInformation(Value value) {
     if (auto constOp = dyn_cast<arith::ConstantOp>(definingOp)) {
       llvm::dbgs() << "<BR/>value: " << constOp.getValue();
     } else if (auto lowConstOp = dyn_cast<SPNConstant>(definingOp)) {
-      llvm::dbgs() << "<BR/>value: " << lowConstOp.getValue().convertToDouble();
+      llvm::dbgs() << "<BR/>value: ";
+      lowConstOp.getValue().print(llvm::dbgs());
     } else if (auto readOp = dyn_cast<SPNBatchRead>(definingOp)) {
       llvm::dbgs() << "<BR/>mem: ";
       dumpBlockArgOrDefiningAddress(readOp.getBatchMem());
