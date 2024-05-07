@@ -8,6 +8,14 @@ import subprocess
 import shlex
 
 
+def success(message):
+    print("\033[92m" + message + "\033[0m")
+
+
+def error(message):
+    print("\033[91m" + message + "\033[0m")
+
+
 def get_testfiles(path):
     """Return the absolute filenames of all .mlir files in the given directory or the absolute filename of the given file."""
     if os.path.isdir(path):
@@ -52,7 +60,7 @@ def regenerate_testfile(filename, optcall, filecheck, gentestchecks):
         [optcall, filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     if optProc.returncode != 0:
-        print(f"Failed to run {optcall} to get clean IR:")
+        error(f"Failed to run {optcall} to get clean IR:")
         print(optProc.stderr.decode("utf-8"))
         return
     cleanIR = optProc.stdout.decode("utf-8")
@@ -72,7 +80,7 @@ def regenerate_testfile(filename, optcall, filecheck, gentestchecks):
         shlex.split(replacedRunCommand), stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     if optProc.returncode != 0:
-        print(f"Failed to run {runCommand} to get converted IR:")
+        error(f"Failed to run {runCommand} to get converted IR:")
         print(optProc.stderr.decode("utf-8"))
         return
     convertedIR = optProc.stdout.decode("utf-8")
@@ -97,7 +105,7 @@ def regenerate_testfile(filename, optcall, filecheck, gentestchecks):
             input=convertedIR.encode("utf-8"),
         )
         if genChecksProc.returncode != 0:
-            print(f"Failed to generate FileCheck statements.")
+            error(f"Failed to generate FileCheck statements.")
             return
         fileCheckStatements = genChecksProc.stdout.decode("utf-8")
 
@@ -123,7 +131,7 @@ def regenerate_testfile(filename, optcall, filecheck, gentestchecks):
         f.write(runCommand)
         f.write(" | FileCheck %s\n")
         f.write(fileContent)
-    print(f"Regenerated test file.")
+    success(f"Regenerated test file.")
 
 
 def main():
