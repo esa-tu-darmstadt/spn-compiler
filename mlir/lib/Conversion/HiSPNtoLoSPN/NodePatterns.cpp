@@ -63,34 +63,35 @@ Value SumNodeLowering::splitWeightedSum(
     if (type.isa<low::LogType>()) {
       weight = log(weight);
     }
+    auto floatType = type.isa<low::LogType>()
+                         ? type.cast<low::LogType>().getBaseType()
+                         : type;
     auto constant = rewriter.create<low::SPNConstant>(
-        op.getLoc(), type, rewriter.getF64FloatAttr(weight));
-
+        op.getLoc(), type, rewriter.getFloatAttr(floatType, weight));
+    constant.getValue().getType();
     return rewriter.create<low::SPNMul>(op.getLoc(), operands[0], constant);
-  } else {
-    auto pivot = llvm::divideCeil(operands.size(), 2);
-    SmallVector<Value, 10> leftOperands;
-    SmallVector<Value, 10> rightOperands;
-    SmallVector<double, 10> leftWeights;
-    SmallVector<double, 10> rightWeights;
-    unsigned count = 0;
-    for (auto ov : llvm::zip(operands, weights)) {
-      auto addend = std::get<0>(ov);
-      auto weight = std::get<1>(ov);
-      if (count < pivot) {
-        leftOperands.push_back(addend);
-        leftWeights.push_back(weight);
-      } else {
-        rightOperands.push_back(addend);
-        rightWeights.push_back(weight);
-      }
-      ++count;
-    }
-    auto leftTree = splitWeightedSum(op, leftOperands, leftWeights, rewriter);
-    auto rightTree =
-        splitWeightedSum(op, rightOperands, rightWeights, rewriter);
-    return rewriter.create<low::SPNAdd>(op->getLoc(), leftTree, rightTree);
   }
+  auto pivot = llvm::divideCeil(operands.size(), 2);
+  SmallVector<Value, 10> leftOperands;
+  SmallVector<Value, 10> rightOperands;
+  SmallVector<double, 10> leftWeights;
+  SmallVector<double, 10> rightWeights;
+  unsigned count = 0;
+  for (auto ov : llvm::zip(operands, weights)) {
+    auto addend = std::get<0>(ov);
+    auto weight = std::get<1>(ov);
+    if (count < pivot) {
+      leftOperands.push_back(addend);
+      leftWeights.push_back(weight);
+    } else {
+      rightOperands.push_back(addend);
+      rightWeights.push_back(weight);
+    }
+    ++count;
+  }
+  auto leftTree = splitWeightedSum(op, leftOperands, leftWeights, rewriter);
+  auto rightTree = splitWeightedSum(op, rightOperands, rightWeights, rewriter);
+  return rewriter.create<low::SPNAdd>(op->getLoc(), leftTree, rightTree);
 }
 
 LogicalResult SumNodeLowering::matchAndRewriteChecked(
