@@ -404,7 +404,11 @@ def SPNYield : LoSPNBodyOp<"yield", [Terminator, DeclareOpInterfaceMethods<LoSPN
 
 }
 
-def SPNConstant : LoSPNBodyOp<"constant", [ConstantLike, Pure, AllTypesMatch<["value", "result"]>, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
+def SPNConstant : LoSPNBodyOp<"constant", [ConstantLike, Pure, 
+    TypesMatchWith<"result type matches value type, ignoring a log type wrapper if present",
+                   "result", "value", 
+                   "($_self.isa<LogType>() ? $_self.cast<LogType>().getBaseType() : $_self)">, 
+    DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "Represents a simple constant value";
 
