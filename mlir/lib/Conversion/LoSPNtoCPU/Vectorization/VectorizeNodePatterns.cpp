@@ -13,6 +13,7 @@
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
+#include "mlir/IR/BuiltinAttributeInterfaces.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -23,48 +24,17 @@
 //
 namespace {
 
-template <typename T>
-mlir::arith::ConstantOp
-broadcastVectorConstant(mlir::VectorType type, T value,
+mlir::vector::BroadcastOp
+broadcastVectorConstant(mlir::VectorType type, mlir::TypedAttr value,
                         mlir::ConversionPatternRewriter &rewriter,
                         mlir::Location loc) {
   assert(type.hasStaticShape());
-  auto constAttr = mlir::DenseElementsAttr::get(type, value);
-  auto constValue = rewriter.create<mlir::arith::ConstantOp>(loc, constAttr);
-  return constValue;
-}
+  assert(type.getElementType() == value.getType());
 
-template <>
-mlir::arith::ConstantOp
-broadcastVectorConstant(mlir::VectorType type, double value,
-                        mlir::ConversionPatternRewriter &rewriter,
-                        mlir::Location loc) {
-  assert(type.hasStaticShape());
-  auto constAttr = mlir::DenseElementsAttr::get(type, value);
-  auto constValue = rewriter.create<mlir::arith::ConstantOp>(loc, constAttr);
-  return constValue;
-  // assert(type.getElementType().isa<mlir::FloatType>());
-  // auto floatType = type.getElementType().cast<mlir::FloatType>();
-  // assert(floatType.getWidth() == 32 || floatType.getWidth() == 64);
-  // if (floatType.getWidth() == 32) {
-  //   llvm::SmallVector<float, 8> array;
-  //   for (int i = 0; i < type.getNumElements(); ++i) {
-  //     array.push_back((float)value);
-  //   }
-  //   auto constAttr =
-  //       mlir::DenseElementsAttr::get(type, (llvm::ArrayRef<float>)array);
-  //   auto constValue = rewriter.create<mlir::arith::ConstantOp>(loc,
-  //   constAttr); return constValue;
-  // } else {
-  //   llvm::SmallVector<double, 8> array;
-  //   for (int i = 0; i < type.getNumElements(); ++i) {
-  //     array.push_back(value);
-  //   }
-  //   auto constAttr =
-  //       mlir::DenseElementsAttr::get(type, (llvm::ArrayRef<double>)array);
-  //   auto constValue = rewriter.create<mlir::arith::ConstantOp>(loc,
-  //   constAttr); return constValue;
-  // }
+  auto scalarValue = rewriter.create<mlir::arith::ConstantOp>(
+      loc, type.getElementType(), value);
+
+  return rewriter.create<mlir::vector::BroadcastOp>(loc, type, scalarValue);
 }
 
 } // namespace
@@ -144,8 +114,9 @@ mlir::LogicalResult mlir::spn::VectorizeBatchRead::matchAndRewrite(
       vectorOfIndex, (llvm::ArrayRef<unsigned long>)offsets);
   auto constOffset = rewriter.create<arith::ConstantOp>(op.getLoc(), constAttr);
   // Multiply the batchIndex with the number of features for the base address.
-  auto elements = broadcastVectorConstant(batchIndex.getResultVectorType(),
-                                          numFeatures, rewriter, op->getLoc());
+  auto elements = broadcastVectorConstant(
+      batchIndex.getResultVectorType(), rewriter.getI64IntegerAttr(numFeatures),
+      rewriter, op->getLoc());
   auto baseAddress =
       rewriter.create<arith::MulIOp>(op->getLoc(), batchIndex, elements);
   // Add the offsets to the base index from the batchIndex.
@@ -155,16 +126,25 @@ mlir::LogicalResult mlir::spn::VectorizeBatchRead::matchAndRewrite(
   assert(vectorType.getElementType().isIntOrIndexOrFloat());
   Value passThru;
   if (vectorType.getElementType().isIntOrIndex()) {
-    passThru = broadcastVectorConstant(vectorType, 0, rewriter, op->getLoc())
-                   .getResult();
+    passThru =
+        broadcastVectorConstant(
+            vectorType, rewriter.getIntegerAttr(vectorType.getElementType(), 0),
+            rewriter, op->getLoc())
+            .getResult();
   } else if (vectorType.getElementType().isa<FloatType>()) {
-    passThru = broadcastVectorConstant(vectorType, 0.0, rewriter, op->getLoc())
-                   .getResult();
+    passThru =
+        broadcastVectorConstant(
+            vectorType, rewriter.getFloatAttr(vectorType.getElementType(), 0.0),
+            rewriter, op->getLoc())
+            .getResult();
+  } else {
+    return rewriter.notifyMatchFailure(
+        op, "Pattern only matches for integer, index or float element types");
   }
   // Construct the constant mask.
   auto mask = broadcastVectorConstant(
-      mlir::VectorType::get(op.vectorFactor(), rewriter.getI1Type()), true,
-      rewriter, op->getLoc());
+      mlir::VectorType::get(op.vectorFactor(), rewriter.getI1Type()),
+      rewriter.getBoolAttr(true), rewriter, op->getLoc());
   // Re-interpret the MemRef to a single dimension for use with the
   // gather-instruction.
   auto numSamples = rewriter.create<memref::DimOp>(op.getLoc(), operands[0], 0);
@@ -425,15 +405,19 @@ mlir::LogicalResult mlir::spn::VectorizeGaussian::matchAndRewrite(
       op.getStddev().convertToDouble() * op.getStddev().convertToDouble();
   // 1/sqrt(2*PI*variance)
   double coefficient = 1.0 / (std::sqrt(2.0 * M_PI * variance));
-  auto coefficientConst = broadcastVectorConstant(targetVectorType, coefficient,
-                                                  rewriter, op.getLoc());
+  auto coefficientConst = broadcastVectorConstant(
+      targetVectorType, rewriter.getFloatAttr(floatResultType, coefficient),
+      rewriter, op.getLoc());
   // -1/(2*variance)
   double denominator = -1.0 / (2.0 * variance);
-  auto denominatorConst = broadcastVectorConstant(targetVectorType, denominator,
-                                                  rewriter, op.getLoc());
+  auto denominatorConst = broadcastVectorConstant(
+      targetVectorType, rewriter.getFloatAttr(floatResultType, denominator),
+      rewriter, op.getLoc());
   // x - mean
   auto meanConst = broadcastVectorConstant(
-      targetVectorType, op.getMean().convertToDouble(), rewriter, op.getLoc());
+      targetVectorType,
+      rewriter.getFloatAttr(floatResultType, op.getMean().convertToDouble()),
+      rewriter, op.getLoc());
   auto subtraction =
       rewriter.create<arith::SubFOp>(op.getLoc(), feature, meanConst);
   // (x-mean)^2
@@ -450,8 +434,9 @@ mlir::LogicalResult mlir::spn::VectorizeGaussian::matchAndRewrite(
   if (op.getSupportMarginal()) {
     auto isNan = rewriter.create<arith::CmpFOp>(
         op->getLoc(), arith::CmpFPredicate::UNO, feature, feature);
-    auto constOne =
-        broadcastVectorConstant(targetVectorType, 1.0, rewriter, op.getLoc());
+    auto constOne = broadcastVectorConstant(
+        targetVectorType, rewriter.getFloatAttr(floatResultType, 1.0), rewriter,
+        op.getLoc());
     gaussian = rewriter.create<arith::SelectOp>(op.getLoc(), isNan, constOne,
                                                 gaussian);
   }
@@ -517,16 +502,19 @@ mlir::LogicalResult mlir::spn::VectorizeLogGaussian::matchAndRewrite(
   // Denominator, - 1/2*(stddev^2)
   double denominator = -(1.0 / (2.0 * op.getStddev().convertToDouble() *
                                 op.getStddev().convertToDouble()));
-  auto denominatorConst = broadcastVectorConstant(targetVectorType, denominator,
-                                                  rewriter, op->getLoc());
+  auto denominatorConst = broadcastVectorConstant(
+      targetVectorType, rewriter.getFloatAttr(floatResultType, denominator),
+      rewriter, op->getLoc());
   // Coefficient, summing up the first two constant terms
   double coefficient = firstTerm + secondTerm;
-  auto coefficientConst = broadcastVectorConstant(targetVectorType, coefficient,
-                                                  rewriter, op.getLoc());
+  auto coefficientConst = broadcastVectorConstant(
+      targetVectorType, rewriter.getFloatAttr(floatResultType, coefficient),
+      rewriter, op.getLoc());
   // x - mean
-  auto meanConst = broadcastVectorConstant(targetVectorType,
-                                           op.getMeanAttr().getValueAsDouble(),
-                                           rewriter, op.getLoc());
+  auto meanConst = broadcastVectorConstant(
+      targetVectorType,
+      rewriter.getFloatAttr(floatResultType, op.getMean().convertToDouble()),
+      rewriter, op.getLoc());
 
   auto subtraction =
       rewriter.create<arith::SubFOp>(op.getLoc(), feature, meanConst);
@@ -542,8 +530,9 @@ mlir::LogicalResult mlir::spn::VectorizeLogGaussian::matchAndRewrite(
   if (op.getSupportMarginal()) {
     auto isNan = rewriter.create<arith::CmpFOp>(
         op->getLoc(), arith::CmpFPredicate::UNO, feature, feature);
-    auto constOne =
-        broadcastVectorConstant(targetVectorType, 0.0, rewriter, op.getLoc());
+    auto constOne = broadcastVectorConstant(
+        targetVectorType, rewriter.getFloatAttr(floatResultType, 0.0), rewriter,
+        op.getLoc());
     gaussian = rewriter.create<arith::SelectOp>(op.getLoc(), isNan, constOne,
                                                 gaussian);
   }
@@ -613,12 +602,13 @@ mlir::LogicalResult replaceOpWithGatherFromGlobalMemref(
   // Construct the constant pass-thru value (values used if the mask is false
   // for an element of the vector).
   auto vectorType = mlir::VectorType::get(vectorShape, resultType);
-  auto passThru =
-      broadcastVectorConstant(vectorType, 0.0, rewriter, op->getLoc());
+  auto passThru = broadcastVectorConstant(
+      vectorType, rewriter.getFloatAttr(resultType, 0.0), rewriter,
+      op->getLoc());
   // Construct the constant mask.
   auto mask = broadcastVectorConstant(
-      mlir::VectorType::get(vectorShape, rewriter.getI1Type()), true, rewriter,
-      op->getLoc());
+      mlir::VectorType::get(vectorShape, rewriter.getI1Type()),
+      rewriter.getBoolAttr(true), rewriter, op->getLoc());
   // Replace the source operation with a gather load from the global memref.
   mlir::Value constIndex = rewriter.template create<mlir::arith::ConstantOp>(
       op.getLoc(), rewriter.getIndexAttr(0));
@@ -630,8 +620,9 @@ mlir::LogicalResult replaceOpWithGatherFromGlobalMemref(
         op->getLoc(), mlir::arith::CmpFPredicate::UNO, indexOperand,
         indexOperand);
     auto marginalValue = (computesLog) ? 0.0 : 1.0;
-    auto constOne = broadcastVectorConstant(vectorType, marginalValue, rewriter,
-                                            op.getLoc());
+    auto constOne = broadcastVectorConstant(
+        vectorType, rewriter.getFloatAttr(resultType, marginalValue), rewriter,
+        op.getLoc());
     leaf = rewriter.create<mlir::arith::SelectOp>(op.getLoc(), isNan, constOne,
                                                   leaf);
   }
