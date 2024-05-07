@@ -413,11 +413,11 @@ module {
       %13 = "lo_spn.gaussian"(%7) <{mean = 2.500000e-01 : f64, stddev = 1.000000e-01 : f64, supportMarginal = false}> : (f32) -> !lo_spn.log<f32>
       %14 = "lo_spn.mul"(%8, %9) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
       %15 = "lo_spn.mul"(%14, %10) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %16 = "lo_spn.constant"() <{type = !lo_spn.log<f32>, value = 1.000000e-01 : f64}> : () -> !lo_spn.log<f32>
+      %16 = "lo_spn.constant"() <{value = 1.000000e-01 : f32}> : () -> !lo_spn.log<f32>
       %17 = "lo_spn.mul"(%15, %16) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
       %18 = "lo_spn.mul"(%11, %12) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
       %19 = "lo_spn.mul"(%18, %13) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-      %20 = "lo_spn.constant"() <{type = !lo_spn.log<f32>, value = 1.000000e-01 : f64}> : () -> !lo_spn.log<f32>
+      %20 = "lo_spn.constant"() <{value = 1.000000e-01 : f32}> : () -> !lo_spn.log<f32>
       %21 = "lo_spn.mul"(%19, %20) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
       %22 = "lo_spn.add"(%17, %21) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
       %23 = "lo_spn.strip_log"(%22) <{target = f32}> : (!lo_spn.log<f32>) -> f32

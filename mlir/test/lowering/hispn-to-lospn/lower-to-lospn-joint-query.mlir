@@ -39,9 +39,9 @@ module {
 // CHECK:               %[[VAL_12:.*]] = "lo_spn.histogram"(%[[VAL_7]]) <{bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 3.300000e-01>, #hi_spn.bucket<1 to 2 = 6.700000e-01>], supportMarginal = false}> : (i32) -> f64
 // CHECK:               %[[VAL_13:.*]] = "lo_spn.histogram"(%[[VAL_8]]) <{bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 8.750000e-01>, #hi_spn.bucket<1 to 2 = 1.250000e-01>], supportMarginal = false}> : (i32) -> f64
 // CHECK:               %[[VAL_14:.*]] = "lo_spn.mul"(%[[VAL_12]], %[[VAL_13]]) : (f64, f64) -> f64
-// CHECK:               %[[VAL_15:.*]] = "lo_spn.constant"() <{type = f64, value = 3.000000e-01 : f64}> : () -> f64
+// CHECK:               %[[VAL_15:.*]] = "lo_spn.constant"() <{value = 3.000000e-01 : f64}> : () -> f64
 // CHECK:               %[[VAL_16:.*]] = "lo_spn.mul"(%[[VAL_11]], %[[VAL_15]]) : (f64, f64) -> f64
-// CHECK:               %[[VAL_17:.*]] = "lo_spn.constant"() <{type = f64, value = 0.69999999999999996 : f64}> : () -> f64
+// CHECK:               %[[VAL_17:.*]] = "lo_spn.constant"() <{value = 0.69999999999999996 : f64}> : () -> f64
 // CHECK:               %[[VAL_18:.*]] = "lo_spn.mul"(%[[VAL_14]], %[[VAL_17]]) : (f64, f64) -> f64
 // CHECK:               %[[VAL_19:.*]] = "lo_spn.add"(%[[VAL_16]], %[[VAL_18]]) : (f64, f64) -> f64
 // CHECK:               %[[VAL_20:.*]] = "lo_spn.log"(%[[VAL_19]]) : (f64) -> f64

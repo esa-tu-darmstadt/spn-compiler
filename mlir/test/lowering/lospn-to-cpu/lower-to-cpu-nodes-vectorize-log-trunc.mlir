@@ -23,144 +23,169 @@ module {
 // CHECK:             %[[VAL_10:.*]] = arith.index_cast %[[VAL_9]] : index to i64
 // CHECK:             %[[VAL_11:.*]] = vector.broadcast %[[VAL_10]] : i64 to vector<8xi64>
 // CHECK:             %[[VAL_12:.*]] = arith.constant dense<[0, 4, 8, 12, 16, 20, 24, 28]> : vector<8xi64>
-// CHECK:             %[[VAL_13:.*]] = arith.constant dense<4> : vector<8xi64>
-// CHECK:             %[[VAL_14:.*]] = arith.muli %[[VAL_11]], %[[VAL_13]] : vector<8xi64>
-// CHECK:             %[[VAL_15:.*]] = arith.addi %[[VAL_14]], %[[VAL_12]] : vector<8xi64>
-// CHECK:             %[[VAL_16:.*]] = arith.constant dense<0.000000e+00> : vector<8xf64>
-// CHECK:             %[[VAL_17:.*]] = arith.constant dense<true> : vector<8xi1>
-// CHECK:             %[[VAL_18:.*]] = arith.constant 0 : index
-// CHECK:             %[[VAL_19:.*]] = memref.dim %[[VAL_0]], %[[VAL_18]] : memref<?x4xf64>
-// CHECK:             %[[VAL_20:.*]] = arith.constant 4 : index
-// CHECK:             %[[VAL_21:.*]] = arith.muli %[[VAL_19]], %[[VAL_20]] : index
-// CHECK:             %[[VAL_22:.*]] = memref.reinterpret_cast %[[VAL_0]] to offset: [0], sizes: {{\[}}%[[VAL_21]]], strides: [1] : memref<?x4xf64> to memref<?xf64>
-// CHECK:             %[[VAL_23:.*]] = arith.constant 0 : index
-// CHECK:             %[[VAL_24:.*]] = vector.gather %[[VAL_22]]{{\[}}%[[VAL_23]]] {{\[}}%[[VAL_15]]], %[[VAL_17]], %[[VAL_16]] : memref<?xf64>, vector<8xi64>, vector<8xi1>, vector<8xf64> into vector<8xf64>
-// CHECK:             %[[VAL_25:.*]] = arith.index_cast %[[VAL_9]] : index to i64
-// CHECK:             %[[VAL_26:.*]] = vector.broadcast %[[VAL_25]] : i64 to vector<8xi64>
-// CHECK:             %[[VAL_27:.*]] = arith.constant dense<[1, 5, 9, 13, 17, 21, 25, 29]> : vector<8xi64>
-// CHECK:             %[[VAL_28:.*]] = arith.constant dense<4> : vector<8xi64>
-// CHECK:             %[[VAL_29:.*]] = arith.muli %[[VAL_26]], %[[VAL_28]] : vector<8xi64>
-// CHECK:             %[[VAL_30:.*]] = arith.addi %[[VAL_29]], %[[VAL_27]] : vector<8xi64>
-// CHECK:             %[[VAL_31:.*]] = arith.constant dense<0.000000e+00> : vector<8xf64>
-// CHECK:             %[[VAL_32:.*]] = arith.constant dense<true> : vector<8xi1>
-// CHECK:             %[[VAL_33:.*]] = arith.constant 0 : index
-// CHECK:             %[[VAL_34:.*]] = memref.dim %[[VAL_0]], %[[VAL_33]] : memref<?x4xf64>
-// CHECK:             %[[VAL_35:.*]] = arith.constant 4 : index
-// CHECK:             %[[VAL_36:.*]] = arith.muli %[[VAL_34]], %[[VAL_35]] : index
-// CHECK:             %[[VAL_37:.*]] = memref.reinterpret_cast %[[VAL_0]] to offset: [0], sizes: {{\[}}%[[VAL_36]]], strides: [1] : memref<?x4xf64> to memref<?xf64>
-// CHECK:             %[[VAL_38:.*]] = arith.constant 0 : index
-// CHECK:             %[[VAL_39:.*]] = vector.gather %[[VAL_37]]{{\[}}%[[VAL_38]]] {{\[}}%[[VAL_30]]], %[[VAL_32]], %[[VAL_31]] : memref<?xf64>, vector<8xi64>, vector<8xi1>, vector<8xf64> into vector<8xf64>
-// CHECK:             %[[VAL_40:.*]] = arith.index_cast %[[VAL_9]] : index to i64
-// CHECK:             %[[VAL_41:.*]] = vector.broadcast %[[VAL_40]] : i64 to vector<8xi64>
-// CHECK:             %[[VAL_42:.*]] = arith.constant dense<[2, 6, 10, 14, 18, 22, 26, 30]> : vector<8xi64>
-// CHECK:             %[[VAL_43:.*]] = arith.constant dense<4> : vector<8xi64>
-// CHECK:             %[[VAL_44:.*]] = arith.muli %[[VAL_41]], %[[VAL_43]] : vector<8xi64>
-// CHECK:             %[[VAL_45:.*]] = arith.addi %[[VAL_44]], %[[VAL_42]] : vector<8xi64>
-// CHECK:             %[[VAL_46:.*]] = arith.constant dense<0.000000e+00> : vector<8xf64>
-// CHECK:             %[[VAL_47:.*]] = arith.constant dense<true> : vector<8xi1>
-// CHECK:             %[[VAL_48:.*]] = arith.constant 0 : index
-// CHECK:             %[[VAL_49:.*]] = memref.dim %[[VAL_0]], %[[VAL_48]] : memref<?x4xf64>
-// CHECK:             %[[VAL_50:.*]] = arith.constant 4 : index
-// CHECK:             %[[VAL_51:.*]] = arith.muli %[[VAL_49]], %[[VAL_50]] : index
-// CHECK:             %[[VAL_52:.*]] = memref.reinterpret_cast %[[VAL_0]] to offset: [0], sizes: {{\[}}%[[VAL_51]]], strides: [1] : memref<?x4xf64> to memref<?xf64>
-// CHECK:             %[[VAL_53:.*]] = arith.constant 0 : index
-// CHECK:             %[[VAL_54:.*]] = vector.gather %[[VAL_52]]{{\[}}%[[VAL_53]]] {{\[}}%[[VAL_45]]], %[[VAL_47]], %[[VAL_46]] : memref<?xf64>, vector<8xi64>, vector<8xi1>, vector<8xf64> into vector<8xf64>
-// CHECK:             %[[VAL_55:.*]] = arith.index_cast %[[VAL_9]] : index to i64
-// CHECK:             %[[VAL_56:.*]] = vector.broadcast %[[VAL_55]] : i64 to vector<8xi64>
-// CHECK:             %[[VAL_57:.*]] = arith.constant dense<[3, 7, 11, 15, 19, 23, 27, 31]> : vector<8xi64>
-// CHECK:             %[[VAL_58:.*]] = arith.constant dense<4> : vector<8xi64>
-// CHECK:             %[[VAL_59:.*]] = arith.muli %[[VAL_56]], %[[VAL_58]] : vector<8xi64>
-// CHECK:             %[[VAL_60:.*]] = arith.addi %[[VAL_59]], %[[VAL_57]] : vector<8xi64>
-// CHECK:             %[[VAL_61:.*]] = arith.constant dense<0.000000e+00> : vector<8xf64>
-// CHECK:             %[[VAL_62:.*]] = arith.constant dense<true> : vector<8xi1>
-// CHECK:             %[[VAL_63:.*]] = arith.constant 0 : index
-// CHECK:             %[[VAL_64:.*]] = memref.dim %[[VAL_0]], %[[VAL_63]] : memref<?x4xf64>
-// CHECK:             %[[VAL_65:.*]] = arith.constant 4 : index
-// CHECK:             %[[VAL_66:.*]] = arith.muli %[[VAL_64]], %[[VAL_65]] : index
-// CHECK:             %[[VAL_67:.*]] = memref.reinterpret_cast %[[VAL_0]] to offset: [0], sizes: {{\[}}%[[VAL_66]]], strides: [1] : memref<?x4xf64> to memref<?xf64>
-// CHECK:             %[[VAL_68:.*]] = arith.constant 0 : index
-// CHECK:             %[[VAL_69:.*]] = vector.gather %[[VAL_67]]{{\[}}%[[VAL_68]]] {{\[}}%[[VAL_60]]], %[[VAL_62]], %[[VAL_61]] : memref<?xf64>, vector<8xi64>, vector<8xi1>, vector<8xf64> into vector<8xf64>
-// CHECK:             %[[VAL_70:.*]] = arith.truncf %[[VAL_24]] : vector<8xf64> to vector<8xf32>
-// CHECK:             %[[VAL_71:.*]] = arith.constant dense<-5.000000e-01> : vector<8xf32>
-// CHECK:             %[[VAL_72:.*]] = arith.constant dense<-0.918938517> : vector<8xf32>
-// CHECK:             %[[VAL_73:.*]] = arith.constant dense<1.100000e-01> : vector<8xf32>
-// CHECK:             %[[VAL_74:.*]] = arith.subf %[[VAL_70]], %[[VAL_73]] : vector<8xf32>
-// CHECK:             %[[VAL_75:.*]] = arith.mulf %[[VAL_74]], %[[VAL_74]] : vector<8xf32>
-// CHECK:             %[[VAL_76:.*]] = arith.mulf %[[VAL_75]], %[[VAL_71]] : vector<8xf32>
-// CHECK:             %[[VAL_77:.*]] = arith.addf %[[VAL_72]], %[[VAL_76]] : vector<8xf32>
-// CHECK:             %[[VAL_78:.*]] = arith.truncf %[[VAL_39]] : vector<8xf64> to vector<8xf32>
-// CHECK:             %[[VAL_79:.*]] = arith.constant dense<-0.888888895> : vector<8xf32>
-// CHECK:             %[[VAL_80:.*]] = arith.constant dense<-0.631256461> : vector<8xf32>
-// CHECK:             %[[VAL_81:.*]] = arith.constant dense<1.200000e-01> : vector<8xf32>
-// CHECK:             %[[VAL_82:.*]] = arith.subf %[[VAL_78]], %[[VAL_81]] : vector<8xf32>
-// CHECK:             %[[VAL_83:.*]] = arith.mulf %[[VAL_82]], %[[VAL_82]] : vector<8xf32>
-// CHECK:             %[[VAL_84:.*]] = arith.mulf %[[VAL_83]], %[[VAL_79]] : vector<8xf32>
-// CHECK:             %[[VAL_85:.*]] = arith.addf %[[VAL_80]], %[[VAL_84]] : vector<8xf32>
-// CHECK:             %[[VAL_86:.*]] = arith.truncf %[[VAL_54]] : vector<8xf64> to vector<8xf32>
-// CHECK:             %[[VAL_87:.*]] = arith.constant dense<-2.000000e+00> : vector<8xf32>
-// CHECK:             %[[VAL_88:.*]] = arith.constant dense<-0.22579135> : vector<8xf32>
-// CHECK:             %[[VAL_89:.*]] = arith.constant dense<1.300000e-01> : vector<8xf32>
-// CHECK:             %[[VAL_90:.*]] = arith.subf %[[VAL_86]], %[[VAL_89]] : vector<8xf32>
-// CHECK:             %[[VAL_91:.*]] = arith.mulf %[[VAL_90]], %[[VAL_90]] : vector<8xf32>
-// CHECK:             %[[VAL_92:.*]] = arith.mulf %[[VAL_91]], %[[VAL_87]] : vector<8xf32>
-// CHECK:             %[[VAL_93:.*]] = arith.addf %[[VAL_88]], %[[VAL_92]] : vector<8xf32>
-// CHECK:             %[[VAL_94:.*]] = arith.truncf %[[VAL_69]] : vector<8xf64> to vector<8xf32>
-// CHECK:             %[[VAL_95:.*]] = arith.constant dense<-8.000000e+00> : vector<8xf32>
-// CHECK:             %[[VAL_96:.*]] = arith.constant dense<0.467355818> : vector<8xf32>
-// CHECK:             %[[VAL_97:.*]] = arith.constant dense<1.400000e-01> : vector<8xf32>
-// CHECK:             %[[VAL_98:.*]] = arith.subf %[[VAL_94]], %[[VAL_97]] : vector<8xf32>
-// CHECK:             %[[VAL_99:.*]] = arith.mulf %[[VAL_98]], %[[VAL_98]] : vector<8xf32>
-// CHECK:             %[[VAL_100:.*]] = arith.mulf %[[VAL_99]], %[[VAL_95]] : vector<8xf32>
-// CHECK:             %[[VAL_101:.*]] = arith.addf %[[VAL_96]], %[[VAL_100]] : vector<8xf32>
-// CHECK:             %[[VAL_102:.*]] = arith.constant dense<-1.38629436> : vector<8xf32>
-// CHECK:             %[[VAL_103:.*]] = arith.addf %[[VAL_77]], %[[VAL_102]] : vector<8xf32>
-// CHECK:             %[[VAL_104:.*]] = arith.addf %[[VAL_85]], %[[VAL_102]] : vector<8xf32>
-// CHECK:             %[[VAL_105:.*]] = arith.cmpf ogt, %[[VAL_103]], %[[VAL_104]] : vector<8xf32>
-// CHECK:             %[[VAL_106:.*]] = arith.select %[[VAL_105]], %[[VAL_103]], %[[VAL_104]] : vector<8xi1>, vector<8xf32>
-// CHECK:             %[[VAL_107:.*]] = arith.select %[[VAL_105]], %[[VAL_104]], %[[VAL_103]] : vector<8xi1>, vector<8xf32>
-// CHECK:             %[[VAL_108:.*]] = arith.subf %[[VAL_107]], %[[VAL_106]] : vector<8xf32>
-// CHECK:             %[[VAL_109:.*]] = math.exp %[[VAL_108]] : vector<8xf32>
-// CHECK:             %[[VAL_110:.*]] = math.log1p %[[VAL_109]] : vector<8xf32>
-// CHECK:             %[[VAL_111:.*]] = arith.addf %[[VAL_106]], %[[VAL_110]] : vector<8xf32>
-// CHECK:             %[[VAL_112:.*]] = arith.addf %[[VAL_93]], %[[VAL_102]] : vector<8xf32>
-// CHECK:             %[[VAL_113:.*]] = arith.addf %[[VAL_101]], %[[VAL_102]] : vector<8xf32>
-// CHECK:             %[[VAL_114:.*]] = arith.cmpf ogt, %[[VAL_112]], %[[VAL_113]] : vector<8xf32>
-// CHECK:             %[[VAL_115:.*]] = arith.select %[[VAL_114]], %[[VAL_112]], %[[VAL_113]] : vector<8xi1>, vector<8xf32>
-// CHECK:             %[[VAL_116:.*]] = arith.select %[[VAL_114]], %[[VAL_113]], %[[VAL_112]] : vector<8xi1>, vector<8xf32>
-// CHECK:             %[[VAL_117:.*]] = arith.subf %[[VAL_116]], %[[VAL_115]] : vector<8xf32>
-// CHECK:             %[[VAL_118:.*]] = math.exp %[[VAL_117]] : vector<8xf32>
-// CHECK:             %[[VAL_119:.*]] = math.log1p %[[VAL_118]] : vector<8xf32>
-// CHECK:             %[[VAL_120:.*]] = arith.addf %[[VAL_115]], %[[VAL_119]] : vector<8xf32>
-// CHECK:             %[[VAL_121:.*]] = arith.cmpf ogt, %[[VAL_111]], %[[VAL_120]] : vector<8xf32>
-// CHECK:             %[[VAL_122:.*]] = arith.select %[[VAL_121]], %[[VAL_111]], %[[VAL_120]] : vector<8xi1>, vector<8xf32>
-// CHECK:             %[[VAL_123:.*]] = arith.select %[[VAL_121]], %[[VAL_120]], %[[VAL_111]] : vector<8xi1>, vector<8xf32>
-// CHECK:             %[[VAL_124:.*]] = arith.subf %[[VAL_123]], %[[VAL_122]] : vector<8xf32>
-// CHECK:             %[[VAL_125:.*]] = math.exp %[[VAL_124]] : vector<8xf32>
-// CHECK:             %[[VAL_126:.*]] = math.log1p %[[VAL_125]] : vector<8xf32>
-// CHECK:             %[[VAL_127:.*]] = arith.addf %[[VAL_122]], %[[VAL_126]] : vector<8xf32>
-// CHECK:             %[[VAL_128:.*]] = arith.constant 0 : index
-// CHECK:             vector.transfer_write %[[VAL_127]], %[[VAL_1]]{{\[}}%[[VAL_128]], %[[VAL_9]]] : vector<8xf32>, memref<1x?xf32>
+// CHECK:             %[[VAL_13:.*]] = arith.constant 4 : i64
+// CHECK:             %[[VAL_14:.*]] = vector.broadcast %[[VAL_13]] : i64 to vector<8xi64>
+// CHECK:             %[[VAL_15:.*]] = arith.muli %[[VAL_11]], %[[VAL_14]] : vector<8xi64>
+// CHECK:             %[[VAL_16:.*]] = arith.addi %[[VAL_15]], %[[VAL_12]] : vector<8xi64>
+// CHECK:             %[[VAL_17:.*]] = arith.constant 0.000000e+00 : f64
+// CHECK:             %[[VAL_18:.*]] = vector.broadcast %[[VAL_17]] : f64 to vector<8xf64>
+// CHECK:             %[[VAL_19:.*]] = arith.constant true
+// CHECK:             %[[VAL_20:.*]] = vector.broadcast %[[VAL_19]] : i1 to vector<8xi1>
+// CHECK:             %[[VAL_21:.*]] = arith.constant 0 : index
+// CHECK:             %[[VAL_22:.*]] = memref.dim %[[VAL_0]], %[[VAL_21]] : memref<?x4xf64>
+// CHECK:             %[[VAL_23:.*]] = arith.constant 4 : index
+// CHECK:             %[[VAL_24:.*]] = arith.muli %[[VAL_22]], %[[VAL_23]] : index
+// CHECK:             %[[VAL_25:.*]] = memref.reinterpret_cast %[[VAL_0]] to offset: [0], sizes: {{\[}}%[[VAL_24]]], strides: [1] : memref<?x4xf64> to memref<?xf64>
+// CHECK:             %[[VAL_26:.*]] = arith.constant 0 : index
+// CHECK:             %[[VAL_27:.*]] = vector.gather %[[VAL_25]]{{\[}}%[[VAL_26]]] {{\[}}%[[VAL_16]]], %[[VAL_20]], %[[VAL_18]] : memref<?xf64>, vector<8xi64>, vector<8xi1>, vector<8xf64> into vector<8xf64>
+// CHECK:             %[[VAL_28:.*]] = arith.index_cast %[[VAL_9]] : index to i64
+// CHECK:             %[[VAL_29:.*]] = vector.broadcast %[[VAL_28]] : i64 to vector<8xi64>
+// CHECK:             %[[VAL_30:.*]] = arith.constant dense<[1, 5, 9, 13, 17, 21, 25, 29]> : vector<8xi64>
+// CHECK:             %[[VAL_31:.*]] = arith.constant 4 : i64
+// CHECK:             %[[VAL_32:.*]] = vector.broadcast %[[VAL_31]] : i64 to vector<8xi64>
+// CHECK:             %[[VAL_33:.*]] = arith.muli %[[VAL_29]], %[[VAL_32]] : vector<8xi64>
+// CHECK:             %[[VAL_34:.*]] = arith.addi %[[VAL_33]], %[[VAL_30]] : vector<8xi64>
+// CHECK:             %[[VAL_35:.*]] = arith.constant 0.000000e+00 : f64
+// CHECK:             %[[VAL_36:.*]] = vector.broadcast %[[VAL_35]] : f64 to vector<8xf64>
+// CHECK:             %[[VAL_37:.*]] = arith.constant true
+// CHECK:             %[[VAL_38:.*]] = vector.broadcast %[[VAL_37]] : i1 to vector<8xi1>
+// CHECK:             %[[VAL_39:.*]] = arith.constant 0 : index
+// CHECK:             %[[VAL_40:.*]] = memref.dim %[[VAL_0]], %[[VAL_39]] : memref<?x4xf64>
+// CHECK:             %[[VAL_41:.*]] = arith.constant 4 : index
+// CHECK:             %[[VAL_42:.*]] = arith.muli %[[VAL_40]], %[[VAL_41]] : index
+// CHECK:             %[[VAL_43:.*]] = memref.reinterpret_cast %[[VAL_0]] to offset: [0], sizes: {{\[}}%[[VAL_42]]], strides: [1] : memref<?x4xf64> to memref<?xf64>
+// CHECK:             %[[VAL_44:.*]] = arith.constant 0 : index
+// CHECK:             %[[VAL_45:.*]] = vector.gather %[[VAL_43]]{{\[}}%[[VAL_44]]] {{\[}}%[[VAL_34]]], %[[VAL_38]], %[[VAL_36]] : memref<?xf64>, vector<8xi64>, vector<8xi1>, vector<8xf64> into vector<8xf64>
+// CHECK:             %[[VAL_46:.*]] = arith.index_cast %[[VAL_9]] : index to i64
+// CHECK:             %[[VAL_47:.*]] = vector.broadcast %[[VAL_46]] : i64 to vector<8xi64>
+// CHECK:             %[[VAL_48:.*]] = arith.constant dense<[2, 6, 10, 14, 18, 22, 26, 30]> : vector<8xi64>
+// CHECK:             %[[VAL_49:.*]] = arith.constant 4 : i64
+// CHECK:             %[[VAL_50:.*]] = vector.broadcast %[[VAL_49]] : i64 to vector<8xi64>
+// CHECK:             %[[VAL_51:.*]] = arith.muli %[[VAL_47]], %[[VAL_50]] : vector<8xi64>
+// CHECK:             %[[VAL_52:.*]] = arith.addi %[[VAL_51]], %[[VAL_48]] : vector<8xi64>
+// CHECK:             %[[VAL_53:.*]] = arith.constant 0.000000e+00 : f64
+// CHECK:             %[[VAL_54:.*]] = vector.broadcast %[[VAL_53]] : f64 to vector<8xf64>
+// CHECK:             %[[VAL_55:.*]] = arith.constant true
+// CHECK:             %[[VAL_56:.*]] = vector.broadcast %[[VAL_55]] : i1 to vector<8xi1>
+// CHECK:             %[[VAL_57:.*]] = arith.constant 0 : index
+// CHECK:             %[[VAL_58:.*]] = memref.dim %[[VAL_0]], %[[VAL_57]] : memref<?x4xf64>
+// CHECK:             %[[VAL_59:.*]] = arith.constant 4 : index
+// CHECK:             %[[VAL_60:.*]] = arith.muli %[[VAL_58]], %[[VAL_59]] : index
+// CHECK:             %[[VAL_61:.*]] = memref.reinterpret_cast %[[VAL_0]] to offset: [0], sizes: {{\[}}%[[VAL_60]]], strides: [1] : memref<?x4xf64> to memref<?xf64>
+// CHECK:             %[[VAL_62:.*]] = arith.constant 0 : index
+// CHECK:             %[[VAL_63:.*]] = vector.gather %[[VAL_61]]{{\[}}%[[VAL_62]]] {{\[}}%[[VAL_52]]], %[[VAL_56]], %[[VAL_54]] : memref<?xf64>, vector<8xi64>, vector<8xi1>, vector<8xf64> into vector<8xf64>
+// CHECK:             %[[VAL_64:.*]] = arith.index_cast %[[VAL_9]] : index to i64
+// CHECK:             %[[VAL_65:.*]] = vector.broadcast %[[VAL_64]] : i64 to vector<8xi64>
+// CHECK:             %[[VAL_66:.*]] = arith.constant dense<[3, 7, 11, 15, 19, 23, 27, 31]> : vector<8xi64>
+// CHECK:             %[[VAL_67:.*]] = arith.constant 4 : i64
+// CHECK:             %[[VAL_68:.*]] = vector.broadcast %[[VAL_67]] : i64 to vector<8xi64>
+// CHECK:             %[[VAL_69:.*]] = arith.muli %[[VAL_65]], %[[VAL_68]] : vector<8xi64>
+// CHECK:             %[[VAL_70:.*]] = arith.addi %[[VAL_69]], %[[VAL_66]] : vector<8xi64>
+// CHECK:             %[[VAL_71:.*]] = arith.constant 0.000000e+00 : f64
+// CHECK:             %[[VAL_72:.*]] = vector.broadcast %[[VAL_71]] : f64 to vector<8xf64>
+// CHECK:             %[[VAL_73:.*]] = arith.constant true
+// CHECK:             %[[VAL_74:.*]] = vector.broadcast %[[VAL_73]] : i1 to vector<8xi1>
+// CHECK:             %[[VAL_75:.*]] = arith.constant 0 : index
+// CHECK:             %[[VAL_76:.*]] = memref.dim %[[VAL_0]], %[[VAL_75]] : memref<?x4xf64>
+// CHECK:             %[[VAL_77:.*]] = arith.constant 4 : index
+// CHECK:             %[[VAL_78:.*]] = arith.muli %[[VAL_76]], %[[VAL_77]] : index
+// CHECK:             %[[VAL_79:.*]] = memref.reinterpret_cast %[[VAL_0]] to offset: [0], sizes: {{\[}}%[[VAL_78]]], strides: [1] : memref<?x4xf64> to memref<?xf64>
+// CHECK:             %[[VAL_80:.*]] = arith.constant 0 : index
+// CHECK:             %[[VAL_81:.*]] = vector.gather %[[VAL_79]]{{\[}}%[[VAL_80]]] {{\[}}%[[VAL_70]]], %[[VAL_74]], %[[VAL_72]] : memref<?xf64>, vector<8xi64>, vector<8xi1>, vector<8xf64> into vector<8xf64>
+// CHECK:             %[[VAL_82:.*]] = arith.truncf %[[VAL_27]] : vector<8xf64> to vector<8xf32>
+// CHECK:             %[[VAL_83:.*]] = arith.constant -5.000000e-01 : f32
+// CHECK:             %[[VAL_84:.*]] = vector.broadcast %[[VAL_83]] : f32 to vector<8xf32>
+// CHECK:             %[[VAL_85:.*]] = arith.constant -0.918938517 : f32
+// CHECK:             %[[VAL_86:.*]] = vector.broadcast %[[VAL_85]] : f32 to vector<8xf32>
+// CHECK:             %[[VAL_87:.*]] = arith.constant 1.100000e-01 : f32
+// CHECK:             %[[VAL_88:.*]] = vector.broadcast %[[VAL_87]] : f32 to vector<8xf32>
+// CHECK:             %[[VAL_89:.*]] = arith.subf %[[VAL_82]], %[[VAL_88]] : vector<8xf32>
+// CHECK:             %[[VAL_90:.*]] = arith.mulf %[[VAL_89]], %[[VAL_89]] : vector<8xf32>
+// CHECK:             %[[VAL_91:.*]] = arith.mulf %[[VAL_90]], %[[VAL_84]] : vector<8xf32>
+// CHECK:             %[[VAL_92:.*]] = arith.addf %[[VAL_86]], %[[VAL_91]] : vector<8xf32>
+// CHECK:             %[[VAL_93:.*]] = arith.truncf %[[VAL_45]] : vector<8xf64> to vector<8xf32>
+// CHECK:             %[[VAL_94:.*]] = arith.constant -0.888888895 : f32
+// CHECK:             %[[VAL_95:.*]] = vector.broadcast %[[VAL_94]] : f32 to vector<8xf32>
+// CHECK:             %[[VAL_96:.*]] = arith.constant -0.631256461 : f32
+// CHECK:             %[[VAL_97:.*]] = vector.broadcast %[[VAL_96]] : f32 to vector<8xf32>
+// CHECK:             %[[VAL_98:.*]] = arith.constant 1.200000e-01 : f32
+// CHECK:             %[[VAL_99:.*]] = vector.broadcast %[[VAL_98]] : f32 to vector<8xf32>
+// CHECK:             %[[VAL_100:.*]] = arith.subf %[[VAL_93]], %[[VAL_99]] : vector<8xf32>
+// CHECK:             %[[VAL_101:.*]] = arith.mulf %[[VAL_100]], %[[VAL_100]] : vector<8xf32>
+// CHECK:             %[[VAL_102:.*]] = arith.mulf %[[VAL_101]], %[[VAL_95]] : vector<8xf32>
+// CHECK:             %[[VAL_103:.*]] = arith.addf %[[VAL_97]], %[[VAL_102]] : vector<8xf32>
+// CHECK:             %[[VAL_104:.*]] = arith.truncf %[[VAL_63]] : vector<8xf64> to vector<8xf32>
+// CHECK:             %[[VAL_105:.*]] = arith.constant -2.000000e+00 : f32
+// CHECK:             %[[VAL_106:.*]] = vector.broadcast %[[VAL_105]] : f32 to vector<8xf32>
+// CHECK:             %[[VAL_107:.*]] = arith.constant -0.22579135 : f32
+// CHECK:             %[[VAL_108:.*]] = vector.broadcast %[[VAL_107]] : f32 to vector<8xf32>
+// CHECK:             %[[VAL_109:.*]] = arith.constant 1.300000e-01 : f32
+// CHECK:             %[[VAL_110:.*]] = vector.broadcast %[[VAL_109]] : f32 to vector<8xf32>
+// CHECK:             %[[VAL_111:.*]] = arith.subf %[[VAL_104]], %[[VAL_110]] : vector<8xf32>
+// CHECK:             %[[VAL_112:.*]] = arith.mulf %[[VAL_111]], %[[VAL_111]] : vector<8xf32>
+// CHECK:             %[[VAL_113:.*]] = arith.mulf %[[VAL_112]], %[[VAL_106]] : vector<8xf32>
+// CHECK:             %[[VAL_114:.*]] = arith.addf %[[VAL_108]], %[[VAL_113]] : vector<8xf32>
+// CHECK:             %[[VAL_115:.*]] = arith.truncf %[[VAL_81]] : vector<8xf64> to vector<8xf32>
+// CHECK:             %[[VAL_116:.*]] = arith.constant -8.000000e+00 : f32
+// CHECK:             %[[VAL_117:.*]] = vector.broadcast %[[VAL_116]] : f32 to vector<8xf32>
+// CHECK:             %[[VAL_118:.*]] = arith.constant 0.467355818 : f32
+// CHECK:             %[[VAL_119:.*]] = vector.broadcast %[[VAL_118]] : f32 to vector<8xf32>
+// CHECK:             %[[VAL_120:.*]] = arith.constant 1.400000e-01 : f32
+// CHECK:             %[[VAL_121:.*]] = vector.broadcast %[[VAL_120]] : f32 to vector<8xf32>
+// CHECK:             %[[VAL_122:.*]] = arith.subf %[[VAL_115]], %[[VAL_121]] : vector<8xf32>
+// CHECK:             %[[VAL_123:.*]] = arith.mulf %[[VAL_122]], %[[VAL_122]] : vector<8xf32>
+// CHECK:             %[[VAL_124:.*]] = arith.mulf %[[VAL_123]], %[[VAL_117]] : vector<8xf32>
+// CHECK:             %[[VAL_125:.*]] = arith.addf %[[VAL_119]], %[[VAL_124]] : vector<8xf32>
+// CHECK:             %[[VAL_126:.*]] = arith.constant -1.38629436 : f32
+// CHECK:             %[[VAL_127:.*]] = vector.broadcast %[[VAL_126]] : f32 to vector<8xf32>
+// CHECK:             %[[VAL_128:.*]] = arith.addf %[[VAL_92]], %[[VAL_127]] : vector<8xf32>
+// CHECK:             %[[VAL_129:.*]] = arith.addf %[[VAL_103]], %[[VAL_127]] : vector<8xf32>
+// CHECK:             %[[VAL_130:.*]] = arith.cmpf ogt, %[[VAL_128]], %[[VAL_129]] : vector<8xf32>
+// CHECK:             %[[VAL_131:.*]] = arith.select %[[VAL_130]], %[[VAL_128]], %[[VAL_129]] : vector<8xi1>, vector<8xf32>
+// CHECK:             %[[VAL_132:.*]] = arith.select %[[VAL_130]], %[[VAL_129]], %[[VAL_128]] : vector<8xi1>, vector<8xf32>
+// CHECK:             %[[VAL_133:.*]] = arith.subf %[[VAL_132]], %[[VAL_131]] : vector<8xf32>
+// CHECK:             %[[VAL_134:.*]] = math.exp %[[VAL_133]] : vector<8xf32>
+// CHECK:             %[[VAL_135:.*]] = math.log1p %[[VAL_134]] : vector<8xf32>
+// CHECK:             %[[VAL_136:.*]] = arith.addf %[[VAL_131]], %[[VAL_135]] : vector<8xf32>
+// CHECK:             %[[VAL_137:.*]] = arith.addf %[[VAL_114]], %[[VAL_127]] : vector<8xf32>
+// CHECK:             %[[VAL_138:.*]] = arith.addf %[[VAL_125]], %[[VAL_127]] : vector<8xf32>
+// CHECK:             %[[VAL_139:.*]] = arith.cmpf ogt, %[[VAL_137]], %[[VAL_138]] : vector<8xf32>
+// CHECK:             %[[VAL_140:.*]] = arith.select %[[VAL_139]], %[[VAL_137]], %[[VAL_138]] : vector<8xi1>, vector<8xf32>
+// CHECK:             %[[VAL_141:.*]] = arith.select %[[VAL_139]], %[[VAL_138]], %[[VAL_137]] : vector<8xi1>, vector<8xf32>
+// CHECK:             %[[VAL_142:.*]] = arith.subf %[[VAL_141]], %[[VAL_140]] : vector<8xf32>
+// CHECK:             %[[VAL_143:.*]] = math.exp %[[VAL_142]] : vector<8xf32>
+// CHECK:             %[[VAL_144:.*]] = math.log1p %[[VAL_143]] : vector<8xf32>
+// CHECK:             %[[VAL_145:.*]] = arith.addf %[[VAL_140]], %[[VAL_144]] : vector<8xf32>
+// CHECK:             %[[VAL_146:.*]] = arith.cmpf ogt, %[[VAL_136]], %[[VAL_145]] : vector<8xf32>
+// CHECK:             %[[VAL_147:.*]] = arith.select %[[VAL_146]], %[[VAL_136]], %[[VAL_145]] : vector<8xi1>, vector<8xf32>
+// CHECK:             %[[VAL_148:.*]] = arith.select %[[VAL_146]], %[[VAL_145]], %[[VAL_136]] : vector<8xi1>, vector<8xf32>
+// CHECK:             %[[VAL_149:.*]] = arith.subf %[[VAL_148]], %[[VAL_147]] : vector<8xf32>
+// CHECK:             %[[VAL_150:.*]] = math.exp %[[VAL_149]] : vector<8xf32>
+// CHECK:             %[[VAL_151:.*]] = math.log1p %[[VAL_150]] : vector<8xf32>
+// CHECK:             %[[VAL_152:.*]] = arith.addf %[[VAL_147]], %[[VAL_151]] : vector<8xf32>
+// CHECK:             %[[VAL_153:.*]] = arith.constant 0 : index
+// CHECK:             vector.transfer_write %[[VAL_152]], %[[VAL_1]]{{\[}}%[[VAL_153]], %[[VAL_9]]] : vector<8xf32>, memref<1x?xf32>
 // CHECK:           }
-// CHECK:           %[[VAL_129:.*]] = arith.constant 1 : index
-// CHECK:           scf.for %[[VAL_130:.*]] = %[[VAL_6]] to %[[VAL_3]] step %[[VAL_129]] {
-// CHECK:             %[[VAL_131:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_130]]) <{staticIndex = 0 : ui32}> : (memref<?x4xf64>, index) -> f64
-// CHECK:             %[[VAL_132:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_130]]) <{staticIndex = 1 : ui32}> : (memref<?x4xf64>, index) -> f64
-// CHECK:             %[[VAL_133:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_130]]) <{staticIndex = 2 : ui32}> : (memref<?x4xf64>, index) -> f64
-// CHECK:             %[[VAL_134:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_130]]) <{staticIndex = 3 : ui32}> : (memref<?x4xf64>, index) -> f64
-// CHECK:             %[[VAL_135:.*]] = "lo_spn.gaussian"(%[[VAL_131]]) <{mean = 1.100000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false}> : (f64) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_136:.*]] = "lo_spn.gaussian"(%[[VAL_132]]) <{mean = 1.200000e-01 : f64, stddev = 7.500000e-01 : f64, supportMarginal = false}> : (f64) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_137:.*]] = "lo_spn.gaussian"(%[[VAL_133]]) <{mean = 1.300000e-01 : f64, stddev = 5.000000e-01 : f64, supportMarginal = false}> : (f64) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_138:.*]] = "lo_spn.gaussian"(%[[VAL_134]]) <{mean = 1.400000e-01 : f64, stddev = 2.500000e-01 : f64, supportMarginal = false}> : (f64) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_139:.*]] = "lo_spn.constant"() <{type = !lo_spn.log<f32>, value = -1.3862943611198906 : f64}> : () -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_140:.*]] = "lo_spn.mul"(%[[VAL_135]], %[[VAL_139]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_141:.*]] = "lo_spn.mul"(%[[VAL_136]], %[[VAL_139]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_142:.*]] = "lo_spn.add"(%[[VAL_140]], %[[VAL_141]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_143:.*]] = "lo_spn.mul"(%[[VAL_137]], %[[VAL_139]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_144:.*]] = "lo_spn.mul"(%[[VAL_138]], %[[VAL_139]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_145:.*]] = "lo_spn.add"(%[[VAL_143]], %[[VAL_144]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_146:.*]] = "lo_spn.add"(%[[VAL_142]], %[[VAL_145]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
-// CHECK:             %[[VAL_147:.*]] = "lo_spn.strip_log"(%[[VAL_146]]) <{target = f32}> : (!lo_spn.log<f32>) -> f32
-// CHECK:             "lo_spn.batch_write"(%[[VAL_1]], %[[VAL_130]], %[[VAL_147]]) <{transposed = true}> : (memref<1x?xf32>, index, f32) -> ()
+// CHECK:           %[[VAL_154:.*]] = arith.constant 1 : index
+// CHECK:           scf.for %[[VAL_155:.*]] = %[[VAL_6]] to %[[VAL_3]] step %[[VAL_154]] {
+// CHECK:             %[[VAL_156:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_155]]) <{staticIndex = 0 : ui32}> : (memref<?x4xf64>, index) -> f64
+// CHECK:             %[[VAL_157:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_155]]) <{staticIndex = 1 : ui32}> : (memref<?x4xf64>, index) -> f64
+// CHECK:             %[[VAL_158:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_155]]) <{staticIndex = 2 : ui32}> : (memref<?x4xf64>, index) -> f64
+// CHECK:             %[[VAL_159:.*]] = "lo_spn.batch_read"(%[[VAL_0]], %[[VAL_155]]) <{staticIndex = 3 : ui32}> : (memref<?x4xf64>, index) -> f64
+// CHECK:             %[[VAL_160:.*]] = "lo_spn.gaussian"(%[[VAL_156]]) <{mean = 1.100000e-01 : f64, stddev = 1.000000e+00 : f64, supportMarginal = false}> : (f64) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_161:.*]] = "lo_spn.gaussian"(%[[VAL_157]]) <{mean = 1.200000e-01 : f64, stddev = 7.500000e-01 : f64, supportMarginal = false}> : (f64) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_162:.*]] = "lo_spn.gaussian"(%[[VAL_158]]) <{mean = 1.300000e-01 : f64, stddev = 5.000000e-01 : f64, supportMarginal = false}> : (f64) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_163:.*]] = "lo_spn.gaussian"(%[[VAL_159]]) <{mean = 1.400000e-01 : f64, stddev = 2.500000e-01 : f64, supportMarginal = false}> : (f64) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_164:.*]] = "lo_spn.constant"() <{value = -1.38629436 : f32}> : () -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_165:.*]] = "lo_spn.mul"(%[[VAL_160]], %[[VAL_164]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_166:.*]] = "lo_spn.mul"(%[[VAL_161]], %[[VAL_164]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_167:.*]] = "lo_spn.add"(%[[VAL_165]], %[[VAL_166]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_168:.*]] = "lo_spn.mul"(%[[VAL_162]], %[[VAL_164]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_169:.*]] = "lo_spn.mul"(%[[VAL_163]], %[[VAL_164]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_170:.*]] = "lo_spn.add"(%[[VAL_168]], %[[VAL_169]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_171:.*]] = "lo_spn.add"(%[[VAL_167]], %[[VAL_170]]) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
+// CHECK:             %[[VAL_172:.*]] = "lo_spn.strip_log"(%[[VAL_171]]) <{target = f32}> : (!lo_spn.log<f32>) -> f32
+// CHECK:             "lo_spn.batch_write"(%[[VAL_1]], %[[VAL_155]], %[[VAL_172]]) <{transposed = true}> : (memref<1x?xf32>, index, f32) -> ()
 // CHECK:           }
 // CHECK:           return
 // CHECK:         }
@@ -181,7 +206,7 @@ module {
       %7 = "lo_spn.gaussian"(%3) <{mean = 1.200000e-01 : f64, stddev = 7.500000e-01 : f64, supportMarginal = false}> {vector_width = 8 : i32} : (f64) -> !lo_spn.log<f32>
       %8 = "lo_spn.gaussian"(%4) <{mean = 1.300000e-01 : f64, stddev = 5.000000e-01 : f64, supportMarginal = false}> {vector_width = 8 : i32} : (f64) -> !lo_spn.log<f32>
       %9 = "lo_spn.gaussian"(%5) <{mean = 1.400000e-01 : f64, stddev = 2.500000e-01 : f64, supportMarginal = false}> {vector_width = 8 : i32} : (f64) -> !lo_spn.log<f32>
-      %10 = "lo_spn.constant"() <{type = !lo_spn.log<f32>, value = -1.3862943611198906 : f64}> {vector_width = 8 : i32} : () -> !lo_spn.log<f32>
+      %10 = "lo_spn.constant"() <{value = -1.38629436 : f32}> {vector_width = 8 : i32} : () -> !lo_spn.log<f32>
       %11 = "lo_spn.mul"(%6, %10) {vector_width = 8 : i32} : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
       %12 = "lo_spn.mul"(%7, %10) {vector_width = 8 : i32} : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
       %13 = "lo_spn.add"(%11, %12) {vector_width = 8 : i32} : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
@@ -202,7 +227,7 @@ module {
       %7 = "lo_spn.gaussian"(%3) <{mean = 1.200000e-01 : f64, stddev = 7.500000e-01 : f64, supportMarginal = false}> : (f64) -> !lo_spn.log<f32>
       %8 = "lo_spn.gaussian"(%4) <{mean = 1.300000e-01 : f64, stddev = 5.000000e-01 : f64, supportMarginal = false}> : (f64) -> !lo_spn.log<f32>
       %9 = "lo_spn.gaussian"(%5) <{mean = 1.400000e-01 : f64, stddev = 2.500000e-01 : f64, supportMarginal = false}> : (f64) -> !lo_spn.log<f32>
-      %10 = "lo_spn.constant"() <{type = !lo_spn.log<f32>, value = -1.3862943611198906 : f64}> : () -> !lo_spn.log<f32>
+      %10 = "lo_spn.constant"() <{value = -1.38629436 : f32}> : () -> !lo_spn.log<f32>
       %11 = "lo_spn.mul"(%6, %10) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
       %12 = "lo_spn.mul"(%7, %10) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>
       %13 = "lo_spn.add"(%11, %12) : (!lo_spn.log<f32>, !lo_spn.log<f32>) -> !lo_spn.log<f32>

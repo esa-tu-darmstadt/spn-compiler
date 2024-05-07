@@ -52,14 +52,14 @@ module {
 // CHECK:             %[[VAL_19:.*]] = "lo_spn.mul"(%[[VAL_14]], %[[VAL_18]]) : (bf16, bf16) -> bf16
 // CHECK:             %[[VAL_20:.*]] = "lo_spn.mul"(%[[VAL_18]], %[[VAL_19]]) : (bf16, bf16) -> bf16
 // CHECK:             %[[VAL_21:.*]] = "lo_spn.mul"(%[[VAL_19]], %[[VAL_20]]) : (bf16, bf16) -> bf16
-// CHECK:             %[[VAL_22:.*]] = "lo_spn.constant"() <{type = bf16, value = 1.000000e-01 : f64}> : () -> bf16
+// CHECK:             %[[VAL_22:.*]] = "lo_spn.constant"() <{value = 1.000980e-01 : bf16}> : () -> bf16
 // CHECK:             %[[VAL_23:.*]] = "lo_spn.mul"(%[[VAL_20]], %[[VAL_22]]) : (bf16, bf16) -> bf16
-// CHECK:             %[[VAL_24:.*]] = "lo_spn.constant"() <{type = bf16, value = 9.000000e-01 : f64}> : () -> bf16
+// CHECK:             %[[VAL_24:.*]] = "lo_spn.constant"() <{value = 8.984370e-01 : bf16}> : () -> bf16
 // CHECK:             %[[VAL_25:.*]] = "lo_spn.mul"(%[[VAL_21]], %[[VAL_24]]) : (bf16, bf16) -> bf16
 // CHECK:             %[[VAL_26:.*]] = "lo_spn.add"(%[[VAL_23]], %[[VAL_25]]) : (bf16, bf16) -> bf16
-// CHECK:             %[[VAL_27:.*]] = "lo_spn.constant"() <{type = bf16, value = 3.000000e-01 : f64}> : () -> bf16
+// CHECK:             %[[VAL_27:.*]] = "lo_spn.constant"() <{value = 3.007810e-01 : bf16}> : () -> bf16
 // CHECK:             %[[VAL_28:.*]] = "lo_spn.mul"(%[[VAL_21]], %[[VAL_27]]) : (bf16, bf16) -> bf16
-// CHECK:             %[[VAL_29:.*]] = "lo_spn.constant"() <{type = bf16, value = 0.69999999999999996 : f64}> : () -> bf16
+// CHECK:             %[[VAL_29:.*]] = "lo_spn.constant"() <{value = 6.992180e-01 : bf16}> : () -> bf16
 // CHECK:             %[[VAL_30:.*]] = "lo_spn.mul"(%[[VAL_26]], %[[VAL_29]]) : (bf16, bf16) -> bf16
 // CHECK:             %[[VAL_31:.*]] = "lo_spn.add"(%[[VAL_28]], %[[VAL_30]]) : (bf16, bf16) -> bf16
 // CHECK:             %[[VAL_32:.*]] = "lo_spn.log"(%[[VAL_31]]) : (bf16) -> bf16

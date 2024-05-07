@@ -404,11 +404,11 @@ module {
       %13 = "lo_spn.gaussian"(%7) <{mean = 2.500000e-01 : f64, stddev = 1.000000e-01 : f64, supportMarginal = false}> : (f64) -> f64
       %14 = "lo_spn.mul"(%8, %9) : (f64, f64) -> f64
       %15 = "lo_spn.mul"(%14, %10) : (f64, f64) -> f64
-      %16 = "lo_spn.constant"() <{type = f64, value = 1.000000e-01 : f64}> : () -> f64
+      %16 = "lo_spn.constant"() <{value = 1.000000e-01 : f64}> : () -> f64
       %17 = "lo_spn.mul"(%15, %16) : (f64, f64) -> f64
       %18 = "lo_spn.mul"(%11, %12) : (f64, f64) -> f64
       %19 = "lo_spn.mul"(%18, %13) : (f64, f64) -> f64
-      %20 = "lo_spn.constant"() <{type = f64, value = 1.000000e-01 : f64}> : () -> f64
+      %20 = "lo_spn.constant"() <{value = 1.000000e-01 : f64}> : () -> f64
       %21 = "lo_spn.mul"(%19, %20) : (f64, f64) -> f64
       %22 = "lo_spn.add"(%17, %21) : (f64, f64) -> f64
       %23 = "lo_spn.log"(%22) : (f64) -> f64

@@ -18,9 +18,9 @@ module {
         %6 = "lo_spn.histogram"(%arg5) <{bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 3.300000e-01>, #hi_spn.bucket<1 to 2 = 6.700000e-01>], supportMarginal = false}> : (i32) -> f64
         %7 = "lo_spn.histogram"(%arg6) <{bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 8.750000e-01>, #hi_spn.bucket<1 to 2 = 1.250000e-01>], supportMarginal = false}> : (i32) -> f64
         %8 = "lo_spn.mul"(%6, %7) : (f64, f64) -> f64
-        %9 = "lo_spn.constant"() <{type = f64, value = 3.000000e-01 : f64}> : () -> f64
+        %9 = "lo_spn.constant"() <{value = 3.000000e-01 : f64}> : () -> f64
         %10 = "lo_spn.mul"(%5, %9) : (f64, f64) -> f64
-        %11 = "lo_spn.constant"() <{type = f64, value = 0.69999999999999996 : f64}> : () -> f64
+        %11 = "lo_spn.constant"() <{value = 0.69999999999999996 : f64}> : () -> f64
         %12 = "lo_spn.mul"(%8, %11) : (f64, f64) -> f64
         %13 = "lo_spn.add"(%10, %12) : (f64, f64) -> f64
         %14 = "lo_spn.log"(%13) : (f64) -> f64
@@ -51,8 +51,8 @@ module {
 // CHECK:             %[[VAL_6:.*]] = "lo_spn.batch_read"(%[[VAL_3]], %[[VAL_2]]) <{staticIndex = 1 : ui32, transposed = false}> : (memref<?x2xi32>, index) -> i32
 // CHECK:             %[[VAL_7:.*]] = "lo_spn.body"(%[[VAL_5]], %[[VAL_6]]) ({
 // CHECK:             ^bb0(%[[VAL_8:.*]]: i32, %[[VAL_9:.*]]: i32):
-// CHECK:               %[[VAL_10:.*]] = "lo_spn.constant"() <{type = f64, value = 0.69999999999999996 : f64}> : () -> f64
-// CHECK:               %[[VAL_11:.*]] = "lo_spn.constant"() <{type = f64, value = 3.000000e-01 : f64}> : () -> f64
+// CHECK:               %[[VAL_10:.*]] = "lo_spn.constant"() <{value = 0.69999999999999996 : f64}> : () -> f64
+// CHECK:               %[[VAL_11:.*]] = "lo_spn.constant"() <{value = 3.000000e-01 : f64}> : () -> f64
 // CHECK:               %[[VAL_12:.*]] = "lo_spn.histogram"(%[[VAL_8]]) <{bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 2.500000e-01>, #hi_spn.bucket<1 to 2 = 7.500000e-01>], supportMarginal = false}> : (i32) -> f64
 // CHECK:               %[[VAL_13:.*]] = "lo_spn.histogram"(%[[VAL_9]]) <{bucketCount = 2 : ui32, buckets = [#hi_spn.bucket<0 to 1 = 4.500000e-01>, #hi_spn.bucket<1 to 2 = 5.500000e-01>], supportMarginal = false}> : (i32) -> f64
 // CHECK:               %[[VAL_14:.*]] = "lo_spn.mul"(%[[VAL_12]], %[[VAL_13]]) : (f64, f64) -> f64

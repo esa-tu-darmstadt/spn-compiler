@@ -32,17 +32,17 @@ module {
 // CHECK:             %[[VAL_7:.*]] = "lo_spn.categorical"(%[[VAL_2]]) <{probabilities = [5.000000e-01, 2.000000e-01, 3.000000e-01], supportMarginal = false}> : (i32) -> f64
 // CHECK:             %[[VAL_8:.*]] = "lo_spn.categorical"(%[[VAL_3]]) <{probabilities = [6.000000e-01, 1.500000e-01, 2.500000e-01], supportMarginal = false}> : (i32) -> f64
 // CHECK:             %[[VAL_9:.*]] = "lo_spn.categorical"(%[[VAL_4]]) <{probabilities = [8.000000e-01, 1.400000e-01, 6.000000e-02], supportMarginal = false}> : (i32) -> f64
-// CHECK:             %[[VAL_10:.*]] = "lo_spn.constant"() <{type = f64, value = 1.000000e-01 : f64}> : () -> f64
+// CHECK:             %[[VAL_10:.*]] = "lo_spn.constant"() <{value = 1.000000e-01 : f64}> : () -> f64
 // CHECK:             %[[VAL_11:.*]] = "lo_spn.mul"(%[[VAL_5]], %[[VAL_10]]) : (f64, f64) -> f64
-// CHECK:             %[[VAL_12:.*]] = "lo_spn.constant"() <{type = f64, value = 1.000000e-01 : f64}> : () -> f64
+// CHECK:             %[[VAL_12:.*]] = "lo_spn.constant"() <{value = 1.000000e-01 : f64}> : () -> f64
 // CHECK:             %[[VAL_13:.*]] = "lo_spn.mul"(%[[VAL_6]], %[[VAL_12]]) : (f64, f64) -> f64
 // CHECK:             %[[VAL_14:.*]] = "lo_spn.add"(%[[VAL_11]], %[[VAL_13]]) : (f64, f64) -> f64
-// CHECK:             %[[VAL_15:.*]] = "lo_spn.constant"() <{type = f64, value = 1.000000e-01 : f64}> : () -> f64
+// CHECK:             %[[VAL_15:.*]] = "lo_spn.constant"() <{value = 1.000000e-01 : f64}> : () -> f64
 // CHECK:             %[[VAL_16:.*]] = "lo_spn.mul"(%[[VAL_7]], %[[VAL_15]]) : (f64, f64) -> f64
 // CHECK:             %[[VAL_17:.*]] = "lo_spn.add"(%[[VAL_14]], %[[VAL_16]]) : (f64, f64) -> f64
-// CHECK:             %[[VAL_18:.*]] = "lo_spn.constant"() <{type = f64, value = 4.000000e-01 : f64}> : () -> f64
+// CHECK:             %[[VAL_18:.*]] = "lo_spn.constant"() <{value = 4.000000e-01 : f64}> : () -> f64
 // CHECK:             %[[VAL_19:.*]] = "lo_spn.mul"(%[[VAL_8]], %[[VAL_18]]) : (f64, f64) -> f64
-// CHECK:             %[[VAL_20:.*]] = "lo_spn.constant"() <{type = f64, value = 3.000000e-01 : f64}> : () -> f64
+// CHECK:             %[[VAL_20:.*]] = "lo_spn.constant"() <{value = 3.000000e-01 : f64}> : () -> f64
 // CHECK:             %[[VAL_21:.*]] = "lo_spn.mul"(%[[VAL_9]], %[[VAL_20]]) : (f64, f64) -> f64
 // CHECK:             %[[VAL_22:.*]] = "lo_spn.add"(%[[VAL_19]], %[[VAL_21]]) : (f64, f64) -> f64
 // CHECK:             %[[VAL_23:.*]] = "lo_spn.add"(%[[VAL_17]], %[[VAL_22]]) : (f64, f64) -> f64
