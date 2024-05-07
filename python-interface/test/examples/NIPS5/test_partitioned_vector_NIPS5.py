@@ -39,7 +39,7 @@ def test_partitioned_vector_NIPS5():
     )
     # Execute the compiled Kernel.
     results = CPUCompiler(
-        spnc_use_log_space=False, spnc_cpu_vectorize=True, maxTaskSize=3
+        spnc_use_log_space=False, spnc_cpu_vectorize=True, spnc_max_task_size=3
     ).log_likelihood(spn, inputs, supportMarginal=False)
 
     # Compute the reference results using the inference from SPFlow.

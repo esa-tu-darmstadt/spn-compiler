@@ -35,9 +35,9 @@ def test_partitioned_cuda_NIPS5():
         os.path.join(scriptPath, "inputdata.txt"), delimiter=";", dtype="int32"
     )
     # Execute the compiled Kernel.
-    results = CUDACompiler(spnc_use_log_space=False, maxTaskSize=10).log_likelihood(
-        spn, inputs, supportMarginal=False
-    )
+    results = CUDACompiler(
+        spnc_use_log_space=False, spnc_max_task_size=10
+    ).log_likelihood(spn, inputs, supportMarginal=False)
 
     # Compute the reference results using the inference from SPFlow.
     reference = np.genfromtxt(
