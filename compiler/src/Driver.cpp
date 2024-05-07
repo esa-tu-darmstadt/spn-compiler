@@ -54,8 +54,9 @@ Kernel spn_compiler::compileQuery(const std::string &inputFile,
   mlir::spn::registerLoSPNtoCPUPipeline();
   mlir::spn::low::registerLoSPNPasses();
 
-  // Parse the options.
-  parseOptions(options);
+  // Parse the options if there are any.
+  if (!options.empty())
+    parseOptions(options);
 
   std::unique_ptr<Pipeline<Kernel>> pipeline;
   if (spnc::option::compilationTarget == option::TargetMachine::CUDA) {
