@@ -16,10 +16,27 @@ using namespace mlir::spn::low;
 using namespace mlir::spn::low::slp;
 
 bool slp::vectorizable(Operation *op) {
-  return (op->hasTrait<OpTrait::spn::low::VectorizableOp>() ||
-          op->hasTrait<OpTrait::ConstantLike>()) &&
-         op->hasTrait<OpTrait::OneResult>() &&
-         ofVectorizableType(op->getResult(0));
+  // Only operations with one result can be vectorized.
+  if (!op->hasTrait<OpTrait::OneResult>()) {
+    return false;
+  }
+
+  // Only operations with vectorizable result types can be vectorized.
+  if (!ofVectorizableType(op->getResult(0))) {
+    return false;
+  }
+
+  // Constant-like operations can be vectorized.
+  if (op->hasTrait<OpTrait::ConstantLike>()) {
+    return true;
+  }
+
+  // Operations with vectorizable operands can be vectorized.
+  if (op->hasTrait<OpTrait::spn::low::VectorizableOp>()) {
+    return true;
+  }
+
+  return false;
 }
 
 bool slp::vectorizable(Value value) {

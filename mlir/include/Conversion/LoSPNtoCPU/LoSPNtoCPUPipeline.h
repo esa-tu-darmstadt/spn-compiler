@@ -21,6 +21,12 @@ struct LoSPNtoCPUPipelineOptions
       llvm::cl::desc("Vectorize code generated for CPU targets."),
       llvm::cl::init(false)};
 
+  PassOptions::Option<unsigned> vectorWidth{
+      *this, "vector-width",
+      llvm::cl::desc("The vector-width to use for vectorization. Use 0 to use "
+                     "the hardware vector width of the target architecture."),
+      llvm::cl::init(0)};
+
   PassOptions::Option<bool> replaceGatherWithShuffle{
       *this, "use-shuffle",
       llvm::cl::desc("Optimize gather loads into vector loads and shuffles"),

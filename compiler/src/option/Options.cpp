@@ -122,6 +122,12 @@ llvm::cl::opt<VectorLibrary> vectorLibrary{
     llvm::cl::init(VectorLibrary::NoLibrary),
     llvm::cl::cat(vectorizationCategory)};
 
+llvm::cl::opt<unsigned> vectorWidth{
+    "spnc-vector-width",
+    llvm::cl::desc("The vector-width to use for vectorization. Use 0 to use "
+                   "the hardware vector width of the target architecture"),
+    llvm::cl::init(0), llvm::cl::cat(vectorizationCategory)};
+
 llvm::cl::opt<bool> vectorize{
     "spnc-cpu-vectorize", llvm::cl::desc("Enable vectorization for CPU target"),
     llvm::cl::init(false), llvm::cl::cat(vectorizationCategory)};

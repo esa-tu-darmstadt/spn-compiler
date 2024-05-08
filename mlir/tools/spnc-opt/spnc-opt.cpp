@@ -8,6 +8,7 @@
 
 #include "HiSPN/HiSPNDialect.h"
 #include "HiSPNtoLoSPN/HiSPNtoLoSPNConversionPasses.h"
+#include "HiSPNtoLoSPN/HiSPNtoLoSPNPipeline.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNPasses.h"
 #include "LoSPNtoCPU/LoSPNtoCPUConversionPasses.h"
@@ -36,6 +37,8 @@ int main(int argc, char **argv) {
 #if SPNC_CUDA_SUPPORT
   mlir::spn::registerLoSPNtoGPUPasses();
 #endif
+
+  mlir::spn::registerHiSPNtoLoSPNPipeline();
   mlir::spn::registerLoSPNtoCPUPipeline();
 
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {

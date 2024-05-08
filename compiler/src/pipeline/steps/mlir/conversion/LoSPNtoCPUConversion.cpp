@@ -18,6 +18,19 @@ void spnc::LoSPNtoCPUConversion::initializePassPipeline(
   options.vectorize = option::vectorize.getValue();
   options.replaceGatherWithShuffle =
       option::replaceGatherWithShuffle.getValue();
+  options.vectorWidth = option::vectorWidth.getValue();
+  options.slpMaxAttempts = option::slpMaxAttempts.getValue();
+  options.slpMaxSuccessfulIterations =
+      option::slpMaxSuccessfulIterations.getValue();
+  options.slpMaxNodeSize = option::slpMaxNodeSize.getValue();
+  options.slpMaxLookAhead = option::slpMaxLookAhead.getValue();
+  options.slpReorderInstructionsDFS =
+      option::slpReorderInstructionsDFS.getValue();
+  options.slpAllowDuplicateElements =
+      option::slpAllowDuplicateElements.getValue();
+  options.slpAllowTopologicalMixing =
+      option::slpAllowTopologicalMixing.getValue();
+  options.slpUseXorChains = option::slpUseXorChains.getValue();
 
   mlir::LogicalResult result = mlir::spn::buildLoSPNtoCPUPipeline(*pm, options);
   if (mlir::failed(result)) {

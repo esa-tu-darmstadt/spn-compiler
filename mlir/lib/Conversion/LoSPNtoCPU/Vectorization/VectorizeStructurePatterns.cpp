@@ -9,11 +9,15 @@
 #include "../Target/TargetInformation.h"
 #include "LoSPNtoCPU/Vectorization/SLP/CostModel.h"
 #include "LoSPNtoCPU/Vectorization/SLP/Seeding.h"
+#include "LoSPNtoCPU/Vectorization/SLP/Util.h"
 #include "LoSPNtoCPU/Vectorization/VectorizationPatterns.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/IRMapping.h"
 #include "llvm/Support/FormatVariadic.h"
+
+#include "mlir/Analysis/DataFlow/LivenessAnalysis.h"
+#include "mlir/Interfaces/SideEffectInterfaces.h"
 
 using namespace mlir;
 using namespace mlir::spn;
@@ -23,27 +27,27 @@ using namespace mlir::spn::low::slp;
 namespace {
 SmallPtrSet<Operation *, 32> computeDeadOps(Block *block) {
   SmallPtrSet<Operation *, 32> deadOps;
+
+  // Use MLIRs new liveness analysis to determine which operations are dead.
+  mlir::dataflow::RunLivenessAnalysis la(block->getParentOp());
+
   llvm::SmallSetVector<Operation *, 32> worklist;
-  block->walk<WalkOrder::PreOrder>([&](Operation *op) {
-    if (isOpTriviallyDead(op)) {
-      worklist.insert(op);
+  block->walk([&](Operation *op) {
+    // Make sure the operation does not have any side effects.
+    if (!wouldOpBeTriviallyDead(op)) {
+      return;
+    }
+
+    // An operation is dead if all of its results are dead.
+    bool isDead = llvm::all_of(op->getResults(), [&](Value result) {
+      return !la.getLiveness(result)->isLive;
+    });
+
+    if (isDead) {
       deadOps.insert(op);
     }
   });
-  while (!worklist.empty()) {
-    auto *op = worklist.pop_back_val();
-    for (auto const &operand : op->getOperands()) {
-      if (auto *operandOp = operand.getDefiningOp()) {
-        auto users = operandOp->getUsers();
-        if (std::all_of(
-                std::begin(users), std::end(users),
-                [&](Operation *user) { return deadOps.contains(user); })) {
-          worklist.insert(operandOp);
-          deadOps.insert(operandOp);
-        }
-      }
-    }
-  }
+
   return deadOps;
 }
 } // namespace
@@ -165,9 +169,10 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
   // thousands of needlessly created operations with us to the next
   // vectorization attempt. Therefore, use an IRRewriter that erases operations
   // *immediately* instead of at the end of the conversion process (as would be
-  // the case for ConversionPatterRewriter::eraseOp()). IRRewriter
-  // graphRewriter{rewriter};
-  auto &graphRewriter = rewriter; // FIXME
+  // the case for ConversionPatterRewriter::eraseOp()).
+
+  IRRewriter graphRewriter{rewriter};
+  // auto &graphRewriter = rewriter; // FIXME
 
   CostModelPatternApplicator<UnitCostModel> applicator;
   auto *costModel = applicator.getCostModel();
@@ -179,8 +184,14 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
   auto elementType =
       operands.back().getType().dyn_cast<MemRefType>().getElementType();
   std::unique_ptr<SeedAnalysis> seedAnalysis;
-  auto width =
-      TargetInformation::nativeCPUTarget().getHWVectorEntries(elementType);
+  unsigned width = vectorWidth;
+  if (width == 0) {
+    // If the vector width is not set, use the native vector width of the target
+    // architecture.
+    width =
+        TargetInformation::nativeCPUTarget().getHWVectorEntries(elementType);
+  }
+
 #if TOP_DOWN_SEEDING
   seedAnalysis = std::make_unique<TopDownAnalysis>(taskFunc, width);
 #else
@@ -234,6 +245,8 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
                    allowDuplicateElements,
                    allowTopologicalMixing,
                    useXorChains};
+
+    slp::dumpSLPGraph(graph.getRootNode().get(), true);
 
 #if PRINT_TIMINGS
     TimePoint graphEnd = std::chrono::high_resolution_clock::now();
@@ -390,20 +403,26 @@ VectorizeBatchTask::matchAndRewrite(SPNTask op, SPNTask::Adaptor adaptor,
   assert(operands.back().getType().isa<MemRefType>());
   auto computationType =
       operands.back().getType().dyn_cast<MemRefType>().getElementType();
-  auto hwVectorWidth =
-      TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
 
+  unsigned effectiveVectorWidth = vectorWidth;
+  if (effectiveVectorWidth == 0) {
+    // If the vector width is not set, use the native vector width of the target
+    // architecture.
+    effectiveVectorWidth =
+        TargetInformation::nativeCPUTarget().getHWVectorEntries(
+            computationType);
+  }
   // Emit a warning if the target vector width does not divide the requested
   // batch size. This will cause a part of each batch (batchSize % vectorWidth
   // elements) to be processed by the scalar epilog loop instead of the
   // vectorized loop.
-  if ((op.getBatchSize() % hwVectorWidth) != 0) {
+  if ((op.getBatchSize() % effectiveVectorWidth) != 0) {
     op.emitWarning()
-        << "The target vector width " << hwVectorWidth
+        << "The target vector width " << effectiveVectorWidth
         << " does not divide the requested batch size " << op.getBatchSize()
         << "; This can result in degraded performance. "
         << "Choose the batch size as a multiple of the vector width "
-        << hwVectorWidth;
+        << effectiveVectorWidth;
   }
 
   auto taskBlock = taskFunc.addEntryBlock();
@@ -419,7 +438,7 @@ VectorizeBatchTask::matchAndRewrite(SPNTask op, SPNTask::Adaptor adaptor,
   auto numSamples =
       rewriter.create<memref::DimOp>(op.getLoc(), inputMemRef, index);
   auto vectorWidthConst = rewriter.create<arith::ConstantOp>(
-      op.getLoc(), rewriter.getIndexAttr(hwVectorWidth));
+      op.getLoc(), rewriter.getIndexAttr(effectiveVectorWidth));
   auto remainder = rewriter.create<arith::RemUIOp>(op.getLoc(), numSamples,
                                                    vectorWidthConst);
   auto ubVectorized =
@@ -430,7 +449,7 @@ VectorizeBatchTask::matchAndRewrite(SPNTask op, SPNTask::Adaptor adaptor,
   auto lbVectorized =
       rewriter.create<arith::ConstantOp>(op.getLoc(), rewriter.getIndexAttr(0));
   auto stepVectorized = rewriter.create<arith::ConstantOp>(
-      op.getLoc(), rewriter.getIndexAttr(hwVectorWidth));
+      op.getLoc(), rewriter.getIndexAttr(effectiveVectorWidth));
   auto vectorizedLoop = rewriter.create<scf::ForOp>(
       op.getLoc(), lbVectorized, ubVectorized, stepVectorized);
   auto &vectorLoopBody = *vectorizedLoop.getBody();
@@ -454,8 +473,8 @@ VectorizeBatchTask::matchAndRewrite(SPNTask op, SPNTask::Adaptor adaptor,
   }
 
   // Mark all operations contained in the vectorized loop as vectorized.
-  vectorLoopBody.walk([hwVectorWidth](low::LoSPNVectorizable vOp) {
-    vOp.setVectorized(hwVectorWidth);
+  vectorLoopBody.walk([effectiveVectorWidth](low::LoSPNVectorizable vOp) {
+    vOp.setVectorized(effectiveVectorWidth);
   });
 
   rewriter.restoreInsertionPoint(restoreTask);
@@ -500,10 +519,17 @@ LogicalResult VectorizeTask::createFunctionIfVectorizable(
   assert(operands.back().getType().isa<MemRefType>());
   auto computationType =
       operands.back().getType().dyn_cast<MemRefType>().getElementType();
-  auto hwVectorWidth =
-      TargetInformation::nativeCPUTarget().getHWVectorEntries(computationType);
 
-  if (hwVectorWidth <= 1) {
+  unsigned effectiveVectorWidth = vectorWidth;
+  if (effectiveVectorWidth == 0) {
+    // If the vector width is not set, use the native vector width of the target
+    // architecture.
+    effectiveVectorWidth =
+        TargetInformation::nativeCPUTarget().getHWVectorEntries(
+            computationType);
+  }
+
+  if (effectiveVectorWidth <= 1) {
     return rewriter.notifyMatchFailure(
         task, llvm::formatv("No vectorization possible for data-type {} on the "
                             "requested target",
@@ -513,11 +539,11 @@ LogicalResult VectorizeTask::createFunctionIfVectorizable(
   if (requireAllOpsVectorizable) {
     // Check if all nodes can be vectorized before trying to do so.
     auto allVectorizable =
-        task.getBody().walk([hwVectorWidth](low::LoSPNVectorizable vOp) {
-          if (!vOp.isVectorizable(hwVectorWidth)) {
+        task.getBody().walk([effectiveVectorWidth](low::LoSPNVectorizable vOp) {
+          if (!vOp.isVectorizable(effectiveVectorWidth)) {
             vOp.emitRemark()
                 << "Operation cannot be vectorized with vector width "
-                << hwVectorWidth;
+                << effectiveVectorWidth;
             return WalkResult::interrupt();
           }
           return WalkResult::advance();
@@ -532,7 +558,8 @@ LogicalResult VectorizeTask::createFunctionIfVectorizable(
 
   // Let the user know which vector width will be used.
   task->emitRemark() << "Attempting to vectorize with vector width "
-                     << hwVectorWidth << " for data-type " << computationType;
+                     << effectiveVectorWidth << " for data-type "
+                     << computationType;
 
   auto const &insertionPoint = rewriter.saveInsertionPoint();
   rewriter.setInsertionPointToStart(

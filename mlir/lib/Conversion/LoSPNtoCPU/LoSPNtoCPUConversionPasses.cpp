@@ -145,7 +145,7 @@ struct LoSPNtoCPUStructureConversionPass
           taskPatterns, &getContext(), vectorizerTypeConverter, maxAttempts,
           maxSuccessfulIterations, maxNodeSize, maxLookAhead,
           reorderInstructionsDFS, allowDuplicateElements,
-          allowTopologicalMixing, useXorChains);
+          allowTopologicalMixing, useXorChains, vectorWidth);
     }
     spn::populateLoSPNtoCPUTaskPatterns(taskPatterns, &getContext(),
                                         typeConverter);

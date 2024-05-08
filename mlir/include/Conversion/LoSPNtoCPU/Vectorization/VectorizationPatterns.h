@@ -18,12 +18,18 @@ namespace mlir {
 namespace spn {
 
 struct VectorizeTask : OpConversionPattern<low::SPNTask> {
+protected:
+  unsigned vectorWidth;
 
 public:
   VectorizeTask(TypeConverter &typeConverter, MLIRContext *context,
-                PatternBenefit benefit, bool requireAllOpsVectorizable)
+                PatternBenefit benefit, bool requireAllOpsVectorizable,
+                unsigned vectorWidth)
       : OpConversionPattern<low::SPNTask>(typeConverter, context, benefit),
-        requireAllOpsVectorizable{requireAllOpsVectorizable} {}
+        vectorWidth{vectorWidth},
+        requireAllOpsVectorizable{requireAllOpsVectorizable} {
+    llvm::outs() << "VectorizeTask: vectorWidth = " << vectorWidth << "\n";
+  }
 
 protected:
   LogicalResult createFunctionIfVectorizable(
@@ -42,15 +48,15 @@ public:
                       unsigned maxSuccessfulIterations, unsigned maxNodeSize,
                       unsigned maxLookAhead, bool reorderInstructionsDFS,
                       bool allowDuplicateElements, bool allowTopologicalMixing,
-                      bool useXorChains)
-      : VectorizeTask(typeConverter, context, benefit, false),
+                      bool useXorChains, unsigned vectorWidth)
+      : VectorizeTask(typeConverter, context, benefit, false, vectorWidth),
         maxAttempts{maxAttempts},
         maxSuccessfulIterations{maxSuccessfulIterations},
         maxNodeSize{maxNodeSize}, maxLookAhead{maxLookAhead},
         reorderInstructionsDFS{reorderInstructionsDFS},
         allowDuplicateElements{allowDuplicateElements},
-        allowTopologicalMixing{allowTopologicalMixing}, useXorChains{
-                                                            useXorChains} {}
+        allowTopologicalMixing{allowTopologicalMixing},
+        useXorChains{useXorChains} {}
 
 protected:
   LogicalResult
@@ -71,8 +77,8 @@ private:
 struct VectorizeBatchTask : public VectorizeTask {
 public:
   VectorizeBatchTask(TypeConverter &typeConverter, MLIRContext *context,
-                     PatternBenefit benefit)
-      : VectorizeTask(typeConverter, context, benefit, true) {}
+                     PatternBenefit benefit, unsigned vectorWidth)
+      : VectorizeTask(typeConverter, context, benefit, true, vectorWidth) {}
 
 protected:
   LogicalResult
@@ -85,13 +91,13 @@ static inline void populateLoSPNtoCPUVectorizationTaskPatterns(
     TypeConverter &typeConverter, unsigned maxAttempts,
     unsigned maxSuccessfulIterations, unsigned maxNodeSize,
     unsigned maxLookAhead, bool reorderInstructionsDFS,
-    bool allowDuplicateElements, bool allowTopologicalMixing,
-    bool useXorChains) {
+    bool allowDuplicateElements, bool allowTopologicalMixing, bool useXorChains,
+    unsigned vectorWidth) {
   patterns.insert<VectorizeSingleTask>(
       typeConverter, context, 5, maxAttempts, maxSuccessfulIterations,
       maxNodeSize, maxLookAhead, reorderInstructionsDFS, allowDuplicateElements,
-      allowTopologicalMixing, useXorChains);
-  patterns.insert<VectorizeBatchTask>(typeConverter, context, 5);
+      allowTopologicalMixing, useXorChains, vectorWidth);
+  patterns.insert<VectorizeBatchTask>(typeConverter, context, 5, vectorWidth);
 }
 
 struct VectorizeTransposedBatchRead

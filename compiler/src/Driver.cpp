@@ -51,7 +51,6 @@ Kernel spn_compiler::compileQuery(const std::string &inputFile,
                                   const options_t &options) {
   SPDLOG_INFO("Welcome to the SPN compiler!");
 
-  mlir::spn::registerLoSPNtoCPUPipeline();
   mlir::spn::low::registerLoSPNPasses();
 
   // Parse the options if there are any.

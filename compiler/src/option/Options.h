@@ -89,6 +89,9 @@ extern llvm::cl::opt<llvm::driver::VectorLibrary> vectorLibrary;
 /// Enable vectorization
 extern llvm::cl::opt<bool> vectorize;
 
+/// Vector width
+extern llvm::cl::opt<unsigned> vectorWidth;
+
 /// Optimize gather loads into vector loads and shuffles
 extern llvm::cl::opt<bool> replaceGatherWithShuffle;
 

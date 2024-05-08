@@ -21,7 +21,6 @@ include "mlir/Interfaces/FunctionInterfaces.td"
 include "mlir/IR/RegionKindInterface.td"
 include "mlir/IR/BuiltinAttributeInterfaces.td"
 
-
 def SPNKernel : LoSPN_Op<"kernel", [CallableOpInterface, FunctionOpInterface, Symbol, IsolatedFromAbove]> {
 
     let summary = "The Kernel holds the tasks necessary to process an SPN query.";
@@ -127,7 +126,7 @@ def SPNTask : LoSPN_Op<"task", [HasParent<"SPNKernel">, SingleBlockImplicitTermi
 }
 
 def SPNBody : LoSPN_Op<"body", [HasParent<"SPNTask">, SingleBlockImplicitTerminator<"SPNYield">,
-                                NoMemoryEffect, IsolatedFromAbove]> {
+                                Pure, IsolatedFromAbove]> {
 
     let summary = "The body holds the the actual computational operations";
 
@@ -152,7 +151,7 @@ def SPNBody : LoSPN_Op<"body", [HasParent<"SPNTask">, SingleBlockImplicitTermina
 
 }
 
-def SPNBatchExtract : LoSPN_Op<"batch_extract", [HasParent<"SPNTask">]> {
+def SPNBatchExtract : LoSPN_Op<"batch_extract", [HasParent<"SPNTask">, Pure]> {
 
     let summary = "Extract a particular index from each sample in a batch";
 
@@ -225,7 +224,7 @@ def SPNBatchRead : LoSPN_Op<"batch_read", [
     ];
 }
 
-def SPNBatchCollect : LoSPN_Op<"batch_collect", [HasParent<"SPNTask">]> {
+def SPNBatchCollect : LoSPN_Op<"batch_collect", [HasParent<"SPNTask">, Pure]> {
 
     let summary = "Collect one or multiple results for each sample in a batch";
 
@@ -319,7 +318,7 @@ def SPNCopy : LoSPN_Op<"copy", [SameOperandsShape]> {
 
 }
 
-def SPNConvertToVector : LoSPN_Op<"to_vector", []> {
+def SPNConvertToVector : LoSPN_Op<"to_vector", [Pure]> {
     let summary = "Convert scalar input to vector";
 
     let description = [{
@@ -334,7 +333,7 @@ def SPNConvertToVector : LoSPN_Op<"to_vector", []> {
 
 }
 
-def SPNConvertToScalar : LoSPN_Op<"to_scalar", [NoMemoryEffect]> {
+def SPNConvertToScalar : LoSPN_Op<"to_scalar", [Pure]> {
     let summary = "Convert vector input to scalar";
 
     let description = [{
@@ -349,7 +348,7 @@ def SPNConvertToScalar : LoSPN_Op<"to_scalar", [NoMemoryEffect]> {
 
 }
 
-def SPNStripLog : LoSPN_Op<"strip_log", [VectorizableOp, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
+def SPNStripLog : LoSPN_Op<"strip_log", [VectorizableOp, DeclareOpInterfaceMethods<LoSPNVectorizable>, Pure]> {
     let summary = "Strip the log-space property from a value";
 
     let description = [{
@@ -367,7 +366,7 @@ def SPNStripLog : LoSPN_Op<"strip_log", [VectorizableOp, DeclareOpInterfaceMetho
     ];
 }
 
-def SPNConvertLog : LoSPN_Op<"convert_log", [VectorizableOp, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
+def SPNConvertLog : LoSPN_Op<"convert_log", [VectorizableOp, DeclareOpInterfaceMethods<LoSPNVectorizable>, Pure]> {
     let summary = "Add the log-space property to a value";
 
     let description = [{
@@ -419,7 +418,7 @@ def SPNConstant : LoSPNBodyOp<"constant", [ConstantLike, Pure,
     let hasFolder = 1;
 }
 
-def SPNLog : LoSPNBodyOp<"log", [NoMemoryEffect, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
+def SPNLog : LoSPNBodyOp<"log", [Pure, DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "Convert the result of the computation to log";
 
@@ -431,7 +430,7 @@ def SPNLog : LoSPNBodyOp<"log", [NoMemoryEffect, DeclareOpInterfaceMethods<LoSPN
 
 }
 
-def SPNMul : LoSPNBodyOp<"mul", [NoMemoryEffect, Commutative, SameOperandsAndResultType,
+def SPNMul : LoSPNBodyOp<"mul", [Pure, Commutative, SameOperandsAndResultType,
                                     DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "Multiplication of two values";
@@ -444,7 +443,7 @@ def SPNMul : LoSPNBodyOp<"mul", [NoMemoryEffect, Commutative, SameOperandsAndRes
 
 }
 
-def SPNAdd : LoSPNBodyOp<"add", [NoMemoryEffect, Commutative, SameOperandsAndResultType,
+def SPNAdd : LoSPNBodyOp<"add", [Pure, Commutative, SameOperandsAndResultType,
                                     DeclareOpInterfaceMethods<LoSPNVectorizable>]> {
 
     let summary = "Addition of two values";
@@ -460,7 +459,7 @@ def SPNAdd : LoSPNBodyOp<"add", [NoMemoryEffect, Commutative, SameOperandsAndRes
 ///
 /// Histogram as SPN leaf node.
 ///
-def SPNHistogramLeaf : LoSPNBodyOp<"histogram", [NoMemoryEffect,
+def SPNHistogramLeaf : LoSPNBodyOp<"histogram", [Pure,
                                                  DeclareOpInterfaceMethods<LoSPNVectorizable>,
                                                  DeclareOpInterfaceMethods<LeafNodeInterface>]> {
     let summary = "histogram";
@@ -480,7 +479,7 @@ def SPNHistogramLeaf : LoSPNBodyOp<"histogram", [NoMemoryEffect,
 ///
 /// Categorical distribution as SPN leaf node.
 ///
-def SPNCategoricalLeaf : LoSPNBodyOp<"categorical", [NoMemoryEffect,
+def SPNCategoricalLeaf : LoSPNBodyOp<"categorical", [Pure,
                                                      DeclareOpInterfaceMethods<LoSPNVectorizable>,
                                                      DeclareOpInterfaceMethods<LeafNodeInterface>]> {
 
@@ -498,7 +497,7 @@ def SPNCategoricalLeaf : LoSPNBodyOp<"categorical", [NoMemoryEffect,
 ///
 /// Gaussian distribution as SPN leaf node.
 ///
-def SPNGaussianLeaf : LoSPNBodyOp<"gaussian", [NoMemoryEffect,
+def SPNGaussianLeaf : LoSPNBodyOp<"gaussian", [Pure,
                                                DeclareOpInterfaceMethods<LoSPNVectorizable>,
                                                DeclareOpInterfaceMethods<LeafNodeInterface>]> {
 

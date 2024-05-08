@@ -22,6 +22,7 @@ def LoSPNtoCPUStructureConversionPass : Pass<"convert-lospn-structure-to-cpu", "
 
   let options = [
     Option<"vectorize", "vectorize", "bool", "false", "Vectorize code generated for CPU targets">,
+    Option<"vectorWidth", "vector-width", "unsigned", "0", "The vector-width to use for vectorization. Use 0 to use the hardware vector width of the target architecture.">,
     Option<"maxAttempts", "slp-max-attempts", "unsigned", "1", "Maximum number of SLP vectorization attempts">,
     Option<"maxSuccessfulIterations", "slp-max-successful-iterations", "unsigned", "1", "Maximum number of successful SLP vectorization runs to be applied to a function">,
     Option<"maxNodeSize", "slp-max-node-size", "unsigned", "10", "Maximum multinode size during SLP vectorization in terms of the number of vectors they may contain">,

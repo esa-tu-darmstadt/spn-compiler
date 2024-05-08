@@ -24,6 +24,7 @@ buildLoSPNtoCPUPipeline(mlir::OpPassManager &pm,
                         const LoSPNtoCPUPipelineOptions &options) {
   LoSPNtoCPUStructureConversionPassOptions structConvOptions;
   structConvOptions.vectorize = options.vectorize;
+  structConvOptions.vectorWidth = options.vectorWidth;
   structConvOptions.maxAttempts = options.slpMaxAttempts;
   structConvOptions.maxSuccessfulIterations =
       options.slpMaxSuccessfulIterations;
