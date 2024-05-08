@@ -36,9 +36,10 @@ def test_vector_slp_mini():
     # Compile the kernel with batch size 1 to enable SLP vectorization.
     compiler = CPUCompiler(
         spnc_cpu_vectorize=True,
+        spnc_vector_width=4,
         spnc_use_log_space=True,
         spnc_vector_library=VectorLibrary.LIBMVEC,
-        spnc_dump_ir=True,
+        spnc_dump_ir=False,
     )
     kernel = compiler.compile_ll(spn=spn, batchSize=1, supportMarginal=False)
 
