@@ -246,8 +246,6 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
                    allowTopologicalMixing,
                    useXorChains};
 
-    slp::dumpSLPGraph(graph.getRootNode().get(), true);
-
 #if PRINT_TIMINGS
     TimePoint graphEnd = std::chrono::high_resolution_clock::now();
     auto graphDuration = std::chrono::duration_cast<std::chrono::nanoseconds>(
