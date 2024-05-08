@@ -67,6 +67,7 @@ def test_vector_slp_consecutive():
     # Compile the kernel with batch size 1 to enable SLP vectorization.
     compiler = CPUCompiler(
         spnc_cpu_vectorize=True,
+        spnc_vector_width=4,
         spnc_use_log_space=True,
         spnc_vector_library=VectorLibrary.LIBMVEC,
     )
