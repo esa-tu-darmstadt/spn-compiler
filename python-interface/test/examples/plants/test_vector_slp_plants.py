@@ -39,14 +39,14 @@ def test_vector_slp_plants():
 
     # Compile the kernel.
     options = {}
-    options["slp-max-look-ahead"] = 10
-    options["slp-max-node-size"] = 10000
-    options["slp-max-attempts"] = 5
-    options["slp-max-successful-iterations"] = 1
-    options["slp-reorder-dfs"] = True
-    options["slp-allow-duplicate-elements"] = False
-    options["slp-allow-topological-mixing"] = False
-    options["slp-use-xor-chains"] = True
+    options["spnc-slp-max-look-ahead"] = 10
+    options["spnc-slp-max-node-size"] = 10000
+    options["spnc-slp-max-attempts"] = 5
+    options["spnc-slp-max-successful-iterations"] = 1
+    options["spnc-slp-reorder-dfs"] = True
+    options["spnc-slp-allow-duplicate-elements"] = False
+    options["spnc-slp-allow-topological-mixing"] = False
+    options["spnc-slp-use-xor-chains"] = True
 
     # Compile the kernel with batch size 1 to enable SLP vectorization.
     compiler = CPUCompiler(
