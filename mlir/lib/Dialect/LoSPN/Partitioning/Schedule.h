@@ -32,9 +32,8 @@ public:
 
   void calculateTimes();
 
-
-  void viewSchedule(const spnc::TargetExecutionModel &targetModel);
-  void saveAsHTML(std::string filename, const spnc::TargetExecutionModel &targetModel);
+  void viewSchedule(const TargetExecutionModel &targetModel);
+  void saveAsHTML(std::string filename, const TargetExecutionModel &targetModel);
 };
 } // namespace partitioning
 } // namespace low

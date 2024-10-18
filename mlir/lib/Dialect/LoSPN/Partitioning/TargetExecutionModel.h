@@ -12,8 +12,7 @@
 namespace mlir {
 class Operation;
 class Value;
-} // namespace mlir
-namespace spnc {
+namespace spn::low::partitioning {
 
 class TargetExecutionModel {
 public:
@@ -38,4 +37,5 @@ public:
 };
 
 TargetExecutionModel &getGenericTargetExecutionModel();
-} // namespace spnc
+} // namespace spn::low::partitioning
+} // namespace mlir

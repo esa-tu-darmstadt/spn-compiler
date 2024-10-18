@@ -10,28 +10,18 @@
 #define SPNC_MLIR_INCLUDE_DIALECT_LOSPN_LOSPNPASSES_H
 
 #include "LoSPNOps.h"
-#include "TargetExecutionModel.h"
 #include "mlir/Pass/Pass.h"
 
 namespace mlir {
 namespace spn {
 namespace low {
 
-std::unique_ptr<OperationPass<ModuleOp>> createLoSPNBufferizePass();
-
-std::unique_ptr<OperationPass<SPNKernel>> createLoSPNCopyRemovalPass();
-
-std::unique_ptr<OperationPass<SPNKernel>>
-createLoSPNPartitionerPass(const spnc::TargetExecutionModel &targetInfo = spnc::getGenericTargetExecutionModel(),
-                           int maxTaskSize = -1);
-
-std::unique_ptr<OperationPass<ModuleOp>> createReplaceARMOptimizedRoutinesPass();
-
 /// Instantiate the graph stats collection pass determining SPN statistics like
 /// the number of inner and leaf nodes or min/max/average node level.
 /// \return Pass instance.
 std::unique_ptr<OperationPass<ModuleOp>> createLoSPNGraphStatsCollectionPass(const std::string &graphStatsFile);
 
+#define GEN_PASS_REGISTRATION
 #define GEN_PASS_DECL
 #include "LoSPN/LoSPNPasses.h.inc"
 

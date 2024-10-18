@@ -114,7 +114,7 @@ template <typename GraphT> int Schedule<GraphT>::makeSpan() {
 }
 
 template <typename GraphT>
-void Schedule<GraphT>::saveAsHTML(std::string filename, const spnc::TargetExecutionModel &targetModel) {
+void Schedule<GraphT>::saveAsHTML(std::string filename, const TargetExecutionModel &targetModel) {
   // Calculate starting times if not done yet
   if (startingTimes_.empty())
     calculateTimes();
@@ -199,7 +199,7 @@ void Schedule<GraphT>::saveAsHTML(std::string filename, const spnc::TargetExecut
   html.close();
 }
 
-template <class GraphT> void Schedule<GraphT>::viewSchedule(const spnc::TargetExecutionModel &targetModel) {
+template <class GraphT> void Schedule<GraphT>::viewSchedule(const TargetExecutionModel &targetModel) {
   int FD;
   SmallString<128> Filename;
   std::error_code EC = llvm::sys::fs::createTemporaryFile("schedule", "html", FD, Filename);

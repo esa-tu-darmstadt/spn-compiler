@@ -16,7 +16,7 @@
 #include "util/Logging.h"
 
 void spnc::LoSPNTransformations::initializePassPipeline(mlir::PassManager *pm, mlir::MLIRContext *ctx) {
-  auto &targetModel = *getContext()->get<spnc::TargetExecutionModel>();
+  auto &targetModel = *getContext()->get<TargetExecutionModel>();
   auto maxTaskSize = spnc::option::maxTaskSize.get(*getContext()->get<Configuration>());
   pm->nest<mlir::spn::low::SPNKernel>().addPass(mlir::spn::low::createLoSPNPartitionerPass(targetModel, maxTaskSize));
   pm->addPass(mlir::spn::low::createLoSPNBufferizePass());

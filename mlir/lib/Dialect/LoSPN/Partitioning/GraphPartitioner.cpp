@@ -32,7 +32,7 @@ using namespace mlir::spn::low::partitioning;
 
 SPNGraph::vertex_descriptor add_vertex_recursive(SPNGraph &graph, Operation *op,
                                                  std::unordered_map<Operation *, SPNGraph::vertex_descriptor> &mapping,
-                                                 const spnc::TargetExecutionModel &targetModel) {
+                                                 const TargetExecutionModel &targetModel) {
   // Check if the operation is already in the graph.
   auto it = mapping.find(op);
   if (it != mapping.end()) {
@@ -54,8 +54,8 @@ SPNGraph::vertex_descriptor add_vertex_recursive(SPNGraph &graph, Operation *op,
   return v;
 }
 
-GraphPartitioner::GraphPartitioner(llvm::ArrayRef<mlir::Operation *> rootNodes,
-                                   const spnc::TargetExecutionModel &targetModel, size_t maxTaskSize)
+GraphPartitioner::GraphPartitioner(llvm::ArrayRef<mlir::Operation *> rootNodes, const TargetExecutionModel &targetModel,
+                                   size_t maxTaskSize)
     : graph_(), targetModel_(targetModel), maxPartitionSize_{maxTaskSize} {
   std::unordered_map<Operation *, SPNGraph::vertex_descriptor> mapping;
 

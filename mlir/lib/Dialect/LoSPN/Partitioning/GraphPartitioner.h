@@ -28,18 +28,18 @@ namespace low {
 
 namespace partitioning {
 class BSPSchedule;
-template <class GraphT>
-class Schedule;
+template <class GraphT> class Schedule;
 
 class GraphPartitioner {
   SPNGraph graph_;
-  const spnc::TargetExecutionModel &targetModel_;
+  const TargetExecutionModel &targetModel_;
 
   /// Creates a BSP graph in which vertices represent a clusters of the SPN graph.
   void createBSPGraphFromClusteredSPNGraph(SPNGraph &spnGraph, BSPGraph &bspGraph);
 
 public:
-  explicit GraphPartitioner(llvm::ArrayRef<mlir::Operation *> rootNodes, const spnc::TargetExecutionModel &targetModel, size_t maxTaskSize);
+  explicit GraphPartitioner(llvm::ArrayRef<mlir::Operation *> rootNodes, const TargetExecutionModel &targetModel,
+                            size_t maxTaskSize);
 
   /// Clusters the SPN graph
   void clusterGraph();
@@ -104,19 +104,21 @@ public:
   class ClusteringAlgorithm {
   protected:
     size_t maxClusterSize_;
-    const spnc::TargetExecutionModel &targetModel_;
+    const TargetExecutionModel &targetModel_;
 
   public:
-    ClusteringAlgorithm(const spnc::TargetExecutionModel &targetModel, size_t maxClusterSize) : maxClusterSize_(maxClusterSize), targetModel_(targetModel) {}
+    ClusteringAlgorithm(const TargetExecutionModel &targetModel, size_t maxClusterSize)
+        : maxClusterSize_(maxClusterSize), targetModel_(targetModel) {}
     virtual ~ClusteringAlgorithm() = default;
     virtual void operator()(SPNGraph &graph) = 0;
   };
 
   template <class GraphT> class SchedulingAlgorithm {
   protected:
-    const spnc::TargetExecutionModel &targetModel_;
+    const TargetExecutionModel &targetModel_;
+
   public:
-    SchedulingAlgorithm(const spnc::TargetExecutionModel &targetModel) : targetModel_(targetModel) {}
+    SchedulingAlgorithm(const TargetExecutionModel &targetModel) : targetModel_(targetModel) {}
     virtual ~SchedulingAlgorithm() = default;
     virtual Schedule<GraphT> operator()(GraphT &graph) = 0;
   };

@@ -84,8 +84,7 @@ void mlir::spn::low::partitioning::view_spngraph(SPNGraph &graph, std::string ti
 
 SPNGraph::edge_descriptor mlir::spn::low::partitioning::add_edge(SPNGraph::vertex_descriptor u,
                                                                  SPNGraph::vertex_descriptor v, SPNGraph &graph,
-                                                                 Value value,
-                                                                 const spnc::TargetExecutionModel &targetModel) {
+                                                                 Value value, const TargetExecutionModel &targetModel) {
   auto edge = boost::add_edge(u, v, graph);
   assert(edge.second && "Cannot add edge");
 
@@ -95,7 +94,7 @@ SPNGraph::edge_descriptor mlir::spn::low::partitioning::add_edge(SPNGraph::verte
 }
 
 SPNGraph::vertex_descriptor mlir::spn::low::partitioning::add_vertex(SPNGraph &graph, Operation *op,
-                                                                     const spnc::TargetExecutionModel &targetModel) {
+                                                                     const TargetExecutionModel &targetModel) {
   auto v = boost::add_vertex(graph);
 
   boost::put(SPNVertex_Operation(), graph, v, op);

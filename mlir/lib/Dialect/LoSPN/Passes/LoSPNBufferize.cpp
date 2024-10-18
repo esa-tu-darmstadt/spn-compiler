@@ -26,7 +26,7 @@
 using namespace mlir;
 using namespace mlir::spn::low;
 
-namespace {
+namespace mlir::spn::low {
 
 #define GEN_PASS_DEF_LOSPNBUFFERIZE
 #include "LoSPN/LoSPNPasses.h.inc"
@@ -82,8 +82,4 @@ protected:
   }
 };
 
-} // namespace
-
-std::unique_ptr<OperationPass<ModuleOp>> mlir::spn::low::createLoSPNBufferizePass() {
-  return std::make_unique<LoSPNBufferize>();
-}
+} // namespace mlir::spn::low
