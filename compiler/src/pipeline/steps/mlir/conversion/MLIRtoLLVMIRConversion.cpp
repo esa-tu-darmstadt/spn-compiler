@@ -23,16 +23,12 @@
 
 using namespace spnc;
 
-spnc::MLIRtoLLVMIRConversion::MLIRtoLLVMIRConversion(
-    StepWithResult<mlir::ModuleOp> &input)
-    : StepSingleInput<MLIRtoLLVMIRConversion, mlir::ModuleOp>(input),
-      llvmCtx{} {}
+spnc::MLIRtoLLVMIRConversion::MLIRtoLLVMIRConversion(StepWithResult<mlir::ModuleOp> &input)
+    : StepSingleInput<MLIRtoLLVMIRConversion, mlir::ModuleOp>(input), llvmCtx{} {}
 
-ExecutionResult
-spnc::MLIRtoLLVMIRConversion::executeStep(mlir::ModuleOp *mlirModule) {
+ExecutionResult spnc::MLIRtoLLVMIRConversion::executeStep(mlir::ModuleOp *mlirModule) {
   module = mlir::translateModuleToLLVMIR(mlirModule->getOperation(), llvmCtx);
-  auto *config = getContext()->get<Configuration>();
-  if (spnc::option::dumpIR.get(*config)) {
+  if (spnc::option::dumpIR) {
     llvm::dbgs() << "\n// *** IR after conversion to LLVM IR ***\n";
 #ifdef LLVM_ENABLE_DUMP
     module->dump();
@@ -74,11 +70,8 @@ spnc::MLIRtoLLVMIRConversion::executeStep(mlir::ModuleOp *mlirModule) {
 }
 
 int spnc::MLIRtoLLVMIRConversion::retrieveOptLevel() {
-  int irOptLevel = option::irOptLevel.getNumOccurrences() > 0
-                       ? option::irOptLevel
-                       : option::optLevel;
-  if (option::irOptLevel.getNumOccurrences() > 0 &&
-      option::irOptLevel != option::optLevel) {
+  int irOptLevel = option::irOptLevel.getNumOccurrences() > 0 ? option::irOptLevel : option::optLevel;
+  if (option::irOptLevel.getNumOccurrences() > 0 && option::irOptLevel != option::optLevel) {
     SPDLOG_INFO("Option ir-opt-level (value: {}) takes precedence over option "
                 "opt-level (value: {})",
                 option::irOptLevel, option::optLevel);
@@ -89,11 +82,9 @@ int spnc::MLIRtoLLVMIRConversion::retrieveOptLevel() {
 void MLIRtoLLVMIRConversion::optimizeLLVMIR(int irOptLevel) {
   unsigned sizeLevel = 0;
   auto machine = getContext()->get<llvm::TargetMachine>();
-  auto optPipeline =
-      mlir::makeOptimizingTransformer(irOptLevel, sizeLevel, machine);
+  auto optPipeline = mlir::makeOptimizingTransformer(irOptLevel, sizeLevel, machine);
 
-  auto optPipelineCustom = [irOptLevel, sizeLevel,
-                            machine](llvm::Module *m) -> llvm::Error {
+  auto optPipelineCustom = [irOptLevel, sizeLevel, machine](llvm::Module *m) -> llvm::Error {
     llvm::OptimizationLevel ol;
 
     switch (irOptLevel) {

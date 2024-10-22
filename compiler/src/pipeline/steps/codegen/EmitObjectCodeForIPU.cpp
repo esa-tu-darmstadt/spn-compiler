@@ -7,7 +7,7 @@
 //==============================================================================
 
 #include "EmitObjectCodeForIPU.h"
-#include "ipu/IPUTargetMachine.h"
+#include "option/Options.h"
 #include "util/FileSystem.h"
 #include "util/Logging.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -15,9 +15,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
-#include <option/GlobalOptions.h>
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Support/TargetRegistry.h"
 #include <sstream>
 
 using namespace spnc;
@@ -26,13 +24,12 @@ template <FileType SourceType>
 spnc::ExecutionResult spnc::EmitObjectCodeForIPU<SourceType>::executeStep(File<SourceType> *source,
                                                                           CompiledGraphProgram *graphProgram) {
   // Invoke the popc compiler
-  auto &config = *this->getContext()->template get<Configuration>();
-  std::string popcPath = spnc::option::ipuCompilerPath.get(config);
-  int optimizationLevel = spnc::option::optLevel.get(config);
+  std::string popcPath = spnc::option::ipuCompilerPath;
+  int optimizationLevel = spnc::option::optLevel;
   llvm::TargetMachine &targetMachine = *this->getContext()->template get<llvm::TargetMachine>();
 
   std::stringstream popcArgs;
-  if(targetMachine.getTargetTriple().getArchName() == "colossus") {
+  if (targetMachine.getTargetTriple().getArchName() == "colossus") {
     popcArgs << " -target " << targetMachine.getTargetCPU().str();
   } else {
     popcArgs << " -target cpu";

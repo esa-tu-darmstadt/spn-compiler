@@ -12,7 +12,6 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
-#include <option/GlobalOptions.h>
 #include <sstream>
 
 spnc::ExecutionResult spnc::EmitLLVMIR::executeStep(llvm::Module *module, LLVMIR *ir) {

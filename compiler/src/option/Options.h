@@ -6,6 +6,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
+#include "Kernel.h"
 #include "llvm/Frontend/Driver/CodeGenOptions.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Support/CommandLine.h"
@@ -22,7 +23,7 @@ namespace spnc::option {
 /// -----------------------------------------------------------------------
 
 /// Available compilation targets.
-enum TargetMachine { CPU, CUDA };
+enum TargetMachine { CPU, CUDA, IPU };
 
 /// Specifies the compilation target (CPU or CUDA)
 extern llvm::cl::opt<TargetMachine> compilationTarget;
@@ -136,5 +137,14 @@ extern llvm::cl::opt<bool> slpUseXorChains;
 
 /// Maximum number of operations per task
 extern llvm::cl::opt<int> maxTaskSize;
+
+/// -----------------------------------------------------------------------
+/// IPU-specific options
+/// -----------------------------------------------------------------------
+
+/// Target IPU architecture
+extern llvm::cl::opt<IPUTarget> ipuTarget;
+
+extern llvm::cl::opt<std::string> ipuCompilerPath;
 
 } // namespace spnc::option

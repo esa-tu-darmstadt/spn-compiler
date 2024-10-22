@@ -12,7 +12,7 @@
 #include "PipelineContext.h"
 #include "spdlog/fmt/fmt.h"
 
-#define STEP_NAME(NAME)                                                        \
+#define STEP_NAME(NAME)                                                                                                \
   inline static std::string stepName() { return NAME; }
 
 namespace spnc {
@@ -44,8 +44,7 @@ public:
 private:
   ExecutionResult() : success{true}, msg{"SUCCESS"} {}
 
-  explicit ExecutionResult(std::string message)
-      : success{false}, msg{std::move(message)} {}
+  explicit ExecutionResult(std::string message) : success{false}, msg{std::move(message)} {}
 
   bool success;
 
@@ -60,16 +59,13 @@ private:
 /// \param message Format string.
 /// \param args Arguments to the format string.
 /// \return Failed ExecutionResult with the given, formatted message.
-template <typename... Args>
-ExecutionResult failure(std::string message, Args &&...args) {
+template <typename... Args> ExecutionResult failure(std::string message, Args &&...args) {
   // Use the fmt library for formatting, as it comes with spdlog anyways.
   // Could be replaced by std::format after the move to C++20.
   return failure(fmt::format(message, std::forward<Args>(args)...));
 }
 
-static inline bool failed(ExecutionResult &result) {
-  return !result.successful();
-}
+static inline bool failed(ExecutionResult &result) { return !result.successful(); }
 
 ///
 /// Base class for all steps.
@@ -99,8 +95,7 @@ class StepBase {
 public:
   /// Constructor.
   /// \param stepName Name of the step.
-  explicit StepBase(std::string stepName)
-      : pipeline{nullptr}, _name(std::move(stepName)) {}
+  explicit StepBase(std::string stepName) : pipeline{nullptr}, _name(std::move(stepName)) {}
 
   virtual ~StepBase() = default;
 
@@ -128,8 +123,7 @@ private:
 
 /// Mixin for all steps producing a result usable by other steps.
 /// \tparam Result Type of the result.
-template <class Result>
-class StepWithResult {
+template <class Result> class StepWithResult {
 
 public:
   /// Retrieve the result.
@@ -140,22 +134,18 @@ public:
 /// CRTP base for steps consuming a single input.
 /// \tparam Step CRTP parameter.
 /// \tparam Input Type of the input.
-template <class Step, class Input>
-class StepSingleInput : public StepBase {
+template <class Step, class Input> class StepSingleInput : public StepBase {
 
 public:
   /// Constructor.
   /// Subclasses must implement a static class-method 'std::string stepName()'.
   /// \param input Reference to the step producing the input.
-  explicit StepSingleInput(StepWithResult<Input> &input)
-      : StepBase(std::move(Step::stepName())), in{input} {}
+  explicit StepSingleInput(StepWithResult<Input> &input) : StepBase(std::move(Step::stepName())), in{input} {}
 
   /// CRTP method, sub-classes must implement a method 'ExecutionResult
   /// executeStep(Input*). \return success() if the step executed successfully,
   /// failure() otherwise.
-  ExecutionResult execute() override {
-    return static_cast<Step &>(*this).executeStep(in.result());
-  }
+  ExecutionResult execute() override { return static_cast<Step &>(*this).executeStep(in.result()); }
 
 protected:
   StepWithResult<Input> &in;
@@ -165,8 +155,7 @@ protected:
 /// \tparam Step CRTP parameter.
 /// \tparam Input1 Type of the first input.
 /// \tparam Input2 Type of the second input.
-template <class Step, class Input1, class Input2>
-class StepDualInput : public StepBase {
+template <class Step, class Input1, class Input2> class StepDualInput : public StepBase {
 
 public:
   /// Constructor.
@@ -179,9 +168,7 @@ public:
   /// CRTP method, sub-classes must implement a method 'ExecutionResult
   /// executeStep(Input1*, Input2*). \return success() if the step executed
   /// successfully, failure() otherwise.
-  ExecutionResult execute() override {
-    return static_cast<Step &>(*this).executeStep(in1.result(), in2.result());
-  }
+  ExecutionResult execute() override { return static_cast<Step &>(*this).executeStep(in1.result(), in2.result()); }
 
 protected:
   StepWithResult<Input1> &in1;

@@ -20,11 +20,8 @@ class IPUToolchain : MLIRToolchain {
 public:
   /// Construct a job reading the SPN from an input file.
   /// \param inputFile Input file.
-  /// \param config Compilation option configuration.
   /// \return Job containing all necessary actions.
-  static std::unique_ptr<Pipeline<Kernel>>
-  setupPipeline(const std::string &inputFile,
-                std::unique_ptr<interface::Configuration> config);
+  static std::unique_ptr<Pipeline<Kernel>> setupPipeline(const std::string &inputFile);
 
 protected:
   static std::unique_ptr<llvm::TargetMachine> createTargetMachine(int optLevel, IPUTarget ipuTarget);

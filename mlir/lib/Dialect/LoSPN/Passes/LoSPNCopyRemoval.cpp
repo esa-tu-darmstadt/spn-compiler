@@ -26,8 +26,7 @@ struct CopyRemovalPattern : public OpRewritePattern<SPNCopy> {
 
   using OpRewritePattern<SPNCopy>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(SPNCopy op,
-                                PatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(SPNCopy op, PatternRewriter &rewriter) const override {
     DominanceInfo domInfo(op->getParentOp());
 
     // Collect all users of the target memref.
@@ -41,8 +40,7 @@ struct CopyRemovalPattern : public OpRewritePattern<SPNCopy> {
         SmallVector<MemoryEffects::EffectInstance, 1> effects;
         memEffect.getEffectsOnValue(op.getTarget(), effects);
         for (auto e : effects) {
-          if (isa<MemoryEffects::Read>(e.getEffect()) ||
-              isa<MemoryEffects::Write>(e.getEffect())) {
+          if (isa<MemoryEffects::Read>(e.getEffect()) || isa<MemoryEffects::Write>(e.getEffect())) {
             tgtUsers.push_back(U);
           }
         }
@@ -56,8 +54,7 @@ struct CopyRemovalPattern : public OpRewritePattern<SPNCopy> {
         SmallVector<MemoryEffects::EffectInstance, 1> effects;
         memEffect.getEffectsOnValue(op.getSource(), effects);
         for (auto e : effects) {
-          if (isa<MemoryEffects::Read>(e.getEffect()) &&
-              U != op.getOperation()) {
+          if (isa<MemoryEffects::Read>(e.getEffect()) && U != op.getOperation()) {
             srcReads.push_back(U);
           } else if (isa<MemoryEffects::Write>(e.getEffect())) {
             srcWrites.push_back(U);
@@ -81,8 +78,7 @@ struct CopyRemovalPattern : public OpRewritePattern<SPNCopy> {
     for (auto *tgtUse : tgtUsers) {
       for (auto *srcWrite : srcWrites) {
         if (!domInfo.properlyDominates(tgtUse, srcWrite)) {
-          return rewriter.notifyMatchFailure(
-              op, "Potential RAW/WAW hazard, abort removal");
+          return rewriter.notifyMatchFailure(op, "Potential RAW/WAW hazard, abort removal");
         }
       }
     }
@@ -97,11 +93,10 @@ struct CopyRemovalPattern : public OpRewritePattern<SPNCopy> {
         }
       }
       if (!dominated) {
-        return rewriter.notifyMatchFailure(
-            op, "Source read not dominated by any source write, abort removal");
+        return rewriter.notifyMatchFailure(op, "Source read not dominated by any source write, abort removal");
       }
     }
-    op.getSource().replaceAllUsesWith(op.getTarget());
+    rewriter.replaceAllUsesWith(op.getSource(), op.getTarget());
     rewriter.eraseOp(op);
     return mlir::success();
   }
@@ -114,8 +109,7 @@ protected:
   void runOnOperation() override {
     RewritePatternSet patterns(getOperation()->getContext());
     patterns.insert<CopyRemovalPattern>(getOperation()->getContext());
-    (void)mlir::applyPatternsAndFoldGreedily(
-        getOperation(), FrozenRewritePatternSet(std::move(patterns)));
+    (void)mlir::applyPatternsAndFoldGreedily(getOperation(), FrozenRewritePatternSet(std::move(patterns)));
   }
 };
 

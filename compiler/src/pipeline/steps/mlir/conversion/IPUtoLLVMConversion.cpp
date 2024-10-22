@@ -7,20 +7,25 @@
 //==============================================================================
 
 #include "IPUtoLLVMConversion.h"
-#include "mlir/Conversion/LLVMCommon/LoweringOptions.h"
-#include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
-#include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
-#include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
-#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
-#include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
-#include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
-#include "llvm/IR/DataLayout.h"
 
-void spnc::IPUtoLLVMConversion::initializePassPipeline(mlir::PassManager* pm, mlir::MLIRContext* ctx) {
-  pm->nest<mlir::FuncOp>().addPass(mlir::createConvertVectorToSCFPass());
-  pm->addPass(mlir::createLowerToCFGPass());
-  pm->addPass(mlir::createConvertVectorToLLVMPass());
-  pm->nest<mlir::FuncOp>().addPass(mlir::createConvertMathToLLVMPass());
-  pm->addPass(mlir::createMemRefToLLVMPass());
-  pm->addPass(mlir::createLowerToLLVMPass());
+using namespace mlir;
+
+void spnc::IPUtoLLVMConversion::initializePassPipeline(mlir::PassManager *pm, mlir::MLIRContext *ctx) {
+  /**
+    Input here:
+    module {
+      func.func @task_0(%arg0: memref<?x10xf64>, %arg1: memref<1x?xf32>) {
+
+        }
+        return
+      }
+      func.func @spn_kernel(%arg0: memref<?x10xf64>, %arg1: memref<1x?xf32>) {
+        call @task_0(%arg0, %arg1) : (memref<?x10xf64>, memref<1x?xf32>) -> ()
+        return
+      }
+    }
+
+    1. Turn task into codelet
+    2. Turn kernel into graph + program
+   */
 }

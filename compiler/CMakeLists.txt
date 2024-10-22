@@ -119,13 +119,10 @@ if (${IPU_SUPPORT})
 
     target_sources(spnc PRIVATE 
         src/toolchain/IPUToolchain.cpp
-        src/pipeline/steps/mlir/conversion/LoSPNtoIPUConversion.cpp
         src/pipeline/steps/mlir/conversion/IPUtoLLVMConversion.cpp
-        src/pipeline/steps/codegen/EmitObjectCodeForIPU.cpp
-        src/ipu/IPUTargetInfo.cpp
-        src/ipu/IPUTargetMachine.cpp
-        src/ipu/IPUSubtarget.cpp
-        src/ipu/IPUTargetLowering.cpp)
+        src/pipeline/steps/codegen/EmitObjectCodeForIPU.cpp)
+    llvm_map_components_to_libnames(llvm_ipu_libs Colossus)
+    target_link_libraries(spnc PRIVATE ${llvm_ipu_libs})
 else (${IPU_SUPPORT})
     target_compile_definitions(spnc PRIVATE SPNC_IPU_SUPPORT=0)
 endif (${IPU_SUPPORT})

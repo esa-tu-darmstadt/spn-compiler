@@ -19,15 +19,12 @@
 
 namespace mlir {
 namespace spn {
-LogicalResult
-buildLoSPNtoCPUPipeline(mlir::OpPassManager &pm,
-                        const LoSPNtoCPUPipelineOptions &options) {
+LogicalResult buildLoSPNtoCPUPipeline(mlir::OpPassManager &pm, const LoSPNtoCPUPipelineOptions &options) {
   LoSPNtoCPUStructureConversionPassOptions structConvOptions;
   structConvOptions.vectorize = options.vectorize;
   structConvOptions.vectorWidth = options.vectorWidth;
   structConvOptions.maxAttempts = options.slpMaxAttempts;
-  structConvOptions.maxSuccessfulIterations =
-      options.slpMaxSuccessfulIterations;
+  structConvOptions.maxSuccessfulIterations = options.slpMaxSuccessfulIterations;
   structConvOptions.maxNodeSize = options.slpMaxNodeSize;
   structConvOptions.maxLookAhead = options.slpMaxLookAhead;
   structConvOptions.reorderInstructionsDFS = options.slpReorderInstructionsDFS;
@@ -35,8 +32,7 @@ buildLoSPNtoCPUPipeline(mlir::OpPassManager &pm,
   structConvOptions.allowTopologicalMixing = options.slpAllowTopologicalMixing;
   structConvOptions.useXorChains = options.slpUseXorChains;
 
-  pm.addPass(
-      mlir::spn::createLoSPNtoCPUStructureConversionPass(structConvOptions));
+  pm.addPass(mlir::spn::createLoSPNtoCPUStructureConversionPass(structConvOptions));
   if (options.vectorize) {
     if (options.replaceGatherWithShuffle) {
       pm.addPass(mlir::spn::createReplaceGatherWithShufflePass());
@@ -57,22 +53,22 @@ buildLoSPNtoCPUPipeline(mlir::OpPassManager &pm,
   // conversion to FuncOp. This could be avoided at least for Kernels by
   // converting them to FuncOp earlier in the pipeline, e.g., during
   // bufferization of Kernels.
-  pm.addNestedPass<mlir::func::FuncOp>(
-      mlir::tensor::createTensorBufferizePass());
-  pm.addNestedPass<mlir::func::FuncOp>(
-      mlir::bufferization::createFinalizingBufferizePass());
-  pm.addNestedPass<mlir::func::FuncOp>(
-      mlir::bufferization::createBufferDeallocationPass());
+  // FIXME: Do we need this?
+  // pm.addNestedPass<mlir::func::FuncOp>(
+  //     mlir::tensor::createTensorBufferizePass());
+  // pm.addNestedPass<mlir::func::FuncOp>(
+  //     mlir::bufferization::createFinalizingBufferizePass());
+  // pm.addNestedPass<mlir::func::FuncOp>(
+  //     mlir::bufferization::createBufferDeallocationPass());
 
   return success();
 }
 
 void registerLoSPNtoCPUPipeline() {
-  mlir::PassPipelineRegistration<LoSPNtoCPUPipelineOptions>(
-      "lospn-to-cpu-pipeline",
-      "The default pipeline for lowering LoSPN dialect "
-      "to a CPU compatible LLVM dialect.",
-      buildLoSPNtoCPUPipeline);
+  mlir::PassPipelineRegistration<LoSPNtoCPUPipelineOptions>("lospn-to-cpu-pipeline",
+                                                            "The default pipeline for lowering LoSPN dialect "
+                                                            "to a CPU compatible LLVM dialect.",
+                                                            buildLoSPNtoCPUPipeline);
 }
 } // namespace spn
 } // namespace mlir

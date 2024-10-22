@@ -57,7 +57,7 @@ Kernel spn_compiler::compileQuery(const std::string &inputFile, const options_t 
     parseOptions(options);
 
   std::unique_ptr<Pipeline<Kernel>> pipeline;
-  auto target = spnc::option::compilationTarget.get(*config);
+  spnc::option::TargetMachine target = spnc::option::compilationTarget;
   if (target == option::TargetMachine::CUDA) {
 #if SPNC_CUDA_SUPPORT
     pipeline = CUDAGPUToolchain::setupPipeline(inputFile);
@@ -67,7 +67,7 @@ Kernel spn_compiler::compileQuery(const std::string &inputFile, const options_t 
 #endif
   } else if (target == option::TargetMachine::IPU) {
 #if SPNC_IPU_SUPPORT
-    pipeline = IPUToolchain::setupPipeline(inputFile, std::move(config));
+    pipeline = IPUToolchain::setupPipeline(inputFile);
 #else
     SPNC_FATAL_ERROR("Target was 'IPU', but the compiler does not support IPUs. "
                      "Enable with IPU_SUPPORT=ON during build")
