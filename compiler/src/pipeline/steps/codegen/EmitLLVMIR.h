@@ -8,33 +8,30 @@
 
 #pragma once
 
-#include <util/FileSystem.h>
 #include "pipeline/PipelineStep.h"
 #include <llvm/IR/Module.h>
 #include <llvm/Target/TargetMachine.h>
+#include <util/FileSystem.h>
 
 namespace spnc {
 
-  ///
-  /// Step to translate LLVM IR module into object code for the native CPU target.
-  /// The object code is written to the specified object file (*.o)
-  class EmitLLVMIR : public StepDualInput<EmitLLVMIR, llvm::Module, LLVMIR>,
-                         public StepWithResult<LLVMIR> {
+///
+/// Step to translate LLVM IR module into object code for the native CPU target.
+/// The object code is written to the specified object file (*.o)
+class EmitLLVMIR : public StepDualInput<EmitLLVMIR, llvm::Module, LLVMIR>,
+                   public StepWithResult<LLVMIR> {
 
-  public:
+public:
+  using StepDualInput<EmitLLVMIR, llvm::Module, LLVMIR>::StepDualInput;
 
-    using StepDualInput<EmitLLVMIR, llvm::Module, LLVMIR>::StepDualInput;
+  ExecutionResult executeStep(llvm::Module *module, LLVMIR *file);
 
-    ExecutionResult executeStep(llvm::Module* module, LLVMIR* file);
+  LLVMIR *result() override;
 
-    LLVMIR* result() override;
+  STEP_NAME("emit-llvm-ir")
 
-    STEP_NAME("emit-llvm-ir")
+private:
+  LLVMIR *outFile;
+};
 
-  private:
-
-    LLVMIR* outFile;
-
-  };
-
-}
+} // namespace spnc

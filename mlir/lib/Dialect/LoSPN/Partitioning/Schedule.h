@@ -8,13 +8,15 @@ namespace mlir {
 namespace spn {
 namespace low {
 namespace partitioning {
-template <class GraphT> class Schedule {
+template <class GraphT>
+class Schedule {
   typedef typename boost::graph_traits<GraphT>::vertex_descriptor vertex_t;
 
   // Map from processor to list of vertices scheduled on that processor in order
   std::unordered_map<int, std::vector<vertex_t>> schedule_;
 
-  //  Map from processor to list of starting times of each task on that processor
+  //  Map from processor to list of starting times of each task on that
+  //  processor
   std::unordered_map<int, std::vector<float>> startingTimes_;
 
   //  Map from processor to list of end times of each task on that processor
@@ -33,7 +35,8 @@ public:
   void calculateTimes();
 
   void viewSchedule(const TargetExecutionModel &targetModel);
-  void saveAsHTML(std::string filename, const TargetExecutionModel &targetModel);
+  void saveAsHTML(std::string filename,
+                  const TargetExecutionModel &targetModel);
 };
 } // namespace partitioning
 } // namespace low

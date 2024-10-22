@@ -11,13 +11,15 @@
 
 using namespace mlir::spn::low::partitioning;
 
-template <> void Schedule<BSPGraph>::calculateTimes() {
+template <>
+void Schedule<BSPGraph>::calculateTimes() {
   // Calculate starting times for each processor
 
   // Store the tasks that have already been scheduled
   std::set<vertex_t> scheduledTasks;
 
-  // Store the schedule in a deque to allow for efficient removal of the first element
+  // Store the schedule in a deque to allow for efficient removal of the first
+  // element
   std::unordered_map<int, std::deque<vertex_t>> outstandingTasks;
 
   // Maps from task to processor
@@ -29,7 +31,8 @@ template <> void Schedule<BSPGraph>::calculateTimes() {
   // Copy the schedule
   for (auto &pair : schedule_) {
     auto proc = pair.first;
-    outstandingTasks[pair.first] = std::deque<vertex_t>(pair.second.begin(), pair.second.end());
+    outstandingTasks[pair.first] =
+        std::deque<vertex_t>(pair.second.begin(), pair.second.end());
 
     // Fill the map from task to processor
     for (size_t i = 0; i < pair.second.size(); ++i) {
@@ -55,10 +58,11 @@ template <> void Schedule<BSPGraph>::calculateTimes() {
 
       // A task is ready if all its dependencies have been scheduled
       auto dependencies = boost::in_edges(nextTaskOfThisProc, graph_);
-      bool ready = std::all_of(dependencies.first, dependencies.second, [&](auto edge) {
-        auto source = boost::source(edge, graph_);
-        return scheduledTasks.find(source) != scheduledTasks.end();
-      });
+      bool ready =
+          std::all_of(dependencies.first, dependencies.second, [&](auto edge) {
+            auto source = boost::source(edge, graph_);
+            return scheduledTasks.find(source) != scheduledTasks.end();
+          });
 
       if (!ready)
         continue;
@@ -67,8 +71,10 @@ template <> void Schedule<BSPGraph>::calculateTimes() {
       auto &currentProcEndTimes = endingTimes_[currentProc];
 
       // Find the earliest start time based of the dependencies
-      float earliestStartTime = currentProcEndTimes.empty() ? 0 : currentProcEndTimes.back();
-      for (auto edge : boost::make_iterator_range(dependencies.first, dependencies.second)) {
+      float earliestStartTime =
+          currentProcEndTimes.empty() ? 0 : currentProcEndTimes.back();
+      for (auto edge : boost::make_iterator_range(dependencies.first,
+                                                  dependencies.second)) {
         auto source = boost::source(edge, graph_);
         auto sourceProc = procOfTask[source];
         auto sourceIndex = indexOfTask[source];
@@ -83,15 +89,17 @@ template <> void Schedule<BSPGraph>::calculateTimes() {
 
       // Schedule the task
 
-      float endTime = earliestStartTime + boost::get(vertex_weight(), graph_, nextTaskOfThisProc);
+      float endTime = earliestStartTime +
+                      boost::get(vertex_weight(), graph_, nextTaskOfThisProc);
       currentProcStartTimes.push_back(earliestStartTime);
       currentProcEndTimes.push_back(endTime);
 
       scheduledTasks.insert(nextTaskOfThisProc);
       outstandingTasksOfProc.pop_front();
 
-      std::cout << "Scheduled task " << get_label(graph_, nextTaskOfThisProc) << " on processor " << currentProc
-                << " at time " << earliestStartTime << std::endl;
+      std::cout << "Scheduled task " << get_label(graph_, nextTaskOfThisProc)
+                << " on processor " << currentProc << " at time "
+                << earliestStartTime << std::endl;
     }
   }
 
@@ -107,14 +115,18 @@ template <> void Schedule<BSPGraph>::calculateTimes() {
     }
   }
 }
-template <typename GraphT> int Schedule<GraphT>::makeSpan() {
+template <typename GraphT>
+int Schedule<GraphT>::makeSpan() {
   return std::max_element(endingTimes_.begin(), endingTimes_.end(),
-                          [](const auto &a, const auto &b) { return a.second.back() < b.second.back(); })
+                          [](const auto &a, const auto &b) {
+                            return a.second.back() < b.second.back();
+                          })
       ->second.back();
 }
 
 template <typename GraphT>
-void Schedule<GraphT>::saveAsHTML(std::string filename, const TargetExecutionModel &targetModel) {
+void Schedule<GraphT>::saveAsHTML(std::string filename,
+                                  const TargetExecutionModel &targetModel) {
   // Calculate starting times if not done yet
   if (startingTimes_.empty())
     calculateTimes();
@@ -123,7 +135,9 @@ void Schedule<GraphT>::saveAsHTML(std::string filename, const TargetExecutionMod
   std::ofstream html(filename);
 
   auto timeToPixel = [](int time) { return time * 30; };
-  auto durationOfVertex = [&](const auto &vertex) { return boost::get(vertex_weight(), graph_, vertex); };
+  auto durationOfVertex = [&](const auto &vertex) {
+    return boost::get(vertex_weight(), graph_, vertex);
+  };
 
   html << R"(
 <html>
@@ -162,7 +176,8 @@ void Schedule<GraphT>::saveAsHTML(std::string filename, const TargetExecutionMod
   auto currentTime = std::time(0);
   html << "<h1>Schedule</h1>\n";
   html << "<p>\n";
-  html << "Generated by the SPN compiler on " << std::ctime(&currentTime) << "<br>\n";
+  html << "Generated by the SPN compiler on " << std::ctime(&currentTime)
+       << "<br>\n";
   html << "Target: " << targetModel.getTargetName() << "<br>\n";
   html << "Makespan: " << makeSpan() << "<br>\n";
   html << "Number of processors: " << schedule_.size() << "<br>\n";
@@ -170,7 +185,8 @@ void Schedule<GraphT>::saveAsHTML(std::string filename, const TargetExecutionMod
 
   int headerHeight = 50;
   int scheduleHeight = timeToPixel(makeSpan()) + headerHeight;
-  html << "<div class=\"schedule\" style=\"height: " << scheduleHeight << "px\">\n";
+  html << "<div class=\"schedule\" style=\"height: " << scheduleHeight
+       << "px\">\n";
 
   for (const auto &pair : schedule_) {
     auto processor = pair.first;
@@ -178,7 +194,8 @@ void Schedule<GraphT>::saveAsHTML(std::string filename, const TargetExecutionMod
     auto &startingTimes = startingTimes_[processor];
 
     html << "<div class=\"processor\">\n";
-    html << "<div class=\"task\" style=\"height: " << headerHeight << "px; top: 0px; background-color: #C0C0C0;\">";
+    html << "<div class=\"task\" style=\"height: " << headerHeight
+         << "px; top: 0px; background-color: #C0C0C0;\">";
     html << "Processor " << processor;
     html << "</div>";
     for (size_t i = 0; i < tasks.size(); ++i) {
@@ -186,7 +203,8 @@ void Schedule<GraphT>::saveAsHTML(std::string filename, const TargetExecutionMod
       auto start = startingTimes[i];
       auto top = timeToPixel(start) + headerHeight;
       auto height = timeToPixel(durationOfVertex(vertex));
-      html << "<div class=\"task\" style=\"height: " << height << "px; top: " << top << "px\">";
+      html << "<div class=\"task\" style=\"height: " << height
+           << "px; top: " << top << "px\">";
       html << get_label(graph_, vertex);
       html << "</div>\n";
     }
@@ -199,10 +217,12 @@ void Schedule<GraphT>::saveAsHTML(std::string filename, const TargetExecutionMod
   html.close();
 }
 
-template <class GraphT> void Schedule<GraphT>::viewSchedule(const TargetExecutionModel &targetModel) {
+template <class GraphT>
+void Schedule<GraphT>::viewSchedule(const TargetExecutionModel &targetModel) {
   int FD;
   SmallString<128> Filename;
-  std::error_code EC = llvm::sys::fs::createTemporaryFile("schedule", "html", FD, Filename);
+  std::error_code EC =
+      llvm::sys::fs::createTemporaryFile("schedule", "html", FD, Filename);
   if (EC) {
     llvm::errs() << "Error: " << EC.message() << "\n";
     return;

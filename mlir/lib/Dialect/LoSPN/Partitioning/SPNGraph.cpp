@@ -18,7 +18,8 @@ using namespace mlir;
 using namespace mlir::spn::low;
 using namespace mlir::spn::low::partitioning;
 
-void mlir::spn::low::partitioning::view_spngraph(SPNGraph &graph, std::string title) {
+void mlir::spn::low::partitioning::view_spngraph(SPNGraph &graph,
+                                                 std::string title) {
   // Set the vertex attributes
   for (auto vertex : boost::make_iterator_range(boost::vertices(graph))) {
     auto op = boost::get(SPNVertex_Operation(), graph, vertex);
@@ -28,12 +29,15 @@ void mlir::spn::low::partitioning::view_spngraph(SPNGraph &graph, std::string ti
     auto weight = boost::get(vertex_weight(), graph, vertex);
 
     GraphvizAttributes attributes;
-    attributes["label"] = op->getName().getStringRef().str() + "\nindex: " + std::to_string(vertex) +
+    attributes["label"] = op->getName().getStringRef().str() +
+                          "\nindex: " + std::to_string(vertex) +
                           "\nweight: " + std::to_string(weight);
     attributes["shape"] = "box";
     attributes["style"] = "filled";
     attributes["fillcolor"] =
-        isConstant ? "lightsalmon" : (isYield ? "lightcoral" : (usesInput ? "lightblue" : "white"));
+        isConstant
+            ? "lightsalmon"
+            : (isYield ? "lightcoral" : (usesInput ? "lightblue" : "white"));
     attributes["color"] = "black";
 
     boost::put(boost::vertex_attribute_t(), graph, vertex, attributes);
@@ -48,7 +52,8 @@ void mlir::spn::low::partitioning::view_spngraph(SPNGraph &graph, std::string ti
     attributes["fillcolor"] = "lightgrey";
 
     boost::get_property(cluster, boost::graph_graph_attribute) = attributes;
-    boost::get_property(cluster, boost::graph_name) = "cluster" + std::to_string(ID);
+    boost::get_property(cluster, boost::graph_name) =
+        "cluster" + std::to_string(ID);
   }
 
   // Set edge attributes
@@ -82,23 +87,25 @@ void mlir::spn::low::partitioning::view_spngraph(SPNGraph &graph, std::string ti
   DisplayGraph(fileName, false, GraphProgram::DOT);
 }
 
-SPNGraph::edge_descriptor mlir::spn::low::partitioning::add_edge(SPNGraph::vertex_descriptor u,
-                                                                 SPNGraph::vertex_descriptor v, SPNGraph &graph,
-                                                                 Value value, const TargetExecutionModel &targetModel) {
+SPNGraph::edge_descriptor mlir::spn::low::partitioning::add_edge(
+    SPNGraph::vertex_descriptor u, SPNGraph::vertex_descriptor v,
+    SPNGraph &graph, Value value, const TargetExecutionModel &targetModel) {
   auto edge = boost::add_edge(u, v, graph);
   assert(edge.second && "Cannot add edge");
 
   boost::put(SPNEdge_Value(), graph, edge.first, value);
-  boost::put(edge_weight(), graph, edge.first, targetModel.getCostOfInterProcCommunication(value));
+  boost::put(edge_weight(), graph, edge.first,
+             targetModel.getCostOfInterProcCommunication(value));
   return edge.first;
 }
 
-SPNGraph::vertex_descriptor mlir::spn::low::partitioning::add_vertex(SPNGraph &graph, Operation *op,
-                                                                     const TargetExecutionModel &targetModel) {
+SPNGraph::vertex_descriptor mlir::spn::low::partitioning::add_vertex(
+    SPNGraph &graph, Operation *op, const TargetExecutionModel &targetModel) {
   auto v = boost::add_vertex(graph);
 
   boost::put(SPNVertex_Operation(), graph, v, op);
-  boost::put(SPNVertex_IsConstant(), graph, v, op->hasTrait<OpTrait::ConstantLike>());
+  boost::put(SPNVertex_IsConstant(), graph, v,
+             op->hasTrait<OpTrait::ConstantLike>());
   boost::put(SPNVertex_IsYield(), graph, v, isa<SPNYield>(op));
   bool usesInput = false;
 
@@ -117,13 +124,16 @@ void boost::throw_exception(std::exception const &e) {
   exit(1);
 }
 
-void boost::throw_exception(std::exception const &e, boost::source_location const &loc) {
-  outs() << "Exception at " << loc.file_name() << ":" << loc.line() << ":" << loc.column() << ": " << e.what() << "\n";
+void boost::throw_exception(std::exception const &e,
+                            boost::source_location const &loc) {
+  outs() << "Exception at " << loc.file_name() << ":" << loc.line() << ":"
+         << loc.column() << ": " << e.what() << "\n";
 
   exit(1);
 }
 
-bool mlir::spn::low::partitioning::ignore_for_clustering(SPNGraph::vertex_descriptor v, SPNGraph &graph) {
+bool mlir::spn::low::partitioning::ignore_for_clustering(
+    SPNGraph::vertex_descriptor v, SPNGraph &graph) {
   auto op = boost::get(SPNVertex_Operation(), graph, v);
   return isa<SPNYield>(op);
 }
@@ -134,7 +144,8 @@ SPNGraph &mlir::spn::low::partitioning::add_cluster(SPNGraph &graph) {
   return cluster;
 }
 
-SPNGraph &mlir::spn::low::partitioning::find_cluster(SPNGraph::vertex_descriptor globalVertex, SPNGraph &graph) {
+SPNGraph &mlir::spn::low::partitioning::find_cluster(
+    SPNGraph::vertex_descriptor globalVertex, SPNGraph &graph) {
   for (auto &cluster : boost::make_iterator_range(graph.children())) {
     if (cluster.find_vertex(globalVertex).second)
       return cluster;

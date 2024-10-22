@@ -19,20 +19,25 @@
 namespace spnc {
 
 enum class FileType;
-template <FileType Type> class File;
+template <FileType Type>
+class File;
 
 ///
 /// Helper class providing methods to manage external files.
 class FileSystem {
 
 public:
-  template <FileType Type> static File<Type> createTempFile(bool deleteTmpOnExit = true);
+  template <FileType Type>
+  static File<Type> createTempFile(bool deleteTmpOnExit = true);
 
-  template <FileType Type> static std::string getFileExtension();
+  template <FileType Type>
+  static std::string getFileExtension();
 
   /// Delete the file given by the path.
   /// \param fileName File path of the file to delete.
-  static void deleteFile(const std::string &fileName) { std::remove(fileName.c_str()); }
+  static void deleteFile(const std::string &fileName) {
+    std::remove(fileName.c_str());
+  }
 
 private:
   explicit FileSystem() = default;
@@ -63,7 +68,8 @@ using CompiledGraphProgram = File<FileType::GRAPH_PROGRAM>;
 
 /// File on the file-system.
 /// \tparam Type Type of the file.
-template <FileType Type> class File {
+template <FileType Type>
+class File {
 public:
   /// Constructor.
   /// \param fileName Full path to the file.
@@ -84,7 +90,8 @@ public:
 
   /// Move constructor.
   /// \param other Move source.
-  File(File &&other) noexcept : fName{other.fName}, deleteOnExit{other.deleteOnExit} {
+  File(File &&other) noexcept
+      : fName{other.fName}, deleteOnExit{other.deleteOnExit} {
     other.fName = "";
     other.deleteOnExit = false;
   }
@@ -112,7 +119,8 @@ private:
 /// Get the file extension for a file type.
 /// \tparam Type File type.
 /// \return File extension.
-template <FileType Type> std::string FileSystem::getFileExtension() {
+template <FileType Type>
+std::string FileSystem::getFileExtension() {
   switch (Type) {
   case FileType::SPN_JSON:
   case FileType::STAT_JSON:
@@ -138,7 +146,8 @@ template <FileType Type> std::string FileSystem::getFileExtension() {
 /// \tparam Type FileType of the file.
 /// \param deleteTmpOnExit Flag to indicate whether the created file should be
 /// deleted on exit from the compiler. \return Created File.
-template <FileType Type> File<Type> FileSystem::createTempFile(bool deleteTmpOnExit) {
+template <FileType Type>
+File<Type> FileSystem::createTempFile(bool deleteTmpOnExit) {
   std::string fileExtension = getFileExtension<Type>();
   std::string tmpName = "/tmp/spncXXXXXX" + fileExtension;
   auto suffixLength = static_cast<int>(fileExtension.length());

@@ -43,11 +43,13 @@ void parseOptions(const options_t &options) {
     argv.push_back(arg.c_str());
   }
 
-  llvm::cl::ParseCommandLineOptions((int)argv.size(), argv.data(), "SPN Compiler");
+  llvm::cl::ParseCommandLineOptions((int)argv.size(), argv.data(),
+                                    "SPN Compiler");
 }
 } // namespace
 
-Kernel spn_compiler::compileQuery(const std::string &inputFile, const options_t &options) {
+Kernel spn_compiler::compileQuery(const std::string &inputFile,
+                                  const options_t &options) {
   SPDLOG_INFO("Welcome to the SPN compiler!");
 
   mlir::spn::low::registerLoSPNPasses();
@@ -62,15 +64,17 @@ Kernel spn_compiler::compileQuery(const std::string &inputFile, const options_t 
 #if SPNC_CUDA_SUPPORT
     pipeline = CUDAGPUToolchain::setupPipeline(inputFile);
 #else
-    SPNC_FATAL_ERROR("Target was 'CUDA', but the compiler does not support CUDA GPUs. "
-                     "Enable with CUDA_GPU_SUPPORT=ON during build")
+    SPNC_FATAL_ERROR(
+        "Target was 'CUDA', but the compiler does not support CUDA GPUs. "
+        "Enable with CUDA_GPU_SUPPORT=ON during build")
 #endif
   } else if (target == option::TargetMachine::IPU) {
 #if SPNC_IPU_SUPPORT
     pipeline = IPUToolchain::setupPipeline(inputFile);
 #else
-    SPNC_FATAL_ERROR("Target was 'IPU', but the compiler does not support IPUs. "
-                     "Enable with IPU_SUPPORT=ON during build")
+    SPNC_FATAL_ERROR(
+        "Target was 'IPU', but the compiler does not support IPUs. "
+        "Enable with IPU_SUPPORT=ON during build")
 #endif
   } else {
     pipeline = CPUToolchain::setupPipeline(inputFile);
@@ -78,10 +82,13 @@ Kernel spn_compiler::compileQuery(const std::string &inputFile, const options_t 
   SPDLOG_INFO("Executing compilation pipeline: {}", pipeline->toText());
   auto result = pipeline->execute();
   if (failed(result)) {
-    SPNC_FATAL_ERROR("Execution of the compilation pipeline stopped with message: {}", result.message());
+    SPNC_FATAL_ERROR(
+        "Execution of the compilation pipeline stopped with message: {}",
+        result.message());
   }
   auto kernel = pipeline->result();
-  SPDLOG_INFO("Generated Kernel in {}, kernel name {}", kernel->fileName(), kernel->kernelName());
+  SPDLOG_INFO("Generated Kernel in {}, kernel name {}", kernel->fileName(),
+              kernel->kernelName());
   return *kernel;
 }
 
@@ -109,8 +116,8 @@ bool spn_compiler::isTargetSupported(const std::string &target) {
 bool spn_compiler::isFeatureSupported(const std::string &feature) {
   if (feature == "vectorize") {
     auto &targetInfo = mlir::spn::TargetInformation::nativeCPUTarget();
-    return targetInfo.hasAVXSupport() || targetInfo.hasAVX2Support() || targetInfo.hasAVX512Support() ||
-           targetInfo.hasNeonSupport();
+    return targetInfo.hasAVXSupport() || targetInfo.hasAVX2Support() ||
+           targetInfo.hasAVX512Support() || targetInfo.hasNeonSupport();
   }
   if (feature == "AVX") {
     return mlir::spn::TargetInformation::nativeCPUTarget().hasAVXSupport();

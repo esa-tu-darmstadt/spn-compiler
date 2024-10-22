@@ -13,13 +13,16 @@
 #include "toolchain/MLIRToolchain.h"
 #include "util/Logging.h"
 
-void spnc::LoSPNTransformations::initializePassPipeline(mlir::PassManager *pm, mlir::MLIRContext *ctx) {
+void spnc::LoSPNTransformations::initializePassPipeline(
+    mlir::PassManager *pm, mlir::MLIRContext *ctx) {
   mlir::spn::low::LoSPNTaskPartioningOptions taskPartitioningOptions;
   taskPartitioningOptions.maxTaskSize = option::maxTaskSize.getValue();
-  pm->nest<mlir::spn::low::SPNKernel>().addPass(mlir::spn::low::createLoSPNTaskPartioning(taskPartitioningOptions));
+  pm->nest<mlir::spn::low::SPNKernel>().addPass(
+      mlir::spn::low::createLoSPNTaskPartioning(taskPartitioningOptions));
   pm->addPass(mlir::spn::low::createLoSPNBufferize());
   pm->addPass(mlir::createCanonicalizerPass());
-  pm->nest<mlir::spn::low::SPNKernel>().addPass(mlir::spn::low::createLoSPNCopyRemoval());
+  pm->nest<mlir::spn::low::SPNKernel>().addPass(
+      mlir::spn::low::createLoSPNCopyRemoval());
   pm->addPass(mlir::createCSEPass());
 }
 
@@ -28,10 +31,12 @@ void spnc::LoSPNTransformations::preProcess(mlir::ModuleOp *inputModule) {
   // name in the module and retrieve information about the data-type and shape
   // of the result values from its function-like type.
   auto kernelInfo = getContext()->get<KernelInfo>();
-  for (mlir::spn::low::SPNKernel kernel : inputModule->getOps<mlir::spn::low::SPNKernel>()) {
+  for (mlir::spn::low::SPNKernel kernel :
+       inputModule->getOps<mlir::spn::low::SPNKernel>()) {
     if (kernel.getName() == kernelInfo->kernelName) {
       assert(kernel.getNumResults() == 1);
-      auto resultType = kernel.getFunctionType().getResult(0).dyn_cast<mlir::TensorType>();
+      auto resultType =
+          kernel.getFunctionType().getResult(0).dyn_cast<mlir::TensorType>();
       assert(resultType);
       kernelInfo->numResults = 1;
       assert(resultType.getElementType().isIntOrFloat());

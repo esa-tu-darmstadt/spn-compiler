@@ -19,7 +19,8 @@ namespace low {
 /// Instantiate the graph stats collection pass determining SPN statistics like
 /// the number of inner and leaf nodes or min/max/average node level.
 /// \return Pass instance.
-std::unique_ptr<OperationPass<ModuleOp>> createLoSPNGraphStatsCollectionPass(const std::string &graphStatsFile);
+std::unique_ptr<OperationPass<ModuleOp>>
+createLoSPNGraphStatsCollectionPass(const std::string &graphStatsFile);
 
 #define GEN_PASS_REGISTRATION
 #define GEN_PASS_DECL

@@ -15,11 +15,11 @@ namespace spn {
 namespace low {
 namespace partitioning {
 class TopologicalSortClustering : public GraphPartitioner::ClusteringAlgorithm {
-  public:
-    using GraphPartitioner::ClusteringAlgorithm::ClusteringAlgorithm;
+public:
+  using GraphPartitioner::ClusteringAlgorithm::ClusteringAlgorithm;
 
-    /// Perform the clustering
-    void operator()(SPNGraph &graph) override;
+  /// Perform the clustering
+  void operator()(SPNGraph &graph) override;
 };
 } // namespace partitioning
 } // namespace low

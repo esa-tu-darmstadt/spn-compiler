@@ -38,8 +38,9 @@ protected:
 
     target.addLegalDialect<LoSPNDialect>();
     target.addLegalDialect<mlir::arith::ArithDialect>();
-    target.addLegalDialect<mlir::bufferization::BufferizationDialect>(); // CHECK
-                                                                         // ME
+    target
+        .addLegalDialect<mlir::bufferization::BufferizationDialect>(); // CHECK
+                                                                       // ME
     target.addLegalDialect<mlir::memref::MemRefDialect>();
     target.addLegalOp<ModuleOp, func::FuncOp>();
 
@@ -57,22 +58,27 @@ protected:
       return true;
     });
     target.addDynamicallyLegalOp<SPNKernel>([&](SPNKernel op) {
-      FunctionOpInterface functionInterface = cast<FunctionOpInterface>(op.getOperation());
+      FunctionOpInterface functionInterface =
+          cast<FunctionOpInterface>(op.getOperation());
       auto funcType = functionInterface.getFunctionType();
       // llvm::outs() << "Checking legality of SPNKernel: " << funcType << "\n";
       // llvm::outs() << "Is its signature legal? " <<
       // typeConverter.isSignatureLegal(funcType.cast<FunctionType>()) << "\n";
-      assert(funcType.isa<FunctionType>() && "SPNKernel must have a FunctionType");
+      assert(funcType.isa<FunctionType>() &&
+             "SPNKernel must have a FunctionType");
       return typeConverter.isSignatureLegal(funcType.cast<FunctionType>());
     });
     target.addDynamicallyLegalOp<SPNReturn>([&](SPNReturn op) {
-      return std::all_of(op->result_begin(), op->result_end(), [&](OpResult res) {
-        return typeConverter.isLegal(res.getType()) && !res.getType().isa<MemRefType>();
-      });
+      return std::all_of(op->result_begin(), op->result_end(),
+                         [&](OpResult res) {
+                           return typeConverter.isLegal(res.getType()) &&
+                                  !res.getType().isa<MemRefType>();
+                         });
     });
 
     RewritePatternSet patterns(&getContext());
-    mlir::spn::low::populateLoSPNBufferizationPatterns(patterns, &getContext(), typeConverter);
+    mlir::spn::low::populateLoSPNBufferizationPatterns(patterns, &getContext(),
+                                                       typeConverter);
 
     auto op = getOperation();
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));

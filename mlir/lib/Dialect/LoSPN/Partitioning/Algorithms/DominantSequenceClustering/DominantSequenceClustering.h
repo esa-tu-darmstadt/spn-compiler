@@ -7,7 +7,8 @@ namespace spn {
 namespace low {
 namespace partitioning {
 /// Dominant sequence clustering algorithm.
-class DominantSequenceClusteringPartitioner : public GraphPartitioner::ClusteringAlgorithm {
+class DominantSequenceClusteringPartitioner
+    : public GraphPartitioner::ClusteringAlgorithm {
 public:
   // Inherit constructors
   using GraphPartitioner::ClusteringAlgorithm::ClusteringAlgorithm;
@@ -17,7 +18,8 @@ public:
 };
 
 template <typename GraphT>
-class DominantSequenceClusteringScheduler : public GraphPartitioner::SchedulingAlgorithm<GraphT> {
+class DominantSequenceClusteringScheduler
+    : public GraphPartitioner::SchedulingAlgorithm<GraphT> {
 public:
   // Inherit constructors
   using GraphPartitioner::SchedulingAlgorithm<GraphT>::SchedulingAlgorithm;

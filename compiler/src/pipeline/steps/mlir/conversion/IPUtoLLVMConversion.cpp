@@ -10,7 +10,8 @@
 
 using namespace mlir;
 
-void spnc::IPUtoLLVMConversion::initializePassPipeline(mlir::PassManager *pm, mlir::MLIRContext *ctx) {
+void spnc::IPUtoLLVMConversion::initializePassPipeline(mlir::PassManager *pm,
+                                                       mlir::MLIRContext *ctx) {
   /**
     Input here:
     module {

@@ -30,10 +30,15 @@ public:
   virtual int getCostOfComputation(mlir::Operation *op) const { return 1; }
 
   /// Returns the cost to communicate the given value between two processors.
-  virtual int getCostOfInterProcCommunication(mlir::Value &value) const { return 1; }
+  virtual int getCostOfInterProcCommunication(mlir::Value &value) const {
+    return 1;
+  }
 
-  /// Returns the cost to communicate the given value between two threads within the same processor.
-  virtual int getCostOfIntraProcCommunication(mlir::Value &value) const { return 0; }
+  /// Returns the cost to communicate the given value between two threads within
+  /// the same processor.
+  virtual int getCostOfIntraProcCommunication(mlir::Value &value) const {
+    return 0;
+  }
 };
 
 TargetExecutionModel &getGenericTargetExecutionModel();

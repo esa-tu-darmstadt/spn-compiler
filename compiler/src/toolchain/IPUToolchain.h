@@ -21,10 +21,12 @@ public:
   /// Construct a job reading the SPN from an input file.
   /// \param inputFile Input file.
   /// \return Job containing all necessary actions.
-  static std::unique_ptr<Pipeline<Kernel>> setupPipeline(const std::string &inputFile);
+  static std::unique_ptr<Pipeline<Kernel>>
+  setupPipeline(const std::string &inputFile);
 
 protected:
-  static std::unique_ptr<llvm::TargetMachine> createTargetMachine(int optLevel, IPUTarget ipuTarget);
+  static std::unique_ptr<llvm::TargetMachine>
+  createTargetMachine(int optLevel, IPUTarget ipuTarget);
 };
 } // namespace spnc
 

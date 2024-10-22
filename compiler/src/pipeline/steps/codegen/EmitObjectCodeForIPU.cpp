@@ -21,12 +21,13 @@
 using namespace spnc;
 
 template <FileType SourceType>
-spnc::ExecutionResult spnc::EmitObjectCodeForIPU<SourceType>::executeStep(File<SourceType> *source,
-                                                                          CompiledGraphProgram *graphProgram) {
+spnc::ExecutionResult spnc::EmitObjectCodeForIPU<SourceType>::executeStep(
+    File<SourceType> *source, CompiledGraphProgram *graphProgram) {
   // Invoke the popc compiler
   std::string popcPath = spnc::option::ipuCompilerPath;
   int optimizationLevel = spnc::option::optLevel;
-  llvm::TargetMachine &targetMachine = *this->getContext()->template get<llvm::TargetMachine>();
+  llvm::TargetMachine &targetMachine =
+      *this->getContext()->template get<llvm::TargetMachine>();
 
   std::stringstream popcArgs;
   if (targetMachine.getTargetTriple().getArchName() == "colossus") {
@@ -46,7 +47,8 @@ spnc::ExecutionResult spnc::EmitObjectCodeForIPU<SourceType>::executeStep(File<S
 
   int popcRet = std::system(popcCmd.c_str());
   if (popcRet != 0) {
-    return spnc::failure("The IPU compiler returned with non-zero exit code: {}", popcRet);
+    return spnc::failure(
+        "The IPU compiler returned with non-zero exit code: {}", popcRet);
   }
   return success();
 }

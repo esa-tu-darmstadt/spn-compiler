@@ -29,7 +29,8 @@
 using namespace spnc;
 using namespace mlir;
 
-std::unique_ptr<Pipeline<Kernel>> IPUToolchain::setupPipeline(const std::string &inputFile) {
+std::unique_ptr<Pipeline<Kernel>>
+IPUToolchain::setupPipeline(const std::string &inputFile) {
   // Uncomment the following two lines to get detailed output during MLIR
   // dialect conversion;
   // llvm::DebugFlag = true;
@@ -38,7 +39,8 @@ std::unique_ptr<Pipeline<Kernel>> IPUToolchain::setupPipeline(const std::string 
   SPDLOG_INFO("Setting up IPU pipeline for file {}", inputFile);
 
   // Initialize the pipeline.
-  std::unique_ptr<Pipeline<Kernel>> pipeline = std::make_unique<Pipeline<Kernel>>();
+  std::unique_ptr<Pipeline<Kernel>> pipeline =
+      std::make_unique<Pipeline<Kernel>>();
 
   // Initialize the MLIR context.
   auto ctx = std::make_unique<MLIRContext>();
@@ -49,15 +51,17 @@ std::unique_ptr<Pipeline<Kernel>> IPUToolchain::setupPipeline(const std::string 
     ctx->enableMultithreading(false);
   }
   auto diagHandler = setupDiagnosticHandler(ctx.get());
-  // std::unique_ptr<TargetExecutionModel> targetModel = std::make_unique<IPUTargetExecutionModel>();
-  // Attach MLIR context and diagnostics handler to pipeline context
+  // std::unique_ptr<TargetExecutionModel> targetModel =
+  // std::make_unique<IPUTargetExecutionModel>(); Attach MLIR context and
+  // diagnostics handler to pipeline context
   pipeline->getContext()->add(std::move(diagHandler));
   pipeline->getContext()->add(std::move(ctx));
   // pipeline->getContext()->add(std::move(targetModel));
 
   // Create an LLVM target machine and set the optimization level.
   int mcOptLevel = spnc::option::optLevel;
-  if (spnc::option::mcOptLevel.getNumOccurrences() > 0 && spnc::option::mcOptLevel != mcOptLevel) {
+  if (spnc::option::mcOptLevel.getNumOccurrences() > 0 &&
+      spnc::option::mcOptLevel != mcOptLevel) {
     int optionValue = spnc::option::mcOptLevel;
     SPDLOG_INFO("Option mc-opt-level (value: {}) takes precedence over option "
                 "opt-level (value: {})",
@@ -78,15 +82,19 @@ std::unique_ptr<Pipeline<Kernel>> IPUToolchain::setupPipeline(const std::string 
   pipeline->getContext()->add(std::move(kernelInfo));
 
   // First step of the pipeline: Locate the input file.
-  auto &locateInput = pipeline->emplaceStep<LocateFile<FileType::SPN_BINARY>>(inputFile);
+  auto &locateInput =
+      pipeline->emplaceStep<LocateFile<FileType::SPN_BINARY>>(inputFile);
 
   // Deserialize the SPFlow graph serialized via Cap'n Proto to MLIR.
-  auto &deserialized = pipeline->emplaceStep<SPFlowToMLIRDeserializer>(locateInput);
+  auto &deserialized =
+      pipeline->emplaceStep<SPFlowToMLIRDeserializer>(locateInput);
 
   // Convert from HiSPN dialect to LoSPN.
-  auto &hispn2lospn = pipeline->emplaceStep<HiSPNtoLoSPNConversion>(deserialized);
+  auto &hispn2lospn =
+      pipeline->emplaceStep<HiSPNtoLoSPNConversion>(deserialized);
   // Perform transformations on the LoSPN dialect module.
-  auto &lospnTransform = pipeline->emplaceStep<LoSPNTransformations>(hispn2lospn);
+  auto &lospnTransform =
+      pipeline->emplaceStep<LoSPNTransformations>(hispn2lospn);
   // Lower from LoSPN to upstream dialects to target CPU, including
   // vectorization.
   auto &lospn2ipu = pipeline->emplaceStep<LoSPNtoCPUConversion>(lospnTransform);
@@ -94,13 +102,17 @@ std::unique_ptr<Pipeline<Kernel>> IPUToolchain::setupPipeline(const std::string 
   auto &ipu2llvm = pipeline->emplaceStep<IPUtoLLVMConversion>(lospn2ipu);
 
   // Convert the MLIR module to a LLVM-IR module.
-  auto &llvmConversion = pipeline->emplaceStep<MLIRtoLLVMIRConversion>(ipu2llvm);
+  auto &llvmConversion =
+      pipeline->emplaceStep<MLIRtoLLVMIRConversion>(ipu2llvm);
   // Store the generated LLVM IR module in a temporary file.
   auto &llvmIR = pipeline->emplaceStep<CreateTmpFile<FileType::LLVM_IR>>(true);
   pipeline->emplaceStep<EmitLLVMIR>(llvmConversion, llvmIR);
-  // Compile the generated LLVM IR file to object code and write it to another file.
-  auto &graphPropgram = pipeline->emplaceStep<CreateTmpFile<FileType::GRAPH_PROGRAM>>(true);
-  pipeline->emplaceStep<EmitObjectCodeForIPU<FileType::LLVM_IR>>(llvmIR, graphPropgram);
+  // Compile the generated LLVM IR file to object code and write it to another
+  // file.
+  auto &graphPropgram =
+      pipeline->emplaceStep<CreateTmpFile<FileType::GRAPH_PROGRAM>>(true);
+  pipeline->emplaceStep<EmitObjectCodeForIPU<FileType::LLVM_IR>>(llvmIR,
+                                                                 graphPropgram);
 
   // // Link generated object file into shared object.
   // auto& sharedObject = pipeline->emplaceStep < CreateTmpFile <
@@ -149,7 +161,8 @@ std::unique_ptr<Pipeline<Kernel>> IPUToolchain::setupPipeline(const std::string 
 //   }
 // }
 
-std::unique_ptr<llvm::TargetMachine> spnc::IPUToolchain::createTargetMachine(int optLevel, IPUTarget ipuTarget) {
+std::unique_ptr<llvm::TargetMachine>
+spnc::IPUToolchain::createTargetMachine(int optLevel, IPUTarget ipuTarget) {
   llvm::Triple targetTriple;
   llvm::StringRef cpu;
   llvm::SubtargetFeatures features;
@@ -194,9 +207,11 @@ std::unique_ptr<llvm::TargetMachine> spnc::IPUToolchain::createTargetMachine(int
   }
 
   std::string errorMessage;
-  auto target = llvm::TargetRegistry::lookupTarget(targetTriple.getTriple(), errorMessage);
+  auto target = llvm::TargetRegistry::lookupTarget(targetTriple.getTriple(),
+                                                   errorMessage);
   if (!target) {
-    SPNC_FATAL_ERROR("No target for target triple {}: {}", targetTriple.getTriple(), errorMessage);
+    SPNC_FATAL_ERROR("No target for target triple {}: {}",
+                     targetTriple.getTriple(), errorMessage);
   }
 
   SPDLOG_INFO("Target machine triple: {}", targetTriple.getTriple());
@@ -222,6 +237,7 @@ std::unique_ptr<llvm::TargetMachine> spnc::IPUToolchain::createTargetMachine(int
   }
 
   std::unique_ptr<llvm::TargetMachine> machine{target->createTargetMachine(
-      targetTriple.getTriple(), cpu, features.getString(), {}, llvm::Reloc::PIC_, std::nullopt, cgOptLevel)};
+      targetTriple.getTriple(), cpu, features.getString(), {},
+      llvm::Reloc::PIC_, std::nullopt, cgOptLevel)};
   return machine;
 }

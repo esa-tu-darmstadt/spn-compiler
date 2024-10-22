@@ -30,9 +30,10 @@ using namespace mlir;
 using namespace mlir::spn::low;
 using namespace mlir::spn::low::partitioning;
 
-SPNGraph::vertex_descriptor add_vertex_recursive(SPNGraph &graph, Operation *op,
-                                                 std::unordered_map<Operation *, SPNGraph::vertex_descriptor> &mapping,
-                                                 const TargetExecutionModel &targetModel) {
+SPNGraph::vertex_descriptor add_vertex_recursive(
+    SPNGraph &graph, Operation *op,
+    std::unordered_map<Operation *, SPNGraph::vertex_descriptor> &mapping,
+    const TargetExecutionModel &targetModel) {
   // Check if the operation is already in the graph.
   auto it = mapping.find(op);
   if (it != mapping.end()) {
@@ -54,7 +55,8 @@ SPNGraph::vertex_descriptor add_vertex_recursive(SPNGraph &graph, Operation *op,
   return v;
 }
 
-GraphPartitioner::GraphPartitioner(llvm::ArrayRef<mlir::Operation *> rootNodes, const TargetExecutionModel &targetModel,
+GraphPartitioner::GraphPartitioner(llvm::ArrayRef<mlir::Operation *> rootNodes,
+                                   const TargetExecutionModel &targetModel,
                                    size_t maxTaskSize)
     : graph_(), targetModel_(targetModel), maxPartitionSize_{maxTaskSize} {
   std::unordered_map<Operation *, SPNGraph::vertex_descriptor> mapping;
@@ -66,7 +68,8 @@ GraphPartitioner::GraphPartitioner(llvm::ArrayRef<mlir::Operation *> rootNodes, 
 
 unsigned int GraphPartitioner::getMaximumClusterSize() const {
   // Allow up to 1% or at least one node in slack.
-  unsigned slack = std::max(1u, static_cast<unsigned>(static_cast<double>(maxPartitionSize_) * 0.01));
+  unsigned slack = std::max(
+      1u, static_cast<unsigned>(static_cast<double>(maxPartitionSize_) * 0.01));
   return maxPartitionSize_ + slack;
 }
 
@@ -81,7 +84,8 @@ void GraphPartitioner::clusterGraph() {
 
   // SPNGraph graph_dsc(graph_);
   std::unique_ptr<DominantSequenceClusteringPartitioner> cluster_dsc =
-      std::make_unique<DominantSequenceClusteringPartitioner>(targetModel_, maxPartitionSize_);
+      std::make_unique<DominantSequenceClusteringPartitioner>(
+          targetModel_, maxPartitionSize_);
   (*cluster_dsc)(graph_);
   view_spngraph(graph_, "Dominant sequence clustering");
 
@@ -89,7 +93,8 @@ void GraphPartitioner::clusterGraph() {
   // graph_ = graph_topo;
 }
 
-void GraphPartitioner::createBSPGraphFromClusteredSPNGraph(SPNGraph &spnGraph, BSPGraph &bspGraph) {
+void GraphPartitioner::createBSPGraphFromClusteredSPNGraph(SPNGraph &spnGraph,
+                                                           BSPGraph &bspGraph) {
   // Maps clusters in the SPN graph to vertices in the BSP graph
   std::unordered_map<SPNGraph *, BSPGraph::vertex_descriptor> clusterToVertex;
 
@@ -121,7 +126,8 @@ void GraphPartitioner::createBSPGraphFromClusteredSPNGraph(SPNGraph &spnGraph, B
       int edgeWeight = boost::get(edge_weight(), spnGraph, inedge);
 
       // Check if the edge already exists
-      for (auto edge : boost::make_iterator_range(boost::out_edges(predecessorVertex, bspGraph))) {
+      for (auto edge : boost::make_iterator_range(
+               boost::out_edges(predecessorVertex, bspGraph))) {
         if (boost::target(edge, bspGraph) == successorVertex) {
           // Edge already exists, add the weight
           auto currentWeight = boost::get(edge_weight(), bspGraph, edge);
@@ -138,22 +144,26 @@ void GraphPartitioner::createBSPGraphFromClusteredSPNGraph(SPNGraph &spnGraph, B
 }
 
 BSPSchedule GraphPartitioner::scheduleGraphForBSP() {
-  // Create the BSP graph without subgraphs / supersteps first, then assign clusters to supersteps later.
+  // Create the BSP graph without subgraphs / supersteps first, then assign
+  // clusters to supersteps later.
 
   BSPGraph bspGraph;
 
-  // Fill the BSP graph with a vertex for each cluster and an edge for each edge between clusters
+  // Fill the BSP graph with a vertex for each cluster and an edge for each edge
+  // between clusters
   createBSPGraphFromClusteredSPNGraph(graph_, bspGraph);
 
   // Schedule the BSP graph
   std::unique_ptr<DominantSequenceClusteringScheduler<BSPGraph>> scheduler_dsc =
-      std::make_unique<DominantSequenceClusteringScheduler<BSPGraph>>(targetModel_);
+      std::make_unique<DominantSequenceClusteringScheduler<BSPGraph>>(
+          targetModel_);
   Schedule<BSPGraph> schedule = (*scheduler_dsc)(bspGraph);
 
   schedule.viewSchedule(targetModel_);
 
   // Assign clusters to supersteps according to their wavefront
-  std::vector<superstep_index_t> superstepOfCluster(boost::num_vertices(bspGraph), 0);
+  std::vector<superstep_index_t> superstepOfCluster(
+      boost::num_vertices(bspGraph), 0);
   size_t numSupersteps = 0;
   for (auto cluster : boost::make_iterator_range(boost::vertices(bspGraph))) {
     auto superStep = boost::ith_wavefront(cluster, bspGraph);
@@ -162,7 +172,8 @@ BSPSchedule GraphPartitioner::scheduleGraphForBSP() {
 
     // Debug output
     auto clusterIndex = boost::get(BSPVertex_ClusterID(), bspGraph, cluster);
-    llvm::errs() << "Cluster " << clusterIndex << " is in superstep " << superStep << "\n";
+    llvm::errs() << "Cluster " << clusterIndex << " is in superstep "
+                 << superStep << "\n";
   }
 
   view_bspgraph(bspGraph, "BSP graph (unscheduled)");

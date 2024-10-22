@@ -21,8 +21,10 @@ namespace spnc {
 class LibraryInfo {
 
 public:
-  LibraryInfo(llvm::ArrayRef<std::string> libraries, llvm::ArrayRef<std::string> searchPaths)
-      : libs(libraries.begin(), libraries.end()), paths(searchPaths.begin(), searchPaths.end()) {}
+  LibraryInfo(llvm::ArrayRef<std::string> libraries,
+              llvm::ArrayRef<std::string> searchPaths)
+      : libs(libraries.begin(), libraries.end()),
+        paths(searchPaths.begin(), searchPaths.end()) {}
 
   llvm::ArrayRef<std::string> libraries() { return libs; }
 
@@ -35,8 +37,8 @@ private:
 };
 
 ///
-/// Simple struct to carry information about the generated kernel between different
-/// steps of the tool-chain.
+/// Simple struct to carry information about the generated kernel between
+/// different steps of the tool-chain.
 struct KernelInfo {
   spnc::KernelQueryType queryType;
   spnc::KernelTarget target;
@@ -57,11 +59,13 @@ class MLIRToolchain {
 protected:
   static void initializeMLIRContext(mlir::MLIRContext &ctx);
 
-  static std::unique_ptr<mlir::ScopedDiagnosticHandler> setupDiagnosticHandler(mlir::MLIRContext *ctx);
+  static std::unique_ptr<mlir::ScopedDiagnosticHandler>
+  setupDiagnosticHandler(mlir::MLIRContext *ctx);
 
   static std::unique_ptr<llvm::TargetMachine> createTargetMachine(int optLevel);
 
-  static llvm::SmallVector<std::string> parseLibrarySearchPaths(const std::string &paths);
+  static llvm::SmallVector<std::string>
+  parseLibrarySearchPaths(const std::string &paths);
 };
 
 } // namespace spnc

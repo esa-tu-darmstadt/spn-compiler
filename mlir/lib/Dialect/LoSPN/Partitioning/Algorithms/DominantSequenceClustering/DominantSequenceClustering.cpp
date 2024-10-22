@@ -20,17 +20,24 @@ using namespace mlir::spn::low::partitioning;
 typedef int level_t;
 typedef int cluster_t;
 
-template<typename GraphT>
-level_t weight(GraphT &graph, typename GraphT::vertex_descriptor v) { return boost::get(vertex_weight(), graph, v); }
-template<typename GraphT>
-level_t weight(GraphT &graph, typename GraphT::edge_descriptor e) { return boost::get(edge_weight(), graph, e); }
+template <typename GraphT>
+level_t weight(GraphT &graph, typename GraphT::vertex_descriptor v) {
+  return boost::get(vertex_weight(), graph, v);
+}
+template <typename GraphT>
+level_t weight(GraphT &graph, typename GraphT::edge_descriptor e) {
+  return boost::get(edge_weight(), graph, e);
+}
 
-/// Calculates the longest path from a given node to an exit node. Assumes that every node is in its own cluster.
+/// Calculates the longest path from a given node to an exit node. Assumes that
+/// every node is in its own cluster.
 /// @param graph The graph to calculate the longest path in.
 /// @param v The node to calculate the longest path from.
-/// @param blevels A vector that maps from a vertex to its blevel. Used to cache the blevel.
-template<typename GraphT>
-level_t calc_blevel(GraphT &graph, typename GraphT::vertex_descriptor v, std::vector<level_t> &blevels) {
+/// @param blevels A vector that maps from a vertex to its blevel. Used to cache
+/// the blevel.
+template <typename GraphT>
+level_t calc_blevel(GraphT &graph, typename GraphT::vertex_descriptor v,
+                    std::vector<level_t> &blevels) {
   if (blevels[v] != -1) {
     return blevels[v];
   }
@@ -38,7 +45,8 @@ level_t calc_blevel(GraphT &graph, typename GraphT::vertex_descriptor v, std::ve
   level_t maxSuccessorBLevel = 0;
   for (auto outedge : boost::make_iterator_range(out_edges(v, graph))) {
     auto successor = target(outedge, graph);
-    level_t successorBLevel = calc_blevel(graph, successor, blevels) + weight(graph, outedge);
+    level_t successorBLevel =
+        calc_blevel(graph, successor, blevels) + weight(graph, outedge);
     if (successorBLevel > maxSuccessorBLevel) {
       maxSuccessorBLevel = successorBLevel;
     }
@@ -48,14 +56,15 @@ level_t calc_blevel(GraphT &graph, typename GraphT::vertex_descriptor v, std::ve
   return blevels[v];
 }
 
-/// Calculates the longest path from a given node to an exit node. Assumes that tlevels of predecessors are already
-/// calculated.
+/// Calculates the longest path from a given node to an exit node. Assumes that
+/// tlevels of predecessors are already calculated.
 /// @param graph The graph to calculate the longest path in.
 /// @param v The node to calculate the longest path from.
 /// @param tlevels A vector that maps from a vertex to its tlevel.
 /// @param cluster A vector that maps from a vertex to its cluster index.
-template<class GraphT>
-void update_tlevel(GraphT &graph, typename GraphT::vertex_descriptor v, std::vector<level_t> &tlevels,
+template <class GraphT>
+void update_tlevel(GraphT &graph, typename GraphT::vertex_descriptor v,
+                   std::vector<level_t> &tlevels,
                    std::vector<cluster_t> &cluster) {
   auto ownCluster = cluster[v];
   tlevels[v] = 0;
@@ -63,7 +72,8 @@ void update_tlevel(GraphT &graph, typename GraphT::vertex_descriptor v, std::vec
     auto predecessor = source(inedge, graph);
     auto predecessorCluster = cluster[predecessor];
 
-    level_t tlevelOverPredecessor = tlevels[predecessor] + weight(graph, predecessor);
+    level_t tlevelOverPredecessor =
+        tlevels[predecessor] + weight(graph, predecessor);
 
     if (predecessorCluster != ownCluster) {
       tlevelOverPredecessor += weight(graph, inedge);
@@ -76,9 +86,11 @@ void update_tlevel(GraphT &graph, typename GraphT::vertex_descriptor v, std::vec
 }
 
 /// Initial implementation of the Dominant Sequence Clustering algorithm.
-/// Described in Figure 3 of "DSC: Scheduling Parallel Tasks on an Unbounded Number of Processors"
+/// Described in Figure 3 of "DSC: Scheduling Parallel Tasks on an Unbounded
+/// Number of Processors"
 template <typename GraphT>
-void DSC_I(GraphT &graph, std::vector<cluster_t> &cluster, Schedule<GraphT> &schedule) {
+void DSC_I(GraphT &graph, std::vector<cluster_t> &cluster,
+           Schedule<GraphT> &schedule) {
   // Calculate blevel
   std::vector<level_t> blevel(num_vertices(graph), -1);
   for (auto v : boost::make_iterator_range(vertices(graph))) {
@@ -113,15 +125,19 @@ void DSC_I(GraphT &graph, std::vector<cluster_t> &cluster, Schedule<GraphT> &sch
     UEG.insert(v);
   }
 
-  // List of free (unexamined) nodes. The compare function compares the priority of the nodes.
-  auto priority_comp = [&tlevel, &blevel](SPNGraph::vertex_descriptor a, SPNGraph::vertex_descriptor b) {
+  // List of free (unexamined) nodes. The compare function compares the priority
+  // of the nodes.
+  auto priority_comp = [&tlevel, &blevel](SPNGraph::vertex_descriptor a,
+                                          SPNGraph::vertex_descriptor b) {
     return (tlevel[a] + blevel[a]) < (tlevel[b] + blevel[b]);
   };
-  std::priority_queue<SPNGraph::vertex_descriptor, std::vector<SPNGraph::vertex_descriptor>, decltype(priority_comp)>
+  std::priority_queue<SPNGraph::vertex_descriptor,
+                      std::vector<SPNGraph::vertex_descriptor>,
+                      decltype(priority_comp)>
       FL(priority_comp);
 
-  // Add all free nodes to FL. A node is free if all of its predecessors are examined.
-  // At the beginning, all entry nodes are free.
+  // Add all free nodes to FL. A node is free if all of its predecessors are
+  // examined. At the beginning, all entry nodes are free.
   for (auto v : boost::make_iterator_range(vertices(graph))) {
     if (boost::in_degree(v, graph) == 0) {
       FL.push(v);
@@ -135,34 +151,41 @@ void DSC_I(GraphT &graph, std::vector<cluster_t> &cluster, Schedule<GraphT> &sch
     SPNGraph::vertex_descriptor nf = FL.top();
     FL.pop();
 
-    llvm::outs() << "Examining " << nf << ". Current tlevel is " << tlevel[nf] << "\n";
+    llvm::outs() << "Examining " << nf << ". Current tlevel is " << tlevel[nf]
+                 << "\n";
 
-    // Merge nf with the cluster of one of its predecessors such that tlevel(nf) decreases in a maximal way.
-    // If all zeroing increase tlevel(nf), nf remains in its own cluster.
+    // Merge nf with the cluster of one of its predecessors such that tlevel(nf)
+    // decreases in a maximal way. If all zeroing increase tlevel(nf), nf
+    // remains in its own cluster.
 
     // Captures the best predecessor to merge with and the new tlevel of nf
-    SPNGraph::vertex_descriptor predecessorToMergeWith = SPNGraph::null_vertex();
+    SPNGraph::vertex_descriptor predecessorToMergeWith =
+        SPNGraph::null_vertex();
     level_t bestTLevel = tlevel[nf];
 
     for (auto inedge : boost::make_iterator_range(in_edges(nf, graph))) {
       auto predecessor = source(inedge, graph);
 
       // Calculate the new tlevel of nf if we merge it with predecessor
-      // The tlevel would be the tlevel of the predecessor plus the weight of the succesor node
-      // The weight of the edge does not matter because we calculate for the case that we merge nf's cluster with
-      // predecessor's cluster
+      // The tlevel would be the tlevel of the predecessor plus the weight of
+      // the succesor node The weight of the edge does not matter because we
+      // calculate for the case that we merge nf's cluster with predecessor's
+      // cluster
       level_t newTLevel = tlevel[predecessor] + weight(graph, predecessor);
-      llvm::outs() << "New tlevel of " << nf << " if merged with " << predecessor << " is " << newTLevel << "\n";
+      llvm::outs() << "New tlevel of " << nf << " if merged with "
+                   << predecessor << " is " << newTLevel << "\n";
       if (newTLevel < bestTLevel) {
         bestTLevel = newTLevel;
         predecessorToMergeWith = predecessor;
       }
     }
 
-    // Merge nf with the cluster of predecessorToMergeWith if we found a predecessor to merge with
+    // Merge nf with the cluster of predecessorToMergeWith if we found a
+    // predecessor to merge with
     if (predecessorToMergeWith != SPNGraph::null_vertex()) {
       cluster[nf] = cluster[predecessorToMergeWith];
-      llvm::outs() << "Merging " << nf << " into cluster " << cluster[nf] << "\n";
+      llvm::outs() << "Merging " << nf << " into cluster " << cluster[nf]
+                   << "\n";
     } else {
       llvm::outs() << "Node " << nf << " remains in its own cluster\n";
     }
@@ -170,18 +193,22 @@ void DSC_I(GraphT &graph, std::vector<cluster_t> &cluster, Schedule<GraphT> &sch
     // Add nf to the schedule
     schedule[cluster[nf]].push_back(nf);
 
-    // Update the priorities of nf's successors and add them to FL if they just became free
+    // Update the priorities of nf's successors and add them to FL if they just
+    // became free
     for (auto outedge : boost::make_iterator_range(out_edges(nf, graph))) {
       auto successor = target(outedge, graph);
 
       // Update tlevel of the successor
       level_t oldTLevel = tlevel[successor];
       update_tlevel(graph, successor, tlevel, cluster);
-      llvm::outs() << "New tlevel of " << successor << " is " << tlevel[successor] << "\n";
+      llvm::outs() << "New tlevel of " << successor << " is "
+                   << tlevel[successor] << "\n";
 
-      // If all predecessors of successor are examined, the node is considered free and we add it to FL
+      // If all predecessors of successor are examined, the node is considered
+      // free and we add it to FL
       bool allPredecessorsExamined = true;
-      for (auto inedge : boost::make_iterator_range(in_edges(successor, graph))) {
+      for (auto inedge :
+           boost::make_iterator_range(in_edges(successor, graph))) {
         auto predecessor = source(inedge, graph);
         // Ignore our own node, because it is not marked as examined yet
         if (predecessor == nf) {
@@ -205,7 +232,8 @@ void DSC_I(GraphT &graph, std::vector<cluster_t> &cluster, Schedule<GraphT> &sch
 }
 
 // /// Implementation of the Dominant Sequence Clustering algorithm.
-// /// Described in Figure 7 of "DSC: Scheduling Parallel Tasks on an Unbounded Number of Processors"
+// /// Described in Figure 7 of "DSC: Scheduling Parallel Tasks on an Unbounded
+// Number of Processors"
 // /// cluster is a vector that maps from a vertex to its cluster index
 // void DSC(SPNGraph &graph, std::vector<cluster_t> cluster) {
 //   // List of examined nodes
@@ -227,7 +255,8 @@ void DSC_I(GraphT &graph, std::vector<cluster_t> &cluster, Schedule<GraphT> &sch
 //   // List of partially free nodes
 //   std::vector<SPNGraph::vertex_descriptor> PFL;
 
-//   // Add all free nodes to FL. A node is free if all of its predecessors are examined.
+//   // Add all free nodes to FL. A node is free if all of its predecessors are
+//   examined.
 //   // At the beginning, all entry nodes are free.
 //   for (auto v : boost::make_iterator_range(vertices(graph))) {
 //     if (boost::in_degree(v, graph) == 0) {
@@ -249,7 +278,8 @@ void DSC_I(GraphT &graph, std::vector<cluster_t> &cluster, Schedule<GraphT> &sch
 // }
 
 template <typename GraphT>
-Schedule<GraphT> DominantSequenceClusteringScheduler<GraphT>::operator()(GraphT &graph) {
+Schedule<GraphT>
+DominantSequenceClusteringScheduler<GraphT>::operator()(GraphT &graph) {
   std::vector<cluster_t> cluster;
   Schedule<GraphT> schedule(graph);
 

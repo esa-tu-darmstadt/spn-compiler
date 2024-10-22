@@ -45,26 +45,34 @@ struct BSPVertex_ProcID {
 
 using GraphvizAttributes = std::unordered_map<std::string, std::string>;
 
-using BSPVertexAttributes = boost::property<boost::vertex_attribute_t, GraphvizAttributes>;
+using BSPVertexAttributes =
+    boost::property<boost::vertex_attribute_t, GraphvizAttributes>;
 using BSPVertexProperties = boost::property<
     BSPVertex_ClusterID, task_index_t,
-    boost::property<BSPVertex_ProcID, processor_t, boost::property<vertex_weight, int, BSPVertexAttributes>>>;
+    boost::property<BSPVertex_ProcID, processor_t,
+                    boost::property<vertex_weight, int, BSPVertexAttributes>>>;
 
-using BSPEdgeAttributes = boost::property<boost::edge_attribute_t, GraphvizAttributes>;
+using BSPEdgeAttributes =
+    boost::property<boost::edge_attribute_t, GraphvizAttributes>;
 using BSPEdgeProperties =
-    boost::property<boost::edge_index_t, int, boost::property<edge_weight, int, BSPEdgeAttributes>>;
+    boost::property<boost::edge_index_t, int,
+                    boost::property<edge_weight, int, BSPEdgeAttributes>>;
 
-using BSPGraphAttributes =
-    boost::property<boost::graph_graph_attribute_t, GraphvizAttributes,
-                    boost::property<boost::graph_vertex_attribute_t, GraphvizAttributes,
-                                    boost::property<boost::graph_edge_attribute_t, GraphvizAttributes>>>;
-using BSPGraphProperties =
-    boost::property<boost::graph_name_t, std::string, boost::property<BSPGraph_Superstep, int, BSPGraphAttributes>>;
+using BSPGraphAttributes = boost::property<
+    boost::graph_graph_attribute_t, GraphvizAttributes,
+    boost::property<
+        boost::graph_vertex_attribute_t, GraphvizAttributes,
+        boost::property<boost::graph_edge_attribute_t, GraphvizAttributes>>>;
+using BSPGraphProperties = boost::property<
+    boost::graph_name_t, std::string,
+    boost::property<BSPGraph_Superstep, int, BSPGraphAttributes>>;
 
 /// A graph that can be used to represent an SPN or a part of it.
-/// Subgraphs are used to represent clusters and vertices are used to represent operations.
-typedef boost::subgraph<boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, BSPVertexProperties,
-                                              BSPEdgeProperties, BSPGraphProperties>>
+/// Subgraphs are used to represent clusters and vertices are used to represent
+/// operations.
+typedef boost::subgraph<boost::adjacency_list<
+    boost::vecS, boost::vecS, boost::bidirectionalS, BSPVertexProperties,
+    BSPEdgeProperties, BSPGraphProperties>>
     BSPGraph;
 
 inline void view_bspgraph(BSPGraph &graph, std::string title) {
@@ -75,8 +83,9 @@ inline void view_bspgraph(BSPGraph &graph, std::string title) {
     processor_t proc = boost::get(BSPVertex_ProcID(), graph, vertex);
     task_index_t cluster = boost::get(BSPVertex_ClusterID(), graph, vertex);
     auto weight = boost::get(vertex_weight(), graph, vertex);
-    attributes["label"] =
-        "Cluster " + std::to_string(cluster) + "\nProc " + std::to_string(proc) + "\nWeight " + std::to_string(weight);
+    attributes["label"] = "Cluster " + std::to_string(cluster) + "\nProc " +
+                          std::to_string(proc) + "\nWeight " +
+                          std::to_string(weight);
     attributes["shape"] = "box";
     attributes["style"] = "filled";
     attributes["fillcolor"] = "white";
@@ -104,7 +113,8 @@ inline void view_bspgraph(BSPGraph &graph, std::string title) {
     attributes["fillcolor"] = "lightgrey";
 
     boost::get_property(cluster, boost::graph_graph_attribute) = attributes;
-    boost::get_property(cluster, boost::graph_name) = "cluster" + std::to_string(ID);
+    boost::get_property(cluster, boost::graph_name) =
+        "cluster" + std::to_string(ID);
   }
 
   boost::get_property(graph, boost::graph_name) = "";
@@ -124,7 +134,8 @@ inline void view_bspgraph(BSPGraph &graph, std::string title) {
   llvm::DisplayGraph(fileName, false, llvm::GraphProgram::DOT);
 }
 
-/// Represents a superstep in the BSP schedule. A superstep is a set of tasks that can be executed in parallel.
+/// Represents a superstep in the BSP schedule. A superstep is a set of tasks
+/// that can be executed in parallel.
 class Superstep {
 public:
   typedef std::shared_ptr<Superstep> Reference;
@@ -147,10 +158,12 @@ private:
   std::unordered_map<task_index_t, processor_t> tasks_;
 };
 
-/// Represents a BSP schedule. The Bulk Synchronous Parallel (BSP) model is a parallel programming model in which
-/// computation is divided into supersteps. Supersteps consists of three phases: computation, communication, and
-/// synchronization. All supersteps run synchronous on all processors, ie., they begin at the same time and
-/// communication between processors is only possible inbetween supersteps.
+/// Represents a BSP schedule. The Bulk Synchronous Parallel (BSP) model is a
+/// parallel programming model in which computation is divided into supersteps.
+/// Supersteps consists of three phases: computation, communication, and
+/// synchronization. All supersteps run synchronous on all processors, ie., they
+/// begin at the same time and communication between processors is only possible
+/// inbetween supersteps.
 class BSPSchedule {
 public:
   /// Constructs a new BSP schedule with the given number of empty supersteps.

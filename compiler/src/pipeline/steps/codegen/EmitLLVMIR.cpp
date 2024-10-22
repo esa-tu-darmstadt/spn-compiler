@@ -14,7 +14,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include <sstream>
 
-spnc::ExecutionResult spnc::EmitLLVMIR::executeStep(llvm::Module *module, LLVMIR *ir) {
+spnc::ExecutionResult spnc::EmitLLVMIR::executeStep(llvm::Module *module,
+                                                    LLVMIR *ir) {
   // Emit module to file as IR
   std::error_code ec;
   llvm::raw_fd_ostream out(ir->fileName(), ec, llvm::sys::fs::OF_None);
