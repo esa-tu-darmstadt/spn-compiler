@@ -107,7 +107,7 @@ void DSC_I(GraphT &graph, std::vector<cluster_t> &cluster,
   }
 
   // Maps from a vertex to its cluster index
-  cluster.reserve(num_vertices(graph));
+  cluster.resize(num_vertices(graph));
 
   // Initialize every node into its own cluster
   for (auto v : boost::make_iterator_range(vertices(graph))) {

@@ -23,6 +23,7 @@
 #include <unordered_map>
 
 namespace mlir {
+class PatternRewriter;
 namespace spn {
 namespace low {
 
@@ -50,6 +51,11 @@ public:
 
   /// Schedules the clustered SPN graph
   BSPSchedule scheduleGraphForBSP();
+
+  /// Clones constants that are used by multiple clusters.
+  /// If a constant has a use in a different clusters, clone the constant to the
+  /// other cluster to avoid unnecessary edges crossing partitions.
+  void postprocessConstants(PatternRewriter &rewriter);
 
   /// Returns a range of all clusters
   auto clusters() { return boost::make_iterator_range(graph_.children()); }

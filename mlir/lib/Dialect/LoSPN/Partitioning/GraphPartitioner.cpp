@@ -10,6 +10,7 @@
 #include "SPNGraph.h"
 #include "Schedule.h"
 #include "mlir/IR/OpDefinition.h"
+#include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/Value.h"
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/detail/adjacency_list.hpp>
@@ -197,4 +198,50 @@ BSPSchedule GraphPartitioner::scheduleGraphForBSP() {
   view_bspgraph(bspGraph, "BSP graph");
   BSPSchedule bspSchedule(bspGraph.num_children());
   return bspSchedule;
+}
+
+void GraphPartitioner::postprocessConstants(PatternRewriter &rewriter) {
+  for (auto &cluster : this->clusters()) {
+    for (auto globalOutEdge : this->edges_out(cluster)) {
+      auto globalVertexFrom = boost::source(globalOutEdge, this->graph());
+      if (boost::get(SPNVertex_IsConstant(), this->graph(), globalVertexFrom)) {
+        assert(
+            boost::get(SPNVertex_Operation(), this->graph(), globalVertexFrom)
+                ->getNumResults() == 1);
+        // This constant is used by another partition.
+        // Find the partition that uses the constant
+        auto globalVertexTo = boost::target(globalOutEdge, this->graph());
+        auto otherPart = find_cluster(globalVertexTo, this->graph());
+
+        // Clone the constant right before the using operation and add it to
+        // the same partition.
+        auto restore = rewriter.saveInsertionPoint();
+
+        // Get the constant operation and the operation thats using it
+        Value value = boost::get(SPNEdge_Value(), this->graph(), globalOutEdge);
+        Operation *constOperation =
+            boost::get(SPNVertex_Operation(), this->graph(), globalVertexFrom);
+        Operation *usingOperation =
+            boost::get(SPNVertex_Operation(), this->graph(), globalVertexTo);
+
+        rewriter.setInsertionPoint(usingOperation);
+        Operation *clonedOut = rewriter.clone(*constOperation);
+
+        // Add the cloned constant to the partition
+        auto globalClonedConstant =
+            add_vertex(otherPart, clonedOut, targetModel_);
+        auto localClonedConstant =
+            boost::add_vertex(globalClonedConstant, otherPart);
+
+        // Add the edge from the cloned constant to the using operation in the
+        // other partition
+        auto localVertexTo = otherPart.global_to_local(globalVertexTo);
+        add_edge(localClonedConstant, localVertexTo, otherPart,
+                 clonedOut->getResult(0), targetModel_);
+
+        usingOperation->replaceUsesOfWith(value, clonedOut->getResult(0));
+        rewriter.restoreInsertionPoint(restore);
+      }
+    }
+  }
 }
