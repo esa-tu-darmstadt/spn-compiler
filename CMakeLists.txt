@@ -13,6 +13,13 @@ project(spnc VERSION 0.2.0 LANGUAGES CXX C)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(IPU_SUPPORT
+        "Enable support for the Graphcore IPU"
+        OFF)
+option(CUDA_GPU_SUPPORT
+        "Enable support for CUDA GPUs"
+        OFF)
+
 find_package(spdlog REQUIRED)
 
 find_package(LLVM REQUIRED CONFIG)
@@ -36,6 +43,16 @@ if (${CUDA_GPU_SUPPORT})
     include(CudaToolkit.cmake)
     cuda_setup()
 endif (${CUDA_GPU_SUPPORT})
+
+if (${IPU_SUPPORT})
+    option(MLIR_IPU_DIR
+            "Path to the mlir-ipu directory"
+            "")
+    if (NOT MLIR_IPU_DIR)
+        message(FATAL_ERROR "Please specify the path to the mlir-ipu directory using -DMLIR_IPU_DIR=<path>")
+    endif ()
+    add_subdirectory(${MLIR_IPU_DIR} mlir-ipu)
+endif (${IPU_SUPPORT})
 
 set(SPNC_CXX_WARNING_LEVEL "-Wall")
 

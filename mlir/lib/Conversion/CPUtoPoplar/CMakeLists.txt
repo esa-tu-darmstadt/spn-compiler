@@ -6,12 +6,22 @@
 #  SPDX-License-Identifier: Apache-2.0
 # ==============================================================================
 
-add_subdirectory(HiSPNtoLoSPN)
-add_subdirectory(LoSPNtoCPU)
-if (${CUDA_GPU_SUPPORT})
-    add_subdirectory(LoSPNtoGPU)
-endif (${CUDA_GPU_SUPPORT})
+add_mlir_conversion_library(MLIRCPUtoPoplarTransforms
+        CPUtoPoplarConversionPass.cpp
 
-if(${IPU_SUPPORT})
-    add_subdirectory(CPUtoPoplar)
-endif(${IPU_SUPPORT})
+        ADDITIONAL_HEADER_DIRS
+        ${PROJECT_SOURCE_DIR}/mlir/include/Conversion
+
+        LINK_LIBS PUBLIC
+        MLIRLoSPN
+        MLIRHiSPN # For the HiSPN attributes
+        MLIRIR
+        MLIRPass
+        MLIRSupport
+        MLIRTransforms
+        MLIRPoplarDialect
+        mlir-ipu
+
+        DEPENDS
+
+        )

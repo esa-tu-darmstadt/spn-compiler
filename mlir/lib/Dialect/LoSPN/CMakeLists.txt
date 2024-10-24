@@ -33,6 +33,7 @@ add_mlir_dialect_library(MLIRLoSPN
         MLIRLoSPNInterfacesIncGen
         MLIRLoSPNPassesIncGen
         MLIRLoSPNtoCPUPassesIncGen
+        MLIRCPUtoPoplarPassesIncGen
 
         LINK_LIBS PUBLIC
         MLIRBufferizationTransforms

@@ -7,9 +7,7 @@
 //==============================================================================
 
 #include "LoSPN/LoSPNPasses.h"
-#include "LoSPNtoCPU/LoSPNtoCPUPipeline.h"
 #include "toolchain/CPUToolchain.h"
-#include "toolchain/IPUToolchain.h"
 #include <TargetInformation.h>
 #include <option/Options.h>
 #include <spnc.h>
@@ -17,6 +15,10 @@
 #if SPNC_CUDA_SUPPORT
 // Only include if CUDA GPU support was enabled.
 #include "toolchain/CUDAGPUToolchain.h"
+#endif
+#if SPNC_IPU_SUPPORT
+// Only include if IPU support was enabled.
+#include "toolchain/IPUToolchain.h"
 #endif
 
 using namespace spnc;

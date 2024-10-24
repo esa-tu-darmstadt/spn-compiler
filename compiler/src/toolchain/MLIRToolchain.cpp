@@ -99,7 +99,8 @@ spnc::MLIRToolchain::createTargetMachine(int optLevel) {
 
   auto targetTriple = llvm::sys::getDefaultTargetTriple();
   std::string errorMessage;
-  auto target = llvm::TargetRegistry::lookupTarget(targetTriple, errorMessage);
+  const llvm::Target *target =
+      llvm::TargetRegistry::lookupTarget(targetTriple, errorMessage);
   if (!target) {
     SPNC_FATAL_ERROR("No target for target triple {}: {}", targetTriple,
                      errorMessage);

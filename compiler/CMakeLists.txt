@@ -115,11 +115,11 @@ endif (${CUDA_GPU_SUPPORT})
 if (${IPU_SUPPORT})
     target_compile_definitions(spnc PRIVATE SPNC_IPU_SUPPORT=1)
     find_package(poplar REQUIRED)
-    target_link_libraries(spnc PRIVATE poplar popops)
+    target_link_libraries(spnc PRIVATE poplar popops MLIRLoSPNtoCPUTransforms MLIRCPUtoPoplarTransforms)
 
     target_sources(spnc PRIVATE 
         src/toolchain/IPUToolchain.cpp
-        src/pipeline/steps/mlir/conversion/IPUtoLLVMConversion.cpp
+        src/pipeline/steps/mlir/conversion/Poplar/LoSPNtoPoplarConversion.cpp
         src/pipeline/steps/codegen/EmitObjectCodeForIPU.cpp)
     llvm_map_components_to_libnames(llvm_ipu_libs Colossus)
     target_link_libraries(spnc PRIVATE ${llvm_ipu_libs})

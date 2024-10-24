@@ -11,14 +11,10 @@
 #include "option/Options.h"
 #include "pipeline/BasicSteps.h"
 #include "pipeline/Pipeline.h"
-#include "pipeline/steps/codegen/EmitLLVMIR.h"
-#include "pipeline/steps/codegen/EmitObjectCodeForIPU.h"
 #include "pipeline/steps/frontend/SPFlowToMLIRDeserializer.h"
-#include "pipeline/steps/linker/ClangKernelLinking.h"
 #include "pipeline/steps/mlir/conversion/HiSPNtoLoSPNConversion.h"
-#include "pipeline/steps/mlir/conversion/IPUtoLLVMConversion.h"
-#include "pipeline/steps/mlir/conversion/LoSPNtoCPUConversion.h"
 #include "pipeline/steps/mlir/conversion/MLIRtoLLVMIRConversion.h"
+#include "pipeline/steps/mlir/conversion/Poplar/LoSPNtoPoplarConversion.h"
 #include "pipeline/steps/mlir/transformation/LoSPNTransformations.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
@@ -95,24 +91,24 @@ IPUToolchain::setupPipeline(const std::string &inputFile) {
   // Perform transformations on the LoSPN dialect module.
   auto &lospnTransform =
       pipeline->emplaceStep<LoSPNTransformations>(hispn2lospn);
-  // Lower from LoSPN to upstream dialects to target CPU, including
-  // vectorization.
-  auto &lospn2ipu = pipeline->emplaceStep<LoSPNtoCPUConversion>(lospnTransform);
-  // Convert from mixture of upstream dialects to LLVM dialect.
-  auto &ipu2llvm = pipeline->emplaceStep<IPUtoLLVMConversion>(lospn2ipu);
+  // Lower from LoSPN to upstream dialects to the Poplar dialect
+  auto &lospn2poplar =
+      pipeline->emplaceStep<LoSPNtoPoplarConversion>(lospnTransform);
 
-  // Convert the MLIR module to a LLVM-IR module.
-  auto &llvmConversion =
-      pipeline->emplaceStep<MLIRtoLLVMIRConversion>(ipu2llvm);
-  // Store the generated LLVM IR module in a temporary file.
-  auto &llvmIR = pipeline->emplaceStep<CreateTmpFile<FileType::LLVM_IR>>(true);
-  pipeline->emplaceStep<EmitLLVMIR>(llvmConversion, llvmIR);
-  // Compile the generated LLVM IR file to object code and write it to another
-  // file.
-  auto &graphPropgram =
-      pipeline->emplaceStep<CreateTmpFile<FileType::GRAPH_PROGRAM>>(true);
-  pipeline->emplaceStep<EmitObjectCodeForIPU<FileType::LLVM_IR>>(llvmIR,
-                                                                 graphPropgram);
+  // // Convert the MLIR module to a LLVM-IR module.
+  // auto &llvmConversion =
+  //     pipeline->emplaceStep<MLIRtoLLVMIRConversion>(ipu2llvm);
+  // // Store the generated LLVM IR module in a temporary file.
+  // auto &llvmIR =
+  // pipeline->emplaceStep<CreateTmpFile<FileType::LLVM_IR>>(true);
+  // pipeline->emplaceStep<EmitLLVMIR>(llvmConversion, llvmIR);
+  // // Compile the generated LLVM IR file to object code and write it to
+  // another
+  // // file.
+  // auto &graphPropgram =
+  //     pipeline->emplaceStep<CreateTmpFile<FileType::GRAPH_PROGRAM>>(true);
+  // pipeline->emplaceStep<EmitObjectCodeForIPU<FileType::LLVM_IR>>(llvmIR,
+  //                                                                graphPropgram);
 
   // // Link generated object file into shared object.
   // auto& sharedObject = pipeline->emplaceStep < CreateTmpFile <
