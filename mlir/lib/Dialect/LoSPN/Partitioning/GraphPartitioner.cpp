@@ -79,17 +79,18 @@ void GraphPartitioner::clusterGraph() {
   // view_spngraph(graph_, "Before clustering");
 
   // SPNGraph graph_topo(graph_);
-  // std::unique_ptr<TopologicalSortClustering> cluster =
-  // std::make_unique<TopologicalSortClustering>(maxPartitionSize_);
-  // (*cluster)(graph_);
-  // view_spngraph(graph_, "Topological sort clustering");
+  std::unique_ptr<TopologicalSortClustering> cluster =
+      std::make_unique<TopologicalSortClustering>(targetModel_,
+                                                  maxPartitionSize_);
+  (*cluster)(graph_);
+  view_spngraph(graph_, "Topological sort clustering");
 
   // SPNGraph graph_dsc(graph_);
   std::unique_ptr<DominantSequenceClusteringPartitioner> cluster_dsc =
       std::make_unique<DominantSequenceClusteringPartitioner>(
           targetModel_, maxPartitionSize_);
-  (*cluster_dsc)(graph_);
-  view_spngraph(graph_, "Dominant sequence clustering");
+  // (*cluster_dsc)(graph_);
+  // view_spngraph(graph_, "Dominant sequence clustering");
 
   // This somehow does not work
   // graph_ = graph_topo;
@@ -128,15 +129,20 @@ void GraphPartitioner::createBSPGraphFromClusteredSPNGraph(SPNGraph &spnGraph,
       int edgeWeight = boost::get(edge_weight(), spnGraph, inedge);
 
       // Check if the edge already exists
+      bool edgeExists = false;
       for (auto edge : boost::make_iterator_range(
                boost::out_edges(predecessorVertex, bspGraph))) {
         if (boost::target(edge, bspGraph) == successorVertex) {
           // Edge already exists, add the weight
           auto currentWeight = boost::get(edge_weight(), bspGraph, edge);
           boost::put(edge_weight(), bspGraph, edge, currentWeight + edgeWeight);
+          edgeExists = true;
           continue;
         }
       }
+
+      if (edgeExists)
+        continue;
 
       // Create a new edge with the given weight
       auto edge = add_edge(predecessorVertex, successorVertex, bspGraph);
@@ -156,7 +162,7 @@ BSPSchedule GraphPartitioner::scheduleGraphForBSP() {
   createBSPGraphFromClusteredSPNGraph(graph_, bspGraph);
 
   // Schedule the BSP graph
-  std::unique_ptr<DominantSequenceClusteringScheduler<BSPGraph>> scheduler_dsc =
+  auto scheduler_dsc =
       std::make_unique<DominantSequenceClusteringScheduler<BSPGraph>>(
           targetModel_);
   Schedule<BSPGraph> schedule = (*scheduler_dsc)(bspGraph);
@@ -196,7 +202,7 @@ BSPSchedule GraphPartitioner::scheduleGraphForBSP() {
   }
 
   // View the graph
-  // view_bspgraph(bspGraph, "BSP graph");
+  view_bspgraph(bspGraph, "BSP graph");
   BSPSchedule bspSchedule(bspGraph.num_children());
   return bspSchedule;
 }
