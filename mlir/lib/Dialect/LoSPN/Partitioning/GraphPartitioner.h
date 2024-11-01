@@ -26,6 +26,7 @@ namespace mlir {
 class PatternRewriter;
 namespace spn {
 namespace low {
+class SPNBody;
 
 namespace partitioning {
 class BSPSchedule;
@@ -42,7 +43,7 @@ class GraphPartitioner {
                                            BSPGraph &bspGraph);
 
 public:
-  explicit GraphPartitioner(llvm::ArrayRef<mlir::Operation *> rootNodes,
+  explicit GraphPartitioner(SPNBody body,
                             const TargetExecutionModel &targetModel,
                             size_t maxTaskSize);
 
@@ -92,7 +93,8 @@ public:
   }
 
   /// Returns a vector of all global edges going out of the cluster
-  std::vector<SPNGraph::edge_descriptor> edges_out(SPNGraph &cluster) {
+  std::vector<SPNGraph::edge_descriptor>
+  edges_out(const SPNGraph &cluster) const {
     std::vector<SPNGraph::edge_descriptor> outedges;
 
     // Iterate through all vertices of the cluster

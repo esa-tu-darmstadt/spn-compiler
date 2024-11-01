@@ -7,6 +7,7 @@
 //==============================================================================
 
 #include "GraphPartitioner.h"
+#include "LoSPN/LoSPNOps.h"
 #include "SPNGraph.h"
 #include "Schedule.h"
 #include "mlir/IR/OpDefinition.h"
@@ -56,15 +57,15 @@ SPNGraph::vertex_descriptor add_vertex_recursive(
   return v;
 }
 
-GraphPartitioner::GraphPartitioner(llvm::ArrayRef<mlir::Operation *> rootNodes,
+GraphPartitioner::GraphPartitioner(SPNBody body,
                                    const TargetExecutionModel &targetModel,
                                    size_t maxTaskSize)
     : graph_(), targetModel_(targetModel), maxPartitionSize_{maxTaskSize} {
   std::unordered_map<Operation *, SPNGraph::vertex_descriptor> mapping;
 
-  for (auto rootNode : rootNodes) {
-    add_vertex_recursive(graph_, rootNode, mapping, targetModel);
-  }
+  body.walk([&](SPNYield yield) {
+    add_vertex_recursive(graph_, yield, mapping, targetModel);
+  });
 }
 
 unsigned int GraphPartitioner::getMaximumClusterSize() const {
@@ -75,7 +76,7 @@ unsigned int GraphPartitioner::getMaximumClusterSize() const {
 }
 
 void GraphPartitioner::clusterGraph() {
-  view_spngraph(graph_, "Before clustering");
+  // view_spngraph(graph_, "Before clustering");
 
   // SPNGraph graph_topo(graph_);
   // std::unique_ptr<TopologicalSortClustering> cluster =
@@ -195,7 +196,7 @@ BSPSchedule GraphPartitioner::scheduleGraphForBSP() {
   }
 
   // View the graph
-  view_bspgraph(bspGraph, "BSP graph");
+  // view_bspgraph(bspGraph, "BSP graph");
   BSPSchedule bspSchedule(bspGraph.num_children());
   return bspSchedule;
 }

@@ -87,6 +87,29 @@ void mlir::spn::low::partitioning::view_spngraph(SPNGraph &graph,
   DisplayGraph(fileName, false, GraphProgram::DOT);
 }
 
+void mlir::spn::low::partitioning::dump_spngraph(SPNGraph &graph) {
+  for (auto vertex : boost::make_iterator_range(boost::vertices(graph))) {
+    auto op = boost::get(SPNVertex_Operation(), graph, vertex);
+    auto isConstant = boost::get(SPNVertex_IsConstant(), graph, vertex);
+    auto usesInput = boost::get(SPNVertex_UsesInput(), graph, vertex);
+    auto isYield = boost::get(SPNVertex_IsYield(), graph, vertex);
+    auto weight = boost::get(vertex_weight(), graph, vertex);
+
+    outs() << "Vertex " << vertex << ": " << op->getName() << "\n";
+    outs() << "  Constant: " << isConstant << "\n";
+    outs() << "  Uses input: " << usesInput << "\n";
+    outs() << "  Yield: " << isYield << "\n";
+    outs() << "  Weight: " << weight << "\n";
+  }
+
+  for (auto edge : boost::make_iterator_range(boost::edges(graph))) {
+    auto value = boost::get(SPNEdge_Value(), graph, edge);
+    auto weight = boost::get(edge_weight(), graph, edge);
+
+    outs() << "Edge: " << value << " with weight " << weight << "\n";
+  }
+}
+
 SPNGraph::edge_descriptor mlir::spn::low::partitioning::add_edge(
     SPNGraph::vertex_descriptor u, SPNGraph::vertex_descriptor v,
     SPNGraph &graph, Value value, const TargetExecutionModel &targetModel) {

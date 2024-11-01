@@ -129,6 +129,9 @@ bool ignore_for_clustering(SPNGraph::vertex_descriptor v, SPNGraph &graph);
 /// View the SPN graph in the default graphviz viewer.
 void view_spngraph(SPNGraph &graph, std::string title = "");
 
+/// Dump the SPN graph to output stream
+void dump_spngraph(SPNGraph &graph);
+
 std::string get_label(const SPNGraph &g, SPNGraph::vertex_descriptor v);
 
 } // namespace partitioning

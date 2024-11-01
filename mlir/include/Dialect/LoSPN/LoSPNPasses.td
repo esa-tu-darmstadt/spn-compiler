@@ -25,6 +25,8 @@ def LoSPNTaskPartioning : Pass<"lospn-task-partitioning", "SPNKernel"> {
   let summary = "Partition LoSPN tasks into multiple tasks";
   let options = [
     Option<"maxTaskSize", "max-task-size", "int", "-1", "Determine the maximum number of operations per task">,
+    Option<"decomposeTaskInputs", "decompose-task-inputs", "bool", "false", "If enabled, each task receives only the part of the input tensor that it actually uses">,
+    Option<"schedule", "schedule", "bool", "false", "If enabled, the partitions are scheduled and the schedule is attached as an attribute to the kernel.">
   ];
 }
 
