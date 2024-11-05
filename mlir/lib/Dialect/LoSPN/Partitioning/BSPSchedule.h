@@ -8,6 +8,8 @@
 #pragma once
 
 #include "SPNGraph.h"
+#include "Schedule.h"
+#include "SchedulingGraph.h"
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graphviz.hpp>
 #include <boost/graph/properties.hpp>
@@ -24,138 +26,42 @@ namespace spn {
 namespace low {
 namespace partitioning {
 
-typedef unsigned int task_index_t;
-typedef unsigned int processor_t;
-typedef unsigned int superstep_index_t;
-
-/// A property describing the superstep index of a BSP subgraph
-struct BSPGraph_Superstep {
-  using kind = boost::graph_property_tag;
-};
-
-/// A property describing the task index of a BSP vertex
-struct BSPVertex_ClusterID {
-  using kind = boost::vertex_property_tag;
-};
-
-/// A property describing the processor index of a BSP vertex
-struct BSPVertex_ProcID {
-  using kind = boost::vertex_property_tag;
-};
-
-using GraphvizAttributes = std::unordered_map<std::string, std::string>;
-
-using BSPVertexAttributes =
-    boost::property<boost::vertex_attribute_t, GraphvizAttributes>;
-using BSPVertexProperties = boost::property<
-    BSPVertex_ClusterID, task_index_t,
-    boost::property<BSPVertex_ProcID, processor_t,
-                    boost::property<vertex_weight, int, BSPVertexAttributes>>>;
-
-using BSPEdgeAttributes =
-    boost::property<boost::edge_attribute_t, GraphvizAttributes>;
-using BSPEdgeProperties =
-    boost::property<boost::edge_index_t, int,
-                    boost::property<edge_weight, int, BSPEdgeAttributes>>;
-
-using BSPGraphAttributes = boost::property<
-    boost::graph_graph_attribute_t, GraphvizAttributes,
-    boost::property<
-        boost::graph_vertex_attribute_t, GraphvizAttributes,
-        boost::property<boost::graph_edge_attribute_t, GraphvizAttributes>>>;
-using BSPGraphProperties = boost::property<
-    boost::graph_name_t, std::string,
-    boost::property<BSPGraph_Superstep, int, BSPGraphAttributes>>;
-
-/// A graph that can be used to represent an SPN or a part of it.
-/// Subgraphs are used to represent clusters and vertices are used to represent
-/// operations.
-typedef boost::subgraph<boost::adjacency_list<
-    boost::vecS, boost::vecS, boost::bidirectionalS, BSPVertexProperties,
-    BSPEdgeProperties, BSPGraphProperties>>
-    BSPGraph;
-
-inline void view_bspgraph(BSPGraph &graph, std::string title) {
-  // Set the vertex attributes
-  for (auto vertex : boost::make_iterator_range(boost::vertices(graph))) {
-
-    GraphvizAttributes attributes;
-    processor_t proc = boost::get(BSPVertex_ProcID(), graph, vertex);
-    task_index_t cluster = boost::get(BSPVertex_ClusterID(), graph, vertex);
-    auto weight = boost::get(vertex_weight(), graph, vertex);
-    attributes["label"] = "Cluster " + std::to_string(cluster) + "\nProc " +
-                          std::to_string(proc) + "\nWeight " +
-                          std::to_string(weight);
-    attributes["shape"] = "box";
-    attributes["style"] = "filled";
-    attributes["fillcolor"] = "white";
-    attributes["color"] = "black";
-
-    boost::put(boost::vertex_attribute_t(), graph, vertex, attributes);
-  }
-
-  // Set edge attributes
-  for (auto edge : boost::make_iterator_range(boost::edges(graph))) {
-    auto weight = boost::get(edge_weight(), graph, edge);
-
-    GraphvizAttributes attributes;
-    attributes["label"] = std::to_string(weight);
-
-    boost::put(boost::edge_attribute_t(), graph, edge, attributes);
-  }
-
-  // Set cluster attributes
-  for (auto &cluster : boost::make_iterator_range(graph.children())) {
-    GraphvizAttributes attributes;
-    auto ID = boost::get_property(cluster, BSPGraph_Superstep());
-    attributes["label"] = "Superstep " + std::to_string(ID);
-    attributes["style"] = "filled";
-    attributes["fillcolor"] = "lightgrey";
-
-    boost::get_property(cluster, boost::graph_graph_attribute) = attributes;
-    boost::get_property(cluster, boost::graph_name) =
-        "cluster" + std::to_string(ID);
-  }
-
-  boost::get_property(graph, boost::graph_name) = "";
-  boost::get_property(graph, boost::graph_graph_attribute)["label"] = title;
-
-  // Create a temporary file to hold the graph.
-  int FD;
-  auto fileName = llvm::createGraphFilename("partitioning", FD);
-  if (fileName.empty()) {
-    return;
-  }
-
-  // Write the graph.
-  boost::write_graphviz(fileName, graph);
-
-  // Display the graph.
-  llvm::DisplayGraph(fileName, false, llvm::GraphProgram::DOT);
-}
-
 /// Represents a superstep in the BSP schedule. A superstep is a set of tasks
 /// that can be executed in parallel.
 class Superstep {
 public:
   typedef std::shared_ptr<Superstep> Reference;
 
-  /// Returns the predecessors of this superstep.
-  auto &predecessors() const { return predecessors_; }
-
-  /// Returns the successors of this superstep.
-  auto &successors() const { return successors_; }
+  explicit Superstep(superstep_index_t index) : index_(index) {}
 
   /// Returns the tasks and their assigned processors of this superstep.
   auto &tasks() const { return tasks_; }
 
+  /// Returns the index of this superstep.
+  superstep_index_t index() const { return index_; }
+
+  // Returns the overall duration of this superstep. This includes the
+  // communication and computation time and the synchronization time.
+  int duration() const {
+    return communicationAndComputationTime_ + synchronizationTime_;
+  }
+
+  /// Returns the communication and computation time of this superstep.
+  int &communicationAndComputationTime() {
+    return communicationAndComputationTime_;
+  }
+
+  /// Returns the synchronization time of this superstep.
+  int &synchronizationTime() { return synchronizationTime_; }
+
   /// Returns or sets the processor of the given task.
-  processor_t &operator[](task_index_t task) { return tasks_[task]; }
+  processor_t &operator[](cluster_index_t task) { return tasks_[task]; }
 
 private:
-  std::set<Reference> predecessors_;
-  std::set<Reference> successors_;
-  std::unordered_map<task_index_t, processor_t> tasks_;
+  std::unordered_map<cluster_index_t, processor_t> tasks_;
+  superstep_index_t index_;
+  int communicationAndComputationTime_ = 0;
+  int synchronizationTime_ = 0;
 };
 
 /// Represents a BSP schedule. The Bulk Synchronous Parallel (BSP) model is a
@@ -164,22 +70,25 @@ private:
 /// synchronization. All supersteps run synchronous on all processors, ie., they
 /// begin at the same time and communication between processors is only possible
 /// inbetween supersteps.
-class BSPSchedule {
+class BSPSchedule : public Schedule {
+  /// Private constructor
+  explicit BSPSchedule(Schedule &&schedule);
+
 public:
-  /// Constructs a new BSP schedule with the given number of empty supersteps.
-  explicit BSPSchedule(size_t numSupersteps) : supersteps_(numSupersteps) {}
+  static BSPSchedule fromSchedule(Schedule &&schedule);
+
+  void clusterGraph();
 
   /// Returns the supersteps of this schedule.
   auto &supersteps() const { return supersteps_; }
 
+  /// Calculates the starting and ending times of the tasks in the schedule
+  /// considering the BSP model.
+  void calculateTimes() override;
+
 private:
   std::vector<Superstep> supersteps_;
 };
-
-inline std::string get_label(const BSPGraph &g, BSPGraph::vertex_descriptor v) {
-  auto cluster = boost::get(BSPVertex_ClusterID(), g, v);
-  return "Cluster " + std::to_string(cluster);
-}
 
 } // namespace partitioning
 } // namespace low

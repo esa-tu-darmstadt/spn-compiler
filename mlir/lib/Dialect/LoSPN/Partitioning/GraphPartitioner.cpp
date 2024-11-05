@@ -76,36 +76,25 @@ unsigned int GraphPartitioner::getMaximumClusterSize() const {
 }
 
 void GraphPartitioner::clusterGraph() {
-  // view_spngraph(graph_, "Before clustering");
-
-  // SPNGraph graph_topo(graph_);
   std::unique_ptr<TopologicalSortClustering> cluster =
       std::make_unique<TopologicalSortClustering>(targetModel_,
                                                   maxPartitionSize_);
   (*cluster)(graph_);
   view_spngraph(graph_, "Topological sort clustering");
-
-  // SPNGraph graph_dsc(graph_);
-  std::unique_ptr<DominantSequenceClusteringPartitioner> cluster_dsc =
-      std::make_unique<DominantSequenceClusteringPartitioner>(
-          targetModel_, maxPartitionSize_);
-  // (*cluster_dsc)(graph_);
-  // view_spngraph(graph_, "Dominant sequence clustering");
-
-  // This somehow does not work
-  // graph_ = graph_topo;
 }
 
-void GraphPartitioner::createBSPGraphFromClusteredSPNGraph(SPNGraph &spnGraph,
-                                                           BSPGraph &bspGraph) {
+SchedulingGraph
+GraphPartitioner::createBSPGraphFromClusteredSPNGraph(SPNGraph &spnGraph) {
+  SchedulingGraph bspGraph;
   // Maps clusters in the SPN graph to vertices in the BSP graph
-  std::unordered_map<SPNGraph *, BSPGraph::vertex_descriptor> clusterToVertex;
+  std::unordered_map<SPNGraph *, SchedulingGraph::vertex_descriptor>
+      clusterToVertex;
 
   // Add a vertex for each cluster
   for (auto &cluster : clusters()) {
     auto vertex = add_vertex(bspGraph);
     auto clusterIndex = boost::get_property(cluster, SPNGraph_ClusterID());
-    boost::put(BSPVertex_ClusterID(), bspGraph, vertex, clusterIndex);
+    boost::put(SchedulingVertex_ClusterID(), bspGraph, vertex, clusterIndex);
 
     // Calculate the weight of the cluster
     int weight = 0;
@@ -149,61 +138,34 @@ void GraphPartitioner::createBSPGraphFromClusteredSPNGraph(SPNGraph &spnGraph,
       boost::put(edge_weight(), bspGraph, edge.first, edgeWeight);
     }
   }
+  return bspGraph;
 }
 
 BSPSchedule GraphPartitioner::scheduleGraphForBSP() {
   // Create the BSP graph without subgraphs / supersteps first, then assign
   // clusters to supersteps later.
 
-  BSPGraph bspGraph;
-
-  // Fill the BSP graph with a vertex for each cluster and an edge for each edge
-  // between clusters
-  createBSPGraphFromClusteredSPNGraph(graph_, bspGraph);
+  SchedulingGraph bspGraph = createBSPGraphFromClusteredSPNGraph(graph_);
 
   // Schedule the BSP graph
   auto scheduler_dsc =
-      std::make_unique<DominantSequenceClusteringScheduler<BSPGraph>>(
-          targetModel_);
-  Schedule<BSPGraph> schedule = (*scheduler_dsc)(bspGraph);
+      std::make_unique<DominantSequenceClusteringScheduler>(targetModel_);
+  Schedule schedule = (*scheduler_dsc)(std::move(bspGraph));
+  schedule.updateGraph();
 
-  schedule.viewSchedule(targetModel_);
+  schedule.viewSchedule(targetModel_,
+                        "Dominant sequence clustering async schedule",
+                        "/workspaces/spn/schedule_async.html");
 
-  // Assign clusters to supersteps according to their wavefront
-  std::vector<superstep_index_t> superstepOfCluster(
-      boost::num_vertices(bspGraph), 0);
-  size_t numSupersteps = 0;
-  for (auto cluster : boost::make_iterator_range(boost::vertices(bspGraph))) {
-    auto superStep = boost::ith_wavefront(cluster, bspGraph);
-    numSupersteps = std::max(numSupersteps, superStep + 1);
-    superstepOfCluster[cluster] = superStep;
+  BSPSchedule bspSchedule = BSPSchedule::fromSchedule(std::move(schedule));
+  bspSchedule.clusterGraph();
 
-    // Debug output
-    auto clusterIndex = boost::get(BSPVertex_ClusterID(), bspGraph, cluster);
-    llvm::errs() << "Cluster " << clusterIndex << " is in superstep "
-                 << superStep << "\n";
-  }
+  view_schedulinggraph(bspSchedule.graph(), "BSP graph (scheduled)");
 
-  view_bspgraph(bspGraph, "BSP graph (unscheduled)");
-  // Cluster the graph into subgraphs (for visualization)
-  // Add a subgraph for each superstep
-  std::vector<BSPGraph *> superstepSubgraphs;
-  superstepSubgraphs.reserve(numSupersteps);
-  for (size_t i = 0; i < numSupersteps; ++i) {
-    BSPGraph &superstep = bspGraph.create_subgraph();
-    superstepSubgraphs.push_back(&superstep);
-    boost::get_property(superstep, BSPGraph_Superstep()) = i;
-  }
-  // Add the vertices to the subgraphs
-  for (auto task : boost::make_iterator_range(boost::vertices(bspGraph))) {
-    auto superStep = superstepOfCluster[task];
-    auto &superstep = *superstepSubgraphs[superStep];
-    boost::add_vertex(task, superstep);
-  }
+  bspSchedule.viewSchedule(targetModel_,
+                           "Dominant sequence clustering BSP schedule",
+                           "/workspaces/spn/schedule_bsp.html");
 
-  // View the graph
-  view_bspgraph(bspGraph, "BSP graph");
-  BSPSchedule bspSchedule(bspGraph.num_children());
   return bspSchedule;
 }
 

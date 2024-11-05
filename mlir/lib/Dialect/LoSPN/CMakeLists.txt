@@ -21,6 +21,7 @@ add_mlir_dialect_library(MLIRLoSPN
         Partitioning/SPNGraph.cpp
         Partitioning/Schedule.cpp
         Partitioning/Heuristic.cpp
+        Partitioning/BSPSchedule.cpp
         Partitioning/Algorithms/DominantSequenceClustering/DominantSequenceClustering.cpp
         Partitioning/Algorithms/TopologicalSort/TopoSortClustering.cpp
 

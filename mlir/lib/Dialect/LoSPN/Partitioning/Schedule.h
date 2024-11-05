@@ -1,5 +1,6 @@
 #pragma once
 
+#include "SchedulingGraph.h"
 #include "TargetExecutionModel.h"
 #include <boost/graph/adjacency_list.hpp>
 #include <unordered_map>
@@ -8,35 +9,53 @@ namespace mlir {
 namespace spn {
 namespace low {
 namespace partitioning {
-template <class GraphT>
 class Schedule {
-  typedef typename boost::graph_traits<GraphT>::vertex_descriptor vertex_t;
-
+protected:
+  using vertex_t =
+      typename boost::graph_traits<SchedulingGraph>::vertex_descriptor;
   // Map from processor to list of vertices scheduled on that processor in order
-  std::unordered_map<int, std::vector<vertex_t>> schedule_;
+  std::unordered_map<int, std::vector<int>> schedule_;
 
   //  Map from processor to list of starting times of each task on that
   //  processor
-  std::unordered_map<int, std::vector<float>> startingTimes_;
+  std::unordered_map<int, std::vector<int>> startingTimes_;
 
   //  Map from processor to list of end times of each task on that processor
-  std::unordered_map<int, std::vector<float>> endingTimes_;
+  std::unordered_map<int, std::vector<int>> endingTimes_;
 
-  GraphT &graph_;
+  // Map from a cluster index to the vertex representing the task in the
+  // scheduling graph
+  std::unordered_map<cluster_index_t, vertex_t> vertexOfTask;
+
+  SchedulingGraph graph_;
 
 public:
-  Schedule(GraphT &graph) : graph_(graph) {}
+  // Creates an empty schedule and populates the `vertexOfTask` map
+  Schedule(SchedulingGraph &&graph);
+  Schedule(Schedule &&) = default;
+
+  virtual ~Schedule() = default;
+
+  // Returns the schedule for a processor
   auto &operator[](int processor) { return schedule_[processor]; }
 
   auto &schedule() { return schedule_; }
   auto &startingTimes() { return startingTimes_; }
   int makeSpan();
 
-  void calculateTimes();
+  SchedulingGraph &graph() { return graph_; }
 
-  void viewSchedule(const TargetExecutionModel &targetModel);
-  void saveAsHTML(std::string filename,
-                  const TargetExecutionModel &targetModel);
+  /// Calculates the starting and ending times of each task on each processor
+  virtual void calculateTimes();
+
+  /// Updates underlying graph with the schedule information (processor,
+  /// starting time, etc)
+  void updateGraph();
+
+  void viewSchedule(const TargetExecutionModel &targetModel, std::string title,
+                    std::string filename);
+  void saveAsHTML(std::string filename, const TargetExecutionModel &targetModel,
+                  std::string title);
 };
 } // namespace partitioning
 } // namespace low

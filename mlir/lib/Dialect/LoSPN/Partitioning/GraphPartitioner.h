@@ -11,6 +11,7 @@
 
 #include "BSPSchedule.h"
 #include "SPNGraph.h"
+#include "SchedulingGraph.h"
 #include "TargetExecutionModel.h"
 
 #include <boost/fusion/algorithm/transformation/flatten.hpp>
@@ -30,7 +31,6 @@ class SPNBody;
 
 namespace partitioning {
 class BSPSchedule;
-template <class GraphT>
 class Schedule;
 
 class GraphPartitioner {
@@ -39,8 +39,7 @@ class GraphPartitioner {
 
   /// Creates a BSP graph in which vertices represent a clusters of the SPN
   /// graph.
-  void createBSPGraphFromClusteredSPNGraph(SPNGraph &spnGraph,
-                                           BSPGraph &bspGraph);
+  SchedulingGraph createBSPGraphFromClusteredSPNGraph(SPNGraph &spnGraph);
 
 public:
   explicit GraphPartitioner(SPNBody body,
@@ -129,7 +128,6 @@ public:
     virtual void operator()(SPNGraph &graph) = 0;
   };
 
-  template <class GraphT>
   class SchedulingAlgorithm {
   protected:
     const TargetExecutionModel &targetModel_;
@@ -138,7 +136,7 @@ public:
     SchedulingAlgorithm(const TargetExecutionModel &targetModel)
         : targetModel_(targetModel) {}
     virtual ~SchedulingAlgorithm() = default;
-    virtual Schedule<GraphT> operator()(GraphT &graph) = 0;
+    virtual Schedule operator()(SchedulingGraph &&graph) = 0;
   };
 
 protected:

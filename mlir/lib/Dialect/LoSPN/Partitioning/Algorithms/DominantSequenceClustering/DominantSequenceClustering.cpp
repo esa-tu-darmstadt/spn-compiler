@@ -88,9 +88,8 @@ void update_tlevel(GraphT &graph, typename GraphT::vertex_descriptor v,
 /// Initial implementation of the Dominant Sequence Clustering algorithm.
 /// Described in Figure 3 of "DSC: Scheduling Parallel Tasks on an Unbounded
 /// Number of Processors"
-template <typename GraphT>
-void DSC_I(GraphT &graph, std::vector<cluster_t> &cluster,
-           Schedule<GraphT> &schedule) {
+void DSC_I(std::vector<cluster_t> &cluster, Schedule &schedule) {
+  SchedulingGraph &graph = schedule.graph();
   // Calculate blevel
   std::vector<level_t> blevel(num_vertices(graph), -1);
   for (auto v : boost::make_iterator_range(vertices(graph))) {
@@ -115,10 +114,10 @@ void DSC_I(GraphT &graph, std::vector<cluster_t> &cluster,
   }
 
   // List of examined nodes
-  std::set<typename GraphT::vertex_descriptor> EG;
+  std::set<typename SchedulingGraph::vertex_descriptor> EG;
 
   // List of unexamined nodes
-  std::set<typename GraphT::vertex_descriptor> UEG;
+  std::set<typename SchedulingGraph::vertex_descriptor> UEG;
 
   // Mark all nodes as unexamined
   for (auto v : boost::make_iterator_range(vertices(graph))) {
@@ -276,60 +275,13 @@ void DSC_I(GraphT &graph, std::vector<cluster_t> &cluster,
 //     auto ny = PFL.back(); // the partial free task with the highest PRIO
 //   }
 // }
-
-template <typename GraphT>
-Schedule<GraphT>
-DominantSequenceClusteringScheduler<GraphT>::operator()(GraphT &graph) {
+Schedule
+DominantSequenceClusteringScheduler::operator()(SchedulingGraph &&graph) {
   std::vector<cluster_t> cluster;
-  Schedule<GraphT> schedule(graph);
+  Schedule schedule(std::move(graph));
 
   // Execute the Dominant Sequence Clustering algorithm
-  DSC_I(graph, cluster, schedule);
+  DSC_I(cluster, schedule);
 
   return schedule;
 }
-
-void DominantSequenceClusteringPartitioner::operator()(SPNGraph &graph) {
-  std::vector<cluster_t> clusters;
-  Schedule<SPNGraph> schedule(graph);
-
-  // Execute the Dominant Sequence Clustering algorithm
-  DSC_I(graph, clusters, schedule);
-
-  // Perform the partitioning of the graph
-
-  // A map from the cluster index to the subgraph
-  // Note that cluster indices calculated by DSC_I are not contiguous!
-  std::unordered_map<cluster_t, SPNGraph *> graphCluster;
-  for (auto vertex : boost::make_iterator_range(vertices(graph))) {
-    if (ignore_for_clustering(vertex, graph)) {
-      continue;
-    }
-
-    auto cluster = clusters[vertex];
-
-    auto it = graphCluster.find(cluster);
-    if (it == graphCluster.end()) {
-      // Create new subgraph for the cluster if it doesn't exist yet
-      auto &subgraph = add_cluster(graph);
-      boost::add_vertex(vertex, subgraph);
-
-      graphCluster[cluster] = &subgraph;
-    } else {
-      // Add the vertex to the existing subgraph
-      boost::add_vertex(vertex, *it->second);
-    }
-  }
-}
-
-// Explicit template instantiation
-namespace mlir {
-namespace spn {
-namespace low {
-namespace partitioning {
-template class DominantSequenceClusteringScheduler<SPNGraph>;
-template class DominantSequenceClusteringScheduler<BSPGraph>;
-} // namespace partitioning
-} // namespace low
-} // namespace spn
-} // namespace mlir
