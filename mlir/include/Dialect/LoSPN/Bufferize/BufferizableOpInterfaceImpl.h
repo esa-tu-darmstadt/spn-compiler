@@ -6,7 +6,14 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include "LoSPN/LoSPNAttributes.h"
+#pragma once
 
-#define GET_ATTRDEF_CLASSES
-#include "LoSPN/LoSPNAttributes.cpp.inc"
+namespace mlir {
+class DialectRegistry;
+namespace spn {
+namespace low {
+
+void registerBufferizableOpInterfaceExternalModels(DialectRegistry &registry);
+} // namespace low
+} // namespace spn
+} // namespace mlir

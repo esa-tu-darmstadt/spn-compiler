@@ -17,6 +17,9 @@
 using namespace mlir;
 using namespace mlir::spn::low;
 
+#define GET_ATTRDEF_CLASSES
+#include "LoSPN/LoSPNAttributes.cpp.inc"
+
 void LoSPNDialect::initialize() {
   addOperations<
 #define GET_OP_LIST
