@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include "LoSPNtoCPU/NodePatterns.h"
+#include "NodePatterns.h"
 #include "HiSPN/HiSPNAttributes.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"

@@ -66,7 +66,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
         task, "SLP vectorization does not match for batchSize > 1");
   }
 
-  if (task.getBody().getBlocks().size() > 1) {
+  if (task.getBodyRegion().getBlocks().size() > 1) {
     return rewriter.notifyMatchFailure(
         task, "SLP vectorization only applicable to single basic blocks");
   }
@@ -94,8 +94,7 @@ LogicalResult VectorizeSingleTask::matchAndRewrite(
     blockReplacementArgs.push_back(bArg);
   }
   // Inline the content of the task into the function.
-  rewriter.mergeBlocks(&task.getBody().front(), taskBlock,
-                       blockReplacementArgs);
+  rewriter.mergeBlocks(task.getBody(), taskBlock, blockReplacementArgs);
   // Replace block arguments *now* because moving operations later on somehow
   // 'resets' their block argument operands and does not remap them in the end,
   // which leads to failures if a block argument should be erased.
@@ -454,7 +453,7 @@ VectorizeBatchTask::matchAndRewrite(SPNTask op, SPNTask::Adaptor adaptor,
 
   auto restoreTask = rewriter.saveInsertionPoint();
   rewriter.setInsertionPointToStart(&vectorLoopBody);
-  auto oldTaskArgs = op.getBody().front().getArguments();
+  auto oldTaskArgs = op.getBody()->getArguments();
   IRMapping mapVectorTaskArgs;
   // Map from batchIndex to vectorized loop induction var.
   mapVectorTaskArgs.map(oldTaskArgs.front(), vectorizedLoop.getInductionVar());
@@ -463,7 +462,7 @@ VectorizeBatchTask::matchAndRewrite(SPNTask op, SPNTask::Adaptor adaptor,
     mapVectorTaskArgs.map(oldTaskArgs[i++], bArg);
   }
   // Copy the operations from the Task's content to the vectorized loop
-  for (auto &node : op.getBody().front()) {
+  for (auto &node : *op.getBody()) {
     if (isa<low::SPNReturn>(&node)) {
       continue;
     }
@@ -492,8 +491,7 @@ VectorizeBatchTask::matchAndRewrite(SPNTask op, SPNTask::Adaptor adaptor,
   for (auto bArg : taskBlock->getArguments()) {
     blockReplacementArgs.push_back(bArg);
   }
-  rewriter.inlineBlockBefore(&op.getBody().front(),
-                             scalarLoopBody.getTerminator(),
+  rewriter.inlineBlockBefore(op.getBody(), scalarLoopBody.getTerminator(),
                              blockReplacementArgs);
   scalarLoopBody.walk([&rewriter](SPNReturn ret) {
     assert(ret.getReturnValues().empty() && "Task return should be empty");
@@ -536,8 +534,8 @@ LogicalResult VectorizeTask::createFunctionIfVectorizable(
 
   if (requireAllOpsVectorizable) {
     // Check if all nodes can be vectorized before trying to do so.
-    auto allVectorizable =
-        task.getBody().walk([effectiveVectorWidth](low::LoSPNVectorizable vOp) {
+    auto allVectorizable = task.getBody()->walk(
+        [effectiveVectorWidth](low::LoSPNVectorizable vOp) {
           if (!vOp.isVectorizable(effectiveVectorWidth)) {
             vOp.emitRemark()
                 << "Operation cannot be vectorized with vector width "

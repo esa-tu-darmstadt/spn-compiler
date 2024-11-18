@@ -18,30 +18,6 @@ using namespace mlir::spn::low;
 using namespace mlir::bufferization;
 
 namespace {
-static SPNReturn getAssumedUniqueReturnOp(SPNTask taskOp) {
-  SPNReturn returnOp;
-  for (Block &b : taskOp.getBody()) {
-    if (auto candidateOp = dyn_cast<SPNReturn>(b.getTerminator())) {
-      if (returnOp)
-        return nullptr;
-      returnOp = candidateOp;
-    }
-  }
-  return returnOp;
-}
-
-static SPNReturn getAssumedUniqueReturnOp(SPNKernel kernelOp) {
-  SPNReturn returnOp;
-  for (Block &b : kernelOp.getBody()) {
-    if (auto candidateOp = dyn_cast<SPNReturn>(b.getTerminator())) {
-      if (returnOp)
-        return nullptr;
-      returnOp = candidateOp;
-    }
-  }
-  return returnOp;
-}
-
 /// All tensors are converted to memrefs with static identity layout.
 static BaseMemRefType convertTensorType(TensorType tensorType,
                                         const BufferizationOptions &options) {
@@ -166,7 +142,7 @@ struct ReturnOpInterface
       if (failed(maybeBufferType))
         return failure();
       BlockArgument outArg =
-          taskOp.getBody().addArgument(*maybeBufferType, returnOp.getLoc());
+          taskOp.getBody()->addArgument(*maybeBufferType, returnOp.getLoc());
 
       // Replace the batch collect op with a batch write to the out-arg.
       rewriter.setInsertionPoint(batchCollectOp);
@@ -271,9 +247,7 @@ struct TaskInterface
     assert(kernelOp && "expected task to be a child of a kernel");
 
     // Bufferize the body block.
-    assert(taskOp.getBody().getBlocks().size() == 1 &&
-           "tasks are expected to have a single block");
-    if (failed(bufferization::bufferizeBlockSignature(&taskOp.getBody().front(),
+    if (failed(bufferization::bufferizeBlockSignature(taskOp.getBody(),
                                                       rewriter, options)))
       return failure();
 
@@ -326,8 +300,8 @@ struct TaskInterface
         taskOp.getLoc(), TypeRange{}, newOperands, taskOp.getBatchSizeAttr());
 
     // Move the body of the old task to the new task.
-    rewriter.moveBlockBefore(&taskOp.getBody().front(), &newTask.getBody(),
-                             newTask.getBody().end());
+    rewriter.moveBlockBefore(taskOp.getBody(), &newTask.getBodyRegion(),
+                             newTask.getBodyRegion().end());
 
     //  Replace the task with the bufferized results.
     bufferization::replaceOpWithBufferizedValues(rewriter, taskOp,

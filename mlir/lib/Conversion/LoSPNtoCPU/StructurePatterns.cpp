@@ -6,11 +6,12 @@
 // SPDX-License-Identifier: Apache-2.0
 //==============================================================================
 
-#include "LoSPNtoCPU/StructurePatterns.h"
+#include "StructurePatterns.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/IRMapping.h"
 #include "llvm/ADT/APFloat.h"
 
@@ -49,11 +50,12 @@ mlir::LogicalResult mlir::spn::BatchTaskLowering::matchAndRewrite(
   for (auto operand : operands) {
     inputTypes.push_back(operand.getType());
   }
-  auto funcType = FunctionType::get(rewriter.getContext(), inputTypes, {});
-  auto taskFunc = rewriter.create<func::FuncOp>(
-      op->getLoc(), Twine("task_", std::to_string(taskCount++)).str(),
+  FunctionType funcType =
+      FunctionType::get(rewriter.getContext(), inputTypes, {});
+  Operation *taskFunc = options.buildTask(
+      rewriter, op.getLoc(), Twine("task_", std::to_string(taskCount++)).str(),
       funcType);
-  auto *taskBlock = taskFunc.addEntryBlock();
+  mlir::Block *taskBlock = &taskFunc->getRegion(0).front();
   rewriter.setInsertionPointToStart(taskBlock);
   auto const0 = rewriter.create<arith::ConstantOp>(op->getLoc(),
                                                    rewriter.getIndexAttr(0));
@@ -81,7 +83,7 @@ mlir::LogicalResult mlir::spn::BatchTaskLowering::matchAndRewrite(
   for (auto bArg : taskBlock->getArguments()) {
     blockReplacementArgs.push_back(bArg);
   }
-  rewriter.inlineBlockBefore(&op.getBody().front(), loopBlock.getTerminator(),
+  rewriter.inlineBlockBefore(op.getBody(), loopBlock.getTerminator(),
                              blockReplacementArgs);
   loopBlock.walk([&rewriter](low::SPNReturn ret) {
     assert(ret.getReturnValues().empty() && "Task return should be empty");
@@ -89,7 +91,9 @@ mlir::LogicalResult mlir::spn::BatchTaskLowering::matchAndRewrite(
   });
   // Insert a call to the newly created task function.
   rewriter.restoreInsertionPoint(restore);
-  rewriter.replaceOpWithNewOp<func::CallOp>(op, taskFunc, operands);
+  Operation *taskCall =
+      options.buildTaskCall(rewriter, op.getLoc(), taskFunc, operands);
+  rewriter.replaceOp(op, taskCall);
   return success();
 }
 
@@ -116,10 +120,11 @@ mlir::LogicalResult mlir::spn::SingleTaskLowering::matchAndRewrite(
     inputTypes.push_back(operand.getType());
   }
   auto funcType = FunctionType::get(rewriter.getContext(), inputTypes, {});
-  auto taskFunc = rewriter.create<func::FuncOp>(
-      op->getLoc(), Twine("task_", std::to_string(taskCount++)).str(),
+  Operation *taskFunc = options.buildTask(
+      rewriter, op.getLoc(), Twine("task_", std::to_string(taskCount++)).str(),
       funcType);
-  auto *taskBlock = taskFunc.addEntryBlock();
+  mlir::Block *taskBlock = &taskFunc->getRegion(0).front();
+
   rewriter.setInsertionPointToStart(taskBlock);
 
   // Collect the values replacing the block values of old block inside the task.
@@ -133,10 +138,12 @@ mlir::LogicalResult mlir::spn::SingleTaskLowering::matchAndRewrite(
     blockReplacementArgs.push_back(bArg);
   }
   // Inline the content of the Task into the function.
-  rewriter.mergeBlocks(&op.getBody().front(), taskBlock, blockReplacementArgs);
+  rewriter.mergeBlocks(op.getBody(), taskBlock, blockReplacementArgs);
   // Insert a call to the newly created task function.
   rewriter.restoreInsertionPoint(restore);
-  rewriter.replaceOpWithNewOp<func::CallOp>(op, taskFunc, operands);
+  Operation *taskCall =
+      options.buildTaskCall(rewriter, op.getLoc(), taskFunc, operands);
+  rewriter.replaceOp(op, taskCall);
   return success();
 }
 
@@ -190,4 +197,24 @@ mlir::LogicalResult mlir::spn::BodyLowering::matchAndRewrite(
   rewriter.inlineBlockBefore(&op.getBody().front(), op, argValues);
   rewriter.replaceOp(op, resultValues);
   return success();
+}
+
+void mlir::spn::populateLoSPNtoCPUTaskPatterns(RewritePatternSet &patterns,
+                                               MLIRContext *context,
+                                               TypeConverter &typeConverter) {
+  // Convert tasks to func::FuncOp's
+  TaskLoweringOptions options;
+  options.buildTask = [](OpBuilder &builder, Location loc, std::string name,
+                         FunctionType funcType) {
+    auto funcOp = builder.create<func::FuncOp>(loc, name, funcType);
+    funcOp.addEntryBlock();
+    return funcOp;
+  };
+  // Call tasks using func::CallOp
+  options.buildTaskCall = [](OpBuilder &builder, Location loc,
+                             Operation *taskOp, ValueRange operands) {
+    return builder.create<func::CallOp>(loc, (func::FuncOp)taskOp, operands);
+  };
+  patterns.insert<BatchTaskLowering, SingleTaskLowering>(typeConverter, context,
+                                                         options);
 }

@@ -111,7 +111,7 @@ def SPNTask : LoSPN_Op<"task", [HasParent<"SPNKernel">, SingleBlockImplicitTermi
 
     let results = (outs Variadic<RankedTensorOf<[LoSPNComputeType]>>:$results);
 
-    let regions = (region SizedRegion<1>:$body);
+    let regions = (region SizedRegion<1>:$bodyRegion);
 
     let extraClassDeclaration = [{
         public:
