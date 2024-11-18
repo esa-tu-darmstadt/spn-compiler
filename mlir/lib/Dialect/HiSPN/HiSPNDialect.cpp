@@ -51,7 +51,7 @@ void HiSPNDialect::initialize() {
 // Parse a APFloat from an AsmParser. This is required for parsing the value
 // field in HistBucket attributes.
 template <>
-struct FieldParser<APFloat> {
+struct mlir::FieldParser<APFloat> {
   static FailureOr<APFloat> parse(AsmParser &parser) {
     double value;
     if (parser.parseFloat(value))
