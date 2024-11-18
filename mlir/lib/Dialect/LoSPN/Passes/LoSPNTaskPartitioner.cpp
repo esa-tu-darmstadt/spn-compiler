@@ -8,6 +8,8 @@
 
 #include "../Partitioning/GraphPartitioner.h"
 #include "../Partitioning/SPNGraph.h"
+#include "LoSPN/LoSPNAttributes.h"
+#include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
 #include "LoSPN/LoSPNPasses.h"
 #include "LoSPNPassDetails.h"
@@ -49,10 +51,10 @@ using namespace mlir::spn::low::partitioning;
 class PartitionTask : public OpRewritePattern<low::SPNTask> {
 public:
   PartitionTask(MLIRContext *ctx, const TargetExecutionModel &targetModel,
-                int maxTaskSize, bool schedule, bool decomposeTaskIntputs)
+                int maxTaskSize, bool schedule, bool decomposeTaskInputs)
       : OpRewritePattern<low::SPNTask>(ctx, 1), targetModel_(targetModel),
         maxTaskSize_(maxTaskSize), schedule_(schedule),
-        decomposeTaskInputs_(decomposeTaskIntputs) {}
+        decomposeTaskInputs_(decomposeTaskInputs) {}
 
   LogicalResult matchAndRewrite(SPNTask task,
                                 PatternRewriter &rewriter) const override {
@@ -145,6 +147,14 @@ public:
         newResults.push_back(connections.lookup(resVal).tensor);
       }
     });
+
+    // Attach the schedule to the kernel
+    if (schedule_) {
+      BSPSchedule schedule = partitioning.scheduleGraphForBSP();
+      BSPScheduleAttr scheduleAttr = schedule.toAttr(getContext());
+      kernel->setAttr(LoSPNDialect::getBSPScheduleAttrName(), scheduleAttr);
+    }
+
     rewriter.replaceOp(task, newResults);
     return mlir::success();
   }
@@ -167,7 +177,6 @@ private:
     GraphPartitioner partitioner(body, targetModel_, maxTaskSize_);
     partitioner.clusterGraph();
     partitioner.postprocessConstants(rewriter);
-    // partitioner.scheduleGraphForBSP();
     return partitioner;
   }
 
@@ -343,17 +352,14 @@ private:
         {ShapedType::kDynamic, static_cast<long>(rows.size())},
         tensorType.getElementType());
     std::vector<int> externalIndices;
+    externalIndices.reserve(rows.size());
     for (auto &row : rows) {
       externalIndices.push_back(row.first);
     }
-    auto indicesType = RankedTensorType::get(
-        {static_cast<int64_t>(externalIndices.size())}, rewriter.getI32Type());
-    auto indicesAttr = DenseIntElementsAttr::get(indicesType, externalIndices);
-    auto indicesConst =
-        rewriter.create<arith::ConstantOp>(loc, indicesType, indicesAttr);
+    auto indicesAttr = DenseI32ArrayAttr::get(getContext(), externalIndices);
 
-    return rewriter.create<tensor::GatherOp>(
-        loc, newTensorType, externalTensor, indicesConst, ArrayRef<int64_t>(1));
+    return rewriter.create<SPNGather>(loc, newTensorType, externalTensor,
+                                      indicesAttr);
   }
 
   /**

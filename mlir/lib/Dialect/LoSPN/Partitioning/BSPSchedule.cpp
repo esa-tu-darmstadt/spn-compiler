@@ -1,9 +1,14 @@
 #include "BSPSchedule.h"
+#include "LoSPN/LoSPNAttributes.h"
 #include "SchedulingGraph.h"
+#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/BuiltinTypeInterfaces.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "llvm/Support/Debug.h"
 #include <numeric>
 #include <unordered_map>
 
+using namespace mlir::spn::low;
 using namespace mlir::spn::low::partitioning;
 
 #define DEBUG_TYPE "bsp-schedule"
@@ -172,4 +177,30 @@ void BSPSchedule::clusterGraph() {
     auto &superstep = *subgraphOfSuperstep[superStep];
     boost::add_vertex(vertex, superstep);
   }
+}
+
+BSPScheduleAttr BSPSchedule::toAttr(MLIRContext *context) const {
+
+  std::vector<Attribute> supersteps;
+  supersteps.reserve(supersteps_.size());
+  for (auto &superstep : supersteps_) {
+    std::vector<int> taskIds, processorIDs;
+    taskIds.reserve(superstep.tasks().size());
+    processorIDs.reserve(superstep.tasks().size());
+
+    for (auto &[task, proc] : superstep.tasks()) {
+      taskIds.push_back(task);
+      processorIDs.push_back(proc);
+    }
+    ShapedType indicesType = RankedTensorType::get(
+        {(int64_t)taskIds.size()}, IntegerType::get(context, 32));
+    DenseIntElementsAttr taskIdsAttr =
+        DenseIntElementsAttr::get(indicesType, taskIds);
+    DenseIntElementsAttr processorIDsAttr =
+        DenseIntElementsAttr::get(indicesType, processorIDs);
+    TaskProcessorMappingAttr tasks =
+        TaskProcessorMappingAttr::get(context, taskIdsAttr, processorIDsAttr);
+    supersteps.push_back(ArrayAttr::get(context, tasks));
+  }
+  return BSPScheduleAttr::get(context, ArrayAttr::get(context, supersteps));
 }

@@ -12,6 +12,7 @@
 include "LoSPNDialect.td"
 include "LoSPNInterfaces.td"
 include "LoSPNTraits.td"
+include "LoSPNAttributes.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/CallInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
@@ -21,7 +22,8 @@ include "mlir/Interfaces/FunctionInterfaces.td"
 include "mlir/IR/RegionKindInterface.td"
 include "mlir/IR/BuiltinAttributeInterfaces.td"
 
-def SPNKernel : LoSPN_Op<"kernel", [CallableOpInterface, FunctionOpInterface, Symbol, IsolatedFromAbove]> {
+def SPNKernel : LoSPN_Op<"kernel", [CallableOpInterface, FunctionOpInterface, Symbol, 
+    IsolatedFromAbove, AutomaticAllocationScope]> {
 
     let summary = "The Kernel holds the tasks necessary to process an SPN query.";
 
@@ -299,6 +301,28 @@ def SPNBatchWrite : LoSPN_Op<"batch_write", [
                         OptionalAttr<BoolAttr>:$transposed);
 
     let hasVerifier = true;
+}
+
+def SPNGather : LoSPN_Op<"gather", [Pure]> {
+
+    let summary = "Gathers a subset of the input tensor at the specified indices";
+
+    let description = [{
+        Gathers a subset of the input tensor at the specified indices.
+        The result tensor has the same rank as the input tensor, but the size of the
+        second dimension is equal to the number of indices.
+    }];
+
+    let arguments = (ins AnyTypeOf<[RankedTensorOf<[LoSPNInputType, LoSPNComputeType]>,
+                                                MemRefOf<[LoSPNInputType, LoSPNComputeType]>]>:$input,
+                        DenseI32ArrayAttr:$indices);
+
+    let results = (outs AnyTypeOf<[RankedTensorOf<[LoSPNInputType, LoSPNComputeType]>,
+                                                MemRefOf<[LoSPNInputType, LoSPNComputeType]>]>:$result);
+
+    // TODO: Add a verifier that checks that the indices are within the bounds of the 
+    // input tensor and that the number of indices matches the size of the second dimension 
+    // of the input tensor.
 }
 
 def SPNCopy : LoSPN_Op<"copy", [SameOperandsShape]> {

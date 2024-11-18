@@ -24,6 +24,7 @@
 namespace mlir {
 namespace spn {
 namespace low {
+class BSPScheduleAttr;
 namespace partitioning {
 
 /// Represents a superstep in the BSP schedule. A superstep is a set of tasks
@@ -85,6 +86,9 @@ public:
   /// Calculates the starting and ending times of the tasks in the schedule
   /// considering the BSP model.
   void calculateTimes() override;
+
+  /// Serializes the schedule to a BSPScheduleAttr.
+  BSPScheduleAttr toAttr(MLIRContext *context) const;
 
 private:
   std::vector<Superstep> supersteps_;
