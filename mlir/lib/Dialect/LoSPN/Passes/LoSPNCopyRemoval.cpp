@@ -22,11 +22,11 @@ namespace mlir::spn::low {
 #define GEN_PASS_DEF_LOSPNCOPYREMOVAL
 #include "LoSPN/LoSPNPasses.h.inc"
 
-struct CopyRemovalPattern : public OpRewritePattern<SPNCopy> {
+struct CopyRemovalPattern : public OpRewritePattern<memref::CopyOp> {
 
-  using OpRewritePattern<SPNCopy>::OpRewritePattern;
+  using OpRewritePattern<memref::CopyOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(SPNCopy op,
+  LogicalResult matchAndRewrite(memref::CopyOp op,
                                 PatternRewriter &rewriter) const override {
     DominanceInfo domInfo(op->getParentOp());
 
