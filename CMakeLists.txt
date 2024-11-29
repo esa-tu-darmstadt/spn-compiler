@@ -53,6 +53,9 @@ if (${IPU_SUPPORT})
     endif ()
     add_subdirectory(${MLIR_IPU_DIR} mlir-ipu)
 
+    include_directories(${MLIR_IPU_DIR}/include)
+    include_directories(${PROJECT_BINARY_DIR}/mlir-ipu/include)
+
     add_compile_definitions(SPNC_IPU_SUPPORT)
 endif (${IPU_SUPPORT})
 

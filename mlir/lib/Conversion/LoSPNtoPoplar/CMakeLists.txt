@@ -20,7 +20,7 @@ add_mlir_conversion_library(MLIRLoSPNtoPoplarTransforms
         MLIRSupport
         MLIRTransforms
         MLIRPoplarDialect
-        mlir-ipu
+        MLIRTargetPoplar
 
         DEPENDS
         MLIRLoSPNtoPoplarPassesIncGen
