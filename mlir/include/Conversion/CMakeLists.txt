@@ -3,5 +3,5 @@ add_subdirectory(LoSPNtoGPU)
 add_subdirectory(LoSPNtoCPU)
 
 if(${IPU_SUPPORT})
-    add_subdirectory(CPUtoPoplar)
+    add_subdirectory(LoSPNtoPoplar)
 endif(${IPU_SUPPORT})

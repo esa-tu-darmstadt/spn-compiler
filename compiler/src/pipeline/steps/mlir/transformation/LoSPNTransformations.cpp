@@ -9,7 +9,10 @@
 #include "LoSPNTransformations.h"
 #include "LoSPN/LoSPNOps.h"
 #include "LoSPN/LoSPNPasses.h"
+#include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
+#include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Transforms/Passes.h"
+#include "option/Options.h"
 #include "toolchain/MLIRToolchain.h"
 #include "util/Logging.h"
 
@@ -17,6 +20,10 @@ void spnc::LoSPNTransformations::initializePassPipeline(
     mlir::PassManager *pm, mlir::MLIRContext *ctx) {
   mlir::spn::low::LoSPNTaskPartioningOptions taskPartitioningOptions;
   taskPartitioningOptions.maxTaskSize = option::maxTaskSize.getValue();
+  if (option::compilationTarget == option::TargetMachine::IPU) {
+    taskPartitioningOptions.schedule = true;
+    taskPartitioningOptions.decomposeTaskInputs = true;
+  }
   pm->nest<mlir::spn::low::SPNKernel>().addPass(
       mlir::spn::low::createLoSPNTaskPartioning(taskPartitioningOptions));
   pm->addPass(mlir::spn::low::createLoSPNBufferize());

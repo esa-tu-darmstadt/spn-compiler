@@ -21,6 +21,7 @@ namespace spn {
 class HiSPNTypeConverter : public TypeConverter {
 
 public:
+  HiSPNTypeConverter() = default;
   ///
   /// Constructor populating the TypeConverter.
   explicit HiSPNTypeConverter(mlir::Type spnComputeType) {

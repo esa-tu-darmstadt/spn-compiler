@@ -13,11 +13,12 @@
 
 namespace mlir {
 namespace spn {
+namespace low {
 
 #define GEN_PASS_DECL
 #define GEN_PASS_REGISTRATION
-#include "CPUtoPoplar/CPUtoPoplarConversionPasses.h.inc"
-
+#include "LoSPNtoPoplar/LoSPNtoPoplarConversionPasses.h.inc"
+} // namespace low
 } // namespace spn
 } // namespace mlir
 

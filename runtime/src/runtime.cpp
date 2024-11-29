@@ -7,6 +7,7 @@
 //==============================================================================
 
 #include "../include/spnc-runtime.h"
+#include "Kernel.h"
 #include <spdlog/cfg/env.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <util/Logging.h>
@@ -43,10 +44,20 @@ void spn_runtime::execute(const Kernel &kernel, size_t num_elements,
                           void *inputs, void *outputs) {
   // Caching executables wrapping around kernels to avoid repeated loading via
   // libelf.
-  if (!cached_executables.count(kernel.unique_id())) {
-    cached_executables.emplace(std::pair<size_t, std::unique_ptr<Executable>>{
-        kernel.unique_id(), std::make_unique<Executable>(kernel)});
+  if (auto *sharedObjectKernel =
+          dynamic_cast<const SharedObjectKernel *>(&kernel)) {
+    if (!cached_executables.count(sharedObjectKernel->unique_id())) {
+      cached_executables.emplace(std::pair<size_t, std::unique_ptr<Executable>>{
+          sharedObjectKernel->unique_id(),
+          std::make_unique<Executable>(*sharedObjectKernel)});
+    }
+    cached_executables[sharedObjectKernel->unique_id()]->execute(
+        num_elements, inputs, outputs);
+#ifdef SPNC_IPU_SUPPORT
+  } else if (auto *ipuKernel = dynamic_cast<const IPUKernel *>(&kernel)) {
+    throw std::runtime_error("IPU kernels are not supported yet.");
+#endif
+  } else {
+    throw std::runtime_error("Unsupported kernel type.");
   }
-  cached_executables[kernel.unique_id()]->execute(num_elements, inputs,
-                                                  outputs);
 }

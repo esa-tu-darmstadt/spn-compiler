@@ -20,7 +20,9 @@ def HiSPNtoLoSPNNodeConversionPass : Pass<"convert-hispn-node-to-lospn", "Module
 
     let options = [
         Option<"computeLogSpace", "use-log-space", "bool", "false", "Enable log-space computation for numerical stability">,
-        Option<"optimizeRepresentation", "opt-repr", "bool", "false", "Whether an optimal representation for SPN evaluation should be determined.">
+        Option<"optimizeRepresentation", "opt-repr", "bool", "false", "Whether an optimal representation for SPN evaluation should be determined.">,
+        Option<"computeTypeWidth", "compute-type-width", "int", "64", "The width of the floating-point compute type.">,
+        Option<"logComputeTypeWidth", "log-compute-type-width", "int", "32", "The width of the floating-point logarithmic compute type.">,
     ];
 }
 
@@ -33,7 +35,9 @@ def HiSPNtoLoSPNQueryConversionPass : Pass<"convert-hispn-query-to-lospn", "Modu
 
     let options = [
         Option<"computeLogSpace", "use-log-space", "bool", "false", "Enable log-space computation for numerical stability">,
-        Option<"optimizeRepresentation", "opt-repr", "bool", "false", "Whether an optimal representation for SPN evaluation should be determined.">
+        Option<"optimizeRepresentation", "opt-repr", "bool", "false", "Whether an optimal representation for SPN evaluation should be determined.">,
+        Option<"computeTypeWidth", "compute-type-width", "int", "64", "The width of the floating-point compute type.">,
+        Option<"logComputeTypeWidth", "log-compute-type-width", "int", "32", "The width of the floating-point logarithmic compute type.">,
     ];
 }
 

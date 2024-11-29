@@ -9,6 +9,7 @@
 #include "LoSPN/LoSPNPasses.h"
 #include "toolchain/CPUToolchain.h"
 #include <TargetInformation.h>
+#include <memory>
 #include <option/Options.h>
 #include <spnc.h>
 #include <util/Logging.h>
@@ -50,8 +51,8 @@ void parseOptions(const options_t &options) {
 }
 } // namespace
 
-Kernel spn_compiler::compileQuery(const std::string &inputFile,
-                                  const options_t &options) {
+std::unique_ptr<Kernel> spn_compiler::compileQuery(const std::string &inputFile,
+                                                   const options_t &options) {
   SPDLOG_INFO("Welcome to the SPN compiler!");
 
   mlir::spn::low::registerLoSPNPasses();
@@ -60,7 +61,7 @@ Kernel spn_compiler::compileQuery(const std::string &inputFile,
   if (!options.empty())
     parseOptions(options);
 
-  std::unique_ptr<Pipeline<Kernel>> pipeline;
+  std::unique_ptr<Pipeline<std::unique_ptr<Kernel>>> pipeline;
   spnc::option::TargetMachine target = spnc::option::compilationTarget;
   if (target == option::TargetMachine::CUDA) {
 #if SPNC_CUDA_SUPPORT
@@ -88,10 +89,9 @@ Kernel spn_compiler::compileQuery(const std::string &inputFile,
         "Execution of the compilation pipeline stopped with message: {}",
         result.message());
   }
-  auto kernel = pipeline->result();
-  SPDLOG_INFO("Generated Kernel in {}, kernel name {}", kernel->fileName(),
-              kernel->kernelName());
-  return *kernel;
+  std::unique_ptr<Kernel> &kernel = *pipeline->result();
+  SPDLOG_INFO("Generated Kernel {}", kernel->summary());
+  return std::move(kernel);
 }
 
 bool spn_compiler::isTargetSupported(const std::string &target) {

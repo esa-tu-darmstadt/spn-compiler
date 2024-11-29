@@ -7,6 +7,7 @@
 //==============================================================================
 
 #include "CPUToolchain.h"
+#include "Kernel.h"
 #include "TargetInformation.h"
 #include "option/Options.h"
 #include "pipeline/BasicSteps.h"
@@ -25,7 +26,7 @@
 using namespace spnc;
 using namespace mlir;
 
-std::unique_ptr<Pipeline<Kernel>>
+std::unique_ptr<Pipeline<std::unique_ptr<Kernel>>>
 CPUToolchain::setupPipeline(const std::string &inputFile) {
   // Uncomment the following two lines to get detailed output during MLIR
   // dialect conversion;
@@ -33,8 +34,7 @@ CPUToolchain::setupPipeline(const std::string &inputFile) {
   // llvm::setCurrentDebugType("dialect-conversion");
 
   // Initialize the pipeline.
-  std::unique_ptr<Pipeline<Kernel>> pipeline =
-      std::make_unique<Pipeline<Kernel>>();
+  auto pipeline = std::make_unique<Pipeline<std::unique_ptr<Kernel>>>();
 
   // Initialize the MLIR context.
   auto ctx = std::make_unique<MLIRContext>();

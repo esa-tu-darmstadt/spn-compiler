@@ -52,6 +52,8 @@ if (${IPU_SUPPORT})
         message(FATAL_ERROR "Please specify the path to the mlir-ipu directory using -DMLIR_IPU_DIR=<path>")
     endif ()
     add_subdirectory(${MLIR_IPU_DIR} mlir-ipu)
+
+    add_compile_definitions(SPNC_IPU_SUPPORT)
 endif (${IPU_SUPPORT})
 
 set(SPNC_CXX_WARNING_LEVEL "-Wall")

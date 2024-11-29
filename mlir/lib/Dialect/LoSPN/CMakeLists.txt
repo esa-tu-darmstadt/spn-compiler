@@ -9,12 +9,11 @@
 add_mlir_dialect_library(MLIRLoSPN
         LoSPNDialect.cpp
         LoSPNOps.cpp
-        LoSPNAttributes.cpp
         Passes/LoSPNBufferize.cpp
         Passes/LoSPNCopyRemoval.cpp
         Passes/LoSPNGraphStatsCollection.cpp
         Passes/LoSPNTaskPartitioner.cpp
-        Bufferize/LoSPNBufferizationPatterns.cpp
+        Bufferize/BufferizableOpInterfaceImpl.cpp
         Analysis/SPNGraphStatistics.cpp
         Analysis/SPNNodeLevel.cpp
         Partitioning/GraphPartitioner.cpp
@@ -34,7 +33,6 @@ add_mlir_dialect_library(MLIRLoSPN
         MLIRLoSPNInterfacesIncGen
         MLIRLoSPNPassesIncGen
         MLIRLoSPNtoCPUPassesIncGen
-        MLIRCPUtoPoplarPassesIncGen
 
         LINK_LIBS PUBLIC
         MLIRBufferizationTransforms

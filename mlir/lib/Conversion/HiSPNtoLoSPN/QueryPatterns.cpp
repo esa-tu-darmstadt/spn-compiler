@@ -9,6 +9,7 @@
 #include "HiSPNtoLoSPN/QueryPatterns.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "LoSPN/LoSPNOps.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 
 mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(
@@ -44,14 +45,14 @@ mlir::LogicalResult mlir::spn::JointQueryLowering::matchAndRewrite(
   auto kernelType = FunctionType::get(
       rewriter.getContext(), TypeRange{inputType}, TypeRange{resultType});
   auto kernel = rewriter.create<low::SPNKernel>(op.getLoc(), op.getQueryName(),
-                                                kernelType);
+                                                kernelType, op.getBatchSize());
   auto kernelBlock = &kernel.getBlocks().front();
   rewriter.setInsertionPointToStart(kernelBlock);
   // Create a single task inside the kernel, taking the same arguments and
   // producing the same result as the kernel.
-  auto task = rewriter.create<low::SPNTask>(op.getLoc(), TypeRange{resultType},
-                                            kernelBlock->getArgument(0),
-                                            op.getBatchSize());
+  auto task = rewriter.create<low::SPNTask>(
+      op.getLoc(), TypeRange{resultType}, kernelBlock->getArgument(0),
+      op.getBatchSize(), IntegerAttr{} /* taskID*/);
   auto restoreKernel = rewriter.saveInsertionPoint();
   // The block of the task has another argument for the batch index as first
   // argument.

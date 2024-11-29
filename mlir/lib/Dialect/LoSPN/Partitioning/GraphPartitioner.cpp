@@ -153,18 +153,18 @@ BSPSchedule GraphPartitioner::scheduleGraphForBSP() {
   Schedule schedule = (*scheduler_dsc)(std::move(bspGraph));
   schedule.updateGraph();
 
-  schedule.viewSchedule(targetModel_,
-                        "Dominant sequence clustering async schedule",
-                        "/workspaces/spn/schedule_async.html");
+  // schedule.viewSchedule(targetModel_,
+  //                       "Dominant sequence clustering async schedule",
+  //                       "/workspaces/spn/schedule_async.html");
 
   BSPSchedule bspSchedule = BSPSchedule::fromSchedule(std::move(schedule));
   bspSchedule.clusterGraph();
 
   view_schedulinggraph(bspSchedule.graph(), "BSP graph (scheduled)");
 
-  bspSchedule.viewSchedule(targetModel_,
-                           "Dominant sequence clustering BSP schedule",
-                           "/workspaces/spn/schedule_bsp.html");
+  // bspSchedule.viewSchedule(targetModel_,
+  //                          "Dominant sequence clustering BSP schedule",
+  //                          "/workspaces/spn/schedule_bsp.html");
 
   return bspSchedule;
 }
@@ -180,7 +180,7 @@ void GraphPartitioner::postprocessConstants(PatternRewriter &rewriter) {
         // This constant is used by another partition.
         // Find the partition that uses the constant
         auto globalVertexTo = boost::target(globalOutEdge, this->graph());
-        auto otherPart = find_cluster(globalVertexTo, this->graph());
+        auto &otherPart = find_cluster(globalVertexTo, this->graph());
 
         // Clone the constant right before the using operation and add it to
         // the same partition.
@@ -210,6 +210,9 @@ void GraphPartitioner::postprocessConstants(PatternRewriter &rewriter) {
 
         usingOperation->replaceUsesOfWith(value, clonedOut->getResult(0));
         rewriter.restoreInsertionPoint(restore);
+
+        // Remove the edge from the original constant to the using operation
+        // boost::remove_edge(globalOutEdge, this->graph());
       }
     }
   }

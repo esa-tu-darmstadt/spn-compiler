@@ -9,6 +9,7 @@
 #ifndef SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_IPUTOOLCHAIN_H
 #define SPNC_COMPILER_SRC_DRIVER_TOOLCHAIN_IPUTOOLCHAIN_H
 
+#include "Kernel.h"
 #include "MLIRToolchain.h"
 #include "pipeline/Pipeline.h"
 
@@ -21,12 +22,8 @@ public:
   /// Construct a job reading the SPN from an input file.
   /// \param inputFile Input file.
   /// \return Job containing all necessary actions.
-  static std::unique_ptr<Pipeline<Kernel>>
+  static std::unique_ptr<Pipeline<std::unique_ptr<Kernel>>>
   setupPipeline(const std::string &inputFile);
-
-protected:
-  static std::unique_ptr<llvm::TargetMachine>
-  createTargetMachine(int optLevel, IPUTarget ipuTarget);
 };
 } // namespace spnc
 

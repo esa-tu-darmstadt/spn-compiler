@@ -198,9 +198,9 @@ BSPScheduleAttr BSPSchedule::toAttr(MLIRContext *context) const {
         DenseIntElementsAttr::get(indicesType, taskIds);
     DenseIntElementsAttr processorIDsAttr =
         DenseIntElementsAttr::get(indicesType, processorIDs);
-    TaskProcessorMappingAttr tasks =
-        TaskProcessorMappingAttr::get(context, taskIdsAttr, processorIDsAttr);
-    supersteps.push_back(ArrayAttr::get(context, tasks));
+    BSPSuperstepAttr superstepAttr =
+        BSPSuperstepAttr::get(context, taskIdsAttr, processorIDsAttr);
+    supersteps.push_back(superstepAttr);
   }
   return BSPScheduleAttr::get(context, ArrayAttr::get(context, supersteps));
 }

@@ -17,6 +17,8 @@
 
 using namespace mlir::spn::low::partitioning;
 
+#define DEBUG_TYPE "spn-scheduling-dsc"
+
 typedef int level_t;
 typedef int cluster_t;
 
@@ -94,7 +96,8 @@ void DSC_I(std::vector<cluster_t> &cluster, Schedule &schedule) {
   std::vector<level_t> blevel(num_vertices(graph), -1);
   for (auto v : boost::make_iterator_range(vertices(graph))) {
     blevel[v] = calc_blevel(graph, v, blevel);
-    llvm::outs() << "Blevel of " << v << " is " << blevel[v] << "\n";
+    LLVM_DEBUG(llvm::outs()
+               << "Blevel of " << v << " is " << blevel[v] << "\n");
   }
 
   // Initialize with tlevel=0 for every (entry) node
@@ -126,12 +129,13 @@ void DSC_I(std::vector<cluster_t> &cluster, Schedule &schedule) {
 
   // List of free (unexamined) nodes. The compare function compares the priority
   // of the nodes.
-  auto priority_comp = [&tlevel, &blevel](SPNGraph::vertex_descriptor a,
-                                          SPNGraph::vertex_descriptor b) {
+  auto priority_comp = [&tlevel,
+                        &blevel](SchedulingGraph::vertex_descriptor a,
+                                 SchedulingGraph::vertex_descriptor b) {
     return (tlevel[a] + blevel[a]) < (tlevel[b] + blevel[b]);
   };
-  std::priority_queue<SPNGraph::vertex_descriptor,
-                      std::vector<SPNGraph::vertex_descriptor>,
+  std::priority_queue<SchedulingGraph::vertex_descriptor,
+                      std::vector<SchedulingGraph::vertex_descriptor>,
                       decltype(priority_comp)>
       FL(priority_comp);
 
@@ -147,19 +151,19 @@ void DSC_I(std::vector<cluster_t> &cluster, Schedule &schedule) {
   while (!UEG.empty()) {
     // Find a free node with highest priority from UEG
     // All free nodes are in FL, so we can just take the last element
-    SPNGraph::vertex_descriptor nf = FL.top();
+    SchedulingGraph::vertex_descriptor nf = FL.top();
     FL.pop();
 
-    llvm::outs() << "Examining " << nf << ". Current tlevel is " << tlevel[nf]
-                 << "\n";
+    LLVM_DEBUG(llvm::outs() << "Examining " << nf << ". Current tlevel is "
+                            << tlevel[nf] << "\n");
 
     // Merge nf with the cluster of one of its predecessors such that tlevel(nf)
     // decreases in a maximal way. If all zeroing increase tlevel(nf), nf
     // remains in its own cluster.
 
     // Captures the best predecessor to merge with and the new tlevel of nf
-    SPNGraph::vertex_descriptor predecessorToMergeWith =
-        SPNGraph::null_vertex();
+    SchedulingGraph::vertex_descriptor predecessorToMergeWith =
+        SchedulingGraph::null_vertex();
     level_t bestTLevel = tlevel[nf];
 
     for (auto inedge : boost::make_iterator_range(in_edges(nf, graph))) {
@@ -171,8 +175,8 @@ void DSC_I(std::vector<cluster_t> &cluster, Schedule &schedule) {
       // calculate for the case that we merge nf's cluster with predecessor's
       // cluster
       level_t newTLevel = tlevel[predecessor] + weight(graph, predecessor);
-      llvm::outs() << "New tlevel of " << nf << " if merged with "
-                   << predecessor << " is " << newTLevel << "\n";
+      LLVM_DEBUG(llvm::outs() << "New tlevel of " << nf << " if merged with "
+                              << predecessor << " is " << newTLevel << "\n");
       if (newTLevel < bestTLevel) {
         bestTLevel = newTLevel;
         predecessorToMergeWith = predecessor;
@@ -181,12 +185,13 @@ void DSC_I(std::vector<cluster_t> &cluster, Schedule &schedule) {
 
     // Merge nf with the cluster of predecessorToMergeWith if we found a
     // predecessor to merge with
-    if (predecessorToMergeWith != SPNGraph::null_vertex()) {
+    if (predecessorToMergeWith != SchedulingGraph::null_vertex()) {
       cluster[nf] = cluster[predecessorToMergeWith];
-      llvm::outs() << "Merging " << nf << " into cluster " << cluster[nf]
-                   << "\n";
+      LLVM_DEBUG(llvm::outs() << "Merging " << nf << " into cluster "
+                              << cluster[nf] << "\n");
     } else {
-      llvm::outs() << "Node " << nf << " remains in its own cluster\n";
+      LLVM_DEBUG(llvm::outs()
+                 << "Node " << nf << " remains in its own cluster\n");
     }
 
     // Add nf to the schedule
@@ -200,8 +205,8 @@ void DSC_I(std::vector<cluster_t> &cluster, Schedule &schedule) {
       // Update tlevel of the successor
       level_t oldTLevel = tlevel[successor];
       update_tlevel(graph, successor, tlevel, cluster);
-      llvm::outs() << "New tlevel of " << successor << " is "
-                   << tlevel[successor] << "\n";
+      LLVM_DEBUG(llvm::outs() << "New tlevel of " << successor << " is "
+                              << tlevel[successor] << "\n");
 
       // If all predecessors of successor are examined, the node is considered
       // free and we add it to FL
@@ -220,7 +225,7 @@ void DSC_I(std::vector<cluster_t> &cluster, Schedule &schedule) {
       }
       if (allPredecessorsExamined) {
         FL.push(successor);
-        llvm::outs() << "Node " << successor << " is now free\n";
+        LLVM_DEBUG(llvm::outs() << "Node " << successor << " is now free\n");
       }
     }
 

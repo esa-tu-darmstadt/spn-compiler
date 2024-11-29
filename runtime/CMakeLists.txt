@@ -48,3 +48,7 @@ if (${GENERATE_DOCS})
 endif (${GENERATE_DOCS})
 
 add_subdirectory(wrappers)
+
+if (${IPU_SUPPORT})
+    add_subdirectory(ipu)
+endif ()

@@ -75,11 +75,9 @@ public:
 
     // Iterate through all vertices of the cluster
     for (auto vertexTo : boost::make_iterator_range(boost::vertices(cluster))) {
-      auto globalVertexTo = cluster.local_to_global(vertexTo);
-
-      // Iterate through global in edges of the vertex
-      for (auto globalEdge : boost::make_iterator_range(
-               boost::in_edges(globalVertexTo, graph_))) {
+      // Iterate through in edges of the vertex
+      for (auto globalEdge :
+           boost::make_iterator_range(boost::in_edges(vertexTo, graph_))) {
         // Check whether the cluster contains the edge
         auto partitionHasEdge = cluster.find_edge(globalEdge);
         // If not, it is an in edge of the cluster
@@ -99,11 +97,9 @@ public:
     // Iterate through all vertices of the cluster
     for (auto vertexFrom :
          boost::make_iterator_range(boost::vertices(cluster))) {
-      auto globalVertexFrom = cluster.local_to_global(vertexFrom);
-
-      // Iterate through global out edges of the vertex
-      for (auto globalEdge : boost::make_iterator_range(
-               boost::out_edges(globalVertexFrom, graph_))) {
+      // Iterate through out edges of the vertex
+      for (auto globalEdge :
+           boost::make_iterator_range(boost::out_edges(vertexFrom, graph_))) {
         // Check whether the cluster contains the edge
         auto partitionHasEdge = cluster.find_edge(globalEdge);
         // If not, it is an out edge of the cluster

@@ -20,6 +20,18 @@ struct HiSPNtoLoSPNPipelineOptions
       llvm::cl::desc("Compute in log-space instead of linear space"),
       llvm::cl::init(false)};
 
+  PassOptions::Option<int> computeTypeWidth{
+      *this, "compute-type-width",
+      llvm::cl::desc(
+          "Width of the floating-point type used for computation in bits"),
+      llvm::cl::init(false)};
+
+  PassOptions::Option<int> logComputeTypeWidth{
+      *this, "log-compute-type-width",
+      llvm::cl::desc("Width of the logarithmic floating-point type used for "
+                     "computation in bits"),
+      llvm::cl::init(false)};
+
   PassOptions::Option<bool> optimizeRepresentation{
       *this, "optimize-representation",
       llvm::cl::desc("Optimize representation for computation"),

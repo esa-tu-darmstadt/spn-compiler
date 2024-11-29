@@ -6,8 +6,8 @@
 #  SPDX-License-Identifier: Apache-2.0
 # ==============================================================================
 
-add_mlir_conversion_library(MLIRCPUtoPoplarTransforms
-        CPUtoPoplarConversionPass.cpp
+add_mlir_conversion_library(MLIRLoSPNtoPoplarTransforms
+        LoSPNtoPoplarConversionPass.cpp
 
         ADDITIONAL_HEADER_DIRS
         ${PROJECT_SOURCE_DIR}/mlir/include/Conversion
@@ -23,5 +23,5 @@ add_mlir_conversion_library(MLIRCPUtoPoplarTransforms
         mlir-ipu
 
         DEPENDS
-
+        MLIRLoSPNtoPoplarPassesIncGen
         )

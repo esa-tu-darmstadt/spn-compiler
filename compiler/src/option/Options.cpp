@@ -83,6 +83,18 @@ llvm::cl::opt<bool> gpuSharedMem{
     llvm::cl::desc("Use shared/workgroup memory for GPU computation"),
     llvm::cl::init(true)};
 
+llvm::cl::opt<int> computeTypeWidth{
+    "spnc-compute-type-width",
+    llvm::cl::desc(
+        "Width of the floating-point type used for computation in bits"),
+    llvm::cl::init(64)};
+
+llvm::cl::opt<int> logComputeTypeWidth{
+    "spnc-log-compute-type-width",
+    llvm::cl::desc("Width of the logarithmic floating-point type used for "
+                   "computation in bits"),
+    llvm::cl::init(32)};
+
 /// -----------------------------------------------------------------------
 /// Statistics options
 /// -----------------------------------------------------------------------

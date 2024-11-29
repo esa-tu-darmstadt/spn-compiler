@@ -37,17 +37,6 @@ class LoSPN_Attr<string name, string attrMnemonic,
 // }
 
 
-def LoSPN_BSPTaskProcessorMapping : AttrDef<LoSPN_Dialect, "TaskProcessorMapping"> {
-  let summary = "Map of task IDs to processor assignments";
-  let parameters = (ins
-    "DenseIntElementsAttr":$taskIds,
-    "DenseIntElementsAttr":$processorIds
-  );
-  
-  let mnemonic = "task_proc_map";
-  let assemblyFormat = "`<` `{` `task_ids` `=` $taskIds `,` `proc_ids` `=` $processorIds `}` `>`";
-}
-
 def LoSPN_BSPSuperstep : AttrDef<LoSPN_Dialect, "BSPSuperstep"> {
   let summary = "Represents a single superstep in a BSP schedule";
   let description = [{
@@ -56,13 +45,12 @@ def LoSPN_BSPSuperstep : AttrDef<LoSPN_Dialect, "BSPSuperstep"> {
   }];
 
   let parameters = (ins 
-    "TaskProcessorMappingAttr":$tasks
+    "DenseIntElementsAttr":$taskIds,
+    "DenseIntElementsAttr":$processorIds
   );
 
   let mnemonic = "superstep";
-  let assemblyFormat = "`<` `{` "
-                      "`tasks` `=` $tasks "
-                      "`}` `>`";
+  let assemblyFormat = "`<` `{` `task_ids` `=` $taskIds `,` `proc_ids` `=` $processorIds `}` `>`";
 }
 
 def LoSPN_BSPSchedule : AttrDef<LoSPN_Dialect, "BSPSchedule"> {

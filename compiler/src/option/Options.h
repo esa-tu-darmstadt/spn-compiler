@@ -70,6 +70,12 @@ extern llvm::cl::opt<bool> logSpace;
 /// Use shared/workgroup memory for GPU computation
 extern llvm::cl::opt<bool> gpuSharedMem;
 
+/// Width of the floating-point type used for computation in bits
+extern llvm::cl::opt<int> computeTypeWidth;
+
+/// Width of the logarithmic floating-point type used for computation in bits
+extern llvm::cl::opt<int> logComputeTypeWidth;
+
 /// -----------------------------------------------------------------------
 /// Statistics options
 /// -----------------------------------------------------------------------

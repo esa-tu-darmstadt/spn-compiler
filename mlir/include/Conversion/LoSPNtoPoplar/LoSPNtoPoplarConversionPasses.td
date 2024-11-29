@@ -11,9 +11,9 @@
 
 include "mlir/Pass/PassBase.td"
 
-def CPUtoPoplarConversionPass : Pass<"convert-cpu-to-poplar", "ModuleOp"> {
-  let summary = "Convert kernel and task functions from the func dialect to the poplar dialect";
-  let dependentDialects = ["::mlir::ipu::poplar::PoplarDialect", "::mlir::spn::low::LoSPNDialect", "::mlir::func::FuncDialect"];
+def LoSPNtoPoplarConversionPass : Pass<"convert-lospn-to-poplar", "ModuleOp"> {
+  let summary = "Convert tasks to codelets and kernels to graph programs";
+  let dependentDialects = ["::mlir::ipu::poplar::PoplarDialect", "::mlir::spn::low::LoSPNDialect", "::mlir::scf::SCFDialect"];
 }
 
 #endif // MLIR_CONVERSION_CPUTOPOPLARCONVERSIONPASSES

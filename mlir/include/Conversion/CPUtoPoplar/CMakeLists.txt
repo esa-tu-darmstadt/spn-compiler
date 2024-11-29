@@ -1,3 +1,0 @@
-set(LLVM_TARGET_DEFINITIONS CPUtoPoplarConversionPasses.td)
-mlir_tablegen(CPUtoPoplarConversionPasses.h.inc -gen-pass-decls -name CPUtoPoplar)
-add_public_tablegen_target(MLIRCPUtoPoplarPassesIncGen)

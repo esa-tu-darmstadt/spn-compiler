@@ -23,7 +23,7 @@ public:
   /// \param inputFile Input file.
   /// \param config Compilation option configuration.
   /// \return Job containing all necessary actions.
-  static std::unique_ptr<Pipeline<Kernel>>
+  static std::unique_ptr<Pipeline<std::unique_ptr<Kernel>>>
   setupPipeline(const std::string &inputFile,
                 std::unique_ptr<interface::Configuration> config);
 };

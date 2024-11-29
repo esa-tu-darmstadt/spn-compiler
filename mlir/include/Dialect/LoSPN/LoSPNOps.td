@@ -38,13 +38,14 @@ def SPNKernel : LoSPN_Op<"kernel", [CallableOpInterface, FunctionOpInterface, Sy
     let arguments = (ins
         SymbolNameAttr:$sym_name,
         TypeAttrOf<FunctionType>:$function_type,
+        UI32Attr:$batchSize,
         OptionalAttr<DictArrayAttr>:$arg_attrs,
         OptionalAttr<DictArrayAttr>:$res_attrs
     );
 
     
     let builders = [OpBuilder<(ins
-        "StringRef":$name, "FunctionType":$type,
+        "StringRef":$name, "FunctionType":$type, "unsigned":$batchSize,
         CArg<"ArrayRef<NamedAttribute>", "{}">:$attrs)
     >];
 
@@ -107,7 +108,8 @@ def SPNTask : LoSPN_Op<"task", [HasParent<"SPNKernel">, SingleBlockImplicitTermi
 
     let arguments = (ins Variadic<AnyTypeOf<[RankedTensorOf<[LoSPNInputType, LoSPNComputeType]>,
                                                 MemRefOf<[LoSPNInputType, LoSPNComputeType]>]>>:$inputs,
-                        UI32Attr:$batchSize);
+                        UI32Attr:$batchSize, OptionalAttr<UI32Attr>:$taskId, 
+                        DefaultValuedOptionalAttr<UI32Attr, "0">:$numOutArgs);
 
     let results = (outs Variadic<RankedTensorOf<[LoSPNComputeType]>>:$results);
 

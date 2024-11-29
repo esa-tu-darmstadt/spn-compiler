@@ -26,7 +26,8 @@
 using namespace spnc;
 using namespace mlir;
 
-std::unique_ptr<Pipeline<Kernel>> CUDAGPUToolchain::setupPipeline(
+std::unique_ptr<Pipeline<std::unique_ptr<Kernel>>>
+CUDAGPUToolchain::setupPipeline(
     const std::string &inputFile,
     std::unique_ptr<interface::Configuration> config) {
   // Uncomment the following two lines to get detailed output during MLIR
@@ -35,8 +36,7 @@ std::unique_ptr<Pipeline<Kernel>> CUDAGPUToolchain::setupPipeline(
   // llvm::setCurrentDebugType("dialect-conversion");
 
   // Initialize the compilation pipeline.
-  std::unique_ptr<Pipeline<Kernel>> pipeline =
-      std::make_unique<Pipeline<Kernel>>();
+  auto pipeline = std::make_unique<Pipeline<std::unique_ptr<Kernel>>>();
 
   // Initialize the MLIR context.
   auto ctx = std::make_unique<MLIRContext>();

@@ -13,7 +13,22 @@
 #include "HiSPNtoLoSPN/NodePatterns.h"
 #include "LoSPN/LoSPNDialect.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Transforms/DialectConversion.h"
 #include <HiSPNtoLoSPN/QueryPatterns.h>
+
+using namespace mlir;
+namespace {
+FailureOr<FloatType> getComputeType(mlir::MLIRContext *context, int width) {
+  switch (width) {
+  case 32:
+    return FloatType::getF32(context);
+  case 64:
+    return FloatType::getF64(context);
+  default:
+    return failure();
+  }
+}
+} // namespace
 
 namespace mlir::spn {
 
@@ -38,24 +53,30 @@ struct HiSPNtoLoSPNNodeConversionPass
     // Use type analysis to determine data type for actual computation.
     // The concrete type determined by the analysis replaces the abstract
     // probability type used by the HiSPN dialect.
-    std::unique_ptr<HiSPNTypeConverter> typeConverter;
+    HiSPNTypeConverter typeConverter;
     if (optimizeRepresentation) {
       auto &arithmeticAnalysis =
           getAnalysis<mlir::spn::ArithmeticPrecisionAnalysis>();
-      typeConverter = std::make_unique<HiSPNTypeConverter>(
+      typeConverter = HiSPNTypeConverter(
           arithmeticAnalysis.getComputationType(computeLogSpace));
-    } else if (computeLogSpace) {
-      typeConverter =
-          std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(
-              &getContext(), mlir::FloatType::getF32(&getContext())));
     } else {
-      typeConverter = std::make_unique<HiSPNTypeConverter>(
-          mlir::Float64Type::get(&getContext()));
+      int effectiveWidth =
+          computeLogSpace ? logComputeTypeWidth : computeTypeWidth;
+      FailureOr<FloatType> maybeComputeType =
+          getComputeType(&getContext(), effectiveWidth);
+
+      if (failed(maybeComputeType)) {
+        mlir::emitError(getOperation().getLoc(),
+                        "Unsupported floating-point type width: ")
+            << effectiveWidth;
+        signalPassFailure();
+      }
+      typeConverter = HiSPNTypeConverter(maybeComputeType.value());
     }
 
     RewritePatternSet patterns(&getContext());
     mlir::spn::populateHiSPNtoLoSPNNodePatterns(patterns, &getContext(),
-                                                *typeConverter);
+                                                typeConverter);
 
     auto op = getOperation();
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));
@@ -87,26 +108,30 @@ struct HiSPNtoLoSPNQueryConversionPass
     // Use type analysis to determine data type for actual computation.
     // The concrete type determined by the analysis replaces the abstract
     // probability type used by the HiSPN dialect.
-    std::unique_ptr<HiSPNTypeConverter> typeConverter;
+    HiSPNTypeConverter typeConverter;
     if (optimizeRepresentation) {
-      auto arithmeticAnalysis =
-          getCachedAnalysis<ArithmeticPrecisionAnalysis>();
-      assert(arithmeticAnalysis && "The arithmetic analysis needs to be "
-                                   "preserved after node conversion");
-      typeConverter = std::make_unique<HiSPNTypeConverter>(
-          arithmeticAnalysis->get().getComputationType(computeLogSpace));
-    } else if (computeLogSpace) {
-      typeConverter =
-          std::make_unique<HiSPNTypeConverter>(mlir::spn::low::LogType::get(
-              &getContext(), mlir::FloatType::getF32(&getContext())));
+      auto &arithmeticAnalysis =
+          getAnalysis<mlir::spn::ArithmeticPrecisionAnalysis>();
+      typeConverter = HiSPNTypeConverter(
+          arithmeticAnalysis.getComputationType(computeLogSpace));
     } else {
-      typeConverter = std::make_unique<HiSPNTypeConverter>(
-          mlir::Float64Type::get(&getContext()));
+      int effectiveWidth =
+          computeLogSpace ? logComputeTypeWidth : computeTypeWidth;
+      FailureOr<FloatType> maybeComputeType =
+          getComputeType(&getContext(), effectiveWidth);
+
+      if (failed(maybeComputeType)) {
+        mlir::emitError(getOperation().getLoc(),
+                        "Unsupported floating-point type width: ")
+            << effectiveWidth;
+        signalPassFailure();
+      }
+      typeConverter = HiSPNTypeConverter(maybeComputeType.value());
     }
 
     RewritePatternSet patterns(&getContext());
     mlir::spn::populateHiSPNtoLoSPNQueryPatterns(patterns, &getContext(),
-                                                 *typeConverter);
+                                                 typeConverter);
 
     auto op = getOperation();
     FrozenRewritePatternSet frozenPatterns(std::move(patterns));

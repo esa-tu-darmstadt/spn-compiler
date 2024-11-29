@@ -337,14 +337,15 @@ mlir::LogicalResult mlir::spn::GaussianLowering::matchAndRewrite(
   // 1/sqrt(2*PI*variance)
   double coefficient = 1.0 / (std::sqrt(2.0 * M_PI * variance));
   auto coefficientConst = rewriter.create<arith::ConstantOp>(
-      op.getLoc(), rewriter.getF64FloatAttr(coefficient));
+      op.getLoc(), rewriter.getFloatAttr(resultType, coefficient));
   // -1/(2*variance)
   double denominator = -1.0 / (2.0 * variance);
   auto denominatorConst = rewriter.create<arith::ConstantOp>(
-      op.getLoc(), rewriter.getF64FloatAttr(denominator));
+      op.getLoc(), rewriter.getFloatAttr(resultType, denominator));
   // x - mean
-  auto meanConst =
-      rewriter.create<arith::ConstantOp>(op.getLoc(), op.getMeanAttr());
+  auto meanConst = rewriter.create<arith::ConstantOp>(
+      op.getLoc(),
+      rewriter.getFloatAttr(resultType, op.getMean().convertToDouble()));
   auto subtraction =
       rewriter.create<arith::SubFOp>(op.getLoc(), index, meanConst);
   // (x-mean)^2

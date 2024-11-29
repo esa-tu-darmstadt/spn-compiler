@@ -31,9 +31,7 @@ else (${CUDA_GPU_SUPPORT})
 endif (${CUDA_GPU_SUPPORT})
 
 if (${IPU_SUPPORT})
-    target_link_libraries(spnc-opt PRIVATE MLIRCPUtoPoplarTransforms)
-else (${IPU_SUPPORT})
-    target_compile_definitions(spnc-opt PRIVATE SPNC_IPU_SUPPORT=0)
+    target_link_libraries(spnc-opt PRIVATE MLIRLoSPNtoPoplarTransforms)
 endif (${IPU_SUPPORT})
 
 llvm_update_compile_flags(spnc-opt)

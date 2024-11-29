@@ -23,7 +23,7 @@ namespace spnc {
 // and running the linking to external libraries.
 class ClangKernelLinking
     : public StepDualInput<ClangKernelLinking, ObjectFile, SharedObject>,
-      public StepWithResult<Kernel> {
+      public StepWithResult<std::unique_ptr<Kernel>> {
 
 public:
   using StepDualInput<ClangKernelLinking, ObjectFile,
@@ -32,7 +32,7 @@ public:
   ExecutionResult executeStep(ObjectFile *objectFile,
                               SharedObject *sharedObject);
 
-  Kernel *result() override;
+  std::unique_ptr<Kernel> *result() override;
 
   STEP_NAME("kernel-linking")
 

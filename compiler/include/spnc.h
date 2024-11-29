@@ -24,9 +24,9 @@ public:
   /// Read & parse query from binary input file and execute the compiler.
   /// \param inputFile Path of the input file.
   /// \param options Configuration of the compiler execution.
-  /// \return Generated Kernel.
-  static Kernel compileQuery(const std::string &inputFile,
-                             const options_t &options);
+  /// \return Generated Kernel
+  static std::unique_ptr<Kernel> compileQuery(const std::string &inputFile,
+                                              const options_t &options);
 
   ///
   /// Query the compiler for information about supported targets.

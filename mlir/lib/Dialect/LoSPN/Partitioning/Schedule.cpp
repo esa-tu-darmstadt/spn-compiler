@@ -9,6 +9,8 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 
+#define DEBUG_TYPE "spn-scheduling"
+
 using namespace mlir::spn::low::partitioning;
 
 // Calculate starting times for each processor
@@ -96,9 +98,10 @@ void Schedule::calculateTimes() {
       scheduledTasks.insert(nextTaskOfThisProc);
       outstandingTasksOfProc.pop_front();
 
-      std::cout << "Scheduled task " << get_label(graph_, nextTaskOfThisProc)
-                << " on processor " << currentProc << " at time "
-                << earliestStartTime << std::endl;
+      LLVM_DEBUG(std::cout << "Scheduled task "
+                           << get_label(graph_, nextTaskOfThisProc)
+                           << " on processor " << currentProc << " at time "
+                           << earliestStartTime << std::endl);
     }
   }
 

@@ -17,6 +17,8 @@ void spnc::HiSPNtoLoSPNConversion::initializePassPipeline(
   options.computeLogSpace = spnc::option::logSpace.getValue();
   options.optimizeRepresentation = spnc::option::optRepresentation.getValue();
   options.collectGraphStats = spnc::option::collectGraphStats.getValue();
+  options.computeTypeWidth = spnc::option::computeTypeWidth.getValue();
+  options.logComputeTypeWidth = spnc::option::logComputeTypeWidth.getValue();
 
   if (mlir::spn::buildHiSPNtoLoSPNPipeline(*pm, options).failed()) {
     llvm::errs() << "Failed to build HiSPN to LoSPN pipeline\n";

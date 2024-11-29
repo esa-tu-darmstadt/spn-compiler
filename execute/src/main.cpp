@@ -24,9 +24,8 @@ int main(int argc, char *argv[]) {
   llvm::cl::ParseCommandLineOptions(argc, argv, "SPN Compiler");
 
   // Options are already parsed above, so we dont pass any (additional) options
-  auto parseResult = spnc::spn_compiler::compileQuery(input, {});
-  std::cout << "Compiled kernel into file " << parseResult.fileName()
-            << std::endl;
+  auto kernel = spnc::spn_compiler::compileQuery(input, {});
+  std::cout << "Compiled kernel " << kernel->summary();
 
   //
   // Simple test to see if the compiled kernels are executable via the runtime.

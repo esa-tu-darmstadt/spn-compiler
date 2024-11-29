@@ -113,18 +113,16 @@ endif (${CUDA_GPU_SUPPORT})
 # Set a compiler definition for the IPU support for use
 # of conditional compilation inside source files
 if (${IPU_SUPPORT})
-    target_compile_definitions(spnc PRIVATE SPNC_IPU_SUPPORT=1)
     find_package(poplar REQUIRED)
-    target_link_libraries(spnc PRIVATE poplar popops MLIRLoSPNtoCPUTransforms MLIRCPUtoPoplarTransforms)
+    target_link_libraries(spnc PRIVATE poplar popops MLIRLoSPNtoCPUTransforms MLIRLoSPNtoPoplarTransforms)
 
     target_sources(spnc PRIVATE 
         src/toolchain/IPUToolchain.cpp
-        src/pipeline/steps/mlir/conversion/Poplar/LoSPNtoPoplarConversion.cpp
+        src/pipeline/steps/mlir/conversion/Poplar/LoSPNtoPoplarDialectConversion.cpp
+        src/pipeline/steps/mlir/conversion/Poplar/CompilePoplarDialect.cpp
         src/pipeline/steps/codegen/EmitObjectCodeForIPU.cpp)
     llvm_map_components_to_libnames(llvm_ipu_libs Colossus)
     target_link_libraries(spnc PRIVATE ${llvm_ipu_libs})
-else (${IPU_SUPPORT})
-    target_compile_definitions(spnc PRIVATE SPNC_IPU_SUPPORT=0)
 endif (${IPU_SUPPORT})
 
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)

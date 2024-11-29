@@ -1,0 +1,3 @@
+set(LLVM_TARGET_DEFINITIONS LoSPNtoPoplarConversionPasses.td)
+mlir_tablegen(LoSPNtoPoplarConversionPasses.h.inc -gen-pass-decls -name LoSPNtoPoplar)
+add_public_tablegen_target(MLIRLoSPNtoPoplarPassesIncGen)

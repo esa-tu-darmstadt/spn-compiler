@@ -30,7 +30,7 @@ class Executable {
 public:
   /// Constructor.
   /// \param kernel Kernel to load and eventually execute.
-  explicit Executable(const Kernel &kernel);
+  explicit Executable(const SharedObjectKernel &kernel);
 
   Executable(const Executable &) = delete;
 
@@ -54,7 +54,7 @@ public:
   void execute(size_t num_elements, void *inputs, void *outputs);
 
 private:
-  const Kernel *kernel;
+  const SharedObjectKernel *kernel;
 
   void *handle;
 

@@ -25,10 +25,13 @@
 
 void mlir::spn::low::SPNKernel::build(
     mlir::OpBuilder &builder, mlir::OperationState &state, llvm::StringRef name,
-    mlir::FunctionType type, llvm::ArrayRef<mlir::NamedAttribute> attrs) {
+    mlir::FunctionType type, unsigned batchSize,
+    llvm::ArrayRef<mlir::NamedAttribute> attrs) {
   // FunctionOpInterface provides a convenient `build` method that will populate
   // the state of our FuncOp, and create an entry block.
   buildWithEntryBlock(builder, state, name, type, attrs, type.getInputs());
+  state.getOrAddProperties<Properties>().batchSize =
+      builder.getIntegerAttr(builder.getIntegerType(32, false), batchSize);
 }
 
 mlir::LogicalResult mlir::spn::low::SPNKernel::verify() {
@@ -78,9 +81,9 @@ mlir::LogicalResult mlir::spn::low::SPNKernel::verify() {
 //===----------------------------------------------------------------------===//
 
 mlir::Block *mlir::spn::low::SPNTask::addEntryBlock() {
-  assert(getBody().empty() && "Task already has a block");
+  assert(getBodyRegion().empty() && "Task already has a block");
   auto *entry = new Block();
-  getBody().push_back(entry);
+  getBodyRegion().push_back(entry);
   entry->addArgument(IndexType::get(this->getContext()), getLoc());
   for (Type input : this->getInputs().getType())
     entry->addArgument(input, getLoc());
@@ -88,10 +91,9 @@ mlir::Block *mlir::spn::low::SPNTask::addEntryBlock() {
 }
 
 mlir::Value mlir::spn::low::SPNTask::getBatchIndex() {
-  assert(!getBody().empty() && "Task has no block");
-  assert(getBody().front().getNumArguments() >= 1 &&
-         "Task block has no argument");
-  return getBody().front().getArgument(0);
+  assert(!getBodyRegion().empty() && "Task has no block");
+  assert(getBody()->getNumArguments() >= 1 && "Task block has no argument");
+  return getBody()->getArgument(0);
 }
 
 mlir::LogicalResult mlir::spn::low::SPNTask::verify() {
@@ -99,11 +101,11 @@ mlir::LogicalResult mlir::spn::low::SPNTask::verify() {
   // has IndexType (corresponds to the batch index) and
   // the remaining arguments match the types of the
   // Tasks' operands.
-  if (getBody().front().getNumArguments() != getNumOperands() + 1) {
+  if (getBody()->getNumArguments() != getNumOperands() + 1) {
     return emitOpError()
            << "Incorrect number of block arguments for entry block of Task";
   }
-  for (auto blockArg : llvm::enumerate(getBody().front().getArguments())) {
+  for (auto blockArg : llvm::enumerate(getBody()->getArguments())) {
     if (blockArg.index() == 0) {
       if (!blockArg.value().getType().isIndex()) {
         return emitOpError() << "First argument of Task block must be an index";
@@ -118,7 +120,10 @@ mlir::LogicalResult mlir::spn::low::SPNTask::verify() {
   }
   // Check that the task is terminated by a SPNReturn with the correct number of
   // return values and types.
-  auto ret = dyn_cast<SPNReturn>(getBody().front().getTerminator());
+  if (!getBody()->mightHaveTerminator())
+    return emitOpError() << "Task does not have a terminator";
+
+  auto ret = dyn_cast<SPNReturn>(getBody()->getTerminator());
   assert(ret);
   if (ret.getReturnValues().size() != getResults().size()) {
     return emitOpError() << "Task does not return the correct number of values";

@@ -33,7 +33,7 @@ ClangKernelLinking::executeStep(ObjectFile *objectFile,
   }
   Command::executeExternalCommand(command);
   auto *kernelInfo = getContext()->get<KernelInfo>();
-  kernel = std::make_unique<Kernel>(
+  kernel = std::make_unique<SharedObjectKernel>(
       sharedObject->fileName(), kernelInfo->kernelName, kernelInfo->queryType,
       kernelInfo->target, kernelInfo->batchSize, kernelInfo->numFeatures,
       kernelInfo->bytesPerFeature, kernelInfo->numResults,
@@ -42,4 +42,4 @@ ClangKernelLinking::executeStep(ObjectFile *objectFile,
   return success();
 }
 
-Kernel *ClangKernelLinking::result() { return kernel.get(); }
+std::unique_ptr<Kernel> *ClangKernelLinking::result() { return &kernel; }

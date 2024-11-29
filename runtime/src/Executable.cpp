@@ -15,12 +15,12 @@
 
 using namespace spnc_rt;
 
-Executable::Executable(const Kernel &_kernel)
+Executable::Executable(const SharedObjectKernel &_kernel)
     : kernel{&_kernel}, handle{nullptr}, kernel_func{nullptr} {}
 
 Executable::Executable(spnc_rt::Executable &&other) noexcept
-    : kernel{other.kernel}, handle{other.handle}, kernel_func{
-                                                      other.kernel_func} {
+    : kernel{other.kernel}, handle{other.handle},
+      kernel_func{other.kernel_func} {
   other.handle = nullptr;
   other.kernel = nullptr;
 }
@@ -92,7 +92,7 @@ void Executable::executeBatch(size_t num_samples, void *inputs, void *outputs) {
   char *output_ptr = reinterpret_cast<char *>(outputs);
   size_t batchSize = kernel->batchSize();
 #pragma omp parallel for firstprivate(input_ptr, output_ptr, batchSize,        \
-                                      num_samples) default(none)
+                                          num_samples) default(none)
   for (size_t i = 0; i < num_samples; i += batchSize) {
     // Calculate the number of remaining samples, can be < batchSize for the
     // last batch.

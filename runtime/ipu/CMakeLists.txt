@@ -6,12 +6,8 @@
 #  SPDX-License-Identifier: Apache-2.0
 # ==============================================================================
 
-add_subdirectory(HiSPNtoLoSPN)
-add_subdirectory(LoSPNtoCPU)
-if (${CUDA_GPU_SUPPORT})
-    add_subdirectory(LoSPNtoGPU)
-endif (${CUDA_GPU_SUPPORT})
+add_library(spnc-ipu-rt IPURuntime.cpp)
 
-if(${IPU_SUPPORT})
-    add_subdirectory(LoSPNtoPoplar)
-endif(${IPU_SUPPORT})
+target_link_libraries(spnc-ipu-rt PRIVATE elf spnc-common spdlog::spdlog poplar)
+
+target_compile_options(spnc-rt PRIVATE ${SPNC_CXX_WARNING_LEVEL})

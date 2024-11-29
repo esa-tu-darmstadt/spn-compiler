@@ -12,6 +12,10 @@ pybind11_add_module(spncpy MODULE src/python-interface.cpp)
 
 target_link_libraries(spncpy PUBLIC spnc-rt spnc-common spnc)
 
+if (${IPU_SUPPORT})
+    target_link_libraries(spncpy PRIVATE spnc-ipu-rt)
+endif ()
+
 target_include_directories(spncpy
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src)

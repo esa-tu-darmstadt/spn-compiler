@@ -20,11 +20,15 @@ buildHiSPNtoLoSPNPipeline(mlir::OpPassManager &pm,
                           const HiSPNtoLoSPNPipelineOptions &options) {
   HiSPNtoLoSPNNodeConversionPassOptions nodeOptions;
   nodeOptions.computeLogSpace = options.computeLogSpace;
+  nodeOptions.computeTypeWidth = options.computeTypeWidth;
+  nodeOptions.logComputeTypeWidth = options.logComputeTypeWidth;
   nodeOptions.optimizeRepresentation = options.optimizeRepresentation;
   pm.addPass(mlir::spn::createHiSPNtoLoSPNNodeConversionPass(nodeOptions));
 
   HiSPNtoLoSPNQueryConversionPassOptions queryOptions;
   queryOptions.computeLogSpace = options.computeLogSpace;
+  queryOptions.computeTypeWidth = options.computeTypeWidth;
+  queryOptions.logComputeTypeWidth = options.logComputeTypeWidth;
   queryOptions.optimizeRepresentation = options.optimizeRepresentation;
   pm.addPass(mlir::spn::createHiSPNtoLoSPNQueryConversionPass(queryOptions));
 

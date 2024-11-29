@@ -297,7 +297,9 @@ struct TaskInterface
     // Create a new task with the bufferized operands and without the return
     // values.
     auto newTask = rewriter.create<SPNTask>(
-        taskOp.getLoc(), TypeRange{}, newOperands, taskOp.getBatchSizeAttr());
+        taskOp.getLoc(), TypeRange{}, newOperands, taskOp.getBatchSizeAttr(),
+        taskOp.getTaskIdAttr(),
+        rewriter.getUI32IntegerAttr(bufferizedResults.size()));
 
     // Move the body of the old task to the new task.
     rewriter.moveBlockBefore(taskOp.getBody(), &newTask.getBodyRegion(),

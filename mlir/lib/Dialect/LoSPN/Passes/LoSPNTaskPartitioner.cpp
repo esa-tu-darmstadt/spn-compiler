@@ -17,6 +17,7 @@
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/IRMapping.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/Value.h"
@@ -26,6 +27,7 @@
 #include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Use.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include <boost/graph/properties.hpp>
 #include <boost/graph/subgraph.hpp>
@@ -132,8 +134,6 @@ public:
           }))
         continue;
 
-      llvm::outs() << "Creating task for cluster\n";
-
       // Create a new task for this cluster.
       createTaskForPartition(cluster, rewriter, task.getLoc(),
                              task.getBatchSize(), connections, partitioning);
@@ -176,7 +176,7 @@ private:
   GraphPartitioner partition(SPNBody body, PatternRewriter &rewriter) const {
     GraphPartitioner partitioner(body, targetModel_, maxTaskSize_);
     partitioner.clusterGraph();
-    partitioner.postprocessConstants(rewriter);
+    // partitioner.postprocessConstants(rewriter);
     return partitioner;
   }
 
@@ -217,16 +217,19 @@ private:
     collectTaskOutputs(partition, inputs, partitioner, resultType, bodyResults,
                        nonPartitionOutputs);
 
+    assert(!nonPartitionOutputs.empty() && "Task has no outputs");
+
     // Step 5: Create the actual LoSPN task.
     auto outputType = createOutputType(resultType.value(), bodyResults.size());
     SmallVector<Value> taskInputs = getTaskInputs(inputArgs);
-    auto task =
-        createLoSPNTask(rewriter, loc, outputType, taskInputs, batchSize);
+    int taskID = boost::get_property(partition, SPNGraph_ClusterID());
+    auto task = createLoSPNTask(rewriter, loc, outputType, taskInputs,
+                                batchSize, taskID);
 
     {
       // Set the insertion point to the beginning of the task body.
       IRRewriter::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPointToStart(&task.getBody().front());
+      rewriter.setInsertionPointToStart(task.getBody());
 
       // Step 6: Create a batch extract for each tensor argument of the new
       // task.
@@ -394,7 +397,15 @@ private:
       if (!inputs.count(value)) {
         auto globalVertexFrom =
             boost::source(globalInEdge, partitioner.graph());
-        auto otherPartition =
+        // // Skip if this is a constants, as constants crossing partitions are
+        // // cloned beforehhand. These edges should not be part of the
+        // partition's
+        // // in-edges anymore, but they are because boost::graph cannot delete
+        // // edges. This is a huge mess and needs to be fixed soon!
+        // if (boost::get(SPNVertex_IsConstant(), partitioner.graph(),
+        //                globalVertexFrom))
+        //   continue;
+        auto &otherPartition =
             find_cluster(globalVertexFrom, partitioner.graph());
         createTaskForPartition(otherPartition, rewriter, loc, batchSize, inputs,
                                partitioner);
@@ -422,8 +433,8 @@ private:
    * @param resultType The type of the result, which will be updated based on
    * the collected outputs.
    * @param bodyResults A vector to store the types of the body results.
-   * @param nonPartitionOutputs A vector to store the output values that are not
-   * part of the partition.
+   * @param nonPartitionOutputs A vector to store the values going out of the
+   * partition.
    */
   void collectTaskOutputs(SPNGraph &partition, InputMap &inputs,
                           GraphPartitioner &partitioner,
@@ -464,9 +475,9 @@ private:
   SPNTask createLoSPNTask(PatternRewriter &rewriter, Location loc,
                           RankedTensorType outputType,
                           const SmallVector<Value> &taskInputs,
-                          unsigned batchSize) const {
-    auto task =
-        rewriter.create<SPNTask>(loc, outputType, taskInputs, batchSize);
+                          unsigned batchSize, unsigned taskID) const {
+    auto task = rewriter.create<SPNTask>(loc, outputType, taskInputs, batchSize,
+                                         rewriter.getUI32IntegerAttr(taskID));
     rewriter.modifyOpInPlace(task, [&task]() { task.addEntryBlock(); });
     return task;
   }
@@ -505,8 +516,8 @@ private:
           transposed ? inputInfo.rowIndex.value() : inputInfo.colIndex.value();
       auto extract = rewriter.create<SPNBatchExtract>(
           loc, performTypeConversion(value.getType()),
-          task.getBody().front().getArgument(index), task.getBatchIndex(),
-          staticIndex, rewriter.getBoolAttr(transposed));
+          task.getBody()->getArgument(index), task.getBatchIndex(), staticIndex,
+          rewriter.getBoolAttr(transposed));
       bodyInputs.push_back(extract);
     }
   }
@@ -559,6 +570,7 @@ private:
                  bodyBlock->getArgument(remapped.getSecond()));
     }
     copyOperationsIntoTaskBody(partition, rewriter, mapper);
+    rewriter.setInsertionPointToEnd(bodyBlock);
     return body;
   }
 
@@ -610,7 +622,7 @@ private:
    * @param rewriter The pattern rewriter used to create the yield operation.
    * @param loc The location information for the yield operation.
    * @param body The SPN body where the yield operation will be created.
-   * @param nonPartitionOutputs The outputs that are not partitioned.
+   * @param nonPartitionOutputs A vector of values going out of the partition.
    * @param inputs The input map to be updated with new input information.
    * @param task The SPN task for which the yield operation is created.
    * @param mapper The IR mapping used to map values from the original to the
@@ -623,7 +635,14 @@ private:
                                   IRMapping &mapper) const {
     SmallVector<Value> bodyYields;
     for (auto retVal : nonPartitionOutputs) {
-      bodyYields.push_back(mapper.lookupOrNull(retVal));
+      Value mappedRetValOrNull = mapper.lookupOrNull(retVal);
+      if (!mappedRetValOrNull) {
+        // This is a return value that is not generated by the task. This can
+        // happen eg. for constants that are cloned into other tasks.
+        llvm_unreachable("fooo");
+        // continue;
+      }
+      bodyYields.push_back(mappedRetValOrNull);
       inputs[retVal] =
           InputInfo{task->getResult(0), bodyYields.size() - 1, std::nullopt};
     }

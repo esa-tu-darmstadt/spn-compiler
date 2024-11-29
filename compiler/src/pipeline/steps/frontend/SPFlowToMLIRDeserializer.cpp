@@ -271,6 +271,12 @@ spnc::SPFlowToMLIRDeserializer::translateTypeString(const std::string &text) {
     case 32:
       return builder->getF32Type();
     case 64:
+      if (option::compilationTarget == option::TargetMachine::IPU) {
+        llvm::outs()
+            << "Warning: Using float64 on IPU is not (yet) supported. Using "
+               "float32 instead.\n";
+        return builder->getF32Type();
+      }
       return builder->getF64Type();
     default:
       SPNC_FATAL_ERROR("Unsupported floating-point type ", text);
